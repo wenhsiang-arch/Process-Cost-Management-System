@@ -923,7 +923,7 @@ function doExport(){
   const fd=window.D.filter(d=>!cf||d.client===cf);
 
   // 框線工廠函數（每次產生獨立物件，避免共用參考問題）
-  const mkBd=()=>({top:{style:'thin',color:{rgb:'D9E2F3'}},bottom:{style:'thin',color:{rgb:'D9E2F3'}},left:{style:'thin',color:{rgb:'D9E2F3'}},right:{style:'thin',color:{rgb:'D9E2F3'}}});
+  const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
   const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
 
   const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'},border:mkBdH()});
@@ -1053,7 +1053,7 @@ function doBackup(){
   const cf=g('bk-client').value;
   const fd=window.D.filter(d=>!cf||d.client===cf);
 
-  const mkBd=()=>({top:{style:'thin',color:{rgb:'D9E2F3'}},bottom:{style:'thin',color:{rgb:'D9E2F3'}},left:{style:'thin',color:{rgb:'D9E2F3'}},right:{style:'thin',color:{rgb:'D9E2F3'}}});
+  const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
   const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
   const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'},border:mkBdH()});
   const normStyle=()=>({border:mkBd()});
