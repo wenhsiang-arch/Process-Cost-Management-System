@@ -922,31 +922,44 @@ function doExport(){
   const cf=g('ex-cl').value,ty=g('ex-ty').value;
   const fd=window.D.filter(d=>!cf||d.client===cf);
 
-  // 樣式定義
-  const bd={style:'thin',color:{rgb:'CCCCCC'}};
-  const border={top:bd,bottom:bd,left:bd,right:bd};
-  const bdH={style:'thin',color:{rgb:'2D5F8E'}};
-  const borderH={top:bdH,bottom:bdH,left:bdH,right:bdH};
-  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'},border:borderH};
-  const numVND={numFmt:'#,##0',border};
-  const numUSD={numFmt:'#,##0.00',border};
-  const numTWD={numFmt:'#,##0.0',border};
-  const subStyle={font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},border};
-  const subNumVND={...subStyle,numFmt:'#,##0'};
-  const subNumUSD={...subStyle,numFmt:'#,##0.00'};
-  const subNumTWD={...subStyle,numFmt:'#,##0.0'};
-  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}},border};
-  const normStyle={border};
+  // 框線工廠函數（每次產生獨立物件，避免共用參考問題）
+  const mkBd=()=>({top:{style:'thin',color:{rgb:'D9E2F3'}},bottom:{style:'thin',color:{rgb:'D9E2F3'}},left:{style:'thin',color:{rgb:'D9E2F3'}},right:{style:'thin',color:{rgb:'D9E2F3'}}});
+  const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
+
+  const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'},border:mkBdH()});
+  const normStyle=()=>({border:mkBd()});
+  const altStyle=()=>({fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numVND=()=>({numFmt:'#,##0',border:mkBd()});
+  const numUSD=()=>({numFmt:'#,##0.00',border:mkBd()});
+  const numTWD=()=>({numFmt:'#,##0.0',border:mkBd()});
+  const numVNDAlt=()=>({numFmt:'#,##0',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numUSDAlt=()=>({numFmt:'#,##0.00',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numTWDAlt=()=>({numFmt:'#,##0.0',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const subStyle=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},border:mkBd()});
+  const subNumVND=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0',border:mkBd()});
+  const subNumUSD=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0.00',border:mkBd()});
+  const subNumTWD=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0.0',border:mkBd()});
+
+  // 補全範圍內所有格子的框線（包含空白格）
+  function fillBorders(ws,totalCols,totalRows){
+    for(let r=1;r<=totalRows;r++){
+      for(let c=0;c<totalCols;c++){
+        const cell=String.fromCharCode(65+c)+r;
+        if(!ws[cell])ws[cell]={v:'',t:'s',s:normStyle()};
+        else if(!ws[cell].s)ws[cell].s=normStyle();
+        else if(!ws[cell].s.border)ws[cell].s.border=mkBd();
+      }
+    }
+  }
 
   const wb=XLSX.utils.book_new();
 
   if(ty==='summary'){
     const headers=['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước','工序數/Số CĐ','總工價(VND)','總工價(USD)','總工價(TWD)'];
     const ws={'!ref':'A1'};
-    // 標題列
     headers.forEach((h,i)=>{
       const cell=String.fromCharCode(65+i)+'1';
-      ws[cell]={v:h,s:hStyle};
+      ws[cell]={v:h,s:hStyle()};
     });
     let row=2;
     fd.forEach((d,di)=>{
@@ -954,17 +967,18 @@ function doExport(){
       const vnd=Math.round(s);
       const usd=parseFloat((Math.round(s/S.usd*100)/100).toFixed(2));
       const twd=parseFloat((Math.round(s/S.twd*10)/10).toFixed(1));
-      const alt=di%2===1?altStyle:{};
+      const isAlt=di%2===1;
       const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,d.ops.length,vnd,usd,twd];
       vals.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
-        if(i===6) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numVND}};
-        else if(i===7) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numUSD}};
-        else if(i===8) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numTWD}};
-        else ws[cell]={v,s:di%2===1?altStyle:normStyle};
+        if(i===6) ws[cell]={v,s:isAlt?numVNDAlt():numVND()};
+        else if(i===7) ws[cell]={v,s:isAlt?numUSDAlt():numUSD()};
+        else if(i===8) ws[cell]={v,s:isAlt?numTWDAlt():numTWD()};
+        else ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
       });
       row++;
     });
+    fillBorders(ws,headers.length,row-1);
     ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
     ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
     ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
@@ -975,7 +989,7 @@ function doExport(){
     const ws={'!ref':'A1'};
     headers.forEach((h,i)=>{
       const cell=String.fromCharCode(65+i)+'1';
-      ws[cell]={v:h,s:hStyle};
+      ws[cell]={v:h,s:hStyle()};
     });
     let row=2;
     fd.forEach(d=>{
@@ -985,18 +999,17 @@ function doExport(){
         const vnd=Math.round(r.vnd);
         const usd=parseFloat((Math.round(r.vnd/S.usd*100)/100).toFixed(2));
         const twd=parseFloat((Math.round(r.vnd/S.twd*10)/10).toFixed(1));
-        const alt=di%2===1?altStyle:{};
+        const isAlt=di%2===1;
         const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec,r.qty,vnd,usd,twd];
         vals.forEach((v,i)=>{
           const cell=String.fromCharCode(65+i)+row;
-          if(i===10) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numVND}};
-          else if(i===11) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numUSD}};
-          else if(i===12) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numTWD}};
-          else ws[cell]={v,s:di%2===1?altStyle:normStyle};
+          if(i===10) ws[cell]={v,s:isAlt?numVNDAlt():numVND()};
+          else if(i===11) ws[cell]={v,s:isAlt?numUSDAlt():numUSD()};
+          else if(i===12) ws[cell]={v,s:isAlt?numTWDAlt():numTWD()};
+          else ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
         });
         row++;di++;
       });
-      // 小計列
       const s=d.ops.reduce((a,op)=>a+calc(op.sec).vnd,0);
       const svnd=Math.round(s);
       const susd=parseFloat((Math.round(s/S.usd*100)/100).toFixed(2));
@@ -1004,15 +1017,14 @@ function doExport(){
       const scols=[d.code+' 小計','','','','','','','','','',svnd,susd,stwd];
       scols.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
-        if(i===10) ws[cell]={v,s:subNumVND};
-        else if(i===11) ws[cell]={v,s:subNumUSD};
-        else if(i===12) ws[cell]={v,s:subNumTWD};
-        else ws[cell]={v,s:subStyle};
+        if(i===10) ws[cell]={v,s:subNumVND()};
+        else if(i===11) ws[cell]={v,s:subNumUSD()};
+        else if(i===12) ws[cell]={v,s:subNumTWD()};
+        else ws[cell]={v:String(v||''),t:'s',s:subStyle()};
       });
-      row++;
-      // 空白列
-      row++;
+      row++;row++;
     });
+    fillBorders(ws,headers.length,row-1);
     ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
     ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:18},{wch:18},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
     ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
@@ -1041,25 +1053,22 @@ function doBackup(){
   const cf=g('bk-client').value;
   const fd=window.D.filter(d=>!cf||d.client===cf);
 
-  const bd={style:'thin',color:{rgb:'CCCCCC'}};
-  const border={top:bd,bottom:bd,left:bd,right:bd};
-  const bdH={style:'thin',color:{rgb:'2D5F8E'}};
-  const borderH={top:bdH,bottom:bdH,left:bdH,right:bdH};
-
-  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'},border:borderH};
-  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}},border};
-  const normStyle={border};
-  const numRight={alignment:{horizontal:'right'},border};
-  const numRightAlt={alignment:{horizontal:'right'},fill:{fgColor:{rgb:'F8FAFC'}},border};
-  const txtFmt={numFmt:'@',border};
-  const txtFmtAlt={numFmt:'@',fill:{fgColor:{rgb:'F8FAFC'}},border};
+  const mkBd=()=>({top:{style:'thin',color:{rgb:'D9E2F3'}},bottom:{style:'thin',color:{rgb:'D9E2F3'}},left:{style:'thin',color:{rgb:'D9E2F3'}},right:{style:'thin',color:{rgb:'D9E2F3'}}});
+  const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
+  const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'},border:mkBdH()});
+  const normStyle=()=>({border:mkBd()});
+  const altStyle=()=>({fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numRight=()=>({alignment:{horizontal:'right'},border:mkBd()});
+  const numRightAlt=()=>({alignment:{horizontal:'right'},fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const txtFmt=()=>({numFmt:'@',border:mkBd()});
+  const txtFmtAlt=()=>({numFmt:'@',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
 
   const headers=['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數'];
   const ws={'!ref':'A1'};
 
   headers.forEach((h,i)=>{
     const cell=String.fromCharCode(65+i)+'1';
-    ws[cell]={v:h,s:hStyle};
+    ws[cell]={v:h,s:hStyle()};
   });
 
   let row=2;
@@ -1071,16 +1080,25 @@ function doBackup(){
       vals.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
         if(i===5){
-          ws[cell]={v:String(v),t:'s',s:isAlt?txtFmtAlt:txtFmt};
+          ws[cell]={v:String(v),t:'s',s:isAlt?txtFmtAlt():txtFmt()};
         } else if(i===8){
-          ws[cell]={v:Number(v),s:isAlt?numRightAlt:numRight};
+          ws[cell]={v:Number(v),s:isAlt?numRightAlt():numRight()};
         } else {
-          ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle:normStyle};
+          ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
         }
       });
       row++;di++;
     });
   });
+
+  for(let r=1;r<row;r++){
+    for(let c=0;c<headers.length;c++){
+      const cell=String.fromCharCode(65+c)+r;
+      if(!ws[cell])ws[cell]={v:'',t:'s',s:normStyle()};
+      else if(!ws[cell].s)ws[cell].s=normStyle();
+      else if(!ws[cell].s.border)ws[cell].s.border=mkBd();
+    }
+  }
 
   ws['!ref']='A1:I'+row;
   ws['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:20},{wch:20},{wch:8}];
