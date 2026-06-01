@@ -716,7 +716,7 @@ function rAll(){
   S.ws=+g('ss-ws').value||3000;
   aCC();rSum();rDet();rExp();rBk();
 }
-function saveSt(){
+async function saveSt(){
   const prev={sal:S.sal,ins:S.ins,meal:S.meal,usd:S.usd,twd:S.twd,ws:S.ws,eff:S.eff,hr:Math.round(getH())};
   rAll();uEff();
   const next={sal:S.sal,ins:S.ins,meal:S.meal,usd:S.usd,twd:S.twd,ws:S.ws,eff:S.eff,hr:Math.round(getH())};
@@ -730,10 +730,10 @@ function saveSt(){
   });
   if(ch.length>0){cLog.push({t:new Date().toLocaleString('zh-TW'),u:cu.user,ch});rClog();
     try{localStorage.setItem('cLog',JSON.stringify(cLog));}catch(e){}
-    if(window.saveCostLogToFB)saveCostLogToFB();
+    if(window.saveCostLogToFB)await saveCostLogToFB();
   }
   const n=g('st-ok');n.style.display='flex';setTimeout(()=>n.style.display='none',3000);
-  if(window.saveSettingsToFB)saveSettingsToFB();
+  if(window.saveSettingsToFB)await saveSettingsToFB();
 }
 function setCur(c){
   cur=c;
@@ -911,20 +911,20 @@ function oEop(code,idx){
   g('eo-zh').value=op.zh;g('eo-vi').value=op.vi||'';
   cm('m-det');om('m-eop');
 }
-function saveEop(){
+async function saveEop(){
   const code=g('eo-code').value,idx=+g('eo-idx').value;
   const d=window.D.find(x=>x.code===code);if(!d)return;
   const sec=+g('eo-sec').value;
   if(!sec||sec<=0){alert('秒數必須大於0 / Giây phải lớn hơn 0');return;}
   d.ops[idx]={no:g('eo-no').value,zh:g('eo-zh').value,vi:g('eo-vi').value,sec};
   cm('m-eop');rSum();rDet();rExp();rBk();
-  if(window.saveProductsToFB)saveProductsToFB();
+  if(window.saveProductsToFB)await saveProductsToFB();
 }
-function delOp(code,idx){
+async function delOp(code,idx){
   if(!confirm('Xác nhận xóa công đoạn? / 確定刪除此工序？'))return;
   const d=window.D.find(x=>x.code===code);if(!d)return;
   d.ops.splice(idx,1);cm('m-det');rSum();rDet();rExp();rBk();
-  if(window.saveProductsToFB)saveProductsToFB();
+  if(window.saveProductsToFB)await saveProductsToFB();
 }
 
 // 工序明細表
@@ -1174,11 +1174,11 @@ function doBackup(){
 function askDel(code){
   g('del-code').value=code;g('del-show').textContent=code;g('del-inp').value='';om('m-del');
 }
-function confDel(){
+async function confDel(){
   const code=g('del-code').value,inp=g('del-inp').value.trim();
   if(inp!==code){alert('Mã hàng không khớp / 款號輸入不符合！');return;}
   window.D=window.D.filter(d=>d.code!==code);cm('m-del');rSum();rDet();rExp();rBk();
-  if(window.saveProductsToFB)saveProductsToFB();
+  if(window.saveProductsToFB)await saveProductsToFB();
 }
 
 // 匯入
@@ -1277,7 +1277,7 @@ function chkDup(){
     }).join('');
   } else cImp('al');
 }
-function cImp(mode){
+async function cImp(mode){
   if(!nItms)return;
   const nd=Object.values(nItms);
   let ow=0,sk=0,added=0;
@@ -1295,10 +1295,8 @@ function cImp(mode){
   const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
   const hist={t:new Date().toLocaleString('zh-TW'),u:cu.user,c:actualCount,o:to,ow,sk};
   impHist.push(hist);
-  // 存到 localStorage 和 Firebase
   try{localStorage.setItem('impHist',JSON.stringify(impHist));}catch(e){}
-  if(window.saveHistoryToFB)saveHistoryToFB();
-  let msg=`✓ 成功匯入 ${actualCount} 款，${to} 工序`;
+  let msg=`✓ 本機已更新：${actualCount} 款，${to} 工序`;
   if(ow) msg+=`，覆蓋 ${ow} 款`;
   if(sk) msg+=`，跳過 ${sk} 款`;
   g('imp-ok-msg').textContent=msg;
@@ -1306,7 +1304,16 @@ function cImp(mode){
   ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
   pImp=null;nItms=null;dups=[];g('fi').value='';
   rSum();rDet();rExp();rBk();rHist();
-  if(window.saveProductsToFB)saveProductsToFB();
+  // 循序 await，避免競態問題
+  if(window.saveProductsToFB && window.saveHistoryToFB){
+    const ok1=await saveProductsToFB();
+    const ok2=await saveHistoryToFB();
+    if(ok1&&ok2){
+      g('imp-ok-msg').textContent=msg.replace('本機已更新','雲端已同步');
+    } else {
+      g('imp-ok-msg').textContent=msg+' ⚠️ 雲端同步失敗，資料已暫存本機';
+    }
+  }
 }
 function xImp(){
   ['imp-prev','dup-warn','imp-ok','imp-err'].forEach(id=>g(id).style.display='none');
@@ -1354,35 +1361,35 @@ function rAcc(){
     tb.appendChild(tr);
   });
 }
-function saveAcc(){
+async function saveAcc(){
   const u=g('ac-u').value.trim(),p=g('ac-p').value,r=g('ac-r').value;
   if(!u||!p){alert('Vui lòng nhập đầy đủ / 請填入帳號和密碼');return;}
   if(window.accs.find(a=>a.user===u)){alert('Tài khoản đã tồn tại / 帳號已存在');return;}
   window.accs.push({user:u,pass:p,role:r});cm('m-nacc');
   g('ac-u').value='';g('ac-p').value='';rAcc();
-  if(window.saveAccsToFB)saveAccsToFB();
+  if(window.saveAccsToFB)await saveAccsToFB();
 }
 function oEacc(user){
   const a=window.accs.find(x=>x.user===user);if(!a)return;
   g('ea-orig').value=user;g('ea-u').value=a.user;g('ea-p').value='';g('ea-r').value=a.role;
   om('m-eacc');
 }
-function saveEacc(){
+async function saveEacc(){
   const orig=g('ea-orig').value,u=g('ea-u').value.trim(),p=g('ea-p').value,r=g('ea-r').value;
   const i=window.accs.findIndex(a=>a.user===orig);if(i<0)return;
   window.accs[i].user=u;window.accs[i].role=r;if(p)window.accs[i].pass=p;
   if(orig===cu.user){cu=accs[i];uNav();}
   cm('m-eacc');rAcc();
-  if(window.saveAccsToFB)saveAccsToFB();
+  if(window.saveAccsToFB)await saveAccsToFB();
 }
-function delAcc(user){if(confirm('Xác nhận xóa / 確定刪除帳號 '+user+'?')){window.accs=window.accs.filter(a=>a.user!==user);rAcc();if(window.saveAccsToFB)saveAccsToFB();}}
+async function delAcc(user){if(confirm('Xác nhận xóa / 確定刪除帳號 '+user+'?')){window.accs=window.accs.filter(a=>a.user!==user);rAcc();if(window.saveAccsToFB)await saveAccsToFB();}}
 function addOp(){
   nOpc++;
   const div=document.createElement('div');div.className='fg';div.style.marginBottom='8px';
   div.innerHTML=`<div class="fgrp"><label>工序號/Số CĐ</label><input type="text" id="op-no-${nOpc}" placeholder="01"></div><div class="fgrp"><label>工序(中)</label><input type="text" id="op-zh-${nOpc}"></div><div class="fgrp"><label>工序(越)/Tên CĐ</label><input type="text" id="op-vi-${nOpc}"></div><div class="fgrp"><label>秒數/Giây</label><input type="number" id="op-sc-${nOpc}"></div>`;
   g('n-ops').appendChild(div);
 }
-function saveNew(){
+async function saveNew(){
   const code=g('n-code').value.trim();if(!code){alert('Vui lòng nhập mã hàng / 請填入款號');return;}
   if(window.D.find(d=>d.code===code)){alert('Mã hàng đã tồn tại / 款號已存在：'+code);return;}
   const ops=[];
@@ -1393,7 +1400,7 @@ function saveNew(){
   }
   window.D.push({code,client:g('n-cl').value,zh:g('n-zh').value,vi:g('n-vi').value,sz:g('n-sz').value,ops});
   cm('m-add');g('n-ops').innerHTML='';nOpc=0;rSum();rDet();rExp();rBk();
-  if(window.saveProductsToFB)saveProductsToFB();
+  if(window.saveProductsToFB)await saveProductsToFB();
 }
 
 function sp(name){
