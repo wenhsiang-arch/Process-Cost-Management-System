@@ -573,8 +573,8 @@ async function fbSaveWithStatus(key, data) {
 window.saveProductsToFB = () => fbSaveWithStatus("products", window.D);
 window.saveAccsToFB = () => fbSaveWithStatus("accounts", window.accs);
 window.saveSettingsToFB = () => fbSaveWithStatus("settings", window.S);
-window.saveHistoryToFB = () => fbSave("impHist", impHist);
-window.saveCostLogToFB = () => fbSave("cLog", cLog);
+window.saveHistoryToFB = () => fbSaveWithStatus("impHist", impHist);
+window.saveCostLogToFB = () => fbSaveWithStatus("cLog", cLog);
 
 // 初始化
 async function fbInit() {
@@ -606,8 +606,6 @@ async function fbInit() {
     if (window.S.mc) { const el=document.getElementById('ss-tc'); if(el) el.value = window.S.mc; }
     if (window.S.mh) { const el=document.getElementById('ss-hr'); if(el) el.value = window.S.mh; }
   }
-window.saveHistoryToFB = () => fbSave("impHist", impHist);
-window.saveCostLogToFB = () => fbSave("cLog", cLog);
 
   showLoading(false);
   if(typeof window._syncVars==='function') window._syncVars();
