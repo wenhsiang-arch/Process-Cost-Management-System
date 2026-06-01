@@ -471,6 +471,7 @@ tr:hover td{background:#f8fafc}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -903,27 +904,95 @@ function doExport(){
   try{
   const cf=g('ex-cl').value,ty=g('ex-ty').value;
   const fd=window.D.filter(d=>!cf||d.client===cf);
-  const wd=[['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước']];
+
+  // 樣式定義
+  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'}};
+  const numVND={numFmt:'#,##0'};
+  const numUSD={numFmt:'#,##0.00'};
+  const numTWD={numFmt:'#,##0.0'};
+  const subStyle={font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}}};
+  const subNumVND={...subStyle,numFmt:'#,##0'};
+  const subNumUSD={...subStyle,numFmt:'#,##0.00'};
+  const subNumTWD={...subStyle,numFmt:'#,##0.0'};
+  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}}};
+
+  const wb=XLSX.utils.book_new();
+
   if(ty==='summary'){
-    wd[0].push('工序數/Số CĐ','總工價(VND)','總工價(USD)','總工價(TWD)');
-    fd.forEach(d=>{
-      let s=0;d.ops.forEach(op=>{s+=calc(op.sec).vnd;});
-      wd.push([d.code,d.client,d.zh,d.vi||'',d.sz,d.ops.length,Math.round(s),(Math.round(s/S.usd*100)/100).toFixed(2),(Math.round(s/S.twd*10)/10).toFixed(1)]);
+    const headers=['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước','工序數/Số CĐ','總工價(VND)','總工價(USD)','總工價(TWD)'];
+    const ws={'!ref':'A1'};
+    // 標題列
+    headers.forEach((h,i)=>{
+      const cell=String.fromCharCode(65+i)+'1';
+      ws[cell]={v:h,s:hStyle};
     });
+    let row=2;
+    fd.forEach((d,di)=>{
+      let s=0;d.ops.forEach(op=>{s+=calc(op.sec).vnd;});
+      const vnd=Math.round(s);
+      const usd=parseFloat((Math.round(s/S.usd*100)/100).toFixed(2));
+      const twd=parseFloat((Math.round(s/S.twd*10)/10).toFixed(1));
+      const alt=di%2===1?altStyle:{};
+      const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,d.ops.length,vnd,usd,twd];
+      vals.forEach((v,i)=>{
+        const cell=String.fromCharCode(65+i)+row;
+        if(i===6) ws[cell]={v,s:{...alt,...numVND}};
+        else if(i===7) ws[cell]={v,s:{...alt,...numUSD}};
+        else if(i===8) ws[cell]={v,s:{...alt,...numTWD}};
+        else ws[cell]={v,s:alt};
+      });
+      row++;
+    });
+    ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
+    ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,'總表');
   } else {
-    wd[0].push('工序號','工序(中)','工序(越)','秒數','SL/giờ','工資(VND)','工資(USD)','工資(TWD)');
+    const headers=['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước','工序號','工序(中)','工序(越)','秒數','SL/giờ','工資(VND)','工資(USD)','工資(TWD)'];
+    const ws={'!ref':'A1'};
+    headers.forEach((h,i)=>{
+      const cell=String.fromCharCode(65+i)+'1';
+      ws[cell]={v:h,s:hStyle};
+    });
+    let row=2;
     fd.forEach(d=>{
+      let di=0;
       d.ops.forEach(op=>{
         const r=calc(op.sec);
-        wd.push([d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec,r.qty,Math.round(r.vnd),(Math.round(r.vnd/S.usd*100)/100).toFixed(2),(Math.round(r.vnd/S.twd*10)/10).toFixed(1)]);
+        const vnd=Math.round(r.vnd);
+        const usd=parseFloat((Math.round(r.vnd/S.usd*100)/100).toFixed(2));
+        const twd=parseFloat((Math.round(r.vnd/S.twd*10)/10).toFixed(1));
+        const alt=di%2===1?altStyle:{};
+        const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec,r.qty,vnd,usd,twd];
+        vals.forEach((v,i)=>{
+          const cell=String.fromCharCode(65+i)+row;
+          if(i===10) ws[cell]={v,s:{...alt,...numVND}};
+          else if(i===11) ws[cell]={v,s:{...alt,...numUSD}};
+          else if(i===12) ws[cell]={v,s:{...alt,...numTWD}};
+          else ws[cell]={v,s:alt};
+        });
+        row++;di++;
       });
+      // 小計列
       const s=d.ops.reduce((a,op)=>a+calc(op.sec).vnd,0);
-      wd.push([d.code+' 小計','','','','','','','','','',Math.round(s),(Math.round(s/S.usd*100)/100).toFixed(2),(Math.round(s/S.twd*10)/10).toFixed(1)]);
-      wd.push([]);
+      const svnd=Math.round(s);
+      const susd=parseFloat((Math.round(s/S.usd*100)/100).toFixed(2));
+      const stwd=parseFloat((Math.round(s/S.twd*10)/10).toFixed(1));
+      const scols=[d.code+' 小計','','','','','','','','','',svnd,susd,stwd];
+      scols.forEach((v,i)=>{
+        const cell=String.fromCharCode(65+i)+row;
+        if(i===10) ws[cell]={v,s:subNumVND};
+        else if(i===11) ws[cell]={v,s:subNumUSD};
+        else if(i===12) ws[cell]={v,s:subNumTWD};
+        else ws[cell]={v,s:subStyle};
+      });
+      row++;
+      // 空白列
+      row++;
     });
+    ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
+    ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:18},{wch:18},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws,'工序明細');
   }
-  const ws=XLSX.utils.aoa_to_sheet(wd),wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'工序成本');
   XLSX.writeFile(wb,'工序成本報表.xlsx');
   const n=g('ex-ok');n.style.display='flex';setTimeout(()=>n.style.display='none',4000);
   }catch(err){alert('匯出失敗：'+err.message);console.error(err);}
