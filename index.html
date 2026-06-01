@@ -549,8 +549,20 @@ async function fbInit() {
     if (window.S.mc) { const el=document.getElementById('ss-tc'); if(el) el.value = window.S.mc; }
     if (window.S.mh) { const el=document.getElementById('ss-hr'); if(el) el.value = window.S.mh; }
   }
+window.saveHistoryToFB = () => fbSave("impHist", impHist);
+window.saveCostLogToFB = () => fbSave("cLog", cLog);
+
   showLoading(false);
   if(typeof window._syncVars==='function') window._syncVars();
+
+  // 載入記錄（優先用 Firebase，fallback 用 localStorage）
+  const [savedHist, savedClog] = await Promise.all([
+    fbLoad("impHist"),
+    fbLoad("cLog")
+  ]);
+  if(savedHist && savedHist.length > 0){ impHist = savedHist; try{localStorage.setItem('impHist',JSON.stringify(impHist));}catch(e){} }
+  if(savedClog && savedClog.length > 0){ cLog = savedClog; try{localStorage.setItem('cLog',JSON.stringify(cLog));}catch(e){} }
+
   onSnapshot(doc(db, "system", "products"), (snap) => {
     if (snap.exists()) {
       try {
@@ -663,6 +675,7 @@ function saveSt(){
   });
   if(ch.length>0){cLog.push({t:new Date().toLocaleString('zh-TW'),u:cu.user,ch});rClog();
     try{localStorage.setItem('cLog',JSON.stringify(cLog));}catch(e){}
+    if(window.saveCostLogToFB)saveCostLogToFB();
   }
   const n=g('st-ok');n.style.display='flex';setTimeout(()=>n.style.display='none',3000);
   if(window.saveSettingsToFB)saveSettingsToFB();
@@ -849,13 +862,13 @@ function saveEop(){
   const sec=+g('eo-sec').value;
   if(!sec||sec<=0){alert('秒數必須大於0 / Giây phải lớn hơn 0');return;}
   d.ops[idx]={no:g('eo-no').value,zh:g('eo-zh').value,vi:g('eo-vi').value,sec};
-  cm('m-eop');rSum();rDet();
+  cm('m-eop');rSum();rDet();rExp();rBk();
   if(window.saveProductsToFB)saveProductsToFB();
 }
 function delOp(code,idx){
   if(!confirm('Xác nhận xóa công đoạn? / 確定刪除此工序？'))return;
   const d=window.D.find(x=>x.code===code);if(!d)return;
-  d.ops.splice(idx,1);cm('m-det');rSum();rDet();
+  d.ops.splice(idx,1);cm('m-det');rSum();rDet();rExp();rBk();
   if(window.saveProductsToFB)saveProductsToFB();
 }
 
@@ -910,15 +923,20 @@ function doExport(){
   const fd=window.D.filter(d=>!cf||d.client===cf);
 
   // 樣式定義
-  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'}};
-  const numVND={numFmt:'#,##0'};
-  const numUSD={numFmt:'#,##0.00'};
-  const numTWD={numFmt:'#,##0.0'};
-  const subStyle={font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}}};
+  const bd={style:'thin',color:{rgb:'CCCCCC'}};
+  const border={top:bd,bottom:bd,left:bd,right:bd};
+  const bdH={style:'thin',color:{rgb:'2D5F8E'}};
+  const borderH={top:bdH,bottom:bdH,left:bdH,right:bdH};
+  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'},border:borderH};
+  const numVND={numFmt:'#,##0',border};
+  const numUSD={numFmt:'#,##0.00',border};
+  const numTWD={numFmt:'#,##0.0',border};
+  const subStyle={font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},border};
   const subNumVND={...subStyle,numFmt:'#,##0'};
   const subNumUSD={...subStyle,numFmt:'#,##0.00'};
   const subNumTWD={...subStyle,numFmt:'#,##0.0'};
-  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}}};
+  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}},border};
+  const normStyle={border};
 
   const wb=XLSX.utils.book_new();
 
@@ -940,10 +958,10 @@ function doExport(){
       const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,d.ops.length,vnd,usd,twd];
       vals.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
-        if(i===6) ws[cell]={v,s:{...alt,...numVND}};
-        else if(i===7) ws[cell]={v,s:{...alt,...numUSD}};
-        else if(i===8) ws[cell]={v,s:{...alt,...numTWD}};
-        else ws[cell]={v,s:alt};
+        if(i===6) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numVND}};
+        else if(i===7) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numUSD}};
+        else if(i===8) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numTWD}};
+        else ws[cell]={v,s:di%2===1?altStyle:normStyle};
       });
       row++;
     });
@@ -971,10 +989,10 @@ function doExport(){
         const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec,r.qty,vnd,usd,twd];
         vals.forEach((v,i)=>{
           const cell=String.fromCharCode(65+i)+row;
-          if(i===10) ws[cell]={v,s:{...alt,...numVND}};
-          else if(i===11) ws[cell]={v,s:{...alt,...numUSD}};
-          else if(i===12) ws[cell]={v,s:{...alt,...numTWD}};
-          else ws[cell]={v,s:alt};
+          if(i===10) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numVND}};
+          else if(i===11) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numUSD}};
+          else if(i===12) ws[cell]={v,s:{...(di%2===1?altStyle:normStyle),...numTWD}};
+          else ws[cell]={v,s:di%2===1?altStyle:normStyle};
         });
         row++;di++;
       });
@@ -1023,15 +1041,22 @@ function doBackup(){
   const cf=g('bk-client').value;
   const fd=window.D.filter(d=>!cf||d.client===cf);
 
-  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'}};
-  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}}};
-  const numRight={alignment:{horizontal:'right'}};
-  const txtFmt={numFmt:'@'};
+  const bd={style:'thin',color:{rgb:'CCCCCC'}};
+  const border={top:bd,bottom:bd,left:bd,right:bd};
+  const bdH={style:'thin',color:{rgb:'2D5F8E'}};
+  const borderH={top:bdH,bottom:bdH,left:bdH,right:bdH};
+
+  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'},border:borderH};
+  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}},border};
+  const normStyle={border};
+  const numRight={alignment:{horizontal:'right'},border};
+  const numRightAlt={alignment:{horizontal:'right'},fill:{fgColor:{rgb:'F8FAFC'}},border};
+  const txtFmt={numFmt:'@',border};
+  const txtFmtAlt={numFmt:'@',fill:{fgColor:{rgb:'F8FAFC'}},border};
 
   const headers=['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數'];
   const ws={'!ref':'A1'};
 
-  // 標題列
   headers.forEach((h,i)=>{
     const cell=String.fromCharCode(65+i)+'1';
     ws[cell]={v:h,s:hStyle};
@@ -1041,18 +1066,16 @@ function doBackup(){
   let di=0;
   fd.forEach(d=>{
     d.ops.forEach(op=>{
-      const alt=di%2===1?altStyle:{};
+      const isAlt=di%2===1;
       const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec];
       vals.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
         if(i===5){
-          // 工序號保留文字格式，避免 01 變成 1
-          ws[cell]={v:String(v),t:'s',s:{...alt,...txtFmt}};
+          ws[cell]={v:String(v),t:'s',s:isAlt?txtFmtAlt:txtFmt};
         } else if(i===8){
-          // 秒數靠右
-          ws[cell]={v:Number(v),s:{...alt,...numRight}};
+          ws[cell]={v:Number(v),s:isAlt?numRightAlt:numRight};
         } else {
-          ws[cell]={v:String(v||''),t:'s',s:alt};
+          ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle:normStyle};
         }
       });
       row++;di++;
@@ -1060,11 +1083,8 @@ function doBackup(){
   });
 
   ws['!ref']='A1:I'+row;
-  // 欄寬
   ws['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:20},{wch:20},{wch:8}];
-  // 凍結第一列
   ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
-  // 自動篩選
   ws['!autofilter']={ref:'A1:I1'};
 
   const wb=XLSX.utils.book_new();
@@ -1155,11 +1175,20 @@ function hImport(input){
               tbody.appendChild(tr);
             });
           },500);
-          }catch(err){hideProg();g('imp-err').style.display='flex';g('imp-err-msg').innerHTML='處理資料失敗：'+err.message;g('fi').value='';}
+          }catch(err){
+            hideProg();g('imp-err').style.display='flex';
+            g('imp-err-msg').innerHTML='處理資料失敗：'+err.message;
+          }finally{g('fi').value='';}
         },300);
-        }catch(err){hideProg();g('imp-err').style.display='flex';g('imp-err-msg').innerHTML='讀取工作表失敗：'+err.message;g('fi').value='';}
+        }catch(err){
+          hideProg();g('imp-err').style.display='flex';
+          g('imp-err-msg').innerHTML='讀取工作表失敗：'+err.message;
+        }finally{g('fi').value='';}
       },200);
-      }catch(err){hideProg();g('imp-err').style.display='flex';g('imp-err-msg').innerHTML='檔案格式錯誤：'+err.message;g('fi').value='';}
+      }catch(err){
+        hideProg();g('imp-err').style.display='flex';
+        g('imp-err-msg').innerHTML='檔案格式錯誤：'+err.message;
+      }finally{g('fi').value='';}
     };
     reader.readAsBinaryString(file);
   },100);
@@ -1193,8 +1222,9 @@ function cImp(mode){
   const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
   const hist={t:new Date().toLocaleString('zh-TW'),u:cu.user,c:actualCount,o:to,ow,sk};
   impHist.push(hist);
-  // 存到 localStorage
+  // 存到 localStorage 和 Firebase
   try{localStorage.setItem('impHist',JSON.stringify(impHist));}catch(e){}
+  if(window.saveHistoryToFB)saveHistoryToFB();
   let msg=`✓ 成功匯入 ${actualCount} 款，${to} 工序`;
   if(ow) msg+=`，覆蓋 ${ow} 款`;
   if(sk) msg+=`，跳過 ${sk} 款`;
