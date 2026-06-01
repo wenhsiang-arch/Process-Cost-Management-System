@@ -470,7 +470,6 @@ tr:hover td{background:#f8fafc}
 </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- Firebase SDK -->
 <script type="module">
@@ -583,7 +582,10 @@ window._S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80
 window._accs=[{user:'admin',pass:'admin123',role:'admin'}];
 window._syncVars = function(){};
 let pImp=null,nItms=null,dups=[],nOpc=0;
-let impHist=[],cLog=[];
+// 從 localStorage 載入記錄（重新整理後不消失）
+let impHist=[];let cLog=[];
+try{const h=localStorage.getItem('impHist');if(h)impHist=JSON.parse(h);}catch(e){}
+try{const c=localStorage.getItem('cLog');if(c)cLog=JSON.parse(c);}catch(e){}
 let sPage=1,dPage=1;
 const IDLE=30*60;
 let idleT=IDLE,idleIv=null;
@@ -659,7 +661,9 @@ function saveSt(){
       ch.push({f:lbs[k],b:prev[k],a:next[k],p});
     }
   });
-  if(ch.length>0){cLog.push({t:new Date().toLocaleString('zh-TW'),u:cu.user,ch});rClog();}
+  if(ch.length>0){cLog.push({t:new Date().toLocaleString('zh-TW'),u:cu.user,ch});rClog();
+    try{localStorage.setItem('cLog',JSON.stringify(cLog));}catch(e){}
+  }
   const n=g('st-ok');n.style.display='flex';setTimeout(()=>n.style.display='none',3000);
   if(window.saveSettingsToFB)saveSettingsToFB();
 }
@@ -945,6 +949,8 @@ function doExport(){
     });
     ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
     ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
+    ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+    ws['!autofilter']={ref:'A1:'+String.fromCharCode(65+headers.length-1)+'1'};
     XLSX.utils.book_append_sheet(wb,ws,'總表');
   } else {
     const headers=['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước','工序號','工序(中)','工序(越)','秒數','SL/giờ','工資(VND)','工資(USD)','工資(TWD)'];
@@ -991,6 +997,8 @@ function doExport(){
     });
     ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
     ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:18},{wch:18},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
+    ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+    ws['!autofilter']={ref:'A1:'+String.fromCharCode(65+headers.length-1)+'1'};
     XLSX.utils.book_append_sheet(wb,ws,'工序明細');
   }
   XLSX.writeFile(wb,'工序成本報表.xlsx');
@@ -1014,13 +1022,52 @@ function doBackup(){
   try{
   const cf=g('bk-client').value;
   const fd=window.D.filter(d=>!cf||d.client===cf);
-  const wd=[['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數']];
+
+  const hStyle={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'}};
+  const altStyle={fill:{fgColor:{rgb:'F8FAFC'}}};
+  const numRight={alignment:{horizontal:'right'}};
+  const txtFmt={numFmt:'@'};
+
+  const headers=['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數'];
+  const ws={'!ref':'A1'};
+
+  // 標題列
+  headers.forEach((h,i)=>{
+    const cell=String.fromCharCode(65+i)+'1';
+    ws[cell]={v:h,s:hStyle};
+  });
+
+  let row=2;
+  let di=0;
   fd.forEach(d=>{
     d.ops.forEach(op=>{
-      wd.push([d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec]);
+      const alt=di%2===1?altStyle:{};
+      const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec];
+      vals.forEach((v,i)=>{
+        const cell=String.fromCharCode(65+i)+row;
+        if(i===5){
+          // 工序號保留文字格式，避免 01 變成 1
+          ws[cell]={v:String(v),t:'s',s:{...alt,...txtFmt}};
+        } else if(i===8){
+          // 秒數靠右
+          ws[cell]={v:Number(v),s:{...alt,...numRight}};
+        } else {
+          ws[cell]={v:String(v||''),t:'s',s:alt};
+        }
+      });
+      row++;di++;
     });
   });
-  const ws=XLSX.utils.aoa_to_sheet(wd),wb=XLSX.utils.book_new();
+
+  ws['!ref']='A1:I'+row;
+  // 欄寬
+  ws['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:20},{wch:20},{wch:8}];
+  // 凍結第一列
+  ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+  // 自動篩選
+  ws['!autofilter']={ref:'A1:I1'};
+
+  const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'備份資料');
   const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
   XLSX.writeFile(wb,fname);
@@ -1037,7 +1084,7 @@ function askDel(code){
 function confDel(){
   const code=g('del-code').value,inp=g('del-inp').value.trim();
   if(inp!==code){alert('Mã hàng không khớp / 款號輸入不符合！');return;}
-  D=window.D.filter(d=>d.code!==code);cm('m-del');rSum();rDet();rExp();
+  window.D=window.D.filter(d=>d.code!==code);cm('m-del');rSum();rDet();rExp();rBk();
   if(window.saveProductsToFB)saveProductsToFB();
 }
 
@@ -1055,9 +1102,17 @@ function hImport(input){
   setProg(10,'Đang đọc file... / 正在讀取檔案...','');
   setTimeout(()=>{
     const reader=new FileReader();
+    reader.onerror=function(){
+      hideProg();
+      g('imp-err').style.display='flex';
+      g('imp-err-msg').innerHTML='無法讀取檔案，請確認格式是否正確 / Không thể đọc file.';
+      g('fi').value='';
+    };
     reader.onload=function(e){
+      try{
       setProg(40,'Đang kiểm tra dữ liệu... / 正在驗證資料...','');
       setTimeout(()=>{
+        try{
         const wb=XLSX.read(e.target.result,{type:'binary'});
         const ws=wb.Sheets[wb.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
@@ -1076,6 +1131,7 @@ function hImport(input){
         }
         setProg(70,'Đang xử lý mã hàng... / 正在整理款號...','');
         setTimeout(()=>{
+          try{
           const ni={};
           dr.forEach(r=>{
             const code=String(r[0]).trim();
@@ -1099,8 +1155,11 @@ function hImport(input){
               tbody.appendChild(tr);
             });
           },500);
+          }catch(err){hideProg();g('imp-err').style.display='flex';g('imp-err-msg').innerHTML='處理資料失敗：'+err.message;g('fi').value='';}
         },300);
+        }catch(err){hideProg();g('imp-err').style.display='flex';g('imp-err-msg').innerHTML='讀取工作表失敗：'+err.message;g('fi').value='';}
       },200);
+      }catch(err){hideProg();g('imp-err').style.display='flex';g('imp-err-msg').innerHTML='檔案格式錯誤：'+err.message;g('fi').value='';}
     };
     reader.readAsBinaryString(file);
   },100);
@@ -1118,15 +1177,28 @@ function chkDup(){
 }
 function cImp(mode){
   if(!nItms)return;
-  const nd=Object.values(nItms);let ow=0;
+  const nd=Object.values(nItms);
+  let ow=0,sk=0,added=0;
   nd.forEach(x=>{
     const isDup=dups.includes(x.code);
-    if(isDup){if(mode==='sk')return;const i=window.D.findIndex(d=>d.code===x.code);D[i]=x;ow++;}
-    else window.D.push(x);
+    if(isDup){
+      if(mode==='sk'){sk++;return;}
+      const i=window.D.findIndex(d=>d.code===x.code);
+      window.D[i]=x;ow++;
+    } else {
+      window.D.push(x);added++;
+    }
   });
-  const to=nd.reduce((a,d)=>a+d.ops.length,0);
-  impHist.push({t:new Date().toLocaleString('zh-TW'),u:cu.user,c:nd.length,o:to,ow});
-  g('imp-ok-msg').textContent=`✓ Nhập thành công / 成功匯入 ${nd.length} mã hàng/款號，${to} công đoạn/工序${ow?'，Ghi đè/覆蓋 '+ow+' mã hàng':''}.`;
+  const actualCount=added+ow;
+  const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
+  const hist={t:new Date().toLocaleString('zh-TW'),u:cu.user,c:actualCount,o:to,ow,sk};
+  impHist.push(hist);
+  // 存到 localStorage
+  try{localStorage.setItem('impHist',JSON.stringify(impHist));}catch(e){}
+  let msg=`✓ 成功匯入 ${actualCount} 款，${to} 工序`;
+  if(ow) msg+=`，覆蓋 ${ow} 款`;
+  if(sk) msg+=`，跳過 ${sk} 款`;
+  g('imp-ok-msg').textContent=msg;
   g('imp-ok').style.display='flex';
   ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
   pImp=null;nItms=null;dups=[];g('fi').value='';
@@ -1217,7 +1289,7 @@ function saveNew(){
     if(sec>0)ops.push({no:no.value,zh:g('op-zh-'+i).value,vi:g('op-vi-'+i).value,sec});
   }
   window.D.push({code,client:g('n-cl').value,zh:g('n-zh').value,vi:g('n-vi').value,sz:g('n-sz').value,ops});
-  cm('m-add');g('n-ops').innerHTML='';nOpc=0;rSum();rBk();
+  cm('m-add');g('n-ops').innerHTML='';nOpc=0;rSum();rDet();rExp();rBk();
   if(window.saveProductsToFB)saveProductsToFB();
 }
 
