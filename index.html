@@ -335,7 +335,9 @@ tr:hover td{background:#f8fafc}
             </div>
           </div>
           <div class="fg cols3">
-            <div class="fgrp"><label>匯率 TWD<span class="lvi">Tỷ giá TWD (VND/TWD)</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()"></div>
+            <div class="fgrp"><label>匯率 TWD<span class="lvi">Tỷ giá TWD (VND/TWD)</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()">
+              <span id="rate-updated-twd" style="font-size:10px;color:var(--hi);margin-top:2px;display:block"></span>
+            </div>
           </div>
           <div class="nt nw" style="margin-top:4px"><i class="ti ti-info-circle" aria-hidden="true"></i>Tổng chi phí và lương giờ có thể nhập tay. / 總成本與時薪可手動填寫，清空後恢復自動。</div>
         </div>
@@ -671,28 +673,27 @@ async function fetchRates(){
   const btn=g('btn-fetchrate');
   const info=g('rate-updated');
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>';}
-  if(info) info.textContent='抓取中... / Đang tải...';
+  if(info){info.textContent='抓取中... / Đang tải...';info.style.color='var(--hi)';}
   try{
-    // 先抓 USD/VND
-    const res=await fetch('https://api.frankfurter.app/latest?from=USD&to=VND,TWD');
+    // 用 ExchangeRate-API 免費版（支援 VND）
+    const res=await fetch('https://open.er-api.com/v6/latest/USD');
     if(!res.ok) throw new Error('API 錯誤');
     const data=await res.json();
-    // VND per USD
+    if(data.result!=='success') throw new Error('資料錯誤');
     const vndPerUsd=Math.round(data.rates.VND);
-    // TWD per USD, VND per TWD = VND/USD ÷ TWD/USD
     const twdPerUsd=data.rates.TWD;
     const vndPerTwd=Math.round(vndPerUsd/twdPerUsd);
-    // 更新欄位
     const usdEl=g('ss-usd');
     const twdEl=g('ss-twd');
     if(usdEl) usdEl.value=vndPerUsd;
     if(twdEl) twdEl.value=vndPerTwd;
     rAll();
     const now=new Date().toLocaleString('zh-TW');
-    if(info) info.textContent='✓ 更新於 '+now;
-    if(info) info.style.color='var(--ok)';
+    if(info){info.textContent='✓ 更新於 '+now;info.style.color='var(--ok)';}
+    const infoTwd=g('rate-updated-twd');
+    if(infoTwd){infoTwd.textContent='✓ 更新於 '+now;infoTwd.style.color='var(--ok)';}
   }catch(e){
-    if(info){ info.textContent='⚠ 抓取失敗，使用手動值 / Lấy tỷ giá thất bại'; info.style.color='var(--warn)';}
+    if(info){info.textContent='⚠ 抓取失敗，使用手動值 / Lấy tỷ giá thất bại';info.style.color='var(--warn)';}
     console.error('fetchRates error:',e);
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i>';}
