@@ -519,9 +519,16 @@ async function fbInit() {
     fbLoad("accounts"),
     fbLoad("settings")
   ]);
-  if (savedD) window.D = savedD;
-  if (savedAccs) window.accs = savedAccs;
+  if (savedD) {
+    if(typeof D !== 'undefined'){ D.length=0; savedD.forEach(item=>D.push(item)); }
+    window.D = savedD;
+  }
+  if (savedAccs) {
+    if(typeof accs !== 'undefined'){ accs.length=0; savedAccs.forEach(item=>accs.push(item)); }
+    window.accs = savedAccs;
+  }
   if (savedS) {
+    if(typeof S !== 'undefined') Object.assign(S, savedS);
     window.S = {...window.S, ...savedS};
     const fields = {
       'ss-sal': window.S.sal, 'ss-ins': window.S.ins, 'ss-meal': window.S.meal,
@@ -539,10 +546,15 @@ async function fbInit() {
   onSnapshot(doc(db, "system", "products"), (snap) => {
     if (snap.exists()) {
       try {
-        window.D = JSON.parse(snap.data().data);
-        if(typeof window._syncVars==='function') window._syncVars();
+        const newD = JSON.parse(snap.data().data);
+        // 直接更新全域 D 陣列內容，保持同一個參考
+        if(typeof D !== 'undefined') {
+          D.length = 0;
+          newD.forEach(item => D.push(item));
+        }
+        window.D = newD;
         if(typeof rSum==='function'){ rSum(); rDet(); rExp(); rBk(); }
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     }
   });
 }
@@ -557,14 +569,9 @@ window.S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,
 window.D=[];
 
 // 讓 D、S、accs 直接存取 window 上的值（Firebase 更新後自動同步）
-Object.defineProperty(window, 'D', {get(){return this._D},set(v){this._D=v},configurable:true});
-Object.defineProperty(window, 'S', {get(){return this._S},set(v){this._S=v},configurable:true});
-Object.defineProperty(window, 'accs', {get(){return this._accs},set(v){this._accs=v},configurable:true});
 window._D=[];
 window._S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
 window._accs=[{user:'admin',pass:'admin123',role:'admin'}];
-
-// _syncVars 不再需要，但保留避免錯誤
 window._syncVars = function(){};
 let pImp=null,nItms=null,dups=[],nOpc=0;
 let impHist=[],cLog=[];
