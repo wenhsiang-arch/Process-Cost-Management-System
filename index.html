@@ -535,12 +535,12 @@ async function fbInit() {
     if (window.S.mh) { const el=document.getElementById('ss-hr'); if(el) el.value = window.S.mh; }
   }
   showLoading(false);
-
-  // 即時監聽款號（多人同步）
+  if(typeof window._syncVars==='function') window._syncVars();
   onSnapshot(doc(db, "system", "products"), (snap) => {
     if (snap.exists()) {
       try {
         window.D = JSON.parse(snap.data().data);
+        if(typeof window._syncVars==='function') window._syncVars();
         if(typeof rSum==='function'){ rSum(); rDet(); rExp(); rBk(); }
       } catch(e) {}
     }
@@ -554,7 +554,18 @@ window.addEventListener('load', () => setTimeout(fbInit, 300));
 window.accs=[{user:'admin',pass:'admin123',role:'admin'}];
 let cu=null,cur='VND';
 window.S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
-window.window.D=[];
+window.D=[];
+
+// 讓 D、S、accs 直接存取 window 上的值（Firebase 更新後自動同步）
+Object.defineProperty(window, 'D', {get(){return this._D},set(v){this._D=v},configurable:true});
+Object.defineProperty(window, 'S', {get(){return this._S},set(v){this._S=v},configurable:true});
+Object.defineProperty(window, 'accs', {get(){return this._accs},set(v){this._accs=v},configurable:true});
+window._D=[];
+window._S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
+window._accs=[{user:'admin',pass:'admin123',role:'admin'}];
+
+// _syncVars 不再需要，但保留避免錯誤
+window._syncVars = function(){};
 let pImp=null,nItms=null,dups=[],nOpc=0;
 let impHist=[],cLog=[];
 let sPage=1,dPage=1;
@@ -685,7 +696,7 @@ function g(id){return document.getElementById(id);}
 function om(id){g(id).classList.add('open');}
 function cm(id){g(id).classList.remove('open');}
 function rcf(){
-  const cl=[...new Set(D.map(d=>d.client))];
+  const cl=[...new Set(window.D.map(d=>d.client))];
   ['s-client','d-client','ex-cl','bk-client'].forEach(id=>{
     const el=g(id);if(!el)return;
     const cv=el.value;
@@ -711,7 +722,7 @@ function goDP(p){dPage=p;rDet();}
 
 // 排序
 function sortD(sv){
-  let d=[...D];
+  let d=[...window.D];
   if(sv==='ca')d.sort((a,b)=>a.code.localeCompare(b.code));
   else if(sv==='cd')d.sort((a,b)=>b.code.localeCompare(a.code));
   else if(sv==='kl')d.sort((a,b)=>a.client.localeCompare(b.client));
@@ -870,7 +881,7 @@ function doExport(){
 
 // 備份匯出
 function rBk(){
-  const cl=[...new Set(D.map(d=>d.client))];
+  const cl=[...new Set(window.D.map(d=>d.client))];
   const tb=g('bk-stats');if(!tb)return;
   const cf=(g('bk-client')||{}).value||'';
   const fd=window.D.filter(d=>!cf||d.client===cf);
