@@ -179,6 +179,9 @@ tr:hover td{background:#f8fafc}
     <div class="sb-ft"><div class="sb-ft-t">v7.0</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
 
+  <!-- 右下角同步狀態 -->
+  <div id="sync-status" style="display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)"></div>
+
   <div class="mn">
     <div class="tb">
       <span class="tb-title">工序成本分析系統</span>
@@ -488,6 +491,41 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+// ============================
+// 同步狀態管理
+// ============================
+window.syncState = 'idle';
+
+function setSyncState(state, msg) {
+  window.syncState = state;
+  let el = document.getElementById('sync-status');
+  if (!el) return;
+  const map = {
+    idle:     {dot:'#94a3b8', text:''},
+    syncing:  {dot:'#f59e0b', text:'🟡 雲端同步中... / Đang đồng bộ...'},
+    success:  {dot:'#16a34a', text:'🟢 雲端已同步 / Đã đồng bộ · ' + new Date().toLocaleTimeString('zh-TW')},
+    failed:   {dot:'#dc2626', text:'🔴 同步失敗，資料暫存本機 / Đồng bộ thất bại'}
+  };
+  const m = map[state] || map.idle;
+  el.textContent = m.text;
+  el.style.color = state==='failed'?'#dc2626':state==='success'?'#16a34a':state==='syncing'?'#f59e0b':'#94a3b8';
+  el.style.display = state==='idle'?'none':'block';
+}
+
+function showSyncError() {
+  let el = document.getElementById('sync-err-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'sync-err-toast';
+    el.style.cssText = 'position:fixed;bottom:60px;right:16px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;font-size:13px;z-index:999;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.1)';
+    document.body.appendChild(el);
+  }
+  el.innerHTML = `<b>⚠️ 雲端同步失敗 / Đồng bộ thất bại</b><br><span style="font-size:12px;color:#b91c1c">資料已暫存本機，請確認網路連線<br>Dữ liệu đã lưu tạm, kiểm tra kết nối mạng</span>`;
+  el.style.display = 'block';
+  clearTimeout(window._syncErrTimer);
+  window._syncErrTimer = setTimeout(()=>{el.style.display='none';},6000);
+}
+
 function showLoading(show) {
   let el = document.getElementById('fb-loading');
   if (!el) {
@@ -511,13 +549,32 @@ async function fbLoad(key) {
 async function fbSave(key, data) {
   try {
     await setDoc(doc(db, "system", key), { data: JSON.stringify(data) });
-  } catch(e) { console.error("Firebase save error:", e); }
+    return true;
+  } catch(e) {
+    console.error("Firebase save error:", e);
+    return false;
+  }
 }
 
-// 把存取函數掛到 window，讓主程式可以呼叫
-window.saveProductsToFB = () => fbSave("products", window.D);
-window.saveAccsToFB = () => fbSave("accounts", window.accs);
-window.saveSettingsToFB = () => fbSave("settings", window.S);
+// 統一儲存函數（帶狀態更新）
+async function fbSaveWithStatus(key, data) {
+  setSyncState('syncing');
+  const ok = await fbSave(key, data);
+  if (ok) {
+    setSyncState('success');
+  } else {
+    setSyncState('failed');
+    showSyncError();
+  }
+  return ok;
+}
+
+// 把存取函數掛到 window
+window.saveProductsToFB = () => fbSaveWithStatus("products", window.D);
+window.saveAccsToFB = () => fbSaveWithStatus("accounts", window.accs);
+window.saveSettingsToFB = () => fbSaveWithStatus("settings", window.S);
+window.saveHistoryToFB = () => fbSave("impHist", impHist);
+window.saveCostLogToFB = () => fbSave("cLog", cLog);
 
 // 初始化
 async function fbInit() {
