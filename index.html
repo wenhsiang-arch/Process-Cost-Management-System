@@ -468,9 +468,6 @@ tr:hover td{background:#f8fafc}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// ============================
-// 🔧 Firebase 設定（你的專案）
-// ============================
 const firebaseConfig = {
   apiKey: "AIzaSyBBrlo1gVMQmne4gT92lx4KwnRBVt4QSh4",
   authDomain: "process-cost-management-system.firebaseapp.com",
@@ -482,75 +479,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-
-// ============================
-// 雲端讀寫函數
-// ============================
-window.fbSave = async function(key, data) {
-  try {
-    await setDoc(doc(db, "system", key), { data: JSON.stringify(data) });
-  } catch(e) { console.error("Firebase save error:", e); }
-};
-
-window.fbLoad = async function(key) {
-  try {
-    const snap = await getDoc(doc(db, "system", key));
-    if (snap.exists()) return JSON.parse(snap.data().data);
-  } catch(e) { console.error("Firebase load error:", e); }
-  return null;
-};
-
-// 即時監聽（其他人改了資料，自動更新）
-window.fbListen = function(key, callback) {
-  return onSnapshot(doc(db, "system", key), (snap) => {
-    if (snap.exists()) {
-      try { callback(JSON.parse(snap.data().data)); } catch(e) {}
-    }
-  });
-};
-
-// 初始化：從 Firebase 載入所有資料
-window.fbInit = async function() {
-  showLoading(true);
-  const [savedD, savedAccs, savedS] = await Promise.all([
-    fbLoad("products"),
-    fbLoad("accounts"),
-    fbLoad("settings")
-  ]);
-  if (savedD) D = savedD;
-  if (savedAccs) accs = savedAccs;
-  if (savedS) {
-    S = {...S, ...savedS};
-    // 把設定值填回畫面
-    const fields = {
-      'ss-sal': S.sal, 'ss-ins': S.ins, 'ss-meal': S.meal,
-      'ss-usd': S.usd, 'ss-twd': S.twd, 'ss-ws': S.ws, 'ss-eff': S.eff
-    };
-    Object.entries(fields).forEach(([id, val]) => {
-      const el = document.getElementById(id);
-      if (el) el.value = val;
-    });
-    if (S.mc) { document.getElementById('ss-tc').value = S.mc; }
-    if (S.mh) { document.getElementById('ss-hr').value = S.mh; }
-  }
-  showLoading(false);
-
-  // 即時監聽款號資料（多人同步）
-  fbListen("products", (newD) => {
-    D = newD;
-    rSum(); rDet(); rExp(); rBk();
-  });
-};
-
-window.saveProductsToFB = async function() {
-  await fbSave("products", D);
-};
-window.saveAccsToFB = async function() {
-  await fbSave("accounts", accs);
-};
-window.saveSettingsToFB = async function() {
-  await fbSave("settings", S);
-};
 
 function showLoading(show) {
   let el = document.getElementById('fb-loading');
@@ -564,15 +492,69 @@ function showLoading(show) {
   el.style.display = show ? 'flex' : 'none';
 }
 
-// 等主程式載入後初始化
+async function fbLoad(key) {
+  try {
+    const snap = await getDoc(doc(db, "system", key));
+    if (snap.exists()) return JSON.parse(snap.data().data);
+  } catch(e) { console.error("Firebase load error:", e); }
+  return null;
+}
+
+async function fbSave(key, data) {
+  try {
+    await setDoc(doc(db, "system", key), { data: JSON.stringify(data) });
+  } catch(e) { console.error("Firebase save error:", e); }
+}
+
+// 把存取函數掛到 window，讓主程式可以呼叫
+window.saveProductsToFB = () => fbSave("products", window.D);
+window.saveAccsToFB = () => fbSave("accounts", window.accs);
+window.saveSettingsToFB = () => fbSave("settings", window.S);
+
+// 初始化
+async function fbInit() {
+  showLoading(true);
+  const [savedD, savedAccs, savedS] = await Promise.all([
+    fbLoad("products"),
+    fbLoad("accounts"),
+    fbLoad("settings")
+  ]);
+  if (savedD) window.D = savedD;
+  if (savedAccs) window.accs = savedAccs;
+  if (savedS) {
+    window.S = {...window.S, ...savedS};
+    const fields = {
+      'ss-sal': window.S.sal, 'ss-ins': window.S.ins, 'ss-meal': window.S.meal,
+      'ss-usd': window.S.usd, 'ss-twd': window.S.twd, 'ss-ws': window.S.ws, 'ss-eff': window.S.eff
+    };
+    Object.entries(fields).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    });
+    if (window.S.mc) { const el=document.getElementById('ss-tc'); if(el) el.value = window.S.mc; }
+    if (window.S.mh) { const el=document.getElementById('ss-hr'); if(el) el.value = window.S.mh; }
+  }
+  showLoading(false);
+
+  // 即時監聽款號（多人同步）
+  onSnapshot(doc(db, "system", "products"), (snap) => {
+    if (snap.exists()) {
+      try {
+        window.D = JSON.parse(snap.data().data);
+        if(typeof rSum==='function'){ rSum(); rDet(); rExp(); rBk(); }
+      } catch(e) {}
+    }
+  });
+}
+
 window.addEventListener('load', () => setTimeout(fbInit, 300));
 </script>
 
 <script>
-let accs=[{user:'admin',pass:'admin123',role:'admin'}];
+window.accs=[{user:'admin',pass:'admin123',role:'admin'}];
 let cu=null,cur='VND';
-let S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
-let D=[];
+window.S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
+window.D=[];
 let pImp=null,nItms=null,dups=[],nOpc=0;
 let impHist=[],cLog=[];
 let sPage=1,dPage=1;
@@ -683,7 +665,7 @@ function startIdle(){
 function resetIdle(){idleT=IDLE;}
 function doLogin(){
   const u=g('lu').value.trim(),p=g('lp').value;
-  const a=accs.find(x=>x.user===u&&x.pass===p);
+  const a=window.accs.find(x=>x.user===u&&x.pass===p);
   if(!a){g('lerr').style.display='flex';return;}
   cu=a;g('ls').style.display='none';g('ma').classList.remove('hidden');
   uNav();rAll();rSum();rAcc();startIdle();
@@ -1060,7 +1042,7 @@ function rClog(){
 // 帳號
 function rAcc(){
   const tb=g('acc-tb');if(!tb)return;tb.innerHTML='';
-  accs.forEach(a=>{
+  window.accs.forEach(a=>{
     const isMe=a.user===cu.user;const tr=document.createElement('tr');
     tr.innerHTML=`<td><b>${a.user}</b>${isMe?' <span class="tg tb2">Tôi/我</span>':''}</td><td><span class="tg ${a.role==='admin'?'tg2':'ta'}">${a.role==='admin'?'Quản trị / 管理員':'Người dùng / 一般'}</span></td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEacc('${a.user}')"><i class="ti ti-edit"></i></button>${!isMe?`<button class="btn bsm bd2" onclick="delAcc('${a.user}')"><i class="ti ti-trash"></i></button>`:''}</div></td>`;
     tb.appendChild(tr);
@@ -1069,25 +1051,25 @@ function rAcc(){
 function saveAcc(){
   const u=g('ac-u').value.trim(),p=g('ac-p').value,r=g('ac-r').value;
   if(!u||!p){alert('Vui lòng nhập đầy đủ / 請填入帳號和密碼');return;}
-  if(accs.find(a=>a.user===u)){alert('Tài khoản đã tồn tại / 帳號已存在');return;}
-  accs.push({user:u,pass:p,role:r});cm('m-nacc');
+  if(window.accs.find(a=>a.user===u)){alert('Tài khoản đã tồn tại / 帳號已存在');return;}
+  window.accs.push({user:u,pass:p,role:r});cm('m-nacc');
   g('ac-u').value='';g('ac-p').value='';rAcc();
   if(window.saveAccsToFB)saveAccsToFB();
 }
 function oEacc(user){
-  const a=accs.find(x=>x.user===user);if(!a)return;
+  const a=window.accs.find(x=>x.user===user);if(!a)return;
   g('ea-orig').value=user;g('ea-u').value=a.user;g('ea-p').value='';g('ea-r').value=a.role;
   om('m-eacc');
 }
 function saveEacc(){
   const orig=g('ea-orig').value,u=g('ea-u').value.trim(),p=g('ea-p').value,r=g('ea-r').value;
-  const i=accs.findIndex(a=>a.user===orig);if(i<0)return;
-  accs[i].user=u;accs[i].role=r;if(p)accs[i].pass=p;
+  const i=window.accs.findIndex(a=>a.user===orig);if(i<0)return;
+  window.accs[i].user=u;window.accs[i].role=r;if(p)window.accs[i].pass=p;
   if(orig===cu.user){cu=accs[i];uNav();}
   cm('m-eacc');rAcc();
   if(window.saveAccsToFB)saveAccsToFB();
 }
-function delAcc(user){if(confirm('Xác nhận xóa / 確定刪除帳號 '+user+'?')){accs=accs.filter(a=>a.user!==user);rAcc();if(window.saveAccsToFB)saveAccsToFB();}}
+function delAcc(user){if(confirm('Xác nhận xóa / 確定刪除帳號 '+user+'?')){window.accs=window.accs.filter(a=>a.user!==user);rAcc();if(window.saveAccsToFB)saveAccsToFB();}}
 function addOp(){
   nOpc++;
   const div=document.createElement('div');div.className='fg';div.style.marginBottom='8px';
