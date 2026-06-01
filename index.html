@@ -462,7 +462,7 @@ tr:hover td{background:#f8fafc}
 </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -859,6 +859,7 @@ function rExp(){
   });
 }
 function doExport(){
+  if(typeof XLSX==='undefined'){alert('匯出套件載入中，請稍後再試 / Đang tải, vui lòng thử lại');return;}
   const cf=g('ex-cl').value,ty=g('ex-ty').value;
   const fd=D.filter(d=>!cf||d.client===cf);
   const wd=[['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước']];
@@ -898,6 +899,7 @@ function rBk(){
     <div class="mc"><div class="ml">客人數</div><div class="mvi">Số khách hàng</div><div class="mv">${cl.length}</div></div>`;
 }
 function doBackup(){
+  if(typeof XLSX==='undefined'){alert('匯出套件載入中，請稍後再試 / Đang tải, vui lòng thử lại');return;}
   const cf=g('bk-client').value;
   const fd=D.filter(d=>!cf||d.client===cf);
   const wd=[['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數']];
