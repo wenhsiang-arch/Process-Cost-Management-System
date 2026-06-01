@@ -326,7 +326,13 @@ tr:hover td{background:#f8fafc}
           <div class="fg cols3">
             <div class="fgrp"><label>平均總成本/月 <span id="ct-tag" class="at">自動</span><span class="lvi">Tổng chi phí TB/tháng</span></label><input type="number" id="ss-tc" oninput="onMC()"></div>
             <div class="fgrp"><label>平均時薪 <span id="ht-tag" class="at">自動</span><span class="lvi">Lương giờ TB (VND)</span></label><input type="number" id="ss-hr" oninput="onMH()"></div>
-            <div class="fgrp"><label>匯率 USD<span class="lvi">Tỷ giá USD (VND/USD)</span></label><input type="number" id="ss-usd" value="25400" oninput="rAll()"></div>
+            <div class="fgrp"><label>匯率 USD<span class="lvi">Tỷ giá USD (VND/USD)</span></label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="number" id="ss-usd" value="25400" oninput="rAll()" style="flex:1">
+                <button class="btn bsm" onclick="fetchRates()" id="btn-fetchrate" title="自動抓取匯率"><i class="ti ti-refresh"></i></button>
+              </div>
+              <span id="rate-updated" style="font-size:10px;color:var(--hi);margin-top:2px;display:block"></span>
+            </div>
           </div>
           <div class="fg cols3">
             <div class="fgrp"><label>匯率 TWD<span class="lvi">Tỷ giá TWD (VND/TWD)</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()"></div>
@@ -660,6 +666,39 @@ function setCur(c){
   rSum();rDet();rExp();
 }
 
+// 自動抓取匯率
+async function fetchRates(){
+  const btn=g('btn-fetchrate');
+  const info=g('rate-updated');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>';}
+  if(info) info.textContent='抓取中... / Đang tải...';
+  try{
+    // 先抓 USD/VND
+    const res=await fetch('https://api.frankfurter.app/latest?from=USD&to=VND,TWD');
+    if(!res.ok) throw new Error('API 錯誤');
+    const data=await res.json();
+    // VND per USD
+    const vndPerUsd=Math.round(data.rates.VND);
+    // TWD per USD, VND per TWD = VND/USD ÷ TWD/USD
+    const twdPerUsd=data.rates.TWD;
+    const vndPerTwd=Math.round(vndPerUsd/twdPerUsd);
+    // 更新欄位
+    const usdEl=g('ss-usd');
+    const twdEl=g('ss-twd');
+    if(usdEl) usdEl.value=vndPerUsd;
+    if(twdEl) twdEl.value=vndPerTwd;
+    rAll();
+    const now=new Date().toLocaleString('zh-TW');
+    if(info) info.textContent='✓ 更新於 '+now;
+    if(info) info.style.color='var(--ok)';
+  }catch(e){
+    if(info){ info.textContent='⚠ 抓取失敗，使用手動值 / Lấy tỷ giá thất bại'; info.style.color='var(--warn)';}
+    console.error('fetchRates error:',e);
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i>';}
+  }
+}
+
 // 登入
 function isAdm(){return cu&&cu.role==='admin';}
 function uNav(){
@@ -687,6 +726,7 @@ function doLogin(){
   if(!a){g('lerr').style.display='flex';return;}
   cu=a;g('ls').style.display='none';g('ma').classList.remove('hidden');
   uNav();rAll();rSum();rAcc();startIdle();
+  setTimeout(()=>fetchRates(),1000);
 }
 function doLogout(){
   clearInterval(idleIv);['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
