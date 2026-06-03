@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Báo công / 報工系統</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--navy:#1a3a5c;--navy2:#2d5f8e;--accent:#2563a8;--ok:#16a34a;--okl:#dcfce7;--warn:#d97706;--warnl:#fef3c7;--err:#dc2626;--errl:#fee2e2;--bd:#e2e8f0;--bg:#f0f2f5;--sf:#fff;--tx:#1e293b;--mu:#64748b;--hi:#94a3b8}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--tx);background:var(--bg);max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+/* Login */
+.ls{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.ls-box{background:var(--sf);border-radius:20px;padding:28px 24px;width:100%;max-width:360px}
+.ls-logo{text-align:center;margin-bottom:24px}
+.ls-logo i{font-size:40px;color:var(--navy)}
+.ls-logo h1{font-size:18px;font-weight:700;color:var(--navy);margin-top:8px}
+.ls-logo p{font-size:12px;color:var(--mu);margin-top:4px}
+.fgrp{margin-bottom:14px}
+.fgrp label{font-size:12px;color:var(--mu);font-weight:500;display:block;margin-bottom:5px}
+input[type=text],input[type=password],input[type=number]{width:100%;padding:11px 13px;border:1px solid var(--bd);border-radius:10px;font-size:14px;color:var(--tx);background:var(--sf);outline:none;transition:border .15s}
+input:focus{border-color:var(--accent)}
+.btn-login{width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.le{background:var(--errl);color:var(--err);border-radius:8px;padding:9px 12px;font-size:12px;display:flex;align-items:center;gap:7px;margin-top:12px}
+/* App */
+.app{display:flex;flex-direction:column;flex:1;height:100vh}
+.hidden{display:none!important}
+/* Topbar */
+.topbar{background:var(--navy);padding:12px 16px;flex-shrink:0}
+.top-row{display:flex;align-items:center;justify-content:space-between}
+.av{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.top-name{color:#fff;font-size:15px;font-weight:600}
+.top-info{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px}
+.bell-wrap{position:relative;cursor:pointer;padding:4px}
+.bell-wrap i{font-size:20px;color:rgba(255,255,255,.8)}
+.bell-bdg{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+/* Content */
+.ct{flex:1;overflow-y:auto;padding:10px;padding-bottom:70px;background:var(--bg)}
+/* Pages */
+.pg{display:none}.pg.active{display:block}
+/* Cards */
+.card{background:var(--sf);border-radius:14px;padding:12px 14px;margin-bottom:8px;border:0.5px solid rgba(0,0,0,.06)}
+/* Alert */
+.alert-box{background:#fff8e6;border:0.5px solid #f59e0b;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer}
+.alert-box i{color:var(--warn);font-size:16px;flex-shrink:0}
+.alert-text{flex:1;font-size:12px;color:#92400e;line-height:1.4}
+.alert-arr{color:#f59e0b;font-size:14px}
+/* Work hours */
+.wh-row{display:flex;align-items:center;gap:10px}
+.wh-label{flex:1;font-size:12px;color:var(--mu)}
+.wh-input{width:52px;padding:6px 8px;text-align:center;border:0.5px solid var(--bd);border-radius:8px;font-size:15px;font-weight:700;color:var(--navy);background:#f8fafc}
+.wh-unit{font-size:12px;color:var(--mu)}
+/* Form */
+.form-label{font-size:11px;color:var(--mu);font-weight:500;margin-bottom:4px;display:block}
+select{width:100%;padding:10px 11px;border:0.5px solid var(--bd);border-radius:9px;font-size:13px;color:var(--tx);background:var(--sf);margin-bottom:8px;outline:none;-webkit-appearance:none}
+select:focus{border-color:var(--accent)}
+/* Stats */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;margin-bottom:4px}
+.stat-card{background:#f8fafc;border-radius:10px;padding:10px 11px}
+.stat-lbl{font-size:10px;color:var(--mu)}
+.stat-val{font-size:20px;font-weight:700;color:var(--navy);margin-top:2px}
+.stat-val.accent{color:var(--accent)}
+.prog-wrap{background:#e2e8f0;border-radius:99px;height:5px;margin-top:6px}
+.prog-bar{height:5px;border-radius:99px;background:var(--navy)}
+.prog-info{font-size:10px;color:var(--hi);margin-top:3px}
+/* Qty */
+.qty-lbl{font-size:11px;color:var(--mu);font-weight:500;margin-bottom:6px;margin-top:10px}
+.qty-row{display:flex;gap:8px;align-items:center}
+.qty-input{flex:1;padding:10px;font-size:24px;font-weight:700;text-align:center;border:0.5px solid var(--bd);border-radius:10px;color:var(--navy);background:#f8fafc}
+.qty-unit{font-size:12px;color:var(--mu);white-space:nowrap}
+.btn-submit{width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;transition:background .15s}
+.btn-submit:active{background:var(--navy2)}
+.last-submit{text-align:center;font-size:11px;color:var(--hi);margin-top:6px}
+/* History */
+.filter-bar{display:flex;gap:0;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px}
+.fb{flex:1;text-align:center;padding:7px 4px;font-size:11px;color:var(--mu);cursor:pointer;border-radius:8px;border:none;background:transparent;transition:all .15s}
+.fb.active{background:var(--navy);color:#fff;font-weight:600}
+.hist-item{background:var(--sf);border-radius:12px;margin-bottom:7px;overflow:hidden;display:flex;border:0.5px solid rgba(0,0,0,.06)}
+.hist-bar{width:4px;flex-shrink:0}
+.hist-bar.ok{background:#22c55e}
+.hist-bar.pending{background:#f59e0b}
+.hist-bar.reject{background:#ef4444}
+.hist-body{flex:1;padding:10px 11px}
+.hist-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.hist-main{font-size:13px;color:var(--tx);font-weight:600}
+.hist-sub{font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5}
+.badge{display:inline-flex;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;white-space:nowrap;flex-shrink:0}
+.bp{background:var(--warnl);color:var(--warn)}
+.bo{background:var(--okl);color:var(--ok)}
+.br{background:var(--errl);color:var(--err)}
+.reject-box{background:var(--errl);border-radius:8px;padding:7px 10px;margin-top:7px;display:flex;align-items:flex-start;gap:6px}
+.reject-box i{color:var(--err);font-size:13px;flex-shrink:0;margin-top:1px}
+.reject-box span{font-size:11px;color:#7f1d1d;line-height:1.4}
+.hist-arr{color:var(--bd);font-size:14px;align-self:center;margin-right:10px;flex-shrink:0}
+/* Approval */
+.apv-item{background:var(--sf);border-radius:12px;margin-bottom:7px;border:0.5px solid rgba(0,0,0,.06);overflow:hidden}
+.apv-header{padding:10px 12px;display:flex;align-items:flex-start;gap:10px}
+.apv-check{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--bd);cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center}
+.apv-check.checked{background:var(--navy);border-color:var(--navy);color:#fff}
+.apv-info{flex:1}
+.apv-name{font-size:13px;font-weight:600;color:var(--tx)}
+.apv-detail{font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5}
+.apv-qty{font-size:15px;font-weight:700;color:var(--navy);white-space:nowrap}
+.apv-foot{padding:8px 12px;border-top:0.5px solid var(--bd);display:flex;gap:6px}
+.btn-apv{flex:1;padding:8px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px}
+.btn-ok{background:var(--okl);color:var(--ok)}
+.btn-rej{background:var(--errl);color:var(--err)}
+.batch-bar{display:flex;gap:6px;margin-bottom:8px}
+.batch-btn{flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.b-ok{background:var(--okl);color:var(--ok)}
+.b-rej{background:var(--errl);color:var(--err)}
+/* Tab bar */
+.tab-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--sf);border-top:0.5px solid var(--bd);z-index:100}
+.tab{flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer;position:relative}
+.tab i{font-size:20px;color:var(--hi)}
+.tab span{font-size:10px;color:var(--hi)}
+.tab.active i,.tab.active span{color:var(--navy)}
+.tab.active span{font-weight:600}
+.tab-bdg{position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+/* Toast */
+.toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:999;display:none;white-space:nowrap}
+/* Modal */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-end;justify-content:center}
+.mo.open{display:flex}
+.mo-box{background:var(--sf);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px}
+.mo-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px}
+textarea{width:100%;padding:10px 12px;border:0.5px solid var(--bd);border-radius:10px;font-size:13px;color:var(--tx);background:var(--sf);outline:none;resize:none}
+.mo-foot{display:flex;gap:8px;margin-top:14px}
+.mo-btn{flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer}
+.mo-cancel{background:#f1f5f9;color:var(--mu)}
+.mo-confirm{background:var(--err);color:#fff}
+/* Empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--hi)}
+.empty i{font-size:40px;margin-bottom:10px;display:block}
+.empty p{font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="ls" id="ls">
+  <div class="ls-box">
+    <div class="ls-logo">
+      <i class="ti ti-clipboard-list"></i>
+      <h1>Hệ thống báo công</h1>
+      <p>Production Reporting System v2.0</p>
+    </div>
+    <div class="fgrp">
+      <label>Tài khoản / 帳號</label>
+      <input type="text" id="lu" placeholder="Nhập tài khoản..." autocomplete="username">
+    </div>
+    <div class="fgrp">
+      <label>Mật khẩu / 密碼</label>
+      <input type="password" id="lp" placeholder="Nhập mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-login" onclick="doLogin()">
+      <i class="ti ti-login"></i> Đăng nhập / 登入
+    </button>
+    <div class="le hidden" id="le">
+      <i class="ti ti-alert-circle"></i><span id="le-msg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- App -->
+<div class="app hidden" id="app">
+  <div class="topbar">
+    <div class="top-row">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="av" id="top-av">TS</div>
+        <div>
+          <div class="top-name" id="top-name">Thu Sương</div>
+          <div class="top-info" id="top-info">Bộ phận: May bằng · Chức vụ: Nhân viên</div>
+        </div>
+      </div>
+      <div class="bell-wrap" onclick="goPage('p-hist')">
+        <i class="ti ti-bell"></i>
+        <div class="bell-bdg hidden" id="bell-bdg">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ct" id="ct">
+
+    <!-- 報工頁 -->
+    <div class="pg active" id="p-report">
+
+      <div class="alert-box hidden" id="alert-reject" onclick="goPage('p-hist');filterHist('reject')">
+        <i class="ti ti-alert-triangle"></i>
+        <div class="alert-text"><b id="alert-reject-text"></b><br><span style="font-size:11px">Nhấn để xem chi tiết / 點擊查看</span></div>
+        <i class="ti ti-chevron-right alert-arr"></i>
+      </div>
+
+      <div class="card">
+        <div class="wh-row">
+          <span class="wh-label">Giờ làm hôm nay / 今日工時</span>
+          <input type="number" class="wh-input" id="work-hours" value="8" min="1" max="24" onchange="saveWorkHours()">
+          <span class="wh-unit">giờ / 小時</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <label class="form-label">Đơn hàng / 訂單</label>
+        <select id="sel-order" onchange="onOrderChange()">
+          <option value="">-- Chọn đơn hàng --</option>
+        </select>
+
+        <label class="form-label">Mã hàng / 款號</label>
+        <select id="sel-code" onchange="onCodeChange()">
+          <option value="">-- Chọn mã hàng --</option>
+        </select>
+
+        <label class="form-label">Công đoạn / 工序</label>
+        <select id="sel-process" onchange="onProcessChange()">
+          <option value="">-- Chọn công đoạn --</option>
+        </select>
+
+        <div class="stat-grid" id="stat-grid" style="display:none">
+          <div class="stat-card">
+            <div class="stat-lbl">Số lượng đơn / 訂單數量</div>
+            <div class="stat-val" id="stat-qty">0</div>
+            <div class="prog-wrap"><div class="prog-bar" id="stat-prog" style="width:0%"></div></div>
+            <div class="prog-info" id="stat-info">Đã hoàn thành 0 / Còn lại 0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-lbl">Chờ duyệt / 待審批</div>
+            <div class="stat-val accent" id="stat-pending">0</div>
+            <div style="margin-top:8px"></div>
+            <div class="prog-info" id="stat-approved">Đã duyệt / 已通過：0</div>
+          </div>
+        </div>
+
+        <div id="qty-section" style="display:none">
+          <div class="qty-lbl">Số lượng hôm nay / 今日完成數量</div>
+          <div class="qty-row">
+            <input type="number" class="qty-input" id="qty-input" value="" min="1" placeholder="0">
+            <span class="qty-unit">PCS</span>
+          </div>
+          <button class="btn-submit" onclick="submitReport()">
+            <i class="ti ti-send"></i>
+            Gửi báo công / 送出報工
+          </button>
+          <div class="last-submit hidden" id="last-submit"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 記錄頁 -->
+    <div class="pg" id="p-hist">
+      <div class="filter-bar">
+        <button class="fb active" onclick="filterHist('all')" id="fb-all">Tất cả / 全部</button>
+        <button class="fb" onclick="filterHist('approved')" id="fb-approved">Đã duyệt / 通過</button>
+        <button class="fb" onclick="filterHist('pending')" id="fb-pending">Chờ duyệt / 待審</button>
+        <button class="fb" onclick="filterHist('rejected')" id="fb-rejected">Từ chối / 退回</button>
+      </div>
+      <div id="hist-list"></div>
+    </div>
+
+    <!-- 審批頁（班長） -->
+    <div class="pg" id="p-approval">
+      <div class="batch-bar">
+        <button class="batch-btn b-ok" onclick="batchApprove()">
+          <i class="ti ti-check"></i> Duyệt tất cả / 批量通過
+        </button>
+        <button class="batch-btn b-rej" onclick="batchReject()">
+          <i class="ti ti-x"></i> Từ chối / 批量退回
+        </button>
+      </div>
+      <div id="apv-list"></div>
+    </div>
+
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab active" onclick="goPage('p-report')" id="tab-report">
+      <i class="ti ti-clipboard-text"></i>
+      <span>Báo công</span>
+    </button>
+    <button class="tab" onclick="goPage('p-hist')" id="tab-hist">
+      <i class="ti ti-history"></i>
+      <span>Lịch sử</span>
+    </button>
+    <button class="tab hidden" onclick="goPage('p-approval')" id="tab-approval">
+      <i class="ti ti-check-circle"></i>
+      <span>Duyệt</span>
+      <div class="tab-bdg hidden" id="tab-bdg">0</div>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Reject Modal -->
+<div class="mo" id="mo-reject">
+  <div class="mo-box">
+    <div class="mo-title"><i class="ti ti-x" style="color:var(--err)"></i> Từ chối báo công / 退回報工</div>
+    <input type="hidden" id="rej-ids">
+    <textarea id="rej-reason" rows="3" placeholder="Lý do từ chối (tùy chọn) / 退回原因（選填）..."></textarea>
+    <div class="mo-foot">
+      <button class="mo-btn mo-cancel" onclick="closeMo()">Hủy / 取消</button>
+      <button class="mo-btn mo-confirm" onclick="confirmReject()">Xác nhận từ chối / 確認退回</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Firebase Config 來自 config.js
+const app = initializeApp(FIREBASE_CONFIG);
+const db = getFirestore(app);
+
+let cu = null;
+let orders = [];
+let orderProcesses = [];
+let myReports = [];
+let pendingReports = [];
+let currentProcId = null;
+let histFilter = 'all';
+
+// ============================
+// 工具
+// ============================
+function g(id){ return document.getElementById(id); }
+
+function showToast(msg, dur=2500){
+  const t = g('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=> t.style.display='none', dur);
+}
+
+function fmtDate(ts){
+  if(!ts) return '-';
+  const d = new Date(ts);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
+function fmtTime(ts){
+  if(!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = now - d;
+  if(diff < 86400000) return `Hôm nay ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  if(diff < 172800000) return `Hôm qua ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  return `${fmtDate(ts)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function getDeptVi(dept){
+  return DEPARTMENTS[dept] || dept;
+}
+
+function getRoleVi(role){
+  const map = {leader:'Tổ trưởng', user:'Nhân viên', admin:'Quản trị', manager:'Trưởng bộ phận', clerk:'Văn thư'};
+  return map[role] || role;
+}
+
+// ============================
+// Login
+// ============================
+window.doLogin = async function(){
+  const u = g('lu').value.trim();
+  const p = g('lp').value;
+  if(!u||!p){ showLoginErr('Vui lòng nhập đầy đủ / 請填入帳號密碼'); return; }
+
+  // 先找員工帳號
+  try {
+    const snap = await getDocs(query(collection(db, COLLECTIONS.EMPLOYEES), where('user','==',u)));
+    if(!snap.empty){
+      const emp = {id: snap.docs[0].id, ...snap.docs[0].data()};
+      if(emp.pass === p){
+        cu = emp;
+        initApp();
+        return;
+      }
+    }
+  } catch(e){}
+
+  // 再找後台帳號（班長）
+  try {
+    const snap = await getDoc(doc(db, COLLECTIONS.ADMIN_ACCOUNTS, 'data'));
+    if(snap.exists()){
+      const accs = JSON.parse(snap.data().accounts || '[]');
+      const found = accs.find(a => a.user===u && a.pass===p && a.role==='leader');
+      if(found){ cu = {...found, id: 'admin_'+u}; initApp(); return; }
+    }
+  } catch(e){}
+
+  showLoginErr('Sai tài khoản hoặc mật khẩu / 帳號或密碼錯誤');
+}
+
+function showLoginErr(msg){
+  const el = g('le');
+  g('le-msg').textContent = msg;
+  el.classList.remove('hidden');
+  setTimeout(()=> el.classList.add('hidden'), 4000);
+}
+
+// ============================
+// Init App
+// ============================
+async function initApp(){
+  g('ls').style.display = 'none';
+  g('app').classList.remove('hidden');
+
+  // 設定頂部
+  const initials = cu.name ? cu.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase() : cu.user.slice(0,2).toUpperCase();
+  g('top-av').textContent = initials;
+  g('top-name').textContent = cu.name || cu.user;
+  g('top-info').textContent = `Bộ phận: ${getDeptVi(cu.dept||'')} · Chức vụ: ${getRoleVi(cu.role||'user')}`;
+
+  // 班長顯示審批 tab
+  if(cu.role === 'leader'){
+    g('tab-approval').classList.remove('hidden');
+  }
+
+  // 載入工時
+  const savedHours = localStorage.getItem('workHours_' + new Date().toDateString());
+  if(savedHours) g('work-hours').value = savedHours;
+
+  await loadOrders();
+  await loadMyReports();
+  if(cu.role === 'leader') await loadPendingReports();
+}
+
+window.doLogout = function(){
+  cu = null;
+  g('ls').style.display = 'flex';
+  g('app').classList.add('hidden');
+  g('lu').value = '';
+  g('lp').value = '';
+}
+
+// ============================
+// 載入資料
+// ============================
+async function loadOrders(){
+  try {
+    const snap = await getDocs(collection(db, COLLECTIONS.ORDERS));
+    orders = snap.docs.map(d => ({id:d.id,...d.data()}));
+    orders.sort((a,b) => (b.createdAt||0)-(a.createdAt||0));
+    setupOrderSelect();
+  } catch(e){ console.error(e); }
+}
+
+function setupOrderSelect(){
+  const sel = g('sel-order');
+  sel.innerHTML = '<option value="">-- Chọn đơn hàng --</option>';
+  orders.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = `${o.orderId} · ${fmtDate(o.dueDate)}`;
+    sel.appendChild(opt);
+  });
+}
+
+window.onOrderChange = async function(){
+  const ordId = g('sel-order').value;
+  g('sel-code').innerHTML = '<option value="">-- Chọn mã hàng --</option>';
+  g('sel-process').innerHTML = '<option value="">-- Chọn công đoạn --</option>';
+  g('stat-grid').style.display = 'none';
+  g('qty-section').style.display = 'none';
+  currentProcId = null;
+
+  if(!ordId) return;
+
+  try {
+    const snap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES), where('orderId','==',ordId)));
+    orderProcesses = snap.docs.map(d => ({id:d.id,...d.data()}));
+
+    // 取得唯一款號
+    const codes = [...new Set(orderProcesses.map(p => p.code))].sort();
+    const sel = g('sel-code');
+    codes.forEach(code => {
+      const p = orderProcesses.find(x => x.code === code);
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = `${code}${p.color?' · '+p.color:''}${p.sz?' · '+p.sz:''}`;
+      sel.appendChild(opt);
+    });
+  } catch(e){ console.error(e); }
+}
+
+window.onCodeChange = function(){
+  const code = g('sel-code').value;
+  g('sel-process').innerHTML = '<option value="">-- Chọn công đoạn --</option>';
+  g('stat-grid').style.display = 'none';
+  g('qty-section').style.display = 'none';
+  currentProcId = null;
+
+  if(!code) return;
+
+  const procs = orderProcesses.filter(p => p.code === code);
+  procs.sort((a,b) => String(a.processNo).localeCompare(String(b.processNo)));
+  const sel = g('sel-process');
+  procs.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    // 只顯示越文
+    opt.textContent = `${p.processNo} · ${p.processVi || p.processZh}`;
+    sel.appendChild(opt);
+  });
+}
+
+window.onProcessChange = function(){
+  const procId = g('sel-process').value;
+  if(!procId){ g('stat-grid').style.display='none'; g('qty-section').style.display='none'; return; }
+
+  currentProcId = procId;
+  const proc = orderProcesses.find(p => p.id === procId);
+  if(!proc) return;
+
+  const approved = proc.approvedQty || 0;
+  const pending = proc.pendingQty || 0;
+  const qty = proc.orderQty || 0;
+  const prog = qty > 0 ? Math.min(Math.round(approved/qty*100), 100) : 0;
+
+  g('stat-qty').textContent = qty.toLocaleString();
+  g('stat-prog').style.width = prog + '%';
+  g('stat-info').textContent = `Đã hoàn thành ${approved.toLocaleString()} / Còn lại ${Math.max(0,qty-approved-pending).toLocaleString()}`;
+  g('stat-pending').textContent = pending.toLocaleString();
+  g('stat-approved').textContent = `Đã duyệt / 已通過：${approved.toLocaleString()}`;
+  g('stat-grid').style.display = 'grid';
+  g('qty-section').style.display = 'block';
+}
+
+// ============================
+// 報工
+// ============================
+window.submitReport = async function(){
+  const qty = parseInt(g('qty-input').value);
+  if(!currentProcId){ showToast('⚠️ Vui lòng chọn công đoạn / 請選擇工序'); return; }
+  if(!qty || qty <= 0){ showToast('⚠️ Vui lòng nhập số lượng / 請填入數量'); return; }
+
+  const proc = orderProcesses.find(p => p.id === currentProcId);
+  if(!proc) return;
+
+  const order = orders.find(o => o.id === proc.orderId);
+  const workHours = parseFloat(g('work-hours').value) || 8;
+
+  const reportData = {
+    empId: cu.id,
+    empName: cu.name || cu.user,
+    empDept: cu.dept || '',
+    orderId: proc.orderId,
+    orderNo: order ? order.orderId : '',
+    code: proc.code,
+    processNo: proc.processNo,
+    processVi: proc.processVi || proc.processZh,
+    processSec: proc.processSec || 0,
+    slPerHour: proc.slPerHour || 0,
+    qty: qty,
+    workHours: workHours,
+    status: 'pending',
+    createdAt: Date.now(),
+  };
+
+  try {
+    const ref = await addDoc(collection(db, COLLECTIONS.REPORTS), reportData);
+    reportData.id = ref.id;
+
+    // 更新 pendingQty
+    await updateDoc(doc(db, COLLECTIONS.ORDER_PROCESSES, currentProcId), {
+      pendingQty: (proc.pendingQty || 0) + qty
+    });
+    proc.pendingQty = (proc.pendingQty || 0) + qty;
+    onProcessChange();
+
+    myReports.unshift(reportData);
+    showToast('✅ Đã gửi báo công / 報工已送出');
+    g('qty-input').value = '';
+
+    const now = new Date();
+    g('last-submit').textContent = `Gửi lần cuối / 最後送出：${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    g('last-submit').classList.remove('hidden');
+    updateBadges();
+  } catch(e){
+    showToast('❌ Lỗi kết nối / 連線失敗，請重試');
+    console.error(e);
+  }
+}
+
+window.saveWorkHours = function(){
+  localStorage.setItem('workHours_' + new Date().toDateString(), g('work-hours').value);
+}
+
+// ============================
+// 我的報工記錄
+// ============================
+async function loadMyReports(){
+  try {
+    const thirtyDaysAgo = Date.now() - 30*24*3600*1000;
+    const snap = await getDocs(query(
+      collection(db, COLLECTIONS.REPORTS),
+      where('empId','==', cu.id),
+      where('createdAt','>=', thirtyDaysAgo)
+    ));
+    myReports = snap.docs.map(d => ({id:d.id,...d.data()}));
+    myReports.sort((a,b) => b.createdAt - a.createdAt);
+    updateBadges();
+    renderHist();
+  } catch(e){ console.error(e); }
+}
+
+function updateBadges(){
+  const rejected = myReports.filter(r => r.status==='rejected').length;
+  if(rejected > 0){
+    g('alert-reject').classList.remove('hidden');
+    g('alert-reject-text').textContent = `${rejected} báo công bị từ chối / ${rejected}筆報工被退回`;
+    g('bell-bdg').textContent = rejected;
+    g('bell-bdg').classList.remove('hidden');
+  } else {
+    g('alert-reject').classList.add('hidden');
+    g('bell-bdg').classList.add('hidden');
+  }
+}
+
+window.filterHist = function(f){
+  histFilter = f;
+  ['all','approved','pending','rejected'].forEach(x => {
+    g('fb-'+x).classList.toggle('active', x===f);
+  });
+  renderHist();
+}
+
+function renderHist(){
+  const list = g('hist-list');
+  let data = [...myReports];
+  if(histFilter !== 'all') data = data.filter(r => r.status === histFilter);
+
+  if(!data.length){
+    list.innerHTML = '<div class="empty"><i class="ti ti-clipboard-off"></i><p>Chưa có báo công / 尚無記錄</p></div>';
+    return;
+  }
+
+  list.innerHTML = data.map(r => {
+    const barClass = r.status==='approved'?'ok':r.status==='pending'?'pending':'reject';
+    const badge = r.status==='approved'
+      ? '<span class="badge bo">Đã duyệt</span>'
+      : r.status==='pending'
+      ? '<span class="badge bp">Chờ duyệt</span>'
+      : '<span class="badge br">Từ chối</span>';
+    const rejectBox = r.status==='rejected' && r.rejectReason
+      ? `<div class="reject-box"><i class="ti ti-info-circle"></i><span>Lý do: ${r.rejectReason}</span></div>`
+      : '';
+    return `<div class="hist-item">
+      <div class="hist-bar ${barClass}"></div>
+      <div class="hist-body">
+        <div class="hist-top">
+          <div>
+            <div class="hist-main">${r.processNo} · ${r.processVi||''}</div>
+            <div class="hist-sub">${r.code} · ${r.orderNo||''}<br>${fmtTime(r.createdAt)} · ${r.qty.toLocaleString()} PCS</div>
+          </div>
+          ${badge}
+        </div>
+        ${rejectBox}
+      </div>
+      <i class="ti ti-chevron-right hist-arr"></i>
+    </div>`;
+  }).join('');
+}
+
+// ============================
+// 審批（班長）
+// ============================
+async function loadPendingReports(){
+  try {
+    const snap = await getDocs(query(collection(db, COLLECTIONS.REPORTS), where('status','==','pending')));
+    pendingReports = snap.docs.map(d => ({id:d.id,...d.data()}));
+    pendingReports.sort((a,b) => b.createdAt-a.createdAt);
+    renderApproval();
+    updateApvBadge();
+  } catch(e){ console.error(e); }
+}
+
+function updateApvBadge(){
+  const count = pendingReports.length;
+  const bdg = g('tab-bdg');
+  if(count > 0){ bdg.textContent = count; bdg.classList.remove('hidden'); }
+  else bdg.classList.add('hidden');
+}
+
+function renderApproval(){
+  const list = g('apv-list');
+  if(!pendingReports.length){
+    list.innerHTML = '<div class="empty"><i class="ti ti-check-circle"></i><p>Không có báo công chờ duyệt / 沒有待審批</p></div>';
+    return;
+  }
+  list.innerHTML = pendingReports.map(r => `
+    <div class="apv-item" id="apv-${r.id}">
+      <div class="apv-header">
+        <div class="apv-check" id="chk-${r.id}" onclick="toggleChk('${r.id}')"></div>
+        <div class="apv-info">
+          <div class="apv-name">${r.empName||r.empId} <span style="font-size:11px;color:var(--hi)">· ${getDeptVi(r.empDept||'')}</span></div>
+          <div class="apv-detail">${r.orderNo||''} · ${r.code||''}<br>${r.processNo} · ${r.processVi||''}<br>${fmtTime(r.createdAt)}</div>
+        </div>
+        <div class="apv-qty">${r.qty.toLocaleString()} PCS</div>
+      </div>
+      <div class="apv-foot">
+        <button class="btn-apv btn-ok" onclick="approveOne('${r.id}')"><i class="ti ti-check"></i> Duyệt / 通過</button>
+        <button class="btn-apv btn-rej" onclick="rejectOne('${r.id}')"><i class="ti ti-x"></i> Từ chối / 退回</button>
+      </div>
+    </div>`).join('');
+}
+
+window.toggleChk = function(id){
+  const el = g('chk-'+id);
+  el.classList.toggle('checked');
+  if(el.classList.contains('checked')) el.innerHTML = '<i class="ti ti-check" style="font-size:12px"></i>';
+  else el.innerHTML = '';
+}
+
+function getChecked(){
+  return pendingReports.filter(r => g('chk-'+r.id)?.classList.contains('checked')).map(r => r.id);
+}
+
+window.approveOne = async function(id){
+  await approveReports([id]);
+}
+
+window.rejectOne = function(id){
+  g('rej-ids').value = JSON.stringify([id]);
+  g('rej-reason').value = '';
+  g('mo-reject').classList.add('open');
+}
+
+window.batchApprove = async function(){
+  const ids = getChecked();
+  if(!ids.length){ showToast('Vui lòng chọn báo công / 請先勾選'); return; }
+  await approveReports(ids);
+}
+
+window.batchReject = function(){
+  const ids = getChecked();
+  if(!ids.length){ showToast('Vui lòng chọn báo công / 請先勾選'); return; }
+  g('rej-ids').value = JSON.stringify(ids);
+  g('rej-reason').value = '';
+  g('mo-reject').classList.add('open');
+}
+
+async function approveReports(ids){
+  for(const id of ids){
+    const r = pendingReports.find(x => x.id===id);
+    if(!r) continue;
+    await updateDoc(doc(db, COLLECTIONS.REPORTS, id), {
+      status: 'approved', approvedAt: Date.now(), approvedBy: cu.user || cu.id
+    });
+    // 更新工序已通過數量
+    const procSnap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES),
+      where('orderId','==',r.orderId), where('code','==',r.code), where('processNo','==',r.processNo)));
+    if(!procSnap.empty){
+      const procDoc = procSnap.docs[0];
+      const cur = procDoc.data();
+      await updateDoc(procDoc.ref, {
+        approvedQty: (cur.approvedQty||0) + r.qty,
+        pendingQty: Math.max(0, (cur.pendingQty||0) - r.qty)
+      });
+    }
+  }
+  pendingReports = pendingReports.filter(r => !ids.includes(r.id));
+  renderApproval();
+  updateApvBadge();
+  showToast(`✅ Đã duyệt ${ids.length} báo công / 已通過${ids.length}筆`);
+}
+
+window.confirmReject = async function(){
+  const ids = JSON.parse(g('rej-ids').value || '[]');
+  const reason = g('rej-reason').value.trim();
+  for(const id of ids){
+    const r = pendingReports.find(x => x.id===id);
+    if(!r) continue;
+    await updateDoc(doc(db, COLLECTIONS.REPORTS, id), {
+      status: 'rejected', rejectedAt: Date.now(), rejectedBy: cu.user||cu.id, rejectReason: reason
+    });
+    // 釋放 pendingQty
+    const procSnap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES),
+      where('orderId','==',r.orderId), where('code','==',r.code), where('processNo','==',r.processNo)));
+    if(!procSnap.empty){
+      const procDoc = procSnap.docs[0];
+      const cur = procDoc.data();
+      await updateDoc(procDoc.ref, { pendingQty: Math.max(0,(cur.pendingQty||0)-r.qty) });
+    }
+  }
+  pendingReports = pendingReports.filter(r => !ids.includes(r.id));
+  renderApproval();
+  updateApvBadge();
+  closeMo();
+  showToast(`Đã từ chối ${ids.length} báo công / 已退回${ids.length}筆`);
+}
+
+window.closeMo = function(){
+  g('mo-reject').classList.remove('open');
+}
+
+// ============================
+// 頁面切換
+// ============================
+window.goPage = function(pid){
+  document.querySelectorAll('.pg').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  g(pid).classList.add('active');
+  const tabMap = {'p-report':'tab-report','p-hist':'tab-hist','p-approval':'tab-approval'};
+  if(tabMap[pid]) g(tabMap[pid]).classList.add('active');
+  if(pid==='p-hist') renderHist();
+  if(pid==='p-approval' && cu.role==='leader') loadPendingReports();
+}
+
+// Enter on login
+g('lu').addEventListener('keydown', e => { if(e.key==='Enter') g('lp').focus(); });
+</script>
+</body>
+</html>

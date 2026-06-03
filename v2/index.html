@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訂單報工系統 v2</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="config.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--navy:#1a3a5c;--navy2:#2d5f8e;--accent:#2563a8;--al:#dbeafe;--ok:#166534;--okl:#dcfce7;--warn:#92400e;--warnl:#fef3c7;--err:#991b1b;--errl:#fee2e2;--bd:#e2e8f0;--bg:#f8fafc;--sf:#fff;--tx:#1e293b;--mu:#64748b;--hi:#94a3b8}
+body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--tx);background:var(--bg)}
+.app{display:flex;height:100vh;min-height:640px}
+/* Sidebar */
+.sb{width:230px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.sb-title{font-size:14px;font-weight:600;color:#fff}
+.sb-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px}
+.sb-badge{display:inline-block;margin-top:5px;font-size:10px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:2px 8px;border-radius:10px}
+.sb-sec{padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;margin:1px 8px;border-radius:8px;transition:all .15s;position:relative}
+.ni:hover{background:rgba(255,255,255,.1);color:#fff}
+.ni.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500}
+.ni.locked{opacity:.25;cursor:not-allowed;pointer-events:none}
+.ni i{font-size:15px;flex-shrink:0}
+.ni-badge{position:absolute;right:10px;background:#ef4444;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nl{display:flex;flex-direction:column;gap:1px}
+.nvi{font-size:13px;line-height:1.3}
+.nzh{font-size:10px;color:rgba(255,255,255,.4);line-height:1.2}
+.ni.active .nzh{color:rgba(255,255,255,.6)}
+.sb-ft{margin-top:auto;padding:12px 16px;border-top:1px solid rgba(255,255,255,.08)}
+.sb-ft-t{font-size:10px;color:rgba(255,255,255,.25)}
+/* Main */
+.mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.tb{padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.tb-title{font-weight:500;font-size:14px;flex:1;color:var(--navy)}
+.up{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;background:#f1f5f9;color:var(--mu)}
+.up.adm{background:var(--okl);color:var(--ok)}
+.up.mgr{background:#dbeafe;color:#1e40af}
+.ct{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
+.pg{display:none}.pg.active{display:block}
+/* Cards */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
+.ct-title{font-size:13px;font-weight:500;margin-bottom:14px;color:var(--mu);display:flex;align-items:center;gap:7px;padding-bottom:10px;border-bottom:1px solid var(--bd)}
+.ct-title i{font-size:15px;color:var(--accent)}
+/* Stats */
+.mg{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+.mc{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;position:relative;overflow:hidden}
+.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+.ml{font-size:11px;color:var(--mu);margin-bottom:1px}
+.mvi{font-size:10px;color:var(--hi);margin-bottom:6px}
+.mv{font-size:22px;font-weight:600;color:var(--navy)}
+/* Forms */
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
+.fg.cols2{grid-template-columns:repeat(2,1fr)}
+.fg.cols3{grid-template-columns:repeat(3,1fr)}
+.fgrp{display:flex;flex-direction:column;gap:5px}
+.fgrp label{font-size:12px;color:var(--mu);font-weight:500}
+.lvi{display:block;font-size:10px;color:var(--hi);margin-top:1px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;color:var(--tx);background:var(--sf);outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+input[type=number]{-moz-appearance:textfield}
+/* Buttons */
+.btn{padding:7px 14px;border-radius:8px;border:none;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-weight:500}
+.bp{background:var(--navy);color:#fff}.bp:hover{background:var(--navy2)}
+.bs{background:#f1f5f9;color:var(--tx);border:1px solid var(--bd)}.bs:hover{background:#e2e8f0}
+.bo{background:transparent;color:var(--accent);border:1px solid var(--accent)}.bo:hover{background:var(--al)}
+.bd-btn{background:transparent;color:var(--err);border:1px solid #fca5a5}.bd-btn:hover{background:var(--errl)}
+.bg-btn{background:var(--okl);color:var(--ok);border:1px solid #86efac}.bg-btn:hover{background:#bbf7d0}
+.bsm{padding:4px 10px;font-size:12px}
+/* Tables */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bd)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8fafc;padding:9px 12px;text-align:left;font-weight:500;color:var(--mu);font-size:12px;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #f1f5f9;color:var(--tx);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f8fafc}
+.tv{display:block;font-size:10px;color:var(--hi);margin-top:1px}
+/* Tags */
+.tg{display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap}
+.tg-ok{background:var(--okl);color:var(--ok)}
+.tg-warn{background:var(--warnl);color:var(--warn)}
+.tg-err{background:var(--errl);color:var(--err)}
+.tg-info{background:var(--al);color:var(--accent)}
+.tg-gray{background:#f1f5f9;color:var(--mu)}
+/* Notifications */
+.nt{padding:10px 14px;border-radius:8px;font-size:12px;display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
+.nt i{flex-shrink:0;margin-top:1px}
+.ns{background:var(--okl);color:var(--ok)}
+.nw{background:var(--warnl);color:var(--warn)}
+.ne{background:var(--errl);color:var(--err)}
+.ni2{background:var(--al);color:var(--accent)}
+/* Modal */
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:16px}
+.mo.open{display:flex}
+.mo-box{background:var(--sf);border-radius:14px;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+.mo-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.mo-title i{color:var(--accent)}
+.mo-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--bd)}
+/* Progress */
+.prog-wrap{background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden}
+.prog-bar{height:100%;border-radius:99px;background:var(--accent);transition:width .3s}
+.prog-bar.ok{background:#22c55e}
+.prog-bar.warn{background:#f59e0b}
+/* Login */
+.ls{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:9999}
+.ls-box{background:var(--sf);border-radius:16px;padding:32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.ls-logo{text-align:center;margin-bottom:24px}
+.ls-logo h1{font-size:18px;font-weight:700;color:var(--navy)}
+.ls-logo p{font-size:12px;color:var(--mu);margin-top:4px}
+/* Upload zone */
+.drop-zone{border:2px dashed var(--bd);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .15s;color:var(--mu)}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--al);color:var(--accent)}
+.drop-zone i{font-size:28px;margin-bottom:8px;display:block}
+/* Sync status */
+#sync-status{display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+/* Login screen */
+.hidden{display:none!important}
+/* Pagination */
+.pag{display:flex;align-items:center;gap:4px;margin-top:12px;justify-content:center}
+.pag-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;color:var(--mu)}
+.pag-btn:hover,.pag-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Search bar */
+.srch{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.srch input{max-width:220px}
+.srch select{max-width:160px}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="ls" id="ls">
+  <div class="ls-box">
+    <div class="ls-logo">
+      <i class="ti ti-clipboard-list" style="font-size:36px;color:var(--navy)"></i>
+      <h1>訂單報工系統</h1>
+      <p>Production Reporting System v2.0</p>
+    </div>
+    <div class="fgrp" style="margin-bottom:12px">
+      <label>帳號 / Tài khoản</label>
+      <input type="text" id="lu" placeholder="輸入帳號..." autocomplete="username">
+    </div>
+    <div class="fgrp" style="margin-bottom:20px">
+      <label>密碼 / Mật khẩu</label>
+      <input type="password" id="lp" placeholder="輸入密碼..." autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn bp" style="width:100%;justify-content:center" onclick="doLogin()">
+      <i class="ti ti-login"></i> 登入 / Đăng nhập
+    </button>
+    <div id="le" class="nt ne" style="display:none;margin-top:12px;margin-bottom:0">
+      <i class="ti ti-alert-circle"></i><span id="le-msg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div class="app hidden" id="ma">
+  <!-- Sidebar -->
+  <div class="sb">
+    <div class="sb-logo">
+      <div class="sb-title"><i class="ti ti-clipboard-list"></i> 報工系統</div>
+      <div class="sb-sub">Production Reporting System</div>
+      <div class="sb-badge">v2.0</div>
+    </div>
+
+    <div id="sb-nav">
+      <div class="sb-sec">主功能 / Chính</div>
+      <div class="ni active" onclick="goPage('p-orders')" id="nav-orders">
+        <i class="ti ti-file-invoice"></i>
+        <div class="nl"><div class="nvi">訂單管理</div><div class="nzh">Quản lý đơn hàng</div></div>
+      </div>
+      <div class="ni" onclick="goPage('p-processes')" id="nav-processes">
+        <i class="ti ti-list-check"></i>
+        <div class="nl"><div class="nvi">訂單工序</div><div class="nzh">Công đoạn đơn hàng</div></div>
+      </div>
+      <div class="ni" onclick="goPage('p-approval')" id="nav-approval">
+        <i class="ti ti-check-circle"></i>
+        <div class="nl"><div class="nvi">報工審批</div><div class="nzh">Duyệt báo công</div></div>
+        <span class="ni-badge" id="badge-approval" style="display:none">0</span>
+      </div>
+      <div class="ni" onclick="goPage('p-progress')" id="nav-progress">
+        <i class="ti ti-chart-bar"></i>
+        <div class="nl"><div class="nvi">訂單進度</div><div class="nzh">Tiến độ đơn hàng</div></div>
+      </div>
+
+      <div class="sb-sec">報表 / Báo cáo</div>
+      <div class="ni" onclick="goPage('p-stats')" id="nav-stats">
+        <i class="ti ti-chart-pie"></i>
+        <div class="nl"><div class="nvi">員工產量統計</div><div class="nzh">Thống kê sản lượng</div></div>
+      </div>
+
+      <div class="sb-sec">管理 / Quản lý</div>
+      <div class="ni" onclick="goPage('p-employees')" id="nav-employees">
+        <i class="ti ti-users"></i>
+        <div class="nl"><div class="nvi">員工管理</div><div class="nzh">Quản lý nhân viên</div></div>
+      </div>
+      <div class="ni" onclick="goPage('p-accounts')" id="nav-accounts">
+        <i class="ti ti-shield-lock"></i>
+        <div class="nl"><div class="nvi">帳號管理</div><div class="nzh">Quản lý tài khoản</div></div>
+      </div>
+      <div class="ni" onclick="goPage('p-backup')" id="nav-backup">
+        <i class="ti ti-database-export"></i>
+        <div class="nl"><div class="nvi">資料備份</div><div class="nzh">Sao lưu dữ liệu</div></div>
+      </div>
+    </div>
+
+    <div class="sb-ft">
+      <div class="sb-ft-t" id="sb-user"></div>
+      <div id="sync-status-sb" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="mn">
+    <div class="tb">
+      <div class="tb-title" id="tb-title">訂單管理</div>
+      <div class="up" id="tb-user" style="margin-left:auto"></div>
+      <button class="btn bs bsm" onclick="doLogout()"><i class="ti ti-logout"></i></button>
+    </div>
+
+    <div class="ct">
+
+      <!-- ===== 訂單管理 ===== -->
+      <div class="pg active" id="p-orders">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-file-invoice"></i> 訂單列表 / Danh sách đơn hàng</div>
+          <div class="srch">
+            <input type="text" id="ord-search" placeholder="搜尋訂單編號 /款號..." oninput="rOrders()" style="max-width:240px">
+            <select id="ord-filter-status" onchange="rOrders()">
+              <option value="">全部訂單 / Tất cả</option>
+              <option value="active">進行中 / Đang thực hiện</option>
+              <option value="done">已完成 / Hoàn thành</option>
+            </select>
+            <button class="btn bp" onclick="openImportOrder()" id="btn-import-order">
+              <i class="ti ti-upload"></i> 匯入訂單 / Nhập đơn hàng
+            </button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>訂單編號<span class="tv">Mã đơn</span></th>
+                  <th>款數<span class="tv">Số mã hàng</span></th>
+                  <th>總數量<span class="tv">Tổng SL</span></th>
+                  <th>出貨日期<span class="tv">Ngày xuất</span></th>
+                  <th>建立時間<span class="tv">Ngày tạo</span></th>
+                  <th>整體進度<span class="tv">Tiến độ</span></th>
+                  <th>操作<span class="tv">Thao tác</span></th>
+                </tr>
+              </thead>
+              <tbody id="ord-tbody"></tbody>
+            </table>
+          </div>
+          <div id="ord-empty" class="nt ni2" style="display:none;margin-top:10px">
+            <i class="ti ti-info-circle"></i> 尚無訂單，請先匯入訂單 Excel / Chưa có đơn hàng
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 訂單工序 ===== -->
+      <div class="pg" id="p-processes">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-list-check"></i> 訂單工序清單 / Danh sách công đoạn đơn hàng</div>
+          <div class="srch">
+            <select id="proc-ord" onchange="rProcesses()">
+              <option value="">選擇訂單 / Chọn đơn hàng</option>
+            </select>
+            <input type="text" id="proc-search" placeholder="搜尋款號 / 工序..." oninput="rProcesses()" style="max-width:200px">
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>款號<span class="tv">Mã hàng</span></th>
+                  <th>中文名稱<span class="tv">Tên TQ</span></th>
+                  <th>尺寸<span class="tv">Kích thước</span></th>
+                  <th>工序號<span class="tv">Số CĐ</span></th>
+                  <th>工序名稱<span class="tv">Tên công đoạn</span></th>
+                  <th>訂單數量<span class="tv">SL đơn</span></th>
+                  <th>已通過<span class="tv">Đã duyệt</span></th>
+                  <th>待審批<span class="tv">Chờ duyệt</span></th>
+                  <th>剩餘<span class="tv">Còn lại</span></th>
+                  <th>進度<span class="tv">Tiến độ</span></th>
+                </tr>
+              </thead>
+              <tbody id="proc-tbody"></tbody>
+            </table>
+          </div>
+          <div id="proc-empty" class="nt ni2" style="display:none;margin-top:10px">
+            <i class="ti ti-info-circle"></i> 請先選擇訂單 / Vui lòng chọn đơn hàng
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 報工審批 ===== -->
+      <div class="pg" id="p-approval">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-check-circle"></i> 待審批報工 / Báo công chờ duyệt</div>
+          <div class="srch">
+            <select id="apv-ord" onchange="rApproval()">
+              <option value="">全部訂單 / Tất cả đơn</option>
+            </select>
+            <select id="apv-dept" onchange="rApproval()">
+              <option value="">全部部門 / Tất cả bộ phận</option>
+            </select>
+            <select id="apv-emp" onchange="rApproval()">
+              <option value="">全部員工 / Tất cả nhân viên</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button class="btn bg-btn bsm" onclick="batchApprove()"><i class="ti ti-check"></i> 批量通過 / Duyệt tất cả</button>
+            <button class="btn bd-btn bsm" onclick="batchReject()"><i class="ti ti-x"></i> 批量退回 / Từ chối tất cả</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th><input type="checkbox" id="chk-all" onchange="toggleAllChk(this)"></th>
+                  <th>員工<span class="tv">Nhân viên</span></th>
+                  <th>部門<span class="tv">Bộ phận</span></th>
+                  <th>訂單<span class="tv">Đơn hàng</span></th>
+                  <th>款號<span class="tv">Mã hàng</span></th>
+                  <th>工序<span class="tv">Công đoạn</span></th>
+                  <th>申報數量<span class="tv">Số lượng</span></th>
+                  <th>申報時間<span class="tv">Thời gian</span></th>
+                  <th>操作<span class="tv">Thao tác</span></th>
+                </tr>
+              </thead>
+              <tbody id="apv-tbody"></tbody>
+            </table>
+          </div>
+          <div id="apv-empty" class="nt ns" style="display:none;margin-top:10px">
+            <i class="ti ti-check"></i> 目前沒有待審批的報工 / Không có báo công chờ duyệt
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 訂單進度 ===== -->
+      <div class="pg" id="p-progress">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-chart-bar"></i> 訂單進度追蹤 / Theo dõi tiến độ</div>
+          <div class="srch">
+            <select id="prog-ord" onchange="rProgress()">
+              <option value="">選擇訂單 / Chọn đơn hàng</option>
+            </select>
+          </div>
+          <div id="prog-content"></div>
+        </div>
+      </div>
+
+      <!-- ===== 員工產量統計 ===== -->
+      <div class="pg" id="p-stats">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-chart-pie"></i> 員工產量統計 / Thống kê sản lượng nhân viên</div>
+          <div class="srch">
+            <select id="stat-range" onchange="rStats()">
+              <option value="today">今天 / Hôm nay</option>
+              <option value="month" selected>本月 / Tháng này</option>
+              <option value="custom">自訂 / Tùy chỉnh</option>
+            </select>
+            <input type="date" id="stat-from" style="display:none;max-width:150px" onchange="rStats()">
+            <input type="date" id="stat-to" style="display:none;max-width:150px" onchange="rStats()">
+            <select id="stat-dept" onchange="rStats()">
+              <option value="">全部部門 / Tất cả</option>
+            </select>
+            <button class="btn bs bsm" onclick="exportStats()"><i class="ti ti-download"></i> 匯出 Excel</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>員工<span class="tv">Nhân viên</span></th>
+                  <th>部門<span class="tv">Bộ phận</span></th>
+                  <th>訂單<span class="tv">Đơn hàng</span></th>
+                  <th>款號<span class="tv">Mã hàng</span></th>
+                  <th>工序<span class="tv">Công đoạn</span></th>
+                  <th>完成數量<span class="tv">Số lượng</span></th>
+                  <th>標準產量/時<span class="tv">SL/giờ TC</span></th>
+                  <th>效率<span class="tv">Hiệu suất</span></th>
+                </tr>
+              </thead>
+              <tbody id="stat-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 員工管理 ===== -->
+      <div class="pg" id="p-employees">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-users"></i> 員工管理 / Quản lý nhân viên</div>
+          <div class="srch">
+            <button class="btn bp" onclick="openAddEmp()"><i class="ti ti-plus"></i> 新增員工 / Thêm nhân viên</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>姓名<span class="tv">Tên</span></th>
+                  <th>帳號<span class="tv">Tài khoản</span></th>
+                  <th>部門<span class="tv">Bộ phận</span></th>
+                  <th>角色<span class="tv">Vai trò</span></th>
+                  <th>操作<span class="tv">Thao tác</span></th>
+                </tr>
+              </thead>
+              <tbody id="emp-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 帳號管理 ===== -->
+      <div class="pg" id="p-accounts">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-shield-lock"></i> 後台帳號管理 / Quản lý tài khoản</div>
+          <div class="srch">
+            <button class="btn bp" onclick="openAddAcc()"><i class="ti ti-plus"></i> 新增帳號 / Thêm tài khoản</button>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>帳號<span class="tv">Tài khoản</span></th>
+                  <th>角色<span class="tv">Vai trò</span></th>
+                  <th>操作<span class="tv">Thao tác</span></th>
+                </tr>
+              </thead>
+              <tbody id="acc-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 資料備份 ===== -->
+      <div class="pg" id="p-backup">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-database-export"></i> 資料備份 / Sao lưu dữ liệu</div>
+          <div class="fg cols3">
+            <div class="mc">
+              <div class="ml">全部備份</div>
+              <div class="mvi">Sao lưu tất cả</div>
+              <button class="btn bp" style="margin-top:8px" onclick="backupAll()"><i class="ti ti-download"></i> 立即備份</button>
+            </div>
+            <div class="mc">
+              <div class="ml">分類匯出</div>
+              <div class="mvi">Xuất theo loại</div>
+              <select id="bk-type" style="margin-top:8px;margin-bottom:8px">
+                <option value="orders">訂單資料</option>
+                <option value="orderProcesses">訂單工序</option>
+                <option value="employees">員工資料</option>
+                <option value="reports">報工記錄</option>
+                <option value="accounts">帳號資料</option>
+              </select>
+              <button class="btn bs" onclick="backupType()"><i class="ti ti-download"></i> 匯出</button>
+            </div>
+          </div>
+          <div id="bk-log" class="nt ns" style="display:none"></div>
+        </div>
+      </div>
+
+    </div><!-- ct -->
+  </div><!-- mn -->
+</div><!-- app -->
+
+<!-- Sync Status -->
+<div id="sync-status"></div>
+
+<!-- ===== MODALS ===== -->
+
+<!-- 匯入訂單 Modal -->
+<div class="mo" id="m-import-order">
+  <div class="mo-box" style="max-width:600px">
+    <div class="mo-title"><i class="ti ti-file-upload"></i> 匯入訂單 / Nhập đơn hàng</div>
+
+    <div id="imp-step1">
+      <div class="fg cols2">
+        <div class="fgrp">
+          <label>訂單編號 / Mã đơn hàng <span style="color:var(--err)">*</span></label>
+          <input type="text" id="imp-ordid" placeholder="例如：ORD-2025-001">
+        </div>
+        <div class="fgrp">
+          <label>預計出貨日期 / Ngày xuất hàng <span style="color:var(--err)">*</span></label>
+          <input type="date" id="imp-duedate">
+        </div>
+      </div>
+      <div class="fgrp" style="margin-bottom:14px">
+        <label>上傳訂單 Excel / Tải lên file Excel</label>
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('imp-file').click()">
+          <i class="ti ti-file-spreadsheet"></i>
+          <div style="font-size:13px;font-weight:500">點擊或拖曳 Excel 檔案</div>
+          <div style="font-size:11px;margin-top:4px">支援 .xlsx / .xls 格式</div>
+        </div>
+        <input type="file" id="imp-file" accept=".xlsx,.xls" style="display:none" onchange="handleOrderFile(this)">
+      </div>
+    </div>
+
+    <div id="imp-step2" style="display:none">
+      <div class="nt ns" id="imp-ok-msg" style="margin-bottom:10px"></div>
+      <div class="nt nw" id="imp-skip-msg" style="display:none;margin-bottom:10px"></div>
+      <div class="tbl-wrap" style="max-height:300px;overflow-y:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>款號<span class="tv">Mã hàng</span></th>
+              <th>說明<span class="tv">Mô tả</span></th>
+              <th>顏色<span class="tv">Màu</span></th>
+              <th>數量<span class="tv">Số lượng</span></th>
+              <th>工序數<span class="tv">Số CĐ</span></th>
+              <th>狀態<span class="tv">Trạng thái</span></th>
+            </tr>
+          </thead>
+          <tbody id="imp-preview-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mo-foot">
+      <button class="btn bs" onclick="closeModal('m-import-order')">取消 / Hủy</button>
+      <button class="btn bp" id="imp-btn" onclick="confirmImportOrder()">
+        <i class="ti ti-check"></i> 確認匯入 / Xác nhận
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯訂單 Modal -->
+<div class="mo" id="m-edit-order">
+  <div class="mo-box">
+    <div class="mo-title"><i class="ti ti-edit"></i> 編輯訂單 / Chỉnh sửa đơn hàng</div>
+    <input type="hidden" id="eo-id">
+    <div class="fg cols2">
+      <div class="fgrp">
+        <label>訂單編號</label>
+        <input type="text" id="eo-ordid" readonly style="background:#f8fafc;color:var(--mu)">
+      </div>
+      <div class="fgrp">
+        <label>預計出貨日期 / Ngày xuất</label>
+        <input type="date" id="eo-duedate">
+      </div>
+    </div>
+    <div class="mo-foot">
+      <button class="btn bs" onclick="closeModal('m-edit-order')">取消</button>
+      <button class="btn bp" onclick="saveEditOrder()"><i class="ti ti-check"></i> 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 退回原因 Modal -->
+<div class="mo" id="m-reject">
+  <div class="mo-box">
+    <div class="mo-title"><i class="ti ti-x"></i> 退回報工 / Từ chối báo công</div>
+    <input type="hidden" id="rej-ids">
+    <div class="fgrp" style="margin-bottom:16px">
+      <label>退回原因（選填）/ Lý do từ chối (tùy chọn)</label>
+      <textarea id="rej-reason" rows="3" placeholder="輸入退回原因..."></textarea>
+    </div>
+    <div class="mo-foot">
+      <button class="btn bs" onclick="closeModal('m-reject')">取消</button>
+      <button class="btn bd-btn" onclick="confirmReject()"><i class="ti ti-x"></i> 確認退回</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增員工 Modal -->
+<div class="mo" id="m-add-emp">
+  <div class="mo-box">
+    <div class="mo-title"><i class="ti ti-user-plus"></i> 新增員工 / Thêm nhân viên</div>
+    <input type="hidden" id="ae-id">
+    <div class="fg cols2">
+      <div class="fgrp">
+        <label>姓名（越文）/ Tên <span style="color:var(--err)">*</span></label>
+        <input type="text" id="ae-name" placeholder="Nguyễn Văn A">
+      </div>
+      <div class="fgrp">
+        <label>部門 / Bộ phận</label>
+        <select id="ae-dept">
+          <option value="">選擇部門...</option>
+        </select>
+      </div>
+      <div class="fgrp">
+        <label>帳號 / Tài khoản <span style="color:var(--err)">*</span></label>
+        <input type="text" id="ae-user" placeholder="輸入帳號...">
+      </div>
+      <div class="fgrp">
+        <label>密碼 / Mật khẩu <span style="color:var(--err)">*</span></label>
+        <input type="password" id="ae-pass" placeholder="輸入密碼...">
+      </div>
+      <div class="fgrp">
+        <label>角色 / Vai trò</label>
+        <select id="ae-role">
+          <option value="user">員工 / Nhân viên</option>
+          <option value="leader">班長 / Tổ trưởng</option>
+        </select>
+      </div>
+    </div>
+    <div class="mo-foot">
+      <button class="btn bs" onclick="closeModal('m-add-emp')">取消</button>
+      <button class="btn bp" onclick="saveEmp()"><i class="ti ti-check"></i> 儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增帳號 Modal -->
+<div class="mo" id="m-add-acc">
+  <div class="mo-box">
+    <div class="mo-title"><i class="ti ti-shield-plus"></i> 新增帳號 / Thêm tài khoản</div>
+    <input type="hidden" id="aa-id">
+    <div class="fg cols2">
+      <div class="fgrp">
+        <label>帳號 <span style="color:var(--err)">*</span></label>
+        <input type="text" id="aa-user" placeholder="輸入帳號...">
+      </div>
+      <div class="fgrp">
+        <label>密碼 <span style="color:var(--err)">*</span></label>
+        <input type="password" id="aa-pass" placeholder="輸入密碼...">
+      </div>
+      <div class="fgrp">
+        <label>角色</label>
+        <select id="aa-role" id="aa-role">
+          <option value="clerk">文員 / Văn thư</option>
+          <option value="manager">課長 / Trưởng bộ phận</option>
+          <option value="admin">管理員 / Quản trị</option>
+        </select>
+      </div>
+    </div>
+    <div class="mo-foot">
+      <button class="btn bs" onclick="closeModal('m-add-acc')">取消</button>
+      <button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i> 儲存</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, limit, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const app = initializeApp(FIREBASE_CONFIG);
+const db = getFirestore(app);
+
+// ============================
+// 狀態變數
+// ============================
+let cu = null; // 目前登入用戶
+let orders = [];
+let orderProcesses = [];
+let employees = [];
+let accounts = [];
+let products = []; // 從工序表讀取
+let pendingReports = [];
+let importData = null; // 暫存匯入資料
+
+window.syncState = 'idle';
+
+// ============================
+// 同步狀態
+// ============================
+function setSyncState(state) {
+  window.syncState = state;
+  const el = document.getElementById('sync-status');
+  const sb = document.getElementById('sync-status-sb');
+  const map = {
+    syncing: {text:'🟡 同步中...', color:'#f59e0b'},
+    success: {text:'🟢 已同步 ' + new Date().toLocaleTimeString('zh-TW'), color:'#16a34a'},
+    failed:  {text:'🔴 同步失敗', color:'#dc2626'},
+  };
+  const m = map[state];
+  if(m && el){
+    el.textContent = m.text;
+    el.style.color = m.color;
+    el.style.display = 'block';
+  } else if(el) {
+    el.style.display = 'none';
+  }
+}
+
+async function fbSave(col, id, data) {
+  setSyncState('syncing');
+  try {
+    await setDoc(doc(db, col, id), data);
+    setSyncState('success');
+    return true;
+  } catch(e) {
+    setSyncState('failed');
+    console.error('fbSave error:', col, id, e);
+    return false;
+  }
+}
+
+async function fbAdd(col, data) {
+  setSyncState('syncing');
+  try {
+    const ref = await addDoc(collection(db, col), data);
+    setSyncState('success');
+    return ref.id;
+  } catch(e) {
+    setSyncState('failed');
+    console.error('fbAdd error:', col, e);
+    return null;
+  }
+}
+
+async function fbUpdate(col, id, data) {
+  setSyncState('syncing');
+  try {
+    await updateDoc(doc(db, col, id), data);
+    setSyncState('success');
+    return true;
+  } catch(e) {
+    setSyncState('failed');
+    return false;
+  }
+}
+
+async function fbDelete(col, id) {
+  setSyncState('syncing');
+  try {
+    await deleteDoc(doc(db, col, id));
+    setSyncState('success');
+    return true;
+  } catch(e) {
+    setSyncState('failed');
+    return false;
+  }
+}
+
+async function fbGetAll(col) {
+  try {
+    const snap = await getDocs(collection(db, col));
+    return snap.docs.map(d => ({id: d.id, ...d.data()}));
+  } catch(e) {
+    console.error('fbGetAll error:', col, e);
+    return [];
+  }
+}
+
+// ============================
+// 登入/登出
+// ============================
+window.doLogin = async function() {
+  const u = document.getElementById('lu').value.trim();
+  const p = document.getElementById('lp').value;
+  if(!u||!p) return showLoginErr('請填入帳號和密碼');
+
+  // 先讀 Firebase 帳號
+  try {
+    const snap = await getDoc(doc(db, COLLECTIONS.ADMIN_ACCOUNTS, 'data'));
+    if(snap.exists()) {
+      accounts = JSON.parse(snap.data().accounts || '[]');
+    }
+  } catch(e) {}
+
+  // 找帳號（包含預設管理員）
+  if(accounts.length === 0) {
+    accounts = [{user:'admin', pass:'admin123', role:'admin', name:'管理員'}];
+  }
+
+  const found = accounts.find(a => a.user === u && a.pass === p);
+  if(!found) return showLoginErr('帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu');
+
+  cu = found;
+  document.getElementById('ls').style.display = 'none';
+  document.getElementById('ma').classList.remove('hidden');
+  document.getElementById('tb-user').textContent = cu.name || cu.user;
+  document.getElementById('tb-user').className = 'up ' + (cu.role==='admin'?'adm':cu.role==='manager'?'mgr':'');
+  document.getElementById('sb-user').textContent = (cu.name||cu.user) + ' · ' + getRoleLabel(cu.role);
+
+  setupNavByRole();
+  await loadAll();
+  goPage('p-orders');
+}
+
+window.doLogout = function() {
+  cu = null;
+  document.getElementById('ls').style.display = 'flex';
+  document.getElementById('ma').classList.add('hidden');
+  document.getElementById('lu').value = '';
+  document.getElementById('lp').value = '';
+}
+
+function showLoginErr(msg) {
+  const el = document.getElementById('le');
+  document.getElementById('le-msg').textContent = msg;
+  el.style.display = 'flex';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function getRoleLabel(role) {
+  const map = {admin:'管理員', manager:'課長', leader:'班長', clerk:'文員', user:'員工'};
+  return map[role] || role;
+}
+
+// ============================
+// 權限控制
+// ============================
+function setupNavByRole() {
+  const role = cu.role;
+  const navMap = {
+    'nav-orders':    ['admin','manager','clerk'],
+    'nav-processes': ['admin','manager','clerk','leader'],
+    'nav-approval':  ['admin','manager','leader'],
+    'nav-progress':  ['admin','manager','clerk','leader'],
+    'nav-stats':     ['admin','manager','clerk','leader'],
+    'nav-employees': ['admin','manager','clerk'],
+    'nav-accounts':  ['admin','manager'],
+    'nav-backup':    ['admin'],
+  };
+  Object.entries(navMap).forEach(([id, roles]) => {
+    const el = document.getElementById(id);
+    if(el) {
+      if(!roles.includes(role)) el.classList.add('locked');
+      else el.classList.remove('locked');
+    }
+  });
+}
+
+// ============================
+// 載入所有資料
+// ============================
+async function loadAll() {
+  // 載入工序表（只讀）
+  try {
+    const snap = await getDoc(doc(db, 'system', 'products'));
+    if(snap.exists()) products = JSON.parse(snap.data().data || '[]');
+  } catch(e) {}
+
+  // 載入訂單系統資料
+  orders = await fbGetAll(COLLECTIONS.ORDERS);
+  employees = await fbGetAll(COLLECTIONS.EMPLOYEES);
+
+  // 載入帳號
+  try {
+    const snap = await getDoc(doc(db, COLLECTIONS.ADMIN_ACCOUNTS, 'data'));
+    if(snap.exists()) accounts = JSON.parse(snap.data().accounts || '[]');
+  } catch(e) {}
+
+  rOrders();
+  rEmployees();
+  rAccounts();
+  rApproval();
+  setupDeptOptions();
+  setupOrderSelects();
+}
+
+function setupDeptOptions() {
+  DEPARTMENTS.forEach(dept => {
+    ['apv-dept','ae-dept','stat-dept'].forEach(id => {
+      const sel = document.getElementById(id);
+      if(sel && !sel.querySelector(`option[value="${dept}"]`)) {
+        const opt = document.createElement('option');
+        opt.value = dept; opt.textContent = dept;
+        sel.appendChild(opt);
+      }
+    });
+  });
+}
+
+function setupOrderSelects() {
+  ['proc-ord','apv-ord','prog-ord'].forEach(id => {
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    const current = sel.value;
+    while(sel.options.length > 1) sel.remove(1);
+    orders.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.id;
+      opt.textContent = `${o.orderId} · ${fmtDate(o.dueDate)}`;
+      sel.appendChild(opt);
+    });
+    if(current) sel.value = current;
+  });
+}
+
+// ============================
+// 頁面切換
+// ============================
+window.goPage = function(pid) {
+  document.querySelectorAll('.pg').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+  const pg = document.getElementById(pid);
+  if(pg) pg.classList.add('active');
+  const navId = 'nav-' + pid.replace('p-','');
+  const nav = document.getElementById(navId);
+  if(nav) nav.classList.add('active');
+  const titles = {
+    'p-orders':'訂單管理', 'p-processes':'訂單工序',
+    'p-approval':'報工審批', 'p-progress':'訂單進度',
+    'p-stats':'員工產量統計', 'p-employees':'員工管理',
+    'p-accounts':'帳號管理', 'p-backup':'資料備份'
+  };
+  document.getElementById('tb-title').textContent = titles[pid] || '';
+
+  if(pid==='p-processes') rProcesses();
+  if(pid==='p-progress') rProgress();
+  if(pid==='p-stats') rStats();
+}
+
+window.closeModal = function(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+// ============================
+// 訂單管理
+// ============================
+window.rOrders = function() {
+  const q = (document.getElementById('ord-search').value||'').toLowerCase();
+  const status = document.getElementById('ord-filter-status').value;
+  const tbody = document.getElementById('ord-tbody');
+  tbody.innerHTML = '';
+
+  let list = [...orders];
+  if(q) list = list.filter(o => o.orderId.toLowerCase().includes(q));
+
+  if(!list.length) {
+    document.getElementById('ord-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('ord-empty').style.display = 'none';
+
+  list.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  list.forEach(o => {
+    const progress = calcOrderProgress(o.id);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b style="color:var(--navy)">${o.orderId}</b></td>
+      <td>${o.itemCount||0}</td>
+      <td>${(o.totalQty||0).toLocaleString()}</td>
+      <td>${fmtDate(o.dueDate)}</td>
+      <td>${fmtDate(o.createdAt)}</td>
+      <td style="min-width:120px">
+        <div class="prog-wrap"><div class="prog-bar ${progress>=100?'ok':progress>=50?'':''}" style="width:${Math.min(progress,100)}%"></div></div>
+        <div style="font-size:11px;color:var(--mu);margin-top:3px">${progress}%</div>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn bs bsm" onclick="viewOrderProcesses('${o.id}')"><i class="ti ti-list"></i></button>
+          <button class="btn bs bsm" onclick="editOrder('${o.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn bd-btn bsm" onclick="deleteOrder('${o.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  setupOrderSelects();
+}
+
+function calcOrderProgress(orderId) {
+  // 先暫時回傳0，之後從orderProcesses計算
+  return 0;
+}
+
+window.viewOrderProcesses = function(orderId) {
+  document.getElementById('proc-ord').value = orderId;
+  goPage('p-processes');
+  rProcesses();
+}
+
+window.editOrder = function(id) {
+  const o = orders.find(x => x.id === id);
+  if(!o) return;
+  document.getElementById('eo-id').value = id;
+  document.getElementById('eo-ordid').value = o.orderId;
+  document.getElementById('eo-duedate').value = o.dueDate ? new Date(o.dueDate).toISOString().split('T')[0] : '';
+  openModal('m-edit-order');
+}
+
+window.saveEditOrder = async function() {
+  const id = document.getElementById('eo-id').value;
+  const dueDate = document.getElementById('eo-duedate').value;
+  if(!dueDate) return alert('請填寫出貨日期');
+  const idx = orders.findIndex(o => o.id === id);
+  if(idx < 0) return;
+  orders[idx].dueDate = new Date(dueDate).getTime();
+  orders[idx].updatedAt = Date.now();
+  orders[idx].updatedBy = cu.user;
+  await fbSave(COLLECTIONS.ORDERS, id, orders[idx]);
+  closeModal('m-edit-order');
+  rOrders();
+}
+
+window.deleteOrder = async function(id) {
+  const o = orders.find(x => x.id === id);
+  if(!o) return;
+  if(!confirm(`確定刪除訂單 ${o.orderId}？此操作不可還原。`)) return;
+  await fbDelete(COLLECTIONS.ORDERS, id);
+  orders = orders.filter(x => x.id !== id);
+  rOrders();
+}
+
+// ============================
+// 匯入訂單
+// ============================
+window.openImportOrder = function() {
+  importData = null;
+  document.getElementById('imp-ordid').value = '';
+  document.getElementById('imp-duedate').value = '';
+  document.getElementById('imp-file').value = '';
+  document.getElementById('imp-step1').style.display = 'block';
+  document.getElementById('imp-step2').style.display = 'none';
+  document.getElementById('imp-skip-msg').style.display = 'none';
+  openModal('m-import-order');
+}
+
+window.handleOrderFile = function(input) {
+  const file = input.files[0];
+  if(!file) return;
+  const ordId = document.getElementById('imp-ordid').value.trim();
+  const dueDate = document.getElementById('imp-duedate').value;
+  if(!ordId) { alert('請先填寫訂單編號'); input.value=''; return; }
+  if(!dueDate) { alert('請先填寫出貨日期'); input.value=''; return; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+      // 找標題行（含 ITEM NO. 或 款號）
+      let headerRow = -1;
+      for(let i=0; i<Math.min(10,rows.length); i++) {
+        const r = rows[i].map(c => String(c).toUpperCase());
+        if(r.some(c => c.includes('ITEM') || c.includes('款號'))) {
+          headerRow = i; break;
+        }
+      }
+      if(headerRow < 0) { alert('找不到標題列，請確認 Excel 格式'); return; }
+
+      const headers = rows[headerRow].map(c => String(c).toUpperCase().trim());
+      const itemNoIdx = headers.findIndex(h => h.includes('ITEM'));
+      const descIdx = headers.findIndex(h => h.includes('DESC') || h.includes('說明'));
+      const colorIdx = headers.findIndex(h => h.includes('COLOR') || h.includes('顏色'));
+      const qtyIdx = headers.findIndex(h => h.includes("Q'TY") || h.includes('QTY') || h.includes('數量'));
+
+      const dataRows = rows.slice(headerRow+1).filter(r => r[itemNoIdx]);
+      const matched = [];
+      const skipped = [];
+
+      dataRows.forEach(r => {
+        const itemNo = String(r[itemNoIdx]||'').trim();
+        const qty = parseInt(r[qtyIdx]||0);
+        if(!itemNo || !qty) return;
+
+        const prod = products.find(p => p.code === itemNo);
+        if(prod) {
+          matched.push({
+            code: itemNo,
+            desc: String(r[descIdx]||'').trim(),
+            color: String(r[colorIdx]||'').trim(),
+            qty: qty,
+            ops: prod.ops || [],
+            zh: prod.zh || '',
+            sz: prod.sz || ''
+          });
+        } else {
+          skipped.push(itemNo);
+        }
+      });
+
+      importData = { ordId, dueDate, matched, skipped };
+
+      // 顯示預覽
+      document.getElementById('imp-step2').style.display = 'block';
+      document.getElementById('imp-ok-msg').innerHTML = `<i class="ti ti-check"></i> 找到 <b>${matched.length}</b> 個款號可匯入，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> 道工序`;
+
+      if(skipped.length > 0) {
+        document.getElementById('imp-skip-msg').style.display = 'flex';
+        document.getElementById('imp-skip-msg').innerHTML = `<i class="ti ti-alert-triangle"></i> 跳過 ${skipped.length} 個款號（工序表找不到）：${skipped.slice(0,5).join('、')}${skipped.length>5?'...':''}`;
+      }
+
+      const tbody = document.getElementById('imp-preview-tbody');
+      tbody.innerHTML = '';
+      matched.forEach(m => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><b>${m.code}</b></td><td>${m.desc}</td><td>${m.color}</td><td>${m.qty.toLocaleString()}</td><td>${m.ops.length}</td><td><span class="tg tg-ok">✓ 可匯入</span></td>`;
+        tbody.appendChild(tr);
+      });
+      skipped.forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td><b>${s}</b></td><td>-</td><td>-</td><td>-</td><td>-</td><td><span class="tg tg-err">找不到工序</span></td>`;
+        tbody.appendChild(tr);
+      });
+    } catch(err) {
+      alert('讀取 Excel 失敗：' + err.message);
+    }
+  };
+  reader.readAsBinaryString(file);
+}
+
+window.confirmImportOrder = async function() {
+  if(!importData || !importData.matched.length) {
+    alert('請先上傳 Excel 檔案');
+    return;
+  }
+
+  const btn = document.getElementById('imp-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> 匯入中...';
+
+  try {
+    const {ordId, dueDate, matched} = importData;
+    const now = Date.now();
+
+    // 建立訂單
+    const orderData = {
+      orderId: ordId,
+      dueDate: new Date(dueDate).getTime(),
+      itemCount: matched.length,
+      totalQty: matched.reduce((a,m)=>a+m.qty,0),
+      createdAt: now,
+      createdBy: cu.user,
+    };
+    const ordDocId = await fbAdd(COLLECTIONS.ORDERS, orderData);
+    if(!ordDocId) throw new Error('建立訂單失敗');
+    orderData.id = ordDocId;
+    orders.push(orderData);
+
+    // 建立訂單工序清單
+    for(const item of matched) {
+      for(const op of item.ops) {
+        const procData = {
+          orderId: ordDocId,
+          orderNo: ordId,
+          code: item.code,
+          desc: item.desc,
+          color: item.color,
+          zh: item.zh,
+          sz: item.sz,
+          orderQty: item.qty,
+          processNo: op.no,
+          processZh: op.zh,
+          processVi: op.vi || '',
+          processSec: op.sec,
+          slPerHour: op.qty || Math.round(3600/op.sec),
+          approvedQty: 0,
+          pendingQty: 0,
+          createdAt: now,
+        };
+        await fbAdd(COLLECTIONS.ORDER_PROCESSES, procData);
+      }
+    }
+
+    closeModal('m-import-order');
+    rOrders();
+    alert(`✅ 訂單 ${ordId} 匯入成功！\n款號：${matched.length} 個\n工序：${matched.reduce((a,m)=>a+m.ops.length,0)} 道`);
+  } catch(err) {
+    alert('匯入失敗：' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-check"></i> 確認匯入 / Xác nhận';
+    importData = null;
+  }
+}
+
+// ============================
+// 訂單工序
+// ============================
+window.rProcesses = async function() {
+  const ordId = document.getElementById('proc-ord').value;
+  const q = (document.getElementById('proc-search').value||'').toLowerCase();
+  const tbody = document.getElementById('proc-tbody');
+  tbody.innerHTML = '';
+
+  if(!ordId) {
+    document.getElementById('proc-empty').style.display = 'flex';
+    return;
+  }
+  document.getElementById('proc-empty').style.display = 'none';
+
+  // 從 Firebase 讀取此訂單的工序
+  try {
+    const snap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES), where('orderId','==',ordId)));
+    let procs = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    if(q) procs = procs.filter(p => p.code.toLowerCase().includes(q) || p.processZh.toLowerCase().includes(q));
+
+    procs.sort((a,b) => a.code.localeCompare(b.code) || String(a.processNo).localeCompare(String(b.processNo)));
+
+    procs.forEach(p => {
+      const remaining = Math.max(0, p.orderQty - p.approvedQty - p.pendingQty);
+      const progress = p.orderQty > 0 ? Math.round(p.approvedQty/p.orderQty*100) : 0;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><b>${p.code}</b>${p.color?`<span class="tv">${p.color}</span>`:''}</td>
+        <td>${p.zh||''}</td>
+        <td>${p.sz||''}</td>
+        <td>${p.processNo}</td>
+        <td>${p.processZh}<span class="tv">${p.processVi||''}</span></td>
+        <td>${p.orderQty.toLocaleString()}</td>
+        <td style="color:var(--ok);font-weight:500">${p.approvedQty.toLocaleString()}</td>
+        <td style="color:var(--warn)">${p.pendingQty.toLocaleString()}</td>
+        <td style="color:var(--accent)">${remaining.toLocaleString()}</td>
+        <td style="min-width:100px">
+          <div class="prog-wrap"><div class="prog-bar ${progress>=100?'ok':''}" style="width:${Math.min(progress,100)}%"></div></div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">${progress}%</div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+// ============================
+// 審批
+// ============================
+window.rApproval = async function() {
+  const ordId = document.getElementById('apv-ord').value;
+  const dept = document.getElementById('apv-dept').value;
+  const empFilter = document.getElementById('apv-emp').value;
+  const tbody = document.getElementById('apv-tbody');
+  tbody.innerHTML = '';
+
+  try {
+    let q2 = query(collection(db, COLLECTIONS.REPORTS), where('status','==','pending'));
+    if(ordId) q2 = query(collection(db, COLLECTIONS.REPORTS), where('status','==','pending'), where('orderId','==',ordId));
+    const snap = await getDocs(q2);
+    pendingReports = snap.docs.map(d => ({id:d.id, ...d.data()}));
+
+    let list = [...pendingReports];
+    if(dept) list = list.filter(r => r.empDept === dept);
+    if(empFilter) list = list.filter(r => r.empId === empFilter);
+
+    // 更新角標
+    const badge = document.getElementById('badge-approval');
+    if(pendingReports.length > 0) {
+      badge.textContent = pendingReports.length;
+      badge.style.display = 'block';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    if(!list.length) {
+      document.getElementById('apv-empty').style.display = 'flex';
+      return;
+    }
+    document.getElementById('apv-empty').style.display = 'none';
+
+    list.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="checkbox" class="apv-chk" value="${r.id}"></td>
+        <td>${r.empName||r.empId}</td>
+        <td>${r.empDept||'-'}</td>
+        <td>${r.orderNo||''}</td>
+        <td>${r.code||''}</td>
+        <td>${r.processNo} ${r.processZh||''}</td>
+        <td><b>${r.qty.toLocaleString()}</b></td>
+        <td>${fmtDateTime(r.createdAt)}</td>
+        <td>
+          <div style="display:flex;gap:4px">
+            <button class="btn bg-btn bsm" onclick="approveOne('${r.id}')"><i class="ti ti-check"></i></button>
+            <button class="btn bd-btn bsm" onclick="rejectOne('${r.id}')"><i class="ti ti-x"></i></button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  } catch(e) {
+    console.error(e);
+  }
+}
+
+window.toggleAllChk = function(chk) {
+  document.querySelectorAll('.apv-chk').forEach(c => c.checked = chk.checked);
+}
+
+function getCheckedIds() {
+  return [...document.querySelectorAll('.apv-chk:checked')].map(c => c.value);
+}
+
+window.batchApprove = async function() {
+  const ids = getCheckedIds();
+  if(!ids.length) { alert('請先勾選要審批的記錄'); return; }
+  if(!confirm(`確認通過 ${ids.length} 筆報工？`)) return;
+  for(const id of ids) await approveReport(id);
+  rApproval();
+}
+
+window.batchReject = function() {
+  const ids = getCheckedIds();
+  if(!ids.length) { alert('請先勾選要退回的記錄'); return; }
+  document.getElementById('rej-ids').value = JSON.stringify(ids);
+  document.getElementById('rej-reason').value = '';
+  openModal('m-reject');
+}
+
+window.approveOne = async function(id) {
+  if(!confirm('確認通過此筆報工？')) return;
+  await approveReport(id);
+  rApproval();
+}
+
+window.rejectOne = function(id) {
+  document.getElementById('rej-ids').value = JSON.stringify([id]);
+  document.getElementById('rej-reason').value = '';
+  openModal('m-reject');
+}
+
+async function approveReport(reportId) {
+  const r = pendingReports.find(x => x.id === reportId);
+  if(!r) return;
+  try {
+    // 更新報工狀態
+    await updateDoc(doc(db, COLLECTIONS.REPORTS, reportId), {
+      status: 'approved',
+      approvedAt: Date.now(),
+      approvedBy: cu.user
+    });
+    // 更新訂單工序已通過數量
+    const procSnap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES),
+      where('orderId','==',r.orderId),
+      where('code','==',r.code),
+      where('processNo','==',r.processNo)));
+    if(!procSnap.empty) {
+      const procDoc = procSnap.docs[0];
+      const current = procDoc.data();
+      await updateDoc(procDoc.ref, {
+        approvedQty: (current.approvedQty||0) + r.qty,
+        pendingQty: Math.max(0, (current.pendingQty||0) - r.qty)
+      });
+    }
+  } catch(e) { console.error(e); }
+}
+
+window.confirmReject = async function() {
+  const ids = JSON.parse(document.getElementById('rej-ids').value||'[]');
+  const reason = document.getElementById('rej-reason').value.trim();
+  for(const id of ids) {
+    const r = pendingReports.find(x => x.id === id);
+    if(!r) continue;
+    await updateDoc(doc(db, COLLECTIONS.REPORTS, id), {
+      status: 'rejected',
+      rejectedAt: Date.now(),
+      rejectedBy: cu.user,
+      rejectReason: reason
+    });
+    // 釋放 pendingQty
+    const procSnap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES),
+      where('orderId','==',r.orderId),
+      where('code','==',r.code),
+      where('processNo','==',r.processNo)));
+    if(!procSnap.empty) {
+      const procDoc = procSnap.docs[0];
+      const current = procDoc.data();
+      await updateDoc(procDoc.ref, {
+        pendingQty: Math.max(0, (current.pendingQty||0) - r.qty)
+      });
+    }
+  }
+  closeModal('m-reject');
+  rApproval();
+}
+
+// ============================
+// 訂單進度
+// ============================
+window.rProgress = async function() {
+  const ordId = document.getElementById('prog-ord').value;
+  const content = document.getElementById('prog-content');
+  content.innerHTML = '';
+  if(!ordId) {
+    content.innerHTML = '<div class="nt ni2"><i class="ti ti-info-circle"></i> 請先選擇訂單</div>';
+    return;
+  }
+
+  const order = orders.find(o => o.id === ordId);
+  if(!order) return;
+
+  const snap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES), where('orderId','==',ordId)));
+  const procs = snap.docs.map(d => ({id:d.id, ...d.data()}));
+
+  // 按款號分組
+  const byCode = {};
+  procs.forEach(p => {
+    if(!byCode[p.code]) byCode[p.code] = [];
+    byCode[p.code].push(p);
+  });
+
+  // 計算整體進度
+  const totalApproved = procs.reduce((a,p)=>a+p.approvedQty,0);
+  const totalQty = procs.reduce((a,p)=>a+p.orderQty,0);
+  const overall = totalQty > 0 ? Math.round(totalApproved/totalQty*100) : 0;
+
+  let html = `
+    <div class="card" style="margin-bottom:14px">
+      <div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:12px">${order.orderId}</div>
+      <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap">
+        <div><div style="font-size:11px;color:var(--mu)">出貨日期</div><div style="font-weight:500">${fmtDate(order.dueDate)}</div></div>
+        <div><div style="font-size:11px;color:var(--mu)">款數</div><div style="font-weight:500">${order.itemCount}</div></div>
+        <div><div style="font-size:11px;color:var(--mu)">總數量</div><div style="font-weight:500">${(order.totalQty||0).toLocaleString()}</div></div>
+        <div><div style="font-size:11px;color:var(--mu)">整體進度</div><div style="font-weight:600;color:var(--accent)">${overall}%</div></div>
+      </div>
+      <div class="prog-wrap"><div class="prog-bar ${overall>=100?'ok':''}" style="width:${Math.min(overall,100)}%"></div></div>
+    </div>`;
+
+  Object.entries(byCode).forEach(([code, codeProcs]) => {
+    const codeApproved = codeProcs.reduce((a,p)=>a+p.approvedQty,0);
+    const codeQty = codeProcs[0].orderQty;
+    const codeProgress = codeQty > 0 ? Math.round(codeApproved/codeQty*100) : 0;
+
+    html += `<div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+        <div>
+          <b style="color:var(--navy)">${code}</b>
+          <span style="font-size:12px;color:var(--mu);margin-left:8px">${codeProcs[0].desc||''} ${codeProcs[0].color||''}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:120px">
+            <div class="prog-wrap"><div class="prog-bar ${codeProgress>=100?'ok':''}" style="width:${Math.min(codeProgress,100)}%"></div></div>
+            <div style="font-size:11px;color:var(--mu);margin-top:2px">${codeProgress}% · ${codeApproved.toLocaleString()}/${codeQty.toLocaleString()}</div>
+          </div>
+          <i class="ti ti-chevron-down" style="color:var(--mu)"></i>
+        </div>
+      </div>
+      <div style="display:none">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>工序號</th><th>工序名稱</th><th>訂單數量</th><th>已通過</th><th>待審批</th><th>剩餘</th><th>進度</th>
+            </tr></thead>
+            <tbody>`;
+
+    codeProcs.sort((a,b) => String(a.processNo).localeCompare(String(b.processNo)));
+    codeProcs.forEach(p => {
+      const remaining = Math.max(0, p.orderQty - p.approvedQty - p.pendingQty);
+      const prog = p.orderQty > 0 ? Math.round(p.approvedQty/p.orderQty*100) : 0;
+      html += `<tr>
+        <td>${p.processNo}</td>
+        <td>${p.processZh}<span class="tv">${p.processVi||''}</span></td>
+        <td>${p.orderQty.toLocaleString()}</td>
+        <td style="color:var(--ok);font-weight:500">${p.approvedQty.toLocaleString()}</td>
+        <td style="color:var(--warn)">${p.pendingQty.toLocaleString()}</td>
+        <td style="color:var(--accent)">${remaining.toLocaleString()}</td>
+        <td>
+          <div class="prog-wrap"><div class="prog-bar ${prog>=100?'ok':''}" style="width:${Math.min(prog,100)}%"></div></div>
+          <div style="font-size:11px;color:var(--mu);margin-top:2px">${prog}%</div>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table></div></div></div>`;
+  });
+
+  content.innerHTML = html;
+}
+
+// ============================
+// 員工產量統計
+// ============================
+window.rStats = async function() {
+  const range = document.getElementById('stat-range').value;
+  const dept = document.getElementById('stat-dept').value;
+  const fromEl = document.getElementById('stat-from');
+  const toEl = document.getElementById('stat-to');
+
+  fromEl.style.display = range==='custom'?'block':'none';
+  toEl.style.display = range==='custom'?'block':'none';
+
+  const now = new Date();
+  let fromDate, toDate;
+  if(range==='today') {
+    fromDate = new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+    toDate = Date.now();
+  } else if(range==='month') {
+    fromDate = new Date(now.getFullYear(),now.getMonth(),1).getTime();
+    toDate = Date.now();
+  } else {
+    if(!fromEl.value||!toEl.value) return;
+    fromDate = new Date(fromEl.value).getTime();
+    toDate = new Date(toEl.value).getTime() + 86400000;
+  }
+
+  // 檢查6個月限制
+  const sixMonths = 6*30*24*3600*1000;
+  if(toDate - fromDate > sixMonths) {
+    alert('查詢範圍不能超過6個月');
+    return;
+  }
+
+  try {
+    const snap = await getDocs(query(collection(db, COLLECTIONS.REPORTS),
+      where('status','==','approved'),
+      where('createdAt','>=',fromDate),
+      where('createdAt','<=',toDate)));
+    let reports = snap.docs.map(d => ({id:d.id,...d.data()}));
+    if(dept) reports = reports.filter(r => r.empDept === dept);
+
+    const tbody = document.getElementById('stat-tbody');
+    tbody.innerHTML = '';
+    reports.sort((a,b) => (a.empName||'').localeCompare(b.empName||''));
+    reports.forEach(r => {
+      const stdPerHour = r.slPerHour || (r.processSec ? Math.round(3600/r.processSec) : 0);
+      const workedHours = r.workHours || 8;
+      const actualPerHour = workedHours > 0 ? Math.round(r.qty/workedHours) : 0;
+      const efficiency = stdPerHour > 0 ? Math.round(actualPerHour/stdPerHour*100) : 0;
+      const effColor = efficiency>=100?'var(--ok)':efficiency>=80?'var(--warn)':'var(--err)';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.empName||r.empId}</td>
+        <td>${r.empDept||'-'}</td>
+        <td>${r.orderNo||''}</td>
+        <td>${r.code||''}</td>
+        <td>${r.processNo} ${r.processZh||''}</td>
+        <td><b>${r.qty.toLocaleString()}</b></td>
+        <td>${stdPerHour}</td>
+        <td style="font-weight:600;color:${effColor}">${efficiency}%</td>`;
+      tbody.appendChild(tr);
+    });
+  } catch(e) { console.error(e); }
+}
+
+window.exportStats = function() {
+  alert('匯出功能開發中...');
+}
+
+// ============================
+// 員工管理
+// ============================
+window.rEmployees = function() {
+  const tbody = document.getElementById('emp-tbody');
+  tbody.innerHTML = '';
+  employees.forEach(e => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${e.name}</b></td>
+      <td>${e.user}</td>
+      <td>${e.dept||'-'}</td>
+      <td><span class="tg ${e.role==='leader'?'tg-info':'tg-gray'}">${e.role==='leader'?'班長':'員工'}</span></td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn bs bsm" onclick="editEmp('${e.id}')"><i class="ti ti-edit"></i></button>
+          <button class="btn bd-btn bsm" onclick="deleteEmp('${e.id}')"><i class="ti ti-trash"></i></button>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+window.openAddEmp = function() {
+  document.getElementById('ae-id').value = '';
+  document.getElementById('ae-name').value = '';
+  document.getElementById('ae-user').value = '';
+  document.getElementById('ae-pass').value = '';
+  document.getElementById('ae-dept').value = '';
+  document.getElementById('ae-role').value = 'user';
+  openModal('m-add-emp');
+}
+
+window.editEmp = function(id) {
+  const e = employees.find(x => x.id === id);
+  if(!e) return;
+  document.getElementById('ae-id').value = id;
+  document.getElementById('ae-name').value = e.name;
+  document.getElementById('ae-user').value = e.user;
+  document.getElementById('ae-pass').value = '';
+  document.getElementById('ae-dept').value = e.dept||'';
+  document.getElementById('ae-role').value = e.role||'user';
+  openModal('m-add-emp');
+}
+
+window.saveEmp = async function() {
+  const id = document.getElementById('ae-id').value;
+  const name = document.getElementById('ae-name').value.trim();
+  const user = document.getElementById('ae-user').value.trim();
+  const pass = document.getElementById('ae-pass').value;
+  const dept = document.getElementById('ae-dept').value;
+  const role = document.getElementById('ae-role').value;
+  if(!name||!user) return alert('請填寫姓名和帳號');
+  if(!id && !pass) return alert('新增員工請填寫密碼');
+  if(!id && employees.find(e => e.user===user)) return alert('帳號已存在');
+
+  const data = {name, user, dept, role, updatedAt: Date.now()};
+  if(pass) data.pass = pass;
+
+  if(id) {
+    const idx = employees.findIndex(e => e.id===id);
+    if(idx>=0) { employees[idx] = {...employees[idx], ...data}; await fbSave(COLLECTIONS.EMPLOYEES, id, employees[idx]); }
+  } else {
+    data.createdAt = Date.now();
+    const newId = await fbAdd(COLLECTIONS.EMPLOYEES, data);
+    if(newId) { data.id = newId; employees.push(data); }
+  }
+  closeModal('m-add-emp');
+  rEmployees();
+}
+
+window.deleteEmp = async function(id) {
+  if(!confirm('確定刪除此員工帳號？')) return;
+  await fbDelete(COLLECTIONS.EMPLOYEES, id);
+  employees = employees.filter(e => e.id!==id);
+  rEmployees();
+}
+
+// ============================
+// 帳號管理
+// ============================
+window.rAccounts = function() {
+  const tbody = document.getElementById('acc-tbody');
+  tbody.innerHTML = '';
+  accounts.forEach((a,i) => {
+    const isSelf = a.user === cu.user;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><b>${a.user}</b>${isSelf?'<span class="tg tg-info" style="margin-left:6px">我</span>':''}</td>
+      <td><span class="tg ${a.role==='admin'?'tg-ok':a.role==='manager'?'tg-info':'tg-gray'}">${getRoleLabel(a.role)}</span></td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn bs bsm" onclick="editAcc(${i})"><i class="ti ti-edit"></i></button>
+          ${!isSelf?`<button class="btn bd-btn bsm" onclick="deleteAcc(${i})"><i class="ti ti-trash"></i></button>`:''}
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+window.openAddAcc = function() {
+  document.getElementById('aa-id').value = '';
+  document.getElementById('aa-user').value = '';
+  document.getElementById('aa-pass').value = '';
+  document.getElementById('aa-role').value = 'clerk';
+  openModal('m-add-acc');
+}
+
+window.editAcc = function(idx) {
+  const a = accounts[idx];
+  document.getElementById('aa-id').value = idx;
+  document.getElementById('aa-user').value = a.user;
+  document.getElementById('aa-pass').value = '';
+  document.getElementById('aa-role').value = a.role;
+  openModal('m-add-acc');
+}
+
+window.saveAcc = async function() {
+  const idx = document.getElementById('aa-id').value;
+  const user = document.getElementById('aa-user').value.trim();
+  const pass = document.getElementById('aa-pass').value;
+  const role = document.getElementById('aa-role').value;
+  if(!user) return alert('請填寫帳號');
+
+  if(idx === '') {
+    if(!pass) return alert('請填寫密碼');
+    if(accounts.find(a => a.user===user)) return alert('帳號已存在');
+    accounts.push({user, pass, role});
+  } else {
+    accounts[parseInt(idx)].user = user;
+    accounts[parseInt(idx)].role = role;
+    if(pass) accounts[parseInt(idx)].pass = pass;
+  }
+  await fbSave(COLLECTIONS.ADMIN_ACCOUNTS, 'data', {accounts: JSON.stringify(accounts)});
+  closeModal('m-add-acc');
+  rAccounts();
+}
+
+window.deleteAcc = async function(idx) {
+  if(!confirm('確定刪除此帳號？')) return;
+  accounts.splice(idx, 1);
+  await fbSave(COLLECTIONS.ADMIN_ACCOUNTS, 'data', {accounts: JSON.stringify(accounts)});
+  rAccounts();
+}
+
+// ============================
+// 資料備份
+// ============================
+window.backupAll = async function() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader"></i> 備份中...';
+  try {
+    const data = {
+      version: SYSTEM_VERSION,
+      backupAt: Date.now(),
+      backupBy: cu.user,
+      orders: await fbGetAll(COLLECTIONS.ORDERS),
+      orderProcesses: await fbGetAll(COLLECTIONS.ORDER_PROCESSES),
+      employees: await fbGetAll(COLLECTIONS.EMPLOYEES),
+      reports: await fbGetAll(COLLECTIONS.REPORTS),
+      accounts: accounts,
+    };
+    const now = new Date();
+    const fname = `backup_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.json`;
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const log = document.getElementById('bk-log');
+    log.style.display = 'flex';
+    log.innerHTML = `<i class="ti ti-check"></i> 備份成功：${fname}`;
+    setTimeout(() => log.style.display='none', 5000);
+  } catch(e) { alert('備份失敗：'+e.message); }
+  finally { btn.disabled=false; btn.innerHTML='<i class="ti ti-download"></i> 立即備份'; }
+}
+
+window.backupType = async function() {
+  const type = document.getElementById('bk-type').value;
+  const colMap = {
+    orders: COLLECTIONS.ORDERS,
+    orderProcesses: COLLECTIONS.ORDER_PROCESSES,
+    employees: COLLECTIONS.EMPLOYEES,
+    reports: COLLECTIONS.REPORTS,
+    accounts: null
+  };
+  const col = colMap[type];
+  let data;
+  if(!col) { data = accounts; }
+  else { data = await fbGetAll(col); }
+  const now = new Date();
+  const fname = `backup_${type}_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.json`;
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============================
+// 日期格式
+// ============================
+function fmtDate(ts) {
+  if(!ts) return '-';
+  const d = new Date(ts);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+function fmtDateTime(ts) {
+  if(!ts) return '-';
+  const d = new Date(ts);
+  return `${fmtDate(ts)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ============================
+// Drag & Drop
+// ============================
+const dropZone = document.getElementById('drop-zone');
+if(dropZone) {
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if(file) {
+      document.getElementById('imp-file').files = e.dataTransfer.files;
+      handleOrderFile(document.getElementById('imp-file'));
+    }
+  });
+}
+
+// Enter key on login
+document.getElementById('lu').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('lp').focus(); });
+
+</script>
+</body>
+</html>
