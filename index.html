@@ -393,29 +393,7 @@ tr:hover td{background:#f8fafc}
 
 
 <!-- Login Screen -->
-<div class="ls" id="ls">
-  <div class="ls-box">
-    <div class="ls-logo">
-      <i class="ti ti-clipboard-list" style="font-size:36px;color:var(--navy)"></i>
-      <h1>訂單報工系統</h1>
-      <p>Production Reporting System v2.0</p>
-    </div>
-    <div class="fgrp" style="margin-bottom:12px">
-      <label>帳號 / Tài khoản</label>
-      <input type="text" id="lu" placeholder="輸入帳號..." autocomplete="username">
-    </div>
-    <div class="fgrp" style="margin-bottom:20px">
-      <label>密碼 / Mật khẩu</label>
-      <input type="password" id="lp" placeholder="輸入密碼..." autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
-    <button class="btn bp" style="width:100%;justify-content:center" onclick="doLogin()">
-      <i class="ti ti-login"></i> 登入 / Đăng nhập
-    </button>
-    <div id="le" class="nt ne" style="display:none;margin-top:12px;margin-bottom:0">
-      <i class="ti ti-alert-circle"></i><span id="le-msg"></span>
-    </div>
-  </div>
-</div>
+<!-- (已移除，使用統一登入) -->
 
 <!-- Main App -->
 <div class="app hidden" id="ma">
@@ -1913,54 +1891,12 @@ async function fbGetAll(col) {
 }
 
 // ============================
-// 登入/登出
+// 登入/登出 - 已由 doUnifiedLogin 統一處理
 // ============================
-window.doLogin = async function() {
-  const u = document.getElementById('lu').value.trim();
-  const p = document.getElementById('lp').value;
-  if(!u||!p) return showLoginErr('請填入帳號和密碼');
-
-  // 先讀 Firebase 帳號
-  try {
-    const snap = await getDoc(doc(db, COLLECTIONS.ADMIN_ACCOUNTS, 'data'));
-    if(snap.exists()) {
-      accounts = JSON.parse(snap.data().accounts || '[]');
-    }
-  } catch(e) {}
-
-  // 找帳號（包含預設管理員）
-  if(accounts.length === 0) {
-    accounts = [{user:'admin', pass:'admin123', role:'admin', name:'管理員'}];
-  }
-
-  const found = accounts.find(a => a.user === u && a.pass === p);
-  if(!found) return showLoginErr('帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu');
-
-  cu = found;
-  document.getElementById('ls').style.display = 'none';
-  document.getElementById('ma').classList.remove('hidden');
-  document.getElementById('tb-user').textContent = cu.name || cu.user;
-  document.getElementById('tb-user').className = 'up ' + (cu.role==='admin'?'adm':cu.role==='manager'?'mgr':'');
-  document.getElementById('sb-user').textContent = (cu.name||cu.user) + ' · ' + getRoleLabel(cu.role);
-
-  setupNavByRole();
-  await loadAll();
-  goPage('p-orders');
-}
-
-window.doLogout = function() {
-  cu = null;
-  document.getElementById('ls').style.display = 'flex';
-  document.getElementById('ma').classList.add('hidden');
-  document.getElementById('lu').value = '';
-  document.getElementById('lp').value = '';
-}
 
 function showLoginErr(msg) {
-  const el = document.getElementById('le');
-  document.getElementById('le-msg').textContent = msg;
-  el.style.display = 'flex';
-  setTimeout(() => el.style.display = 'none', 4000);
+  const el = document.getElementById('lerr');
+  if(el){ document.getElementById('lerr-msg').textContent = msg; el.style.display = 'flex'; setTimeout(() => el.style.display = 'none', 4000); }
 }
 
 function getRoleLabel(role) {
