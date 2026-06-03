@@ -1,13 +1,6 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>工序成本 & 報工系統</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-<style>
 
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#1a3a5c;--navy2:#2d5f8e;--accent:#2563a8;--al:#dbeafe;--ok:#166534;--okl:#dcfce7;--warn:#92400e;--warnl:#fef3c7;--err:#991b1b;--errl:#fee2e2;--bd:#e2e8f0;--bg:#f8fafc;--sf:#fff;--tx:#1e293b;--mu:#64748b;--hi:#94a3b8}
 body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(--bg)}
@@ -143,1470 +136,346 @@ tr:hover td{background:#f8fafc}
 .hi2:first-child{border-top:none}
 .cc{display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--bd);font-size:12px;flex-wrap:wrap;align-items:center}
 .cc:first-child{border-top:none}
-
-
-*{box-sizing:border-box;margin:0;padding:0}
-:root{--navy:#1a3a5c;--navy2:#2d5f8e;--accent:#2563a8;--al:#dbeafe;--ok:#166534;--okl:#dcfce7;--warn:#92400e;--warnl:#fef3c7;--err:#991b1b;--errl:#fee2e2;--bd:#e2e8f0;--bg:#f8fafc;--sf:#fff;--tx:#1e293b;--mu:#64748b;--hi:#94a3b8}
-body{font-family:system-ui,-apple-system,sans-serif;font-size:14px;color:var(--tx);background:var(--bg)}
-.app{display:flex;height:100vh;min-height:640px}
-/* Sidebar */
-.sb{width:230px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
-.sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
-.sb-title{font-size:14px;font-weight:600;color:#fff}
-.sb-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:2px}
-.sb-badge{display:inline-block;margin-top:5px;font-size:10px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:2px 8px;border-radius:10px}
-.sb-sec{padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase}
-.ni{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;color:rgba(255,255,255,.65);font-size:13px;margin:1px 8px;border-radius:8px;transition:all .15s;position:relative}
-.ni:hover{background:rgba(255,255,255,.1);color:#fff}
-.ni.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500}
-.ni.locked{opacity:.25;cursor:not-allowed;pointer-events:none}
-.ni i{font-size:15px;flex-shrink:0}
-.ni-badge{position:absolute;right:10px;background:#ef4444;color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
-.nl{display:flex;flex-direction:column;gap:1px}
-.nvi{font-size:13px;line-height:1.3}
-.nzh{font-size:10px;color:rgba(255,255,255,.4);line-height:1.2}
-.ni.active .nzh{color:rgba(255,255,255,.6)}
-.sb-ft{margin-top:auto;padding:12px 16px;border-top:1px solid rgba(255,255,255,.08)}
-.sb-ft-t{font-size:10px;color:rgba(255,255,255,.25)}
-/* Main */
-.mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.tb{padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
-.tb-title{font-weight:500;font-size:14px;flex:1;color:var(--navy)}
-.up{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;background:#f1f5f9;color:var(--mu)}
-.up.adm{background:var(--okl);color:var(--ok)}
-.up.mgr{background:#dbeafe;color:#1e40af}
-.ct{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
-.pg{display:none}.pg.active{display:block}
-/* Cards */
-.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
-.ct-title{font-size:13px;font-weight:500;margin-bottom:14px;color:var(--mu);display:flex;align-items:center;gap:7px;padding-bottom:10px;border-bottom:1px solid var(--bd)}
-.ct-title i{font-size:15px;color:var(--accent)}
-/* Stats */
-.mg{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
-.mc{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;position:relative;overflow:hidden}
-.mc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
-.ml{font-size:11px;color:var(--mu);margin-bottom:1px}
-.mvi{font-size:10px;color:var(--hi);margin-bottom:6px}
-.mv{font-size:22px;font-weight:600;color:var(--navy)}
-/* Forms */
-.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
-.fg.cols2{grid-template-columns:repeat(2,1fr)}
-.fg.cols3{grid-template-columns:repeat(3,1fr)}
-.fgrp{display:flex;flex-direction:column;gap:5px}
-.fgrp label{font-size:12px;color:var(--mu);font-weight:500}
-.lvi{display:block;font-size:10px;color:var(--hi);margin-top:1px}
-input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;color:var(--tx);background:var(--sf);outline:none;transition:border .15s}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-input[type=number]{-moz-appearance:textfield}
-/* Buttons */
-.btn{padding:7px 14px;border-radius:8px;border:none;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;font-weight:500}
-.bp{background:var(--navy);color:#fff}.bp:hover{background:var(--navy2)}
-.bs{background:#f1f5f9;color:var(--tx);border:1px solid var(--bd)}.bs:hover{background:#e2e8f0}
-.bo{background:transparent;color:var(--accent);border:1px solid var(--accent)}.bo:hover{background:var(--al)}
-.bd-btn{background:transparent;color:var(--err);border:1px solid #fca5a5}.bd-btn:hover{background:var(--errl)}
-.bg-btn{background:var(--okl);color:var(--ok);border:1px solid #86efac}.bg-btn:hover{background:#bbf7d0}
-.bsm{padding:4px 10px;font-size:12px}
-/* Tables */
-.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--bd)}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#f8fafc;padding:9px 12px;text-align:left;font-weight:500;color:var(--mu);font-size:12px;border-bottom:1px solid var(--bd);white-space:nowrap}
-td{padding:9px 12px;border-bottom:1px solid #f1f5f9;color:var(--tx);vertical-align:middle}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:#f8fafc}
-.tv{display:block;font-size:10px;color:var(--hi);margin-top:1px}
-/* Tags */
-.tg{display:inline-flex;align-items:center;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:500;white-space:nowrap}
-.tg-ok{background:var(--okl);color:var(--ok)}
-.tg-warn{background:var(--warnl);color:var(--warn)}
-.tg-err{background:var(--errl);color:var(--err)}
-.tg-info{background:var(--al);color:var(--accent)}
-.tg-gray{background:#f1f5f9;color:var(--mu)}
-/* Notifications */
-.nt{padding:10px 14px;border-radius:8px;font-size:12px;display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
-.nt i{flex-shrink:0;margin-top:1px}
-.ns{background:var(--okl);color:var(--ok)}
-.nw{background:var(--warnl);color:var(--warn)}
-.ne{background:var(--errl);color:var(--err)}
-.ni2{background:var(--al);color:var(--accent)}
-/* Modal */
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:16px}
-.mo.open{display:flex}
-.mo-box{background:var(--sf);border-radius:14px;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
-.mo-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.mo-title i{color:var(--accent)}
-.mo-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--bd)}
-/* Progress */
-.prog-wrap{background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden}
-.prog-bar{height:100%;border-radius:99px;background:var(--accent);transition:width .3s}
-.prog-bar.ok{background:#22c55e}
-.prog-bar.warn{background:#f59e0b}
-/* Login */
-.ls{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:9999}
-.ls-box{background:var(--sf);border-radius:16px;padding:32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
-.ls-logo{text-align:center;margin-bottom:24px}
-.ls-logo h1{font-size:18px;font-weight:700;color:var(--navy)}
-.ls-logo p{font-size:12px;color:var(--mu);margin-top:4px}
-/* Upload zone */
-.drop-zone{border:2px dashed var(--bd);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .15s;color:var(--mu)}
-.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--al);color:var(--accent)}
-.drop-zone i{font-size:28px;margin-bottom:8px;display:block}
-/* Sync status */
-#sync-status{display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-/* Login screen */
-.hidden{display:none!important}
-/* Pagination */
-.pag{display:flex;align-items:center;gap:4px;margin-top:12px;justify-content:center}
-.pag-btn{width:30px;height:30px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;color:var(--mu)}
-.pag-btn:hover,.pag-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-/* Search bar */
-.srch{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
-.srch input{max-width:220px}
-.srch select{max-width:160px}
-
-
-/* ====== MOBILE APP ====== */
-.mob-wrap{display:none;flex-direction:column;flex:1;height:100vh;max-width:480px;margin:0 auto}
-.mob-wrap.active{display:flex}
-.mob-topbar{background:var(--navy);padding:12px 16px;flex-shrink:0}
-.mob-body{flex:1;overflow-y:auto;padding:10px;padding-bottom:70px;background:var(--bg)}
-.mob-card{background:var(--sf);border-radius:14px;padding:12px 14px;margin-bottom:8px;border:0.5px solid rgba(0,0,0,.06)}
-.mob-tab-bar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--sf);border-top:0.5px solid var(--bd);z-index:100}
-.av{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
-.top-name{color:#fff;font-size:15px;font-weight:600}
-.top-info{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px}
-.bell-wrap{position:relative;cursor:pointer;padding:4px}
-.bell-wrap i{font-size:20px;color:rgba(255,255,255,.8)}
-.bell-bdg{position:absolute;top:0;right:0;background:#ef4444;color:#fff;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-.mob-pg{display:none}.mob-pg.active{display:block}
-.alert-box{background:#fff8e6;border:0.5px solid #f59e0b;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer}
-.alert-box i{color:var(--warn);font-size:16px;flex-shrink:0}
-.alert-text{flex:1;font-size:12px;color:#92400e;line-height:1.4}
-.wh-row{display:flex;align-items:center;gap:10px}
-.wh-label{flex:1;font-size:12px;color:var(--mu)}
-.wh-input{width:52px;padding:6px 8px;text-align:center;border:0.5px solid var(--bd);border-radius:8px;font-size:15px;font-weight:700;color:var(--navy);background:#f8fafc}
-.wh-unit{font-size:12px;color:var(--mu)}
-.mob-form-label{font-size:11px;color:var(--mu);font-weight:500;margin-bottom:4px;display:block}
-.mob-select{width:100%;padding:10px 11px;border:0.5px solid var(--bd);border-radius:9px;font-size:13px;color:var(--tx);background:var(--sf);margin-bottom:8px;outline:none;-webkit-appearance:none}
-.mob-select:focus{border-color:var(--accent)}
-.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;margin-bottom:4px}
-.stat-card{background:#f8fafc;border-radius:10px;padding:10px 11px}
-.stat-lbl{font-size:10px;color:var(--mu)}
-.stat-val{font-size:20px;font-weight:700;color:var(--navy);margin-top:2px}
-.stat-val.accent{color:var(--accent)}
-.qty-lbl{font-size:11px;color:var(--mu);font-weight:500;margin-bottom:6px;margin-top:10px}
-.qty-row{display:flex;gap:8px;align-items:center}
-.qty-input{flex:1;padding:10px;font-size:24px;font-weight:700;text-align:center;border:0.5px solid var(--bd);border-radius:10px;color:var(--navy);background:#f8fafc}
-.qty-unit{font-size:12px;color:var(--mu);white-space:nowrap}
-.btn-submit{width:100%;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px}
-.last-submit{text-align:center;font-size:11px;color:var(--hi);margin-top:6px}
-.filter-bar{display:flex;gap:0;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px}
-.filter-bar .fb{flex:1;text-align:center;padding:7px 4px;font-size:11px;color:var(--mu);cursor:pointer;border-radius:8px;border:none;background:transparent}
-.filter-bar .fb.active{background:var(--navy);color:#fff;font-weight:600}
-.hist-item{background:var(--sf);border-radius:12px;margin-bottom:7px;overflow:hidden;display:flex;border:0.5px solid rgba(0,0,0,.06)}
-.hist-bar{width:4px;flex-shrink:0}
-.hist-bar.ok{background:#22c55e}
-.hist-bar.pending{background:#f59e0b}
-.hist-bar.reject{background:#ef4444}
-.hist-body{flex:1;padding:10px 11px}
-.hist-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
-.hist-main{font-size:13px;color:var(--tx);font-weight:600}
-.hist-sub{font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5}
-.mob-badge{display:inline-flex;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;white-space:nowrap;flex-shrink:0}
-.mob-badge.bp{background:var(--warnl);color:var(--warn)}
-.mob-badge.bo{background:var(--okl);color:var(--ok)}
-.mob-badge.br{background:var(--errl);color:var(--err)}
-.reject-box{background:var(--errl);border-radius:8px;padding:7px 10px;margin-top:7px;display:flex;align-items:flex-start;gap:6px}
-.reject-box span{font-size:11px;color:#7f1d1d;line-height:1.4}
-.hist-arr{color:var(--bd);font-size:14px;align-self:center;margin-right:10px;flex-shrink:0}
-.apv-item{background:var(--sf);border-radius:12px;margin-bottom:7px;border:0.5px solid rgba(0,0,0,.06);overflow:hidden}
-.apv-header{padding:10px 12px;display:flex;align-items:flex-start;gap:10px}
-.apv-check{width:20px;height:20px;border-radius:5px;border:1.5px solid var(--bd);cursor:pointer;flex-shrink:0;margin-top:1px;display:flex;align-items:center;justify-content:center}
-.apv-check.checked{background:var(--navy);border-color:var(--navy);color:#fff}
-.apv-info{flex:1}
-.apv-name{font-size:13px;font-weight:600;color:var(--tx)}
-.apv-detail{font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5}
-.apv-qty{font-size:15px;font-weight:700;color:var(--navy);white-space:nowrap}
-.apv-foot{padding:8px 12px;border-top:0.5px solid var(--bd);display:flex;gap:6px}
-.btn-apv{flex:1;padding:8px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px}
-.btn-ok{background:var(--okl);color:var(--ok)}
-.btn-rej{background:var(--errl);color:var(--err)}
-.batch-bar{display:flex;gap:6px;margin-bottom:8px}
-.batch-btn{flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
-.b-ok{background:var(--okl);color:var(--ok)}
-.b-rej{background:var(--errl);color:var(--err)}
-.mob-tab{flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer;position:relative}
-.mob-tab i{font-size:20px;color:var(--hi)}
-.mob-tab span{font-size:10px;color:var(--hi)}
-.mob-tab.active i,.mob-tab.active span{color:var(--navy)}
-.mob-tab.active span{font-weight:600}
-.tab-bdg{position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 3px}
-.mob-empty{text-align:center;padding:40px 20px;color:var(--hi)}
-.mob-empty i{font-size:40px;margin-bottom:10px;display:block}
-.mob-toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:999;display:none;white-space:nowrap}
-.mob-mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:flex-end;justify-content:center}
-.mob-mo.open{display:flex}
-.mob-mo-box{background:var(--sf);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px}
-.mob-mo-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px}
-.mob-mo-foot{display:flex;gap:8px;margin-top:14px}
-.mob-mo-btn{flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer}
-.mob-mo-cancel{background:#f1f5f9;color:var(--mu)}
-.mob-mo-confirm{background:var(--err);color:#fff}
-
-/* Hide desktop when mobile active */
-.desktop-wrap{display:flex}
-.desktop-wrap.hidden{display:none!important}
 </style>
-</head>
 
-<!-- ====== UNIFIED LOGIN ====== -->
-<div class="ls" id="ls">
-  <div class="ls-box">
-    <div class="ls-logo">
-      <i class="ti ti-clipboard-list" style="font-size:36px;color:var(--navy)"></i>
-      <h1 style="font-size:18px;font-weight:700;color:var(--navy);margin-top:8px">工序成本 & 報工系統</h1>
-      <p style="font-size:12px;color:var(--mu);margin-top:4px">Process Cost & Reporting System v3.0</p>
+<h2 class="sr-only">工序成本分析系統 v7</h2>
+
+<div id="ls">
+<div class="lw">
+  <div class="lc">
+    <div class="ll"><i class="ti ti-chart-bar" aria-hidden="true"></i></div>
+    <div class="lt">工序成本分析</div>
+    <div class="ls">Hệ thống phân tích chi phí công đoạn — v7.0</div>
+    <div id="lerr" class="nt nd" style="display:none;margin-bottom:12px"><i class="ti ti-alert-circle" aria-hidden="true"></i>帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu</div>
+    <div class="lf"><label>帳號 / Tài khoản</label><input type="text" id="lu" placeholder="Nhập tài khoản / 輸入帳號"></div>
+    <div class="lf"><label>密碼 / Mật khẩu</label>
+      <div class="pww"><input type="password" id="lp" placeholder="Nhập mật khẩu / 輸入密碼" onkeydown="if(event.key==='Enter')doLogin()"><i class="ti ti-eye pwe" onclick="tpw('lp',this)"></i></div>
     </div>
-    <div class="fgrp" style="margin-bottom:12px">
-      <label>帳號 / Tài khoản</label>
-      <div style="position:relative">
-        <input type="text" id="lu" placeholder="輸入帳號 / Nhập tài khoản..." autocomplete="username">
-      </div>
-    </div>
-    <div class="fgrp" style="margin-bottom:20px">
-      <label>密碼 / Mật khẩu</label>
-      <div style="position:relative">
-        <input type="password" id="lp" placeholder="輸入密碼 / Nhập mật khẩu..." autocomplete="current-password" onkeydown="if(event.key==='Enter')doUnifiedLogin()" style="padding-right:40px">
-        <i class="ti ti-eye pwe" onclick="tpw('lp',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--hi)"></i>
-      </div>
-    </div>
-    <button class="btn bp" style="width:100%;justify-content:center" onclick="doUnifiedLogin()">
-      <i class="ti ti-login"></i> 登入 / Đăng nhập
-    </button>
-    <div id="lerr" class="nt nd" style="display:none;margin-top:12px">
-      <i class="ti ti-alert-circle"></i><span id="lerr-msg">帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu</span>
-    </div>
+    <button class="btn bp" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()"><i class="ti ti-login" aria-hidden="true"></i>Đăng nhập / 登入</button>
+    <div class="lh">Mặc định / 預設：admin / admin123</div>
   </div>
 </div>
+</div>
 
-<!-- ====== DESKTOP APP (管理員/課長/文員) ====== -->
-<div id="desktop-app" class="desktop-wrap hidden">
-
-
-<!-- Login Screen -->
-<!-- (已移除，使用統一登入) -->
-
-<!-- Main App -->
-<div class="app hidden" id="ma">
-  <!-- Sidebar -->
+<div id="ma" class="hidden">
+<div class="app" style="position:relative">
   <div class="sb">
     <div class="sb-logo">
-      <div class="sb-title"><i class="ti ti-clipboard-list"></i> 報工系統</div>
-      <div class="sb-sub">Production Reporting System</div>
-      <div class="sb-badge">v2.0</div>
+      <div class="sb-title">工序成本分析系統</div>
+      <div class="sb-sub">Hệ thống phân tích chi phí</div>
+      <div class="sb-badge">v7.0</div>
     </div>
-
-    <div id="sb-nav">
-      <div class="sb-sec">主功能 / Chính</div>
-      <div class="ni active" onclick="goPage('p-orders')" id="nav-orders">
-        <i class="ti ti-file-invoice"></i>
-        <div class="nl"><div class="nvi">訂單管理</div><div class="nzh">Quản lý đơn hàng</div></div>
-      </div>
-      <div class="ni" onclick="goPage('p-processes')" id="nav-processes">
-        <i class="ti ti-list-check"></i>
-        <div class="nl"><div class="nvi">訂單工序</div><div class="nzh">Công đoạn đơn hàng</div></div>
-      </div>
-      <div class="ni" onclick="goPage('p-approval')" id="nav-approval">
-        <i class="ti ti-check-circle"></i>
-        <div class="nl"><div class="nvi">報工審批</div><div class="nzh">Duyệt báo công</div></div>
-        <span class="ni-badge" id="badge-approval" style="display:none">0</span>
-      </div>
-      <div class="ni" onclick="goPage('p-progress')" id="nav-progress">
-        <i class="ti ti-chart-bar"></i>
-        <div class="nl"><div class="nvi">訂單進度</div><div class="nzh">Tiến độ đơn hàng</div></div>
-      </div>
-
-      <div class="sb-sec">報表 / Báo cáo</div>
-      <div class="ni" onclick="goPage('p-stats')" id="nav-stats">
-        <i class="ti ti-chart-pie"></i>
-        <div class="nl"><div class="nvi">員工產量統計</div><div class="nzh">Thống kê sản lượng</div></div>
-      </div>
-
-      <div class="sb-sec">管理 / Quản lý</div>
-      <div class="ni" onclick="goPage('p-employees')" id="nav-employees">
-        <i class="ti ti-users"></i>
-        <div class="nl"><div class="nvi">員工管理</div><div class="nzh">Quản lý nhân viên</div></div>
-      </div>
-      <div class="ni" onclick="goPage('p-accounts')" id="nav-accounts">
-        <i class="ti ti-shield-lock"></i>
-        <div class="nl"><div class="nvi">帳號管理</div><div class="nzh">Quản lý tài khoản</div></div>
-      </div>
-      <div class="ni" onclick="goPage('p-backup')" id="nav-backup">
-        <i class="ti ti-database-export"></i>
-        <div class="nl"><div class="nvi">資料備份</div><div class="nzh">Sao lưu dữ liệu</div></div>
-      </div>
-    </div>
-
-    <div class="sb-ft">
-      <div class="sb-ft-t" id="sb-user"></div>
-      <div id="sync-status-sb" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div>
-    </div>
+    <div class="sb-sec">Chính / 主功能</div>
+    <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list" aria-hidden="true"></i><div class="nl"><span class="nvi">Tổng chi phí mã hàng</span><span class="nzh">款號總成本</span></div></div>
+    <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details" aria-hidden="true"></i><div class="nl"><span class="nvi">Bảng chi tiết công đoạn</span><span class="nzh">工序明細表</span></div></div>
+    <div class="ni" onclick="sp('import')" id="nv-import"><i class="ti ti-upload" aria-hidden="true"></i><div class="nl"><span class="nvi">Nhập dữ liệu</span><span class="nzh">匯入資料</span></div></div>
+    <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export" aria-hidden="true"></i><div class="nl"><span class="nvi">Xuất dữ liệu dự phòng</span><span class="nzh">備份匯出</span></div></div>
+    <div class="sb-sec">Quản lý / 管理</div>
+    <div class="ni" id="nv-settings" onclick="sp('settings')"><i class="ti ti-settings" aria-hidden="true"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
+    <div class="ni" id="nv-export" onclick="sp('export')"><i class="ti ti-download" aria-hidden="true"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
+    <div class="ni" id="nv-history" onclick="sp('history')"><i class="ti ti-history" aria-hidden="true"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
+    <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics" aria-hidden="true"></i><div class="nl"><span class="nvi">Lịch sử thay đổi chi phí</span><span class="nzh">成本變動記錄</span></div></div>
+    <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users" aria-hidden="true"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
+    <div class="sb-ft"><div class="sb-ft-t">v7.0</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
 
-  <!-- Main Content -->
+  <!-- 右下角同步狀態 -->
+  <div id="sync-status" style="display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)"></div>
+
   <div class="mn">
     <div class="tb">
-      <div class="tb-title" id="tb-title">訂單管理</div>
-      <div class="up" id="tb-user" style="margin-left:auto"></div>
-      <button class="btn bs bsm" onclick="doLogout()"><i class="ti ti-logout"></i></button>
+      <span class="tb-title">工序成本分析系統</span>
+      <div class="cg">
+        <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
+        <button class="cb" id="cur-USD" onclick="setCur('USD')">USD</button>
+        <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
+      </div>
+      <div class="up" id="upill"><i class="ti ti-user" aria-hidden="true"></i><span id="ulabel"></span></div>
+      <button class="ib" onclick="doLogout()" title="Đăng xuất / 登出"><i class="ti ti-logout" aria-hidden="true"></i></button>
     </div>
+    <div class="idle-bar"><div class="idle-prog" id="idleprog" style="width:100%"></div></div>
 
     <div class="ct">
 
-      <!-- ===== 訂單管理 ===== -->
-      <div class="pg active" id="p-orders">
+      <!-- 款號總成本 -->
+      <div class="pg active" id="pg-summary">
+        <div class="mg">
+          <div class="mc"><div class="ml">款號總數</div><div class="mvi">Tổng số mã hàng</div><div class="mv" id="m-total">0</div></div>
+          <div class="mc"><div class="ml">工序總筆數</div><div class="mvi">Tổng số công đoạn</div><div class="mv" id="m-rows">0</div></div>
+        </div>
+        <div class="sr">
+          <div class="sw"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Tìm kiếm / 搜尋..." id="s-search" oninput="sPage=1;rSum()"></div>
+          <select id="s-client" onchange="sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
+          <select id="s-sort" onchange="sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)">
+            <option value="">Sắp xếp / 排序</option>
+            <option value="ca">Mã hàng ↑ / 款號↑</option>
+            <option value="cd">Mã hàng ↓ / 款號↓</option>
+            <option value="kl">Khách hàng A→Z / 客人</option>
+            <option value="pd">Chi phí cao→thấp / 工價高→低</option>
+            <option value="pa">Chi phí thấp→cao / 工價低→高</option>
+          </select>
+          <button class="btn bp" onclick="om('m-add')"><i class="ti ti-plus" aria-hidden="true"></i>Thêm mã hàng / 新增款號</button>
+        </div>
+        <div class="to"><div class="ts"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
+        <div class="pgr" id="sp2"></div>
+      </div>
+
+      <!-- 工序明細 -->
+      <div class="pg" id="pg-detail">
+        <div class="sr">
+          <div class="sw"><i class="ti ti-search" aria-hidden="true"></i><input type="text" placeholder="Tìm mã hàng / 搜尋款號..." id="d-search" oninput="dPage=1;rDet()"></div>
+          <select id="d-client" onchange="dPage=1;rDet()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
+          <select id="d-sort" onchange="dPage=1;rDet()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)">
+            <option value="ca">Mã hàng ↑ / 款號↑</option>
+            <option value="cd">Mã hàng ↓ / 款號↓</option>
+            <option value="oa">Mã hàng + Công đoạn ↑ / 款號+工序號↑</option>
+          </select>
+          <select id="d-pp" onchange="dPage=1;rDet()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)">
+            <option value="50">50 dòng/trang / 50筆/頁</option>
+            <option value="100">100 dòng/trang / 100筆/頁</option>
+            <option value="200">200 dòng/trang / 200筆/頁</option>
+          </select>
+        </div>
+        <div class="to"><div class="ts"><table><thead><tr id="dh"></tr></thead><tbody id="db"></tbody></table></div></div>
+        <div class="pgr" id="dp2"></div>
+      </div>
+
+      <!-- 匯入 -->
+      <div class="pg" id="pg-import">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-file-invoice"></i> 訂單列表 / Danh sách đơn hàng</div>
-          <div class="srch">
-            <input type="text" id="ord-search" placeholder="搜尋訂單編號 /款號..." oninput="rOrders()" style="max-width:240px">
-            <select id="ord-filter-status" onchange="rOrders()">
-              <option value="">全部訂單 / Tất cả</option>
-              <option value="active">進行中 / Đang thực hiện</option>
-              <option value="done">已完成 / Hoàn thành</option>
-            </select>
-            <button class="btn bp" onclick="openImportOrder()" id="btn-import-order">
-              <i class="ti ti-upload"></i> 匯入訂單 / Nhập đơn hàng
-            </button>
+          <div class="ct-title"><i class="ti ti-upload" aria-hidden="true"></i>Nhập dữ liệu Excel / 匯入資料</div>
+          <div class="ua" onclick="document.getElementById('fi').click()">
+            <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
+            <p style="font-weight:500;margin-bottom:8px">Chọn file Excel / 點擊選擇 Excel (.xlsx / .xls)</p>
+            <p style="font-size:11px;color:var(--hi);line-height:1.8">
+              中文欄位：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 工序中文 · 工序越文 · 秒數<br>
+              Tiếng Việt：Mã hàng · Khách hàng · Tên TQ · Tên VN · Kích thước · Số CĐ · Tên CĐ(TQ) · Tên CĐ(VN) · Giây
+            </p>
           </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>訂單編號<span class="tv">Mã đơn</span></th>
-                  <th>款數<span class="tv">Số mã hàng</span></th>
-                  <th>總數量<span class="tv">Tổng SL</span></th>
-                  <th>出貨日期<span class="tv">Ngày xuất</span></th>
-                  <th>建立時間<span class="tv">Ngày tạo</span></th>
-                  <th>整體進度<span class="tv">Tiến độ</span></th>
-                  <th>操作<span class="tv">Thao tác</span></th>
-                </tr>
-              </thead>
-              <tbody id="ord-tbody"></tbody>
-            </table>
+          <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
+          <div class="pw" id="pw-wrap">
+            <div class="pwl" id="pw-label">Đang xử lý... / 處理中...</div>
+            <div class="pbb"><div class="pbar" id="pw-bar" style="width:0%"></div></div>
+            <div class="psb" id="pw-sub"></div>
           </div>
-          <div id="ord-empty" class="nt ni2" style="display:none;margin-top:10px">
-            <i class="ti ti-info-circle"></i> 尚無訂單，請先匯入訂單 Excel / Chưa có đơn hàng
+          <div id="imp-err" style="display:none" class="nt nd"><i class="ti ti-alert-triangle" aria-hidden="true"></i><div id="imp-err-msg"></div></div>
+          <div id="dup-warn" style="display:none">
+            <div class="nt nd" style="margin-bottom:8px"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Phát hiện mã hàng trùng / 發現重複款號：</div>
+            <div class="dl" id="dup-list"></div>
+            <div class="br" style="margin-top:10px">
+              <button class="btn bp" onclick="cImp('ov')"><i class="ti ti-replace" aria-hidden="true"></i>Ghi đè / 全部覆蓋</button>
+              <button class="btn" onclick="cImp('sk')"><i class="ti ti-circle-minus" aria-hidden="true"></i>Bỏ qua / 跳過重複</button>
+              <button class="btn" onclick="cImp('al')"><i class="ti ti-check" aria-hidden="true"></i>Nhập tất cả / 全部匯入</button>
+              <button class="btn bd2" onclick="xImp()"><i class="ti ti-x" aria-hidden="true"></i>Hủy / 取消</button>
+            </div>
           </div>
+          <div id="imp-prev" style="display:none">
+            <div class="dv"></div>
+            <p style="font-size:13px;margin-bottom:10px;color:var(--mu);font-weight:500">Xem trước / 預覽（前5筆）</p>
+            <div class="to"><div class="ts" style="max-height:180px"><table id="prev-tbl"><thead></thead><tbody></tbody></table></div></div>
+            <div class="br" style="margin-top:12px">
+              <button class="btn bp" onclick="chkDup()"><i class="ti ti-check" aria-hidden="true"></i>Xác nhận / 確認匯入</button>
+              <button class="btn" onclick="xImp()"><i class="ti ti-x" aria-hidden="true"></i>Hủy / 取消</button>
+            </div>
+          </div>
+          <div id="imp-ok" style="display:none" class="nt ns"><i class="ti ti-check" aria-hidden="true"></i><span id="imp-ok-msg"></span></div>
+        </div>
+        <div class="card">
+          <div class="ct-title">Hướng dẫn định dạng / 欄位格式說明</div>
+          <div class="to"><table>
+            <thead><tr><th>Cột/欄</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th></tr></thead>
+            <tbody>
+              <tr><td style="color:var(--mu)">中文</td><td><span class="tg tn">款號</span></td><td><span class="tg tn">客人</span></td><td><span class="tg tn">中文名</span></td><td><span class="tg tn">越文名</span></td><td><span class="tg tn">尺寸</span></td><td><span class="tg tn">工序號</span></td><td><span class="tg tn">工序中</span></td><td><span class="tg tn">工序越</span></td><td><span class="tg tg2">秒數</span></td></tr>
+              <tr><td style="color:var(--mu)">Việt</td><td><span class="tg tb2">Mã hàng</span></td><td><span class="tg tb2">Khách hàng</span></td><td><span class="tg tb2">Tên TQ</span></td><td><span class="tg tb2">Tên VN</span></td><td><span class="tg tb2">Kích thước</span></td><td><span class="tg tb2">Số CĐ</span></td><td><span class="tg tb2">Tên CĐ(TQ)</span></td><td><span class="tg tb2">Tên CĐ(VN)</span></td><td><span class="tg tg2">Giây</span></td></tr>
+            </tbody>
+          </table></div>
         </div>
       </div>
 
-      <!-- ===== 訂單工序 ===== -->
-      <div class="pg" id="p-processes">
+      <!-- 備份匯出 -->
+      <div class="pg" id="pg-backup">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-list-check"></i> 訂單工序清單 / Danh sách công đoạn đơn hàng</div>
-          <div class="srch">
-            <select id="proc-ord" onchange="rProcesses()">
-              <option value="">選擇訂單 / Chọn đơn hàng</option>
-            </select>
-            <input type="text" id="proc-search" placeholder="搜尋款號 / 工序..." oninput="rProcesses()" style="max-width:200px">
+          <div class="ct-title"><i class="ti ti-database-export" aria-hidden="true"></i>Xuất dữ liệu dự phòng / 備份匯出</div>
+          <p style="font-size:13px;color:var(--mu);margin-bottom:14px;line-height:1.7">
+            匯出格式與匯入格式完全相同，可直接重新匯入還原資料。<br>
+            <span style="font-size:12px;color:var(--hi)">Định dạng xuất giống hệt định dạng nhập, có thể nhập lại để khôi phục dữ liệu.</span>
+          </p>
+          <div class="fg cols2" style="margin-bottom:16px">
+            <div class="fgrp"><label>Khách hàng / 客人<span class="lvi">Chọn khách hàng để xuất</span></label><select id="bk-client"><option value="">Tất cả / 全部</option></select></div>
           </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>款號<span class="tv">Mã hàng</span></th>
-                  <th>中文名稱<span class="tv">Tên TQ</span></th>
-                  <th>尺寸<span class="tv">Kích thước</span></th>
-                  <th>工序號<span class="tv">Số CĐ</span></th>
-                  <th>工序名稱<span class="tv">Tên công đoạn</span></th>
-                  <th>訂單數量<span class="tv">SL đơn</span></th>
-                  <th>已通過<span class="tv">Đã duyệt</span></th>
-                  <th>待審批<span class="tv">Chờ duyệt</span></th>
-                  <th>剩餘<span class="tv">Còn lại</span></th>
-                  <th>進度<span class="tv">Tiến độ</span></th>
-                </tr>
-              </thead>
-              <tbody id="proc-tbody"></tbody>
-            </table>
+          <div class="br">
+            <button class="btn bp" onclick="doBackup()"><i class="ti ti-database-export" aria-hidden="true"></i>Xuất file dự phòng / 匯出備份檔案</button>
           </div>
-          <div id="proc-empty" class="nt ni2" style="display:none;margin-top:10px">
-            <i class="ti ti-info-circle"></i> 請先選擇訂單 / Vui lòng chọn đơn hàng
+          <div id="bk-ok" style="display:none" class="nt ns"><i class="ti ti-check" aria-hidden="true"></i><span id="bk-ok-msg"></span></div>
+          <div class="nt ni2" style="margin-top:8px"><i class="ti ti-info-circle" aria-hidden="true"></i>
+            備份檔案可直接用「匯入資料」功能還原 / File dự phòng có thể dùng chức năng "Nhập dữ liệu" để khôi phục.
           </div>
+        </div>
+        <div class="card">
+          <div class="ct-title">Thống kê / 資料統計</div>
+          <div class="mg" id="bk-stats"></div>
         </div>
       </div>
 
-      <!-- ===== 報工審批 ===== -->
-      <div class="pg" id="p-approval">
+      <!-- 成本設定 -->
+      <div class="pg" id="pg-settings">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-check-circle"></i> 待審批報工 / Báo công chờ duyệt</div>
-          <div class="srch">
-            <select id="apv-ord" onchange="rApproval()">
-              <option value="">全部訂單 / Tất cả đơn</option>
-            </select>
-            <select id="apv-dept" onchange="rApproval()">
-              <option value="">全部部門 / Tất cả bộ phận</option>
-            </select>
-            <select id="apv-emp" onchange="rApproval()">
-              <option value="">全部員工 / Tất cả nhân viên</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button class="btn bg-btn bsm" onclick="batchApprove()"><i class="ti ti-check"></i> 批量通過 / Duyệt tất cả</button>
-            <button class="btn bd-btn bsm" onclick="batchReject()"><i class="ti ti-x"></i> 批量退回 / Từ chối tất cả</button>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th><input type="checkbox" id="chk-all" onchange="toggleAllChk(this)"></th>
-                  <th>員工<span class="tv">Nhân viên</span></th>
-                  <th>部門<span class="tv">Bộ phận</span></th>
-                  <th>訂單<span class="tv">Đơn hàng</span></th>
-                  <th>款號<span class="tv">Mã hàng</span></th>
-                  <th>工序<span class="tv">Công đoạn</span></th>
-                  <th>申報數量<span class="tv">Số lượng</span></th>
-                  <th>申報時間<span class="tv">Thời gian</span></th>
-                  <th>操作<span class="tv">Thao tác</span></th>
-                </tr>
-              </thead>
-              <tbody id="apv-tbody"></tbody>
-            </table>
-          </div>
-          <div id="apv-empty" class="nt ns" style="display:none;margin-top:10px">
-            <i class="ti ti-check"></i> 目前沒有待審批的報工 / Không có báo công chờ duyệt
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== 訂單進度 ===== -->
-      <div class="pg" id="p-progress">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-bar"></i> 訂單進度追蹤 / Theo dõi tiến độ</div>
-          <div class="srch">
-            <select id="prog-ord" onchange="rProgress()">
-              <option value="">選擇訂單 / Chọn đơn hàng</option>
-            </select>
-          </div>
-          <div id="prog-content"></div>
-        </div>
-      </div>
-
-      <!-- ===== 員工產量統計 ===== -->
-      <div class="pg" id="p-stats">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-pie"></i> 員工產量統計 / Thống kê sản lượng nhân viên</div>
-          <div class="srch">
-            <select id="stat-range" onchange="rStats()">
-              <option value="today">今天 / Hôm nay</option>
-              <option value="month" selected>本月 / Tháng này</option>
-              <option value="custom">自訂 / Tùy chỉnh</option>
-            </select>
-            <input type="date" id="stat-from" style="display:none;max-width:150px" onchange="rStats()">
-            <input type="date" id="stat-to" style="display:none;max-width:150px" onchange="rStats()">
-            <select id="stat-dept" onchange="rStats()">
-              <option value="">全部部門 / Tất cả</option>
-            </select>
-            <button class="btn bs bsm" onclick="exportStats()"><i class="ti ti-download"></i> 匯出 Excel</button>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>員工<span class="tv">Nhân viên</span></th>
-                  <th>部門<span class="tv">Bộ phận</span></th>
-                  <th>訂單<span class="tv">Đơn hàng</span></th>
-                  <th>款號<span class="tv">Mã hàng</span></th>
-                  <th>工序<span class="tv">Công đoạn</span></th>
-                  <th>完成數量<span class="tv">Số lượng</span></th>
-                  <th>標準產量/時<span class="tv">SL/giờ TC</span></th>
-                  <th>效率<span class="tv">Hiệu suất</span></th>
-                </tr>
-              </thead>
-              <tbody id="stat-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== 員工管理 ===== -->
-      <div class="pg" id="p-employees">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-users"></i> 員工管理 / Quản lý nhân viên</div>
-          <div class="srch">
-            <button class="btn bp" onclick="openAddEmp()"><i class="ti ti-plus"></i> 新增員工 / Thêm nhân viên</button>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>姓名<span class="tv">Tên</span></th>
-                  <th>帳號<span class="tv">Tài khoản</span></th>
-                  <th>部門<span class="tv">Bộ phận</span></th>
-                  <th>角色<span class="tv">Vai trò</span></th>
-                  <th>操作<span class="tv">Thao tác</span></th>
-                </tr>
-              </thead>
-              <tbody id="emp-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== 帳號管理 ===== -->
-      <div class="pg" id="p-accounts">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-shield-lock"></i> 後台帳號管理 / Quản lý tài khoản</div>
-          <div class="srch">
-            <button class="btn bp" onclick="openAddAcc()"><i class="ti ti-plus"></i> 新增帳號 / Thêm tài khoản</button>
-          </div>
-          <div class="tbl-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>帳號<span class="tv">Tài khoản</span></th>
-                  <th>角色<span class="tv">Vai trò</span></th>
-                  <th>操作<span class="tv">Thao tác</span></th>
-                </tr>
-              </thead>
-              <tbody id="acc-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ===== 資料備份 ===== -->
-      <div class="pg" id="p-backup">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-database-export"></i> 資料備份 / Sao lưu dữ liệu</div>
+          <div class="ct-title"><i class="ti ti-currency-dollar" aria-hidden="true"></i>Cài đặt chi phí nhân công / 直接工價設定</div>
           <div class="fg cols3">
-            <div class="mc">
-              <div class="ml">全部備份</div>
-              <div class="mvi">Sao lưu tất cả</div>
-              <button class="btn bp" style="margin-top:8px" onclick="backupAll()"><i class="ti ti-download"></i> 立即備份</button>
-            </div>
-            <div class="mc">
-              <div class="ml">分類匯出</div>
-              <div class="mvi">Xuất theo loại</div>
-              <select id="bk-type" style="margin-top:8px;margin-bottom:8px">
-                <option value="orders">訂單資料</option>
-                <option value="orderProcesses">訂單工序</option>
-                <option value="employees">員工資料</option>
-                <option value="reports">報工記錄</option>
-                <option value="accounts">帳號資料</option>
-              </select>
-              <button class="btn bs" onclick="backupType()"><i class="ti ti-download"></i> 匯出</button>
+            <div class="fgrp"><label>平均薪資 (VND/月)<span class="lvi">Lương TB/tháng</span></label><input type="number" id="ss-sal" value="9413769" oninput="aCC()"></div>
+            <div class="fgrp"><label>平均保險 (VND/月)<span class="lvi">Bảo hiểm TB/tháng</span></label><input type="number" id="ss-ins" value="1686575" oninput="aCC()"></div>
+            <div class="fgrp"><label>餐費 (VND/月)<span class="lvi">Phí ăn uống/tháng</span></label><input type="number" id="ss-meal" value="1008000" oninput="aCC()"></div>
+          </div>
+          <div class="fg cols3">
+            <div class="fgrp"><label>平均總成本/月 <span id="ct-tag" class="at">自動</span><span class="lvi">Tổng chi phí TB/tháng</span></label><input type="number" id="ss-tc" oninput="onMC()"></div>
+            <div class="fgrp"><label>平均時薪 <span id="ht-tag" class="at">自動</span><span class="lvi">Lương giờ TB (VND)</span></label><input type="number" id="ss-hr" oninput="onMH()"></div>
+            <div class="fgrp"><label>匯率 USD<span class="lvi">Tỷ giá USD (VND/USD)</span></label>
+              <div style="display:flex;gap:6px;align-items:center">
+                <input type="number" id="ss-usd" value="25400" oninput="rAll()" style="flex:1">
+                <button class="btn bsm" onclick="fetchRates()" id="btn-fetchrate" title="自動抓取匯率"><i class="ti ti-refresh"></i></button>
+              </div>
+              <span id="rate-updated" style="font-size:10px;color:var(--hi);margin-top:2px;display:block"></span>
             </div>
           </div>
-          <div id="bk-log" class="nt ns" style="display:none"></div>
-        </div>
-      </div>
-
-    </div><!-- ct -->
-  </div><!-- mn -->
-</div><!-- app -->
-
-<!-- Sync Status -->
-<div id="sync-status"></div>
-
-<!-- ===== MODALS ===== -->
-
-<!-- 匯入訂單 Modal -->
-<div class="mo" id="m-import-order">
-  <div class="mo-box" style="max-width:600px">
-    <div class="mo-title"><i class="ti ti-file-upload"></i> 匯入訂單 / Nhập đơn hàng</div>
-
-    <div id="imp-step1">
-      <div class="fg cols2">
-        <div class="fgrp">
-          <label>訂單編號 / Mã đơn hàng <span style="color:var(--err)">*</span></label>
-          <input type="text" id="imp-ordid" placeholder="例如：ORD-2025-001">
-        </div>
-        <div class="fgrp">
-          <label>預計出貨日期 / Ngày xuất hàng <span style="color:var(--err)">*</span></label>
-          <input type="date" id="imp-duedate">
-        </div>
-      </div>
-      <div class="fgrp" style="margin-bottom:14px">
-        <label>上傳訂單 Excel / Tải lên file Excel</label>
-        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('imp-file').click()">
-          <i class="ti ti-file-spreadsheet"></i>
-          <div style="font-size:13px;font-weight:500">點擊或拖曳 Excel 檔案</div>
-          <div style="font-size:11px;margin-top:4px">支援 .xlsx / .xls 格式</div>
-        </div>
-        <input type="file" id="imp-file" accept=".xlsx,.xls" style="display:none" onchange="handleOrderFile(this)">
-      </div>
-    </div>
-
-    <div id="imp-step2" style="display:none">
-      <div class="nt ns" id="imp-ok-msg" style="margin-bottom:10px"></div>
-      <div class="nt nw" id="imp-skip-msg" style="display:none;margin-bottom:10px"></div>
-      <div class="tbl-wrap" style="max-height:300px;overflow-y:auto">
-        <table>
-          <thead>
-            <tr>
-              <th>款號<span class="tv">Mã hàng</span></th>
-              <th>說明<span class="tv">Mô tả</span></th>
-              <th>顏色<span class="tv">Màu</span></th>
-              <th>數量<span class="tv">Số lượng</span></th>
-              <th>工序數<span class="tv">Số CĐ</span></th>
-              <th>狀態<span class="tv">Trạng thái</span></th>
-            </tr>
-          </thead>
-          <tbody id="imp-preview-tbody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="mo-foot">
-      <button class="btn bs" onclick="closeModal('m-import-order')">取消 / Hủy</button>
-      <button class="btn bp" id="imp-btn" onclick="confirmImportOrder()">
-        <i class="ti ti-check"></i> 確認匯入 / Xác nhận
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- 編輯訂單 Modal -->
-<div class="mo" id="m-edit-order">
-  <div class="mo-box">
-    <div class="mo-title"><i class="ti ti-edit"></i> 編輯訂單 / Chỉnh sửa đơn hàng</div>
-    <input type="hidden" id="eo-id">
-    <div class="fg cols2">
-      <div class="fgrp">
-        <label>訂單編號</label>
-        <input type="text" id="eo-ordid" readonly style="background:#f8fafc;color:var(--mu)">
-      </div>
-      <div class="fgrp">
-        <label>預計出貨日期 / Ngày xuất</label>
-        <input type="date" id="eo-duedate">
-      </div>
-    </div>
-    <div class="mo-foot">
-      <button class="btn bs" onclick="closeModal('m-edit-order')">取消</button>
-      <button class="btn bp" onclick="saveEditOrder()"><i class="ti ti-check"></i> 儲存</button>
-    </div>
-  </div>
-</div>
-
-<!-- 退回原因 Modal -->
-<div class="mo" id="m-reject">
-  <div class="mo-box">
-    <div class="mo-title"><i class="ti ti-x"></i> 退回報工 / Từ chối báo công</div>
-    <input type="hidden" id="rej-ids">
-    <div class="fgrp" style="margin-bottom:16px">
-      <label>退回原因（選填）/ Lý do từ chối (tùy chọn)</label>
-      <textarea id="rej-reason" rows="3" placeholder="輸入退回原因..."></textarea>
-    </div>
-    <div class="mo-foot">
-      <button class="btn bs" onclick="closeModal('m-reject')">取消</button>
-      <button class="btn bd-btn" onclick="confirmReject()"><i class="ti ti-x"></i> 確認退回</button>
-    </div>
-  </div>
-</div>
-
-<!-- 新增員工 Modal -->
-<div class="mo" id="m-add-emp">
-  <div class="mo-box">
-    <div class="mo-title"><i class="ti ti-user-plus"></i> 新增員工 / Thêm nhân viên</div>
-    <input type="hidden" id="ae-id">
-    <div class="fg cols2">
-      <div class="fgrp">
-        <label>姓名（越文）/ Tên <span style="color:var(--err)">*</span></label>
-        <input type="text" id="ae-name" placeholder="Nguyễn Văn A">
-      </div>
-      <div class="fgrp">
-        <label>部門 / Bộ phận</label>
-        <select id="ae-dept">
-          <option value="">選擇部門...</option>
-        </select>
-      </div>
-      <div class="fgrp">
-        <label>帳號 / Tài khoản <span style="color:var(--err)">*</span></label>
-        <input type="text" id="ae-user" placeholder="輸入帳號...">
-      </div>
-      <div class="fgrp">
-        <label>密碼 / Mật khẩu <span style="color:var(--err)">*</span></label>
-        <input type="password" id="ae-pass" placeholder="輸入密碼...">
-      </div>
-      <div class="fgrp">
-        <label>角色 / Vai trò</label>
-        <select id="ae-role">
-          <option value="user">員工 / Nhân viên</option>
-          <option value="leader">班長 / Tổ trưởng</option>
-        </select>
-      </div>
-    </div>
-    <div class="mo-foot">
-      <button class="btn bs" onclick="closeModal('m-add-emp')">取消</button>
-      <button class="btn bp" onclick="saveEmp()"><i class="ti ti-check"></i> 儲存</button>
-    </div>
-  </div>
-</div>
-
-<!-- 新增帳號 Modal -->
-<div class="mo" id="m-add-acc">
-  <div class="mo-box">
-    <div class="mo-title"><i class="ti ti-shield-plus"></i> 新增帳號 / Thêm tài khoản</div>
-    <input type="hidden" id="aa-id">
-    <div class="fg cols2">
-      <div class="fgrp">
-        <label>帳號 <span style="color:var(--err)">*</span></label>
-        <input type="text" id="aa-user" placeholder="輸入帳號...">
-      </div>
-      <div class="fgrp">
-        <label>密碼 <span style="color:var(--err)">*</span></label>
-        <input type="password" id="aa-pass" placeholder="輸入密碼...">
-      </div>
-      <div class="fgrp">
-        <label>角色</label>
-        <select id="aa-role" id="aa-role">
-          <option value="clerk">文員 / Văn thư</option>
-          <option value="manager">課長 / Trưởng bộ phận</option>
-          <option value="admin">管理員 / Quản trị</option>
-        </select>
-      </div>
-    </div>
-    <div class="mo-foot">
-      <button class="btn bs" onclick="closeModal('m-add-acc')">取消</button>
-      <button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i> 儲存</button>
-    </div>
-  </div>
-</div>
-
-
-</div>
-
-
-<!-- ====== MOBILE APP (班長/員工) ====== -->
-<div class="mob-wrap" id="mob-app">
-  <div class="mob-topbar">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="av" id="mob-av">TS</div>
-        <div>
-          <div class="top-name" id="mob-name">Thu Sương</div>
-          <div class="top-info" id="mob-info">Bộ phận: May bằng · Chức vụ: Nhân viên</div>
-        </div>
-      </div>
-      <div class="bell-wrap" onclick="mobGoPage('mob-p-hist')">
-        <i class="ti ti-bell"></i>
-        <div class="bell-bdg hidden" id="mob-bell-bdg">0</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="mob-body" id="mob-body">
-
-    <!-- 報工頁 -->
-    <div class="mob-pg active" id="mob-p-report">
-      <div class="alert-box hidden" id="mob-alert-reject" onclick="mobGoPage('mob-p-hist');mobFilterHist('rejected')">
-        <i class="ti ti-alert-triangle"></i>
-        <div class="alert-text"><b id="mob-alert-text"></b><br><span style="font-size:11px">Nhấn để xem / 點擊查看</span></div>
-        <i class="ti ti-chevron-right" style="color:#f59e0b;font-size:14px"></i>
-      </div>
-
-      <div class="mob-card">
-        <div class="wh-row">
-          <span class="wh-label">Giờ làm hôm nay / 今日工時</span>
-          <input type="number" class="wh-input" id="mob-work-hours" value="8" min="1" max="24" onchange="mobSaveWorkHours()">
-          <span class="wh-unit">giờ / 小時</span>
-        </div>
-      </div>
-
-      <div class="mob-card">
-        <label class="mob-form-label">Đơn hàng / 訂單</label>
-        <select class="mob-select" id="mob-sel-order" onchange="mobOnOrderChange()">
-          <option value="">-- Chọn đơn hàng --</option>
-        </select>
-
-        <label class="mob-form-label">Mã hàng / 款號</label>
-        <select class="mob-select" id="mob-sel-code" onchange="mobOnCodeChange()">
-          <option value="">-- Chọn mã hàng --</option>
-        </select>
-
-        <label class="mob-form-label">Công đoạn / 工序</label>
-        <select class="mob-select" id="mob-sel-process" onchange="mobOnProcessChange()">
-          <option value="">-- Chọn công đoạn --</option>
-        </select>
-
-        <div class="stat-grid hidden" id="mob-stat-grid">
-          <div class="stat-card">
-            <div class="stat-lbl">Số lượng đơn / 訂單數量</div>
-            <div class="stat-val" id="mob-stat-qty">0</div>
-            <div style="background:#e2e8f0;border-radius:99px;height:5px;margin-top:6px"><div id="mob-stat-prog" style="height:5px;border-radius:99px;background:var(--navy);width:0%"></div></div>
-            <div style="font-size:10px;color:var(--hi);margin-top:3px" id="mob-stat-info">Đã hoàn thành 0</div>
+          <div class="fg cols3">
+            <div class="fgrp"><label>匯率 TWD<span class="lvi">Tỷ giá TWD (VND/TWD)</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()">
+              <span id="rate-updated-twd" style="font-size:10px;color:var(--hi);margin-top:2px;display:block"></span>
+            </div>
           </div>
-          <div class="stat-card">
-            <div class="stat-lbl">Chờ duyệt / 待審批</div>
-            <div class="stat-val accent" id="mob-stat-pending">0</div>
-            <div style="margin-top:8px"></div>
-            <div style="font-size:10px;color:var(--hi)" id="mob-stat-approved">Đã duyệt：0</div>
+          <div class="nt nw" style="margin-top:4px"><i class="ti ti-info-circle" aria-hidden="true"></i>Tổng chi phí và lương giờ có thể nhập tay. / 總成本與時薪可手動填寫，清空後恢復自動。</div>
+        </div>
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-clock" aria-hidden="true"></i>Cài đặt hiệu suất / 生產效率設定</div>
+          <div class="fg cols2">
+            <div class="fgrp"><label>實際工作秒數/小時<span class="lvi">Giây làm việc thực tế/giờ</span></label><input type="number" id="ss-ws" value="3000" oninput="rAll()"></div>
+            <div class="fgrp"><label>生產效率 (%)<span class="lvi">Hiệu suất sản xuất</span></label><input type="number" id="ss-eff" value="80" min="1" max="100" oninput="uEff()"></div>
+          </div>
+          <div class="eb">
+            <div class="ei"><div class="el">Hiệu suất / 效率</div><div class="ev" id="e-in">80%</div></div>
+            <div class="ei"><div class="el">Hệ số chi phí / 成本倍數</div><div class="ev" id="e-mu">125.00%</div></div>
+            <div class="ei"><div class="el">Tăng chi phí / 成本增加</div><div class="ev" id="e-ic">+25.00%</div></div>
+            <div class="ei"><div class="el">Công thức / 公式</div><div class="ef" id="e-fo">1 ÷ 80% = 125%</div></div>
           </div>
         </div>
+        <div class="br"><button class="btn bp" onclick="saveSt()"><i class="ti ti-check" aria-hidden="true"></i>Lưu và tính lại / 儲存並重新計算</button></div>
+        <div id="st-ok" style="display:none" class="nt ns"><i class="ti ti-check" aria-hidden="true"></i>Đã lưu cài đặt. / 設定已儲存。</div>
+      </div>
 
-        <div class="hidden" id="mob-qty-section">
-          <div class="qty-lbl">Số lượng hôm nay / 今日完成數量</div>
-          <div class="qty-row">
-            <input type="number" class="qty-input" id="mob-qty-input" value="" min="1" placeholder="0">
-            <span class="qty-unit">PCS</span>
+      <!-- 匯出報表 -->
+      <div class="pg" id="pg-export">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-download" aria-hidden="true"></i>Xuất báo cáo / 匯出報表</div>
+          <div class="fg cols3">
+            <div class="fgrp"><label>Khách hàng / 客人<span class="lvi">Chọn khách hàng</span></label><select id="ex-cl"><option value="">Tất cả / 全部</option></select></div>
+            <div class="fgrp"><label>Đơn vị / 幣別<span class="lvi">Chọn đơn vị tiền tệ</span></label><select id="ex-cu"><option value="both">USD + VND</option><option value="all">USD + VND + TWD</option><option value="usd">USD</option><option value="vnd">VND</option><option value="twd">TWD</option></select></div>
+            <div class="fgrp"><label>Loại báo cáo / 報表類型<span class="lvi">Chọn loại báo cáo</span></label><select id="ex-ty"><option value="summary">Chỉ tổng hợp / 僅總表</option><option value="detail">Bao gồm chi tiết / 含工序明細</option></select></div>
           </div>
-          <button class="btn-submit" onclick="mobSubmitReport()">
-            <i class="ti ti-send"></i> Gửi báo công / 送出報工
-          </button>
-          <div class="last-submit hidden" id="mob-last-submit"></div>
+          <div class="br"><button class="btn bs" onclick="doExport()"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i>Xuất Excel / 匯出 Excel</button></div>
+          <div id="ex-ok" style="display:none" class="nt ns"><i class="ti ti-check" aria-hidden="true"></i>Đã xuất báo cáo! / 報表已匯出！</div>
+        </div>
+        <div class="card">
+          <div class="ct-title">Xem trước / 報表預覽</div>
+          <div class="to"><div class="ts"><table>
+            <thead><tr><th>款號<span class="tv">Mã hàng</span></th><th>客人<span class="tv">KH</span></th><th>中文名稱</th><th>尺寸</th><th>工序數</th><th>總工價(USD)</th><th>總工價(VND)</th><th>總工價(TWD)</th></tr></thead>
+            <tbody id="ex-tb"></tbody>
+          </table></div></div>
         </div>
       </div>
-    </div>
 
-    <!-- 記錄頁 -->
-    <div class="mob-pg" id="mob-p-hist">
-      <div class="filter-bar">
-        <button class="fb active" onclick="mobFilterHist('all')" id="mob-fb-all">Tất cả / 全部</button>
-        <button class="fb" onclick="mobFilterHist('approved')" id="mob-fb-approved">Đã duyệt</button>
-        <button class="fb" onclick="mobFilterHist('pending')" id="mob-fb-pending">Chờ duyệt</button>
-        <button class="fb" onclick="mobFilterHist('rejected')" id="mob-fb-rejected">Từ chối</button>
+      <!-- 匯入記錄 -->
+      <div class="pg" id="pg-history">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-history" aria-hidden="true"></i>Lịch sử nhập / 匯入歷史記錄</div>
+          <div id="hist-list"><p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p></div>
+        </div>
       </div>
-      <div id="mob-hist-list"></div>
-    </div>
 
-    <!-- 審批頁（班長） -->
-    <div class="mob-pg" id="mob-p-approval">
-      <div class="batch-bar">
-        <button class="batch-btn b-ok" onclick="mobBatchApprove()"><i class="ti ti-check"></i> Duyệt tất cả</button>
-        <button class="batch-btn b-rej" onclick="mobBatchReject()"><i class="ti ti-x"></i> Từ chối</button>
+      <!-- 成本變動 -->
+      <div class="pg" id="pg-costlog">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-file-analytics" aria-hidden="true"></i>Lịch sử thay đổi chi phí / 成本變動記錄</div>
+          <div id="clog-list"><p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p></div>
+        </div>
       </div>
-      <div id="mob-apv-list"></div>
-    </div>
 
+      <!-- 帳號管理 -->
+      <div class="pg" id="pg-accounts">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-users" aria-hidden="true"></i>Quản lý tài khoản / 帳號管理</div>
+          <div class="br"><button class="btn bp" onclick="om('m-nacc')"><i class="ti ti-plus" aria-hidden="true"></i>Thêm tài khoản / 新增帳號</button></div>
+          <div class="to"><table>
+            <thead><tr><th>帳號<span class="tv">Tài khoản</span></th><th>權限<span class="tv">Quyền hạn</span></th><th>操作</th></tr></thead>
+            <tbody id="acc-tb"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
-  <div class="mob-tab-bar">
-    <button class="mob-tab active" onclick="mobGoPage('mob-p-report')" id="mob-tab-report">
-      <i class="ti ti-clipboard-text"></i><span>Báo công</span>
-    </button>
-    <button class="mob-tab" onclick="mobGoPage('mob-p-hist')" id="mob-tab-hist">
-      <i class="ti ti-history"></i><span>Lịch sử</span>
-    </button>
-    <button class="mob-tab hidden" onclick="mobGoPage('mob-p-approval')" id="mob-tab-approval">
-      <i class="ti ti-check-circle"></i><span>Duyệt</span>
-      <div class="tab-bdg hidden" id="mob-tab-bdg">0</div>
-    </button>
-  </div>
+  <!-- 新增款號 -->
+  <div class="mb" id="m-add"><div class="md">
+    <div class="mt2">Thêm mã hàng / 新增款號 <button class="btn bsm" onclick="cm('m-add')"><i class="ti ti-x"></i></button></div>
+    <div class="fg cols2"><div class="fgrp"><label>款號 / Mã hàng</label><input type="text" id="n-code"></div><div class="fgrp"><label>客人 / Khách hàng</label><input type="text" id="n-cl"></div></div>
+    <div class="fg cols2"><div class="fgrp"><label>中文名稱</label><input type="text" id="n-zh"></div><div class="fgrp"><label>越文名稱 / Tên VN</label><input type="text" id="n-vi"></div></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>尺寸 / Kích thước</label><input type="text" id="n-sz"></div>
+    <div class="dv"></div>
+    <p style="font-size:12px;color:var(--mu);margin-bottom:10px;font-weight:500">Thêm công đoạn / 新增工序</p>
+    <div id="n-ops"></div>
+    <button class="btn bsm" onclick="addOp()" style="margin-bottom:14px"><i class="ti ti-plus"></i>Thêm công đoạn / 加工序</button>
+    <div class="br"><button class="btn bp" onclick="saveNew()"><i class="ti ti-check"></i>Lưu / 儲存</button><button class="btn" onclick="cm('m-add')">Hủy / 取消</button></div>
+  </div></div>
+
+  <!-- 工序明細彈窗 -->
+  <div class="mb" id="m-det"><div class="md wide">
+    <div class="mt2"><span id="det-title">工序明細</span><button class="btn bsm" onclick="cm('m-det')"><i class="ti ti-x"></i></button></div>
+    <div id="det-body"></div>
+  </div></div>
+
+  <!-- 編輯工序 -->
+  <div class="mb" id="m-eop"><div class="md">
+    <div class="mt2">Sửa công đoạn / 編輯工序 <button class="btn bsm" onclick="cm('m-eop')"><i class="ti ti-x"></i></button></div>
+    <input type="hidden" id="eo-code"><input type="hidden" id="eo-idx">
+    <div class="fg cols2"><div class="fgrp"><label>工序號 / Số CĐ</label><input type="text" id="eo-no"></div><div class="fgrp"><label>秒數 / Giây</label><input type="number" id="eo-sec"></div></div>
+    <div class="fg cols2"><div class="fgrp"><label>工序(中)</label><input type="text" id="eo-zh"></div><div class="fgrp"><label>工序(越) / Tên CĐ</label><input type="text" id="eo-vi"></div></div>
+    <div class="br" style="margin-top:6px"><button class="btn bp" onclick="saveEop()"><i class="ti ti-check"></i>Lưu</button><button class="btn" onclick="cm('m-eop')">Hủy</button></div>
+  </div></div>
+
+  <!-- 刪除確認 -->
+  <div class="mb" id="m-del"><div class="md" style="width:400px">
+    <div class="mt2">Xác nhận xóa / 確認刪除 <button class="btn bsm" onclick="cm('m-del')"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:13px;color:var(--mu);margin-bottom:12px">Nhập mã hàng để xác nhận / 請輸入款號確認：<b id="del-show" style="color:var(--navy)"></b></p>
+    <input type="hidden" id="del-code">
+    <div class="fgrp" style="margin-bottom:14px"><label>款號 / Mã hàng</label><input type="text" id="del-inp" placeholder="Nhập mã hàng / 輸入款號..."></div>
+    <div class="nt nd" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>Không thể hoàn tác / 刪除後無法復原</div>
+    <div class="br"><button class="btn bd2" onclick="confDel()"><i class="ti ti-trash"></i>Xác nhận xóa / 確認刪除</button><button class="btn" onclick="cm('m-del')">Hủy / 取消</button></div>
+  </div></div>
+
+  <!-- 新增帳號 -->
+  <div class="mb" id="m-nacc"><div class="md">
+    <div class="mt2">Thêm tài khoản / 新增帳號 <button class="btn bsm" onclick="cm('m-nacc')"><i class="ti ti-x"></i></button></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>帳號 / Tài khoản</label><input type="text" id="ac-u"></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>密碼 / Mật khẩu</label><div class="pww"><input type="password" id="ac-p"><i class="ti ti-eye pwe" onclick="tpw('ac-p',this)"></i></div></div>
+    <div class="fgrp" style="margin-bottom:18px"><label>權限 / Quyền hạn</label><select id="ac-r"><option value="admin">Quản trị viên / 管理員</option><option value="user">Người dùng / 一般用戶</option></select></div>
+    <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>Thêm / 新增</button><button class="btn" onclick="cm('m-nacc')">Hủy / 取消</button></div>
+  </div></div>
+
+  <!-- 編輯帳號 -->
+  <div class="mb" id="m-eacc"><div class="md">
+    <div class="mt2">Sửa tài khoản / 修改帳號 <button class="btn bsm" onclick="cm('m-eacc')"><i class="ti ti-x"></i></button></div>
+    <input type="hidden" id="ea-orig">
+    <div class="fgrp" style="margin-bottom:12px"><label>帳號</label><input type="text" id="ea-u"></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>新密碼（留空不變）/ Mật khẩu mới</label><div class="pww"><input type="password" id="ea-p" placeholder="留空不變更"><i class="ti ti-eye pwe" onclick="tpw('ea-p',this)"></i></div></div>
+    <div class="fgrp" style="margin-bottom:18px"><label>權限</label><select id="ea-r"><option value="admin">管理員</option><option value="user">一般用戶</option></select></div>
+    <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>Lưu / 儲存</button><button class="btn" onclick="cm('m-eacc')">Hủy / 取消</button></div>
+  </div></div>
+
+</div>
 </div>
 
-<div class="mob-toast" id="mob-toast"></div>
-
-<!-- Mobile Reject Modal -->
-<div class="mob-mo" id="mob-mo-reject">
-  <div class="mob-mo-box">
-    <div class="mob-mo-title"><i class="ti ti-x" style="color:var(--err)"></i> Từ chối báo công / 退回報工</div>
-    <input type="hidden" id="mob-rej-ids">
-    <textarea id="mob-rej-reason" rows="3" style="width:100%;padding:10px 12px;border:0.5px solid var(--bd);border-radius:10px;font-size:13px;color:var(--tx);background:var(--sf);outline:none;resize:none" placeholder="Lý do từ chối (tùy chọn) / 退回原因（選填）..."></textarea>
-    <div class="mob-mo-foot">
-      <button class="mob-mo-btn mob-mo-cancel" onclick="mobCloseMo()">Hủy / 取消</button>
-      <button class="mob-mo-btn mob-mo-confirm" onclick="mobConfirmReject()">Xác nhận / 確認退回</button>
-    </div>
-  </div>
-</div>
-
-
-<div id="sync-status"></div>
-
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- Firebase SDK -->
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, limit, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// ============================
-// Firebase 設定
-// ============================
-const firebaseConfig = {
-  apiKey: "AIzaSyBBrlo1gVMQmne4gT92lx4KwnRBVt4QSh4",
-  authDomain: "process-cost-management-system.firebaseapp.com",
-  projectId: "process-cost-management-system",
-  storageBucket: "process-cost-management-system.firebasestorage.app",
-  messagingSenderId: "162743929598",
-  appId: "1:162743929598:web:3170fa1c39a12829c7f3af"
-};
-
-const COLLECTIONS = {
-  PRODUCTS: "system",
-  ORDERS: "v2_orders",
-  ORDER_PROCESSES: "v2_orderProcesses",
-  EMPLOYEES: "v2_employees",
-  REPORTS: "v2_reports",
-  ADMIN_ACCOUNTS: "v2_accounts",
-  SETTINGS: "v2_settings",
-};
-
-const DEPARTMENTS = {
-  "備料":"Bị liệu","普工":"Phổ thông","電腦針車":"May điện tử",
-  "平車":"May bằng","品檢":"QC","包裝":"Đóng gói"
-};
-
-const DESKTOP_ROLES = ['admin','manager','clerk'];
-const MOBILE_ROLES = ['leader','user'];
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-// ============================
-// 共用狀態
-// ============================
-let unifiedUser = null;
-
-// V1 variables (desktop cost system)
-window.accs=[{user:'admin',pass:'admin123',role:'admin'}];
-let cu=null,cur='VND';
-window.S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
-window.D=[];
-Object.defineProperty(window,'D',{get(){return this._D},set(v){this._D=v},configurable:true});
-window._D=[];
-Object.defineProperty(window,'S',{get(){return this._S},set(v){this._S=v},configurable:true});
-window._S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
-Object.defineProperty(window,'accs',{get(){return this._accs},set(v){this._accs=v},configurable:true});
-window._accs=[{user:'admin',pass:'admin123',role:'admin'}];
-
-let pImp=null,nItms=null,dups=[],nOpc=0;
-let impHist=[],cLog=[];
-try{const h=localStorage.getItem('impHist');if(h)impHist=JSON.parse(h);}catch(e){}
-try{const c=localStorage.getItem('cLog');if(c)cLog=JSON.parse(c);}catch(e){}
-let sPage=1,dPage=1;
-const IDLE=30*60;
-let idleT=IDLE,idleIv=null;
-
-// V2 variables (order system)
-let orders=[];
-let orderProcesses=[];
-let employees=[];
-let desktopAccounts=[];
-let importData=null;
-let pendingReports=[];
-
-// Mobile variables
-let mobOrders=[];
-let mobOrderProcesses=[];
-let mobMyReports=[];
-let mobPendingReports=[];
-let mobCurrentProcId=null;
-let mobHistFilter='all';
-
-// ============================
-// 同步狀態
-// ============================
-window.syncState='idle';
-function setSyncState(state){
-  window.syncState=state;
-  const el=document.getElementById('sync-status');
-  const map={syncing:{text:'🟡 同步中...',color:'#f59e0b'},success:{text:'🟢 已同步 '+new Date().toLocaleTimeString('zh-TW'),color:'#16a34a'},failed:{text:'🔴 同步失敗',color:'#dc2626'}};
-  const m=map[state];
-  if(m&&el){el.textContent=m.text;el.style.color=m.color;el.style.display='block';}
-  else if(el){el.style.display='none';}
-}
-
-async function fbSaveWithStatus(col,id,data){
-  setSyncState('syncing');
-  try{await setDoc(doc(db,col,id),data);setSyncState('success');return true;}
-  catch(e){setSyncState('failed');console.error(e);return false;}
-}
-async function fbAdd(col,data){
-  setSyncState('syncing');
-  try{const ref=await addDoc(collection(db,col),data);setSyncState('success');return ref.id;}
-  catch(e){setSyncState('failed');return null;}
-}
-async function fbGetAll(col){
-  try{const snap=await getDocs(collection(db,col));return snap.docs.map(d=>({id:d.id,...d.data()}));}
-  catch(e){return[];}
-}
-async function fbUpdate(col,id,data){
-  setSyncState('syncing');
-  try{await updateDoc(doc(db,col,id),data);setSyncState('success');return true;}
-  catch(e){setSyncState('failed');return false;}
-}
-async function fbDelete(col,id){
-  setSyncState('syncing');
-  try{await deleteDoc(doc(db,col,id));setSyncState('success');return true;}
-  catch(e){setSyncState('failed');return false;}
-}
-
-// ============================
-// 統一登入
-// ============================
-window.doUnifiedLogin = async function(){
-  const u=document.getElementById('lu').value.trim();
-  const p=document.getElementById('lp').value;
-  if(!u||!p){showLoginErr('請填入帳號和密碼 / Vui lòng nhập đầy đủ');return;}
-
-  // 先載入後台帳號
-  try{
-    const snap=await getDoc(doc(db,COLLECTIONS.ADMIN_ACCOUNTS,'data'));
-    if(snap.exists())window.accs=JSON.parse(snap.data().accounts||'[]');
-  }catch(e){}
-
-  if(window.accs.length===0)window.accs=[{user:'admin',pass:'admin123',role:'admin'}];
-
-  // 找後台帳號 (admin/manager/clerk/leader)
-  const deskAcc=window.accs.find(a=>a.user===u&&a.pass===p);
-  if(deskAcc){
-    unifiedUser=deskAcc;
-    cu=deskAcc;
-    if(DESKTOP_ROLES.includes(deskAcc.role)||deskAcc.role==='leader'){
-      if(DESKTOP_ROLES.includes(deskAcc.role)){
-        // 桌機版
-        await initDesktop();
-      }else{
-        // 班長 → 手機版
-        await initMobile(deskAcc);
-      }
-      return;
-    }
-  }
-
-  // 找員工帳號 (mobile only)
-  try{
-    const snap=await getDocs(query(collection(db,COLLECTIONS.EMPLOYEES),where('user','==',u)));
-    if(!snap.empty){
-      const emp={id:snap.docs[0].id,...snap.docs[0].data()};
-      if(emp.pass===p){
-        unifiedUser=emp;
-        await initMobile(emp);
-        return;
-      }
-    }
-  }catch(e){}
-
-  showLoginErr('帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu');
-}
-
-function showLoginErr(msg){
-  const el=document.getElementById('lerr');
-  document.getElementById('lerr-msg').textContent=msg;
-  el.style.display='flex';
-  setTimeout(()=>el.style.display='none',4000);
-}
-
-// ============================
-// 桌機版初始化
-// ============================
-async function initDesktop(){
-  document.getElementById('ls').style.display='none';
-  document.getElementById('desktop-app').classList.remove('hidden');
-  uNav();rAll();startIdle();
-  await loadDesktopData();
-  setTimeout(()=>fetchRates(),1000);
-  // Firebase 即時監聽
-  onSnapshot(doc(db,"system","products"),(snap)=>{
-    if(snap.exists()){
-      try{
-        const newD=JSON.parse(snap.data().data);
-        window.D.length=0;newD.forEach(item=>window.D.push(item));
-        window.D=newD;
-        if(typeof rSum==='function'){rSum();rDet();rExp();rBk();}
-      }catch(e){}
-    }
-  });
-}
-
-async function loadDesktopData(){
-  // 工序表
-  try{
-    const snap=await getDoc(doc(db,'system','products'));
-    if(snap.exists()){
-      const newD=JSON.parse(snap.data().data||'[]');
-      window.D.length=0;newD.forEach(item=>window.D.push(item));
-      window.D=newD;
-    }
-  }catch(e){}
-  // 設定
-  try{
-    const snap=await getDoc(doc(db,'system','settings'));
-    if(snap.exists()){
-      window.S={...window.S,...JSON.parse(snap.data().data||'{}')}; 
-      const fields={'ss-sal':window.S.sal,'ss-ins':window.S.ins,'ss-meal':window.S.meal,'ss-usd':window.S.usd,'ss-twd':window.S.twd,'ss-ws':window.S.ws,'ss-eff':window.S.eff};
-      Object.entries(fields).forEach(([id,val])=>{const el=document.getElementById(id);if(el)el.value=val;});
-    }
-  }catch(e){}
-  // 訂單資料
-  orders=await fbGetAll(COLLECTIONS.ORDERS);
-  employees=await fbGetAll(COLLECTIONS.EMPLOYEES);
-  // 匯入記錄
-  try{
-    const snap=await getDoc(doc(db,'system','impHist'));
-    if(snap.exists()){impHist=JSON.parse(snap.data().data||'[]');}
-  }catch(e){}
-
-  rSum();rAcc();rOrders();setupDeptOptions();setupOrderSelects();
-  // 審批角標
-  await loadPendingCount();
-}
-
-async function loadPendingCount(){
-  try{
-    const snap=await getDocs(query(collection(db,COLLECTIONS.REPORTS),where('status','==','pending')));
-    const count=snap.docs.length;
-    const badge=document.getElementById('badge-approval');
-    if(badge){
-      badge.textContent=count;
-      badge.style.display=count>0?'block':'none';
-    }
-  }catch(e){}
-}
-
-// V1 save functions
-window.saveProductsToFB=async()=>{
-  const ok=await fbSaveWithStatus('system','products',{data:JSON.stringify(window.D)});
-  return ok;
-};
-window.saveAccsToFB=async()=>fbSaveWithStatus(COLLECTIONS.ADMIN_ACCOUNTS,'data',{accounts:JSON.stringify(window.accs)});
-window.saveSettingsToFB=async()=>fbSaveWithStatus('system','settings',{data:JSON.stringify(window.S)});
-window.saveHistoryToFB=async()=>fbSaveWithStatus('system','impHist',{data:JSON.stringify(impHist)});
-window.saveCostLogToFB=async()=>fbSaveWithStatus('system','cLog',{data:JSON.stringify(cLog)});
-
-// ============================
-// 手機版初始化
-// ============================
-async function initMobile(user){
-  document.getElementById('ls').style.display='none';
-  document.getElementById('mob-app').classList.add('active');
-
-  const initials=(user.name||user.user).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  document.getElementById('mob-av').textContent=initials;
-  document.getElementById('mob-name').textContent=user.name||user.user;
-  const deptVi=DEPARTMENTS[user.dept||'']||user.dept||'';
-  const roleVi={leader:'Tổ trưởng',user:'Nhân viên'}[user.role||'user']||user.role;
-  document.getElementById('mob-info').textContent=`Bộ phận: ${deptVi} · Chức vụ: ${roleVi}`;
-
-  if(user.role==='leader'){
-    document.getElementById('mob-tab-approval').classList.remove('hidden');
-  }
-
-  const savedHours=localStorage.getItem('workHours_'+new Date().toDateString());
-  if(savedHours)document.getElementById('mob-work-hours').value=savedHours;
-
-  await mobLoadOrders();
-  await mobLoadMyReports();
-  if(user.role==='leader')await mobLoadPendingReports();
-}
-
-// ============================
-// 手機版功能
-// ============================
-function mobG(id){return document.getElementById(id);}
-
-function mobShowToast(msg,dur=2500){
-  const t=mobG('mob-toast');
-  t.textContent=msg;t.style.display='block';
-  clearTimeout(window._mobToastTimer);
-  window._mobToastTimer=setTimeout(()=>t.style.display='none',dur);
-}
-
-function mobFmtDate(ts){
-  if(!ts)return'-';
-  const d=new Date(ts);
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-}
-
-function mobFmtTime(ts){
-  if(!ts)return'';
-  const d=new Date(ts);const now=new Date();const diff=now-d;
-  if(diff<86400000)return`Hôm nay ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  if(diff<172800000)return`Hôm qua ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  return`${mobFmtDate(ts)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-window.mobGoPage=function(pid){
-  document.querySelectorAll('.mob-pg').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.mob-tab').forEach(t=>t.classList.remove('active'));
-  const pg=mobG(pid);if(pg)pg.classList.add('active');
-  const tabMap={'mob-p-report':'mob-tab-report','mob-p-hist':'mob-tab-hist','mob-p-approval':'mob-tab-approval'};
-  if(tabMap[pid]){const tab=mobG(tabMap[pid]);if(tab)tab.classList.add('active');}
-  if(pid==='mob-p-hist')mobRenderHist();
-  if(pid==='mob-p-approval')mobLoadPendingReports();
-}
-
-async function mobLoadOrders(){
-  try{
-    const snap=await getDocs(collection(db,COLLECTIONS.ORDERS));
-    mobOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
-    mobOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    const sel=mobG('mob-sel-order');
-    sel.innerHTML='<option value="">-- Chọn đơn hàng --</option>';
-    mobOrders.forEach(o=>{
-      const opt=document.createElement('option');
-      opt.value=o.id;
-      opt.textContent=`${o.orderId} · ${mobFmtDate(o.dueDate)}`;
-      sel.appendChild(opt);
-    });
-  }catch(e){console.error(e);}
-}
-
-window.mobOnOrderChange=async function(){
-  const ordId=mobG('mob-sel-order').value;
-  mobG('mob-sel-code').innerHTML='<option value="">-- Chọn mã hàng --</option>';
-  mobG('mob-sel-process').innerHTML='<option value="">-- Chọn công đoạn --</option>';
-  mobG('mob-stat-grid').classList.add('hidden');
-  mobG('mob-qty-section').classList.add('hidden');
-  mobCurrentProcId=null;
-  if(!ordId)return;
-  try{
-    const snap=await getDocs(query(collection(db,COLLECTIONS.ORDER_PROCESSES),where('orderId','==',ordId)));
-    mobOrderProcesses=snap.docs.map(d=>({id:d.id,...d.data()}));
-    const codes=[...new Set(mobOrderProcesses.map(p=>p.code))].sort();
-    const sel=mobG('mob-sel-code');
-    codes.forEach(code=>{
-      const p=mobOrderProcesses.find(x=>x.code===code);
-      const opt=document.createElement('option');
-      opt.value=code;
-      opt.textContent=`${code}${p.color?' · '+p.color:''}${p.sz?' · '+p.sz:''}`;
-      sel.appendChild(opt);
-    });
-  }catch(e){}
-}
-
-window.mobOnCodeChange=function(){
-  const code=mobG('mob-sel-code').value;
-  mobG('mob-sel-process').innerHTML='<option value="">-- Chọn công đoạn --</option>';
-  mobG('mob-stat-grid').classList.add('hidden');
-  mobG('mob-qty-section').classList.add('hidden');
-  mobCurrentProcId=null;
-  if(!code)return;
-  const procs=mobOrderProcesses.filter(p=>p.code===code);
-  procs.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo)));
-  const sel=mobG('mob-sel-process');
-  procs.forEach(p=>{
-    const opt=document.createElement('option');
-    opt.value=p.id;
-    opt.textContent=`${p.processNo} · ${p.processVi||p.processZh}`;
-    sel.appendChild(opt);
-  });
-}
-
-window.mobOnProcessChange=function(){
-  const procId=mobG('mob-sel-process').value;
-  if(!procId){mobG('mob-stat-grid').classList.add('hidden');mobG('mob-qty-section').classList.add('hidden');return;}
-  mobCurrentProcId=procId;
-  const proc=mobOrderProcesses.find(p=>p.id===procId);
-  if(!proc)return;
-  const approved=proc.approvedQty||0;
-  const pending=proc.pendingQty||0;
-  const qty=proc.orderQty||0;
-  const prog=qty>0?Math.min(Math.round(approved/qty*100),100):0;
-  mobG('mob-stat-qty').textContent=qty.toLocaleString();
-  mobG('mob-stat-prog').style.width=prog+'%';
-  mobG('mob-stat-info').textContent=`Đã hoàn thành ${approved.toLocaleString()} / Còn lại ${Math.max(0,qty-approved-pending).toLocaleString()}`;
-  mobG('mob-stat-pending').textContent=pending.toLocaleString();
-  mobG('mob-stat-approved').textContent=`Đã duyệt：${approved.toLocaleString()}`;
-  mobG('mob-stat-grid').classList.remove('hidden');
-  mobG('mob-qty-section').classList.remove('hidden');
-}
-
-window.mobSubmitReport=async function(){
-  const qty=parseInt(mobG('mob-qty-input').value);
-  if(!mobCurrentProcId){mobShowToast('⚠️ Vui lòng chọn công đoạn');return;}
-  if(!qty||qty<=0){mobShowToast('⚠️ Vui lòng nhập số lượng');return;}
-  const proc=mobOrderProcesses.find(p=>p.id===mobCurrentProcId);
-  if(!proc)return;
-  const order=mobOrders.find(o=>o.id===proc.orderId);
-  const workHours=parseFloat(mobG('mob-work-hours').value)||8;
-  const reportData={
-    empId:unifiedUser.id,empName:unifiedUser.name||unifiedUser.user,
-    empDept:unifiedUser.dept||'',orderId:proc.orderId,
-    orderNo:order?order.orderId:'',code:proc.code,
-    processNo:proc.processNo,processVi:proc.processVi||proc.processZh,
-    processSec:proc.processSec||0,slPerHour:proc.slPerHour||0,
-    qty,workHours,status:'pending',createdAt:Date.now(),
-  };
-  try{
-    const ref=await addDoc(collection(db,COLLECTIONS.REPORTS),reportData);
-    reportData.id=ref.id;
-    await updateDoc(doc(db,COLLECTIONS.ORDER_PROCESSES,mobCurrentProcId),{
-      pendingQty:(proc.pendingQty||0)+qty
-    });
-    proc.pendingQty=(proc.pendingQty||0)+qty;
-    mobOnProcessChange();
-    mobMyReports.unshift(reportData);
-    mobShowToast('✅ Đã gửi báo công / 報工已送出');
-    mobG('mob-qty-input').value='';
-    const now=new Date();
-    const ls=mobG('mob-last-submit');
-    ls.textContent=`Gửi lần cuối：${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    ls.classList.remove('hidden');
-    mobUpdateBadges();
-  }catch(e){mobShowToast('❌ Lỗi kết nối, vui lòng thử lại');}
-}
-
-window.mobSaveWorkHours=function(){
-  localStorage.setItem('workHours_'+new Date().toDateString(),mobG('mob-work-hours').value);
-}
-
-async function mobLoadMyReports(){
-  try{
-    const thirtyDaysAgo=Date.now()-30*24*3600*1000;
-    const snap=await getDocs(query(collection(db,COLLECTIONS.REPORTS),
-      where('empId','==',unifiedUser.id),where('createdAt','>=',thirtyDaysAgo)));
-    mobMyReports=snap.docs.map(d=>({id:d.id,...d.data()}));
-    mobMyReports.sort((a,b)=>b.createdAt-a.createdAt);
-    mobUpdateBadges();
-  }catch(e){}
-}
-
-function mobUpdateBadges(){
-  const rejected=mobMyReports.filter(r=>r.status==='rejected').length;
-  const alertBox=mobG('mob-alert-reject');
-  const bellBdg=mobG('mob-bell-bdg');
-  if(rejected>0){
-    alertBox.classList.remove('hidden');
-    mobG('mob-alert-text').textContent=`${rejected} báo công bị từ chối / ${rejected}筆報工被退回`;
-    bellBdg.textContent=rejected;bellBdg.classList.remove('hidden');
-  }else{
-    alertBox.classList.add('hidden');bellBdg.classList.add('hidden');
-  }
-}
-
-window.mobFilterHist=function(f){
-  mobHistFilter=f;
-  ['all','approved','pending','rejected'].forEach(x=>{
-    const el=mobG('mob-fb-'+x);if(el)el.classList.toggle('active',x===f);
-  });
-  mobRenderHist();
-}
-
-function mobRenderHist(){
-  const list=mobG('mob-hist-list');
-  let data=[...mobMyReports];
-  if(mobHistFilter!=='all')data=data.filter(r=>r.status===mobHistFilter);
-  if(!data.length){
-    list.innerHTML='<div class="mob-empty"><i class="ti ti-clipboard-off"></i><p>Chưa có báo công / 尚無記錄</p></div>';
-    return;
-  }
-  list.innerHTML=data.map(r=>{
-    const barClass=r.status==='approved'?'ok':r.status==='pending'?'pending':'reject';
-    const badge=r.status==='approved'?'<span class="mob-badge bo">Đã duyệt</span>':
-      r.status==='pending'?'<span class="mob-badge bp">Chờ duyệt</span>':
-      '<span class="mob-badge br">Từ chối</span>';
-    const rejectBox=r.status==='rejected'&&r.rejectReason?
-      `<div class="reject-box"><i class="ti ti-info-circle" style="color:var(--err);font-size:13px"></i><span>Lý do: ${r.rejectReason}</span></div>`:'';
-    return`<div class="hist-item">
-      <div class="hist-bar ${barClass}"></div>
-      <div class="hist-body">
-        <div class="hist-top">
-          <div><div class="hist-main">${r.processNo} · ${r.processVi||''}</div>
-          <div class="hist-sub">${r.code} · ${r.orderNo||''}<br>${mobFmtTime(r.createdAt)} · ${r.qty.toLocaleString()} PCS</div></div>
-          ${badge}
-        </div>${rejectBox}
-      </div>
-      <i class="ti ti-chevron-right hist-arr"></i>
-    </div>`;
-  }).join('');
-}
-
-async function mobLoadPendingReports(){
-  try{
-    const snap=await getDocs(query(collection(db,COLLECTIONS.REPORTS),where('status','==','pending')));
-    mobPendingReports=snap.docs.map(d=>({id:d.id,...d.data()}));
-    mobPendingReports.sort((a,b)=>b.createdAt-a.createdAt);
-    mobRenderApproval();
-    const count=mobPendingReports.length;
-    const bdg=mobG('mob-tab-bdg');
-    if(bdg){bdg.textContent=count;bdg.classList.toggle('hidden',count===0);}
-  }catch(e){}
-}
-
-function mobRenderApproval(){
-  const list=mobG('mob-apv-list');
-  if(!mobPendingReports.length){
-    list.innerHTML='<div class="mob-empty"><i class="ti ti-check-circle"></i><p>Không có báo công chờ duyệt / 沒有待審批</p></div>';
-    return;
-  }
-  list.innerHTML=mobPendingReports.map(r=>`
-    <div class="apv-item" id="mob-apv-${r.id}">
-      <div class="apv-header">
-        <div class="apv-check" id="mob-chk-${r.id}" onclick="mobToggleChk('${r.id}')"></div>
-        <div class="apv-info">
-          <div class="apv-name">${r.empName||r.empId} <span style="font-size:11px;color:var(--hi)">· ${DEPARTMENTS[r.empDept||'']||r.empDept||''}</span></div>
-          <div class="apv-detail">${r.orderNo||''} · ${r.code||''}<br>${r.processNo} · ${r.processVi||''}<br>${mobFmtTime(r.createdAt)}</div>
-        </div>
-        <div class="apv-qty">${r.qty.toLocaleString()} PCS</div>
-      </div>
-      <div class="apv-foot">
-        <button class="btn-apv btn-ok" onclick="mobApproveOne('${r.id}')"><i class="ti ti-check"></i> Duyệt</button>
-        <button class="btn-apv btn-rej" onclick="mobRejectOne('${r.id}')"><i class="ti ti-x"></i> Từ chối</button>
-      </div>
-    </div>`).join('');
-}
-
-window.mobToggleChk=function(id){
-  const el=mobG('mob-chk-'+id);
-  el.classList.toggle('checked');
-  el.innerHTML=el.classList.contains('checked')?'<i class="ti ti-check" style="font-size:12px"></i>':'';
-}
-
-function mobGetChecked(){
-  return mobPendingReports.filter(r=>mobG('mob-chk-'+r.id)?.classList.contains('checked')).map(r=>r.id);
-}
-
-window.mobApproveOne=async function(id){await mobApproveReports([id]);}
-window.mobRejectOne=function(id){
-  mobG('mob-rej-ids').value=JSON.stringify([id]);
-  mobG('mob-rej-reason').value='';
-  mobG('mob-mo-reject').classList.add('open');
-}
-window.mobBatchApprove=async function(){
-  const ids=mobGetChecked();
-  if(!ids.length){mobShowToast('Vui lòng chọn báo công');return;}
-  await mobApproveReports(ids);
-}
-window.mobBatchReject=function(){
-  const ids=mobGetChecked();
-  if(!ids.length){mobShowToast('Vui lòng chọn báo công');return;}
-  mobG('mob-rej-ids').value=JSON.stringify(ids);
-  mobG('mob-rej-reason').value='';
-  mobG('mob-mo-reject').classList.add('open');
-}
-
-async function mobApproveReports(ids){
-  for(const id of ids){
-    const r=mobPendingReports.find(x=>x.id===id);if(!r)continue;
-    await updateDoc(doc(db,COLLECTIONS.REPORTS,id),{status:'approved',approvedAt:Date.now(),approvedBy:unifiedUser.user||unifiedUser.id});
-    const procSnap=await getDocs(query(collection(db,COLLECTIONS.ORDER_PROCESSES),
-      where('orderId','==',r.orderId),where('code','==',r.code),where('processNo','==',r.processNo)));
-    if(!procSnap.empty){
-      const cur2=procSnap.docs[0].data();
-      await updateDoc(procSnap.docs[0].ref,{
-        approvedQty:(cur2.approvedQty||0)+r.qty,pendingQty:Math.max(0,(cur2.pendingQty||0)-r.qty)
-      });
-    }
-  }
-  mobPendingReports=mobPendingReports.filter(r=>!ids.includes(r.id));
-  mobRenderApproval();
-  const bdg=mobG('mob-tab-bdg');
-  if(bdg){bdg.textContent=mobPendingReports.length;bdg.classList.toggle('hidden',mobPendingReports.length===0);}
-  mobShowToast(`✅ Đã duyệt ${ids.length} báo công`);
-}
-
-window.mobConfirmReject=async function(){
-  const ids=JSON.parse(mobG('mob-rej-ids').value||'[]');
-  const reason=mobG('mob-rej-reason').value.trim();
-  for(const id of ids){
-    const r=mobPendingReports.find(x=>x.id===id);if(!r)continue;
-    await updateDoc(doc(db,COLLECTIONS.REPORTS,id),{status:'rejected',rejectedAt:Date.now(),rejectedBy:unifiedUser.user||unifiedUser.id,rejectReason:reason});
-    const procSnap=await getDocs(query(collection(db,COLLECTIONS.ORDER_PROCESSES),
-      where('orderId','==',r.orderId),where('code','==',r.code),where('processNo','==',r.processNo)));
-    if(!procSnap.empty){
-      const cur2=procSnap.docs[0].data();
-      await updateDoc(procSnap.docs[0].ref,{pendingQty:Math.max(0,(cur2.pendingQty||0)-r.qty)});
-    }
-  }
-  mobPendingReports=mobPendingReports.filter(r=>!ids.includes(r.id));
-  mobRenderApproval();
-  mobCloseMo();
-  mobShowToast(`Đã từ chối ${ids.length} báo công`);
-}
-
-window.mobCloseMo=function(){mobG('mob-mo-reject').classList.remove('open');}
-
-// ============================
-// V1 工序表功能 (保留原有)
-// ============================
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -1766,1144 +635,787 @@ async function fbInit() {
 }
 
 window.addEventListener('load', () => setTimeout(fbInit, 300));
+</script>
 
+<script>
+window.accs=[{user:'admin',pass:'admin123',role:'admin'}];
+let cu=null,cur='VND';
+window.S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
+window.D=[];
 
-// Override doLogin to use unified login
-window.doLogin = window.doUnifiedLogin;
+// 讓 D、S、accs 直接存取 window 上的值（Firebase 更新後自動同步）
+window._D=[];
+window._S={sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
+window._accs=[{user:'admin',pass:'admin123',role:'admin'}];
+window._syncVars = function(){};
+let pImp=null,nItms=null,dups=[],nOpc=0;
+// 從 localStorage 載入記錄（重新整理後不消失）
+let impHist=[];let cLog=[];
+try{const h=localStorage.getItem('impHist');if(h)impHist=JSON.parse(h);}catch(e){}
+try{const c=localStorage.getItem('cLog');if(c)cLog=JSON.parse(c);}catch(e){}
+let sPage=1,dPage=1;
+const IDLE=30*60;
+let idleT=IDLE,idleIv=null;
 
-// Override doLogout  
-window.doLogout = function(){
-  clearInterval(idleIv);
-  ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
-  cu=null;unifiedUser=null;
-  document.getElementById('ls').style.display='';
-  document.getElementById('desktop-app').classList.add('hidden');
-  document.getElementById('mob-app').classList.remove('active');
-  document.getElementById('lu').value='';
-  document.getElementById('lp').value='';
-  document.getElementById('lerr').style.display='none';
-};
-
-// ============================
-// V2 訂單系統功能
-// ============================
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, limit, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-const app = initializeApp(FIREBASE_CONFIG);
-const db = getFirestore(app);
-
-// ============================
-// 狀態變數
-// ============================
-let cu = null; // 目前登入用戶
-let orders = [];
-let orderProcesses = [];
-let employees = [];
-let accounts = [];
-let products = []; // 從工序表讀取
-let pendingReports = [];
-let importData = null; // 暫存匯入資料
-
-window.syncState = 'idle';
-
-// ============================
-// 同步狀態
-// ============================
-function setSyncState(state) {
-  window.syncState = state;
-  const el = document.getElementById('sync-status');
-  const sb = document.getElementById('sync-status-sb');
-  const map = {
-    syncing: {text:'🟡 同步中...', color:'#f59e0b'},
-    success: {text:'🟢 已同步 ' + new Date().toLocaleTimeString('zh-TW'), color:'#16a34a'},
-    failed:  {text:'🔴 同步失敗', color:'#dc2626'},
-  };
-  const m = map[state];
-  if(m && el){
-    el.textContent = m.text;
-    el.style.color = m.color;
-    el.style.display = 'block';
-  } else if(el) {
-    el.style.display = 'none';
-  }
+// 計算函數
+function getH(){
+  if(S.mh)return S.mh;
+  return(S.mc||(S.sal+S.ins+S.meal))/208;
+}
+function calc(sec){
+  if(!sec||isNaN(sec)||sec<=0)return{qty:0,vnd:0};
+  const h=getH(),m=1/(S.eff/100),q=S.ws/sec;
+  return{qty:Math.round(q),vnd:(h/q)*m};
+}
+function fV(v){return'₫'+Math.round(v).toLocaleString();}
+function fU(v){return'$'+(Math.round(v/S.usd*100)/100).toFixed(2);}
+function fT(v){return'NT$'+(Math.round(v/S.twd*10)/10).toFixed(1);}
+function fm(v){
+  if(cur==='VND')return fV(v);
+  if(cur==='USD')return fU(v);
+  return fT(v);
+}
+function hl(t,q){
+  if(!q||!t)return String(t||'');
+  return String(t).replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<span class="hl">$1</span>');
 }
 
-async function fbSave(col, id, data) {
-  setSyncState('syncing');
-  try {
-    await setDoc(doc(db, col, id), data);
-    setSyncState('success');
-    return true;
-  } catch(e) {
-    setSyncState('failed');
-    console.error('fbSave error:', col, id, e);
-    return false;
-  }
+// 設定
+function aCC(){
+  if(S.mc)return;
+  const t=((+g('ss-sal').value)||0)+((+g('ss-ins').value)||0)+((+g('ss-meal').value)||0);
+  g('ss-tc').value=Math.round(t);
+  if(!S.mh)g('ss-hr').value=Math.round(t/208);
 }
-
-async function fbAdd(col, data) {
-  setSyncState('syncing');
-  try {
-    const ref = await addDoc(collection(db, col), data);
-    setSyncState('success');
-    return ref.id;
-  } catch(e) {
-    setSyncState('failed');
-    console.error('fbAdd error:', col, e);
-    return null;
-  }
+function onMC(){
+  const v=+g('ss-tc').value;S.mc=v||null;
+  const tg=g('ct-tag');tg.className=v?'mt':'at';tg.textContent=v?'手動':'自動';
+  if(!S.mh&&v)g('ss-hr').value=Math.round(v/208);
+  rAll();
 }
-
-async function fbUpdate(col, id, data) {
-  setSyncState('syncing');
-  try {
-    await updateDoc(doc(db, col, id), data);
-    setSyncState('success');
-    return true;
-  } catch(e) {
-    setSyncState('failed');
-    return false;
-  }
+function onMH(){
+  const v=+g('ss-hr').value;S.mh=v||null;
+  const tg=g('ht-tag');tg.className=v?'mt':'at';tg.textContent=v?'手動':'自動';
+  rAll();
 }
-
-async function fbDelete(col, id) {
-  setSyncState('syncing');
-  try {
-    await deleteDoc(doc(db, col, id));
-    setSyncState('success');
-    return true;
-  } catch(e) {
-    setSyncState('failed');
-    return false;
-  }
+function uEff(){
+  S.eff=+g('ss-eff').value||80;
+  const m=(1/(S.eff/100))*100,i=m-100;
+  g('e-in').textContent=S.eff+'%';
+  g('e-mu').textContent=m.toFixed(2)+'%';
+  g('e-ic').textContent='+'+i.toFixed(2)+'%';
+  g('e-fo').textContent='1 ÷ '+S.eff+'% = '+m.toFixed(2)+'%';
+  rAll();
 }
-
-async function fbGetAll(col) {
-  try {
-    const snap = await getDocs(collection(db, col));
-    return snap.docs.map(d => ({id: d.id, ...d.data()}));
-  } catch(e) {
-    console.error('fbGetAll error:', col, e);
-    return [];
-  }
+function rAll(){
+  S.sal=+g('ss-sal').value||9413769;
+  S.ins=+g('ss-ins').value||1686575;
+  S.meal=+g('ss-meal').value||1008000;
+  S.usd=+g('ss-usd').value||25400;
+  S.twd=+g('ss-twd').value||780;
+  S.ws=+g('ss-ws').value||3000;
+  aCC();rSum();rDet();rExp();rBk();
 }
-
-// ============================
-// 登入/登出 - 已由 doUnifiedLogin 統一處理
-// ============================
-
-function showLoginErr(msg) {
-  const el = document.getElementById('lerr');
-  if(el){ document.getElementById('lerr-msg').textContent = msg; el.style.display = 'flex'; setTimeout(() => el.style.display = 'none', 4000); }
-}
-
-function getRoleLabel(role) {
-  const map = {admin:'管理員', manager:'課長', leader:'班長', clerk:'文員', user:'員工'};
-  return map[role] || role;
-}
-
-// ============================
-// 權限控制
-// ============================
-function setupNavByRole() {
-  const role = cu.role;
-  const navMap = {
-    'nav-orders':    ['admin','manager','clerk'],
-    'nav-processes': ['admin','manager','clerk','leader'],
-    'nav-approval':  ['admin','manager','leader'],
-    'nav-progress':  ['admin','manager','clerk','leader'],
-    'nav-stats':     ['admin','manager','clerk','leader'],
-    'nav-employees': ['admin','manager','clerk'],
-    'nav-accounts':  ['admin','manager'],
-    'nav-backup':    ['admin'],
-  };
-  Object.entries(navMap).forEach(([id, roles]) => {
-    const el = document.getElementById(id);
-    if(el) {
-      if(!roles.includes(role)) el.classList.add('locked');
-      else el.classList.remove('locked');
+async function saveSt(){
+  const prev={sal:S.sal,ins:S.ins,meal:S.meal,usd:S.usd,twd:S.twd,ws:S.ws,eff:S.eff,hr:Math.round(getH())};
+  rAll();uEff();
+  const next={sal:S.sal,ins:S.ins,meal:S.meal,usd:S.usd,twd:S.twd,ws:S.ws,eff:S.eff,hr:Math.round(getH())};
+  const lbs={sal:'平均薪資',ins:'平均保險',meal:'餐費',usd:'匯率USD',twd:'匯率TWD',ws:'工作秒數/小時',eff:'生產效率(%)',hr:'平均時薪'};
+  const ch=[];
+  Object.keys(lbs).forEach(k=>{
+    if(prev[k]!==next[k]){
+      const p=prev[k]?((next[k]-prev[k])/prev[k]*100).toFixed(1):null;
+      ch.push({f:lbs[k],b:prev[k],a:next[k],p});
     }
   });
-}
-
-// ============================
-// 載入所有資料
-// ============================
-async function loadAll() {
-  // 載入工序表（只讀）
-  try {
-    const snap = await getDoc(doc(db, 'system', 'products'));
-    if(snap.exists()) products = JSON.parse(snap.data().data || '[]');
-  } catch(e) {}
-
-  // 載入訂單系統資料
-  orders = await fbGetAll(COLLECTIONS.ORDERS);
-  employees = await fbGetAll(COLLECTIONS.EMPLOYEES);
-
-  // 載入帳號
-  try {
-    const snap = await getDoc(doc(db, COLLECTIONS.ADMIN_ACCOUNTS, 'data'));
-    if(snap.exists()) accounts = JSON.parse(snap.data().accounts || '[]');
-  } catch(e) {}
-
-  rOrders();
-  rEmployees();
-  rAccounts();
-  rApproval();
-  setupDeptOptions();
-  setupOrderSelects();
-}
-
-function setupDeptOptions() {
-  DEPARTMENTS.forEach(dept => {
-    ['apv-dept','ae-dept','stat-dept'].forEach(id => {
-      const sel = document.getElementById(id);
-      if(sel && !sel.querySelector(`option[value="${dept}"]`)) {
-        const opt = document.createElement('option');
-        opt.value = dept; opt.textContent = dept;
-        sel.appendChild(opt);
-      }
-    });
-  });
-}
-
-function setupOrderSelects() {
-  ['proc-ord','apv-ord','prog-ord'].forEach(id => {
-    const sel = document.getElementById(id);
-    if(!sel) return;
-    const current = sel.value;
-    while(sel.options.length > 1) sel.remove(1);
-    orders.forEach(o => {
-      const opt = document.createElement('option');
-      opt.value = o.id;
-      opt.textContent = `${o.orderId} · ${fmtDate(o.dueDate)}`;
-      sel.appendChild(opt);
-    });
-    if(current) sel.value = current;
-  });
-}
-
-// ============================
-// 頁面切換
-// ============================
-window.goPage = function(pid) {
-  document.querySelectorAll('.pg').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
-  const pg = document.getElementById(pid);
-  if(pg) pg.classList.add('active');
-  const navId = 'nav-' + pid.replace('p-','');
-  const nav = document.getElementById(navId);
-  if(nav) nav.classList.add('active');
-  const titles = {
-    'p-orders':'訂單管理', 'p-processes':'訂單工序',
-    'p-approval':'報工審批', 'p-progress':'訂單進度',
-    'p-stats':'員工產量統計', 'p-employees':'員工管理',
-    'p-accounts':'帳號管理', 'p-backup':'資料備份'
-  };
-  document.getElementById('tb-title').textContent = titles[pid] || '';
-
-  if(pid==='p-processes') rProcesses();
-  if(pid==='p-progress') rProgress();
-  if(pid==='p-stats') rStats();
-}
-
-window.closeModal = function(id) {
-  document.getElementById(id).classList.remove('open');
-}
-
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
-}
-
-// ============================
-// 訂單管理
-// ============================
-window.rOrders = function() {
-  const q = (document.getElementById('ord-search').value||'').toLowerCase();
-  const status = document.getElementById('ord-filter-status').value;
-  const tbody = document.getElementById('ord-tbody');
-  tbody.innerHTML = '';
-
-  let list = [...orders];
-  if(q) list = list.filter(o => o.orderId.toLowerCase().includes(q));
-
-  if(!list.length) {
-    document.getElementById('ord-empty').style.display = 'flex';
-    return;
+  if(ch.length>0){cLog.push({t:new Date().toLocaleString('zh-TW'),u:cu.user,ch});rClog();
+    try{localStorage.setItem('cLog',JSON.stringify(cLog));}catch(e){}
+    if(window.saveCostLogToFB)await saveCostLogToFB();
   }
-  document.getElementById('ord-empty').style.display = 'none';
-
-  list.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-  list.forEach(o => {
-    const progress = calcOrderProgress(o.id);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><b style="color:var(--navy)">${o.orderId}</b></td>
-      <td>${o.itemCount||0}</td>
-      <td>${(o.totalQty||0).toLocaleString()}</td>
-      <td>${fmtDate(o.dueDate)}</td>
-      <td>${fmtDate(o.createdAt)}</td>
-      <td style="min-width:120px">
-        <div class="prog-wrap"><div class="prog-bar ${progress>=100?'ok':progress>=50?'':''}" style="width:${Math.min(progress,100)}%"></div></div>
-        <div style="font-size:11px;color:var(--mu);margin-top:3px">${progress}%</div>
-      </td>
-      <td>
-        <div style="display:flex;gap:4px">
-          <button class="btn bs bsm" onclick="viewOrderProcesses('${o.id}')"><i class="ti ti-list"></i></button>
-          <button class="btn bs bsm" onclick="editOrder('${o.id}')"><i class="ti ti-edit"></i></button>
-          <button class="btn bd-btn bsm" onclick="deleteOrder('${o.id}')"><i class="ti ti-trash"></i></button>
-        </div>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-
-  setupOrderSelects();
+  const n=g('st-ok');n.style.display='flex';setTimeout(()=>n.style.display='none',3000);
+  if(window.saveSettingsToFB)await saveSettingsToFB();
+}
+function setCur(c){
+  cur=c;
+  ['VND','USD','TWD'].forEach(x=>g('cur-'+x).className='cb'+(x===c?' active':''));
+  rSum();rDet();rExp();
 }
 
-function calcOrderProgress(orderId) {
-  // 先暫時回傳0，之後從orderProcesses計算
-  return 0;
-}
-
-window.viewOrderProcesses = function(orderId) {
-  document.getElementById('proc-ord').value = orderId;
-  goPage('p-processes');
-  rProcesses();
-}
-
-window.editOrder = function(id) {
-  const o = orders.find(x => x.id === id);
-  if(!o) return;
-  document.getElementById('eo-id').value = id;
-  document.getElementById('eo-ordid').value = o.orderId;
-  document.getElementById('eo-duedate').value = o.dueDate ? new Date(o.dueDate).toISOString().split('T')[0] : '';
-  openModal('m-edit-order');
-}
-
-window.saveEditOrder = async function() {
-  const id = document.getElementById('eo-id').value;
-  const dueDate = document.getElementById('eo-duedate').value;
-  if(!dueDate) return alert('請填寫出貨日期');
-  const idx = orders.findIndex(o => o.id === id);
-  if(idx < 0) return;
-  orders[idx].dueDate = new Date(dueDate).getTime();
-  orders[idx].updatedAt = Date.now();
-  orders[idx].updatedBy = cu.user;
-  await fbSave(COLLECTIONS.ORDERS, id, orders[idx]);
-  closeModal('m-edit-order');
-  rOrders();
-}
-
-window.deleteOrder = async function(id) {
-  const o = orders.find(x => x.id === id);
-  if(!o) return;
-  if(!confirm(`確定刪除訂單 ${o.orderId}？此操作不可還原。`)) return;
-  await fbDelete(COLLECTIONS.ORDERS, id);
-  orders = orders.filter(x => x.id !== id);
-  rOrders();
-}
-
-// ============================
-// 匯入訂單
-// ============================
-window.openImportOrder = function() {
-  importData = null;
-  document.getElementById('imp-ordid').value = '';
-  document.getElementById('imp-duedate').value = '';
-  document.getElementById('imp-file').value = '';
-  document.getElementById('imp-step1').style.display = 'block';
-  document.getElementById('imp-step2').style.display = 'none';
-  document.getElementById('imp-skip-msg').style.display = 'none';
-  openModal('m-import-order');
-}
-
-window.handleOrderFile = function(input) {
-  const file = input.files[0];
-  if(!file) return;
-  const ordId = document.getElementById('imp-ordid').value.trim();
-  const dueDate = document.getElementById('imp-duedate').value;
-  if(!ordId) { alert('請先填寫訂單編號'); input.value=''; return; }
-  if(!dueDate) { alert('請先填寫出貨日期'); input.value=''; return; }
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    try {
-      const wb = XLSX.read(e.target.result, {type:'binary'});
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-
-      // 找標題行（含 ITEM NO. 或 款號）
-      let headerRow = -1;
-      for(let i=0; i<Math.min(10,rows.length); i++) {
-        const r = rows[i].map(c => String(c).toUpperCase());
-        if(r.some(c => c.includes('ITEM') || c.includes('款號'))) {
-          headerRow = i; break;
-        }
-      }
-      if(headerRow < 0) { alert('找不到標題列，請確認 Excel 格式'); return; }
-
-      const headers = rows[headerRow].map(c => String(c).toUpperCase().trim());
-      const itemNoIdx = headers.findIndex(h => h.includes('ITEM'));
-      const descIdx = headers.findIndex(h => h.includes('DESC') || h.includes('說明'));
-      const colorIdx = headers.findIndex(h => h.includes('COLOR') || h.includes('顏色'));
-      const qtyIdx = headers.findIndex(h => h.includes("Q'TY") || h.includes('QTY') || h.includes('數量'));
-
-      const dataRows = rows.slice(headerRow+1).filter(r => r[itemNoIdx]);
-      const matched = [];
-      const skipped = [];
-
-      dataRows.forEach(r => {
-        const itemNo = String(r[itemNoIdx]||'').trim();
-        const qty = parseInt(r[qtyIdx]||0);
-        if(!itemNo || !qty) return;
-
-        const prod = products.find(p => p.code === itemNo);
-        if(prod) {
-          matched.push({
-            code: itemNo,
-            desc: String(r[descIdx]||'').trim(),
-            color: String(r[colorIdx]||'').trim(),
-            qty: qty,
-            ops: prod.ops || [],
-            zh: prod.zh || '',
-            sz: prod.sz || ''
-          });
-        } else {
-          skipped.push(itemNo);
-        }
-      });
-
-      importData = { ordId, dueDate, matched, skipped };
-
-      // 顯示預覽
-      document.getElementById('imp-step2').style.display = 'block';
-      document.getElementById('imp-ok-msg').innerHTML = `<i class="ti ti-check"></i> 找到 <b>${matched.length}</b> 個款號可匯入，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> 道工序`;
-
-      if(skipped.length > 0) {
-        document.getElementById('imp-skip-msg').style.display = 'flex';
-        document.getElementById('imp-skip-msg').innerHTML = `<i class="ti ti-alert-triangle"></i> 跳過 ${skipped.length} 個款號（工序表找不到）：${skipped.slice(0,5).join('、')}${skipped.length>5?'...':''}`;
-      }
-
-      const tbody = document.getElementById('imp-preview-tbody');
-      tbody.innerHTML = '';
-      matched.forEach(m => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td><b>${m.code}</b></td><td>${m.desc}</td><td>${m.color}</td><td>${m.qty.toLocaleString()}</td><td>${m.ops.length}</td><td><span class="tg tg-ok">✓ 可匯入</span></td>`;
-        tbody.appendChild(tr);
-      });
-      skipped.forEach(s => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td><b>${s}</b></td><td>-</td><td>-</td><td>-</td><td>-</td><td><span class="tg tg-err">找不到工序</span></td>`;
-        tbody.appendChild(tr);
-      });
-    } catch(err) {
-      alert('讀取 Excel 失敗：' + err.message);
-    }
-  };
-  reader.readAsBinaryString(file);
-}
-
-window.confirmImportOrder = async function() {
-  if(!importData || !importData.matched.length) {
-    alert('請先上傳 Excel 檔案');
-    return;
-  }
-
-  const btn = document.getElementById('imp-btn');
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader"></i> 匯入中...';
-
-  try {
-    const {ordId, dueDate, matched} = importData;
-    const now = Date.now();
-
-    // 建立訂單
-    const orderData = {
-      orderId: ordId,
-      dueDate: new Date(dueDate).getTime(),
-      itemCount: matched.length,
-      totalQty: matched.reduce((a,m)=>a+m.qty,0),
-      createdAt: now,
-      createdBy: cu.user,
-    };
-    const ordDocId = await fbAdd(COLLECTIONS.ORDERS, orderData);
-    if(!ordDocId) throw new Error('建立訂單失敗');
-    orderData.id = ordDocId;
-    orders.push(orderData);
-
-    // 建立訂單工序清單
-    for(const item of matched) {
-      for(const op of item.ops) {
-        const procData = {
-          orderId: ordDocId,
-          orderNo: ordId,
-          code: item.code,
-          desc: item.desc,
-          color: item.color,
-          zh: item.zh,
-          sz: item.sz,
-          orderQty: item.qty,
-          processNo: op.no,
-          processZh: op.zh,
-          processVi: op.vi || '',
-          processSec: op.sec,
-          slPerHour: op.qty || Math.round(3600/op.sec),
-          approvedQty: 0,
-          pendingQty: 0,
-          createdAt: now,
-        };
-        await fbAdd(COLLECTIONS.ORDER_PROCESSES, procData);
-      }
-    }
-
-    closeModal('m-import-order');
-    rOrders();
-    alert(`✅ 訂單 ${ordId} 匯入成功！\n款號：${matched.length} 個\n工序：${matched.reduce((a,m)=>a+m.ops.length,0)} 道`);
-  } catch(err) {
-    alert('匯入失敗：' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-check"></i> 確認匯入 / Xác nhận';
-    importData = null;
-  }
-}
-
-// ============================
-// 訂單工序
-// ============================
-window.rProcesses = async function() {
-  const ordId = document.getElementById('proc-ord').value;
-  const q = (document.getElementById('proc-search').value||'').toLowerCase();
-  const tbody = document.getElementById('proc-tbody');
-  tbody.innerHTML = '';
-
-  if(!ordId) {
-    document.getElementById('proc-empty').style.display = 'flex';
-    return;
-  }
-  document.getElementById('proc-empty').style.display = 'none';
-
-  // 從 Firebase 讀取此訂單的工序
-  try {
-    const snap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES), where('orderId','==',ordId)));
-    let procs = snap.docs.map(d => ({id:d.id, ...d.data()}));
-    if(q) procs = procs.filter(p => p.code.toLowerCase().includes(q) || p.processZh.toLowerCase().includes(q));
-
-    procs.sort((a,b) => a.code.localeCompare(b.code) || String(a.processNo).localeCompare(String(b.processNo)));
-
-    procs.forEach(p => {
-      const remaining = Math.max(0, p.orderQty - p.approvedQty - p.pendingQty);
-      const progress = p.orderQty > 0 ? Math.round(p.approvedQty/p.orderQty*100) : 0;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><b>${p.code}</b>${p.color?`<span class="tv">${p.color}</span>`:''}</td>
-        <td>${p.zh||''}</td>
-        <td>${p.sz||''}</td>
-        <td>${p.processNo}</td>
-        <td>${p.processZh}<span class="tv">${p.processVi||''}</span></td>
-        <td>${p.orderQty.toLocaleString()}</td>
-        <td style="color:var(--ok);font-weight:500">${p.approvedQty.toLocaleString()}</td>
-        <td style="color:var(--warn)">${p.pendingQty.toLocaleString()}</td>
-        <td style="color:var(--accent)">${remaining.toLocaleString()}</td>
-        <td style="min-width:100px">
-          <div class="prog-wrap"><div class="prog-bar ${progress>=100?'ok':''}" style="width:${Math.min(progress,100)}%"></div></div>
-          <div style="font-size:11px;color:var(--mu);margin-top:2px">${progress}%</div>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-  } catch(e) {
-    console.error(e);
-  }
-}
-
-// ============================
-// 審批
-// ============================
-window.rApproval = async function() {
-  const ordId = document.getElementById('apv-ord').value;
-  const dept = document.getElementById('apv-dept').value;
-  const empFilter = document.getElementById('apv-emp').value;
-  const tbody = document.getElementById('apv-tbody');
-  tbody.innerHTML = '';
-
-  try {
-    let q2 = query(collection(db, COLLECTIONS.REPORTS), where('status','==','pending'));
-    if(ordId) q2 = query(collection(db, COLLECTIONS.REPORTS), where('status','==','pending'), where('orderId','==',ordId));
-    const snap = await getDocs(q2);
-    pendingReports = snap.docs.map(d => ({id:d.id, ...d.data()}));
-
-    let list = [...pendingReports];
-    if(dept) list = list.filter(r => r.empDept === dept);
-    if(empFilter) list = list.filter(r => r.empId === empFilter);
-
-    // 更新角標
-    const badge = document.getElementById('badge-approval');
-    if(pendingReports.length > 0) {
-      badge.textContent = pendingReports.length;
-      badge.style.display = 'block';
-    } else {
-      badge.style.display = 'none';
-    }
-
-    if(!list.length) {
-      document.getElementById('apv-empty').style.display = 'flex';
-      return;
-    }
-    document.getElementById('apv-empty').style.display = 'none';
-
-    list.forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><input type="checkbox" class="apv-chk" value="${r.id}"></td>
-        <td>${r.empName||r.empId}</td>
-        <td>${r.empDept||'-'}</td>
-        <td>${r.orderNo||''}</td>
-        <td>${r.code||''}</td>
-        <td>${r.processNo} ${r.processZh||''}</td>
-        <td><b>${r.qty.toLocaleString()}</b></td>
-        <td>${fmtDateTime(r.createdAt)}</td>
-        <td>
-          <div style="display:flex;gap:4px">
-            <button class="btn bg-btn bsm" onclick="approveOne('${r.id}')"><i class="ti ti-check"></i></button>
-            <button class="btn bd-btn bsm" onclick="rejectOne('${r.id}')"><i class="ti ti-x"></i></button>
-          </div>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-  } catch(e) {
-    console.error(e);
-  }
-}
-
-window.toggleAllChk = function(chk) {
-  document.querySelectorAll('.apv-chk').forEach(c => c.checked = chk.checked);
-}
-
-function getCheckedIds() {
-  return [...document.querySelectorAll('.apv-chk:checked')].map(c => c.value);
-}
-
-window.batchApprove = async function() {
-  const ids = getCheckedIds();
-  if(!ids.length) { alert('請先勾選要審批的記錄'); return; }
-  if(!confirm(`確認通過 ${ids.length} 筆報工？`)) return;
-  for(const id of ids) await approveReport(id);
-  rApproval();
-}
-
-window.batchReject = function() {
-  const ids = getCheckedIds();
-  if(!ids.length) { alert('請先勾選要退回的記錄'); return; }
-  document.getElementById('rej-ids').value = JSON.stringify(ids);
-  document.getElementById('rej-reason').value = '';
-  openModal('m-reject');
-}
-
-window.approveOne = async function(id) {
-  if(!confirm('確認通過此筆報工？')) return;
-  await approveReport(id);
-  rApproval();
-}
-
-window.rejectOne = function(id) {
-  document.getElementById('rej-ids').value = JSON.stringify([id]);
-  document.getElementById('rej-reason').value = '';
-  openModal('m-reject');
-}
-
-async function approveReport(reportId) {
-  const r = pendingReports.find(x => x.id === reportId);
-  if(!r) return;
-  try {
-    // 更新報工狀態
-    await updateDoc(doc(db, COLLECTIONS.REPORTS, reportId), {
-      status: 'approved',
-      approvedAt: Date.now(),
-      approvedBy: cu.user
-    });
-    // 更新訂單工序已通過數量
-    const procSnap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES),
-      where('orderId','==',r.orderId),
-      where('code','==',r.code),
-      where('processNo','==',r.processNo)));
-    if(!procSnap.empty) {
-      const procDoc = procSnap.docs[0];
-      const current = procDoc.data();
-      await updateDoc(procDoc.ref, {
-        approvedQty: (current.approvedQty||0) + r.qty,
-        pendingQty: Math.max(0, (current.pendingQty||0) - r.qty)
-      });
-    }
-  } catch(e) { console.error(e); }
-}
-
-window.confirmReject = async function() {
-  const ids = JSON.parse(document.getElementById('rej-ids').value||'[]');
-  const reason = document.getElementById('rej-reason').value.trim();
-  for(const id of ids) {
-    const r = pendingReports.find(x => x.id === id);
-    if(!r) continue;
-    await updateDoc(doc(db, COLLECTIONS.REPORTS, id), {
-      status: 'rejected',
-      rejectedAt: Date.now(),
-      rejectedBy: cu.user,
-      rejectReason: reason
-    });
-    // 釋放 pendingQty
-    const procSnap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES),
-      where('orderId','==',r.orderId),
-      where('code','==',r.code),
-      where('processNo','==',r.processNo)));
-    if(!procSnap.empty) {
-      const procDoc = procSnap.docs[0];
-      const current = procDoc.data();
-      await updateDoc(procDoc.ref, {
-        pendingQty: Math.max(0, (current.pendingQty||0) - r.qty)
-      });
-    }
-  }
-  closeModal('m-reject');
-  rApproval();
-}
-
-// ============================
-// 訂單進度
-// ============================
-window.rProgress = async function() {
-  const ordId = document.getElementById('prog-ord').value;
-  const content = document.getElementById('prog-content');
-  content.innerHTML = '';
-  if(!ordId) {
-    content.innerHTML = '<div class="nt ni2"><i class="ti ti-info-circle"></i> 請先選擇訂單</div>';
-    return;
-  }
-
-  const order = orders.find(o => o.id === ordId);
-  if(!order) return;
-
-  const snap = await getDocs(query(collection(db, COLLECTIONS.ORDER_PROCESSES), where('orderId','==',ordId)));
-  const procs = snap.docs.map(d => ({id:d.id, ...d.data()}));
-
-  // 按款號分組
-  const byCode = {};
-  procs.forEach(p => {
-    if(!byCode[p.code]) byCode[p.code] = [];
-    byCode[p.code].push(p);
-  });
-
-  // 計算整體進度
-  const totalApproved = procs.reduce((a,p)=>a+p.approvedQty,0);
-  const totalQty = procs.reduce((a,p)=>a+p.orderQty,0);
-  const overall = totalQty > 0 ? Math.round(totalApproved/totalQty*100) : 0;
-
-  let html = `
-    <div class="card" style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:12px">${order.orderId}</div>
-      <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap">
-        <div><div style="font-size:11px;color:var(--mu)">出貨日期</div><div style="font-weight:500">${fmtDate(order.dueDate)}</div></div>
-        <div><div style="font-size:11px;color:var(--mu)">款數</div><div style="font-weight:500">${order.itemCount}</div></div>
-        <div><div style="font-size:11px;color:var(--mu)">總數量</div><div style="font-weight:500">${(order.totalQty||0).toLocaleString()}</div></div>
-        <div><div style="font-size:11px;color:var(--mu)">整體進度</div><div style="font-weight:600;color:var(--accent)">${overall}%</div></div>
-      </div>
-      <div class="prog-wrap"><div class="prog-bar ${overall>=100?'ok':''}" style="width:${Math.min(overall,100)}%"></div></div>
-    </div>`;
-
-  Object.entries(byCode).forEach(([code, codeProcs]) => {
-    const codeApproved = codeProcs.reduce((a,p)=>a+p.approvedQty,0);
-    const codeQty = codeProcs[0].orderQty;
-    const codeProgress = codeQty > 0 ? Math.round(codeApproved/codeQty*100) : 0;
-
-    html += `<div class="card" style="margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-        <div>
-          <b style="color:var(--navy)">${code}</b>
-          <span style="font-size:12px;color:var(--mu);margin-left:8px">${codeProcs[0].desc||''} ${codeProcs[0].color||''}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:120px">
-            <div class="prog-wrap"><div class="prog-bar ${codeProgress>=100?'ok':''}" style="width:${Math.min(codeProgress,100)}%"></div></div>
-            <div style="font-size:11px;color:var(--mu);margin-top:2px">${codeProgress}% · ${codeApproved.toLocaleString()}/${codeQty.toLocaleString()}</div>
-          </div>
-          <i class="ti ti-chevron-down" style="color:var(--mu)"></i>
-        </div>
-      </div>
-      <div style="display:none">
-        <div class="tbl-wrap">
-          <table>
-            <thead><tr>
-              <th>工序號</th><th>工序名稱</th><th>訂單數量</th><th>已通過</th><th>待審批</th><th>剩餘</th><th>進度</th>
-            </tr></thead>
-            <tbody>`;
-
-    codeProcs.sort((a,b) => String(a.processNo).localeCompare(String(b.processNo)));
-    codeProcs.forEach(p => {
-      const remaining = Math.max(0, p.orderQty - p.approvedQty - p.pendingQty);
-      const prog = p.orderQty > 0 ? Math.round(p.approvedQty/p.orderQty*100) : 0;
-      html += `<tr>
-        <td>${p.processNo}</td>
-        <td>${p.processZh}<span class="tv">${p.processVi||''}</span></td>
-        <td>${p.orderQty.toLocaleString()}</td>
-        <td style="color:var(--ok);font-weight:500">${p.approvedQty.toLocaleString()}</td>
-        <td style="color:var(--warn)">${p.pendingQty.toLocaleString()}</td>
-        <td style="color:var(--accent)">${remaining.toLocaleString()}</td>
-        <td>
-          <div class="prog-wrap"><div class="prog-bar ${prog>=100?'ok':''}" style="width:${Math.min(prog,100)}%"></div></div>
-          <div style="font-size:11px;color:var(--mu);margin-top:2px">${prog}%</div>
-        </td>
-      </tr>`;
-    });
-    html += `</tbody></table></div></div></div>`;
-  });
-
-  content.innerHTML = html;
-}
-
-// ============================
-// 員工產量統計
-// ============================
-window.rStats = async function() {
-  const range = document.getElementById('stat-range').value;
-  const dept = document.getElementById('stat-dept').value;
-  const fromEl = document.getElementById('stat-from');
-  const toEl = document.getElementById('stat-to');
-
-  fromEl.style.display = range==='custom'?'block':'none';
-  toEl.style.display = range==='custom'?'block':'none';
-
-  const now = new Date();
-  let fromDate, toDate;
-  if(range==='today') {
-    fromDate = new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
-    toDate = Date.now();
-  } else if(range==='month') {
-    fromDate = new Date(now.getFullYear(),now.getMonth(),1).getTime();
-    toDate = Date.now();
-  } else {
-    if(!fromEl.value||!toEl.value) return;
-    fromDate = new Date(fromEl.value).getTime();
-    toDate = new Date(toEl.value).getTime() + 86400000;
-  }
-
-  // 檢查6個月限制
-  const sixMonths = 6*30*24*3600*1000;
-  if(toDate - fromDate > sixMonths) {
-    alert('查詢範圍不能超過6個月');
-    return;
-  }
-
-  try {
-    const snap = await getDocs(query(collection(db, COLLECTIONS.REPORTS),
-      where('status','==','approved'),
-      where('createdAt','>=',fromDate),
-      where('createdAt','<=',toDate)));
-    let reports = snap.docs.map(d => ({id:d.id,...d.data()}));
-    if(dept) reports = reports.filter(r => r.empDept === dept);
-
-    const tbody = document.getElementById('stat-tbody');
-    tbody.innerHTML = '';
-    reports.sort((a,b) => (a.empName||'').localeCompare(b.empName||''));
-    reports.forEach(r => {
-      const stdPerHour = r.slPerHour || (r.processSec ? Math.round(3600/r.processSec) : 0);
-      const workedHours = r.workHours || 8;
-      const actualPerHour = workedHours > 0 ? Math.round(r.qty/workedHours) : 0;
-      const efficiency = stdPerHour > 0 ? Math.round(actualPerHour/stdPerHour*100) : 0;
-      const effColor = efficiency>=100?'var(--ok)':efficiency>=80?'var(--warn)':'var(--err)';
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${r.empName||r.empId}</td>
-        <td>${r.empDept||'-'}</td>
-        <td>${r.orderNo||''}</td>
-        <td>${r.code||''}</td>
-        <td>${r.processNo} ${r.processZh||''}</td>
-        <td><b>${r.qty.toLocaleString()}</b></td>
-        <td>${stdPerHour}</td>
-        <td style="font-weight:600;color:${effColor}">${efficiency}%</td>`;
-      tbody.appendChild(tr);
-    });
-  } catch(e) { console.error(e); }
-}
-
-window.exportStats = function() {
-  alert('匯出功能開發中...');
-}
-
-// ============================
-// 員工管理
-// ============================
-window.rEmployees = function() {
-  const tbody = document.getElementById('emp-tbody');
-  tbody.innerHTML = '';
-  employees.forEach(e => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><b>${e.name}</b></td>
-      <td>${e.user}</td>
-      <td>${e.dept||'-'}</td>
-      <td><span class="tg ${e.role==='leader'?'tg-info':'tg-gray'}">${e.role==='leader'?'班長':'員工'}</span></td>
-      <td>
-        <div style="display:flex;gap:4px">
-          <button class="btn bs bsm" onclick="editEmp('${e.id}')"><i class="ti ti-edit"></i></button>
-          <button class="btn bd-btn bsm" onclick="deleteEmp('${e.id}')"><i class="ti ti-trash"></i></button>
-        </div>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-window.openAddEmp = function() {
-  document.getElementById('ae-id').value = '';
-  document.getElementById('ae-name').value = '';
-  document.getElementById('ae-user').value = '';
-  document.getElementById('ae-pass').value = '';
-  document.getElementById('ae-dept').value = '';
-  document.getElementById('ae-role').value = 'user';
-  openModal('m-add-emp');
-}
-
-window.editEmp = function(id) {
-  const e = employees.find(x => x.id === id);
-  if(!e) return;
-  document.getElementById('ae-id').value = id;
-  document.getElementById('ae-name').value = e.name;
-  document.getElementById('ae-user').value = e.user;
-  document.getElementById('ae-pass').value = '';
-  document.getElementById('ae-dept').value = e.dept||'';
-  document.getElementById('ae-role').value = e.role||'user';
-  openModal('m-add-emp');
-}
-
-window.saveEmp = async function() {
-  const id = document.getElementById('ae-id').value;
-  const name = document.getElementById('ae-name').value.trim();
-  const user = document.getElementById('ae-user').value.trim();
-  const pass = document.getElementById('ae-pass').value;
-  const dept = document.getElementById('ae-dept').value;
-  const role = document.getElementById('ae-role').value;
-  if(!name||!user) return alert('請填寫姓名和帳號');
-  if(!id && !pass) return alert('新增員工請填寫密碼');
-  if(!id && employees.find(e => e.user===user)) return alert('帳號已存在');
-
-  const data = {name, user, dept, role, updatedAt: Date.now()};
-  if(pass) data.pass = pass;
-
-  if(id) {
-    const idx = employees.findIndex(e => e.id===id);
-    if(idx>=0) { employees[idx] = {...employees[idx], ...data}; await fbSave(COLLECTIONS.EMPLOYEES, id, employees[idx]); }
-  } else {
-    data.createdAt = Date.now();
-    const newId = await fbAdd(COLLECTIONS.EMPLOYEES, data);
-    if(newId) { data.id = newId; employees.push(data); }
-  }
-  closeModal('m-add-emp');
-  rEmployees();
-}
-
-window.deleteEmp = async function(id) {
-  if(!confirm('確定刪除此員工帳號？')) return;
-  await fbDelete(COLLECTIONS.EMPLOYEES, id);
-  employees = employees.filter(e => e.id!==id);
-  rEmployees();
-}
-
-// ============================
-// 帳號管理
-// ============================
-window.rAccounts = function() {
-  const tbody = document.getElementById('acc-tbody');
-  tbody.innerHTML = '';
-  accounts.forEach((a,i) => {
-    const isSelf = a.user === cu.user;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><b>${a.user}</b>${isSelf?'<span class="tg tg-info" style="margin-left:6px">我</span>':''}</td>
-      <td><span class="tg ${a.role==='admin'?'tg-ok':a.role==='manager'?'tg-info':'tg-gray'}">${getRoleLabel(a.role)}</span></td>
-      <td>
-        <div style="display:flex;gap:4px">
-          <button class="btn bs bsm" onclick="editAcc(${i})"><i class="ti ti-edit"></i></button>
-          ${!isSelf?`<button class="btn bd-btn bsm" onclick="deleteAcc(${i})"><i class="ti ti-trash"></i></button>`:''}
-        </div>
-      </td>`;
-    tbody.appendChild(tr);
-  });
-}
-
-window.openAddAcc = function() {
-  document.getElementById('aa-id').value = '';
-  document.getElementById('aa-user').value = '';
-  document.getElementById('aa-pass').value = '';
-  document.getElementById('aa-role').value = 'clerk';
-  openModal('m-add-acc');
-}
-
-window.editAcc = function(idx) {
-  const a = accounts[idx];
-  document.getElementById('aa-id').value = idx;
-  document.getElementById('aa-user').value = a.user;
-  document.getElementById('aa-pass').value = '';
-  document.getElementById('aa-role').value = a.role;
-  openModal('m-add-acc');
-}
-
-window.saveAcc = async function() {
-  const idx = document.getElementById('aa-id').value;
-  const user = document.getElementById('aa-user').value.trim();
-  const pass = document.getElementById('aa-pass').value;
-  const role = document.getElementById('aa-role').value;
-  if(!user) return alert('請填寫帳號');
-
-  if(idx === '') {
-    if(!pass) return alert('請填寫密碼');
-    if(accounts.find(a => a.user===user)) return alert('帳號已存在');
-    accounts.push({user, pass, role});
-  } else {
-    accounts[parseInt(idx)].user = user;
-    accounts[parseInt(idx)].role = role;
-    if(pass) accounts[parseInt(idx)].pass = pass;
-  }
-  await fbSave(COLLECTIONS.ADMIN_ACCOUNTS, 'data', {accounts: JSON.stringify(accounts)});
-  closeModal('m-add-acc');
-  rAccounts();
-}
-
-window.deleteAcc = async function(idx) {
-  if(!confirm('確定刪除此帳號？')) return;
-  accounts.splice(idx, 1);
-  await fbSave(COLLECTIONS.ADMIN_ACCOUNTS, 'data', {accounts: JSON.stringify(accounts)});
-  rAccounts();
-}
-
-// ============================
-// 資料備份
-// ============================
-window.backupAll = async function() {
-  const btn = event.target;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="ti ti-loader"></i> 備份中...';
-  try {
-    const data = {
-      version: SYSTEM_VERSION,
-      backupAt: Date.now(),
-      backupBy: cu.user,
-      orders: await fbGetAll(COLLECTIONS.ORDERS),
-      orderProcesses: await fbGetAll(COLLECTIONS.ORDER_PROCESSES),
-      employees: await fbGetAll(COLLECTIONS.EMPLOYEES),
-      reports: await fbGetAll(COLLECTIONS.REPORTS),
-      accounts: accounts,
-    };
-    const now = new Date();
-    const fname = `backup_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.json`;
-    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = fname;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    const log = document.getElementById('bk-log');
-    log.style.display = 'flex';
-    log.innerHTML = `<i class="ti ti-check"></i> 備份成功：${fname}`;
-    setTimeout(() => log.style.display='none', 5000);
-  } catch(e) { alert('備份失敗：'+e.message); }
-  finally { btn.disabled=false; btn.innerHTML='<i class="ti ti-download"></i> 立即備份'; }
-}
-
-window.backupType = async function() {
-  const type = document.getElementById('bk-type').value;
-  const colMap = {
-    orders: COLLECTIONS.ORDERS,
-    orderProcesses: COLLECTIONS.ORDER_PROCESSES,
-    employees: COLLECTIONS.EMPLOYEES,
-    reports: COLLECTIONS.REPORTS,
-    accounts: null
-  };
-  const col = colMap[type];
-  let data;
-  if(!col) { data = accounts; }
-  else { data = await fbGetAll(col); }
-  const now = new Date();
-  const fname = `backup_${type}_${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.json`;
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = fname;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// ============================
-// 日期格式
-// ============================
-function fmtDate(ts) {
-  if(!ts) return '-';
-  const d = new Date(ts);
-  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-}
-function fmtDateTime(ts) {
-  if(!ts) return '-';
-  const d = new Date(ts);
-  return `${fmtDate(ts)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-// ============================
-// Drag & Drop
-// ============================
-const dropZone = document.getElementById('drop-zone');
-if(dropZone) {
-  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag'); });
-  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag'));
-  dropZone.addEventListener('drop', e => {
-    e.preventDefault(); dropZone.classList.remove('drag');
-    const file = e.dataTransfer.files[0];
-    if(file) {
-      document.getElementById('imp-file').files = e.dataTransfer.files;
-      handleOrderFile(document.getElementById('imp-file'));
-    }
-  });
-}
-
-// Enter key on login
-document.getElementById('lu').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('lp').focus(); });
-
-
-
-// ============================
-// 匯率
-// ============================
+// 自動抓取匯率
 async function fetchRates(){
-  const btn=document.getElementById('btn-fetchrate');
-  const info=document.getElementById('rate-updated');
+  const btn=g('btn-fetchrate');
+  const info=g('rate-updated');
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>';}
   if(info){info.textContent='抓取中... / Đang tải...';info.style.color='var(--hi)';}
   try{
+    // 用 ExchangeRate-API 免費版（支援 VND）
     const res=await fetch('https://open.er-api.com/v6/latest/USD');
-    if(!res.ok)throw new Error('API error');
+    if(!res.ok) throw new Error('API 錯誤');
     const data=await res.json();
-    if(data.result!=='success')throw new Error('Data error');
+    if(data.result!=='success') throw new Error('資料錯誤');
     const vndPerUsd=Math.round(data.rates.VND);
     const twdPerUsd=data.rates.TWD;
     const vndPerTwd=Math.round(vndPerUsd/twdPerUsd);
-    const usdEl=document.getElementById('ss-usd');
-    const twdEl=document.getElementById('ss-twd');
-    if(usdEl)usdEl.value=vndPerUsd;
-    if(twdEl)twdEl.value=vndPerTwd;
+    const usdEl=g('ss-usd');
+    const twdEl=g('ss-twd');
+    if(usdEl) usdEl.value=vndPerUsd;
+    if(twdEl) twdEl.value=vndPerTwd;
     rAll();
     const now=new Date().toLocaleString('zh-TW');
     if(info){info.textContent='✓ 更新於 '+now;info.style.color='var(--ok)';}
-    const infoTwd=document.getElementById('rate-updated-twd');
+    const infoTwd=g('rate-updated-twd');
     if(infoTwd){infoTwd.textContent='✓ 更新於 '+now;infoTwd.style.color='var(--ok)';}
   }catch(e){
-    if(info){info.textContent='⚠ 抓取失敗';info.style.color='var(--warn)';}
+    if(info){info.textContent='⚠ 抓取失敗，使用手動值 / Lấy tỷ giá thất bại';info.style.color='var(--warn)';}
+    console.error('fetchRates error:',e);
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i>';}
   }
 }
 
-// Enter key on login
-document.getElementById('lu').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('lp').focus();});
-document.getElementById('lp').addEventListener('keydown',e=>{if(e.key==='Enter')doUnifiedLogin();});
+// 登入
+function isAdm(){return cu&&cu.role==='admin';}
+function uNav(){
+  const lk=!isAdm();
+  ['settings','export','history','costlog','accounts'].forEach(n=>g('nv-'+n).className='ni'+(lk?' locked':''));
+  g('upill').className='up'+(isAdm()?' adm':'');
+  g('ulabel').textContent=cu.user+(isAdm()?' · Quản trị':' · Người dùng');
+}
+function startIdle(){
+  idleT=IDLE;if(idleIv)clearInterval(idleIv);
+  idleIv=setInterval(()=>{
+    idleT--;
+    const p=Math.max(0,(idleT/IDLE)*100);
+    g('idleprog').style.width=p+'%';
+    const m=Math.floor(idleT/60),s=idleT%60;
+    g('idle-info').textContent='Tự động đăng xuất: '+m+':'+(s<10?'0':'')+s;
+    if(idleT<=0){clearInterval(idleIv);doLogout();}
+  },1000);
+  ['click','keydown','mousemove'].forEach(e=>document.addEventListener(e,resetIdle,{passive:true}));
+}
+function resetIdle(){idleT=IDLE;}
+function doLogin(){
+  const u=g('lu').value.trim(),p=g('lp').value;
+  const a=window.accs.find(x=>x.user===u&&x.pass===p);
+  if(!a){g('lerr').style.display='flex';return;}
+  cu=a;g('ls').style.display='none';g('ma').classList.remove('hidden');
+  uNav();rAll();rSum();rAcc();startIdle();
+  setTimeout(()=>fetchRates(),1000);
+}
+function doLogout(){
+  clearInterval(idleIv);['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
+  cu=null;g('ls').style.display='';g('ma').classList.add('hidden');
+  g('lu').value='';g('lp').value='';g('lerr').style.display='none';
+}
+function tpw(id,icon){
+  const el=g(id);const show=el.type==='password';
+  el.type=show?'text':'password';icon.className=show?'ti ti-eye-off pwe':'ti ti-eye pwe';
+}
 
+// 工具
+function g(id){return document.getElementById(id);}
+function om(id){g(id).classList.add('open');}
+function cm(id){g(id).classList.remove('open');}
+function rcf(){
+  const cl=[...new Set(window.D.map(d=>d.client))];
+  ['s-client','d-client','ex-cl','bk-client'].forEach(id=>{
+    const el=g(id);if(!el)return;
+    const cv=el.value;
+    el.innerHTML=id==='ex-cl'||id==='bk-client'?'<option value="">Tất cả / 全部</option>':'<option value="">Tất cả KH / 全部客人</option>';
+    cl.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;el.appendChild(o);});
+    if(cl.includes(cv))el.value=cv;
+  });
+}
+function mkPager(cid,page,total,pp,cb){
+  const el=g(cid);if(!el)return;
+  const pages=Math.ceil(total/pp);if(pages<=1){el.innerHTML='';return;}
+  let h=`<span class="pgi">共 ${total} 筆 / Tổng ${total}</span>`;
+  h+=`<button class="pgb" ${page<=1?'disabled':''} onclick="${cb}(${page-1})">‹</button>`;
+  for(let i=1;i<=pages;i++){
+    if(i===1||i===pages||Math.abs(i-page)<=1)h+=`<button class="pgb${i===page?' active':''}" onclick="${cb}(${i})">${i}</button>`;
+    else if(Math.abs(i-page)===2)h+='<span style="color:var(--hi);padding:0 4px">…</span>';
+  }
+  h+=`<button class="pgb" ${page>=pages?'disabled':''} onclick="${cb}(${page+1})">›</button>`;
+  el.innerHTML=h;
+}
+function goSP(p){sPage=p;rSum();}
+function goDP(p){dPage=p;rDet();}
+
+// 排序
+function sortD(sv){
+  let d=[...window.D];
+  if(sv==='ca')d.sort((a,b)=>a.code.localeCompare(b.code));
+  else if(sv==='cd')d.sort((a,b)=>b.code.localeCompare(a.code));
+  else if(sv==='kl')d.sort((a,b)=>a.client.localeCompare(b.client));
+  else if(sv==='pd'||sv==='pa'){
+    d.sort((a,b)=>{
+      const av=a.ops.reduce((s,o)=>s+calc(o.sec).vnd,0);
+      const bv=b.ops.reduce((s,o)=>s+calc(o.sec).vnd,0);
+      return sv==='pd'?bv-av:av-bv;
+    });
+  }
+  return d;
+}
+
+// 渲染款號總成本
+function rSum(){
+  const q=(g('s-search')||{}).value||'';
+  const cf=(g('s-client')||{}).value||'';
+  const sv=(g('s-sort')||{}).value||'';
+  const isA=isAdm();
+  g('sh').innerHTML=`<th>#</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序數</span></th>`+(isA?`<th>Tổng chi phí (${cur})<span class="tv">總工價</span></th>`:'')+`<th>Thao tác<span class="tv">操作</span></th>`;
+  let fd=sortD(sv).filter(d=>{
+    const m=!q||(d.code+d.client+d.zh+d.vi).toLowerCase().includes(q.toLowerCase());
+    return m&&(!cf||d.client===cf);
+  });
+  let tr=0;fd.forEach(d=>d.ops.forEach(()=>tr++));
+  const pp=20,st=(sPage-1)*pp,pg=fd.slice(st,st+pp);
+  const tb=g('sb2');tb.innerHTML='';
+  pg.forEach((d,i)=>{
+    let sv2=0;d.ops.forEach(op=>{sv2+=calc(op.sec).vnd;});
+    const r=document.createElement('tr');
+    r.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${d.sz}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(sv2)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oDet('${d.code}')"><i class="ti ti-eye"></i></button><button class="btn bsm bd2" onclick="askDel('${d.code}')"><i class="ti ti-trash"></i></button></div></td>`;
+    tb.appendChild(r);
+  });
+  g('m-total').textContent=window.D.length;
+  g('m-rows').textContent=tr;
+  mkPager('sp2',sPage,fd.length,pp,'goSP');
+  rcf();
+}
+
+// 工序明細彈窗
+function oDet(code){
+  const d=window.D.find(x=>x.code===code);if(!d)return;
+  const isA=isAdm();
+  g('det-title').textContent=`${d.code} — ${d.zh} / ${d.vi}`;
+  let sv=0;
+  const rows=d.ops.map((op,idx)=>{
+    const r=calc(op.sec);sv+=r.vnd;
+    return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEop('${code}',${idx})"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delOp('${code}',${idx})"><i class="ti ti-trash"></i></button></div></td></tr>`;
+  }).join('');
+  g('det-body').innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <span class="tg tn">Khách: ${d.client}</span><span class="tg tn">Size: ${d.sz}</span>
+      ${isA?`<span class="tg tg2">USD: ${fU(sv)}</span><span class="tg tb2">VND: ${fV(sv)}</span><span class="tg ta">TWD: ${fT(sv)}</span>`:''}
+    </div>
+    <div class="to"><div class="ts" style="max-height:320px"><table>
+      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ</th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div></div>`;
+  om('m-det');
+}
+function oEop(code,idx){
+  const d=window.D.find(x=>x.code===code);if(!d)return;const op=d.ops[idx];
+  g('eo-code').value=code;g('eo-idx').value=idx;
+  g('eo-no').value=op.no;g('eo-sec').value=op.sec;
+  g('eo-zh').value=op.zh;g('eo-vi').value=op.vi||'';
+  cm('m-det');om('m-eop');
+}
+async function saveEop(){
+  const code=g('eo-code').value,idx=+g('eo-idx').value;
+  const d=window.D.find(x=>x.code===code);if(!d)return;
+  const sec=+g('eo-sec').value;
+  if(!sec||sec<=0){alert('秒數必須大於0 / Giây phải lớn hơn 0');return;}
+  d.ops[idx]={no:g('eo-no').value,zh:g('eo-zh').value,vi:g('eo-vi').value,sec};
+  cm('m-eop');rSum();rDet();rExp();rBk();
+  if(window.saveProductsToFB)await saveProductsToFB();
+}
+async function delOp(code,idx){
+  if(!confirm('Xác nhận xóa công đoạn? / 確定刪除此工序？'))return;
+  const d=window.D.find(x=>x.code===code);if(!d)return;
+  d.ops.splice(idx,1);cm('m-det');rSum();rDet();rExp();rBk();
+  if(window.saveProductsToFB)await saveProductsToFB();
+}
+
+// 工序明細表
+function rDet(){
+  const q=(g('d-search')||{}).value||'';
+  const cf=(g('d-client')||{}).value||'';
+  const sv=(g('d-sort')||{value:'ca'}).value||'ca';
+  const pp=+(g('d-pp')||{value:50}).value||50;
+  const isA=isAdm();
+  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ</th>`+(isA?`<th>Chi phí (${cur})<span class="tv">工資</span></th><th>Thao tác<span class="tv">操作</span></th>`:'');
+  let src=window.D.filter(d=>{
+    const m=!q||(d.code+d.client+d.zh).toLowerCase().includes(q.toLowerCase());
+    return m&&(!cf||d.client===cf);
+  });
+  if(sv==='cd')src.sort((a,b)=>b.code.localeCompare(a.code));
+  else src.sort((a,b)=>a.code.localeCompare(b.code));
+  let rows=[];
+  src.forEach(d=>{
+    let ops=[...d.ops];
+    if(sv==='oa')ops.sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
+    ops.forEach(op=>{
+      const ri=d.ops.indexOf(op);
+      rows.push({d,op,ri,r:calc(op.sec)});
+    });
+  });
+  const st=(dPage-1)*pp,pr=rows.slice(st,st+pp);
+  const tb=g('db');tb.innerHTML='';
+  pr.forEach((item,i)=>{
+    const{d,op,ri,r}=item;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${d.vi}</td><td>${d.sz}</td><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEop('${d.code}',${ri})"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delOp('${d.code}',${ri})"><i class="ti ti-trash"></i></button></div></td>`:'');
+    tb.appendChild(tr);
+  });
+  mkPager('dp2',dPage,rows.length,pp,'goDP');
+}
+
+// 匯出報表
+function rExp(){
+  const cf=(g('ex-cl')||{}).value||'';
+  const tb=g('ex-tb');if(!tb)return;tb.innerHTML='';
+  window.D.filter(d=>!cf||d.client===cf).forEach(d=>{
+    let s=0;d.ops.forEach(op=>{s+=calc(op.sec).vnd;});
+    const r=document.createElement('tr');
+    r.innerHTML=`<td><b style="color:var(--navy)">${d.code}</b></td><td>${d.client}</td><td>${d.zh}</td><td>${d.sz}</td><td>${d.ops.length}</td><td style="color:var(--accent);font-weight:500">${fU(s)}</td><td>${fV(s)}</td><td>${fT(s)}</td>`;
+    tb.appendChild(r);
+  });
+}
+function doExport(){
+  try{
+  const cf=g('ex-cl').value,ty=g('ex-ty').value;
+  const fd=window.D.filter(d=>!cf||d.client===cf);
+
+  // 框線工廠函數（每次產生獨立物件，避免共用參考問題）
+  const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
+  const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
+
+  const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'},border:mkBdH()});
+  const normStyle=()=>({border:mkBd()});
+  const altStyle=()=>({fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numVND=()=>({numFmt:'#,##0',border:mkBd()});
+  const numUSD=()=>({numFmt:'#,##0.00',border:mkBd()});
+  const numTWD=()=>({numFmt:'#,##0.0',border:mkBd()});
+  const numVNDAlt=()=>({numFmt:'#,##0',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numUSDAlt=()=>({numFmt:'#,##0.00',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numTWDAlt=()=>({numFmt:'#,##0.0',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const subStyle=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},border:mkBd()});
+  const subNumVND=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0',border:mkBd()});
+  const subNumUSD=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0.00',border:mkBd()});
+  const subNumTWD=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0.0',border:mkBd()});
+
+  // 補全範圍內所有格子的框線（包含空白格）
+  function fillBorders(ws,totalCols,totalRows){
+    for(let r=1;r<=totalRows;r++){
+      for(let c=0;c<totalCols;c++){
+        const cell=String.fromCharCode(65+c)+r;
+        if(!ws[cell])ws[cell]={v:'',t:'s',s:normStyle()};
+        else if(!ws[cell].s)ws[cell].s=normStyle();
+        else if(!ws[cell].s.border)ws[cell].s.border=mkBd();
+      }
+    }
+  }
+
+  const wb=XLSX.utils.book_new();
+
+  if(ty==='summary'){
+    const headers=['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước','工序數/Số CĐ','總工價(VND)','總工價(USD)','總工價(TWD)'];
+    const ws={'!ref':'A1'};
+    headers.forEach((h,i)=>{
+      const cell=String.fromCharCode(65+i)+'1';
+      ws[cell]={v:h,s:hStyle()};
+    });
+    let row=2;
+    fd.forEach((d,di)=>{
+      let s=0;d.ops.forEach(op=>{s+=calc(op.sec).vnd;});
+      const vnd=Math.round(s);
+      const usd=parseFloat((Math.round(s/S.usd*100)/100).toFixed(2));
+      const twd=parseFloat((Math.round(s/S.twd*10)/10).toFixed(1));
+      const isAlt=di%2===1;
+      const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,d.ops.length,vnd,usd,twd];
+      vals.forEach((v,i)=>{
+        const cell=String.fromCharCode(65+i)+row;
+        if(i===6) ws[cell]={v,s:isAlt?numVNDAlt():numVND()};
+        else if(i===7) ws[cell]={v,s:isAlt?numUSDAlt():numUSD()};
+        else if(i===8) ws[cell]={v,s:isAlt?numTWDAlt():numTWD()};
+        else ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
+      });
+      row++;
+    });
+    fillBorders(ws,headers.length,row-1);
+    ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
+    ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
+    ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+    ws['!autofilter']={ref:'A1:'+String.fromCharCode(65+headers.length-1)+'1'};
+    XLSX.utils.book_append_sheet(wb,ws,'總表');
+  } else {
+    const headers=['款號/Mã hàng','客人/Khách hàng','中文名稱/Tên TQ','越文名稱/Tên VN','尺寸/Kích thước','工序號','工序(中)','工序(越)','秒數','SL/giờ','工資(VND)','工資(USD)','工資(TWD)'];
+    const ws={'!ref':'A1'};
+    headers.forEach((h,i)=>{
+      const cell=String.fromCharCode(65+i)+'1';
+      ws[cell]={v:h,s:hStyle()};
+    });
+    let row=2;
+    fd.forEach(d=>{
+      let di=0;
+      d.ops.forEach(op=>{
+        const r=calc(op.sec);
+        const vnd=Math.round(r.vnd);
+        const usd=parseFloat((Math.round(r.vnd/S.usd*100)/100).toFixed(2));
+        const twd=parseFloat((Math.round(r.vnd/S.twd*10)/10).toFixed(1));
+        const isAlt=di%2===1;
+        const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec,r.qty,vnd,usd,twd];
+        vals.forEach((v,i)=>{
+          const cell=String.fromCharCode(65+i)+row;
+          if(i===10) ws[cell]={v,s:isAlt?numVNDAlt():numVND()};
+          else if(i===11) ws[cell]={v,s:isAlt?numUSDAlt():numUSD()};
+          else if(i===12) ws[cell]={v,s:isAlt?numTWDAlt():numTWD()};
+          else ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
+        });
+        row++;di++;
+      });
+      const s=d.ops.reduce((a,op)=>a+calc(op.sec).vnd,0);
+      const svnd=Math.round(s);
+      const susd=parseFloat((Math.round(s/S.usd*100)/100).toFixed(2));
+      const stwd=parseFloat((Math.round(s/S.twd*10)/10).toFixed(1));
+      const scols=[d.code+' 小計','','','','','','','','','',svnd,susd,stwd];
+      scols.forEach((v,i)=>{
+        const cell=String.fromCharCode(65+i)+row;
+        if(i===10) ws[cell]={v,s:subNumVND()};
+        else if(i===11) ws[cell]={v,s:subNumUSD()};
+        else if(i===12) ws[cell]={v,s:subNumTWD()};
+        else ws[cell]={v:String(v||''),t:'s',s:subStyle()};
+      });
+      row++;row++;
+    });
+    fillBorders(ws,headers.length,row-1);
+    ws['!ref']='A1:'+String.fromCharCode(65+headers.length-1)+row;
+    ws['!cols']=[{wch:14},{wch:12},{wch:20},{wch:20},{wch:8},{wch:8},{wch:18},{wch:18},{wch:8},{wch:8},{wch:14},{wch:12},{wch:12}];
+    ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+    ws['!autofilter']={ref:'A1:'+String.fromCharCode(65+headers.length-1)+'1'};
+    XLSX.utils.book_append_sheet(wb,ws,'工序明細');
+  }
+  XLSX.writeFile(wb,'工序成本報表.xlsx');
+  const n=g('ex-ok');n.style.display='flex';setTimeout(()=>n.style.display='none',4000);
+  }catch(err){alert('匯出失敗：'+err.message);console.error(err);}
+}
+
+// 備份匯出
+function rBk(){
+  const cl=[...new Set(window.D.map(d=>d.client))];
+  const tb=g('bk-stats');if(!tb)return;
+  const cf=(g('bk-client')||{}).value||'';
+  const fd=window.D.filter(d=>!cf||d.client===cf);
+  let totalOps=0;fd.forEach(d=>totalOps+=d.ops.length);
+  tb.innerHTML=`
+    <div class="mc"><div class="ml">款號數</div><div class="mvi">Số mã hàng</div><div class="mv">${fd.length}</div></div>
+    <div class="mc"><div class="ml">工序總數</div><div class="mvi">Tổng công đoạn</div><div class="mv">${totalOps}</div></div>
+    <div class="mc"><div class="ml">客人數</div><div class="mvi">Số khách hàng</div><div class="mv">${cl.length}</div></div>`;
+}
+function doBackup(){
+  try{
+  const cf=g('bk-client').value;
+  const fd=window.D.filter(d=>!cf||d.client===cf);
+
+  const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
+  const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
+  const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center'},border:mkBdH()});
+  const normStyle=()=>({border:mkBd()});
+  const altStyle=()=>({fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const numRight=()=>({alignment:{horizontal:'right'},border:mkBd()});
+  const numRightAlt=()=>({alignment:{horizontal:'right'},fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+  const txtFmt=()=>({numFmt:'@',border:mkBd()});
+  const txtFmtAlt=()=>({numFmt:'@',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
+
+  const headers=['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數'];
+  const ws={'!ref':'A1'};
+
+  headers.forEach((h,i)=>{
+    const cell=String.fromCharCode(65+i)+'1';
+    ws[cell]={v:h,s:hStyle()};
+  });
+
+  let row=2;
+  let di=0;
+  fd.forEach(d=>{
+    d.ops.forEach(op=>{
+      const isAlt=di%2===1;
+      const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec];
+      vals.forEach((v,i)=>{
+        const cell=String.fromCharCode(65+i)+row;
+        if(i===5){
+          ws[cell]={v:String(v),t:'s',s:isAlt?txtFmtAlt():txtFmt()};
+        } else if(i===8){
+          ws[cell]={v:Number(v),s:isAlt?numRightAlt():numRight()};
+        } else {
+          ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
+        }
+      });
+      row++;di++;
+    });
+  });
+
+  for(let r=1;r<row;r++){
+    for(let c=0;c<headers.length;c++){
+      const cell=String.fromCharCode(65+c)+r;
+      if(!ws[cell])ws[cell]={v:'',t:'s',s:normStyle()};
+      else if(!ws[cell].s)ws[cell].s=normStyle();
+      else if(!ws[cell].s.border)ws[cell].s.border=mkBd();
+    }
+  }
+
+  ws['!ref']='A1:I'+row;
+  ws['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:20},{wch:20},{wch:8}];
+  ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+  ws['!autofilter']={ref:'A1:I1'};
+
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'備份資料');
+  const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+  XLSX.writeFile(wb,fname);
+  const n=g('bk-ok');
+  g('bk-ok-msg').textContent=`✓ 已匯出 ${fd.length} 個款號，${fd.reduce((a,d)=>a+d.ops.length,0)} 道工序 / Đã xuất ${fd.length} mã hàng.`;
+  n.style.display='flex';setTimeout(()=>n.style.display='none',4000);
+  }catch(err){alert('匯出失敗：'+err.message);console.error(err);}
+}
+
+// 刪除款號
+function askDel(code){
+  g('del-code').value=code;g('del-show').textContent=code;g('del-inp').value='';om('m-del');
+}
+async function confDel(){
+  const code=g('del-code').value,inp=g('del-inp').value.trim();
+  if(inp!==code){alert('Mã hàng không khớp / 款號輸入不符合！');return;}
+  window.D=window.D.filter(d=>d.code!==code);cm('m-del');rSum();rDet();rExp();rBk();
+  if(window.saveProductsToFB)await saveProductsToFB();
+}
+
+// 匯入
+function setProg(p,l,s){
+  g('pw-wrap').style.display='block';
+  g('pw-bar').style.width=p+'%';
+  g('pw-label').textContent=l;
+  g('pw-sub').textContent=s||'';
+}
+function hideProg(){g('pw-wrap').style.display='none';}
+function hImport(input){
+  const file=input.files[0];if(!file)return;
+  g('imp-err').style.display='none';
+  setProg(10,'Đang đọc file... / 正在讀取檔案...','');
+  setTimeout(()=>{
+    const reader=new FileReader();
+    reader.onerror=function(){
+      hideProg();
+      g('imp-err').style.display='flex';
+      g('imp-err-msg').innerHTML='無法讀取檔案，請確認格式是否正確 / Không thể đọc file.';
+      g('fi').value='';
+    };
+    reader.onload=function(e){
+      try{
+      setProg(40,'Đang kiểm tra dữ liệu... / 正在驗證資料...','');
+      setTimeout(()=>{
+        try{
+        const wb=XLSX.read(e.target.result,{type:'binary'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        const dr=rows.filter(r=>r[0]&&!['款號','mã hàng','Mã hàng','mã hàng'].includes(String(r[0]).trim()));
+        const errs=[];
+        dr.forEach((r,i)=>{
+          const sec=r[8];
+          if(sec!==''&&sec!==undefined&&isNaN(+sec))
+            errs.push(`Dòng ${i+2}/第${i+2}行：<b>${r[0]}</b> CĐ <b>${r[5]}</b> — Giây không hợp lệ：「${sec}」`);
+        });
+        if(errs.length>0){
+          hideProg();
+          g('imp-err').style.display='flex';
+          g('imp-err-msg').innerHTML=`Phát hiện ${errs.length} lỗi / 發現 ${errs.length} 筆格式錯誤：<br>${errs.slice(0,5).join('<br>')}${errs.length>5?`<br>...共 ${errs.length} 筆`:''}`;
+          g('fi').value='';return;
+        }
+        setProg(70,'Đang xử lý mã hàng... / 正在整理款號...','');
+        setTimeout(()=>{
+          try{
+          const ni={};
+          dr.forEach(r=>{
+            const code=String(r[0]).trim();
+            if(!ni[code])ni[code]={code,client:String(r[1]).trim(),zh:String(r[2]).trim(),vi:String(r[3]).trim(),sz:String(r[4]).trim(),ops:[]};
+            if(r[8]!==''&&r[8]!==undefined&&!isNaN(+r[8]))ni[code].ops.push({no:String(r[5]).trim(),zh:String(r[6]).trim(),vi:String(r[7]).trim(),sec:+r[8]});
+          });
+          nItms=ni;
+          dups=Object.keys(ni).filter(code=>window.D.find(d=>d.code===code));
+          setProg(100,'Hoàn tất / 完成！',`Tìm thấy / 找到 ${Object.keys(ni).length} mã hàng/款號`);
+          setTimeout(()=>{
+            hideProg();
+            const prev=g('imp-prev');prev.style.display='block';
+            const thead=document.querySelector('#prev-tbl thead');
+            const tbody=document.querySelector('#prev-tbl tbody');
+            thead.innerHTML='<tr><th>Mã hàng/款號</th><th>Khách/客人</th><th>Tên TQ/中文</th><th>Tên VN/越文</th><th>Size/尺寸</th><th>Số CĐ/工序號</th><th>CĐ(TQ)</th><th>CĐ(VN)</th><th>Giây/秒數</th></tr>';
+            tbody.innerHTML='';
+            dr.slice(0,5).forEach(r=>{
+              const isDup=dups.includes(String(r[0]).trim());
+              const tr=document.createElement('tr');
+              tr.innerHTML=`<td>${isDup?'<span class="tg tr2">Trùng/重複</span> ':''}<b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td>${r[7]}</td><td>${r[8]}</td>`;
+              tbody.appendChild(tr);
+            });
+          },500);
+          }catch(err){
+            hideProg();g('imp-err').style.display='flex';
+            g('imp-err-msg').innerHTML='處理資料失敗：'+err.message;
+          }finally{g('fi').value='';}
+        },300);
+        }catch(err){
+          hideProg();g('imp-err').style.display='flex';
+          g('imp-err-msg').innerHTML='讀取工作表失敗：'+err.message;
+        }finally{g('fi').value='';}
+      },200);
+      }catch(err){
+        hideProg();g('imp-err').style.display='flex';
+        g('imp-err-msg').innerHTML='檔案格式錯誤：'+err.message;
+      }finally{g('fi').value='';}
+    };
+    reader.readAsBinaryString(file);
+  },100);
+}
+function chkDup(){
+  if(!nItms)return;
+  if(dups.length>0){
+    g('imp-prev').style.display='none';
+    g('dup-warn').style.display='block';
+    g('dup-list').innerHTML=dups.map(code=>{
+      const ex=window.D.find(d=>d.code===code),inc=nItms[code];
+      return`<div class="di"><span><b>${code}</b> ${ex.zh}</span><span style="color:var(--mu)">${ex.ops.length} CĐ → ${inc.ops.length} CĐ</span></div>`;
+    }).join('');
+  } else cImp('al');
+}
+async function cImp(mode){
+  if(!nItms)return;
+  const nd=Object.values(nItms);
+  let ow=0,sk=0,added=0;
+  nd.forEach(x=>{
+    const isDup=dups.includes(x.code);
+    if(isDup){
+      if(mode==='sk'){sk++;return;}
+      const i=window.D.findIndex(d=>d.code===x.code);
+      window.D[i]=x;ow++;
+    } else {
+      window.D.push(x);added++;
+    }
+  });
+  const actualCount=added+ow;
+  const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
+  const hist={t:new Date().toLocaleString('zh-TW'),u:cu.user,c:actualCount,o:to,ow,sk};
+  impHist.push(hist);
+  try{localStorage.setItem('impHist',JSON.stringify(impHist));}catch(e){}
+  let msg=`✓ 本機已更新：${actualCount} 款，${to} 工序`;
+  if(ow) msg+=`，覆蓋 ${ow} 款`;
+  if(sk) msg+=`，跳過 ${sk} 款`;
+  g('imp-ok-msg').textContent=msg;
+  g('imp-ok').style.display='flex';
+  ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
+  pImp=null;nItms=null;dups=[];g('fi').value='';
+  rSum();rDet();rExp();rBk();rHist();
+  // 循序 await，避免競態問題
+  if(window.saveProductsToFB && window.saveHistoryToFB){
+    const ok1=await saveProductsToFB();
+    const ok2=await saveHistoryToFB();
+    if(ok1&&ok2){
+      g('imp-ok-msg').textContent=msg.replace('本機已更新','雲端已同步');
+    } else {
+      g('imp-ok-msg').textContent=msg+' ⚠️ 雲端同步失敗，資料已暫存本機';
+    }
+  }
+}
+function xImp(){
+  ['imp-prev','dup-warn','imp-ok','imp-err'].forEach(id=>g(id).style.display='none');
+  hideProg();pImp=null;nItms=null;dups=[];g('fi').value='';
+}
+
+// 歷史記錄
+function rHist(){
+  const el=g('hist-list');if(!el)return;
+  if(!impHist.length){el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>';return;}
+  el.innerHTML=impHist.slice().reverse().map(h=>`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${h.t}</span><span style="color:var(--mu)">${h.u}</span><span class="tg tb2">${h.c} mã/款號</span><span class="tg tg2">${h.o} CĐ/工序</span>${h.ow?`<span class="tg ta">Ghi đè/覆蓋 ${h.ow}</span>`:''}</div>`).join('');
+}
+function rClog(){
+  const el=g('clog-list');if(!el)return;
+  if(!cLog.length){el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>';return;}
+  el.innerHTML=cLog.slice().reverse().map(log=>`
+    <div style="margin-bottom:14px;border:1px solid var(--bd);border-radius:10px;overflow:hidden">
+      <div style="background:#f8fafc;padding:9px 14px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--bd)">
+        <i class="ti ti-clock" style="color:var(--accent)"></i>
+        <span style="font-size:12px;color:var(--mu)">${log.t}</span>
+        <span class="tg tn">${log.u}</span>
+        <span class="tg tb2">${log.ch.length} thay đổi / 項變更</span>
+      </div>
+      <div style="padding:4px 0">
+        ${log.ch.map(c=>{
+          const up=c.a>c.b;
+          return`<div class="cc">
+            <span style="min-width:100px;font-weight:500;font-size:12px">${c.f}</span>
+            <span style="color:var(--mu);font-size:12px">${Number(c.b).toLocaleString()}</span>
+            <i class="ti ti-arrow-right" style="color:var(--hi);font-size:12px"></i>
+            <span style="font-weight:500;font-size:12px">${Number(c.a).toLocaleString()}</span>
+            ${c.p?`<span class="tg ${up?'tr2':'tg2'}">${up?'▲':'▼'} ${Math.abs(c.p)}%</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+}
+
+// 帳號
+function rAcc(){
+  const tb=g('acc-tb');if(!tb)return;tb.innerHTML='';
+  window.accs.forEach(a=>{
+    const isMe=a.user===cu.user;const tr=document.createElement('tr');
+    tr.innerHTML=`<td><b>${a.user}</b>${isMe?' <span class="tg tb2">Tôi/我</span>':''}</td><td><span class="tg ${a.role==='admin'?'tg2':'ta'}">${a.role==='admin'?'Quản trị / 管理員':'Người dùng / 一般'}</span></td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEacc('${a.user}')"><i class="ti ti-edit"></i></button>${!isMe?`<button class="btn bsm bd2" onclick="delAcc('${a.user}')"><i class="ti ti-trash"></i></button>`:''}</div></td>`;
+    tb.appendChild(tr);
+  });
+}
+async function saveAcc(){
+  const u=g('ac-u').value.trim(),p=g('ac-p').value,r=g('ac-r').value;
+  if(!u||!p){alert('Vui lòng nhập đầy đủ / 請填入帳號和密碼');return;}
+  if(window.accs.find(a=>a.user===u)){alert('Tài khoản đã tồn tại / 帳號已存在');return;}
+  window.accs.push({user:u,pass:p,role:r});cm('m-nacc');
+  g('ac-u').value='';g('ac-p').value='';rAcc();
+  if(window.saveAccsToFB)await saveAccsToFB();
+}
+function oEacc(user){
+  const a=window.accs.find(x=>x.user===user);if(!a)return;
+  g('ea-orig').value=user;g('ea-u').value=a.user;g('ea-p').value='';g('ea-r').value=a.role;
+  om('m-eacc');
+}
+async function saveEacc(){
+  const orig=g('ea-orig').value,u=g('ea-u').value.trim(),p=g('ea-p').value,r=g('ea-r').value;
+  const i=window.accs.findIndex(a=>a.user===orig);if(i<0)return;
+  window.accs[i].user=u;window.accs[i].role=r;if(p)window.accs[i].pass=p;
+  if(orig===cu.user){cu=accs[i];uNav();}
+  cm('m-eacc');rAcc();
+  if(window.saveAccsToFB)await saveAccsToFB();
+}
+async function delAcc(user){if(confirm('Xác nhận xóa / 確定刪除帳號 '+user+'?')){window.accs=window.accs.filter(a=>a.user!==user);rAcc();if(window.saveAccsToFB)await saveAccsToFB();}}
+function addOp(){
+  nOpc++;
+  const div=document.createElement('div');div.className='fg';div.style.marginBottom='8px';
+  div.innerHTML=`<div class="fgrp"><label>工序號/Số CĐ</label><input type="text" id="op-no-${nOpc}" placeholder="01"></div><div class="fgrp"><label>工序(中)</label><input type="text" id="op-zh-${nOpc}"></div><div class="fgrp"><label>工序(越)/Tên CĐ</label><input type="text" id="op-vi-${nOpc}"></div><div class="fgrp"><label>秒數/Giây</label><input type="number" id="op-sc-${nOpc}"></div>`;
+  g('n-ops').appendChild(div);
+}
+async function saveNew(){
+  const code=g('n-code').value.trim();if(!code){alert('Vui lòng nhập mã hàng / 請填入款號');return;}
+  if(window.D.find(d=>d.code===code)){alert('Mã hàng đã tồn tại / 款號已存在：'+code);return;}
+  const ops=[];
+  for(let i=1;i<=nOpc;i++){
+    const no=g('op-no-'+i);if(!no)continue;
+    const sec=+g('op-sc-'+i).value;
+    if(sec>0)ops.push({no:no.value,zh:g('op-zh-'+i).value,vi:g('op-vi-'+i).value,sec});
+  }
+  window.D.push({code,client:g('n-cl').value,zh:g('n-zh').value,vi:g('n-vi').value,sz:g('n-sz').value,ops});
+  cm('m-add');g('n-ops').innerHTML='';nOpc=0;rSum();rDet();rExp();rBk();
+  if(window.saveProductsToFB)await saveProductsToFB();
+}
+
+function sp(name){
+  const adm=['settings','export','history','costlog','accounts'];
+  if(adm.includes(name)&&!isAdm())return;
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>{if(!n.classList.contains('locked'))n.classList.remove('active');});
+  g('pg-'+name).classList.add('active');
+  const nav=g('nv-'+name);if(nav&&!nav.classList.contains('locked'))nav.classList.add('active');
+  if(name==='settings')rAll();
+  if(name==='export')rExp();
+  if(name==='accounts')rAcc();
+  if(name==='history')rHist();
+  if(name==='costlog')rClog();
+  if(name==='backup')rBk();
+}
+rAll();
 </script>
-</html>
