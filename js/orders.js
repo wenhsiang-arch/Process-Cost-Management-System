@@ -123,7 +123,7 @@ async function confirmImportOrder(){
     for(const item of d.matched){
       for(const op of item.ops){
         await window._addDoc(window._collection(COL.processes),{
-          orderId, orderNo:d.ordId,
+          orderId: ordId, orderNo:d.ordId,
           code:item.code, desc:item.desc, color:item.color,
           zh:item.zh, sz:item.sz, orderQty:item.qty,
           processNo:op.no, processZh:op.zh, processVi:op.vi||'',
