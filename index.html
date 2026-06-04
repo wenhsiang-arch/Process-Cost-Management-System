@@ -1757,9 +1757,9 @@ function sp(name){
   const adm=['settings','export','history','costlog','accounts'];
   if(adm.includes(name)&&!isAdm())return;
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.ni').forEach(n=>{if(!n.classList.contains('locked'))n.classList.remove('active');});
-  g('pg-'+name).classList.add('active');
-  const nav=g('nv-'+name);if(nav&&!nav.classList.contains('locked'))nav.classList.add('active');
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  const pg=g('pg-'+name);if(pg)pg.classList.add('active');
+  const nav=g('nv-'+name);if(nav)nav.classList.add('active');
   if(name==='settings')rAll();
   if(name==='export')rExp();
   if(name==='accounts')rAcc();
