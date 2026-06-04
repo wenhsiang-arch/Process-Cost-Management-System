@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- saved from url=(0055)file:///C:/Users/ASUS%20Vivobook/Downloads/index_2.html -->
-<html lang="zh-TW"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>工序成本分析系統 v8.0</title>
-<link rel="stylesheet" href="./工序成本分析系統 v8.0_files/tabler-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--navy:#1a3a5c;--navy2:#2d5f8e;--accent:#2563a8;--al:#dbeafe;--ok:#166534;--okl:#dcfce7;--warn:#92400e;--warnl:#fef3c7;--err:#991b1b;--errl:#fee2e2;--bd:#e2e8f0;--bg:#f8fafc;--sf:#fff;--tx:#1e293b;--mu:#64748b;--hi:#94a3b8}
@@ -157,7 +157,7 @@ tr:hover td{background:#f8fafc}
     <div id="lerr" class="nt nd" style="display:none;margin-bottom:12px"><i class="ti ti-alert-circle"></i>帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu</div>
     <div class="lf"><label>帳號 / Tài khoản</label><input type="text" id="lu" placeholder="Nhập tài khoản / 輸入帳號"></div>
     <div class="lf"><label>密碼 / Mật khẩu</label>
-      <div class="pww"><input type="password" id="lp" placeholder="Nhập mật khẩu / 輸入密碼" onkeydown="if(event.key===&#39;Enter&#39;)doLogin()"><i class="ti ti-eye pwe" onclick="tpw(&#39;lp&#39;,this)"></i></div>
+      <div class="pww"><input type="password" id="lp" placeholder="Nhập mật khẩu / 輸入密碼" onkeydown="if(event.key==='Enter')doLogin()"><i class="ti ti-eye pwe" onclick="tpw('lp',this)"></i></div>
     </div>
     <button class="btn bp" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()"><i class="ti ti-login"></i>Đăng nhập / 登入</button>
     <div class="lh">Mặc định / 預設：admin / admin123</div>
@@ -176,22 +176,22 @@ tr:hover td{background:#f8fafc}
       <div class="sb-badge">v8.0</div>
     </div>
     <div class="sb-sec">Chính / 主功能</div>
-    <div class="ni active" onclick="sp(&#39;summary&#39;)" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng chi phí mã hàng</span><span class="nzh">款號總成本</span></div></div>
-    <div class="ni" onclick="sp(&#39;detail&#39;)" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết công đoạn</span><span class="nzh">工序明細表</span></div></div>
-    <div class="ni" onclick="sp(&#39;import&#39;)" id="nv-import"><i class="ti ti-upload"></i><div class="nl"><span class="nvi">Nhập dữ liệu</span><span class="nzh">匯入資料</span></div></div>
-    <div class="ni" onclick="sp(&#39;backup&#39;)" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dữ liệu dự phòng</span><span class="nzh">備份匯出</span></div></div>
+    <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng chi phí mã hàng</span><span class="nzh">款號總成本</span></div></div>
+    <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết công đoạn</span><span class="nzh">工序明細表</span></div></div>
+    <div class="ni" onclick="sp('import')" id="nv-import"><i class="ti ti-upload"></i><div class="nl"><span class="nvi">Nhập dữ liệu</span><span class="nzh">匯入資料</span></div></div>
+    <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dữ liệu dự phòng</span><span class="nzh">備份匯出</span></div></div>
     <div class="sb-sec">Quản lý / 管理</div>
-    <div class="ni" id="nv-settings" onclick="sp(&#39;settings&#39;)"><i class="ti ti-settings"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
-    <div class="ni" id="nv-export" onclick="sp(&#39;export&#39;)"><i class="ti ti-download"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
-    <div class="ni" id="nv-history" onclick="sp(&#39;history&#39;)"><i class="ti ti-history"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
-    <div class="ni" id="nv-costlog" onclick="sp(&#39;costlog&#39;)"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử thay đổi chi phí</span><span class="nzh">成本變動記錄</span></div></div>
-    <div class="ni" id="nv-accounts" onclick="sp(&#39;accounts&#39;)"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
+    <div class="ni" id="nv-settings" onclick="sp('settings')"><i class="ti ti-settings"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
+    <div class="ni" id="nv-export" onclick="sp('export')"><i class="ti ti-download"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
+    <div class="ni" id="nv-history" onclick="sp('history')"><i class="ti ti-history"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
+    <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử thay đổi chi phí</span><span class="nzh">成本變動記錄</span></div></div>
+    <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
     <div class="sb-sec">Đơn hàng / 訂單系統</div>
-    <div class="ni locked" id="nv-orders" onclick="sp(&#39;orders&#39;)"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Quản lý đơn hàng</span><span class="nzh">訂單管理</span></div></div>
-    <div class="ni locked" id="nv-approval" onclick="sp(&#39;approval&#39;)"><i class="ti ti-check-circle"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
-    <div class="ni locked" id="nv-progress" onclick="sp(&#39;progress&#39;)"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
-    <div class="ni locked" id="nv-stats" onclick="sp(&#39;stats&#39;)"><i class="ti ti-chart-pie"></i><div class="nl"><span class="nvi">Thống kê sản lượng</span><span class="nzh">員工產量統計</span></div></div>
-    <div class="ni locked" id="nv-employees" onclick="sp(&#39;employees&#39;)"><i class="ti ti-users-group"></i><div class="nl"><span class="nvi">Quản lý nhân viên</span><span class="nzh">員工管理</span></div></div>
+    <div class="ni locked" id="nv-orders" onclick="sp('orders')"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Quản lý đơn hàng</span><span class="nzh">訂單管理</span></div></div>
+    <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-check-circle"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
+    <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
+    <div class="ni locked" id="nv-stats" onclick="sp('stats')"><i class="ti ti-chart-pie"></i><div class="nl"><span class="nvi">Thống kê sản lượng</span><span class="nzh">員工產量統計</span></div></div>
+    <div class="ni locked" id="nv-employees" onclick="sp('employees')"><i class="ti ti-users-group"></i><div class="nl"><span class="nvi">Quản lý nhân viên</span><span class="nzh">員工管理</span></div></div>
     <div class="sb-ft"><div class="sb-ft-t">v8.0</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
 
@@ -202,9 +202,9 @@ tr:hover td{background:#f8fafc}
     <div class="tb">
       <span class="tb-title">工序成本分析系統</span>
       <div class="cg">
-        <button class="cb active" id="cur-VND" onclick="setCur(&#39;VND&#39;)">VND</button>
-        <button class="cb" id="cur-USD" onclick="setCur(&#39;USD&#39;)">USD</button>
-        <button class="cb" id="cur-TWD" onclick="setCur(&#39;TWD&#39;)">TWD</button>
+        <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
+        <button class="cb" id="cur-USD" onclick="setCur('USD')">USD</button>
+        <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
       </div>
       <div class="up" id="upill"><i class="ti ti-user"></i><span id="ulabel"></span></div>
       <button class="ib" onclick="doLogout()" title="登出"><i class="ti ti-logout"></i></button>
@@ -230,7 +230,7 @@ tr:hover td{background:#f8fafc}
             <option value="pd">Chi phí cao→thấp / 工價高→低</option>
             <option value="pa">Chi phí thấp→cao / 工價低→高</option>
           </select>
-          <button class="btn bp" onclick="om(&#39;m-add&#39;)"><i class="ti ti-plus"></i>Thêm mã hàng / 新增款號</button>
+          <button class="btn bp" onclick="om('m-add')"><i class="ti ti-plus"></i>Thêm mã hàng / 新增款號</button>
         </div>
         <div class="to"><div class="ts"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
         <div class="pgr" id="sp2"></div>
@@ -260,7 +260,7 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-import">
         <div class="card">
           <div class="ct-title"><i class="ti ti-upload"></i>Nhập dữ liệu Excel / 匯入資料</div>
-          <div class="ua" onclick="document.getElementById(&#39;fi&#39;).click()">
+          <div class="ua" onclick="document.getElementById('fi').click()">
             <i class="ti ti-file-spreadsheet"></i>
             <p style="font-weight:500;margin-bottom:8px">Chọn file Excel / 點擊選擇 Excel (.xlsx / .xls)</p>
             <p style="font-size:11px;color:var(--hi);line-height:1.8">
@@ -278,9 +278,9 @@ tr:hover td{background:#f8fafc}
             <div class="nt nd" style="margin-bottom:8px"><i class="ti ti-alert-triangle"></i>發現重複款號：</div>
             <div class="dl" id="dup-list"></div>
             <div class="br" style="margin-top:10px">
-              <button class="btn bp" onclick="cImp(&#39;ov&#39;)"><i class="ti ti-replace"></i>全部覆蓋</button>
-              <button class="btn" onclick="cImp(&#39;sk&#39;)"><i class="ti ti-circle-minus"></i>跳過重複</button>
-              <button class="btn" onclick="cImp(&#39;al&#39;)"><i class="ti ti-check"></i>全部匯入</button>
+              <button class="btn bp" onclick="cImp('ov')"><i class="ti ti-replace"></i>全部覆蓋</button>
+              <button class="btn" onclick="cImp('sk')"><i class="ti ti-circle-minus"></i>跳過重複</button>
+              <button class="btn" onclick="cImp('al')"><i class="ti ti-check"></i>全部匯入</button>
               <button class="btn bd2" onclick="xImp()"><i class="ti ti-x"></i>取消</button>
             </div>
           </div>
@@ -408,7 +408,7 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-accounts">
         <div class="card">
           <div class="ct-title"><i class="ti ti-users"></i>帳號管理</div>
-          <div class="br"><button class="btn bp" onclick="om(&#39;m-nacc&#39;)"><i class="ti ti-plus"></i>新增帳號</button></div>
+          <div class="br"><button class="btn bp" onclick="om('m-nacc')"><i class="ti ti-plus"></i>新增帳號</button></div>
           <div class="to"><table>
             <thead><tr><th>帳號</th><th>權限</th><th>操作</th></tr></thead>
             <tbody id="acc-tb"></tbody>
@@ -466,7 +466,7 @@ tr:hover td{background:#f8fafc}
           <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
             <select id="stats-range" onchange="statsRangeChange()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
               <option value="today">今天</option>
-              <option value="month" selected="">本月</option>
+              <option value="month" selected>本月</option>
               <option value="custom">自訂</option>
             </select>
             <input type="date" id="stats-from" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
@@ -499,7 +499,7 @@ tr:hover td{background:#f8fafc}
 
   <!-- Modals -->
   <div class="mb" id="m-add"><div class="md">
-    <div class="mt2">新增款號 <button class="btn bsm" onclick="cm(&#39;m-add&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2">新增款號 <button class="btn bsm" onclick="cm('m-add')"><i class="ti ti-x"></i></button></div>
     <div class="fg cols2"><div class="fgrp"><label>款號</label><input type="text" id="n-code"></div><div class="fgrp"><label>客人</label><input type="text" id="n-cl"></div></div>
     <div class="fg cols2"><div class="fgrp"><label>中文名稱</label><input type="text" id="n-zh"></div><div class="fgrp"><label>越文名稱</label><input type="text" id="n-vi"></div></div>
     <div class="fgrp" style="margin-bottom:12px"><label>尺寸</label><input type="text" id="n-sz"></div>
@@ -507,50 +507,50 @@ tr:hover td{background:#f8fafc}
     <p style="font-size:12px;color:var(--mu);margin-bottom:10px;font-weight:500">新增工序</p>
     <div id="n-ops"></div>
     <button class="btn bsm" onclick="addOp()" style="margin-bottom:14px"><i class="ti ti-plus"></i>加工序</button>
-    <div class="br"><button class="btn bp" onclick="saveNew()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm(&#39;m-add&#39;)">取消</button></div>
+    <div class="br"><button class="btn bp" onclick="saveNew()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm('m-add')">取消</button></div>
   </div></div>
 
   <div class="mb" id="m-det"><div class="md wide">
-    <div class="mt2"><span id="det-title">工序明細</span><button class="btn bsm" onclick="cm(&#39;m-det&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2"><span id="det-title">工序明細</span><button class="btn bsm" onclick="cm('m-det')"><i class="ti ti-x"></i></button></div>
     <div id="det-body"></div>
   </div></div>
 
   <div class="mb" id="m-eop"><div class="md">
-    <div class="mt2">編輯工序 <button class="btn bsm" onclick="cm(&#39;m-eop&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2">編輯工序 <button class="btn bsm" onclick="cm('m-eop')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="eo-code"><input type="hidden" id="eo-idx">
     <div class="fg cols2"><div class="fgrp"><label>工序號</label><input type="text" id="eo-no"></div><div class="fgrp"><label>秒數</label><input type="number" id="eo-sec"></div></div>
     <div class="fg cols2"><div class="fgrp"><label>工序(中)</label><input type="text" id="eo-zh"></div><div class="fgrp"><label>工序(越)</label><input type="text" id="eo-vi"></div></div>
-    <div class="br" style="margin-top:6px"><button class="btn bp" onclick="saveEop()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm(&#39;m-eop&#39;)">取消</button></div>
+    <div class="br" style="margin-top:6px"><button class="btn bp" onclick="saveEop()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm('m-eop')">取消</button></div>
   </div></div>
 
   <div class="mb" id="m-del"><div class="md" style="width:400px">
-    <div class="mt2">確認刪除 <button class="btn bsm" onclick="cm(&#39;m-del&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2">確認刪除 <button class="btn bsm" onclick="cm('m-del')"><i class="ti ti-x"></i></button></div>
     <p style="font-size:13px;color:var(--mu);margin-bottom:12px">請輸入款號確認：<b id="del-show" style="color:var(--navy)"></b></p>
     <input type="hidden" id="del-code">
     <div class="fgrp" style="margin-bottom:14px"><label>款號</label><input type="text" id="del-inp" placeholder="輸入款號..."></div>
     <div class="nt nd" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>刪除後無法復原</div>
-    <div class="br"><button class="btn bd2" onclick="confDel()"><i class="ti ti-trash"></i>確認刪除</button><button class="btn" onclick="cm(&#39;m-del&#39;)">取消</button></div>
+    <div class="br"><button class="btn bd2" onclick="confDel()"><i class="ti ti-trash"></i>確認刪除</button><button class="btn" onclick="cm('m-del')">取消</button></div>
   </div></div>
 
   <div class="mb" id="m-nacc"><div class="md">
-    <div class="mt2">新增帳號 <button class="btn bsm" onclick="cm(&#39;m-nacc&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2">新增帳號 <button class="btn bsm" onclick="cm('m-nacc')"><i class="ti ti-x"></i></button></div>
     <div class="fgrp" style="margin-bottom:12px"><label>帳號</label><input type="text" id="ac-u"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>密碼</label><div class="pww"><input type="password" id="ac-p"><i class="ti ti-eye pwe" onclick="tpw(&#39;ac-p&#39;,this)"></i></div></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>密碼</label><div class="pww"><input type="password" id="ac-p"><i class="ti ti-eye pwe" onclick="tpw('ac-p',this)"></i></div></div>
     <div class="fgrp" style="margin-bottom:18px"><label>權限</label><select id="ac-r"><option value="admin">管理員</option><option value="manager">課長</option><option value="clerk">文員</option><option value="leader">班長</option></select></div>
-    <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>新增</button><button class="btn" onclick="cm(&#39;m-nacc&#39;)">取消</button></div>
+    <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>新增</button><button class="btn" onclick="cm('m-nacc')">取消</button></div>
   </div></div>
 
   <div class="mb" id="m-eacc"><div class="md">
-    <div class="mt2">修改帳號 <button class="btn bsm" onclick="cm(&#39;m-eacc&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2">修改帳號 <button class="btn bsm" onclick="cm('m-eacc')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="ea-orig">
     <div class="fgrp" style="margin-bottom:12px"><label>帳號</label><input type="text" id="ea-u"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>新密碼（留空不變）</label><div class="pww"><input type="password" id="ea-p" placeholder="留空不變更"><i class="ti ti-eye pwe" onclick="tpw(&#39;ea-p&#39;,this)"></i></div></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>新密碼（留空不變）</label><div class="pww"><input type="password" id="ea-p" placeholder="留空不變更"><i class="ti ti-eye pwe" onclick="tpw('ea-p',this)"></i></div></div>
     <div class="fgrp" style="margin-bottom:18px"><label>權限</label><select id="ea-r"><option value="admin">管理員</option><option value="manager">課長</option><option value="clerk">文員</option><option value="leader">班長</option></select></div>
-    <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm(&#39;m-eacc&#39;)">取消</button></div>
+    <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm('m-eacc')">取消</button></div>
   </div></div>
 
   <div class="mb" id="m-import-order"><div class="md wide">
-    <div class="mt2"><i class="ti ti-file-upload"></i> 匯入訂單 <button class="btn bsm" onclick="cm(&#39;m-import-order&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2"><i class="ti ti-file-upload"></i> 匯入訂單 <button class="btn bsm" onclick="cm('m-import-order')"><i class="ti ti-x"></i></button></div>
     <div id="imp-step1">
       <div class="fg cols2" style="margin-bottom:12px">
         <div class="fgrp"><label>訂單編號 <span style="color:var(--err)">*</span></label><input type="text" id="imp-ord-id" placeholder="例如：ORD-2025-001"></div>
@@ -558,7 +558,7 @@ tr:hover td{background:#f8fafc}
       </div>
       <div class="fgrp" style="margin-bottom:14px">
         <label>上傳 Excel (.xlsx / .xls)</label>
-        <div style="border:2px dashed var(--bd);border-radius:10px;padding:28px;text-align:center;cursor:pointer;color:var(--mu)" onclick="g(&#39;imp-file&#39;).click()">
+        <div style="border:2px dashed var(--bd);border-radius:10px;padding:28px;text-align:center;cursor:pointer;color:var(--mu)" onclick="g('imp-file').click()">
           <i class="ti ti-file-spreadsheet" style="font-size:32px;display:block;margin-bottom:8px"></i>
           <div style="font-size:13px;font-weight:500">點擊或拖曳 Excel 檔案</div>
           <div id="imp-filename" style="font-size:11px;margin-top:6px;color:var(--accent)"></div>
@@ -576,12 +576,12 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="br" style="margin-top:14px">
       <button class="btn bp" id="imp-confirm-btn" onclick="confirmImportOrder()"><i class="ti ti-check"></i>確認匯入</button>
-      <button class="btn" onclick="cm(&#39;m-import-order&#39;)">取消</button>
+      <button class="btn" onclick="cm('m-import-order')">取消</button>
     </div>
   </div></div>
 
   <div class="mb" id="m-reject-reason"><div class="md">
-    <div class="mt2"><i class="ti ti-x"></i> 退回報工 <button class="btn bsm" onclick="cm(&#39;m-reject-reason&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2"><i class="ti ti-x"></i> 退回報工 <button class="btn bsm" onclick="cm('m-reject-reason')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="rej-target-ids">
     <div class="fgrp" style="margin-bottom:16px">
       <label>退回原因（選填）</label>
@@ -589,12 +589,12 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="br">
       <button class="btn" style="background:var(--errl);color:var(--err);border:1px solid #fca5a5" onclick="doReject()"><i class="ti ti-x"></i>確認退回</button>
-      <button class="btn" onclick="cm(&#39;m-reject-reason&#39;)">取消</button>
+      <button class="btn" onclick="cm('m-reject-reason')">取消</button>
     </div>
   </div></div>
 
   <div class="mb" id="m-employee"><div class="md">
-    <div class="mt2" id="emp-modal-title">新增員工 <button class="btn bsm" onclick="cm(&#39;m-employee&#39;)"><i class="ti ti-x"></i></button></div>
+    <div class="mt2" id="emp-modal-title">新增員工 <button class="btn bsm" onclick="cm('m-employee')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="emp-edit-id">
     <div class="fg cols2" style="margin-bottom:12px">
       <div class="fgrp"><label>姓名（越文）<span style="color:var(--err)">*</span></label><input type="text" id="emp-name" placeholder="Nguyễn Văn A"></div>
@@ -610,7 +610,7 @@ tr:hover td{background:#f8fafc}
         </select>
       </div>
       <div class="fgrp"><label>帳號 <span style="color:var(--err)">*</span></label><input type="text" id="emp-user"></div>
-      <div class="fgrp"><label>密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw(&#39;emp-pass&#39;,this)"></i></div></div>
+      <div class="fgrp"><label>密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw('emp-pass',this)"></i></div></div>
       <div class="fgrp"><label>角色</label>
         <select id="emp-role">
           <option value="user">員工</option>
@@ -620,7 +620,7 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="br">
       <button class="btn bp" onclick="saveEmployee()"><i class="ti ti-check"></i>儲存</button>
-      <button class="btn" onclick="cm(&#39;m-employee&#39;)">取消</button>
+      <button class="btn" onclick="cm('m-employee')">取消</button>
     </div>
   </div></div>
 
@@ -635,7 +635,7 @@ tr:hover td{background:#f8fafc}
             <div id="mob-info" style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">-</div>
           </div>
         </div>
-        <div style="position:relative;cursor:pointer" onclick="mobPage(&#39;mob-pg-hist&#39;)">
+        <div style="position:relative;cursor:pointer" onclick="mobPage('mob-pg-hist')">
           <i class="ti ti-bell" style="font-size:20px;color:rgba(255,255,255,.8)"></i>
           <div id="mob-bell" style="display:none;position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center">0</div>
         </div>
@@ -643,7 +643,7 @@ tr:hover td{background:#f8fafc}
     </div>
     <div style="flex:1;overflow-y:auto;padding:10px;padding-bottom:70px">
       <div id="mob-pg-report" style="display:block">
-        <div id="mob-reject-alert" style="display:none;background:#fff8e6;border:1px solid #f59e0b;border-radius:12px;padding:10px 12px;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="mobPage(&#39;mob-pg-hist&#39;);mobFilterHist(&#39;rejected&#39;)">
+        <div id="mob-reject-alert" style="display:none;background:#fff8e6;border:1px solid #f59e0b;border-radius:12px;padding:10px 12px;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="mobPage('mob-pg-hist');mobFilterHist('rejected')">
           <i class="ti ti-alert-triangle" style="color:#d97706;font-size:16px"></i>
           <b id="mob-reject-alert-text" style="font-size:12px;color:#92400e"></b>
         </div>
@@ -688,10 +688,10 @@ tr:hover td{background:#f8fafc}
       </div>
       <div id="mob-pg-hist" style="display:none">
         <div style="display:flex;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px">
-          <button id="mob-flt-all" onclick="mobFilterHist(&#39;all&#39;)" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:var(--navy);color:#fff;font-weight:600">全部</button>
-          <button id="mob-flt-approved" onclick="mobFilterHist(&#39;approved&#39;)" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">已通過</button>
-          <button id="mob-flt-pending" onclick="mobFilterHist(&#39;pending&#39;)" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">待審批</button>
-          <button id="mob-flt-rejected" onclick="mobFilterHist(&#39;rejected&#39;)" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">已退回</button>
+          <button id="mob-flt-all" onclick="mobFilterHist('all')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:var(--navy);color:#fff;font-weight:600">全部</button>
+          <button id="mob-flt-approved" onclick="mobFilterHist('approved')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">已通過</button>
+          <button id="mob-flt-pending" onclick="mobFilterHist('pending')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">待審批</button>
+          <button id="mob-flt-rejected" onclick="mobFilterHist('rejected')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">已退回</button>
         </div>
         <div id="mob-hist-list"></div>
       </div>
@@ -704,9 +704,9 @@ tr:hover td{background:#f8fafc}
       </div>
     </div>
     <div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--sf);border-top:1px solid var(--bd);z-index:100">
-      <button id="mob-tab-report" onclick="mobPage(&#39;mob-pg-report&#39;)" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-text" style="font-size:20px;color:var(--navy)"></i><span style="font-size:10px;color:var(--navy);font-weight:600">報工</span></button>
-      <button id="mob-tab-hist" onclick="mobPage(&#39;mob-pg-hist&#39;)" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-history" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">記錄</span></button>
-      <button id="mob-tab-apv" onclick="mobPage(&#39;mob-pg-apv&#39;)" style="display:none;position:relative;flex:1;padding:9px 4px 7px;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-check-circle" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">審批</span><div id="mob-apv-badge" style="display:none;position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px">0</div></button>
+      <button id="mob-tab-report" onclick="mobPage('mob-pg-report')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-text" style="font-size:20px;color:var(--navy)"></i><span style="font-size:10px;color:var(--navy);font-weight:600">報工</span></button>
+      <button id="mob-tab-hist" onclick="mobPage('mob-pg-hist')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-history" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">記錄</span></button>
+      <button id="mob-tab-apv" onclick="mobPage('mob-pg-apv')" style="display:none;position:relative;flex:1;padding:9px 4px 7px;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-check-circle" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">審批</span><div id="mob-apv-badge" style="display:none;position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px">0</div></button>
     </div>
   </div>
   <div id="mob-rej-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;align-items:flex-end;justify-content:center">
@@ -715,7 +715,7 @@ tr:hover td{background:#f8fafc}
       <input type="hidden" id="mob-rej-ids">
       <textarea id="mob-rej-reason" rows="3" style="width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;font-size:13px;resize:none" placeholder="輸入退回原因..."></textarea>
       <div style="display:flex;gap:8px;margin-top:14px">
-        <button onclick="g(&#39;mob-rej-modal&#39;).style.display=&#39;none&#39;" style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#f1f5f9;color:var(--mu)">取消</button>
+        <button onclick="g('mob-rej-modal').style.display='none'" style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#f1f5f9;color:var(--mu)">取消</button>
         <button onclick="mobDoReject()" style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--err);color:#fff">確認退回</button>
       </div>
     </div>
@@ -723,25 +723,25 @@ tr:hover td{background:#f8fafc}
   <div id="mob-toast" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:9999;white-space:nowrap"></div>
 
 </div>
-
+</div>
 
 <!-- 外部 JS 函式庫 -->
-<script src="./工序成本分析系統 v8.0_files/xlsx.bundle.js.下載"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 
 <!-- 一般 JS 模組（依賴順序載入）-->
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/utils.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/auth.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/settings.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/summary.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/data.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/accounts.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/orders.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/reports.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/stats.js"></script>
-<script src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/mobile.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/summary.js"></script>
+<script src="js/data.js"></script>
+<script src="js/accounts.js"></script>
+<script src="js/orders.js"></script>
+<script src="js/reports.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/mobile.js"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="file:///C:/Users/ASUS%20Vivobook/Downloads/js/firebase.js"></script>
+<script type="module" src="js/firebase.js"></script>
 
 <script>
 // 頁面載入後初始化
@@ -750,6 +750,5 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-
-
-</body></html>
+</body>
+</html>
