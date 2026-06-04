@@ -140,6 +140,11 @@ async function fbInit(){
   if(savedHist&&savedHist.length>0){ window.impHist=savedHist; try{localStorage.setItem('impHist',JSON.stringify(window.impHist));}catch(e){} }
   if(savedClog&&savedClog.length>0){ window.cLog=savedClog; try{localStorage.setItem('cLog',JSON.stringify(window.cLog));}catch(e){} }
 
+  try{
+    const empSnap = await window._getDocs(window._collection('employees'));
+    window.allEmployees = empSnap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){ console.error('載入員工資料失敗：', e); }
+
   // 即時監聽
   onSnapshot(window._doc("system","products"),(snap)=>{
     if(snap.exists()){
