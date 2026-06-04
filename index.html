@@ -204,7 +204,7 @@ tr:hover td{background:#f8fafc}
     <div class="ct">
 
       <!-- 款號總成本 -->
-      <div class="pg active" id="pg-summary">
+      <div class="pg" id="pg-summary">
         <div class="mg">
           <div class="mc"><div class="ml">款號總數</div><div class="mvi">Tổng số mã hàng</div><div class="mv" id="m-total">0</div></div>
           <div class="mc"><div class="ml">工序總筆數</div><div class="mvi">Tổng số công đoạn</div><div class="mv" id="m-rows">0</div></div>
@@ -1130,7 +1130,7 @@ function doLogin(){
     if(DESK_ROLES.includes(a.role)){
       // 桌機版
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      uNav(); rAll(); rSum(); rAcc(); startIdle();
+      uNav(); sp('summary'); rAll(); rSum(); rAcc(); startIdle();
       setTimeout(()=>fetchRates(), 1000);
       loadOrderData();
     } else if(a.role==='leader'){
