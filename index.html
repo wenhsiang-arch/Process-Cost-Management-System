@@ -816,7 +816,7 @@ function showLoading(show) {
 
 async function fbLoad(key) {
   try {
-    const snap = await getDoc(doc(db, "system", key));
+    const snap = await window._getDoc(window._doc( "system", key));
     if (snap.exists()) return JSON.parse(snap.data().data);
   } catch(e) { console.error("Firebase load error:", e); }
   return null;
@@ -824,7 +824,7 @@ async function fbLoad(key) {
 
 async function fbSave(key, data) {
   try {
-    await setDoc(doc(db, "system", key), { data: JSON.stringify(data) });
+    await setDoc(window._doc( "system", key), { data: JSON.stringify(data) });
     return true;
   } catch(e) {
     console.error("Firebase save error:", e);
@@ -851,6 +851,19 @@ window.saveAccsToFB = () => fbSaveWithStatus("accounts", window.accs);
 window.saveSettingsToFB = () => fbSaveWithStatus("settings", window.S);
 window.saveHistoryToFB = () => fbSaveWithStatus("impHist", impHist);
 window.saveCostLogToFB = () => fbSaveWithStatus("cLog", cLog);
+
+// 把 Firestore 函數掛到 window，讓一般 script 可以使用
+window._db = db;
+window._getDocs   = (q) => getDocs(q);
+window._addDoc    = (colRef, data) => addDoc(colRef, data);
+window._updateDoc = (ref, data) => updateDoc(ref, data);
+window._deleteDoc = (ref) => deleteDoc(ref);
+window._doc       = (colName, id) => doc(db, colName, id);
+window._collection= (colName) => collection(db, colName);
+window._query     = (...args) => query(...args);
+window._where     = (...args) => where(...args);
+window._getDoc    = (ref) => getDoc(ref);
+window._setDoc    = (ref, data) => setDoc(ref, data);
 
 // 初始化
 async function fbInit() {
@@ -894,7 +907,7 @@ async function fbInit() {
   if(savedHist && savedHist.length > 0){ impHist = savedHist; try{localStorage.setItem('impHist',JSON.stringify(impHist));}catch(e){} }
   if(savedClog && savedClog.length > 0){ cLog = savedClog; try{localStorage.setItem('cLog',JSON.stringify(cLog));}catch(e){} }
 
-  onSnapshot(doc(db, "system", "products"), (snap) => {
+  onSnapshot(window._doc( "system", "products"), (snap) => {
     if (snap.exists()) {
       try {
         const newD = JSON.parse(snap.data().data);
@@ -1768,17 +1781,17 @@ rAll();
 // 載入訂單資料
 async function loadOrderData(){
   try{
-    const snap = await getDocs(collection(db, COL.orders));
+    const snap = await window._getDocs(window._collection(COL.orders));
     allOrders = snap.docs.map(d=>({id:d.id,...d.data()}));
     allOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   }catch(e){ console.error(e); }
   try{
-    const snap = await getDocs(collection(db, COL.employees));
+    const snap = await window._getDocs(window._collection(COL.employees));
     allEmployees = snap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){}
   // 審批角標
   try{
-    const snap = await getDocs(query(collection(db,COL.reports),where('status','==','pending')));
+    const snap = await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
     updateApvBadge(snap.docs.length);
   }catch(e){}
   // 填訂單選單
@@ -1890,7 +1903,7 @@ async function confirmImportOrder(){
   try{
     const now=Date.now();
     // 建立訂單
-    const ref=await addDoc(collection(db,COL.orders),{
+    const ref=await window._addDoc(window._collection(COL.orders),{
       orderId:d.ordId, dueDate:new Date(d.dueDate).getTime(),
       itemCount:d.matched.length,
       totalQty:d.matched.reduce((a,m)=>a+m.qty,0),
@@ -1900,7 +1913,7 @@ async function confirmImportOrder(){
     // 建立工序清單
     for(const item of d.matched){
       for(const op of item.ops){
-        await addDoc(collection(db,COL.processes),{
+        await window._addDoc(window._collection(COL.processes),{
           orderId, orderNo:d.ordId,
           code:item.code, desc:item.desc, color:item.color,
           zh:item.zh, sz:item.sz, orderQty:item.qty,
@@ -1960,7 +1973,7 @@ function viewOrderProgress(id){
 async function deleteOrder(id,name){
   if(!confirm(`確定刪除訂單 ${name}？`)) return;
   try{
-    await deleteDoc(doc(db,COL.orders,id));
+    await window._deleteDoc(window._doc(COL.orders,id));
     allOrders=allOrders.filter(o=>o.id!==id);
     renderOrders();
   }catch(e){ alert('刪除失敗：'+e.message); }
@@ -1973,7 +1986,7 @@ async function renderApproval(){
   const empty=g('apv-empty');
   tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--hi)">載入中...</td></tr>';
   try{
-    const snap=await getDocs(query(collection(db,COL.reports),where('status','==','pending')));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
     pendingList=snap.docs.map(d=>({id:d.id,...d.data()}));
     let list=[...pendingList];
     if(dept) list=list.filter(r=>r.empDept===dept);
@@ -2039,11 +2052,11 @@ async function passReports(ids){
   for(const id of ids){
     const r=pendingList.find(x=>x.id===id); if(!r) continue;
     try{
-      await updateDoc(doc(db,COL.reports,id),{status:'approved',approvedAt:Date.now(),approvedBy:cu.user});
-      const ps=await getDocs(query(collection(db,COL.processes),where('orderId','==',r.orderId),where('code','==',r.code),where('processNo','==',r.processNo)));
+      await window._updateDoc(window._doc(COL.reports,id),{status:'approved',approvedAt:Date.now(),approvedBy:cu.user});
+      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
       if(!ps.empty){
         const c=ps.docs[0].data();
-        await updateDoc(ps.docs[0].ref,{
+        await window._updateDoc(ps.docs[0].ref,{
           approvedQty:(c.approvedQty||0)+r.qty,
           pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)
         });
@@ -2058,11 +2071,11 @@ async function doReject(){
   for(const id of ids){
     const r=pendingList.find(x=>x.id===id); if(!r) continue;
     try{
-      await updateDoc(doc(db,COL.reports,id),{status:'rejected',rejectedAt:Date.now(),rejectedBy:cu.user,rejectReason:reason});
-      const ps=await getDocs(query(collection(db,COL.processes),where('orderId','==',r.orderId),where('code','==',r.code),where('processNo','==',r.processNo)));
+      await window._updateDoc(window._doc(COL.reports,id),{status:'rejected',rejectedAt:Date.now(),rejectedBy:cu.user,rejectReason:reason});
+      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
       if(!ps.empty){
         const c=ps.docs[0].data();
-        await updateDoc(ps.docs[0].ref,{pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)});
+        await window._updateDoc(ps.docs[0].ref,{pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)});
       }
     }catch(e){}
   }
@@ -2078,7 +2091,7 @@ async function renderProgress(){
   if(!ordId){ content.innerHTML='<div style="padding:20px;text-align:center;color:var(--hi)">請先選擇訂單</div>'; return; }
   const order=allOrders.find(o=>o.id===ordId); if(!order) return;
   try{
-    const snap=await getDocs(query(collection(db,COL.processes),where('orderId','==',ordId)));
+    const snap=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',ordId)));
     const procs=snap.docs.map(d=>({id:d.id,...d.data()}));
     const totalApv=procs.reduce((a,p)=>a+(p.approvedQty||0),0);
     const totalQty=procs.reduce((a,p)=>a+(p.orderQty||0),0);
@@ -2147,7 +2160,7 @@ async function renderStats(){
   const tb=g('stats-tb'); if(!tb) return;
   tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--hi)">載入中...</td></tr>';
   try{
-    const snap=await getDocs(query(collection(db,COL.reports),where('status','==','approved'),where('createdAt','>=',from),where('createdAt','<=',to)));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved'),window._where('createdAt','>=',from),window._where('createdAt','<=',to)));
     let list=snap.docs.map(d=>({id:d.id,...d.data()}));
     if(dept) list=list.filter(r=>r.empDept===dept);
     list.sort((a,b)=>(a.empName||'').localeCompare(b.empName||''));
@@ -2223,12 +2236,12 @@ async function saveEmployee(){
   if(pass) data.pass=pass;
   try{
     if(id){
-      await updateDoc(doc(db,COL.employees,id),data);
+      await window._updateDoc(window._doc(COL.employees,id),data);
       const i=allEmployees.findIndex(e=>e.id===id);
       if(i>=0) allEmployees[i]={...allEmployees[i],...data};
     } else {
       data.createdAt=Date.now();
-      const ref=await addDoc(collection(db,COL.employees),data);
+      const ref=await window._addDoc(window._collection(COL.employees),data);
       allEmployees.push({id:ref.id,...data});
     }
     cm('m-employee'); renderEmployees();
@@ -2238,7 +2251,7 @@ async function saveEmployee(){
 async function delEmployee(id){
   if(!confirm('確定刪除此員工帳號？')) return;
   try{
-    await deleteDoc(doc(db,COL.employees,id));
+    await window._deleteDoc(window._doc(COL.employees,id));
     allEmployees=allEmployees.filter(e=>e.id!==id);
     renderEmployees();
   }catch(e){}
@@ -2300,7 +2313,7 @@ function mobSaveHours(){
 
 async function mobLoadOrders(){
   try{
-    const snap=await getDocs(collection(db,COL.orders));
+    const snap=await window._getDocs(window._collection(COL.orders));
     const orders=snap.docs.map(d=>({id:d.id,...d.data()}));
     orders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     const sel=mG('mob-sel-order');
@@ -2322,7 +2335,7 @@ async function mobSelectOrder(){
   currentProcId=null;
   if(!ordId) return;
   try{
-    const snap=await getDocs(query(collection(db,COL.processes),where('orderId','==',ordId)));
+    const snap=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',ordId)));
     procList=snap.docs.map(d=>({id:d.id,...d.data()}));
     const codes=[...new Set(procList.map(p=>p.code))].sort();
     const sel=mG('mob-sel-code');
@@ -2376,14 +2389,14 @@ async function mobSubmitReport(){
   const p=procList.find(x=>x.id===currentProcId); if(!p) return;
   const wh=parseFloat(mG('mob-hours').value)||8;
   try{
-    await addDoc(collection(db,COL.reports),{
+    await window._addDoc(window._collection(COL.reports),{
       empId:cu.id, empName:cu.name||cu.user, empDept:cu.dept||'',
       orderId:p.orderId, orderNo:p.orderNo||'', code:p.code,
       processNo:p.processNo, processVi:p.processVi||p.processZh,
       processSec:p.processSec||0, slPerHour:p.slPerHour||0,
       qty, workHours:wh, status:'pending', createdAt:Date.now()
     });
-    await updateDoc(doc(db,COL.processes,currentProcId),{pendingQty:(p.pendingQty||0)+qty});
+    await window._updateDoc(window._doc(COL.processes,currentProcId),{pendingQty:(p.pendingQty||0)+qty});
     p.pendingQty=(p.pendingQty||0)+qty;
     mobSelectProc();
     mG('mob-qty').value='';
@@ -2399,7 +2412,7 @@ async function mobSubmitReport(){
 async function mobLoadMyReports(){
   try{
     const from=Date.now()-30*24*3600*1000;
-    const snap=await getDocs(query(collection(db,COL.reports),where('empId','==',cu.id),where('createdAt','>=',from)));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',cu.id),window._where('createdAt','>=',from)));
     myReports=snap.docs.map(d=>({id:d.id,...d.data()}));
     myReports.sort((a,b)=>b.createdAt-a.createdAt);
     const rej=myReports.filter(r=>r.status==='rejected').length;
@@ -2463,7 +2476,7 @@ function mobRenderHist(){
 
 async function mobLoadPending(){
   try{
-    const snap=await getDocs(query(collection(db,COL.reports),where('status','==','pending')));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
     mobPending=snap.docs.map(d=>({id:d.id,...d.data()}));
     mobPending.sort((a,b)=>b.createdAt-a.createdAt);
     mobRenderApv();
@@ -2512,9 +2525,9 @@ async function mobDoPass(ids){
   for(const id of ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
     try{
-      await updateDoc(doc(db,COL.reports,id),{status:'approved',approvedAt:Date.now(),approvedBy:cu.user||cu.id});
-      const ps=await getDocs(query(collection(db,COL.processes),where('orderId','==',r.orderId),where('code','==',r.code),where('processNo','==',r.processNo)));
-      if(!ps.empty){ const c=ps.docs[0].data(); await updateDoc(ps.docs[0].ref,{approvedQty:(c.approvedQty||0)+r.qty,pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)}); }
+      await window._updateDoc(window._doc(COL.reports,id),{status:'approved',approvedAt:Date.now(),approvedBy:cu.user||cu.id});
+      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
+      if(!ps.empty){ const c=ps.docs[0].data(); await window._updateDoc(ps.docs[0].ref,{approvedQty:(c.approvedQty||0)+r.qty,pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)}); }
     }catch(e){}
   }
   mobPending=mobPending.filter(r=>!ids.includes(r.id));
@@ -2530,9 +2543,9 @@ async function mobDoReject(){
   for(const id of ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
     try{
-      await updateDoc(doc(db,COL.reports,id),{status:'rejected',rejectedAt:Date.now(),rejectedBy:cu.user||cu.id,rejectReason:reason});
-      const ps=await getDocs(query(collection(db,COL.processes),where('orderId','==',r.orderId),where('code','==',r.code),where('processNo','==',r.processNo)));
-      if(!ps.empty){ const c=ps.docs[0].data(); await updateDoc(ps.docs[0].ref,{pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)}); }
+      await window._updateDoc(window._doc(COL.reports,id),{status:'rejected',rejectedAt:Date.now(),rejectedBy:cu.user||cu.id,rejectReason:reason});
+      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
+      if(!ps.empty){ const c=ps.docs[0].data(); await window._updateDoc(ps.docs[0].ref,{pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)}); }
     }catch(e){}
   }
   mobPending=mobPending.filter(r=>!ids.includes(r.id));
