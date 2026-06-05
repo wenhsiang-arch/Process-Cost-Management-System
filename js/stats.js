@@ -226,7 +226,7 @@ async function delEmployee(id){
     ]);
     const repCount=repSnap.docs.length;
     const attCount=attSnap.docs.length;
-    const msg=`確定刪除員工「${emp.user}」？\n\n- 報工記錄：${repCount} 筆\n- 考勤記錄：${attCount} 筆\n\n刪除後所有資料無法復原。`;
+    const msg=`Xác nhận xóa nhân viên「${emp.user}」?\n確定刪除員工「${emp.user}」？\n\n- Báo công / 報工記錄：${repCount} 筆\n- Chấm công / 考勤記錄：${attCount} 筆\n\nDữ liệu sẽ không thể khôi phục sau khi xóa.\n刪除後所有資料無法復原。`;
     if(!confirm(msg)) return;
     await Promise.all([
       window._deleteDoc(window._doc(COL.employees,id)),
