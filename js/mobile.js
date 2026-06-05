@@ -14,8 +14,6 @@ function startMobile(user){
   if(user.role==='leader'){
     const t=g('mob-tab-apv'); if(t) t.style.display='flex';
   }
-  const sh=localStorage.getItem('wh_'+new Date().toDateString());
-  if(sh) g('mob-hours').value=sh;
   mobLoadOrders();
   mobLoadMyReports();
   if(user.role==='leader') mobLoadPending();
