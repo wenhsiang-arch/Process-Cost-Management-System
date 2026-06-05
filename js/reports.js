@@ -12,6 +12,8 @@ async function renderApproval(){
     pendingList=snap.docs.map(d=>({id:d.id,...d.data()}));
     let list=[...pendingList];
     if(dept) list=list.filter(r=>r.empDept===dept);
+    const empQ=(g('apv-emp-q')?.value||'').trim().toLowerCase();
+    if(empQ) list=list.filter(r=>(r.empName||'').toLowerCase().includes(empQ)||(r.empId||'').toLowerCase().includes(empQ));
     updateApvBadge(pendingList.length);
     if(!list.length){ tb.innerHTML=''; if(empty) empty.style.display='block'; return; }
     if(empty) empty.style.display='none';
