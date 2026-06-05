@@ -526,6 +526,7 @@ tr:hover td{background:#f8fafc}
               <span id="att-batch-total" style="font-size:15px;font-weight:700;color:var(--navy);min-width:32px">8</span>
               <span style="font-size:12px;color:var(--mu)">giờ / 時</span>
             </div>
+            <input type="text" id="att-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="attFilterEmps()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
             <button class="btn bp" onclick="attFillAll()" style="margin-left:4px"><i class="ti ti-copy"></i>Điền tất cả / 一鍵填入</button>
             <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac;margin-left:auto" onclick="openAttApply()"><i class="ti ti-device-floppy"></i>Áp dụng / 套用考勤</button>
           </div>
@@ -537,6 +538,7 @@ tr:hover td{background:#f8fafc}
               <th>Ca thường<br><span style="font-size:10px;color:var(--mu);font-weight:400">正常班(時)</span></th>
               <th>Tăng ca<br><span style="font-size:10px;color:var(--mu);font-weight:400">加班(時)</span></th>
               <th>Tổng giờ<br><span style="font-size:10px;color:var(--mu);font-weight:400">合計</span></th>
+              <th>Lịch sử<br><span style="font-size:10px;color:var(--mu);font-weight:400">歷史記錄</span></th>
             </tr></thead>
             <tbody id="att-tb"></tbody>
           </table></div>

@@ -77,6 +77,8 @@ async function renderStats(){
 
     // 部門篩選
     if(dept) emps=emps.filter(e=>e.empDept===dept);
+    const empQ=(g('stats-emp-q')?.value||'').trim().toLowerCase();
+    if(empQ) emps=emps.filter(e=>(e.empUser||'').toLowerCase().includes(empQ)||(e.empName||'').toLowerCase().includes(empQ));
 
     // 填入部門選單
     const ds=g('stats-dept');
