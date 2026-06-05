@@ -222,7 +222,7 @@ async function renderProgress(){
           <span style="font-size:13px;color:var(--accent);font-weight:500">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}</span>
         </div>
         <div style="display:none;margin-top:10px">
-          <div class="to"><table><thead><tr><th>工序號</th><th>工序名稱</th><th>訂單量</th><th>已通過</th><th>待審批</th><th>剩餘</th><th>進度</th></tr></thead><tbody>${procRows}</tbody></table></div>
+          <div class="to"><table><thead><tr><th>Số CĐ / 工序號</th><th>Tên CĐ / 工序名稱</th><th>SL đơn / 訂單量</th><th>Đã duyệt / 已通過</th><th>Chờ duyệt / 待審批</th><th>Còn lại / 剩餘</th><th>Tiến độ / 進度</th></tr></thead><tbody>${procRows}</tbody></table></div>
         </div>
       </div>`;
     });
