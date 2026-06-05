@@ -174,9 +174,17 @@ function viewOrderProgress(id){
 }
 
 async function deleteOrder(id,name){
-  if(!confirm(`確定刪除訂單 ${name}？`)) return;
   try{
-    await window._deleteDoc(window._doc(COL.orders,id));
+    const procSnap=await window._getDocs(
+      window._query(window._collection(COL.processes),window._where('orderId','==',id))
+    );
+    const procCount=procSnap.docs.length;
+    const msg=`Xác nhận xóa đơn hàng「${name}」?\n確定刪除訂單「${name}」？\n\n- Công đoạn / 工序記錄：${procCount} 筆將一併刪除\n\nDữ liệu sẽ không thể khôi phục.\n刪除後無法復原。`;
+    if(!confirm(msg)) return;
+    await Promise.all([
+      window._deleteDoc(window._doc(COL.orders,id)),
+      ...procSnap.docs.map(d=>window._deleteDoc(d.ref))
+    ]);
     window.allOrders=window.allOrders.filter(o=>o.id!==id);
     renderOrders();
   }catch(e){ alert('刪除失敗：'+e.message); }

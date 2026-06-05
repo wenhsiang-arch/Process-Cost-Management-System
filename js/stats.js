@@ -218,10 +218,22 @@ async function saveEmployee(){
 }
 
 async function delEmployee(id){
-  if(!confirm('確定刪除此員工帳號？')) return;
+  const emp=window.allEmployees.find(e=>e.id===id); if(!emp) return;
   try{
-    await window._deleteDoc(window._doc(COL.employees,id));
+    const [repSnap,attSnap]=await Promise.all([
+      window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',id))),
+      window._getDocs(window._query(window._collection(COL.attendance),window._where('empId','==',id)))
+    ]);
+    const repCount=repSnap.docs.length;
+    const attCount=attSnap.docs.length;
+    const msg=`確定刪除員工「${emp.user}」？\n\n- 報工記錄：${repCount} 筆\n- 考勤記錄：${attCount} 筆\n\n刪除後所有資料無法復原。`;
+    if(!confirm(msg)) return;
+    await Promise.all([
+      window._deleteDoc(window._doc(COL.employees,id)),
+      ...repSnap.docs.map(d=>window._deleteDoc(d.ref)),
+      ...attSnap.docs.map(d=>window._deleteDoc(d.ref))
+    ]);
     window.allEmployees=window.allEmployees.filter(e=>e.id!==id);
     renderEmployees();
-  }catch(e){}
+  }catch(e){ alert('刪除失敗：'+e.message); }
 }
