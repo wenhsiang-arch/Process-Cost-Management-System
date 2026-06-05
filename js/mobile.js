@@ -119,14 +119,13 @@ async function mobSubmitReport(){
   if(!currentProcId){ mobToast('⚠️ Vui lòng chọn công đoạn'); return; }
   if(!qty||qty<=0){ mobToast('⚠️ Vui lòng nhập số lượng'); return; }
   const p=procList.find(x=>x.id===currentProcId); if(!p) return;
-  const wh=parseFloat(mG('mob-hours').value)||8;
   try{
     await window._addDoc(window._collection(COL.reports),{
       empId:window.cu.id, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
       orderId:p.orderId, orderNo:p.orderNo||'', code:p.code,
       processNo:p.processNo, processVi:p.processVi||p.processZh,
       processSec:p.processSec||0, slPerHour:p.slPerHour||0,
-      qty, workHours:wh, status:'pending', createdAt:Date.now()
+      qty, status:'pending', createdAt:Date.now()
     });
     await window._updateDoc(window._doc(COL.processes,currentProcId),{pendingQty:(p.pendingQty||0)+qty});
     p.pendingQty=(p.pendingQty||0)+qty;
