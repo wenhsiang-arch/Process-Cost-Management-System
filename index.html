@@ -472,11 +472,22 @@ tr:hover td{background:#f8fafc}
             </select>
             <input type="date" id="stats-from" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
             <input type="date" id="stats-to" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-            <select id="stats-dept" onchange="renderStats()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">全部部門</option></select>
+            <select id="stats-dept" onchange="renderStats()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
+            <select id="stats-scope" onchange="renderStats()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+              <option value="all">Tất cả nhân viên / 所有員工</option>
+              <option value="reported">Có báo công / 有報工記錄</option>
+            </select>
             <button class="btn bp" onclick="renderStats()"><i class="ti ti-search"></i>查詢</button>
           </div>
           <div class="to"><table>
-            <thead><tr><th>Nhân viên<br><span style="font-size:10px;color:var(--mu);font-weight:400">員工</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Đơn hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款號</span></th><th>Công đoạn<br><span style="font-size:10px;color:var(--mu);font-weight:400">工序</span></th><th>SL hoàn thành<br><span style="font-size:10px;color:var(--mu);font-weight:400">完成數量</span></th><th>SL chuẩn/giờ<br><span style="font-size:10px;color:var(--mu);font-weight:400">標準產量/時</span></th><th>Hiệu suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">效率</span></th></tr></thead>
+            <thead><tr>
+              <th style="width:32px"></th>
+              <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號/工號</span></th>
+              <th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th>
+              <th>Giờ làm việc<br><span style="font-size:10px;color:var(--mu);font-weight:400">上班時數</span></th>
+              <th>Giờ năng suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">產能時數</span></th>
+              <th>Hiệu suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">效率</span></th>
+            </tr></thead>
             <tbody id="stats-tb"></tbody>
           </table></div>
         </div>
