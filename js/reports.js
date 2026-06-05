@@ -72,6 +72,7 @@ function approvalBatchReject(){
 }
 
 async function passReports(ids){
+  const errors=[];
   for(const id of ids){
     const r=pendingList.find(x=>x.id===id); if(!r) continue;
     try{
@@ -84,8 +85,9 @@ async function passReports(ids){
           pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)
         });
       }
-    }catch(e){}
+    }catch(e){ errors.push(r.empName||r.empId); }
   }
+  if(errors.length) alert(`⚠️ ${errors.length} 筆審批失敗：${errors.join('、')}\n請重試`);
 }
 
 async function doReject(){
