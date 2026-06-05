@@ -597,8 +597,8 @@ tr:hover td{background:#f8fafc}
     <div class="mt2" id="emp-modal-title">新增員工 <button class="btn bsm" onclick="cm('m-employee')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="emp-edit-id">
     <div class="fg cols2" style="margin-bottom:12px">
-      <div class="fgrp"><label>姓名（越文）<span style="color:var(--err)">*</span></label><input type="text" id="emp-name" placeholder="Nguyễn Văn A"></div>
-      <div class="fgrp"><label>部門</label>
+      <div class="fgrp"><label>Họ và tên / 姓名（越文）<span style="color:var(--err)">*</span></label><input type="text" id="emp-name" placeholder="Nguyễn Văn A"></div>
+      <div class="fgrp"><label>Bộ phận / 部門</label>
         <select id="emp-dept">
           <option value="">選擇部門...</option>
           <option value="備料">備料 / Bị liệu</option>
@@ -610,8 +610,8 @@ tr:hover td{background:#f8fafc}
         </select>
       </div>
       <div class="fgrp"><label>帳號/工號 / Tài khoản・Mã NV <span style="color:var(--err)">*</span></label><input type="text" id="emp-user"></div>
-      <div class="fgrp"><label>密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw('emp-pass',this)"></i></div></div>
-      <div class="fgrp"><label>角色</label>
+      <div class="fgrp"><label>Mật khẩu / 密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw('emp-pass',this)"></i></div></div>
+      <div class="fgrp"><label>Vai trò / 角色</label>
         <select id="emp-role">
           <option value="user">員工</option>
           <option value="leader">班長</option>
