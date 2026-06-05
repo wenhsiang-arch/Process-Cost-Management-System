@@ -26,8 +26,9 @@ async function renderStats(){
   const tb=g('stats-tb'); if(!tb) return;
   tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--hi)">載入中...</td></tr>';
   try{
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved'),window._where('createdAt','>=',from),window._where('createdAt','<=',to)));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved')));
     let list=snap.docs.map(d=>({id:d.id,...d.data()}));
+    list=list.filter(r=>r.createdAt>=from && r.createdAt<=to);
     if(dept) list=list.filter(r=>r.empDept===dept);
     list.sort((a,b)=>(a.empName||'').localeCompare(b.empName||''));
     tb.innerHTML='';
