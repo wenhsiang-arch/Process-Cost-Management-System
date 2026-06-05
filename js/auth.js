@@ -1,3 +1,13 @@
+// 頁面載入時強制重置畫面狀態
+(function(){
+  const ls=document.getElementById('ls');
+  const mob=document.getElementById('mob');
+  const ma=document.getElementById('ma');
+  if(ls) ls.style.display='';
+  if(mob) mob.style.display='none';
+  if(ma) ma.classList.add('hidden');
+})();
+
 // ===== 全域狀態 =====
 window.accs = [{user:'admin',pass:'admin123',role:'admin'}];
 window.cu   = null;
