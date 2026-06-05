@@ -81,8 +81,8 @@ async function passReports(ids){
       if(!ps.empty){
         const c=ps.docs[0].data();
         await window._updateDoc(ps.docs[0].ref,{
-          approvedQty:(c.approvedQty||0)+r.qty,
-          pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)
+          approvedQty:window._increment(r.qty),
+          pendingQty:window._increment(-r.qty)
         });
       }
     }catch(e){ errors.push(r.empName||r.empId); }
