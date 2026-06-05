@@ -81,6 +81,7 @@ function doLogin(){
       loadOrderData();
     } else if(a.role==='leader'){
       g('ls').style.display='none';
+      g('ma').classList.remove('hidden');
       startMobile(a);
     } else {
       g('lerr').style.display='flex';
@@ -90,7 +91,7 @@ function doLogin(){
 
   // 員工帳號（手機版）
   const emp = window.allEmployees.find(x=>x.user===u && x.pass===p);
-  if(emp){ window.cu=emp; g('ls').style.display='none'; startMobile(emp); return; }
+  if(emp){ window.cu=emp; g('ls').style.display='none'; g('ma').classList.remove('hidden'); startMobile(emp); return; }
 
   g('lerr').style.display='flex';
 }
