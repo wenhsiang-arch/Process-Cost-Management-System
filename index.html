@@ -487,7 +487,7 @@ tr:hover td{background:#f8fafc}
           <div class="ct-title"><i class="ti ti-users-group"></i>Quản lý nhân viên / 員工管理</div>
           <div class="br"><button class="btn bp" onclick="openAddEmployee()"><i class="ti ti-plus"></i>Thêm nhân viên / 新增員工</button></div>
           <div class="to"><table>
-            <thead><tr><th>Mã NV<br><span style="font-size:10px;color:var(--mu);font-weight:400">工號</span></th><th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th><th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
+            <thead><tr><th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th><th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
             <tbody id="emp-tb"></tbody>
           </table></div>
         </div>
@@ -597,7 +597,6 @@ tr:hover td{background:#f8fafc}
     <div class="mt2" id="emp-modal-title">新增員工 <button class="btn bsm" onclick="cm('m-employee')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="emp-edit-id">
     <div class="fg cols2" style="margin-bottom:12px">
-      <div class="fgrp"><label>工號 / Mã nhân viên <span style="color:var(--err)">*</span></label><input type="text" id="emp-no" placeholder="例：A001"></div>
       <div class="fgrp"><label>姓名（越文）<span style="color:var(--err)">*</span></label><input type="text" id="emp-name" placeholder="Nguyễn Văn A"></div>
       <div class="fgrp"><label>部門</label>
         <select id="emp-dept">
@@ -610,7 +609,7 @@ tr:hover td{background:#f8fafc}
           <option value="包裝">包裝 / Đóng gói</option>
         </select>
       </div>
-      <div class="fgrp"><label>帳號 <span style="color:var(--err)">*</span></label><input type="text" id="emp-user"></div>
+      <div class="fgrp"><label>帳號/工號 / Tài khoản・Mã NV <span style="color:var(--err)">*</span></label><input type="text" id="emp-user"></div>
       <div class="fgrp"><label>密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw('emp-pass',this)"></i></div></div>
       <div class="fgrp"><label>角色</label>
         <select id="emp-role">

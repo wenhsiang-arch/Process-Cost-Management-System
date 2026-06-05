@@ -60,13 +60,13 @@ function renderEmployees(){
   }
   window.allEmployees.forEach(e=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${e.empNo||'-'}</td><td><b>${e.name||'-'}</b></td><td>${e.user}</td><td>${e.dept?e.dept+' / '+(DEPTS[e.dept]||''):'-'}</td><td><span class="tg ${e.role==='leader'?'tb2':'ta'}">${ROLE_LABEL[e.role||'user']||e.role}</span></td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="editEmployee('${e.id}')"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delEmployee('${e.id}')"><i class="ti ti-trash"></i></button></div></td>`;
+    tr.innerHTML=`<td><b>${e.name||'-'}</b></td><td>${e.user}</td><td>${e.dept?e.dept+' / '+(DEPTS[e.dept]||''):'-'}</td><td><span class="tg ${e.role==='leader'?'tb2':'ta'}">${ROLE_LABEL[e.role||'user']||e.role}</span></td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="editEmployee('${e.id}')"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delEmployee('${e.id}')"><i class="ti ti-trash"></i></button></div></td>`;
     tb.appendChild(tr);
   });
 }
 
 function openAddEmployee(){
-  g('emp-edit-id').value=''; g('emp-no').value=''; g('emp-name').value=''; g('emp-user').value='';
+  g('emp-edit-id').value=''; g('emp-name').value=''; g('emp-user').value='';
   g('emp-pass').value=''; g('emp-dept').value=''; g('emp-role').value='user';
   g('emp-modal-title').textContent='新增員工';
   om('m-employee');
@@ -74,7 +74,7 @@ function openAddEmployee(){
 
 function editEmployee(id){
   const e=window.allEmployees.find(x=>x.id===id); if(!e) return;
-  g('emp-edit-id').value=id; g('emp-no').value=e.empNo||''; g('emp-name').value=e.name||'';
+  g('emp-edit-id').value=id; g('emp-name').value=e.name||'';
   g('emp-user').value=e.user; g('emp-pass').value='';
   g('emp-dept').value=e.dept||''; g('emp-role').value=e.role||'user';
   g('emp-modal-title').textContent='編輯員工';
@@ -91,8 +91,7 @@ async function saveEmployee(){
   if(!name||!user){ alert('請填寫姓名和帳號'); return; }
   if(!id&&!pass){ alert('新增員工請填寫密碼'); return; }
   if(!id&&window.allEmployees.find(e=>e.user===user)){ alert('帳號已存在'); return; }
-  const empNo=g('emp-no').value.trim();
-  const data={empNo,name,user,dept,role,updatedAt:Date.now()};
+  const data={name,user,dept,role,updatedAt:Date.now()};
   if(pass) data.pass=pass;
   try{
     if(id){
