@@ -175,24 +175,25 @@ tr:hover td{background:#f8fafc}
       <div class="sb-sub">Hệ thống phân tích chi phí</div>
       <div class="sb-badge">v8.0</div>
     </div>
-    <div class="sb-sec">Chính / 主功能</div>
-    <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng chi phí mã hàng</span><span class="nzh">款號總成本</span></div></div>
-    <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết công đoạn</span><span class="nzh">工序明細表</span></div></div>
+    <div class="sb-sec">Công đoạn / 工序表</div>
+    <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
+    <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết</span><span class="nzh">工序明細表</span></div></div>
     <div class="ni" onclick="sp('import')" id="nv-import"><i class="ti ti-upload"></i><div class="nl"><span class="nvi">Nhập dữ liệu</span><span class="nzh">匯入資料</span></div></div>
-    <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dữ liệu dự phòng</span><span class="nzh">備份匯出</span></div></div>
+    <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dự phòng</span><span class="nzh">備份匯出</span></div></div>
     <div class="sb-sec">Quản lý / 管理</div>
     <div class="ni" id="nv-settings" onclick="sp('settings')"><i class="ti ti-settings"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
     <div class="ni" id="nv-export" onclick="sp('export')"><i class="ti ti-download"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
     <div class="ni" id="nv-history" onclick="sp('history')"><i class="ti ti-history"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
-    <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử thay đổi chi phí</span><span class="nzh">成本變動記錄</span></div></div>
+    <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử chi phí</span><span class="nzh">成本變動記錄</span></div></div>
     <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
-    <div class="sb-sec">Đơn hàng / 訂單系統</div>
-    <div class="ni locked" id="nv-orders" onclick="sp('orders')"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Quản lý đơn hàng</span><span class="nzh">訂單管理</span></div></div>
-    <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-check-circle"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
+    <div class="sb-sec">Đơn hàng / 訂單管理</div>
+    <div class="ni locked" id="nv-orders" onclick="sp('orders')"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Nhập đơn hàng</span><span class="nzh">匯入訂單</span></div></div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
+    <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-check-circle"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
+    <div class="sb-sec">Nhân sự / 人員管理</div>
+    <div class="ni locked" id="nv-attendance" onclick="sp('attendance')"><i class="ti ti-calendar-check"></i><div class="nl"><span class="nvi">Chấm công</span><span class="nzh">考勤管理</span></div></div>
     <div class="ni locked" id="nv-stats" onclick="sp('stats')"><i class="ti ti-chart-pie"></i><div class="nl"><span class="nvi">Thống kê sản lượng</span><span class="nzh">員工產量統計</span></div></div>
     <div class="ni locked" id="nv-employees" onclick="sp('employees')"><i class="ti ti-users-group"></i><div class="nl"><span class="nvi">Quản lý nhân viên</span><span class="nzh">員工管理</span></div></div>
-    <div class="ni" id="nv-attendance" onclick="sp('attendance')"><i class="ti ti-calendar-check"></i><div class="nl"><span class="nvi">Chấm công</span><span class="nzh">考勤管理</span></div></div>
     <div class="sb-ft"><div class="sb-ft-t">v8.0</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
 
