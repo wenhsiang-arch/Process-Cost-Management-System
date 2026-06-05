@@ -146,8 +146,7 @@ async function mobSubmitReport(){
 // ===== 我的報工記錄 =====
 async function mobLoadMyReports(){
   try{
-    const from=Date.now()-30*24*3600*1000;
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id),window._where('createdAt','>=',from)));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id)));
     myReports=snap.docs.map(d=>({id:d.id,...d.data()}));
     myReports.sort((a,b)=>b.createdAt-a.createdAt);
     const rej=myReports.filter(r=>r.status==='rejected').length;
@@ -160,7 +159,7 @@ async function mobLoadMyReports(){
       if(bell) bell.style.display='none';
     }
     mobRenderHist();
-  }catch(e){}
+  }catch(e){ console.error('mobLoadMyReports',e); }
 }
 
 function mobFilterHist(f){
