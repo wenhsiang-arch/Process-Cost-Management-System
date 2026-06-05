@@ -424,7 +424,7 @@ tr:hover td{background:#f8fafc}
           <div class="br"><button class="btn bp" onclick="openImportOrder()"><i class="ti ti-upload"></i>Nhập đơn hàng Excel / 匯入訂單</button></div>
           <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
           <div class="to"><table>
-            <thead><tr><th><span class="nvi">Số đơn</span><span class="nzh">訂單編號</span></th><th><span class="nvi">Mã hàng</span><span class="nzh">款數</span></th><th><span class="nvi">Tổng SL</span><span class="nzh">總數量</span></th><th><span class="nvi">Ngày giao</span><span class="nzh">出貨日期</span></th><th><span class="nvi">Tiến độ</span><span class="nzh">整體進度</span></th><th><span class="nvi">Thao tác</span><span class="nzh">操作</span></th></tr></thead>
+            <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
             <tbody id="ord-tb"></tbody>
           </table></div>
           <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
@@ -441,7 +441,7 @@ tr:hover td{background:#f8fafc}
             <select id="apv-dept" onchange="renderApproval()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
           </div>
           <div class="to"><table>
-            <thead><tr><th><input type="checkbox" id="apv-chk-all" onchange="approvalToggleAll(this)"></th><th><span class="nvi">Nhân viên</span><span class="nzh">員工</span></th><th><span class="nvi">Bộ phận</span><span class="nzh">部門</span></th><th><span class="nvi">Đơn hàng</span><span class="nzh">訂單</span></th><th><span class="nvi">Mã hàng</span><span class="nzh">款號</span></th><th><span class="nvi">Công đoạn</span><span class="nzh">工序</span></th><th><span class="nvi">SL</span><span class="nzh">數量</span></th><th><span class="nvi">Thời gian</span><span class="nzh">申報時間</span></th><th><span class="nvi">Thao tác</span><span class="nzh">操作</span></th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="apv-chk-all" onchange="approvalToggleAll(this)"></th><th>Nhân viên<br><span style="font-size:10px;color:var(--mu);font-weight:400">員工</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Đơn hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款號</span></th><th>Công đoạn<br><span style="font-size:10px;color:var(--mu);font-weight:400">工序</span></th><th>SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">數量</span></th><th>Thời gian<br><span style="font-size:10px;color:var(--mu);font-weight:400">申報時間</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
             <tbody id="apv-tb"></tbody>
           </table></div>
           <div id="apv-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)">Không có báo công chờ duyệt / 目前沒有待審批</div>
@@ -475,7 +475,7 @@ tr:hover td{background:#f8fafc}
             <button class="btn bp" onclick="renderStats()"><i class="ti ti-search"></i>查詢</button>
           </div>
           <div class="to"><table>
-            <thead><tr><th><span class="nvi">Nhân viên</span><span class="nzh">員工</span></th><th><span class="nvi">Bộ phận</span><span class="nzh">部門</span></th><th><span class="nvi">Đơn hàng</span><span class="nzh">訂單</span></th><th><span class="nvi">Mã hàng</span><span class="nzh">款號</span></th><th><span class="nvi">Công đoạn</span><span class="nzh">工序</span></th><th><span class="nvi">SL hoàn thành</span><span class="nzh">完成數量</span></th><th><span class="nvi">SL chuẩn/giờ</span><span class="nzh">標準產量/時</span></th><th><span class="nvi">Hiệu suất</span><span class="nzh">效率</span></th></tr></thead>
+            <thead><tr><th>Nhân viên<br><span style="font-size:10px;color:var(--mu);font-weight:400">員工</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Đơn hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款號</span></th><th>Công đoạn<br><span style="font-size:10px;color:var(--mu);font-weight:400">工序</span></th><th>SL hoàn thành<br><span style="font-size:10px;color:var(--mu);font-weight:400">完成數量</span></th><th>SL chuẩn/giờ<br><span style="font-size:10px;color:var(--mu);font-weight:400">標準產量/時</span></th><th>Hiệu suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">效率</span></th></tr></thead>
             <tbody id="stats-tb"></tbody>
           </table></div>
         </div>
@@ -487,7 +487,7 @@ tr:hover td{background:#f8fafc}
           <div class="ct-title"><i class="ti ti-users-group"></i>Quản lý nhân viên / 員工管理</div>
           <div class="br"><button class="btn bp" onclick="openAddEmployee()"><i class="ti ti-plus"></i>Thêm nhân viên / 新增員工</button></div>
           <div class="to"><table>
-            <thead><tr><th><span class="nvi">Họ tên</span><span class="nzh">姓名</span></th><th><span class="nvi">Tài khoản</span><span class="nzh">帳號</span></th><th><span class="nvi">Bộ phận</span><span class="nzh">部門</span></th><th><span class="nvi">Vai trò</span><span class="nzh">角色</span></th><th><span class="nvi">Thao tác</span><span class="nzh">操作</span></th></tr></thead>
+            <thead><tr><th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th><th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
             <tbody id="emp-tb"></tbody>
           </table></div>
         </div>
