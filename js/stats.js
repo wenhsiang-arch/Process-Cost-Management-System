@@ -68,7 +68,11 @@ async function renderStats(){
         emps.push(empMap[e.id]);
       });
     } else {
-      emps=Object.values(empMap);
+      emps=Object.values(empMap).map(e=>{
+        const found=(window.allEmployees||[]).find(x=>x.id===e.empId);
+        if(found){ e.empUser=found.user||e.empId; e.empName=found.name||e.empName; }
+        return e;
+      });
     }
 
     // 部門篩選
@@ -103,6 +107,7 @@ async function renderStats(){
         <td><i class="ti ti-chevron-right" style="font-size:12px;color:var(--mu);transition:transform .2s"></i></td>
         <td>${e.empUser||e.empId}</td>
         <td><b>${e.empName||'-'}</b></td>
+        <td>${e.empDept?(e.empDept+' / '+(DEPTS[e.empDept]||'')):'-'}</td>
         <td>${workHours!=null?workHours.toFixed(1)+' h':'-'}</td>
         <td>${hasRep?capHours.toFixed(2)+' h':'0'}</td>
         <td style="font-weight:600;color:${effColor}">${effStr}</td>`;
