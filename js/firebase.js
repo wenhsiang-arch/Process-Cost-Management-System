@@ -157,12 +157,6 @@ async function fbInit(){
     }
   });
 
-  // 重新整理後還原正確畫面狀態
-  const lsEl = document.getElementById('ls');
-  const mobEl = document.getElementById('mob');
-  if(lsEl) lsEl.style.display = '';
-  if(mobEl) mobEl.style.display = 'none';
-  window.cu = null;
 }
 
 window.addEventListener('load', ()=>setTimeout(fbInit, 300));
