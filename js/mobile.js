@@ -5,6 +5,8 @@ let myReports=[], mobPending=[], procList=[], mobHistFilter='all', currentProcId
 function startMobile(user){
   const mob=g('mob');
   mob.style.display='flex';
+  const appEl = document.querySelector('#ma .app');
+  if(appEl) appEl.style.display = 'none';
   const initials=(user.name||user.user).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   g('mob-av').textContent=initials;
   g('mob-name').textContent=user.name||user.user;

@@ -91,6 +91,8 @@ function doLogout(){
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
   window.cu=null;
+  const appEl = document.querySelector('#ma .app');
+  if(appEl) appEl.style.display = '';
   g('ls').style.display=''; g('ma').classList.add('hidden');
   g('mob').style.display='none';
   g('lu').value=''; g('lp').value=''; g('lerr').style.display='none';
