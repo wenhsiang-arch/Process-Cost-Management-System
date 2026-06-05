@@ -420,40 +420,40 @@ tr:hover td{background:#f8fafc}
       <!-- 訂單管理 -->
       <div class="pg" id="pg-orders">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-file-invoice"></i>訂單管理</div>
-          <div class="br"><button class="btn bp" onclick="openImportOrder()"><i class="ti ti-upload"></i>匯入訂單 Excel</button></div>
-          <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
+          <div class="ct-title"><i class="ti ti-file-invoice"></i>Quản lý đơn hàng / 訂單管理</div>
+          <div class="br"><button class="btn bp" onclick="openImportOrder()"><i class="ti ti-upload"></i>Nhập đơn hàng Excel / 匯入訂單</button></div>
+          <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
           <div class="to"><table>
-            <thead><tr><th>訂單編號</th><th>款數</th><th>總數量</th><th>出貨日期</th><th>整體進度</th><th>操作</th></tr></thead>
+            <thead><tr><th>Số đơn / 訂單編號</th><th>Mã hàng / 款數</th><th>Tổng SL / 總數量</th><th>Ngày giao / 出貨日期</th><th>Tiến độ / 整體進度</th><th>Thao tác / 操作</th></tr></thead>
             <tbody id="ord-tb"></tbody>
           </table></div>
-          <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>尚無訂單</div>
+          <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
         </div>
       </div>
 
       <!-- 報工審批 -->
       <div class="pg" id="pg-approval">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-check-circle"></i>報工審批</div>
+          <div class="ct-title"><i class="ti ti-check-circle"></i>Duyệt báo công / 報工審批</div>
           <div class="br" style="margin-bottom:10px;gap:6px">
-            <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="approvalBatchPass()"><i class="ti ti-check"></i>批量通過</button>
-            <button class="btn" style="background:var(--errl);color:var(--err);border:1px solid #fca5a5" onclick="approvalBatchReject()"><i class="ti ti-x"></i>批量退回</button>
-            <select id="apv-dept" onchange="renderApproval()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">全部部門</option></select>
+            <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="approvalBatchPass()"><i class="ti ti-check"></i>Duyệt hàng loạt / 批量通過</button>
+            <button class="btn" style="background:var(--errl);color:var(--err);border:1px solid #fca5a5" onclick="approvalBatchReject()"><i class="ti ti-x"></i>Từ chối hàng loạt / 批量退回</button>
+            <select id="apv-dept" onchange="renderApproval()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
           </div>
           <div class="to"><table>
-            <thead><tr><th><input type="checkbox" id="apv-chk-all" onchange="approvalToggleAll(this)"></th><th>員工</th><th>部門</th><th>訂單</th><th>款號</th><th>工序</th><th>數量</th><th>申報時間</th><th>操作</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="apv-chk-all" onchange="approvalToggleAll(this)"></th><th>Nhân viên / 員工</th><th>Bộ phận / 部門</th><th>Đơn hàng / 訂單</th><th>Mã hàng / 款號</th><th>Công đoạn / 工序</th><th>SL / 數量</th><th>Thời gian / 申報時間</th><th>Thao tác / 操作</th></tr></thead>
             <tbody id="apv-tb"></tbody>
           </table></div>
-          <div id="apv-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)">目前沒有待審批</div>
+          <div id="apv-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)">Không có báo công chờ duyệt / 目前沒有待審批</div>
         </div>
       </div>
 
       <!-- 訂單進度 -->
       <div class="pg" id="pg-progress">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-bar"></i>訂單進度</div>
+          <div class="ct-title"><i class="ti ti-chart-bar"></i>Tiến độ đơn hàng / 訂單進度</div>
           <div style="margin-bottom:12px">
-            <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">選擇訂單...</option></select>
+            <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
           </div>
           <div id="prog-content"></div>
         </div>
@@ -462,12 +462,12 @@ tr:hover td{background:#f8fafc}
       <!-- 員工產量統計 -->
       <div class="pg" id="pg-stats">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-pie"></i>員工產量統計</div>
+          <div class="ct-title"><i class="ti ti-chart-pie"></i>Thống kê sản lượng / 員工產量統計</div>
           <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
             <select id="stats-range" onchange="statsRangeChange()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <option value="today">今天</option>
-              <option value="month" selected>本月</option>
-              <option value="custom">自訂</option>
+              <option value="today">Hôm nay / 今天</option>
+              <option value="month" selected>Tháng này / 本月</option>
+              <option value="custom">Tùy chỉnh / 自訂</option>
             </select>
             <input type="date" id="stats-from" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
             <input type="date" id="stats-to" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
@@ -475,7 +475,7 @@ tr:hover td{background:#f8fafc}
             <button class="btn bp" onclick="renderStats()"><i class="ti ti-search"></i>查詢</button>
           </div>
           <div class="to"><table>
-            <thead><tr><th>員工</th><th>部門</th><th>訂單</th><th>款號</th><th>工序</th><th>完成數量</th><th>標準產量/時</th><th>效率</th></tr></thead>
+            <thead><tr><th>Nhân viên / 員工</th><th>Bộ phận / 部門</th><th>Đơn hàng / 訂單</th><th>Mã hàng / 款號</th><th>Công đoạn / 工序</th><th>SL hoàn thành / 完成數量</th><th>SL chuẩn/giờ / 標準產量/時</th><th>Hiệu suất / 效率</th></tr></thead>
             <tbody id="stats-tb"></tbody>
           </table></div>
         </div>
@@ -484,10 +484,10 @@ tr:hover td{background:#f8fafc}
       <!-- 員工管理 -->
       <div class="pg" id="pg-employees">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-users-group"></i>員工管理</div>
-          <div class="br"><button class="btn bp" onclick="openAddEmployee()"><i class="ti ti-plus"></i>新增員工</button></div>
+          <div class="ct-title"><i class="ti ti-users-group"></i>Quản lý nhân viên / 員工管理</div>
+          <div class="br"><button class="btn bp" onclick="openAddEmployee()"><i class="ti ti-plus"></i>Thêm nhân viên / 新增員工</button></div>
           <div class="to"><table>
-            <thead><tr><th>姓名</th><th>帳號</th><th>部門</th><th>角色</th><th>操作</th></tr></thead>
+            <thead><tr><th>Họ tên / 姓名</th><th>Tài khoản / 帳號</th><th>Bộ phận / 部門</th><th>Vai trò / 角色</th><th>Thao tác / 操作</th></tr></thead>
             <tbody id="emp-tb"></tbody>
           </table></div>
         </div>
