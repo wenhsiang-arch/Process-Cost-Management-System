@@ -127,7 +127,7 @@ async function mobSubmitReport(){
       processSec:p.processSec||0, slPerHour:p.slPerHour||0,
       qty, status:'pending', createdAt:Date.now()
     });
-    await window._updateDoc(window._doc(COL.processes,currentProcId),{pendingQty:(p.pendingQty||0)+qty});
+    await window._updateDoc(window._doc(COL.processes,currentProcId),{pendingQty:window._increment(qty)});
     p.pendingQty=(p.pendingQty||0)+qty;
     mobSelectProc();
     mG('mob-qty').value='';
