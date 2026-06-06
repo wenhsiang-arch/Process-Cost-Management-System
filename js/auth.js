@@ -69,6 +69,7 @@ function doLogin(){
       uNav(); sp('summary'); rAll(); rSum(); rAcc(); startIdle();
       setTimeout(()=>fetchRates(), 1000);
       loadOrderData();
+      if(typeof startDeskApvListener==='function') startDeskApvListener();
     } else if(a.role==='leader'){
       g('ls').style.display='none';
       g('ma').classList.remove('hidden');
@@ -95,6 +96,8 @@ function doLogout(){
   if(appEl) appEl.style.display = '';
   g('ls').style.display=''; g('ma').classList.add('hidden');
   g('mob').style.display='none';
+  if(window.mobPendingUnsub){ window.mobPendingUnsub(); window.mobPendingUnsub=null; }
+  if(window.deskApvUnsub){ window.deskApvUnsub(); window.deskApvUnsub=null; }
   g('lu').value=''; g('lp').value=''; g('lerr').style.display='none';
 }
 

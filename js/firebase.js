@@ -107,6 +107,7 @@ window._setDoc     = (ref,data)    => setDoc(ref, data);
 window._increment  = (n)           => increment(n);
 window._runTransaction = (fn)      => runTransaction(db, fn);
 window._docRef     = (colName, id) => doc(db, colName, id);
+window._onSnapshot = (...args)     => onSnapshot(...args);
 
 // ===== 初始化 =====
 async function fbInit(){

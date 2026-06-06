@@ -1,3 +1,19 @@
+window.deskApvUnsub = null;
+
+function startDeskApvListener(){
+  if(window.deskApvUnsub) return;
+  window.deskApvUnsub = window._onSnapshot(
+    window._query(window._collection(COL.reports), window._where('status','==','pending')),
+    (snap) => {
+      pendingList = snap.docs.map(d=>({id:d.id,...d.data()}));
+      updateApvBadge(pendingList.length);
+      const pg = document.getElementById('pg-approval');
+      if(pg && pg.classList.contains('active')) renderApproval();
+    },
+    (e) => { console.error('deskApvListener error:', e); }
+  );
+}
+
 // ===== 報工審批資料 =====
 let pendingList = [];
 

@@ -1,3 +1,21 @@
+window.mobPendingUnsub = null;
+
+function startMobPendingListener(){
+  if(window.mobPendingUnsub) return;
+  window.mobPendingUnsub = window._onSnapshot(
+    window._query(window._collection(COL.reports), window._where('status','==','pending')),
+    (snap) => {
+      mobPending = snap.docs.map(d=>({id:d.id,...d.data()}));
+      mobPending.sort((a,b)=>b.createdAt-a.createdAt);
+      const bdg = mG('mob-apv-badge'), n = mobPending.length;
+      if(bdg){ bdg.textContent=n; bdg.style.display=n>0?'flex':'none'; }
+      const apvPg = mG('mob-pg-apv');
+      if(apvPg && apvPg.style.display!=='none') mobRenderApv();
+    },
+    (e) => { console.error('mobPendingListener error:', e); mobToast('❌ 監聽失敗：'+e.message); }
+  );
+}
+
 // ===== 手機版資料 =====
 let myReports=[], mobPending=[], procList=[], mobHistFilter='all', currentProcId=null;
 
@@ -16,7 +34,7 @@ function startMobile(user){
   }
   mobLoadOrders();
   mobLoadMyReports();
-  if(user.role==='leader') mobLoadPending();
+  if(user.role==='leader') startMobPendingListener();
 }
 
 // ===== 頁面切換 =====
