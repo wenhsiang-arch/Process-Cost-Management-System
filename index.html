@@ -796,7 +796,10 @@ tr:hover td{background:#f8fafc}
           <b id="mob-reject-alert-text" style="font-size:12px;color:#92400e"></b>
         </div>
         <div style="background:var(--sf);border-radius:14px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--bd)">
-          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Đơn hàng / 訂單</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:11px;color:var(--mu)">Đơn hàng / 訂單</span>
+            <button onclick="mobLoadOrders()" style="border:none;background:none;color:var(--mu);cursor:pointer;font-size:11px;display:flex;align-items:center;gap:3px;padding:2px 4px"><i class="ti ti-refresh" style="font-size:13px"></i> Tải lại / 刷新</button>
+          </div>
           <select id="mob-sel-order" onchange="mobSelectOrder()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇訂單 --</option></select>
           <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Mã hàng / 款號</div>
           <select id="mob-sel-code" onchange="mobSelectCode()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇款號 --</option></select>
