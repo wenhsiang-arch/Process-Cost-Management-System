@@ -206,6 +206,13 @@ async function deleteOrder(id,name){
       window._query(window._collection(COL.processes),window._where('orderId','==',id))
     );
     const procCount=procSnap.docs.length;
+    const repSnap=await window._getDocs(
+      window._query(window._collection(COL.reports),window._where('orderId','==',id),window._where('status','in',['approved','pending']))
+    );
+    if(repSnap.docs.length>0){
+      alert(`⚠️ Không thể xóa / 無法刪除！\n\n訂單「${name}」有 ${repSnap.docs.length} 筆報工記錄尚未作廢。\nVui lòng hủy tất cả báo công trước khi xóa đơn hàng.\n請先作廢所有報工記錄再刪除訂單。`);
+      return;
+    }
     const msg=`Xác nhận xóa đơn hàng「${name}」?\n確定刪除訂單「${name}」？\n\n- Công đoạn / 工序記錄：${procCount} 筆將一併刪除\n\nDữ liệu sẽ không thể khôi phục.\n刪除後無法復原。`;
     if(!confirm(msg)) return;
     await Promise.all([
