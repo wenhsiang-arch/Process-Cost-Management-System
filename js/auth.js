@@ -87,9 +87,14 @@ function doLogin(){
         const perm = window.permissionSettings;
         const r = window.cu.role;
         if(r==='admin'){ sp('summary'); return; }
-        const order = ['summary','detail','import','backup','attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog'];
+        const order = ['attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog','summary','detail','import','backup'];
         const allowed = order.find(n=> perm[r] && perm[r][n]===true );
-        if(allowed){ sp(allowed); } else { sp('summary'); }
+        if(allowed){ sp(allowed); } else {
+          document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+          document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+          const mn = document.querySelector('.mn .ct');
+          if(mn) mn.innerHTML='<div style="text-align:center;padding:60px;color:var(--mu)"><i class="ti ti-lock" style="font-size:48px;display:block;margin-bottom:16px"></i><div style="font-size:15px;font-weight:500">無可用功能 / Không có chức năng khả dụng</div><div style="font-size:12px;margin-top:8px">請聯絡管理員開放權限</div></div>';
+        }
       });
       setTimeout(()=>fetchRates(), 1000);
       loadOrderData();
