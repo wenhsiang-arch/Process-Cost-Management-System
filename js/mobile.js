@@ -271,7 +271,7 @@ function mobRenderHist(){
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
           <div>
             <div style="font-size:13px;color:var(--tx);font-weight:600">${r.processNo} · ${r.processVi||''}</div>
-            <div style="font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5">${r.code} · ${r.orderNo||''}<br>${fmtTimeVN(r.createdAt)} · ${(r.qty||0).toLocaleString()} PCS</div>
+            <div style="font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5">${r.code} · ${r.orderNo||''}<br>${fmtVN(r.workDate?new Date(r.workDate).getTime():r.createdAt)} ${(()=>{const d=new Date(r.createdAt);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})()} · ${(r.qty||0).toLocaleString()} PCS</div>
           </div>
           <span style="display:inline-flex;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;white-space:nowrap;flex-shrink:0;${bdgStyle[r.status]||''}">${bdgText[r.status]||r.status}</span>
         </div>
