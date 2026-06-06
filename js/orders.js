@@ -276,7 +276,7 @@ async function renderProgress(){
       const actualCompleteDateVal=o.actualCompleteDate?new Date(o.actualCompleteDate).toISOString().slice(0,10):'';
       const actualShipDateVal=o.actualShipDate?new Date(o.actualShipDate).toISOString().slice(0,10):(o.dueDate?new Date(o.dueDate).toISOString().slice(0,10):'');
       const remarkVal=(o.remark||'').replace(/"/g,'&quot;');
-      html+=`<tr>
+      html+=`<tr style="cursor:pointer" onclick="toggleProgDetail('${o.id}')">
         <td style="color:var(--mu);padding:6px 8px;font-size:12px">${idx+1}</td>
         <td style="padding:6px 8px;font-size:12px"><b>${o.client||'-'}</b></td>
         <td style="font-family:var(--font-mono,monospace);font-size:11px;padding:6px 8px">${o.orderId}</td>
@@ -291,11 +291,8 @@ async function renderProgress(){
         <td><input type="date" value="${actualCompleteDateVal}" onchange="saveProgField('${o.id}','actualCompleteDate',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td><input type="text" value="${remarkVal}" onchange="saveProgField('${o.id}','remark',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:120px" placeholder="備註..."></td>
-        <td style="padding:6px 8px">
-          <div style="display:flex;gap:4px">
-            <button class="btn bsm" onclick="toggleProgDetail('${o.id}')" id="prog-btn-${o.id}"><i class="ti ti-chevron-down"></i></button>
-            <button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
-          </div>
+        <td style="padding:6px 8px" onclick="event.stopPropagation()">
+          <button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
         </td>
       </tr>
       <tr id="prog-detail-${o.id}" style="display:none">
@@ -348,13 +345,13 @@ function toggleProgDetail(ordId){
       const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
       const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
       return`<tr>
-        <td style="padding:5px 8px">${p.processNo}</td>
-        <td style="padding:5px 8px">${p.processVi||p.processZh||''}</td>
-        <td style="padding:5px 8px;text-align:right">${(p.orderQty||0).toLocaleString()}</td>
-        <td style="padding:5px 8px;text-align:right;color:var(--ok);font-weight:500">${(p.approvedQty||0).toLocaleString()}</td>
-        <td style="padding:5px 8px;text-align:right;color:var(--warn)">${(p.pendingQty||0).toLocaleString()}</td>
-        <td style="padding:5px 8px;text-align:right;color:var(--accent)">${rem.toLocaleString()}</td>
-        <td style="padding:5px 8px;min-width:120px">
+        <td style="padding:3px 6px;font-size:12px">${p.processNo}</td>
+        <td style="padding:3px 6px;font-size:12px">${p.processVi||p.processZh||''}</td>
+        <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.orderQty||0).toLocaleString()}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--ok);font-weight:500;font-size:12px">${(p.approvedQty||0).toLocaleString()}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--warn);font-size:12px">${(p.pendingQty||0).toLocaleString()}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--accent);font-size:12px">${rem.toLocaleString()}</td>
+        <td style="padding:3px 6px;width:100px">
           <div style="position:relative;height:16px;background:var(--bd);border-radius:4px;overflow:hidden">
             <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(pg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
             <div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#1e3a5f">${pg}%</div>
@@ -367,18 +364,18 @@ function toggleProgDetail(ordId){
         <b>${code}</b><span style="font-size:11px;color:var(--mu);margin-left:8px">${cp[0].desc||''} ${cp[0].color||''}</span>
         <span style="float:right;color:var(--accent)">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}</span>
       </div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <div style="overflow-x:auto"><table style="width:100%;min-width:600px;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:var(--sf)">
-          <th style="padding:5px 8px;text-align:left">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
-          <th style="padding:5px 8px;text-align:left">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
-          <th style="padding:5px 8px;text-align:right">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
-          <th style="padding:5px 8px;text-align:right">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>
-          <th style="padding:5px 8px;text-align:right">Chờ duyệt<br><span style="font-weight:400;color:var(--mu)">待審批</span></th>
-          <th style="padding:5px 8px;text-align:right">Còn lại<br><span style="font-weight:400;color:var(--mu)">剩餘</span></th>
-          <th style="padding:5px 8px">Tiến độ<br><span style="font-weight:400;color:var(--mu)">進度</span></th>
+          <th style="padding:4px 6px;text-align:left;width:60px;font-size:11px">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
+          <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
+          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
+          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>
+          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Chờ duyệt<br><span style="font-weight:400;color:var(--mu)">待審批</span></th>
+          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Còn lại<br><span style="font-weight:400;color:var(--mu)">剩餘</span></th>
+          <th style="padding:4px 6px;width:100px;font-size:11px">Tiến độ<br><span style="font-weight:400;color:var(--mu)">進度</span></th>
         </tr></thead>
         <tbody>${procRows}</tbody>
-      </table>
+      </table></div>
     </div>`;
   });
   body.innerHTML=html||'<span style="color:var(--mu);font-size:12px">無工序資料</span>';
