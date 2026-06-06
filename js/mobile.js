@@ -55,7 +55,10 @@ async function mobLoadOrders(){
       opt.textContent=o.orderId+' · '+fmtVN(o.dueDate);
       sel.appendChild(opt);
     });
-  }catch(e){}
+  }catch(e){
+    console.error('mobile error:',e);
+    mobToast('❌ '+(e.message||'操作失敗，請重試'));
+  }
 }
 
 async function mobSelectOrder(){
@@ -76,7 +79,10 @@ async function mobSelectOrder(){
       opt.textContent=c+(p&&p.color?' · '+p.color:'')+(p&&p.sz?' · '+p.sz:'');
       sel.appendChild(opt);
     });
-  }catch(e){}
+  }catch(e){
+    console.error('mobile error:',e);
+    mobToast('❌ '+(e.message||'操作失敗，請重試'));
+  }
 }
 
 function mobSelectCode(){
@@ -227,7 +233,10 @@ async function mobLoadPending(){
     mobRenderApv();
     const bdg=mG('mob-apv-badge'), n=mobPending.length;
     if(bdg){ bdg.textContent=n; bdg.style.display=n>0?'flex':'none'; }
-  }catch(e){}
+  }catch(e){
+    console.error('mobile error:',e);
+    mobToast('❌ '+(e.message||'操作失敗，請重試'));
+  }
 }
 
 function mobRenderApv(){
@@ -267,33 +276,75 @@ function mobBatchPass(){ const ids=mobGetChecked(); if(!ids.length){ mobToast('V
 function mobBatchReject(){ const ids=mobGetChecked(); if(!ids.length){ mobToast('Vui lòng chọn'); return; } mG('mob-rej-ids').value=JSON.stringify(ids); mG('mob-rej-reason').value=''; mG('mob-rej-modal').style.display='flex'; }
 
 async function mobDoPass(ids){
+  let errors=[];
   for(const id of ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
     try{
-      await window._updateDoc(window._doc(COL.reports,id),{status:'approved',approvedAt:Date.now(),approvedBy:window.cu.user||window.cu.id});
-      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
-      if(!ps.empty){ const c=ps.docs[0].data(); await window._updateDoc(ps.docs[0].ref,{approvedQty:(c.approvedQty||0)+r.qty,pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)}); }
-    }catch(e){}
+      const repRef=window._doc(COL.reports,id);
+      const ps=await window._getDocs(
+        window._query(window._collection(COL.processes),
+          window._where('orderId','==',r.orderId),
+          window._where('code','==',r.code),
+          window._where('processNo','==',r.processNo)
+        )
+      );
+      if(ps.empty){ errors.push(r.empName||r.empId); continue; }
+      const procRef=ps.docs[0].ref;
+      await window._runTransaction(async(t)=>{
+        const repSnap=await t.get(repRef);
+        const procSnap=await t.get(procRef);
+        if(!repSnap.exists()) throw new Error('報工不存在');
+        if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
+        const repQty=repSnap.data().qty||0;
+        if((procSnap.data().pendingQty||0)<repQty) throw new Error('待審數量不足');
+        t.update(repRef,{status:'approved',approvedAt:Date.now(),approvedBy:window.cu.user});
+        t.update(procRef,{
+          approvedQty:window._increment(repQty),
+          pendingQty:window._increment(-repQty)
+        });
+      });
+    }catch(e){
+      errors.push(r.empName||r.empId);
+      console.error('mobDoPass error:',e);
+    }
   }
-  mobPending=mobPending.filter(r=>!ids.includes(r.id));
-  mobRenderApv();
-  const bdg=mG('mob-apv-badge');
-  if(bdg){ bdg.textContent=mobPending.length; bdg.style.display=mobPending.length>0?'flex':'none'; }
-  mobToast('✅ Đã duyệt '+ids.length+' báo công');
+  if(errors.length) mobToast('❌ '+errors.length+'筆審批失敗：'+errors.join('、'));
+  await mobLoadPending();
 }
 
 async function mobDoReject(){
-  const ids=JSON.parse(mG('mob-rej-ids').value||'[]');
-  const reason=mG('mob-rej-reason').value.trim();
+  const ids=JSON.parse(mG('mob-rej-ids')?.value||'[]');
+  const reason=mG('mob-rej-reason')?.value?.trim()||'';
+  if(!reason){ mobToast('⚠️ 請填寫退回原因'); return; }
+  let errors=[];
   for(const id of ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
     try{
-      await window._updateDoc(window._doc(COL.reports,id),{status:'rejected',rejectedAt:Date.now(),rejectedBy:window.cu.user||window.cu.id,rejectReason:reason});
-      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
-      if(!ps.empty){ const c=ps.docs[0].data(); await window._updateDoc(ps.docs[0].ref,{pendingQty:Math.max(0,(c.pendingQty||0)-r.qty)}); }
-    }catch(e){}
+      const repRef=window._doc(COL.reports,id);
+      const ps=await window._getDocs(
+        window._query(window._collection(COL.processes),
+          window._where('orderId','==',r.orderId),
+          window._where('code','==',r.code),
+          window._where('processNo','==',r.processNo)
+        )
+      );
+      if(ps.empty){ errors.push(r.empName||r.empId); continue; }
+      const procRef=ps.docs[0].ref;
+      await window._runTransaction(async(t)=>{
+        const repSnap=await t.get(repRef);
+        const procSnap=await t.get(procRef);
+        if(!repSnap.exists()) throw new Error('報工不存在');
+        if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
+        const repQty=repSnap.data().qty||0;
+        if((procSnap.data().pendingQty||0)<repQty) throw new Error('待審數量不足');
+        t.update(repRef,{status:'rejected',rejectedAt:Date.now(),rejectedBy:window.cu.user,rejectReason:reason});
+        t.update(procRef,{pendingQty:window._increment(-repQty)});
+      });
+    }catch(e){
+      errors.push(r.empName||r.empId);
+      console.error('mobDoReject error:',e);
+    }
   }
-  mobPending=mobPending.filter(r=>!ids.includes(r.id));
-  mobRenderApv(); mG('mob-rej-modal').style.display='none';
-  mobToast('Đã từ chối '+ids.length+' báo công');
+  if(errors.length) mobToast('❌ '+errors.length+'筆退回失敗：'+errors.join('、'));
+  await mobLoadPending();
 }

@@ -1,4 +1,11 @@
 // ===== 員工產量統計 =====
+let statsSearchTimer=null;
+
+function statsSearchDebounce(){
+  clearTimeout(statsSearchTimer);
+  statsSearchTimer=setTimeout(()=>{ renderStats(); },300);
+}
+
 function statsRangeChange(){
   const r=g('stats-range')?.value;
   const sf=g('stats-from'),st=g('stats-to');

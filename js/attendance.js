@@ -206,7 +206,7 @@ function openAttApply(){
 
 async function confirmAttendance(){
   const date=g('att-apply-date')?.value;
-  if(!date){alert('請填寫日期 / Vui lòng nhập ngày');return;}
+  if(!date){ alert('請填寫日期 / Vui lòng nhập ngày'); return; }
   const rows=[];
   document.querySelectorAll('#att-tb tr[data-emp-id]').forEach(tr=>{
     const empId=tr.dataset.empId;
@@ -216,23 +216,19 @@ async function confirmAttendance(){
     const ot=+(tr.querySelector('.att-ot')?.value||0);
     rows.push({empId,empName:emp.name||'',empDept:emp.dept||'',user:emp.user||'',regularHours:reg,overtimeHours:ot,totalHours:reg+ot});
   });
-  if(!rows.length){alert('無員工資料');return;}
-  try{
-    const snap=await window._getDocs(
-      window._query(window._collection(COL.attendance),window._where('date','==',date))
-    );
-    if(!snap.empty){
-      const msg=`${date} 已有 ${snap.docs.length} 筆考勤記錄\n確定要覆蓋？\n\nNgày ${date} đã có ${snap.docs.length} bản ghi. Xác nhận ghi đè?`;
-      if(!confirm(msg)) return;
-      await Promise.all(snap.docs.map(d=>window._deleteDoc(window._doc(COL.attendance,d.id))));
-    }
-  }catch(e){alert('查詢失敗：'+e.message);return;}
+  if(!rows.length){ alert('無員工資料'); return; }
+  const msg=`套用日期：${date}\n人數：${rows.length} 位\n若該日已有資料，將直接覆蓋同員工記錄。\n\nNgày: ${date} / ${rows.length} nhân viên\nDữ liệu cũ sẽ bị ghi đè.\n\n確認套用？`;
+  if(!confirm(msg)) return;
   try{
     const now=Date.now();
-    await Promise.all(rows.map(r=>window._addDoc(window._collection(COL.attendance),{...r,date,createdAt:now})));
+    await Promise.all(rows.map(r=>{
+      const docId=date+'_'+r.empId;
+      return window._setDoc(window._doc(COL.attendance,docId),{...r,date,createdAt:now,updatedAt:now},{merge:false});
+    }));
     cm('m-attendance');
     alert(`✅ 已儲存 ${rows.length} 筆考勤\nĐã lưu ${rows.length} bản ghi chấm công`);
   }catch(e){
+    console.error('confirmAttendance error:',e);
     alert('儲存失敗：'+e.message);
   }
 }
