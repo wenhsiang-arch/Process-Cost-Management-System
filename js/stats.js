@@ -136,6 +136,7 @@ async function renderStats(){
             <th style="padding:6px 10px;font-size:11px;text-align:left">Ngày<br><span style="color:var(--mu);font-weight:400">日期</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:left">Đơn hàng<br><span style="color:var(--mu);font-weight:400">訂單</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:left">Mã hàng<br><span style="color:var(--mu);font-weight:400">款號</span></th>
+            <th style="padding:6px 10px;font-size:11px;text-align:left">Số CĐ<br><span style="color:var(--mu);font-weight:400">工序號</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:left">Công đoạn<br><span style="color:var(--mu);font-weight:400">工序</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:right">SL hoàn thành<br><span style="color:var(--mu);font-weight:400">完成數量</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:right">SL chuẩn/giờ<br><span style="color:var(--mu);font-weight:400">標準產量/時</span></th>
@@ -148,12 +149,13 @@ async function renderStats(){
               <td style="padding:6px 10px;font-size:12px">${r.workDate||fmtVN(r.createdAt)}</td>
               <td style="padding:6px 10px;font-size:12px">${r.orderNo||'-'}</td>
               <td style="padding:6px 10px;font-size:12px">${r.code||'-'}</td>
-              <td style="padding:6px 10px;font-size:12px">${r.processVi||r.processNo||'-'}</td>
+              <td style="padding:6px 10px;font-size:12px">${r.processNo||'-'}</td>
+              <td style="padding:6px 10px;font-size:12px">${r.processVi||r.processZh||'-'}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right"><b>${(r.qty||0).toLocaleString()}</b></td>
               <td style="padding:6px 10px;font-size:12px;text-align:right">${slph}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right">${gh}</td>
             </tr>`;
-          }).join(''):'<tr><td colspan="7" style="padding:10px;text-align:center;color:var(--mu);font-size:12px">無報工記錄</td></tr>'}</tbody>
+          }).join(''):'<tr><td colspan="8" style="padding:10px;text-align:center;color:var(--mu);font-size:12px">無報工記錄</td></tr>'}</tbody>
         </table></td>`;
       tb.appendChild(detTr);
 

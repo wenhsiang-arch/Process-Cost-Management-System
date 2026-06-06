@@ -69,7 +69,7 @@ function oDet(code){
       ${isA?`<span class="tg tg2">USD: ${fU(sv)}</span><span class="tg tb2">VND: ${fV(sv)}</span><span class="tg ta">TWD: ${fT(sv)}</span>`:''}
     </div>
     <div class="to"><div class="ts" style="max-height:320px"><table>
-      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ</th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
+      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<br><span style="font-size:10px;font-weight:400;color:var(--mu)">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div></div>`;
   om('m-det');

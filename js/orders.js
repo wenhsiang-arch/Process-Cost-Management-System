@@ -155,7 +155,7 @@ async function confirmImportOrder(){
           zh:item.zh, sz:item.sz, orderQty:item.qty,
           processNo:op.no, processZh:op.zh, processVi:op.vi||'',
           processSec:op.sec||0,
-          slPerHour:op.qty||Math.round(3600/Math.max(op.sec||1,1)),
+          slPerHour:Math.round((window.S.ws||3000)/Math.max(op.sec||1,1)),
           approvedQty:0, pendingQty:0, createdAt:now
         });
       }
