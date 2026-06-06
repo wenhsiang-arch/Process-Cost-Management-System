@@ -105,10 +105,10 @@ function handleImportFile(input){
       window._impData={ordId,dueDate,matched,skipped};
       g('imp-step2').style.display='block';
       const _ioMsg=document.getElementById('imp-order-ok');
-      if(_ioMsg) _ioMsg.innerHTML=`<i class="ti ti-check"></i> 找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> 道工序`;
+      if(_ioMsg) _ioMsg.innerHTML=`<i class="ti ti-check"></i> Tìm thấy <b>${matched.length}</b> mã hàng / 找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> công đoạn / 道工序`;
       if(skipped.length>0){
         const sm=g('imp-skip-msg'); sm.style.display='flex';
-        sm.innerHTML=`<i class="ti ti-alert-triangle"></i> 跳過 ${skipped.length} 款（工序表找不到）：${skipped.slice(0,5).join('、')}${skipped.length>5?'...':''}`;
+        sm.innerHTML=`<i class="ti ti-alert-triangle"></i> Bỏ qua ${skipped.length} mã hàng (không tìm thấy trong bảng công đoạn) / 跳過 ${skipped.length} 款（工序表找不到）：${skipped.slice(0,5).join('、')}${skipped.length>5?'...':''}`;
       }
       const tb=g('imp-preview-tb'); tb.innerHTML='';
       matched.forEach(m=>{
@@ -129,6 +129,10 @@ function handleImportFile(input){
 async function confirmImportOrder(){
   const d=window._impData;
   if(!d||!d.matched.length){ alert('請先上傳 Excel'); return; }
+  if(window.allOrders.find(o=>o.orderId===d.ordId)){
+    alert(`⚠️ Số đơn hàng "${d.ordId}" đã tồn tại! / 訂單編號「${d.ordId}」已存在，請勿重複匯入。`);
+    return;
+  }
   const btn=g('imp-confirm-btn');
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> 匯入中...';
   try{
@@ -158,7 +162,7 @@ async function confirmImportOrder(){
     }
     window.allOrders.unshift({id:ordId,orderId:d.ordId,dueDate:new Date(d.dueDate).getTime(),itemCount:d.matched.length,totalQty:d.matched.reduce((a,m)=>a+m.qty,0),createdAt:now});
     cm('m-import-order'); renderOrders();
-    alert(`✅ 匯入成功！\n訂單：${d.ordId}\n款號：${d.matched.length} 個\n工序：${d.matched.reduce((a,m)=>a+m.ops.length,0)} 道`);
+    alert(`✅ Nhập thành công! / 匯入成功！\nĐơn hàng / 訂單：${d.ordId}\nMã hàng / 款號：${d.matched.length} cái / 個\nCông đoạn / 工序：${d.matched.reduce((a,m)=>a+m.ops.length,0)} quy trình / 道`);
   }catch(err){ alert('匯入失敗：'+err.message); }
   finally{ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>確認匯入'; }
 }
