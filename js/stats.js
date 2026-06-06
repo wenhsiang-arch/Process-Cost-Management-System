@@ -40,11 +40,15 @@ async function renderStats(){
   try{
     // 查詢報工與考勤
     const [repSnap,attSnap]=await Promise.all([
-      window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved'),window._where('createdAt','>=',fromTs),window._where('createdAt','<=',toTs))),
+      window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved'))),
       window._getDocs(window._query(window._collection(COL.attendance),window._where('date','>=',fromStr),window._where('date','<=',toStr)))
     ]);
 
-    const reports=repSnap.docs.map(d=>({id:d.id,...d.data()}));
+    const reports_all=repSnap.docs.map(d=>({id:d.id,...d.data()}));
+    const reports=reports_all.filter(r=>{
+      const ts=r.workDate?new Date(r.workDate).getTime():r.createdAt;
+      return ts>=fromTs&&ts<=toTs;
+    });
     const attMap={};
     attSnap.docs.forEach(d=>{
       const a=d.data();
@@ -133,7 +137,7 @@ async function renderStats(){
             const slph=r.slPerHour||(r.processSec?Math.round(3600/r.processSec):0);
             const gh=slph>0?((r.qty||0)/slph).toFixed(2):'-';
             return`<tr style="border-top:1px solid var(--bd)">
-              <td style="padding:6px 10px;font-size:12px">${fmtVN(r.createdAt)}</td>
+              <td style="padding:6px 10px;font-size:12px">${r.workDate||fmtVN(r.createdAt)}</td>
               <td style="padding:6px 10px;font-size:12px">${r.orderNo||'-'}</td>
               <td style="padding:6px 10px;font-size:12px">${r.code||'-'}</td>
               <td style="padding:6px 10px;font-size:12px">${r.processVi||r.processNo||'-'}</td>

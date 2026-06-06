@@ -460,6 +460,7 @@ tr:hover td{background:#f8fafc}
             <select id="replog-dept" onchange="renderReplog()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
             <input type="text" id="replog-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="renderReplog()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
             <button class="btn bp" onclick="renderReplog()"><i class="ti ti-search"></i>查詢</button>
+            <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="openManualEntry()"><i class="ti ti-plus"></i>Bổ sung / 補登報工</button>
           </div>
           <div class="to"><table>
             <thead><tr>
@@ -587,6 +588,41 @@ tr:hover td{background:#f8fafc}
       <input type="text" id="void-reason-text" placeholder="請輸入作廢原因..." style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
     </div>
     <div class="br"><button class="btn bp" style="background:var(--err)" onclick="confirmVoid()"><i class="ti ti-ban"></i>Xác nhận hủy / 確認作廢</button><button class="btn" onclick="cm('m-void-reason')">取消</button></div>
+  </div></div>
+  <div class="mb" id="m-manual-entry"><div class="md" style="width:500px">
+    <div class="mt2"><i class="ti ti-plus"></i> Bổ sung báo công / 補登報工 <button class="btn bsm" onclick="cm('m-manual-entry')"><i class="ti ti-x"></i></button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="fgrp">
+        <label>Nhân viên / 員工 <span style="color:var(--err)">*</span></label>
+        <select id="me-emp" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇員工 --</option></select>
+      </div>
+      <div class="fgrp">
+        <label>Ngày sản xuất / 生產日期 <span style="color:var(--err)">*</span></label>
+        <input type="date" id="me-date" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+      </div>
+      <div class="fgrp">
+        <label>Đơn hàng / 訂單 <span style="color:var(--err)">*</span></label>
+        <select id="me-order" onchange="meLoadCodes()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇訂單 --</option></select>
+      </div>
+      <div class="fgrp">
+        <label>Mã hàng / 款號 <span style="color:var(--err)">*</span></label>
+        <select id="me-code" onchange="meLoadProcs()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇款號 --</option></select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>Công đoạn / 工序 <span style="color:var(--err)">*</span></label>
+        <select id="me-proc" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇工序 --</option></select>
+      </div>
+      <div class="fgrp">
+        <label>Số lượng / 數量 <span style="color:var(--err)">*</span></label>
+        <input type="number" id="me-qty" min="1" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+      </div>
+      <div class="fgrp">
+        <label>Lý do / 補登原因 <span style="color:var(--err)">*</span></label>
+        <input type="text" id="me-reason" placeholder="請填寫補登原因..." style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+      </div>
+    </div>
+    <div id="me-remain-info" style="display:none;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--mu);margin-bottom:12px"></div>
+    <div class="br"><button class="btn bp" onclick="confirmManualEntry()"><i class="ti ti-check"></i>確認補登</button><button class="btn" onclick="cm('m-manual-entry')">取消</button></div>
   </div></div>
   <div class="mb" id="m-attendance"><div class="md" style="width:420px">
     <div class="mt2"><i class="ti ti-calendar-check"></i> Áp dụng chấm công / 套用考勤 <button class="btn bsm" onclick="cm('m-attendance')"><i class="ti ti-x"></i></button></div>

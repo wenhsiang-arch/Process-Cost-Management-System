@@ -223,3 +223,127 @@ async function confirmVoid(){
     alert('作廢失敗：'+e.message);
   }
 }
+
+// ===== 補登報工 =====
+window.meProcList=[];
+
+function openManualEntry(){
+  const empSel=g('me-emp');
+  empSel.innerHTML='<option value="">-- 選擇員工 --</option>';
+  (window.allEmployees||[]).forEach(e=>{
+    const o=document.createElement('option');
+    o.value=e.id; o.textContent=(e.user||'')+(e.name&&e.name!==e.user?' / '+e.name:'');
+    empSel.appendChild(o);
+  });
+  const ordSel=g('me-order');
+  ordSel.innerHTML='<option value="">-- 選擇訂單 --</option>';
+  (window.allOrders||[]).forEach(o=>{
+    const opt=document.createElement('option');
+    opt.value=o.id; opt.textContent=o.orderId;
+    ordSel.appendChild(opt);
+  });
+  g('me-code').innerHTML='<option value="">-- 選擇款號 --</option>';
+  g('me-proc').innerHTML='<option value="">-- 選擇工序 --</option>';
+  g('me-qty').value='';
+  g('me-reason').value='';
+  g('me-remain-info').style.display='none';
+  g('me-date').value=new Date().toISOString().slice(0,10);
+  window.meProcList=[];
+  om('m-manual-entry');
+}
+
+async function meLoadCodes(){
+  const ordId=g('me-order').value;
+  g('me-code').innerHTML='<option value="">-- 選擇款號 --</option>';
+  g('me-proc').innerHTML='<option value="">-- 選擇工序 --</option>';
+  g('me-remain-info').style.display='none';
+  if(!ordId) return;
+  try{
+    const snap=await window._getDocs(
+      window._query(window._collection(COL.processes),window._where('orderId','==',ordId))
+    );
+    window.meProcList=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const codes=[...new Set(window.meProcList.map(p=>p.code))];
+    const codeSel=g('me-code');
+    codes.sort().forEach(c=>{
+      const o=document.createElement('option'); o.value=c; o.textContent=c;
+      codeSel.appendChild(o);
+    });
+  }catch(e){ alert('載入款號失敗：'+e.message); }
+}
+
+function meLoadProcs(){
+  const code=g('me-code').value;
+  const procSel=g('me-proc');
+  procSel.innerHTML='<option value="">-- 選擇工序 --</option>';
+  g('me-remain-info').style.display='none';
+  if(!code) return;
+  const procs=window.meProcList.filter(p=>p.code===code);
+  procs.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo)));
+  procs.forEach(p=>{
+    const remain=(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0);
+    const o=document.createElement('option');
+    o.value=p.id;
+    o.textContent=p.processNo+' · '+(p.processVi||p.processZh||'')+'（剩餘 '+remain+' 件）';
+    procSel.appendChild(o);
+  });
+  procSel.onchange=()=>{
+    const pid=procSel.value;
+    const p=window.meProcList.find(x=>x.id===pid);
+    const info=g('me-remain-info');
+    if(p){
+      const remain=(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0);
+      info.style.display='block';
+      info.textContent=`訂單量：${p.orderQty} ｜ 已通過：${p.approvedQty||0} ｜ 待審批：${p.pendingQty||0} ｜ 剩餘可補登：${remain}`;
+    } else {
+      info.style.display='none';
+    }
+  };
+}
+
+async function confirmManualEntry(){
+  const empId=g('me-emp').value;
+  const workDate=g('me-date').value;
+  const procId=g('me-proc').value;
+  const qty=parseInt(g('me-qty').value)||0;
+  const reason=g('me-reason').value.trim();
+  if(!empId||!workDate||!procId||!qty||!reason){
+    alert('請填寫所有必填欄位 / Vui lòng điền đầy đủ thông tin');
+    return;
+  }
+  const emp=(window.allEmployees||[]).find(e=>e.id===empId);
+  const p=window.meProcList.find(x=>x.id===procId);
+  if(!emp||!p){ alert('資料錯誤，請重新選擇'); return; }
+  try{
+    const procRef=window._docRef(COL.processes,procId);
+    const newRepRef=window._docRef(COL.reports,Date.now()+'_manual_'+empId);
+    await window._runTransaction(async(t)=>{
+      const procSnap=await t.get(procRef);
+      if(!procSnap.exists()) throw new Error('工序不存在');
+      const pd=procSnap.data();
+      const remain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);
+      if(qty>remain) throw new Error(`剩餘可補登 ${remain} 件，本次 ${qty} 件超過`);
+      t.set(newRepRef,{
+        empId, empName:emp.name||emp.user, empDept:emp.dept||'',
+        orderId:p.orderId, orderNo:p.orderNo||'',
+        code:p.code, processNo:p.processNo,
+        processVi:p.processVi||p.processZh||'',
+        processSec:p.processSec||0, slPerHour:p.slPerHour||0,
+        qty, status:'approved',
+        workDate,
+        isManualEntry:true,
+        manualCreatedBy:window.cu.user,
+        manualReason:reason,
+        approvedAt:Date.now(),
+        approvedBy:window.cu.user,
+        createdAt:Date.now()
+      });
+      t.update(procRef,{approvedQty:window._increment(qty)});
+    });
+    cm('m-manual-entry');
+    alert(`✅ 補登成功：${emp.user} / ${p.processNo} / ${qty} 件\nĐã bổ sung thành công`);
+    renderReplog();
+  }catch(e){
+    alert('補登失敗：'+e.message);
+  }
+}
