@@ -226,14 +226,7 @@ tr:hover td{background:#f8fafc}
         <div class="sr">
           <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Tìm kiếm / 搜尋..." id="s-search" oninput="window.sPage=1;rSum()"></div>
           <select id="s-client" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
-          <select id="s-sort" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)">
-            <option value="">Sắp xếp / 排序</option>
-            <option value="ca">Mã hàng ↑ / 款號↑</option>
-            <option value="cd">Mã hàng ↓ / 款號↓</option>
-            <option value="kl">Khách hàng A→Z / 客人</option>
-            <option value="pd">Chi phí cao→thấp / 工價高→低</option>
-            <option value="pa">Chi phí thấp→cao / 工價低→高</option>
-          </select>
+
           <button class="btn bp" onclick="om('m-add')"><i class="ti ti-plus"></i>Thêm mã hàng / 新增款號</button>
         </div>
         <div class="to"><div class="ts"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
