@@ -132,6 +132,7 @@ function doLogout(){
   g('mob').style.display='none';
   if(window.mobPendingUnsub){ window.mobPendingUnsub(); window.mobPendingUnsub=null; }
   if(window.deskApvUnsub){ window.deskApvUnsub(); window.deskApvUnsub=null; }
+  if(window.mobHistUnsub){ window.mobHistUnsub(); window.mobHistUnsub=null; }
   g('lu').value=''; g('lp').value=''; g('lerr').style.display='none';
 }
 

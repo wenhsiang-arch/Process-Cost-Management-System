@@ -1,4 +1,5 @@
 window.mobPendingUnsub = null;
+window.mobHistUnsub = null;
 
 function startMobPendingListener(){
   if(window.mobPendingUnsub) return;
@@ -13,6 +14,30 @@ function startMobPendingListener(){
       if(apvPg && apvPg.style.display!=='none') mobRenderApv();
     },
     (e) => { console.error('mobPendingListener error:', e); mobToast('❌ 監聽失敗：'+e.message); }
+  );
+}
+
+function startMobHistListener(){
+  if(window.mobHistUnsub) return;
+  const empId = window.cu.id || window.cu.user;
+  const from45 = Date.now() - 45*24*60*60*1000;
+  window.mobHistUnsub = window._onSnapshot(
+    window._query(
+      window._collection(COL.reports),
+      window._where('empId','==',empId),
+      window._where('createdAt','>=',from45)
+    ),
+    (snap) => {
+      myReports = snap.docs.map(d=>({id:d.id,...d.data()}));
+      myReports.sort((a,b)=>b.createdAt-a.createdAt);
+      const readTs = parseInt(localStorage.getItem('mob_bell_read')||'0');
+      const rejected = myReports.filter(r=>r.status==='rejected' && (r.updatedAt||r.createdAt||0) > readTs);
+      const bell=mG('mob-bell');
+      if(bell){ bell.textContent=rejected.length; bell.style.display=rejected.length>0?'flex':'none'; }
+      const histPg = mG('mob-pg-hist');
+      if(histPg && histPg.style.display!=='none') mobRenderHist();
+    },
+    (e) => { console.error('mobHistListener error:', e); mobToast('❌ 監聽失敗：'+e.message); }
   );
 }
 
@@ -34,6 +59,7 @@ function startMobile(user){
   }
   mobLoadOrders();
   mobLoadMyReports();
+  startMobHistListener();
   if(user.role==='leader') startMobPendingListener();
 }
 
@@ -189,7 +215,8 @@ async function mobLoadMyReports(){
     const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id||window.cu.user),window._where('createdAt','>=',from45)));
     myReports=snap.docs.map(d=>({id:d.id,...d.data()}));
     myReports.sort((a,b)=>b.createdAt-a.createdAt);
-    const rej=myReports.filter(r=>r.status==='rejected').length;
+    const readTs = parseInt(localStorage.getItem('mob_bell_read')||'0');
+    const rej=myReports.filter(r=>r.status==='rejected' && (r.updatedAt||r.createdAt||0) > readTs).length;
     const alert=mG('mob-reject-alert'), bell=mG('mob-bell'), at=mG('mob-reject-alert-text');
     if(rej>0){
       if(alert){ alert.style.display='flex'; if(at) at.textContent=rej+' báo công bị từ chối / '+rej+'筆報工被退回'; }
@@ -205,6 +232,7 @@ async function mobLoadMyReports(){
 function mobBellClick(){
   mobPage('mob-pg-hist');
   mobFilterHist('rejected');
+  localStorage.setItem('mob_bell_read', Date.now().toString());
   const bell=mG('mob-bell');
   if(bell){ bell.style.display='none'; }
   const alert=mG('mob-reject-alert');
