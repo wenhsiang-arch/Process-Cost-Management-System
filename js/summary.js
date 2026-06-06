@@ -107,7 +107,7 @@ function rDet(){
   const sv = (g('d-sort')||{value:'ca'}).value||'ca';
   const pp = +(g('d-pp')||{value:50}).value||50;
   const isA = isAdm();
-  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ</th>`+(isA?`<th>Chi phí (${window.cur})<span class="tv">工資</span></th><th>Thao tác<span class="tv">操作</span></th>`:'');
+  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>`+(isA?`<th>Chi phí (${window.cur})<span class="tv">工資</span></th><th>Thao tác<span class="tv">操作</span></th>`:'');
   let src=window.D.filter(d=>{
     const m=!q||(d.code+d.client+d.zh).toLowerCase().includes(q.toLowerCase());
     return m&&(!cf||d.client===cf);
