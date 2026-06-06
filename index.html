@@ -815,7 +815,10 @@ tr:hover td{background:#f8fafc}
         </div>
       </div>
       <div id="mob-pg-hist" style="display:none">
-        <div style="text-align:center;font-size:11px;color:#92400e;padding:6px 12px;margin-bottom:6px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px">Chỉ hiển thị 45 ngày gần nhất</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:11px;color:#92400e;padding:6px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;flex:1;text-align:center">Chỉ hiển thị 45 ngày gần nhất</div>
+          <button onclick="mobLoadMyReports()" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
+        </div>
         <div style="display:flex;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px">
           <button id="mob-flt-all" onclick="mobFilterHist('all')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:var(--navy);color:#fff;font-weight:600"><span style="display:block;font-size:10px">Tất cả</span><span style="display:block;font-size:9px">全部</span></button>
           <button id="mob-flt-approved" onclick="mobFilterHist('approved')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Đã duyệt</span><span style="display:block;font-size:9px">已通過</span></button>
@@ -826,6 +829,9 @@ tr:hover td{background:#f8fafc}
         <div id="mob-hist-list"></div>
       </div>
       <div id="mob-pg-apv" style="display:none">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+          <button onclick="mobLoadPending()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
+        </div>
         <div style="display:flex;gap:6px;margin-bottom:8px">
           <button onclick="mobBatchPass()" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:var(--okl);color:var(--ok);display:flex;align-items:center;justify-content:center;gap:5px"><i class="ti ti-check"></i> 批量通過</button>
           <button onclick="mobBatchReject()" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:var(--errl);color:var(--err);display:flex;align-items:center;justify-content:center;gap:5px"><i class="ti ti-x"></i> 批量退回</button>
