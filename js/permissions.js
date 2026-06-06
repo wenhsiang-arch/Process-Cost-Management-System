@@ -35,8 +35,8 @@ const PERM_LABELS = {
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
   { label:'訂單管理 / Đơn hàng', keys:['orders','progress','approval','replog'] },
-  { label:'工序表 / Công đoạn', keys:['summary','detail','import','backup'] },
-  { label:'管理 / Quản lý', keys:['export','history','costlog','accounts'] }
+  { label:'工序表 / Công đoạn', keys:['summary','detail','import','history','backup'] },
+  { label:'管理 / Quản lý', keys:['export','costlog','accounts'] }
 ];
 
 // 當前權限設定（登入後從 Firebase 載入，載入前用預設值）
