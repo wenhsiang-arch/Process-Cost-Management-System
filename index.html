@@ -496,8 +496,13 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-progress">
         <div class="card">
           <div class="ct-title"><i class="ti ti-chart-bar"></i>Tiến độ đơn hàng / 訂單進度</div>
-          <div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
+            <select id="prog-filter" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+              <option value="active">Chưa hoàn thành / 未完成訂單</option>
+              <option value="done">Đã hoàn thành / 已完成訂單</option>
+              <option value="all">Tất cả / 全部訂單</option>
+            </select>
           </div>
           <div id="prog-content"></div>
         </div>
@@ -701,8 +706,9 @@ tr:hover td{background:#f8fafc}
   <div class="mb" id="m-import-order"><div class="md wide">
     <div class="mt2"><i class="ti ti-file-upload"></i> Nhập đơn hàng / 匯入訂單 <button class="btn bsm" onclick="cm('m-import-order')"><i class="ti ti-x"></i></button></div>
     <div id="imp-step1">
-      <div class="fg cols2" style="margin-bottom:12px">
+      <div class="fg cols3" style="margin-bottom:12px">
         <div class="fgrp"><label>Số đơn hàng / 訂單編號 <span style="color:var(--err)">*</span></label><input type="text" id="imp-ord-id" placeholder="例如：ORD-2025-001"></div>
+        <div class="fgrp"><label>Khách hàng / 客戶 <span style="color:var(--err)">*</span></label><select id="imp-ord-client" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇客戶 --</option></select></div>
         <div class="fgrp"><label>Ngày giao hàng / 出貨日期 <span style="color:var(--err)">*</span></label><input type="date" id="imp-ord-date"></div>
       </div>
       <div class="fgrp" style="margin-bottom:14px">

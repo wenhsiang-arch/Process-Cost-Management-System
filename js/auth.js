@@ -166,7 +166,7 @@ function sp(name){
   if(name==='backup')    rBk();
   if(name==='orders')    renderOrders();
   if(name==='approval')  renderApproval();
-  if(name==='progress')  renderProgress();
+  if(name==='progress'){ reloadProcesses().then(()=>renderProgress()); }
   if(name==='stats')     renderStats();
   if(name==='employees') renderEmployees();
   if(name==='attendance') renderAttendance();

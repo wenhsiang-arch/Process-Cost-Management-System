@@ -1,6 +1,7 @@
 // ===== 訂單系統資料 =====
 window.allOrders    = [];
 window.allEmployees = [];
+window.allProcesses = [];
 
 // ===== 載入訂單資料 =====
 async function loadOrderData(){
@@ -14,10 +15,21 @@ async function loadOrderData(){
     window.allEmployees=snap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){}
   try{
+    const snap=await window._getDocs(window._collection(COL.processes));
+    window.allProcesses=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){ console.error('loadProcesses error:',e); }
+  try{
     const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
     updateApvBadge(snap.docs.length);
   }catch(e){}
   fillOrderSelects();
+}
+
+async function reloadProcesses(){
+  try{
+    const snap=await window._getDocs(window._collection(COL.processes));
+    window.allProcesses=snap.docs.map(d=>({id:d.id,...d.data()}));
+  }catch(e){ console.error('reloadProcesses error:',e); }
 }
 
 function updateApvBadge(n){
@@ -45,14 +57,22 @@ function openImportOrder(){
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
   g('imp-skip-msg').style.display='none';
   window._impData=null;
+  const clientSel=g('imp-ord-client');
+  if(clientSel){
+    clientSel.innerHTML='<option value="">-- 選擇客戶 --</option>';
+    const clients=[...new Set((window.D||[]).map(p=>p.client).filter(Boolean))].sort();
+    clients.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; clientSel.appendChild(o); });
+  }
   om('m-import-order');
 }
 
 function handleImportFile(input){
   const file=input.files[0]; if(!file) return;
   const ordId=g('imp-ord-id').value.trim();
+  const client=g('imp-ord-client')?.value||'';
   const dueDate=g('imp-ord-date').value;
   if(!ordId){ alert('請先填寫訂單編號'); input.value=''; return; }
+  if(!client){ alert('請先選擇客戶 / Vui lòng chọn khách hàng'); input.value=''; return; }
   if(!dueDate){ alert('請先填寫出貨日期'); input.value=''; return; }
   g('imp-filename').textContent=file.name;
   const reader=new FileReader();
@@ -115,6 +135,9 @@ async function confirmImportOrder(){
     const now=Date.now();
     const ref=await window._addDoc(window._collection(COL.orders),{
       orderId:d.ordId, dueDate:new Date(d.dueDate).getTime(),
+      client:g('imp-ord-client')?.value||'',
+      actualShipDate:new Date(d.dueDate).getTime(),
+      actualShipDateManual:false,
       itemCount:d.matched.length,
       totalQty:d.matched.reduce((a,m)=>a+m.qty,0),
       createdAt:now, createdBy:window.cu.user
@@ -193,47 +216,157 @@ async function deleteOrder(id,name){
 // ===== 訂單進度 =====
 async function renderProgress(){
   const ordId=g('prog-sel')?.value;
+  const filter=g('prog-filter')?.value||'active';
   const content=g('prog-content'); if(!content) return;
-  content.innerHTML='';
-  if(!ordId){ content.innerHTML='<div style="padding:20px;text-align:center;color:var(--hi)">請先選擇訂單</div>'; return; }
-  const order=window.allOrders.find(o=>o.id===ordId); if(!order) return;
+  content.innerHTML='<div style="padding:20px;text-align:center;color:var(--mu)">載入中...</div>';
   try{
-    const snap=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',ordId)));
-    const procs=snap.docs.map(d=>({id:d.id,...d.data()}));
-    const totalApv=procs.reduce((a,p)=>a+(p.approvedQty||0),0);
-    const totalQty=procs.reduce((a,p)=>a+(p.orderQty||0),0);
-    const overall=totalQty>0?Math.round(totalApv/totalQty*100):0;
-    const byCode={};
-    procs.forEach(p=>{ if(!byCode[p.code]) byCode[p.code]=[]; byCode[p.code].push(p); });
-    let html=`<div class="card" style="margin-bottom:12px">
-      <div style="font-size:15px;font-weight:600;color:var(--navy);margin-bottom:8px">${order.orderId} · 出貨 ${fmtVN(order.dueDate)}</div>
-      <div style="font-size:12px;color:var(--mu);margin-bottom:6px">整體進度：<b style="color:var(--accent)">${overall}%</b>（已通過 ${totalApv.toLocaleString()} / 總量 ${totalQty.toLocaleString()}）</div>
-      <div style="background:#e2e8f0;border-radius:99px;height:10px"><div style="height:10px;border-radius:99px;background:${overall>=100?'#22c55e':'var(--accent)'};width:${Math.min(overall,100)}%"></div></div>
-    </div>`;
-    Object.entries(byCode).forEach(([code,cp])=>{
-      const cApv=cp.reduce((a,p)=>a+(p.approvedQty||0),0);
-      const cQty=cp[0].orderQty||0;
-      const cProg=cQty>0?Math.round(cApv/cQty*100):0;
-      const procRows=cp.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo))).map(p=>{
-        const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
-        const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
-        return`<tr><td>${p.processNo}</td><td>${p.processVi||p.processZh}</td>
-          <td>${(p.orderQty||0).toLocaleString()}</td>
-          <td style="color:var(--ok);font-weight:500">${(p.approvedQty||0).toLocaleString()}</td>
-          <td style="color:var(--warn)">${(p.pendingQty||0).toLocaleString()}</td>
-          <td style="color:var(--accent)">${rem.toLocaleString()}</td>
-          <td><div style="background:#e2e8f0;border-radius:99px;height:6px"><div style="height:6px;border-radius:99px;background:${pg>=100?'#22c55e':'var(--accent)'};width:${Math.min(pg,100)}%"></div></div><div style="font-size:10px;color:var(--mu)">${pg}%</div></td></tr>`;
-      }).join('');
-      html+=`<div class="card" style="margin-bottom:8px">
-        <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-          <div><b style="color:var(--navy)">${code}</b><span style="font-size:12px;color:var(--mu);margin-left:8px">${cp[0].desc||''} ${cp[0].color||''}</span></div>
-          <span style="font-size:13px;color:var(--accent);font-weight:500">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}</span>
-        </div>
-        <div style="display:none;margin-top:10px">
-          <div class="to"><table><thead><tr><th>Số CĐ / 工序號</th><th>Tên CĐ / 工序名稱</th><th>SL đơn / 訂單量</th><th>Đã duyệt / 已通過</th><th>Chờ duyệt / 待審批</th><th>Còn lại / 剩餘</th><th>Tiến độ / 進度</th></tr></thead><tbody>${procRows}</tbody></table></div>
-        </div>
-      </div>`;
+    const now=Date.now();
+    const twoMonths=60*24*60*60*1000;
+    const allProcs=window.allProcesses||[];
+    const progMap={};
+    allProcs.forEach(p=>{
+      if(!progMap[p.orderId]) progMap[p.orderId]={totalQty:0,approvedQty:0,procs:[]};
+      progMap[p.orderId].totalQty+=(p.orderQty||0);
+      progMap[p.orderId].approvedQty+=(p.approvedQty||0);
+      progMap[p.orderId].procs.push(p);
     });
+    let orders=window.allOrders;
+    if(ordId) orders=orders.filter(o=>o.id===ordId);
+    let list=orders.map(o=>{
+      const pm=progMap[o.id]||{totalQty:0,approvedQty:0,procs:[]};
+      const pct=pm.totalQty>0?Math.round(pm.approvedQty/pm.totalQty*100):0;
+      const actualShipDate=o.actualShipDate||(o.dueDate||null);
+      return{...o,pct,pm,actualShipDate};
+    });
+    list=list.filter(o=>{
+      const asd=o.actualShipDate;
+      if(!asd) return true;
+      return (asd+twoMonths)>now;
+    });
+    if(filter==='active') list=list.filter(o=>o.pct<100);
+    else if(filter==='done') list=list.filter(o=>o.pct>=100);
+    list.sort((a,b)=>(a.actualShipDate||0)-(b.actualShipDate||0));
+    if(!list.length){
+      content.innerHTML='<div style="text-align:center;padding:40px;color:var(--mu)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Không có đơn hàng / 尚無訂單</div>';
+      return;
+    }
+    let html='<div class="to"><table style="width:100%"><thead><tr>';
+    html+='<th>No</th>';
+    html+='<th>Khách hàng<br><span style="font-size:10px;font-weight:400;color:var(--mu)">客人</span></th>';
+    html+='<th>Số đơn hàng<br><span style="font-size:10px;font-weight:400;color:var(--mu)">訂單號碼</span></th>';
+    html+='<th>Số lượng<br><span style="font-size:10px;font-weight:400;color:var(--mu)">數量</span></th>';
+    html+='<th style="min-width:140px">Tiến độ sản xuất<br><span style="font-size:10px;font-weight:400;color:var(--mu)">生產進度%</span></th>';
+    html+='<th>Ngày xuất hàng theo PO<br><span style="font-size:10px;font-weight:400;color:var(--mu)">出貨日期依照PO</span></th>';
+    html+='<th>Ngày hoàn thành thực tế<br><span style="font-size:10px;font-weight:400;color:var(--mu)">實際完成日期</span></th>';
+    html+='<th>Ngày xuất hàng thực tế<br><span style="font-size:10px;font-weight:400;color:var(--mu)">實際出貨日期</span></th>';
+    html+='<th>Ghi chú<br><span style="font-size:10px;font-weight:400;color:var(--mu)">備註</span></th>';
+    html+='<th></th>';
+    html+='</tr></thead><tbody>';
+    list.forEach((o,idx)=>{
+      const pct=o.pct;
+      const totalQty=o.pm.totalQty;
+      const actualCompleteDateVal=o.actualCompleteDate?new Date(o.actualCompleteDate).toISOString().slice(0,10):'';
+      const actualShipDateVal=o.actualShipDate?new Date(o.actualShipDate).toISOString().slice(0,10):(o.dueDate?new Date(o.dueDate).toISOString().slice(0,10):'');
+      const remarkVal=(o.remark||'').replace(/"/g,'&quot;');
+      html+=`<tr>
+        <td style="color:var(--mu)">${idx+1}</td>
+        <td><b>${o.client||'-'}</b></td>
+        <td style="font-family:var(--font-mono,monospace);font-size:12px">${o.orderId}</td>
+        <td>${totalQty.toLocaleString()}</td>
+        <td>
+          <div style="position:relative;height:20px;background:var(--bd);border-radius:4px;overflow:hidden">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
+            <div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#1e3a5f">${pct}%</div>
+          </div>
+        </td>
+        <td>${fmtVN(o.dueDate)}</td>
+        <td><input type="date" value="${actualCompleteDateVal}" onchange="saveProgField('${o.id}','actualCompleteDate',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
+        <td><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
+        <td><input type="text" value="${remarkVal}" onchange="saveProgField('${o.id}','remark',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:120px" placeholder="備註..."></td>
+        <td><button class="btn bsm" onclick="toggleProgDetail('${o.id}')" id="prog-btn-${o.id}"><i class="ti ti-chevron-down"></i></button></td>
+      </tr>
+      <tr id="prog-detail-${o.id}" style="display:none">
+        <td colspan="10" style="padding:0;background:var(--bg)">
+          <div id="prog-detail-body-${o.id}" style="padding:10px 16px"></div>
+        </td>
+      </tr>`;
+    });
+    html+='</tbody></table></div>';
     content.innerHTML=html;
-  }catch(e){ content.innerHTML='<div style="color:var(--err);padding:20px">載入失敗</div>'; }
+  }catch(e){
+    content.innerHTML='<div style="color:var(--err);padding:20px">載入失敗：'+e.message+'</div>';
+    console.error('renderProgress error:',e);
+  }
+}
+
+async function saveProgField(ordId, field, value, isShipDate=false){
+  try{
+    const update={[field]: (field==='remark')?value:(value?new Date(value).getTime():null)};
+    if(isShipDate) update.actualShipDateManual=true;
+    await window._updateDoc(window._doc(COL.orders,ordId),update);
+    const o=window.allOrders.find(x=>x.id===ordId);
+    if(o){ o[field]=update[field]; if(isShipDate) o.actualShipDateManual=true; }
+  }catch(e){ alert('儲存失敗：'+e.message); }
+}
+
+function toggleProgDetail(ordId){
+  const row=document.getElementById('prog-detail-'+ordId);
+  const btn=document.getElementById('prog-btn-'+ordId);
+  if(!row) return;
+  const isOpen=row.style.display!=='none';
+  if(isOpen){
+    row.style.display='none';
+    if(btn) btn.innerHTML='<i class="ti ti-chevron-down"></i>';
+    return;
+  }
+  row.style.display='';
+  if(btn) btn.innerHTML='<i class="ti ti-chevron-up"></i>';
+  const body=document.getElementById('prog-detail-body-'+ordId);
+  if(!body) return;
+  const procs=(window.allProcesses||[]).filter(p=>p.orderId===ordId);
+  const byCode={};
+  procs.forEach(p=>{ if(!byCode[p.code]) byCode[p.code]=[]; byCode[p.code].push(p); });
+  let html='';
+  Object.entries(byCode).forEach(([code,cp])=>{
+    const cApv=cp.reduce((a,p)=>a+(p.approvedQty||0),0);
+    const cQty=cp[0].orderQty||0;
+    const cProg=cQty>0?Math.round(cApv/cQty*100):0;
+    const procRows=cp.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo))).map(p=>{
+      const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
+      const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
+      return`<tr>
+        <td style="padding:5px 8px">${p.processNo}</td>
+        <td style="padding:5px 8px">${p.processVi||p.processZh||''}</td>
+        <td style="padding:5px 8px;text-align:right">${(p.orderQty||0).toLocaleString()}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--ok);font-weight:500">${(p.approvedQty||0).toLocaleString()}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--warn)">${(p.pendingQty||0).toLocaleString()}</td>
+        <td style="padding:5px 8px;text-align:right;color:var(--accent)">${rem.toLocaleString()}</td>
+        <td style="padding:5px 8px;min-width:120px">
+          <div style="position:relative;height:16px;background:var(--bd);border-radius:4px;overflow:hidden">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(pg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
+            <div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#1e3a5f">${pg}%</div>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+    html+=`<div style="margin-bottom:10px">
+      <div style="font-size:12px;font-weight:500;color:var(--navy);margin-bottom:6px;padding:4px 0;border-bottom:1px solid var(--bd)">
+        <b>${code}</b><span style="font-size:11px;color:var(--mu);margin-left:8px">${cp[0].desc||''} ${cp[0].color||''}</span>
+        <span style="float:right;color:var(--accent)">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:var(--sf)">
+          <th style="padding:5px 8px;text-align:left">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
+          <th style="padding:5px 8px;text-align:left">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
+          <th style="padding:5px 8px;text-align:right">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
+          <th style="padding:5px 8px;text-align:right">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>
+          <th style="padding:5px 8px;text-align:right">Chờ duyệt<br><span style="font-weight:400;color:var(--mu)">待審批</span></th>
+          <th style="padding:5px 8px;text-align:right">Còn lại<br><span style="font-weight:400;color:var(--mu)">剩餘</span></th>
+          <th style="padding:5px 8px">Tiến độ<br><span style="font-weight:400;color:var(--mu)">進度</span></th>
+        </tr></thead>
+        <tbody>${procRows}</tbody>
+      </table>
+    </div>`;
+  });
+  body.innerHTML=html||'<span style="color:var(--mu);font-size:12px">無工序資料</span>';
 }
