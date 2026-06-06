@@ -202,6 +202,15 @@ async function mobLoadMyReports(){
   }catch(e){ console.error('mobLoadMyReports',e); }
 }
 
+function mobBellClick(){
+  mobPage('mob-pg-hist');
+  mobFilterHist('rejected');
+  const bell=mG('mob-bell');
+  if(bell){ bell.style.display='none'; }
+  const alert=mG('mob-reject-alert');
+  if(alert){ alert.style.display='none'; }
+}
+
 function mobFilterHist(f){
   mobHistFilter=f;
   ['all','approved','pending','rejected','voided'].forEach(x=>{
