@@ -202,9 +202,9 @@ function mobRenderHist(){
     list.innerHTML='<div style="text-align:center;padding:40px;color:var(--hi)"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>尚無記錄</div>';
     return;
   }
-  const barColor={approved:'#22c55e',pending:'#f59e0b',rejected:'#ef4444'};
-  const bdgStyle={approved:'background:var(--okl);color:var(--ok)',pending:'background:var(--warnl);color:var(--warn)',rejected:'background:var(--errl);color:var(--err)'};
-  const bdgText={approved:'Đã duyệt',pending:'Chờ duyệt',rejected:'Từ chối'};
+  const barColor={approved:'#22c55e',pending:'#f59e0b',rejected:'#ef4444',voided:'#9ca3af'};
+  const bdgStyle={approved:'background:var(--okl);color:var(--ok)',pending:'background:var(--warnl);color:var(--warn)',rejected:'background:var(--errl);color:var(--err)',voided:'background:#f3f4f6;color:#6b7280'};
+  const bdgText={approved:'Đã duyệt',pending:'Chờ duyệt',rejected:'Từ chối',voided:'Đã hủy'};
   list.innerHTML=data.map(r=>{
     const rb=r.status==='rejected'&&r.rejectReason?`<div style="background:var(--errl);border-radius:8px;padding:7px 10px;margin-top:7px;display:flex;gap:6px"><i class="ti ti-info-circle" style="color:var(--err);font-size:13px;flex-shrink:0"></i><span style="font-size:11px;color:#7f1d1d;line-height:1.4">Lý do: ${r.rejectReason}</span></div>`:'';
     return`<div style="background:var(--sf);border-radius:12px;margin-bottom:7px;overflow:hidden;display:flex;border:1px solid var(--bd)">
