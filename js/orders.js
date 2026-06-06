@@ -250,18 +250,18 @@ async function renderProgress(){
       content.innerHTML='<div style="text-align:center;padding:40px;color:var(--mu)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Không có đơn hàng / 尚無訂單</div>';
       return;
     }
-    const thS='padding:10px 12px;text-align:left;background:var(--sf);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:12px;font-weight:500;color:var(--mu)';
-    let html='<div style="overflow-x:auto"><table style="width:max-content;min-width:100%;border-collapse:collapse"><thead><tr>';
-    html+=`<th style="${thS};min-width:40px">No</th>`;
-    html+=`<th style="${thS};min-width:90px">Khách hàng<br><span style="font-size:10px;font-weight:400">客人</span></th>`;
-    html+=`<th style="${thS};min-width:130px">Số đơn hàng<br><span style="font-size:10px;font-weight:400">訂單號碼</span></th>`;
-    html+=`<th style="${thS};min-width:80px">Số lượng<br><span style="font-size:10px;font-weight:400">數量</span></th>`;
-    html+=`<th style="${thS};min-width:150px">Tiến độ sản xuất<br><span style="font-size:10px;font-weight:400">生產進度%</span></th>`;
-    html+=`<th style="${thS};min-width:110px">Ngày xuất theo PO<br><span style="font-size:10px;font-weight:400">出貨日期依照PO</span></th>`;
-    html+=`<th style="${thS};min-width:145px">Ngày hoàn thành<br><span style="font-size:10px;font-weight:400">實際完成日期</span></th>`;
-    html+=`<th style="${thS};min-width:145px">Ngày xuất thực tế<br><span style="font-size:10px;font-weight:400">實際出貨日期</span></th>`;
-    html+=`<th style="${thS};min-width:160px">Ghi chú<br><span style="font-size:10px;font-weight:400">備註</span></th>`;
-    html+=`<th style="${thS};min-width:40px"></th>`;
+    const thS='padding:6px 8px;text-align:left;background:var(--sf);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:11px;font-weight:500;color:var(--mu)';
+    let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>';
+    html+=`<th style="${thS};width:36px">No</th>`;
+    html+=`<th style="${thS};width:80px">Khách hàng<br><span style="font-size:10px;font-weight:400">客人</span></th>`;
+    html+=`<th style="${thS};width:110px">Số đơn hàng<br><span style="font-size:10px;font-weight:400">訂單號碼</span></th>`;
+    html+=`<th style="${thS};width:70px">Số lượng<br><span style="font-size:10px;font-weight:400">數量</span></th>`;
+    html+=`<th style="${thS};width:120px">Tiến độ<br><span style="font-size:10px;font-weight:400">生產進度%</span></th>`;
+    html+=`<th style="${thS};width:90px">Theo PO<br><span style="font-size:10px;font-weight:400">出貨日期PO</span></th>`;
+    html+=`<th style="${thS};width:120px">Hoàn thành<br><span style="font-size:10px;font-weight:400">實際完成日</span></th>`;
+    html+=`<th style="${thS};width:120px">Xuất hàng<br><span style="font-size:10px;font-weight:400">實際出貨日</span></th>`;
+    html+=`<th style="${thS}">Ghi chú<br><span style="font-size:10px;font-weight:400">備註</span></th>`;
+    html+=`<th style="${thS};width:60px"></th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const pct=o.pct;
@@ -270,10 +270,10 @@ async function renderProgress(){
       const actualShipDateVal=o.actualShipDate?new Date(o.actualShipDate).toISOString().slice(0,10):(o.dueDate?new Date(o.dueDate).toISOString().slice(0,10):'');
       const remarkVal=(o.remark||'').replace(/"/g,'&quot;');
       html+=`<tr>
-        <td style="color:var(--mu)">${idx+1}</td>
-        <td><b>${o.client||'-'}</b></td>
-        <td style="font-family:var(--font-mono,monospace);font-size:12px">${o.orderId}</td>
-        <td>${totalQty.toLocaleString()}</td>
+        <td style="color:var(--mu);padding:6px 8px;font-size:12px">${idx+1}</td>
+        <td style="padding:6px 8px;font-size:12px"><b>${o.client||'-'}</b></td>
+        <td style="font-family:var(--font-mono,monospace);font-size:11px;padding:6px 8px">${o.orderId}</td>
+        <td style="padding:6px 8px;font-size:12px">${totalQty.toLocaleString()}</td>
         <td>
           <div style="position:relative;height:20px;background:var(--bd);border-radius:4px;overflow:hidden">
             <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
@@ -284,7 +284,12 @@ async function renderProgress(){
         <td><input type="date" value="${actualCompleteDateVal}" onchange="saveProgField('${o.id}','actualCompleteDate',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td><input type="text" value="${remarkVal}" onchange="saveProgField('${o.id}','remark',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:120px" placeholder="備註..."></td>
-        <td><button class="btn bsm" onclick="toggleProgDetail('${o.id}')" id="prog-btn-${o.id}"><i class="ti ti-chevron-down"></i></button></td>
+        <td style="padding:6px 8px">
+          <div style="display:flex;gap:4px">
+            <button class="btn bsm" onclick="toggleProgDetail('${o.id}')" id="prog-btn-${o.id}"><i class="ti ti-chevron-down"></i></button>
+            <button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
+          </div>
+        </td>
       </tr>
       <tr id="prog-detail-${o.id}" style="display:none">
         <td colspan="10" style="padding:0;background:var(--bg)">

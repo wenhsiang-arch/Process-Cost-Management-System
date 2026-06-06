@@ -12,6 +12,7 @@ function sortD(){
   if(_sumSortCol==='code') d.sort((a,b)=>asc?a.code.localeCompare(b.code):b.code.localeCompare(a.code));
   else if(_sumSortCol==='client') d.sort((a,b)=>asc?a.client.localeCompare(b.client):b.client.localeCompare(a.client));
   else if(_sumSortCol==='zh') d.sort((a,b)=>asc?(a.zh||'').localeCompare(b.zh||''):(b.zh||'').localeCompare(a.zh||''));
+  else if(_sumSortCol==='vi') d.sort((a,b)=>asc?(a.vi||'').localeCompare(b.vi||''):(b.vi||'').localeCompare(a.vi||''));
   else if(_sumSortCol==='sz') d.sort((a,b)=>asc?(a.sz||'').localeCompare(b.sz||''):(b.sz||'').localeCompare(a.sz||''));
   else if(_sumSortCol==='ops') d.sort((a,b)=>asc?a.ops.length-b.ops.length:b.ops.length-a.ops.length);
   else if(_sumSortCol==='cost') d.sort((a,b)=>{
@@ -32,7 +33,7 @@ function rSum(){
   const cf = (g('s-client')||{}).value||'';
   const isA = isAdm();
   const th=(col,vi,zh)=>`<th onclick="sumSort('${col}')" style="cursor:pointer;user-select:none;white-space:nowrap">${vi}<span class="tv">${zh}</span> ${sortIcon(col)}</th>`;
-  g('sh').innerHTML=`<th>#</th>${th('code','Mã hàng','款號')}${th('client','Khách hàng','客人')}${th('zh','Tên Trung','中文名稱')}<th>Tên Việt<span class="tv">越文名稱</span></th>${th('sz','Kích thước','尺寸')}${th('ops','Số công đoạn','工序數')}`+(isA?th('cost',`Tổng chi phí (${window.cur})`,'總工價'):'')+`<th>Thao tác<span class="tv">操作</span></th>`;
+  g('sh').innerHTML=`<th>#</th>${th('code','Mã hàng','款號')}${th('client','Khách hàng','客人')}${th('zh','Tên Trung','中文名稱')}${th('vi','Tên Việt','越文名稱')}${th('sz','Kích thước','尺寸')}${th('ops','Số công đoạn','工序數')}`+(isA?th('cost',`Tổng chi phí (${window.cur})`,'總工價'):'')+`<th>Thao tác<span class="tv">操作</span></th>`;
   let fd=sortD().filter(d=>{
     const m=!q||(d.code+d.client+d.zh+d.vi).toLowerCase().includes(q.toLowerCase());
     return m&&(!cf||d.client===cf);
