@@ -183,6 +183,7 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-orders" onclick="sp('orders')"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Nhập đơn hàng</span><span class="nzh">匯入訂單</span></div></div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
     <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-check-circle"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
+    <div class="ni locked" id="nv-replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><div class="nl"><span class="nvi">Lịch sử báo công</span><span class="nzh">報工紀錄</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
     <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết</span><span class="nzh">工序明細表</span></div></div>
@@ -451,6 +452,31 @@ tr:hover td{background:#f8fafc}
         </div>
       </div>
 
+      <!-- 報工紀錄 -->
+      <div class="pg" id="pg-replog">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-file-search"></i>Lịch sử báo công / 報工紀錄</div>
+          <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
+            <select id="replog-dept" onchange="renderReplog()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
+            <input type="text" id="replog-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="renderReplog()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
+            <button class="btn bp" onclick="renderReplog()"><i class="ti ti-search"></i>查詢</button>
+          </div>
+          <div class="to"><table>
+            <thead><tr>
+              <th>Nhân viên<br><span style="font-size:10px;color:var(--mu);font-weight:400">員工</span></th>
+              <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
+              <th>Đơn hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單</span></th>
+              <th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款號</span></th>
+              <th>Công đoạn<br><span style="font-size:10px;color:var(--mu);font-weight:400">工序</span></th>
+              <th>SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">數量</span></th>
+              <th>Thời gian<br><span style="font-size:10px;color:var(--mu);font-weight:400">建立時間</span></th>
+              <th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th>
+            </tr></thead>
+            <tbody id="replog-tb"></tbody>
+          </table></div>
+        </div>
+      </div>
+
       <!-- 訂單進度 -->
       <div class="pg" id="pg-progress">
         <div class="card">
@@ -553,6 +579,15 @@ tr:hover td{background:#f8fafc}
   </div>
 
   <!-- Modals -->
+  <div class="mb" id="m-void-reason"><div class="md" style="width:420px">
+    <div class="mt2"><i class="ti ti-ban"></i> Lý do hủy / 作廢原因 <button class="btn bsm" onclick="cm('m-void-reason')"><i class="ti ti-x"></i></button></div>
+    <input type="hidden" id="void-target-id">
+    <div class="fgrp" style="margin-bottom:14px">
+      <label>Lý do / 原因 <span style="color:var(--err)">*</span></label>
+      <input type="text" id="void-reason-text" placeholder="請輸入作廢原因..." style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+    </div>
+    <div class="br"><button class="btn bp" style="background:var(--err)" onclick="confirmVoid()"><i class="ti ti-ban"></i>Xác nhận hủy / 確認作廢</button><button class="btn" onclick="cm('m-void-reason')">取消</button></div>
+  </div></div>
   <div class="mb" id="m-attendance"><div class="md" style="width:420px">
     <div class="mt2"><i class="ti ti-calendar-check"></i> Áp dụng chấm công / 套用考勤 <button class="btn bsm" onclick="cm('m-attendance')"><i class="ti ti-x"></i></button></div>
     <div class="fgrp" style="margin-bottom:12px">

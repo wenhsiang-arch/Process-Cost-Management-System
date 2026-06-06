@@ -31,7 +31,7 @@ function uNav(){
     const el=g('nv-'+n); if(el) el.className='ni'+(isA||isMgr||isClk?'':' locked');
   });
   g('nv-accounts').className = 'ni'+(isA||isMgr?'':' locked');
-  ['orders','approval','progress','stats','employees','attendance'].forEach(n=>{
+  ['orders','approval','progress','stats','employees','attendance','replog'].forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
     const show = isA||isMgr||(isClk&&n!=='approval');
     el.className = 'ni'+(show?'':' locked');
@@ -132,4 +132,5 @@ function sp(name){
   if(name==='stats')     renderStats();
   if(name==='employees') renderEmployees();
   if(name==='attendance') renderAttendance();
+  if(name==='replog') renderReplog();
 }

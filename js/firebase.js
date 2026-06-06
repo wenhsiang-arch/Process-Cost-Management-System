@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBrlo1gVMQmne4gT92lx4KwnRBVt4QSh4",
@@ -105,6 +105,8 @@ window._where      = (...args)     => where(...args);
 window._getDoc     = (ref)         => getDoc(ref);
 window._setDoc     = (ref,data)    => setDoc(ref, data);
 window._increment  = (n)           => increment(n);
+window._runTransaction = (fn)      => runTransaction(db, fn);
+window._docRef     = (colName, id) => doc(db, colName, id);
 
 // ===== 初始化 =====
 async function fbInit(){

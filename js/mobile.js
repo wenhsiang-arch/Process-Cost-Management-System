@@ -116,28 +116,45 @@ function mobSelectProc(){
 // ===== 送出報工 =====
 async function mobSubmitReport(){
   const qty=parseInt(mG('mob-qty').value);
-  if(!currentProcId){ mobToast('⚠️ Vui lòng chọn công đoạn'); return; }
-  if(!qty||qty<=0){ mobToast('⚠️ Vui lòng nhập số lượng'); return; }
+  if(!currentProcId){ mobToast('⚠️ Vui lòng chọn công đoạn / 請選擇工序'); return; }
+  if(!qty||qty<=0){ mobToast('⚠️ Vui lòng nhập số lượng / 請輸入數量'); return; }
   const p=procList.find(x=>x.id===currentProcId); if(!p) return;
+  const remain=(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0);
+  if(qty>remain){
+    mobToast(`⚠️ Chỉ còn ${remain} SP / 此工序剩餘可報 ${remain} 件，本次 ${qty} 件超過`);
+    return;
+  }
   try{
-    await window._addDoc(window._collection(COL.reports),{
-      empId:window.cu.id, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
-      orderId:p.orderId, orderNo:p.orderNo||'', code:p.code,
-      processNo:p.processNo, processVi:p.processVi||p.processZh,
-      processSec:p.processSec||0, slPerHour:p.slPerHour||0,
-      qty, status:'pending', createdAt:Date.now()
+    const procRef=window._docRef(COL.processes,currentProcId);
+    const newRepRef=window._docRef(COL.reports,Date.now()+'_'+window.cu.id);
+    await window._runTransaction(async(t)=>{
+      const procSnap=await t.get(procRef);
+      if(!procSnap.exists()) throw new Error('工序不存在');
+      const pd=procSnap.data();
+      const realRemain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);
+      if(qty>realRemain) throw new Error(`Vui lòng báo tối đa ${realRemain} SP / 剩餘可報 ${realRemain} 件，本次 ${qty} 件超過訂單數量`);
+      t.set(newRepRef,{
+        empId:window.cu.id, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
+        orderId:p.orderId, orderNo:p.orderNo||'', code:p.code,
+        processNo:p.processNo, processVi:p.processVi||p.processZh,
+        processSec:p.processSec||0, slPerHour:p.slPerHour||0,
+        qty, status:'pending', createdAt:Date.now()
+      });
+      t.update(procRef,{pendingQty:window._increment(qty)});
     });
-    await window._updateDoc(window._doc(COL.processes,currentProcId),{pendingQty:window._increment(qty)});
     p.pendingQty=(p.pendingQty||0)+qty;
     mobSelectProc();
     mG('mob-qty').value='';
     const now=new Date();
     const last=mG('mob-last-submit');
-    last.textContent='Gửi lần cuối：'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
-    last.style.display='block';
-    mobToast('✅ Đã gửi báo công / 報工已送出');
-    await mobLoadMyReports();
-  }catch(e){ mobToast('❌ Lỗi kết nối, vui lòng thử lại'); }
+    if(last){
+      last.style.display='block';
+      last.textContent='Gửi lần cuối：'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    }
+    mobToast('✅ Báo công thành công / 報工成功');
+  }catch(e){
+    mobToast('❌ '+(e.message||'報工失敗，請重試'));
+  }
 }
 
 // ===== 我的報工記錄 =====
