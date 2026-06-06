@@ -26,16 +26,31 @@ function uNav(){
   const isA   = r==='admin';
   const isMgr = r==='manager';
   const isClk = r==='clerk';
+  const perm  = window.permissionSettings || {};
+
+  // 成本設定：只有 admin
   g('nv-settings').className = 'ni'+(isA?'':' locked');
-  ['export','history','costlog'].forEach(n=>{
-    const el=g('nv-'+n); if(el) el.className='ni'+(isA||isMgr||isClk?'':' locked');
-  });
-  g('nv-accounts').className = 'ni'+(isA||isMgr?'':' locked');
-  ['orders','approval','progress','stats','employees','attendance','replog'].forEach(n=>{
+
+  // 權限管理：只有 admin
+  const nvPerm = g('nv-permissions');
+  if(nvPerm) nvPerm.className = 'ni'+(isA?'':' locked');
+
+  // 所有可控制功能
+  const allFeatures = ['attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog','summary','detail','import','backup'];
+
+  allFeatures.forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
-    const show = isA||isMgr||(isClk&&n!=='approval');
+    let show = false;
+    if(isA){
+      show = true;
+    } else if(isMgr){
+      show = perm.manager ? (perm.manager[n]===true) : false;
+    } else if(isClk){
+      show = perm.clerk ? (perm.clerk[n]===true) : false;
+    }
     el.className = 'ni'+(show?'':' locked');
   });
+
   g('upill').className  = 'up'+(isA?' adm':isMgr?' mgr':'');
   g('ulabel').textContent = window.cu.user+' · '+(ROLE_LABEL[r]||r);
 }
@@ -70,6 +85,7 @@ function doLogin(){
       setTimeout(()=>fetchRates(), 1000);
       loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
+      if(typeof loadPermissions==='function') loadPermissions().then(()=>{ if(typeof uNav==='function') uNav(); });
     } else if(a.role==='leader'){
       g('ls').style.display='none';
       g('ma').classList.remove('hidden');

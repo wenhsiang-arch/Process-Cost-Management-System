@@ -89,6 +89,7 @@ async function fbSaveWithStatus(key, data){
 // ===== 掛到 window =====
 window.saveProductsToFB  = () => fbSaveWithStatus("products",  window.D);
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
+window.savePermissionsToFB = () => fbSave("permissions", window.permissionSettings);
 window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
 window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
 window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
