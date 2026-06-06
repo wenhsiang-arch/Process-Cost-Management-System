@@ -290,7 +290,7 @@ async function renderProgress(){
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input type="date" value="${actualCompleteDateVal}" onchange="saveProgField('${o.id}','actualCompleteDate',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td onclick="event.stopPropagation()"><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
-        <td onclick="event.stopPropagation()"><input type="text" value="${remarkVal}" onchange="saveProgField('${o.id}','remark',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:120px" placeholder="備註..."></td>
+        <td onclick="event.stopPropagation()" title="${remarkVal}" style="cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:12px;color:${o.remark?'var(--navy)':'var(--mu)'}" onclick="openRemarkEdit('${o.id}','${remarkVal}')">${o.remark||'備註...'}</td>
         <td style="padding:6px 8px" onclick="event.stopPropagation()">
           <button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
         </td>
@@ -317,6 +317,12 @@ async function saveProgField(ordId, field, value, isShipDate=false){
     const o=window.allOrders.find(x=>x.id===ordId);
     if(o){ o[field]=update[field]; if(isShipDate) o.actualShipDateManual=true; }
   }catch(e){ alert('儲存失敗：'+e.message); }
+}
+
+function openRemarkEdit(ordId, current){
+  const val=prompt('Ghi chú / 備註：', current||'');
+  if(val===null) return;
+  saveProgField(ordId,'remark',val).then(()=>renderProgress());
 }
 
 function toggleProgDetail(ordId){
