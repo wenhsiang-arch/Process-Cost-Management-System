@@ -74,9 +74,9 @@ function renderPermissions(){
 
   let html = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
   html += '<thead><tr>';
-  html += '<th style="padding:10px;text-align:left;border-bottom:2px solid var(--bd);color:var(--mu);font-weight:500">功能 / Chức năng</th>';
+  html += '<th style="position:sticky;top:0;background:var(--sf);padding:10px;text-align:left;border-bottom:2px solid var(--bd);color:var(--mu);font-weight:500;z-index:1">功能 / Chức năng</th>';
   roles.forEach(r=>{
-    html += `<th style="padding:10px;text-align:center;border-bottom:2px solid var(--bd);color:var(--mu);font-weight:500;min-width:100px">${roleLabels[r]}</th>`;
+    html += `<th style="position:sticky;top:0;background:var(--sf);padding:10px;text-align:center;border-bottom:2px solid var(--bd);color:var(--mu);font-weight:500;min-width:100px;z-index:1">${roleLabels[r]}</th>`;
   });
   html += '</tr></thead><tbody>';
 

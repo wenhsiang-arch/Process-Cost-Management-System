@@ -81,7 +81,16 @@ function doLogin(){
     window.cu = a;
     if(DESK_ROLES.includes(a.role)){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      uNav(); sp('summary'); rAll(); rSum(); rAcc(); startIdle();
+      uNav(); rAll(); rSum(); rAcc(); startIdle();
+      loadPermissions().then(()=>{
+        uNav();
+        const perm = window.permissionSettings;
+        const r = window.cu.role;
+        if(r==='admin'){ sp('summary'); return; }
+        const order = ['summary','detail','import','backup','attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog'];
+        const allowed = order.find(n=> perm[r] && perm[r][n]===true );
+        if(allowed){ sp(allowed); } else { sp('summary'); }
+      });
       setTimeout(()=>fetchRates(), 1000);
       loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
