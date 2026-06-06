@@ -132,7 +132,7 @@ async function mobSubmitReport(){
   }
   try{
     const procRef=window._docRef(COL.processes,currentProcId);
-    const newRepRef=window._docRef(COL.reports,Date.now()+'_'+window.cu.id);
+    const newRepRef=window._docRef(COL.reports,Date.now()+'_'+(window.cu.id||window.cu.user));
     await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
       if(!procSnap.exists()) throw new Error('工序不存在');
@@ -140,7 +140,7 @@ async function mobSubmitReport(){
       const realRemain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);
       if(qty>realRemain) throw new Error(`Vui lòng báo tối đa ${realRemain} SP / 剩餘可報 ${realRemain} 件，本次 ${qty} 件超過訂單數量`);
       t.set(newRepRef,{
-        empId:window.cu.id, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
+        empId:window.cu.id||window.cu.user, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
         orderId:p.orderId, orderNo:p.orderNo||'', code:p.code,
         processNo:p.processNo, processVi:p.processVi||p.processZh,
         processSec:p.processSec||0, slPerHour:p.slPerHour||0,
@@ -168,7 +168,7 @@ async function mobLoadMyReports(){
   try{
     const d45=new Date(); d45.setDate(d45.getDate()-45);
     const from45=d45.getTime();
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id),window._where('createdAt','>=',from45)));
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id||window.cu.user),window._where('createdAt','>=',from45)));
     myReports=snap.docs.map(d=>({id:d.id,...d.data()}));
     myReports.sort((a,b)=>b.createdAt-a.createdAt);
     const rej=myReports.filter(r=>r.status==='rejected').length;
