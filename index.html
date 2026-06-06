@@ -783,28 +783,28 @@ tr:hover td{background:#f8fafc}
           <b id="mob-reject-alert-text" style="font-size:12px;color:#92400e"></b>
         </div>
         <div style="background:var(--sf);border-radius:14px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--bd)">
-          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">訂單</div>
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Đơn hàng / 訂單</div>
           <select id="mob-sel-order" onchange="mobSelectOrder()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇訂單 --</option></select>
-          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">款號</div>
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Mã hàng / 款號</div>
           <select id="mob-sel-code" onchange="mobSelectCode()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇款號 --</option></select>
-          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">工序</div>
+          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Công đoạn / 工序</div>
           <select id="mob-sel-proc" onchange="mobSelectProc()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇工序 --</option></select>
           <div id="mob-proc-info" style="display:none">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
               <div style="background:#f8fafc;border-radius:10px;padding:10px 11px">
-                <div style="font-size:10px;color:var(--mu)">訂單數量</div>
+                <div style="font-size:10px;color:var(--mu)">SL đơn / 訂單數量</div>
                 <div id="mob-info-qty" style="font-size:20px;font-weight:700;color:var(--navy);margin-top:2px">0</div>
                 <div style="background:#e2e8f0;border-radius:99px;height:5px;margin-top:6px"><div id="mob-info-prog" style="height:5px;border-radius:99px;background:var(--navy);width:0%"></div></div>
                 <div id="mob-info-prog-text" style="font-size:10px;color:var(--hi);margin-top:3px">-</div>
               </div>
               <div style="background:#f8fafc;border-radius:10px;padding:10px 11px">
-                <div style="font-size:10px;color:var(--mu)">待審批</div>
+                <div style="font-size:10px;color:var(--mu)">Chờ duyệt / 待審批</div>
                 <div id="mob-info-pending" style="font-size:20px;font-weight:700;color:var(--accent);margin-top:2px">0</div>
                 <div style="height:5px;margin-top:6px"></div>
                 <div id="mob-info-approved" style="font-size:10px;color:var(--hi);margin-top:3px">已審批：0</div>
               </div>
             </div>
-            <div style="font-size:11px;color:var(--mu);font-weight:500;margin-bottom:6px">今日完成數量</div>
+            <div style="font-size:11px;color:var(--mu);font-weight:500;margin-bottom:6px">SL hoàn thành / 完成數量</div>
             <div style="display:flex;gap:8px;align-items:center">
               <input type="number" id="mob-qty" min="1" placeholder="0" style="flex:1;padding:10px;font-size:24px;font-weight:700;text-align:center;border:1px solid var(--bd);border-radius:10px;color:var(--navy)">
               <span style="font-size:12px;color:var(--mu)">PCS</span>
@@ -815,11 +815,13 @@ tr:hover td{background:#f8fafc}
         </div>
       </div>
       <div id="mob-pg-hist" style="display:none">
+        <div style="text-align:center;font-size:11px;color:var(--mu);padding:6px 0">Chỉ hiển thị 45 ngày gần nhất</div>
         <div style="display:flex;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px">
-          <button id="mob-flt-all" onclick="mobFilterHist('all')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:var(--navy);color:#fff;font-weight:600">全部</button>
-          <button id="mob-flt-approved" onclick="mobFilterHist('approved')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">已通過</button>
-          <button id="mob-flt-pending" onclick="mobFilterHist('pending')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">待審批</button>
-          <button id="mob-flt-rejected" onclick="mobFilterHist('rejected')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">已退回</button>
+          <button id="mob-flt-all" onclick="mobFilterHist('all')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:var(--navy);color:#fff;font-weight:600"><span style="display:block;font-size:10px">Tất cả</span><span style="display:block;font-size:9px">全部</span></button>
+          <button id="mob-flt-approved" onclick="mobFilterHist('approved')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Đã duyệt</span><span style="display:block;font-size:9px">已通過</span></button>
+          <button id="mob-flt-pending" onclick="mobFilterHist('pending')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Chờ duyệt</span><span style="display:block;font-size:9px">待審批</span></button>
+          <button id="mob-flt-rejected" onclick="mobFilterHist('rejected')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Từ chối</span><span style="display:block;font-size:9px">已退回</span></button>
+          <button id="mob-flt-voided" onclick="mobFilterHist('voided')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)">Đã hủy</button>
         </div>
         <div id="mob-hist-list"></div>
       </div>
@@ -832,8 +834,8 @@ tr:hover td{background:#f8fafc}
       </div>
     </div>
     <div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--sf);border-top:1px solid var(--bd);z-index:100">
-      <button id="mob-tab-report" onclick="mobPage('mob-pg-report')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-text" style="font-size:20px;color:var(--navy)"></i><span style="font-size:10px;color:var(--navy);font-weight:600">報工</span></button>
-      <button id="mob-tab-hist" onclick="mobPage('mob-pg-hist')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-history" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">記錄</span></button>
+      <button id="mob-tab-report" onclick="mobPage('mob-pg-report')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-text" style="font-size:20px;color:var(--navy)"></i><span style="font-size:10px;color:var(--navy);font-weight:600">Báo công / 報工</span></button>
+      <button id="mob-tab-hist" onclick="mobPage('mob-pg-hist')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-history" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">Lịch sử / 記錄</span></button>
       <button id="mob-tab-apv" onclick="mobPage('mob-pg-apv')" style="display:none;position:relative;flex:1;padding:9px 4px 7px;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-check-circle" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">審批</span><div id="mob-apv-badge" style="display:none;position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px">0</div></button>
     </div>
   </div>

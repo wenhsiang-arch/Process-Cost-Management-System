@@ -166,7 +166,9 @@ async function mobSubmitReport(){
 // ===== 我的報工記錄 =====
 async function mobLoadMyReports(){
   try{
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id)));
+    const d45=new Date(); d45.setDate(d45.getDate()-45);
+    const from45=d45.getTime();
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id),window._where('createdAt','>=',from45)));
     myReports=snap.docs.map(d=>({id:d.id,...d.data()}));
     myReports.sort((a,b)=>b.createdAt-a.createdAt);
     const rej=myReports.filter(r=>r.status==='rejected').length;
@@ -184,7 +186,7 @@ async function mobLoadMyReports(){
 
 function mobFilterHist(f){
   mobHistFilter=f;
-  ['all','approved','pending','rejected'].forEach(x=>{
+  ['all','approved','pending','rejected','voided'].forEach(x=>{
     const el=mG('mob-flt-'+x); if(!el) return;
     const active=x===f;
     el.style.background=active?'var(--navy)':'transparent';
@@ -207,6 +209,7 @@ function mobRenderHist(){
   const bdgText={approved:'Đã duyệt',pending:'Chờ duyệt',rejected:'Từ chối',voided:'Đã hủy'};
   list.innerHTML=data.map(r=>{
     const rb=r.status==='rejected'&&r.rejectReason?`<div style="background:var(--errl);border-radius:8px;padding:7px 10px;margin-top:7px;display:flex;gap:6px"><i class="ti ti-info-circle" style="color:var(--err);font-size:13px;flex-shrink:0"></i><span style="font-size:11px;color:#7f1d1d;line-height:1.4">Lý do: ${r.rejectReason}</span></div>`:'';
+    const mb=r.isManualEntry?`<div style="margin-top:5px"><span style="font-size:10px;font-weight:600;padding:2px 7px;border-radius:99px;background:#ede9fe;color:#7c3aed">Bổ sung</span></div>`:'';
     return`<div style="background:var(--sf);border-radius:12px;margin-bottom:7px;overflow:hidden;display:flex;border:1px solid var(--bd)">
       <div style="width:4px;flex-shrink:0;background:${barColor[r.status]||'#94a3b8'}"></div>
       <div style="flex:1;padding:10px 11px">
@@ -217,7 +220,7 @@ function mobRenderHist(){
           </div>
           <span style="display:inline-flex;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:600;white-space:nowrap;flex-shrink:0;${bdgStyle[r.status]||''}">${bdgText[r.status]||r.status}</span>
         </div>
-        ${rb}
+        ${rb}${mb}
       </div>
       <i class="ti ti-chevron-right" style="color:var(--bd);font-size:14px;align-self:center;margin-right:10px;flex-shrink:0"></i>
     </div>`;
