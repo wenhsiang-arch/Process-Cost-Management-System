@@ -250,17 +250,18 @@ async function renderProgress(){
       content.innerHTML='<div style="text-align:center;padding:40px;color:var(--mu)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Không có đơn hàng / 尚無訂單</div>';
       return;
     }
-    let html='<div class="to"><table style="width:100%"><thead><tr>';
-    html+='<th>No</th>';
-    html+='<th>Khách hàng<br><span style="font-size:10px;font-weight:400;color:var(--mu)">客人</span></th>';
-    html+='<th>Số đơn hàng<br><span style="font-size:10px;font-weight:400;color:var(--mu)">訂單號碼</span></th>';
-    html+='<th>Số lượng<br><span style="font-size:10px;font-weight:400;color:var(--mu)">數量</span></th>';
-    html+='<th style="min-width:140px">Tiến độ sản xuất<br><span style="font-size:10px;font-weight:400;color:var(--mu)">生產進度%</span></th>';
-    html+='<th>Ngày xuất hàng theo PO<br><span style="font-size:10px;font-weight:400;color:var(--mu)">出貨日期依照PO</span></th>';
-    html+='<th>Ngày hoàn thành thực tế<br><span style="font-size:10px;font-weight:400;color:var(--mu)">實際完成日期</span></th>';
-    html+='<th>Ngày xuất hàng thực tế<br><span style="font-size:10px;font-weight:400;color:var(--mu)">實際出貨日期</span></th>';
-    html+='<th>Ghi chú<br><span style="font-size:10px;font-weight:400;color:var(--mu)">備註</span></th>';
-    html+='<th></th>';
+    const thS='padding:10px 12px;text-align:left;background:var(--sf);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:12px;font-weight:500;color:var(--mu)';
+    let html='<div style="overflow-x:auto"><table style="width:max-content;min-width:100%;border-collapse:collapse"><thead><tr>';
+    html+=`<th style="${thS};min-width:40px">No</th>`;
+    html+=`<th style="${thS};min-width:90px">Khách hàng<br><span style="font-size:10px;font-weight:400">客人</span></th>`;
+    html+=`<th style="${thS};min-width:130px">Số đơn hàng<br><span style="font-size:10px;font-weight:400">訂單號碼</span></th>`;
+    html+=`<th style="${thS};min-width:80px">Số lượng<br><span style="font-size:10px;font-weight:400">數量</span></th>`;
+    html+=`<th style="${thS};min-width:150px">Tiến độ sản xuất<br><span style="font-size:10px;font-weight:400">生產進度%</span></th>`;
+    html+=`<th style="${thS};min-width:110px">Ngày xuất theo PO<br><span style="font-size:10px;font-weight:400">出貨日期依照PO</span></th>`;
+    html+=`<th style="${thS};min-width:145px">Ngày hoàn thành<br><span style="font-size:10px;font-weight:400">實際完成日期</span></th>`;
+    html+=`<th style="${thS};min-width:145px">Ngày xuất thực tế<br><span style="font-size:10px;font-weight:400">實際出貨日期</span></th>`;
+    html+=`<th style="${thS};min-width:160px">Ghi chú<br><span style="font-size:10px;font-weight:400">備註</span></th>`;
+    html+=`<th style="${thS};min-width:40px"></th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const pct=o.pct;
