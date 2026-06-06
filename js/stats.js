@@ -4,6 +4,7 @@ function statsRangeChange(){
   const sf=g('stats-from'),st=g('stats-to');
   if(sf) sf.style.display=r==='custom'?'inline-block':'none';
   if(st) st.style.display=r==='custom'?'inline-block':'none';
+  if(r!=='custom') renderStats();
 }
 
 function getStatsDateRange(){
