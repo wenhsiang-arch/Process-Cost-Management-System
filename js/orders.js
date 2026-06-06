@@ -209,7 +209,10 @@ async function deleteOrder(id,name){
       ...procSnap.docs.map(d=>window._deleteDoc(d.ref))
     ]);
     window.allOrders=window.allOrders.filter(o=>o.id!==id);
+    window.allProcesses=window.allProcesses.filter(p=>p.orderId!==id);
     renderOrders();
+    const pg=document.getElementById('pg-progress');
+    if(pg&&pg.classList.contains('active')) renderProgress();
   }catch(e){ alert('刪除失敗：'+e.message); }
 }
 
