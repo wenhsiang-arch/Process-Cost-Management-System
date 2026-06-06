@@ -182,7 +182,7 @@ tr:hover td{background:#f8fafc}
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
     <div class="ni locked" id="nv-orders" onclick="sp('orders')"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Nhập đơn hàng</span><span class="nzh">匯入訂單</span></div></div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
-    <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-check-circle"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
+    <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
     <div class="ni locked" id="nv-replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><div class="nl"><span class="nvi">Lịch sử báo công</span><span class="nzh">報工紀錄</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
@@ -829,11 +829,9 @@ tr:hover td{background:#f8fafc}
         <div id="mob-hist-list"></div>
       </div>
       <div id="mob-pg-apv" style="display:none">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
-          <button onclick="mobLoadPending()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button onclick="mobBatchPass()" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;gap:5px"><i class="ti ti-checks"></i> Duyệt tất cả / 批量通過</button>
+        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+          <button onclick="mobBatchPass()" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:#38bdf8;color:#fff;display:flex;align-items:center;justify-content:center;gap:5px"><i class="ti ti-checks"></i> Duyệt tất cả / 批量通過</button>
+          <button onclick="mobLoadPending()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
         </div>
         <div id="mob-apv-list"></div>
       </div>
@@ -841,7 +839,7 @@ tr:hover td{background:#f8fafc}
     <div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--sf);border-top:1px solid var(--bd);z-index:100">
       <button id="mob-tab-report" onclick="mobPage('mob-pg-report')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-text" style="font-size:20px;color:var(--navy)"></i><span style="font-size:10px;color:var(--navy);font-weight:600">Báo công / 報工</span></button>
       <button id="mob-tab-hist" onclick="mobPage('mob-pg-hist')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-history" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">Lịch sử / 記錄</span></button>
-      <button id="mob-tab-apv" onclick="mobPage('mob-pg-apv')" style="display:none;position:relative;flex:1;padding:9px 4px 7px;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-check-circle" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">Duyệt / 審批</span><div id="mob-apv-badge" style="display:none;position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px">0</div></button>
+      <button id="mob-tab-apv" onclick="mobPage('mob-pg-apv')" style="display:none;position:relative;flex:1;padding:9px 4px 7px;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-check" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">Duyệt / 審批</span><div id="mob-apv-badge" style="display:none;position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px">0</div></button>
     </div>
   </div>
   <div id="mob-rej-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;align-items:flex-end;justify-content:center">
