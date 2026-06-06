@@ -35,6 +35,10 @@ function uNav(){
   const nvPerm = g('nv-permissions');
   if(nvPerm) nvPerm.className = 'ni'+(isA?'':' locked');
 
+  // 幣別切換：只有 admin 顯示
+  const cgEl = document.querySelector('.cg');
+  if(cgEl) cgEl.style.display = isA ? '' : 'none';
+
   // 所有可控制功能
   const allFeatures = ['attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog','summary','detail','import','backup'];
 
