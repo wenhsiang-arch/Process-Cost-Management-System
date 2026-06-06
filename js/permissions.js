@@ -22,15 +22,22 @@ const PERM_LABELS = {
   progress:'訂單進度 / Tiến độ đơn hàng',
   approval:'報工審批 / Duyệt báo công',
   replog:'報工紀錄 / Lịch sử báo công',
-  accounts:'帳號管理 / Quản lý tài khoản',
-  export:'匯出報表 / Xuất báo cáo',
-  history:'匯入記錄 / Lịch sử nhập',
-  costlog:'成本變動記錄 / Lịch sử chi phí',
   summary:'款號總表 / Tổng hợp mã hàng',
   detail:'工序明細表 / Bảng chi tiết',
   import:'匯入資料 / Nhập dữ liệu',
-  backup:'備份匯出 / Xuất dự phòng'
+  backup:'備份匯出 / Xuất dự phòng',
+  export:'匯出報表 / Xuất báo cáo',
+  history:'匯入記錄 / Lịch sử nhập',
+  costlog:'成本變動記錄 / Lịch sử chi phí',
+  accounts:'帳號管理 / Quản lý tài khoản'
 };
+
+const PERM_GROUPS = [
+  { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
+  { label:'訂單管理 / Đơn hàng', keys:['orders','progress','approval','replog'] },
+  { label:'工序表 / Công đoạn', keys:['summary','detail','import','backup'] },
+  { label:'管理 / Quản lý', keys:['export','history','costlog','accounts'] }
+];
 
 // 當前權限設定（登入後從 Firebase 載入，載入前用預設值）
 window.permissionSettings = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
@@ -68,7 +75,6 @@ async function savePermissions(){
 // ===== 渲染權限管理頁面 =====
 function renderPermissions(){
   const wrap = g('perm-table-wrap'); if(!wrap) return;
-  const keys = Object.keys(PERM_LABELS);
   const roles = ['manager','clerk'];
   const roleLabels = { manager:'課長 / Quản lý', clerk:'文員 / Nhân viên văn phòng' };
 
@@ -80,18 +86,21 @@ function renderPermissions(){
   });
   html += '</tr></thead><tbody>';
 
-  keys.forEach((key,i)=>{
-    const bg = i%2===0 ? '' : 'background:#f8fafc';
-    html += `<tr style="${bg}">`;
-    html += `<td style="padding:10px;border-bottom:1px solid var(--bd)">${PERM_LABELS[key]}</td>`;
-    roles.forEach(r=>{
-      const checked = (window.permissionSettings[r]&&window.permissionSettings[r][key]) ? 'checked' : '';
-      html += `<td style="padding:10px;text-align:center;border-bottom:1px solid var(--bd)">
-        <input type="checkbox" id="perm-${r}-${key}" ${checked}
-          style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
-      </td>`;
+  PERM_GROUPS.forEach(group=>{
+    html += `<tr><td colspan="3" style="padding:8px 10px;background:var(--navy);color:rgba(255,255,255,.8);font-size:11px;font-weight:500;letter-spacing:.05em">${group.label}</td></tr>`;
+    group.keys.forEach((key,i)=>{
+      const bg = i%2===0 ? '' : 'background:#f8fafc';
+      html += `<tr style="${bg}">`;
+      html += `<td style="padding:10px 10px 10px 20px;border-bottom:1px solid var(--bd)">${PERM_LABELS[key]}</td>`;
+      roles.forEach(r=>{
+        const checked = (window.permissionSettings[r]&&window.permissionSettings[r][key]) ? 'checked' : '';
+        html += `<td style="padding:10px;text-align:center;border-bottom:1px solid var(--bd)">
+          <input type="checkbox" id="perm-${r}-${key}" ${checked}
+            style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+        </td>`;
+      });
+      html += '</tr>';
     });
-    html += '</tr>';
   });
 
   html += '</tbody></table>';
