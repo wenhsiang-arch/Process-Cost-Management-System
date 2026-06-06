@@ -103,7 +103,7 @@ window._collection = (colName)     => collection(db, colName);
 window._query      = (...args)     => query(...args);
 window._where      = (...args)     => where(...args);
 window._getDoc     = (ref)         => getDoc(ref);
-window._setDoc     = (ref,data)    => setDoc(ref, data);
+window._setDoc     = (ref,data,opts) => setDoc(ref, data, opts||{});
 window._increment  = (n)           => increment(n);
 window._runTransaction = (fn)      => runTransaction(db, fn);
 window._docRef     = (colName, id) => doc(db, colName, id);
