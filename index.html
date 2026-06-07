@@ -184,6 +184,7 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
     <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
     <div class="ni locked" id="nv-replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><div class="nl"><span class="nvi">Lịch sử báo công</span><span class="nzh">報工紀錄</span></div></div>
+    <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây CĐ</span><span class="nzh">工序秒數同步</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
     <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết</span><span class="nzh">工序明細表</span></div></div>
@@ -216,6 +217,60 @@ tr:hover td{background:#f8fafc}
     <div class="idle-bar"><div class="idle-prog" id="idleprog" style="width:100%"></div></div>
 
     <div class="ct">
+
+      <!-- 工序秒數同步 -->
+      <div class="pg" id="pg-sync">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-refresh"></i>Đồng bộ giây công đoạn / 工序秒數同步工具</div>
+          <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#92400e;line-height:1.8">
+            <b>⚠️ Lưu ý / 注意</b><br>
+            · Chỉ cập nhật đơn hàng đã chọn, không ảnh hưởng đơn hàng khác / 只更新所選訂單，不影響其他訂單<br>
+            · Cập nhật giây hiện trường (workStdSec 現場標準秒數) và SL/giờ (slPerHour 標準產量/時), không thay đổi giây báo giá (quoteSnapshotSec 接單快照秒數) / 接單快照秒數永遠不變，成本報表不受影響<br>
+            · Tất cả báo công đã nộp của đơn hàng này cũng sẽ được cập nhật SL/giờ / 該訂單所有狀態報工記錄的標準產量/時也會同步更新<br>
+            · Ô để trống sẽ không cập nhật / 空白欄位不會更新，只有填入新秒數的款號才會被同步
+          </div>
+          <div class="fg cols2" style="margin-bottom:14px">
+            <div class="fgrp">
+              <label>Số đơn hàng <span class="lvi">訂單號碼</span></label>
+              <select id="sync-order" onchange="syncLoadProcs()">
+                <option value="">-- Chọn đơn hàng / 選擇訂單 --</option>
+              </select>
+            </div>
+            <div class="fgrp">
+              <label>Số công đoạn <span class="lvi">工序號</span></label>
+              <select id="sync-proc" onchange="syncLoadTable()">
+                <option value="">-- Chọn công đoạn / 選擇工序 --</option>
+              </select>
+            </div>
+          </div>
+          <div id="sync-table-wrap" style="display:none">
+            <div class="ct-title" style="margin-bottom:10px"><i class="ti ti-table"></i>Danh sách mã hàng / 款號列表</div>
+            <div style="overflow-x:auto">
+              <table style="width:100%;border-collapse:collapse;font-size:13px">
+                <thead>
+                  <tr style="background:var(--bg)">
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Mã hàng<br><span style="font-weight:400">款號</span></th>
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Màu sắc<br><span style="font-weight:400">顏色</span></th>
+                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Kích thước<br><span style="font-weight:400">尺寸</span></th>
+                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Giây hiện tại<br><span style="font-weight:400">現有秒數</span></th>
+                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">SL/giờ hiện tại<br><span style="font-weight:400">現有產量/時</span></th>
+                    <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Nhập giây mới<br><span style="font-weight:400">輸入新秒數</span></th>
+                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">SL/giờ mới<br><span style="font-weight:400">預覽新產量/時</span></th>
+                  </tr>
+                </thead>
+                <tbody id="sync-tb"></tbody>
+              </table>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
+              <div id="sync-count" style="font-size:12px;color:var(--mu)">尚未輸入新秒數 / Chưa nhập giây mới</div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" onclick="syncClear()"><i class="ti ti-x"></i>Xóa / 清除</button>
+                <button class="btn bp" onclick="syncConfirm()"><i class="ti ti-refresh"></i>Xác nhận đồng bộ / 確認同步</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 款號總成本 -->
       <div class="pg" id="pg-summary">
@@ -885,6 +940,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/data.js"></script>
 <script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
+<script src="js/sync.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/attendance.js"></script>

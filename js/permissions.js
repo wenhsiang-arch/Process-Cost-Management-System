@@ -19,6 +19,7 @@ const PERM_LABELS = {
   stats:'員工產量統計 / Thống kê sản lượng',
   employees:'員工管理 / Quản lý nhân viên',
   orders:'匯入訂單 / Nhập đơn hàng',
+  sync:'工序秒數同步 / Đồng bộ giây công đoạn',
   progress:'訂單進度 / Tiến độ đơn hàng',
   approval:'報工審批 / Duyệt báo công',
   replog:'報工紀錄 / Lịch sử báo công',
@@ -34,7 +35,7 @@ const PERM_LABELS = {
 
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
-  { label:'訂單管理 / Đơn hàng', keys:['orders','progress','approval','replog'] },
+  { label:'訂單管理 / Đơn hàng', keys:['orders','progress','approval','replog','sync'] },
   { label:'工序表 / Công đoạn', keys:['summary','detail','import','history','backup'] },
   { label:'管理 / Quản lý', keys:['export','costlog','accounts'] }
 ];
