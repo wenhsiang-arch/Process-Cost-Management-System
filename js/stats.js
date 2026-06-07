@@ -107,7 +107,7 @@ async function renderStats(){
     emps.forEach(e=>{
       const att=attMap[e.empId];
       const capHours=e.reports.reduce((s,r)=>{
-        const slph=r.slPerHour||(r.processSec?Math.round(3600/r.processSec):0);
+        const slph=r.slPerHour||(r.processSec?Math.round((window.S?.ws||3000)/r.processSec):0);
         return s+(slph>0?(r.qty||0)/slph:0);
       },0);
       const workHours=att?att.totalHours:null;
@@ -139,11 +139,12 @@ async function renderStats(){
             <th style="padding:6px 10px;font-size:11px;text-align:left">Số CĐ<br><span style="color:var(--mu);font-weight:400">工序號</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:left">Công đoạn<br><span style="color:var(--mu);font-weight:400">工序</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:right">SL hoàn thành<br><span style="color:var(--mu);font-weight:400">完成數量</span></th>
+            <th style="padding:6px 10px;font-size:11px;text-align:right">Giây CĐ<br><span style="color:var(--mu);font-weight:400">工序秒數</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:right">SL chuẩn/giờ<br><span style="color:var(--mu);font-weight:400">標準產量/時</span></th>
             <th style="padding:6px 10px;font-size:11px;text-align:right">Giờ năng suất<br><span style="color:var(--mu);font-weight:400">產能時數</span></th>
           </tr></thead>
           <tbody>${e.reports.length?e.reports.map(r=>{
-            const slph=r.slPerHour||(r.processSec?Math.round(3600/r.processSec):0);
+            const slph=r.slPerHour||(r.processSec?Math.round((window.S?.ws||3000)/r.processSec):0);
             const gh=slph>0?((r.qty||0)/slph).toFixed(2):'-';
             return`<tr style="border-top:1px solid var(--bd)">
               <td style="padding:6px 10px;font-size:12px">${r.workDate||fmtVN(r.createdAt)}</td>
@@ -152,6 +153,7 @@ async function renderStats(){
               <td style="padding:6px 10px;font-size:12px">${r.processNo||'-'}</td>
               <td style="padding:6px 10px;font-size:12px">${r.processVi||r.processZh||'-'}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right"><b>${(r.qty||0).toLocaleString()}</b></td>
+              <td style="padding:6px 10px;font-size:12px;text-align:right">${slph>0?Math.round((window.S?.ws||3000)/slph):'-'}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right">${slph}</td>
               <td style="padding:6px 10px;font-size:12px;text-align:right">${gh}</td>
             </tr>`;
