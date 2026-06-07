@@ -64,25 +64,53 @@ async function renderStats(){
       attMap[a.empId].totalHours+=(a.totalHours||0);
     });
 
+    // 建立員工對照表（同時支援 Firebase id 和工號查詢）
+    const empLookup={};
+    (window.allEmployees||[]).forEach(e=>{
+      if(e.id) empLookup[e.id]=e;
+      if(e.user) empLookup[e.user]=e;
+    });
+    (window.accs||[]).filter(a=>a.role==='leader').forEach(a=>{
+      if(!empLookup[a.user]) empLookup[a.user]={id:a.user,user:a.user,name:a.name||a.user,dept:a.dept||'',role:'leader'};
+    });
+
     // 以 empId 為 key 整合報工
     const empMap={};
     reports.forEach(r=>{
-      if(!empMap[r.empId]) empMap[r.empId]={empId:r.empId,empName:r.empName||'',empUser:r.empId,empDept:r.empDept||'',reports:[]};
+      if(!empMap[r.empId]){
+        const found=empLookup[r.empId]||{};
+        empMap[r.empId]={empId:r.empId,empName:found.name||r.empName||'',empUser:found.user||r.empId,empDept:found.dept||r.empDept||'',empRole:found.role||'user',reports:[]};
+      }
       empMap[r.empId].reports.push(r);
     });
 
     // 決定員工清單
     let emps=[];
     if(scope==='all'){
+      const seen=new Set();
       (window.allEmployees||[]).forEach(e=>{
-        if(!empMap[e.id]) empMap[e.id]={empId:e.id,empName:e.name||'',empUser:e.user||'',empDept:e.dept||'',reports:[]};
-        else{ empMap[e.id].empUser=e.user||''; }
-        emps.push(empMap[e.id]);
+        const seenKey=e.id||e.user;
+        if(seen.has(seenKey)||seen.has(e.user)) return;
+        seen.add(seenKey);
+        if(e.user) seen.add(e.user);
+        if(!empMap[e.id]&&!empMap[e.user]){
+          empMap[e.id]={empId:e.id,empName:e.name||'',empUser:e.user||'',empDept:e.dept||'',empRole:e.role||'user',reports:[]};
+        }
+        const key=empMap[e.id]?e.id:e.user;
+        empMap[key].empUser=e.user||'';
+        empMap[key].empRole=e.role||'user';
+        emps.push(empMap[key]);
+      });
+      (window.accs||[]).filter(a=>a.role==='leader').forEach(a=>{
+        if(empMap[a.user]&&!seen.has(a.user)){
+          seen.add(a.user);
+          emps.push(empMap[a.user]);
+        }
       });
     } else {
       emps=Object.values(empMap).map(e=>{
-        const found=(window.allEmployees||[]).find(x=>x.id===e.empId);
-        if(found){ e.empUser=found.user||e.empId; e.empName=found.name||e.empName; }
+        const found=empLookup[e.empId];
+        if(found){ e.empUser=found.user||e.empId; e.empName=found.name||e.empName; e.empRole=found.role||e.empRole; }
         return e;
       });
     }
@@ -100,7 +128,7 @@ async function renderStats(){
 
     tb.innerHTML='';
     if(!emps.length){
-      tb.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--hi)">無資料 / Không có dữ liệu</td></tr>';
+      tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--hi)">無資料 / Không có dữ liệu</td></tr>';
       return;
     }
 
@@ -122,6 +150,7 @@ async function renderStats(){
         <td>${e.empUser||e.empId}</td>
         <td><b>${e.empName||'-'}</b></td>
         <td>${e.empDept?(e.empDept+' / '+(DEPTS[e.empDept]||'')):'-'}</td>
+        <td><span class="tg ${e.empRole==='leader'?'tb2':'ta'}">${ROLE_LABEL[e.empRole]||'員工'}</span></td>
         <td>${workHours!=null?workHours.toFixed(1)+' h':'-'}</td>
         <td>${hasRep?capHours.toFixed(2)+' h':'0'}</td>
         <td style="font-weight:600;color:${effColor}">${effStr}</td>`;
@@ -130,7 +159,7 @@ async function renderStats(){
       // 展開明細列
       const detTr=document.createElement('tr');
       detTr.style.display='none';
-      detTr.innerHTML=`<td colspan="6" style="padding:0">
+      detTr.innerHTML=`<td colspan="7" style="padding:0">
         <table style="width:100%;border-collapse:collapse;background:var(--bg)">
           <thead><tr style="background:var(--sf)">
             <th style="padding:6px 10px;font-size:11px;text-align:left">Ngày<br><span style="color:var(--mu);font-weight:400">日期</span></th>
