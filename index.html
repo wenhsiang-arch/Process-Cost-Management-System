@@ -587,8 +587,8 @@ tr:hover td{background:#f8fafc}
               <th style="width:32px"></th>
               <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號/工號</span></th>
               <th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th>
-              <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
               <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">職稱</span></th>
+              <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
               <th>Giờ làm việc<br><span style="font-size:10px;color:var(--mu);font-weight:400">上班時數</span></th>
               <th>Giờ năng suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">產能時數</span></th>
               <th>Hiệu suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">效率</span></th>
@@ -638,6 +638,7 @@ tr:hover td{background:#f8fafc}
             <thead><tr>
               <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號/工號</span></th>
               <th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th>
+              <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">職稱</span></th>
               <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
               <th>Ca thường<br><span style="font-size:10px;color:var(--mu);font-weight:400">正常班(時)</span></th>
               <th>Tăng ca<br><span style="font-size:10px;color:var(--mu);font-weight:400">加班(時)</span></th>
@@ -823,8 +824,8 @@ tr:hover td{background:#f8fafc}
       <div class="fgrp"><label>Mật khẩu / 密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw('emp-pass',this)"></i></div></div>
       <div class="fgrp"><label>Vai trò / 角色</label>
         <select id="emp-role">
-          <option value="user">員工</option>
-          <option value="leader">班長</option>
+          <option value="user">Nhân viên / 員工</option>
+          <option value="leader">Quản lý bộ phận / 部門管理</option>
         </select>
       </div>
     </div>

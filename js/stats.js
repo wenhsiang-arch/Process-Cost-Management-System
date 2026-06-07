@@ -70,9 +70,6 @@ async function renderStats(){
       if(e.id) empLookup[e.id]=e;
       if(e.user) empLookup[e.user]=e;
     });
-    (window.accs||[]).filter(a=>a.role==='leader').forEach(a=>{
-      if(!empLookup[a.user]) empLookup[a.user]={id:a.user,user:a.user,name:a.name||a.user,dept:a.dept||'',role:'leader'};
-    });
 
     // 以 empId 為 key 整合報工
     const empMap={};
@@ -100,12 +97,6 @@ async function renderStats(){
         empMap[key].empUser=e.user||'';
         empMap[key].empRole=e.role||'user';
         emps.push(empMap[key]);
-      });
-      (window.accs||[]).filter(a=>a.role==='leader').forEach(a=>{
-        if(empMap[a.user]&&!seen.has(a.user)){
-          seen.add(a.user);
-          emps.push(empMap[a.user]);
-        }
       });
     } else {
       emps=Object.values(empMap).map(e=>{

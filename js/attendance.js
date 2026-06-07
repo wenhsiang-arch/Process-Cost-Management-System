@@ -59,6 +59,7 @@ function buildAttendanceTable(){
     tr.innerHTML=`
       <td>${e.user||'-'}</td>
       <td><b>${e.name||'-'}</b></td>
+      <td><span class="tg ${e.role==='leader'?'tb2':'ta'}">${ROLE_LABEL[e.role]||'員工'}</span></td>
       <td>${e.dept?(e.dept+' / '+(DEPTS[e.dept]||'')):'-'}</td>
       <td><input type="number" class="att-reg" min="0" max="24" step="0.5" value="8"
         style="width:68px;padding:5px 7px;border:1px solid var(--bd);border-radius:7px;font-size:13px;text-align:center"></td>
@@ -79,7 +80,7 @@ function buildAttendanceTable(){
     const detTr=document.createElement('tr');
     detTr.id='att-hist-'+e.id;
     detTr.style.display='none';
-    detTr.innerHTML=`<td colspan="7" style="padding:0;background:var(--bg)">
+    detTr.innerHTML=`<td colspan="8" style="padding:0;background:var(--bg)">
       <div style="padding:10px 16px">
         <div id="att-hist-body-${e.id}" style="color:var(--mu);font-size:12px">載入中...</div>
       </div>
