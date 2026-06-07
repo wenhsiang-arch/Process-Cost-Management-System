@@ -70,13 +70,13 @@ async function effCalc(){
     const diffEl=g('eff-diff');
     if(workH>0){
       if(diff<-0.05){
-        diffEl.textContent=diff.toFixed(1)+'%';
+        diffEl.textContent=diff.toFixed(1)+'%（節省）';
         diffEl.style.color='var(--ok)';
       } else if(diff>0.05){
-        diffEl.textContent='+'+diff.toFixed(1)+'%';
+        diffEl.textContent='+'+diff.toFixed(1)+'%（超支）';
         diffEl.style.color='var(--err)';
       } else {
-        diffEl.textContent='0.0%';
+        diffEl.textContent='0.0%（持平）';
         diffEl.style.color='var(--mu)';
       }
     } else {

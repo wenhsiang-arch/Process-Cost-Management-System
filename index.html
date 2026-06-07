@@ -256,14 +256,17 @@ tr:hover td{background:#f8fafc}
               <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Hiệu suất tổng thể<br>整體效率</div>
             </div>
             <div class="mc">
-              <div style="font-size:22px;font-weight:600;color:var(--tx)" id="eff-diff">-</div>
-              <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Chênh lệch so chuẩn<br>差異（基準80%）</div>
+              <div style="font-size:22px;font-weight:600;color:var(--tx)" id="eff-coef">-</div>
+              <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Hệ số chi phí<br>工價係數</div>
             </div>
           </div>
           <div style="background:var(--sf);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
             <div style="font-size:13px;color:var(--mu)">
               基準係數（80%效率）：<b style="color:var(--tx)">125.0%</b>
-              當前工價係數：<b id="eff-coef" style="color:var(--tx)">-</b>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:13px;color:var(--mu)">差異：</span>
+              <span id="eff-diff" style="font-size:13px;font-weight:600">-</span>
             </div>
           </div>
         </div>
