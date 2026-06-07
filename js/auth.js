@@ -40,7 +40,7 @@ function uNav(){
   if(cgEl) cgEl.style.display = isA ? '' : 'none';
 
   // 所有可控制功能
-  const allFeatures = ['attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog','summary','detail','import','backup','sync'];
+  const allFeatures = ['attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog','summary','detail','import','backup','sync','efficiency'];
 
   allFeatures.forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
