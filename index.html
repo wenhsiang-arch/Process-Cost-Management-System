@@ -223,11 +223,17 @@ tr:hover td{background:#f8fafc}
         <div class="card">
           <div class="ct-title"><i class="ti ti-refresh"></i>Đồng bộ giây công đoạn / 工序秒數同步工具</div>
           <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#92400e;line-height:1.8">
-            <b>⚠️ Lưu ý / 注意</b><br>
-            · Chỉ cập nhật đơn hàng đã chọn, không ảnh hưởng đơn hàng khác / 只更新所選訂單，不影響其他訂單<br>
-            · Cập nhật giây hiện trường (workStdSec 現場標準秒數) và SL/giờ (slPerHour 標準產量/時), không thay đổi giây báo giá (quoteSnapshotSec 接單快照秒數) / 接單快照秒數永遠不變，成本報表不受影響<br>
-            · Tất cả báo công đã nộp của đơn hàng này cũng sẽ được cập nhật SL/giờ / 該訂單所有狀態報工記錄的標準產量/時也會同步更新<br>
-            · Ô để trống sẽ không cập nhật / 空白欄位不會更新，只有填入新秒數的款號才會被同步
+            <b>⚠️ Lưu ý</b><br>
+            · Chỉ cập nhật đơn hàng đã chọn, không ảnh hưởng đơn hàng khác<br>
+            · Cập nhật giây hiện trường (workStdSec) và SL/giờ (slPerHour), không thay đổi giây báo giá (quoteSnapshotSec)<br>
+            · Tất cả báo công đã nộp của đơn hàng này cũng sẽ được cập nhật SL/giờ<br>
+            · Ô để trống sẽ không cập nhật<br>
+            <br>
+            <b>⚠️ 注意</b><br>
+            · 只更新所選訂單，不影響其他訂單<br>
+            · 只更新現場標準秒數（workStdSec）與標準產量/時（slPerHour），接單快照秒數（quoteSnapshotSec）永遠不變，成本報表不受影響<br>
+            · 該訂單所有狀態報工記錄的標準產量/時也會同步更新<br>
+            · 空白欄位不會更新，只有填入新秒數的款號才會被同步
           </div>
           <div class="fg cols2" style="margin-bottom:14px">
             <div class="fgrp">
