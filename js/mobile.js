@@ -309,7 +309,7 @@ function mobRenderApv(){
         <div id="mchk-${r.id}" onclick="mobToggleChk('${r.id}')" style="width:20px;height:20px;border-radius:5px;border:1.5px solid var(--bd);cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center"></div>
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600;color:var(--tx)">${r.empName||r.empId} <span style="font-size:11px;color:var(--hi)">· ${DEPTS[r.empDept||'']||r.empDept||''}</span></div>
-          <div style="font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5">${r.orderNo||''} · ${r.code||''}<br>${r.processNo} · ${r.processVi||''}<br>${fmtTimeVN(r.createdAt)}</div>
+          <div style="font-size:11px;color:var(--hi);margin-top:3px;line-height:1.5">${r.orderNo||''} · ${r.code||''}<br>${r.processNo} · ${r.processVi||''}<br>${fmtVN(r.createdAt)} ${(()=>{const d=new Date(r.createdAt);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}())()}</div>
         </div>
         <div style="font-size:15px;font-weight:700;color:var(--navy);white-space:nowrap">${(r.qty||0).toLocaleString()} PCS</div>
       </div>

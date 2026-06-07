@@ -129,6 +129,7 @@ function handleImportFile(input){
 async function confirmImportOrder(){
   const d=window._impData;
   if(!d||!d.matched.length){ alert('請先上傳 Excel'); return; }
+  d.ordId = g('imp-ord-id').value.trim();
   if(window.allOrders.find(o=>o.orderId===d.ordId)){
     alert(`⚠️ Số đơn hàng "${d.ordId}" đã tồn tại! / 訂單編號「${d.ordId}」已存在，請勿重複匯入。`);
     return;
@@ -144,7 +145,9 @@ async function confirmImportOrder(){
       actualShipDateManual:false,
       itemCount:d.matched.length,
       totalQty:d.matched.reduce((a,m)=>a+m.qty,0),
-      createdAt:now, createdBy:window.cu.user
+      createdAt:now, createdBy:window.cu.user,
+      snapshotHr:getH(),
+      snapshotWs:window.S?.ws||3000
     });
     const ordId=ref.id;
     for(const item of d.matched){
@@ -155,6 +158,8 @@ async function confirmImportOrder(){
           zh:item.zh, sz:item.sz, orderQty:item.qty,
           processNo:op.no, processZh:op.zh, processVi:op.vi||'',
           processSec:op.sec||0,
+          quoteSnapshotSec:op.sec||0,
+          workStdSec:op.sec||0,
           slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),
           approvedQty:0, pendingQty:0, createdAt:now
         });
@@ -210,7 +215,7 @@ async function deleteOrder(id,name){
       window._query(window._collection(COL.reports),window._where('orderId','==',id),window._where('status','in',['approved','pending']))
     );
     if(repSnap.docs.length>0){
-      alert(`⚠️ Không thể xóa / 無法刪除！\n\n訂單「${name}」有 ${repSnap.docs.length} 筆報工記錄尚未作廢。\nVui lòng hủy tất cả báo công trước khi xóa đơn hàng.\n請先作廢所有報工記錄再刪除訂單。`);
+      alert(`⚠️ Không thể xóa / 無法刪除！\n\nĐơn hàng「${name}」có ${repSnap.docs.length} báo công chưa hủy / 訂單「${name}」有 ${repSnap.docs.length} 筆報工記錄尚未作廢。\nVui lòng hủy tất cả báo công trước khi xóa đơn hàng.\n請先作廢所有報工記錄再刪除訂單。`);
       return;
     }
     const msg=`Xác nhận xóa đơn hàng「${name}」?\n確定刪除訂單「${name}」？\n\n- Công đoạn / 工序記錄：${procCount} 筆將一併刪除\n\nDữ liệu sẽ không thể khôi phục.\n刪除後無法復原。`;

@@ -44,7 +44,7 @@ async function renderApproval(){
         <td>${r.code||''}</td>
         <td>${r.processNo} ${r.processVi||''}</td>
         <td><b>${(r.qty||0).toLocaleString()}</b></td>
-        <td>${fmtTimeVN(r.createdAt)}</td>
+        <td>${fmtVN(r.createdAt)} ${(()=>{const d=new Date(r.createdAt);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}())()}</td>
         <td><div style="display:flex;gap:4px">
           <button class="btn bsm" style="background:var(--okl);color:var(--ok)" onclick="passOne('${r.id}')"><i class="ti ti-check"></i></button>
           <button class="btn bsm bd2" onclick="rejectOne('${r.id}')"><i class="ti ti-x"></i></button>
