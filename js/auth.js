@@ -172,4 +172,5 @@ function sp(name){
   if(name==='attendance') renderAttendance();
   if(name==='replog') renderReplog();
   if(name==='sync') syncInit();
+  if(name==='efficiency') effInit();
 }

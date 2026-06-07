@@ -4,13 +4,15 @@ const DEFAULT_PERMISSIONS = {
     attendance:true, stats:true, employees:true,
     orders:true, progress:true, approval:true, replog:true,
     accounts:true, export:true, history:true, costlog:true,
-    summary:true, detail:true, import:true, backup:true
+    summary:true, detail:true, import:true, backup:true,
+    efficiency:false
   },
   clerk: {
     attendance:true, stats:true, employees:true,
     orders:true, progress:true, approval:false, replog:true,
     accounts:false, export:true, history:true, costlog:true,
-    summary:true, detail:true, import:true, backup:true
+    summary:true, detail:true, import:true, backup:true,
+    efficiency:false
   }
 };
 
@@ -30,14 +32,15 @@ const PERM_LABELS = {
   export:'匯出報表 / Xuất báo cáo',
   history:'匯入記錄 / Lịch sử nhập',
   costlog:'成本變動記錄 / Lịch sử chi phí',
-  accounts:'帳號管理 / Quản lý tài khoản'
+  accounts:'帳號管理 / Quản lý tài khoản',
+  efficiency:'效率報表 / Báo cáo hiệu suất'
 };
 
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
   { label:'訂單管理 / Đơn hàng', keys:['orders','progress','approval','replog','sync'] },
   { label:'工序表 / Công đoạn', keys:['summary','detail','import','history','backup'] },
-  { label:'管理 / Quản lý', keys:['export','costlog','accounts'] }
+  { label:'管理 / Quản lý', keys:['export','costlog','accounts','efficiency'] }
 ];
 
 // 當前權限設定（登入後從 Firebase 載入，載入前用預設值）

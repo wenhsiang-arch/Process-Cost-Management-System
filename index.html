@@ -197,6 +197,7 @@ tr:hover td{background:#f8fafc}
     <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử chi phí</span><span class="nzh">成本變動記錄</span></div></div>
     <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
     <div class="ni" id="nv-permissions" onclick="sp('permissions')"><i class="ti ti-shield-check"></i><div class="nl"><span class="nvi">Phân quyền</span><span class="nzh">權限管理</span></div></div>
+    <div class="ni locked" id="nv-efficiency" onclick="sp('efficiency')"><i class="ti ti-chart-line"></i><div class="nl"><span class="nvi">Báo cáo hiệu suất</span><span class="nzh">效率報表</span></div></div>
     <div class="sb-ft"><div class="sb-ft-t">v8.0</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
 
@@ -217,6 +218,77 @@ tr:hover td{background:#f8fafc}
     <div class="idle-bar"><div class="idle-prog" id="idleprog" style="width:100%"></div></div>
 
     <div class="ct">
+
+      <!-- 效率報表 -->
+      <div class="pg" id="pg-efficiency">
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-chart-line"></i>Báo cáo hiệu suất / 效率報表</div>
+          <div class="fg cols2" style="margin-bottom:14px">
+            <div class="fgrp">
+              <label>Khoảng thời gian <span class="lvi">日期區間</span></label>
+              <select id="eff-range" onchange="effRangeChange()">
+                <option value="today">Hôm nay / 今日</option>
+                <option value="week">Tuần này / 本週</option>
+                <option value="month" selected>Tháng này / 本月</option>
+                <option value="custom">Tùy chỉnh / 自訂</option>
+              </select>
+            </div>
+            <div class="fgrp" id="eff-custom-wrap" style="display:none">
+              <label>Từ ngày <span class="lvi">起始日期</span></label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input type="date" id="eff-from" onchange="effCustomCheck()">
+                <span style="font-size:13px;color:var(--mu)">至</span>
+                <input type="date" id="eff-to" onchange="effCustomCheck()">
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
+            <div class="stat-card">
+              <div class="stat-val" id="eff-work-h">-</div>
+              <div class="stat-label">Tổng giờ làm việc<br><span>總上班工時</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="eff-prod-h">-</div>
+              <div class="stat-label">Tổng giờ năng suất<br><span>總產能時數</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="eff-pct">-</div>
+              <div class="stat-label">Hiệu suất tổng thể<br><span>整體效率</span></div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-val" id="eff-diff">-</div>
+              <div class="stat-label">Chênh lệch so chuẩn<br><span>差異（基準80%）</span></div>
+            </div>
+          </div>
+          <div style="background:var(--sf);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="font-size:13px;color:var(--mu)">
+              基準係數（80%效率）：<b style="color:var(--tx)">125.0%</b>
+              當前工價係數：<b id="eff-coef" style="color:var(--tx)">-</b>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div class="ct-title" style="margin-bottom:0"><i class="ti ti-history"></i>Lịch sử / 歷史記錄</div>
+            <button class="btn bp" onclick="effSaveLog()"><i class="ti ti-bookmark"></i>Lưu lịch sử / 建立記錄</button>
+          </div>
+          <div class="to">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead><tr style="background:var(--sf)">
+                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Khoảng thời gian<br><span style="font-weight:400">日期區間</span></th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Giờ làm việc<br><span style="font-weight:400">上班工時</span></th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Giờ năng suất<br><span style="font-weight:400">產能時數</span></th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Hiệu suất<br><span style="font-weight:400">整體效率</span></th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Hệ số chi phí<br><span style="font-weight:400">工價係數</span></th>
+                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Chuẩn<br><span style="font-weight:400">基準係數</span></th>
+                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Chênh lệch<br><span style="font-weight:400">差異</span></th>
+                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Thao tác<br><span style="font-weight:400">操作</span></th>
+              </tr></thead>
+              <tbody id="eff-log-tb"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--mu);font-size:13px">尚無記錄 / Chưa có lịch sử</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       <!-- 工序秒數同步 -->
       <div class="pg" id="pg-sync">
@@ -949,6 +1021,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>
+<script src="js/efficiency.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/attendance.js"></script>
