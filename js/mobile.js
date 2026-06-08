@@ -406,4 +406,5 @@ async function mobDoReject(){
   else mobToast('✅ 退回成功');
   mG('mob-rej-modal').style.display='none';
   await mobLoadPending();
+  await mobLoadOrders();
 }
