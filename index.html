@@ -824,14 +824,6 @@ tr:hover td{background:#f8fafc}
     <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>新增</button><button class="btn" onclick="cm('m-nacc')">取消</button></div>
   </div></div>
 
-  <div class="mb" id="m-setpass"><div class="md">
-    <div class="mt2">Đặt mật khẩu / 設定密碼 <button class="btn bsm" onclick="closeSetPass()"><i class="ti ti-x"></i></button></div>
-    <p style="font-size:13px;color:var(--mu);margin-bottom:14px">Vui lòng đặt mật khẩu cho tài khoản của bạn.<br>請為您的帳號設定密碼。</p>
-    <div class="fgrp" style="margin-bottom:12px"><label>Mật khẩu mới / 新密碼</label><div class="pww"><input type="password" id="sp-p1" placeholder="請輸入新密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p1',this)"></i></div></div>
-    <div class="fgrp" style="margin-bottom:18px"><label>Xác nhận mật khẩu / 確認密碼</label><div class="pww"><input type="password" id="sp-p2" placeholder="請再次輸入密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p2',this)"></i></div></div>
-    <div class="br"><button class="btn bp" onclick="saveSetPass()"><i class="ti ti-check"></i>Xác nhận / 確認</button></div>
-  </div></div>
-
   <div class="mb" id="m-eacc"><div class="md">
     <div class="mt2">修改帳號 <button class="btn bsm" onclick="cm('m-eacc')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="ea-orig">
@@ -1055,5 +1047,12 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js');
 }
 </script>
+  <div class="mb" id="m-setpass"><div class="md">
+    <div class="mt2">Đặt mật khẩu / 設定密碼 <button class="btn bsm" onclick="closeSetPass()"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:13px;color:var(--mu);margin-bottom:14px">Vui lòng đặt mật khẩu cho tài khoản của bạn.<br>請為您的帳號設定密碼。</p>
+    <div class="fgrp" style="margin-bottom:12px"><label>Mật khẩu mới / 新密碼</label><div class="pww"><input type="password" id="sp-p1" placeholder="請輸入新密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p1',this)"></i></div></div>
+    <div class="fgrp" style="margin-bottom:18px"><label>Xác nhận mật khẩu / 確認密碼</label><div class="pww"><input type="password" id="sp-p2" placeholder="請再次輸入密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p2',this)"></i></div></div>
+    <div class="br"><button class="btn bp" onclick="saveSetPass()"><i class="ti ti-check"></i>Xác nhận / 確認</button></div>
+  </div></div>
 </body>
 </html>

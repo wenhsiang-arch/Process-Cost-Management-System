@@ -118,7 +118,7 @@ function doLogin(){
   // 員工帳號（手機版）
   const emp = window.allEmployees.find(x=>x.user===u && (x.pass===p || !x.pass));
   if(emp){ window.cu=emp;
-    if(!emp.pass){ g('ls').style.display='none'; g('ma').classList.remove('hidden'); om('m-setpass'); return; }
+    if(!emp.pass){ om('m-setpass'); return; }
     g('ls').style.display='none'; g('ma').classList.remove('hidden');
     startMobile(emp); return; }
 
