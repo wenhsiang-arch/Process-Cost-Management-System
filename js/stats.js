@@ -213,7 +213,7 @@ function renderEmployees(){
 
 function openAddEmployee(){
   g('emp-edit-id').value=''; g('emp-name').value=''; g('emp-user').value='';
-  g('emp-pass').value=''; g('emp-dept').value=''; g('emp-role').value='user';
+  g('emp-dept').value=''; g('emp-role').value='user';
   g('emp-modal-title').textContent='新增員工';
   om('m-employee');
 }
@@ -221,7 +221,7 @@ function openAddEmployee(){
 function editEmployee(id){
   const e=window.allEmployees.find(x=>x.id===id); if(!e) return;
   g('emp-edit-id').value=id; g('emp-name').value=e.name||'';
-  g('emp-user').value=e.user; g('emp-pass').value='';
+  g('emp-user').value=e.user;
   g('emp-dept').value=e.dept||''; g('emp-role').value=e.role||'user';
   g('emp-modal-title').textContent='編輯員工';
   om('m-employee');
