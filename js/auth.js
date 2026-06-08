@@ -77,10 +77,10 @@ function resetIdle(){ idleT=IDLE; }
 // ===== 登入 =====
 function doLogin(){
   const u=g('lu').value.trim(), p=g('lp').value;
-  if(!u||!p){ g('lerr').style.display='flex'; return; }
+  if(!u){ g('lerr').style.display='flex'; return; }
 
   // 桌機帳號
-  const a = window.accs.find(x=>x.user===u && x.pass===p);
+  const a = window.accs.find(x=>x.user===u && (x.pass===p || !x.pass));
   if(a){
     window.cu = a;
     if(DESK_ROLES.includes(a.role)){
@@ -116,7 +116,7 @@ function doLogin(){
   }
 
   // 員工帳號（手機版）
-  const emp = window.allEmployees.find(x=>x.user===u && x.pass===p);
+  const emp = window.allEmployees.find(x=>x.user===u && (x.pass===p || !x.pass));
   if(emp){ window.cu=emp; g('ls').style.display='none'; g('ma').classList.remove('hidden');
     if(!emp.pass){ g('ls').style.display='flex'; om('m-setpass'); return; }
     startMobile(emp); return; }
