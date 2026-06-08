@@ -373,7 +373,6 @@ async function mobDoPass(ids){
 async function mobDoReject(){
   const ids=JSON.parse(mG('mob-rej-ids')?.value||'[]');
   const reason=mG('mob-rej-reason')?.value?.trim()||'';
-  if(!reason){ mobToast('⚠️ 請填寫退回原因'); return; }
   let errors=[];
   for(const id of ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
@@ -404,5 +403,7 @@ async function mobDoReject(){
     }
   }
   if(errors.length) mobToast('❌ '+errors.length+'筆退回失敗：'+errors.join('、'));
+  else mobToast('✅ 退回成功');
+  mG('mob-rej-modal').style.display='none';
   await mobLoadPending();
 }
