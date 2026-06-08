@@ -235,7 +235,6 @@ async function saveEmployee(){
   const dept=g('emp-dept').value;
   const role=g('emp-role').value;
   if(!name||!user){alert('請填寫姓名和帳號');return;}
-  if(!id&&!pass){alert('新增員工請填寫密碼');return;}
   if(!id&&window.allEmployees.find(e=>e.user===user)){alert('帳號已存在');return;}
   const data={name,user,dept,role,updatedAt:Date.now()};
   if(pass) data.pass=pass;

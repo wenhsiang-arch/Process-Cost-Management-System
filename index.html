@@ -820,9 +820,16 @@ tr:hover td{background:#f8fafc}
   <div class="mb" id="m-nacc"><div class="md">
     <div class="mt2">新增帳號 <button class="btn bsm" onclick="cm('m-nacc')"><i class="ti ti-x"></i></button></div>
     <div class="fgrp" style="margin-bottom:12px"><label>帳號</label><input type="text" id="ac-u"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>密碼</label><div class="pww"><input type="password" id="ac-p"><i class="ti ti-eye pwe" onclick="tpw('ac-p',this)"></i></div></div>
     <div class="fgrp" style="margin-bottom:18px"><label>權限</label><select id="ac-r"><option value="admin">管理員</option><option value="manager">課長</option><option value="clerk">文員</option></select></div>
     <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>新增</button><button class="btn" onclick="cm('m-nacc')">取消</button></div>
+  </div></div>
+
+  <div class="mb" id="m-setpass"><div class="md">
+    <div class="mt2">Đặt mật khẩu / 設定密碼 <button class="btn bsm" onclick="closeSetPass()"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:13px;color:var(--mu);margin-bottom:14px">Vui lòng đặt mật khẩu cho tài khoản của bạn.<br>請為您的帳號設定密碼。</p>
+    <div class="fgrp" style="margin-bottom:12px"><label>Mật khẩu mới / 新密碼</label><div class="pww"><input type="password" id="sp-p1" placeholder="請輸入新密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p1',this)"></i></div></div>
+    <div class="fgrp" style="margin-bottom:18px"><label>Xác nhận mật khẩu / 確認密碼</label><div class="pww"><input type="password" id="sp-p2" placeholder="請再次輸入密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p2',this)"></i></div></div>
+    <div class="br"><button class="btn bp" onclick="saveSetPass()"><i class="ti ti-check"></i>Xác nhận / 確認</button></div>
   </div></div>
 
   <div class="mb" id="m-eacc"><div class="md">
@@ -896,7 +903,6 @@ tr:hover td{background:#f8fafc}
         </select>
       </div>
       <div class="fgrp"><label>帳號/工號 / Tài khoản・Mã NV <span style="color:var(--err)">*</span></label><input type="text" id="emp-user"></div>
-      <div class="fgrp"><label>Mật khẩu / 密碼 <span style="color:var(--err)">*</span></label><div class="pww"><input type="password" id="emp-pass" placeholder="新增必填，編輯留空不變"><i class="ti ti-eye pwe" onclick="tpw('emp-pass',this)"></i></div></div>
       <div class="fgrp"><label>Vai trò / 角色</label>
         <select id="emp-role">
           <option value="user">Nhân viên / 員工</option>

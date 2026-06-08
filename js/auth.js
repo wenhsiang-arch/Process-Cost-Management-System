@@ -86,6 +86,7 @@ function doLogin(){
     if(DESK_ROLES.includes(a.role)){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
+      if(!a.pass){ setTimeout(()=>om('m-setpass'),300); }
       loadPermissions().then(()=>{
         uNav();
         const perm = window.permissionSettings;
@@ -116,7 +117,9 @@ function doLogin(){
 
   // 員工帳號（手機版）
   const emp = window.allEmployees.find(x=>x.user===u && x.pass===p);
-  if(emp){ window.cu=emp; g('ls').style.display='none'; g('ma').classList.remove('hidden'); startMobile(emp); return; }
+  if(emp){ window.cu=emp; g('ls').style.display='none'; g('ma').classList.remove('hidden');
+    if(!emp.pass){ g('ls').style.display='flex'; om('m-setpass'); return; }
+    startMobile(emp); return; }
 
   g('lerr').style.display='flex';
 }
@@ -173,4 +176,24 @@ function sp(name){
   if(name==='replog') renderReplog();
   if(name==='sync') syncInit();
   if(name==='efficiency') effInit();
+}
+
+function closeSetPass(){ cm('m-setpass'); }
+
+async function saveSetPass(){
+  const p1=g('sp-p1')?.value, p2=g('sp-p2')?.value;
+  if(!p1||p1.length<4){ alert('密碼至少需要4個字元'); return; }
+  if(p1!==p2){ alert('兩次密碼不一致'); return; }
+  try{
+    const cu=window.cu;
+    if(cu.id){
+      await window._updateDoc(window._doc(COL.employees,cu.id),{pass:p1});
+      cu.pass=p1;
+    } else {
+      const acc=window.accs.find(a=>a.user===cu.user);
+      if(acc){ acc.pass=p1; await saveAccsToFB(); }
+    }
+    cm('m-setpass');
+    alert('✅ 密碼設定成功');
+  }catch(e){ alert('設定失敗：'+e.message); }
 }
