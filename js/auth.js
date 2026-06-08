@@ -84,9 +84,9 @@ function doLogin(){
   if(a){
     window.cu = a;
     if(DESK_ROLES.includes(a.role)){
+      if(!a.pass){ om('m-setpass'); return; }
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
-      if(!a.pass){ setTimeout(()=>om('m-setpass'),300); }
       loadPermissions().then(()=>{
         uNav();
         const perm = window.permissionSettings;
@@ -179,7 +179,10 @@ function sp(name){
   if(name==='efficiency') effInit();
 }
 
-function closeSetPass(){ cm('m-setpass'); }
+function closeSetPass(){
+  if(window.cu && !window.cu.pass){ doLogout(); return; }
+  cm('m-setpass');
+}
 
 async function saveSetPass(){
   const p1=g('sp-p1')?.value, p2=g('sp-p2')?.value;
@@ -196,6 +199,15 @@ async function saveSetPass(){
     }
     cm('m-setpass');
     alert('✅ 密碼設定成功');
-    if(cu.id){ startMobile(cu); }
+    if(DESK_ROLES.includes(cu.role)){
+      g('ls').style.display='none'; g('ma').classList.remove('hidden');
+      uNav(); rAll(); rSum(); rAcc(); startIdle();
+      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','orders','progress','approval','replog','accounts','export','history','costlog','summary','detail','import','backup']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
+      setTimeout(()=>fetchRates(),1000); loadOrderData();
+      if(typeof startDeskApvListener==='function') startDeskApvListener();
+    } else {
+      g('ls').style.display='none'; g('ma').classList.remove('hidden');
+      startMobile(cu);
+    }
   }catch(e){ alert('設定失敗：'+e.message); }
 }
