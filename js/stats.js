@@ -231,7 +231,7 @@ async function saveEmployee(){
   const id=g('emp-edit-id').value;
   const name=g('emp-name').value.trim();
   const user=g('emp-user').value.trim();
-  const pass=g('emp-pass').value;
+  const pass='';
   const dept=g('emp-dept').value;
   const role=g('emp-role').value;
   if(!name||!user){alert('請填寫姓名和帳號');return;}
