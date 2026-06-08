@@ -941,7 +941,7 @@ tr:hover td{background:#f8fafc}
     </div>
     <div style="flex:1;overflow-y:auto;padding:10px;padding-bottom:70px">
       <div id="mob-pg-report" style="display:block">
-        <div id="mob-reject-alert" style="display:none;background:#fff8e6;border:1px solid #f59e0b;border-radius:12px;padding:10px 12px;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="mobPage('mob-pg-hist');mobFilterHist('rejected')">
+        <div id="mob-reject-alert" style="display:none;background:#fff8e6;border:1px solid #f59e0b;border-radius:12px;padding:10px 12px;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="mobPage('mob-pg-hist');mobFilterHist('rejected');this.style.display='none';localStorage.setItem('mob_rej_read','1')">
           <i class="ti ti-alert-triangle" style="color:#d97706;font-size:16px"></i>
           <b id="mob-reject-alert-text" style="font-size:12px;color:#92400e"></b>
         </div>
