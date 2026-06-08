@@ -406,5 +406,13 @@ async function mobDoReject(){
   else mobToast('✅ 退回成功');
   mG('mob-rej-modal').style.display='none';
   await mobLoadPending();
-  await mobLoadOrders();
+  const savedProcId=currentProcId;
+  await mobSelectOrder();
+  if(savedProcId){
+    const savedCode=procList.find(x=>x.id===savedProcId)?.code;
+    if(savedCode) mG('mob-sel-code').value=savedCode;
+    mobSelectCode();
+    mG('mob-sel-proc').value=savedProcId;
+    mobSelectProc();
+  }
 }
