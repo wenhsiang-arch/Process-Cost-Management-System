@@ -196,7 +196,6 @@ async function saveSetPass(){
     }
     cm('m-setpass');
     alert('✅ 密碼設定成功');
-    const cu=window.cu;
     if(cu.id){ startMobile(cu); }
   }catch(e){ alert('設定失敗：'+e.message); }
 }
