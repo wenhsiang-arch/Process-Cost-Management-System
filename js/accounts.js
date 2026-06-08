@@ -13,7 +13,7 @@ function rAcc(){
 async function saveAcc(){
   const u=g('ac-u').value.trim(), r=g('ac-r').value;
   if(!u){ alert('請填入帳號'); return; }
-  if(window.accs.find(a=>a.user===u)){ alert('Tài khoản đã tồn tại / 帳號已存在'); return; }
+  if(window.accs.find(a=>a.user===u)||(window.allEmployees&&window.allEmployees.find(e=>e.user===u))){ alert('Tài khoản đã tồn tại / 帳號已存在'); return; }
   window.accs.push({user:u,pass:'',role:r}); cm('m-nacc');
   g('ac-u').value=''; rAcc();
   if(window.saveAccsToFB) await saveAccsToFB();
