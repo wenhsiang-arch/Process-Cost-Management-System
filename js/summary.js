@@ -1,5 +1,6 @@
 // ===== 款號排序 =====
 let _sumSortCol='', _sumSortDir=0;
+const _expandedSummaryCodes=new Set();
 function sumSort(col){
   if(_sumSortCol===col){ _sumSortDir=(_sumSortDir+1)%3; }
   else{ _sumSortCol=col; _sumSortDir=1; }
@@ -27,6 +28,31 @@ function sortIcon(col){
   return _sumSortDir===1?'<i class="ti ti-arrow-up" style="font-size:11px"></i>':'<i class="ti ti-arrow-down" style="font-size:11px"></i>';
 }
 
+function toggleSummaryDetail(code){
+  if(_expandedSummaryCodes.has(code)) _expandedSummaryCodes.delete(code);
+  else _expandedSummaryCodes.add(code);
+  rSum();
+}
+
+function renderSummaryDetail(d){
+  const isA=isAdm();
+  let total=0;
+  const rows=d.ops.map((op,idx)=>{
+    const result=calc(op.sec); total+=result.vnd;
+    return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEop('${d.code}',${idx})"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delOp('${d.code}',${idx})"><i class="ti ti-trash"></i></button></div></td></tr>`;
+  }).join('');
+  return`<div class="summary-detail-wrap">
+    <div class="summary-detail-head">
+      <span class="tg tn">Khách: ${d.client}</span><span class="tg tn">Size: ${d.sz}</span>
+      ${isA?`<span class="tg tg2">USD: ${fU(total)}</span><span class="tg tb2">VND: ${fV(total)}</span><span class="tg ta">TWD: ${fT(total)}</span>`:''}
+    </div>
+    <div class="ts" style="max-height:320px"><table class="summary-detail-table">
+      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
+      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
+    </table></div>
+  </div>`;
+}
+
 // ===== 款號總成本 =====
 function rSum(){
   const q  = (g('s-search')||{}).value||'';
@@ -43,9 +69,17 @@ function rSum(){
   const tb=g('sb2'); tb.innerHTML='';
   pg.forEach((d,i)=>{
     let sv2=0; d.ops.forEach(op=>{ sv2+=calc(op.sec).vnd; });
+    const expanded=_expandedSummaryCodes.has(d.code);
+    const colspan=isA?9:8;
     const r=document.createElement('tr');
-    r.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${d.sz}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(sv2)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oDet('${d.code}')"><i class="ti ti-eye"></i></button><button class="btn bsm bd2" onclick="askDel('${d.code}')"><i class="ti ti-trash"></i></button></div></td>`;
+    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" onclick="toggleSummaryDetail('${d.code}')" title="展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)" onclick="toggleSummaryDetail('${d.code}')">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${d.sz}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(sv2)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oDet('${d.code}')"><i class="ti ti-eye"></i></button><button class="btn bsm bd2" onclick="askDel('${d.code}')"><i class="ti ti-trash"></i></button></div></td>`;
     tb.appendChild(r);
+    if(expanded){
+      const detailRow=document.createElement('tr');
+      detailRow.className='summary-detail-row';
+      detailRow.innerHTML=`<td colspan="${colspan}" class="summary-detail-cell">${renderSummaryDetail(d)}</td>`;
+      tb.appendChild(detailRow);
+    }
   });
   g('m-total').textContent=window.D.length;
   g('m-rows').textContent=tr;
