@@ -136,6 +136,7 @@ async function delOp(code,idx){
 
 // ===== 工序明細表 =====
 function rDet(){
+  if(!g('dh')||!g('db')||!g('dp2')) return;
   const q  = (g('d-search')||{}).value||'';
   const cf = (g('d-client')||{}).value||'';
   const sv = (g('d-sort')||{value:'ca'}).value||'ca';

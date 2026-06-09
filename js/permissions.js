@@ -4,14 +4,14 @@ const DEFAULT_PERMISSIONS = {
     attendance:true, stats:true, employees:true,
     progress:true, approval:true, replog:true,
     accounts:true, export:true, history:true, costlog:true,
-    summary:true, detail:true, backup:true,
+    summary:true, backup:true,
     efficiency:false
   },
   clerk: {
     attendance:true, stats:true, employees:true,
     progress:true, approval:false, replog:true,
     accounts:false, export:true, history:true, costlog:true,
-    summary:true, detail:true, backup:true,
+    summary:true, backup:true,
     efficiency:false
   }
 };
@@ -25,7 +25,6 @@ const PERM_LABELS = {
   approval:'報工審批 / Duyệt báo công',
   replog:'報工紀錄 / Lịch sử báo công',
   summary:'款號總表 / Tổng hợp mã hàng',
-  detail:'工序明細表 / Bảng chi tiết',
   backup:'備份匯出 / Xuất dự phòng',
   export:'匯出報表 / Xuất báo cáo',
   history:'匯入記錄 / Lịch sử nhập',
@@ -37,7 +36,7 @@ const PERM_LABELS = {
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
   { label:'訂單管理 / Đơn hàng', keys:['progress','approval','replog','sync'] },
-  { label:'工序表 / Công đoạn', keys:['summary','detail','history','backup'] },
+  { label:'工序表 / Công đoạn', keys:['summary','history','backup'] },
   { label:'管理 / Quản lý', keys:['export','costlog','accounts','efficiency'] }
 ];
 
@@ -50,6 +49,10 @@ async function loadPermissions(){
     const snap = await window._getDoc(window._doc('system','permissions'));
     if(snap.exists()){
       const data = JSON.parse(snap.data().data);
+      ['manager','clerk'].forEach(role=>{
+        if(data[role]?.detail===true) data[role].summary=true;
+        if(data[role]) delete data[role].detail;
+      });
       window.permissionSettings = data;
     } else {
       window.permissionSettings = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));

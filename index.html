@@ -214,7 +214,6 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây CĐ</span><span class="nzh">工序秒數同步</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
-    <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết</span><span class="nzh">工序明細表</span></div></div>
     <div class="ni" id="nv-history" onclick="sp('history')"><i class="ti ti-history"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
     <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dự phòng</span><span class="nzh">備份匯出</span></div></div>
     <div class="sb-sec">Quản lý / 管理</div>
@@ -380,6 +379,14 @@ tr:hover td{background:#f8fafc}
 
       <!-- 款號總成本 -->
       <div class="pg" id="pg-summary">
+        <div class="detail-import-drop" id="detail-import-drop" onclick="openDetailImport()" ondragover="handleDetailImportDragOver(event)" ondragleave="handleDetailImportDragLeave(event)" ondrop="handleDetailImportDrop(event)">
+          <i class="ti ti-file-spreadsheet"></i>
+          <div>
+            <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
+            <span>支援 .xlsx、.xls，選擇後將開啟匯入確認視窗</span>
+          </div>
+        </div>
+        <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
         <div class="mg">
           <div class="mc"><div class="ml">款號總數</div><div class="mvi">Tổng số mã hàng</div><div class="mv" id="m-total">0</div></div>
           <div class="mc"><div class="ml">工序總筆數</div><div class="mvi">Tổng số công đoạn</div><div class="mv" id="m-rows">0</div></div>
@@ -392,34 +399,6 @@ tr:hover td{background:#f8fafc}
         </div>
         <div class="to"><div class="ts"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
         <div class="pgr" id="sp2"></div>
-      </div>
-
-      <!-- 工序明細 -->
-      <div class="pg" id="pg-detail">
-        <div class="detail-import-drop" id="detail-import-drop" onclick="openDetailImport()" ondragover="handleDetailImportDragOver(event)" ondragleave="handleDetailImportDragLeave(event)" ondrop="handleDetailImportDrop(event)">
-          <i class="ti ti-file-spreadsheet"></i>
-          <div>
-            <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-            <span>支援 .xlsx、.xls，選擇後將開啟匯入確認視窗</span>
-          </div>
-        </div>
-        <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
-        <div class="sr">
-          <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Tìm mã hàng / 搜尋款號..." id="d-search" oninput="window.dPage=1;rDet()"></div>
-          <select id="d-client" onchange="window.dPage=1;rDet()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
-          <select id="d-sort" onchange="window.dPage=1;rDet()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)">
-            <option value="ca">Mã hàng ↑ / 款號↑</option>
-            <option value="cd">Mã hàng ↓ / 款號↓</option>
-            <option value="oa">Mã hàng + Công đoạn ↑</option>
-          </select>
-          <select id="d-pp" onchange="window.dPage=1;rDet()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)">
-            <option value="50">50 dòng/trang</option>
-            <option value="100">100 dòng/trang</option>
-            <option value="200">200 dòng/trang</option>
-          </select>
-        </div>
-        <div class="to"><div class="ts"><table><thead><tr id="dh"></tr></thead><tbody id="db"></tbody></table></div></div>
-        <div class="pgr" id="dp2"></div>
       </div>
 
       <!-- 備份匯出 -->
