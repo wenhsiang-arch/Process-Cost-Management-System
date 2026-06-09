@@ -398,8 +398,8 @@ tr:hover td{background:#f8fafc}
           <select id="s-client" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
 
           <button class="btn bp" onclick="om('m-add')"><i class="ti ti-plus"></i>Thêm mã hàng / 新增款號</button>
-          <button class="btn" onclick="openHistoryModal()"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
-          <button class="btn" onclick="openBackupModal()"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
+          <button class="btn" onclick="rHist();om('m-history')"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
+          <button class="btn" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
         </div>
         <div class="to"><div class="ts summary-table-scroll"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
         <div class="pgr" id="sp2"></div>
