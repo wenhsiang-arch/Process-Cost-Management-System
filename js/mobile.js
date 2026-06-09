@@ -180,6 +180,7 @@ async function mobSubmitReport(){
     await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
       if(!procSnap.exists()) throw new Error('工序不存在');
+      if(qty<=0) throw new Error('報工數量必須大於 0');
       const pd=procSnap.data();
       const realRemain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);
       if(qty>realRemain) throw new Error(`Vui lòng báo tối đa ${realRemain} SP / 剩餘可報 ${realRemain} 件，本次 ${qty} 件超過訂單數量`);
@@ -354,6 +355,7 @@ async function mobDoPass(ids){
         if(!repSnap.exists()) throw new Error('報工不存在');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
+        if(repQty<=0) throw new Error('報工數量必須大於 0');
         if((procSnap.data().pendingQty||0)<repQty) throw new Error('待審數量不足');
         t.update(repRef,{status:'approved',approvedAt:Date.now(),approvedBy:window.cu.user});
         t.update(procRef,{
@@ -393,6 +395,7 @@ async function mobDoReject(){
         if(!repSnap.exists()) throw new Error('報工不存在');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
+        if(repQty<=0) throw new Error('報工數量必須大於 0');
         if((procSnap.data().pendingQty||0)<repQty) throw new Error('待審數量不足');
         t.update(repRef,{status:'rejected',rejectedAt:Date.now(),rejectedBy:window.cu.user,rejectReason:reason});
         t.update(procRef,{pendingQty:window._increment(-repQty)});

@@ -118,6 +118,7 @@ async function passReports(ids){
         if(!repSnap.exists()) throw new Error('報工不存在');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
+        if(repQty<=0) throw new Error('報工數量必須大於 0');
         const curPending=procSnap.data().pendingQty||0;
         if(curPending<repQty) throw new Error('待審數量不足');
         t.update(repRef,{status:'approved',approvedAt:Date.now(),approvedBy:window.cu.user});
@@ -147,6 +148,7 @@ async function doReject(){
         if(!repSnap.exists()) throw new Error('報工不存在');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
+        if(repQty<=0) throw new Error('報工數量必須大於 0');
         const curPending=procSnap.data().pendingQty||0;
         if(curPending<repQty) throw new Error('待審數量不足');
         t.update(repRef,{status:'rejected',rejectedAt:Date.now(),rejectedBy:window.cu.user,rejectReason:reason});
@@ -237,7 +239,7 @@ async function confirmVoid(){
       if(!repSnap.exists()) throw new Error('報工記錄不存在');
       if(repSnap.data().status!=='approved') throw new Error('此報工非已審批狀態');
       const repQty=repSnap.data().qty||0;
-      if(repQty<=0) throw new Error('報工數量異常');
+      if(repQty<=0) throw new Error('報工數量必須大於 0');
       if(!procSnap.exists()) throw new Error('工序不存在');
       if((procSnap.data().approvedQty||0)<repQty) throw new Error('已審批數量不足，無法作廢');
       t.update(repRef,{
@@ -339,7 +341,7 @@ async function confirmManualEntry(){
   const procId=g('me-proc').value;
   const qty=parseInt(g('me-qty').value)||0;
   const reason=g('me-reason').value.trim();
-  if(!empId||!workDate||!procId||!qty||!reason){
+  if(!empId||!workDate||!procId||qty<=0||!reason){
     alert('請填寫所有必填欄位 / Vui lòng điền đầy đủ thông tin');
     return;
   }
@@ -352,6 +354,7 @@ async function confirmManualEntry(){
     await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
       if(!procSnap.exists()) throw new Error('工序不存在');
+      if(qty<=0) throw new Error('補登數量必須大於 0');
       const pd=procSnap.data();
       const remain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);
       if(qty>remain) throw new Error(`剩餘可補登 ${remain} 件，本次 ${qty} 件超過`);
