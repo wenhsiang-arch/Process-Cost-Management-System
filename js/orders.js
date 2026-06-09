@@ -56,7 +56,7 @@ function openImportOrder(){
   g('imp-file').value=''; g('imp-filename').textContent='';
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
   g('imp-skip-msg').style.display='none';
-  window._impData=null; window._pendingImportOrderFile=null;
+  window._impData=null;
   const clientSel=g('imp-ord-client');
   if(clientSel){
     clientSel.innerHTML='<option value="">-- 選擇客戶 --</option>';
@@ -67,42 +67,9 @@ function openImportOrder(){
 }
 
 function closeImportOrder(){
-  window._impData=null; window._pendingImportOrderFile=null;
+  window._impData=null;
   g('imp-file').value='';
   cm('m-import-order');
-}
-
-function handleOrderImportDragOver(event){
-  event.preventDefault();
-  event.dataTransfer.dropEffect='copy';
-  g('order-import-drop').classList.add('dragging');
-}
-
-function handleOrderImportDragLeave(event){
-  event.preventDefault();
-  g('order-import-drop').classList.remove('dragging');
-}
-
-function handleOrderImportDrop(event){
-  event.preventDefault();
-  g('order-import-drop').classList.remove('dragging');
-  const file=event.dataTransfer.files[0];
-  if(!file) return;
-  openImportOrder();
-  if(!/\.(xlsx|xls)$/i.test(file.name)){
-    alert('只支援 .xlsx 或 .xls 檔案');
-    return;
-  }
-  window._pendingImportOrderFile=file;
-  g('imp-filename').textContent=file.name+'（請填寫訂單資料）';
-}
-
-function preparePendingImportOrder(){
-  const file=window._pendingImportOrderFile;
-  if(!file) return;
-  if(!g('imp-ord-id').value.trim()||!g('imp-ord-client')?.value||!g('imp-ord-date').value) return;
-  window._pendingImportOrderFile=null;
-  processImportOrderFile(file);
 }
 
 function handleImportFile(input){
