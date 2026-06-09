@@ -189,7 +189,6 @@ tr:hover td{background:#f8fafc}
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
     <div class="ni" onclick="sp('detail')" id="nv-detail"><i class="ti ti-list-details"></i><div class="nl"><span class="nvi">Bảng chi tiết</span><span class="nzh">工序明細表</span></div></div>
-    <div class="ni" onclick="sp('import')" id="nv-import"><i class="ti ti-upload"></i><div class="nl"><span class="nvi">Nhập dữ liệu</span><span class="nzh">匯入資料</span></div></div>
     <div class="ni" id="nv-history" onclick="sp('history')"><i class="ti ti-history"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
     <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dự phòng</span><span class="nzh">備份匯出</span></div></div>
     <div class="sb-sec">Quản lý / 管理</div>
@@ -384,6 +383,7 @@ tr:hover td{background:#f8fafc}
             <option value="100">100 dòng/trang</option>
             <option value="200">200 dòng/trang</option>
           </select>
+          <button class="btn bp" onclick="openDetailImport()"><i class="ti ti-upload"></i>Nhập dữ liệu Excel / 匯入資料</button>
         </div>
         <div class="to"><div class="ts"><table><thead><tr id="dh"></tr></thead><tbody id="db"></tbody></table></div></div>
         <div class="pgr" id="dp2"></div>
