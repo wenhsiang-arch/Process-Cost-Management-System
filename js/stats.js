@@ -283,22 +283,30 @@ async function openAdminPurgeEmployee(id){
     const active=reports.filter(r=>r.status==='pending'||r.status==='approved');
     if(active.some(r=>(r.qty||0)<=0)) throw new Error('存在數量異常的待審／已審報工，已停止徹底刪除');
     const procMap=new Map();
+    const orphanKeys=new Set();
+    const orphanOrderIds=new Set();
     for(const r of active){
       const key=[r.orderId,r.code,r.processNo].join('|');
-      if(procMap.has(key)) continue;
+      if(procMap.has(key)||orphanKeys.has(key)) continue;
       const snap=await window._getDocs(window._query(
         window._collection(COL.processes),
         window._where('orderId','==',r.orderId),
         window._where('code','==',r.code),
         window._where('processNo','==',r.processNo)
       ));
-      if(snap.docs.length!==1){
-        throw new Error(`報工無法安全回沖：${r.orderNo||r.orderId} / ${r.code} / 工序 ${r.processNo} 找到 ${snap.docs.length} 筆對應工序`);
+      if(snap.docs.length===0){
+        const orderSnap=await window._getDoc(window._doc(COL.orders,r.orderId));
+        if(orderSnap.exists()) throw new Error(`訂單仍存在但找不到工序：${r.orderNo||r.orderId} / ${r.code} / 工序 ${r.processNo}`);
+        orphanKeys.add(key);
+        orphanOrderIds.add(r.orderId);
+        continue;
       }
+      if(snap.docs.length>1) throw new Error(`報工無法安全回沖：${r.orderNo||r.orderId} / ${r.code} / 工序 ${r.processNo} 找到 ${snap.docs.length} 筆對應工序`);
       procMap.set(key,{ref:snap.docs[0].ref,data:snap.docs[0].data(),pending:0,approved:0});
     }
     active.forEach(r=>{
       const proc=procMap.get([r.orderId,r.code,r.processNo].join('|'));
+      if(!proc) return;
       if(r.status==='pending') proc.pending+=(r.qty||0);
       if(r.status==='approved') proc.approved+=(r.qty||0);
     });
@@ -310,9 +318,9 @@ async function openAdminPurgeEmployee(id){
     if(writeCount>490) throw new Error(`相關資料共需 ${writeCount} 次寫入，超過單次安全刪除上限，請分批處理`);
     const counts={pending:0,approved:0,rejected:0,voided:0};
     reports.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
-    const pendingQty=reports.filter(r=>r.status==='pending').reduce((s,r)=>s+(r.qty||0),0);
-    const approvedQty=reports.filter(r=>r.status==='approved').reduce((s,r)=>s+(r.qty||0),0);
-    window._purgeEmployeePlan={emp,reports,attendance:attSnap.docs,procMap};
+    const pendingQty=reports.filter(r=>r.status==='pending'&&!orphanKeys.has([r.orderId,r.code,r.processNo].join('|'))).reduce((s,r)=>s+(r.qty||0),0);
+    const approvedQty=reports.filter(r=>r.status==='approved'&&!orphanKeys.has([r.orderId,r.code,r.processNo].join('|'))).reduce((s,r)=>s+(r.qty||0),0);
+    window._purgeEmployeePlan={emp,reports,attendance:attSnap.docs,procMap,orphanKeys,orphanOrderIds};
     g('purge-emp-id').value=id;
     g('purge-emp-input').value='';
     g('purge-emp-name').textContent=`${emp.user} / ${emp.name||''}`;
@@ -321,6 +329,7 @@ async function openAdminPurgeEmployee(id){
       <div>待審批：${counts.pending} 筆，回沖 <b>${pendingQty}</b> 件</div>
       <div>已審批：${counts.approved} 筆，回沖 <b>${approvedQty}</b> 件</div>
       <div>退回／作廢：${counts.rejected+counts.voided} 筆</div>
+      <div>孤兒報工：<b>${reports.filter(r=>orphanKeys.has([r.orderId,r.code,r.processNo].join('|'))).length}</b> 筆（訂單已不存在，直接刪除）</div>
       <div>考勤：<b>${attSnap.docs.length}</b> 筆</div>`;
     om('m-purge-employee');
   }catch(e){
@@ -342,6 +351,9 @@ async function confirmAdminPurgeEmployee(){
       const procEntries=[...plan.procMap.entries()];
       const procSnaps=[];
       for(const [,p] of procEntries) procSnaps.push(await t.get(p.ref));
+      const orphanOrderSnaps=[];
+      for(const orderId of plan.orphanOrderIds) orphanOrderSnaps.push(await t.get(window._doc(COL.orders,orderId)));
+      if(orphanOrderSnaps.some(s=>s.exists())) throw new Error('孤兒報工的訂單已重新建立，請重新操作');
       const decrements=new Map();
       reportSnaps.forEach((snap,i)=>{
         if(!snap.exists()) throw new Error('部分報工已變更，請重新操作');
@@ -349,6 +361,7 @@ async function confirmAdminPurgeEmployee(){
         if(r.empId!==plan.emp.id) throw new Error('報工員工資料已變更');
         if(r.status!=='pending'&&r.status!=='approved') return;
         const key=[r.orderId,r.code,r.processNo].join('|');
+        if(plan.orphanKeys.has(key)) return;
         if(!plan.procMap.has(key)) throw new Error('報工狀態已變更，請重新操作');
         if(!decrements.has(key)) decrements.set(key,{pending:0,approved:0});
         const d=decrements.get(key);
