@@ -177,24 +177,3 @@ async function confDel(){
   if(window.saveProductsToFB) await saveProductsToFB();
 }
 
-// ===== 新增款號 =====
-let nOpc=0;
-function addOp(){
-  nOpc++;
-  const div=document.createElement('div'); div.className='fg'; div.style.marginBottom='8px';
-  div.innerHTML=`<div class="fgrp"><label>工序號/Số CĐ</label><input type="text" id="op-no-${nOpc}" placeholder="01"></div><div class="fgrp"><label>工序(中)</label><input type="text" id="op-zh-${nOpc}"></div><div class="fgrp"><label>工序(越)/Tên CĐ</label><input type="text" id="op-vi-${nOpc}"></div><div class="fgrp"><label>秒數/Giây</label><input type="number" id="op-sc-${nOpc}"></div>`;
-  g('n-ops').appendChild(div);
-}
-async function saveNew(){
-  const code=g('n-code').value.trim(); if(!code){ alert('Vui lòng nhập mã hàng / 請填入款號'); return; }
-  if(window.D.find(d=>d.code===code)){ alert('Mã hàng đã tồn tại / 款號已存在：'+code); return; }
-  const ops=[];
-  for(let i=1;i<=nOpc;i++){
-    const no=g('op-no-'+i); if(!no) continue;
-    const sec=+g('op-sc-'+i).value;
-    if(sec>0) ops.push({no:no.value,zh:g('op-zh-'+i).value,vi:g('op-vi-'+i).value,sec});
-  }
-  window.D.push({code,client:g('n-cl').value,zh:g('n-zh').value,vi:g('n-vi').value,sz:g('n-sz').value,ops});
-  cm('m-add'); g('n-ops').innerHTML=''; nOpc=0; rSum(); rDet(); rExp(); rBk();
-  if(window.saveProductsToFB) await saveProductsToFB();
-}

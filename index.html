@@ -397,7 +397,6 @@ tr:hover td{background:#f8fafc}
           <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Tìm kiếm / 搜尋..." id="s-search" oninput="window.sPage=1;rSum()"></div>
           <select id="s-client" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
 
-          <button class="btn bp" onclick="om('m-add')"><i class="ti ti-plus"></i>Thêm mã hàng / 新增款號</button>
           <button class="btn" onclick="rHist();om('m-history')"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
           <button class="btn" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
         </div>
@@ -732,18 +731,6 @@ tr:hover td{background:#f8fafc}
     <div class="nt nw" style="margin-bottom:14px"><i class="ti ti-info-circle"></i>本次將套用 <b id="att-apply-count">0</b> 位員工的考勤記錄。若該日已有資料將提示覆蓋確認。<br><span style="font-size:11px;color:var(--mu)">Sẽ áp dụng chấm công cho <b id="att-apply-count2"></b> nhân viên. Nếu ngày đã có dữ liệu sẽ hỏi xác nhận.</span></div>
     <div class="br"><button class="btn bp" onclick="confirmAttendance()"><i class="ti ti-check"></i>Xác nhận / 確認套用</button><button class="btn" onclick="cm('m-attendance')">取消</button></div>
   </div></div>
-  <div class="mb" id="m-add"><div class="md">
-    <div class="mt2">新增款號 <button class="btn bsm" onclick="cm('m-add')"><i class="ti ti-x"></i></button></div>
-    <div class="fg cols2"><div class="fgrp"><label>款號</label><input type="text" id="n-code"></div><div class="fgrp"><label>客人</label><input type="text" id="n-cl"></div></div>
-    <div class="fg cols2"><div class="fgrp"><label>中文名稱</label><input type="text" id="n-zh"></div><div class="fgrp"><label>越文名稱</label><input type="text" id="n-vi"></div></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>尺寸</label><input type="text" id="n-sz"></div>
-    <div class="dv"></div>
-    <p style="font-size:12px;color:var(--mu);margin-bottom:10px;font-weight:500">新增工序</p>
-    <div id="n-ops"></div>
-    <button class="btn bsm" onclick="addOp()" style="margin-bottom:14px"><i class="ti ti-plus"></i>加工序</button>
-    <div class="br"><button class="btn bp" onclick="saveNew()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm('m-add')">取消</button></div>
-  </div></div>
-
   <div class="mb" id="m-det"><div class="md wide">
     <div class="mt2"><span id="det-title">工序明細</span><button class="btn bsm" onclick="cm('m-det')"><i class="ti ti-x"></i></button></div>
     <div id="det-body"></div>
