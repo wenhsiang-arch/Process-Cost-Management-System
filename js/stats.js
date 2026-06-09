@@ -206,7 +206,7 @@ function renderEmployees(){
   }
   window.allEmployees.forEach(e=>{
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><b>${e.name||'-'}</b></td><td>${e.user}</td><td>${e.dept?e.dept+' / '+(DEPTS[e.dept]||''):'-'}</td><td><span class="tg ${e.role==='leader'?'tb2':'ta'}">${ROLE_LABEL[e.role||'user']||e.role}</span></td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="editEmployee('${e.id}')"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delEmployee('${e.id}')"><i class="ti ti-trash"></i></button></div></td>`;
+    tr.innerHTML=`<td><b>${e.name||'-'}</b></td><td>${e.user}</td><td>${e.dept?e.dept+' / '+(DEPTS[e.dept]||''):'-'}</td><td><span class="tg ${e.role==='leader'?'tb2':'ta'}">${ROLE_LABEL[e.role||'user']||e.role}</span></td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="editEmployee('${e.id}')"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delEmployee('${e.id}')"><i class="ti ti-trash"></i></button>${isAdm()?`<button class="btn bsm bd2" style="background:var(--errl);font-weight:700" onclick="openAdminPurgeEmployee('${e.id}')" title="徹底刪除測試資料"><i class="ti ti-database-off"></i></button>`:''}</div></td>`;
     tb.appendChild(tr);
   });
 }
@@ -267,4 +267,112 @@ async function delEmployee(id){
     window.allEmployees=window.allEmployees.filter(e=>e.id!==id);
     renderEmployees();
   }catch(e){ alert('刪除失敗：'+e.message); }
+}
+
+window._purgeEmployeePlan=null;
+
+async function openAdminPurgeEmployee(id){
+  if(!isAdm()){ alert('僅管理員可使用徹底刪除'); return; }
+  const emp=window.allEmployees.find(e=>e.id===id); if(!emp) return;
+  try{
+    const [repSnap,attSnap]=await Promise.all([
+      window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',id))),
+      window._getDocs(window._query(window._collection(COL.attendance),window._where('empId','==',id)))
+    ]);
+    const reports=repSnap.docs.map(d=>({ref:d.ref,id:d.id,...d.data()}));
+    const active=reports.filter(r=>r.status==='pending'||r.status==='approved');
+    if(active.some(r=>(r.qty||0)<=0)) throw new Error('存在數量異常的待審／已審報工，已停止徹底刪除');
+    const procMap=new Map();
+    for(const r of active){
+      const key=[r.orderId,r.code,r.processNo].join('|');
+      if(procMap.has(key)) continue;
+      const snap=await window._getDocs(window._query(
+        window._collection(COL.processes),
+        window._where('orderId','==',r.orderId),
+        window._where('code','==',r.code),
+        window._where('processNo','==',r.processNo)
+      ));
+      if(snap.docs.length!==1){
+        throw new Error(`報工無法安全回沖：${r.orderNo||r.orderId} / ${r.code} / 工序 ${r.processNo} 找到 ${snap.docs.length} 筆對應工序`);
+      }
+      procMap.set(key,{ref:snap.docs[0].ref,data:snap.docs[0].data(),pending:0,approved:0});
+    }
+    active.forEach(r=>{
+      const proc=procMap.get([r.orderId,r.code,r.processNo].join('|'));
+      if(r.status==='pending') proc.pending+=(r.qty||0);
+      if(r.status==='approved') proc.approved+=(r.qty||0);
+    });
+    for(const proc of procMap.values()){
+      if((proc.data.pendingQty||0)<proc.pending) throw new Error('工序待審數量不足，已停止徹底刪除');
+      if((proc.data.approvedQty||0)<proc.approved) throw new Error('工序已審數量不足，已停止徹底刪除');
+    }
+    const writeCount=reports.length+attSnap.docs.length+procMap.size+1;
+    if(writeCount>490) throw new Error(`相關資料共需 ${writeCount} 次寫入，超過單次安全刪除上限，請分批處理`);
+    const counts={pending:0,approved:0,rejected:0,voided:0};
+    reports.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
+    const pendingQty=reports.filter(r=>r.status==='pending').reduce((s,r)=>s+(r.qty||0),0);
+    const approvedQty=reports.filter(r=>r.status==='approved').reduce((s,r)=>s+(r.qty||0),0);
+    window._purgeEmployeePlan={emp,reports,attendance:attSnap.docs,procMap};
+    g('purge-emp-id').value=id;
+    g('purge-emp-input').value='';
+    g('purge-emp-name').textContent=`${emp.user} / ${emp.name||''}`;
+    g('purge-emp-summary').innerHTML=`
+      <div>報工總數：<b>${reports.length}</b> 筆</div>
+      <div>待審批：${counts.pending} 筆，回沖 <b>${pendingQty}</b> 件</div>
+      <div>已審批：${counts.approved} 筆，回沖 <b>${approvedQty}</b> 件</div>
+      <div>退回／作廢：${counts.rejected+counts.voided} 筆</div>
+      <div>考勤：<b>${attSnap.docs.length}</b> 筆</div>`;
+    om('m-purge-employee');
+  }catch(e){
+    window._purgeEmployeePlan=null;
+    alert('無法徹底刪除：'+e.message);
+  }
+}
+
+async function confirmAdminPurgeEmployee(){
+  if(!isAdm()){ alert('僅管理員可使用徹底刪除'); return; }
+  const plan=window._purgeEmployeePlan;
+  if(!plan||g('purge-emp-id').value!==plan.emp.id){ alert('刪除資料已失效，請重新操作'); return; }
+  if(g('purge-emp-input').value.trim()!==plan.emp.user){ alert('員工工號輸入不符合'); return; }
+  try{
+    await window._runTransaction(async t=>{
+      const empRef=window._doc(COL.employees,plan.emp.id);
+      const reportSnaps=[];
+      for(const r of plan.reports) reportSnaps.push(await t.get(r.ref));
+      const procEntries=[...plan.procMap.entries()];
+      const procSnaps=[];
+      for(const [,p] of procEntries) procSnaps.push(await t.get(p.ref));
+      const decrements=new Map();
+      reportSnaps.forEach((snap,i)=>{
+        if(!snap.exists()) throw new Error('部分報工已變更，請重新操作');
+        const r=snap.data();
+        if(r.empId!==plan.emp.id) throw new Error('報工員工資料已變更');
+        if(r.status!=='pending'&&r.status!=='approved') return;
+        const key=[r.orderId,r.code,r.processNo].join('|');
+        if(!plan.procMap.has(key)) throw new Error('報工狀態已變更，請重新操作');
+        if(!decrements.has(key)) decrements.set(key,{pending:0,approved:0});
+        const d=decrements.get(key);
+        if(r.status==='pending') d.pending+=(r.qty||0);
+        if(r.status==='approved') d.approved+=(r.qty||0);
+      });
+      procEntries.forEach(([key,p],i)=>{
+        const snap=procSnaps[i];
+        if(!snap.exists()) throw new Error('對應工序不存在');
+        const d=decrements.get(key)||{pending:0,approved:0};
+        if((snap.data().pendingQty||0)<d.pending||(snap.data().approvedQty||0)<d.approved) throw new Error('工序數量已變更，請重新操作');
+        if(d.pending||d.approved) t.update(p.ref,{
+          pendingQty:window._increment(-d.pending),
+          approvedQty:window._increment(-d.approved)
+        });
+      });
+      plan.reports.forEach(r=>t.delete(r.ref));
+      plan.attendance.forEach(a=>t.delete(a.ref));
+      t.delete(empRef);
+    });
+    window.allEmployees=window.allEmployees.filter(e=>e.id!==plan.emp.id);
+    window._purgeEmployeePlan=null;
+    cm('m-purge-employee');
+    renderEmployees();
+    alert('徹底刪除完成：員工帳號、報工與考勤已刪除，工序數量已回沖。');
+  }catch(e){ alert('徹底刪除失敗，未執行任何刪除：'+e.message); }
 }
