@@ -2,14 +2,14 @@
 const DEFAULT_PERMISSIONS = {
   manager: {
     attendance:true, stats:true, employees:true,
-    orders:true, progress:true, approval:true, replog:true,
+    progress:true, approval:true, replog:true,
     accounts:true, export:true, history:true, costlog:true,
     summary:true, detail:true, backup:true,
     efficiency:false
   },
   clerk: {
     attendance:true, stats:true, employees:true,
-    orders:true, progress:true, approval:false, replog:true,
+    progress:true, approval:false, replog:true,
     accounts:false, export:true, history:true, costlog:true,
     summary:true, detail:true, backup:true,
     efficiency:false
@@ -20,7 +20,6 @@ const PERM_LABELS = {
   attendance:'考勤管理 / Chấm công',
   stats:'員工產量統計 / Thống kê sản lượng',
   employees:'員工管理 / Quản lý nhân viên',
-  orders:'匯入訂單 / Nhập đơn hàng',
   sync:'工序秒數同步 / Đồng bộ giây công đoạn',
   progress:'訂單進度 / Tiến độ đơn hàng',
   approval:'報工審批 / Duyệt báo công',
@@ -37,7 +36,7 @@ const PERM_LABELS = {
 
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
-  { label:'訂單管理 / Đơn hàng', keys:['orders','progress','approval','replog','sync'] },
+  { label:'訂單管理 / Đơn hàng', keys:['progress','approval','replog','sync'] },
   { label:'工序表 / Công đoạn', keys:['summary','detail','history','backup'] },
   { label:'管理 / Quản lý', keys:['export','costlog','accounts','efficiency'] }
 ];

@@ -115,6 +115,8 @@ tr:hover td{background:#f8fafc}
 .detail-import-drop i{font-size:22px;flex-shrink:0}
 .detail-import-drop strong{display:block;font-size:12px;margin-bottom:2px}
 .detail-import-drop span{display:block;font-size:10px;color:var(--mu)}
+.order-import-drop{border-color:#a5b4fc;background:#eef2ff;color:#4338ca}
+.order-import-drop:hover,.order-import-drop.dragging{border-color:#4f46e5;background:#e0e7ff}
 .pw{background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:12px;display:none}
 .pwl{font-size:13px;color:var(--navy);margin-bottom:8px;font-weight:500}
 .pbb{background:var(--bd);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px}
@@ -186,7 +188,6 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-stats" onclick="sp('stats')"><i class="ti ti-chart-pie"></i><div class="nl"><span class="nvi">Thống kê sản lượng</span><span class="nzh">員工產量統計</span></div></div>
     <div class="ni locked" id="nv-employees" onclick="sp('employees')"><i class="ti ti-users-group"></i><div class="nl"><span class="nvi">Quản lý nhân viên</span><span class="nzh">員工管理</span></div></div>
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
-    <div class="ni locked" id="nv-orders" onclick="sp('orders')"><i class="ti ti-file-invoice"></i><div class="nl"><span class="nvi">Nhập đơn hàng</span><span class="nzh">匯入訂單</span></div></div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
     <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
     <div class="ni locked" id="nv-replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><div class="nl"><span class="nvi">Lịch sử báo công</span><span class="nzh">報工紀錄</span></div></div>
@@ -525,20 +526,6 @@ tr:hover td{background:#f8fafc}
         </div>
       </div>
 
-      <!-- 訂單管理 -->
-      <div class="pg" id="pg-orders">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-file-invoice"></i>Quản lý đơn hàng / 訂單管理</div>
-          <div class="br"><button class="btn bp" onclick="openImportOrder()"><i class="ti ti-upload"></i>Nhập đơn hàng Excel / 匯入訂單</button></div>
-          <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
-          <div class="to"><table>
-            <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
-            <tbody id="ord-tb"></tbody>
-          </table></div>
-          <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
-        </div>
-      </div>
-
       <!-- 報工審批 -->
       <div class="pg" id="pg-approval">
         <div class="card">
@@ -587,6 +574,13 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-progress">
         <div class="card">
           <div class="ct-title"><i class="ti ti-chart-bar"></i>Tiến độ đơn hàng / 訂單進度</div>
+          <div class="detail-import-drop order-import-drop" id="order-import-drop" onclick="openImportOrder()" ondragover="handleOrderImportDragOver(event)" ondragleave="handleOrderImportDragLeave(event)" ondrop="handleOrderImportDrop(event)">
+            <i class="ti ti-file-invoice"></i>
+            <div>
+              <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊匯入訂單 Excel</strong>
+              <span>支援 .xlsx、.xls，將在獨立確認視窗填寫訂單資料並預覽</span>
+            </div>
+          </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
             <select id="prog-filter" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
@@ -596,6 +590,15 @@ tr:hover td{background:#f8fafc}
             </select>
           </div>
           <div id="prog-content"></div>
+        </div>
+        <div class="card">
+          <div class="ct-title"><i class="ti ti-file-invoice"></i>Quản lý đơn hàng / 訂單管理</div>
+          <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
+          <div class="to"><table>
+            <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
+            <tbody id="ord-tb"></tbody>
+          </table></div>
+          <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
         </div>
       </div>
 
@@ -827,12 +830,12 @@ tr:hover td{background:#f8fafc}
   </div></div>
 
   <div class="mb" id="m-import-order"><div class="md wide">
-    <div class="mt2"><i class="ti ti-file-upload"></i> Nhập đơn hàng / 匯入訂單 <button class="btn bsm" onclick="cm('m-import-order')"><i class="ti ti-x"></i></button></div>
+    <div class="mt2"><i class="ti ti-file-upload"></i> Nhập đơn hàng / 匯入訂單 <button class="btn bsm" onclick="closeImportOrder()"><i class="ti ti-x"></i></button></div>
     <div id="imp-step1">
       <div class="fg cols3" style="margin-bottom:12px">
-        <div class="fgrp"><label>Số đơn hàng / 訂單編號 <span style="color:var(--err)">*</span></label><input type="text" id="imp-ord-id" placeholder="例如：ORD-2025-001"></div>
-        <div class="fgrp"><label>Khách hàng / 客戶 <span style="color:var(--err)">*</span></label><select id="imp-ord-client" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇客戶 --</option></select></div>
-        <div class="fgrp"><label>Ngày giao hàng / 出貨日期 <span style="color:var(--err)">*</span></label><input type="date" id="imp-ord-date"></div>
+        <div class="fgrp"><label>Số đơn hàng / 訂單編號 <span style="color:var(--err)">*</span></label><input type="text" id="imp-ord-id" placeholder="例如：ORD-2025-001" onchange="preparePendingImportOrder()"></div>
+        <div class="fgrp"><label>Khách hàng / 客戶 <span style="color:var(--err)">*</span></label><select id="imp-ord-client" onchange="preparePendingImportOrder()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇客戶 --</option></select></div>
+        <div class="fgrp"><label>Ngày giao hàng / 出貨日期 <span style="color:var(--err)">*</span></label><input type="date" id="imp-ord-date" onchange="preparePendingImportOrder()"></div>
       </div>
       <div class="fgrp" style="margin-bottom:14px">
         <label>上傳 Excel (.xlsx / .xls)</label>
@@ -854,7 +857,7 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="br" style="margin-top:14px">
       <button class="btn bp" id="imp-confirm-btn" onclick="confirmImportOrder()"><i class="ti ti-check"></i>Xác nhận nhập / 確認匯入</button>
-      <button class="btn" onclick="cm('m-import-order')">取消</button>
+      <button class="btn" onclick="closeImportOrder()">取消</button>
     </div>
   </div></div>
 

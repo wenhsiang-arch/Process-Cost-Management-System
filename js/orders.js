@@ -56,7 +56,7 @@ function openImportOrder(){
   g('imp-file').value=''; g('imp-filename').textContent='';
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
   g('imp-skip-msg').style.display='none';
-  window._impData=null;
+  window._impData=null; window._pendingImportOrderFile=null;
   const clientSel=g('imp-ord-client');
   if(clientSel){
     clientSel.innerHTML='<option value="">-- 選擇客戶 --</option>';
@@ -66,14 +66,57 @@ function openImportOrder(){
   om('m-import-order');
 }
 
+function closeImportOrder(){
+  window._impData=null; window._pendingImportOrderFile=null;
+  g('imp-file').value='';
+  cm('m-import-order');
+}
+
+function handleOrderImportDragOver(event){
+  event.preventDefault();
+  event.dataTransfer.dropEffect='copy';
+  g('order-import-drop').classList.add('dragging');
+}
+
+function handleOrderImportDragLeave(event){
+  event.preventDefault();
+  g('order-import-drop').classList.remove('dragging');
+}
+
+function handleOrderImportDrop(event){
+  event.preventDefault();
+  g('order-import-drop').classList.remove('dragging');
+  const file=event.dataTransfer.files[0];
+  if(!file) return;
+  openImportOrder();
+  if(!/\.(xlsx|xls)$/i.test(file.name)){
+    alert('只支援 .xlsx 或 .xls 檔案');
+    return;
+  }
+  window._pendingImportOrderFile=file;
+  g('imp-filename').textContent=file.name+'（請填寫訂單資料）';
+}
+
+function preparePendingImportOrder(){
+  const file=window._pendingImportOrderFile;
+  if(!file) return;
+  if(!g('imp-ord-id').value.trim()||!g('imp-ord-client')?.value||!g('imp-ord-date').value) return;
+  window._pendingImportOrderFile=null;
+  processImportOrderFile(file);
+}
+
 function handleImportFile(input){
   const file=input.files[0]; if(!file) return;
+  processImportOrderFile(file,input);
+}
+
+function processImportOrderFile(file,input){
   const ordId=g('imp-ord-id').value.trim();
   const client=g('imp-ord-client')?.value||'';
   const dueDate=g('imp-ord-date').value;
-  if(!ordId){ alert('請先填寫訂單編號'); input.value=''; return; }
-  if(!client){ alert('請先選擇客戶 / Vui lòng chọn khách hàng'); input.value=''; return; }
-  if(!dueDate){ alert('請先填寫出貨日期'); input.value=''; return; }
+  if(!ordId){ alert('請先填寫訂單編號'); if(input) input.value=''; return; }
+  if(!client){ alert('請先選擇客戶 / Vui lòng chọn khách hàng'); if(input) input.value=''; return; }
+  if(!dueDate){ alert('請先填寫出貨日期'); if(input) input.value=''; return; }
   g('imp-filename').textContent=file.name;
   const reader=new FileReader();
   reader.onload=function(e){
@@ -165,8 +208,11 @@ async function confirmImportOrder(){
         });
       }
     }
-    window.allOrders.unshift({id:ordId,orderId:d.ordId,dueDate:new Date(d.dueDate).getTime(),itemCount:d.matched.length,totalQty:d.matched.reduce((a,m)=>a+m.qty,0),createdAt:now});
-    cm('m-import-order'); renderOrders();
+    const dueDate=new Date(d.dueDate).getTime();
+    window.allOrders.unshift({id:ordId,orderId:d.ordId,client:g('imp-ord-client')?.value||'',dueDate,actualShipDate:dueDate,itemCount:d.matched.length,totalQty:d.matched.reduce((a,m)=>a+m.qty,0),createdAt:now});
+    closeImportOrder();
+    await reloadProcesses();
+    renderOrders(); renderProgress();
     alert(`✅ Nhập thành công! / 匯入成功！\nĐơn hàng / 訂單：${d.ordId}\nMã hàng / 款號：${d.matched.length} cái / 個\nCông đoạn / 工序：${d.matched.reduce((a,m)=>a+m.ops.length,0)} quy trình / 道`);
   }catch(err){ alert('匯入失敗：'+err.message); }
   finally{ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>確認匯入'; }
