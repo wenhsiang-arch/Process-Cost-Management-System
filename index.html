@@ -750,11 +750,6 @@ tr:hover td{background:#f8fafc}
     <div class="nt nw" style="margin-bottom:14px"><i class="ti ti-info-circle"></i>本次將套用 <b id="att-apply-count">0</b> 位員工的考勤記錄。若該日已有資料將提示覆蓋確認。<br><span style="font-size:11px;color:var(--mu)">Sẽ áp dụng chấm công cho <b id="att-apply-count2"></b> nhân viên. Nếu ngày đã có dữ liệu sẽ hỏi xác nhận.</span></div>
     <div class="br"><button class="btn bp" onclick="confirmAttendance()"><i class="ti ti-check"></i>Xác nhận / 確認套用</button><button class="btn" onclick="cm('m-attendance')">取消</button></div>
   </div></div>
-  <div class="mb" id="m-det"><div class="md wide">
-    <div class="mt2"><span id="det-title">工序明細</span><button class="btn bsm" onclick="cm('m-det')"><i class="ti ti-x"></i></button></div>
-    <div id="det-body"></div>
-  </div></div>
-
   <div class="mb" id="m-detail-import"><div class="md wide">
     <div class="mt2"><span><i class="ti ti-file-spreadsheet"></i> Nhập dữ liệu Excel / 匯入資料確認</span><button class="btn bsm" onclick="xImp()"><i class="ti ti-x"></i></button></div>
     <div class="pw" id="pw-wrap">
@@ -796,14 +791,6 @@ tr:hover td{background:#f8fafc}
     <div class="fgrp" style="margin-bottom:16px"><label>客人<span class="lvi">選擇客人匯出</span></label><select id="bk-client"><option value="">全部</option></select></div>
     <div class="br"><button class="btn bp" onclick="doBackup()"><i class="ti ti-database-export"></i>匯出備份檔案</button></div>
     <div id="bk-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span id="bk-ok-msg"></span></div>
-  </div></div>
-
-  <div class="mb" id="m-eop"><div class="md">
-    <div class="mt2">編輯工序 <button class="btn bsm" onclick="cm('m-eop')"><i class="ti ti-x"></i></button></div>
-    <input type="hidden" id="eo-code"><input type="hidden" id="eo-idx">
-    <div class="fg cols2"><div class="fgrp"><label>工序號</label><input type="text" id="eo-no"></div><div class="fgrp"><label>秒數</label><input type="number" id="eo-sec"></div></div>
-    <div class="fg cols2"><div class="fgrp"><label>工序(中)</label><input type="text" id="eo-zh"></div><div class="fgrp"><label>工序(越)</label><input type="text" id="eo-vi"></div></div>
-    <div class="br" style="margin-top:6px"><button class="btn bp" onclick="saveEop()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm('m-eop')">取消</button></div>
   </div></div>
 
   <div class="mb" id="m-del"><div class="md" style="width:400px">

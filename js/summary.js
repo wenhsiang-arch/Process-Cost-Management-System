@@ -37,9 +37,9 @@ function toggleSummaryDetail(code){
 function renderSummaryDetail(d){
   const isA=isAdm();
   let total=0;
-  const rows=d.ops.map((op,idx)=>{
+  const rows=d.ops.map(op=>{
     const result=calc(op.sec); total+=result.vnd;
-    return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEop('${d.code}',${idx})"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delOp('${d.code}',${idx})"><i class="ti ti-trash"></i></button></div></td></tr>`;
+    return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`</tr>`;
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
@@ -47,8 +47,8 @@ function renderSummaryDetail(d){
       ${isA?`<span class="tg tg2">USD: ${fU(total)}</span><span class="tg tb2">VND: ${fV(total)}</span><span class="tg ta">TWD: ${fT(total)}</span>`:''}
     </div>
     <div style="overflow-x:auto"><table class="summary-detail-table">
-      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
-      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
+      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}</tr></thead>
+      <tbody>${rows||`<tr><td colspan="${isA?6:5}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
@@ -72,7 +72,7 @@ function rSum(){
     const expanded=_expandedSummaryCodes.has(d.code);
     const colspan=isA?9:8;
     const r=document.createElement('tr');
-    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" onclick="toggleSummaryDetail('${d.code}')" title="展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)" onclick="toggleSummaryDetail('${d.code}')">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${d.sz}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(sv2)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oDet('${d.code}')"><i class="ti ti-eye"></i></button><button class="btn bsm bd2" onclick="askDel('${d.code}')"><i class="ti ti-trash"></i></button></div></td>`;
+    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" onclick="toggleSummaryDetail('${d.code}')" title="展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)" onclick="toggleSummaryDetail('${d.code}')">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${d.sz}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(sv2)}</td>`:'')+`<td><button class="btn bsm bd2" onclick="askDel('${d.code}')"><i class="ti ti-trash"></i></button></td>`;
     tb.appendChild(r);
     if(expanded){
       const detailRow=document.createElement('tr');
@@ -87,60 +87,6 @@ function rSum(){
   rcf();
 }
 
-// ===== 工序明細彈窗 =====
-function oDet(code){
-  const d=window.D.find(x=>x.code===code); if(!d) return;
-  const isA=isAdm();
-  g('det-title').textContent=`${d.code} — ${d.zh} / ${d.vi}`;
-  let sv=0;
-  const rows=d.ops.map((op,idx)=>{
-    const r=calc(op.sec); sv+=r.vnd;
-    return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td>`:'')+`<td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEop('${code}',${idx})"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delOp('${code}',${idx})"><i class="ti ti-trash"></i></button></div></td></tr>`;
-  }).join('');
-  g('det-body').innerHTML=`
-    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-      <span class="tg tn">Khách: ${d.client}</span><span class="tg tn">Size: ${d.sz}</span>
-      ${isA?`<span class="tg tg2">USD: ${fU(sv)}</span><span class="tg tb2">VND: ${fV(sv)}</span><span class="tg ta">TWD: ${fT(sv)}</span>`:''}
-    </div>
-    <div class="to"><div class="ts" style="max-height:320px"><table>
-      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<br><span style="font-size:10px;font-weight:400;color:var(--mu)">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div></div>`;
-  om('m-det');
-}
-
-function oEop(code,idx){
-  const d=window.D.find(x=>x.code===code); if(!d) return; const op=d.ops[idx];
-  g('eo-code').value=code; g('eo-idx').value=idx;
-  g('eo-no').value=op.no; g('eo-sec').value=op.sec;
-  g('eo-zh').value=op.zh; g('eo-vi').value=op.vi||'';
-  cm('m-det'); om('m-eop');
-}
-
-async function saveEop(){
-  const code=g('eo-code').value, idx=+g('eo-idx').value;
-  const d=window.D.find(x=>x.code===code); if(!d) return;
-  const sec=+g('eo-sec').value;
-  if(!sec||sec<=0){ alert('秒數必須大於0 / Giây phải lớn hơn 0'); return; }
-  const nextOp={no:g('eo-no').value.trim(),zh:g('eo-zh').value,vi:g('eo-vi').value,sec};
-  const nextOps=d.ops.map((op,i)=>i===idx?nextOp:op);
-  const errors=validateProcessNumbers(nextOps,code);
-  if(errors.length){ alert(errors.join('\n')); return; }
-  d.ops[idx]=nextOp;
-  cm('m-eop'); rSum(); rDet(); rExp(); rBk();
-  if(window.saveProductsToFB) await saveProductsToFB();
-}
-
-async function delOp(code,idx){
-  if(!confirm('Xác nhận xóa công đoạn? / 確定刪除此工序？')) return;
-  const d=window.D.find(x=>x.code===code); if(!d) return;
-  const nextOps=d.ops.filter((_,i)=>i!==idx);
-  const errors=validateProcessNumbers(nextOps,code);
-  if(errors.length){ alert('無法刪除，此操作會造成工序號不連續：\n'+errors.join('\n')); return; }
-  d.ops.splice(idx,1); cm('m-det'); rSum(); rDet(); rExp(); rBk();
-  if(window.saveProductsToFB) await saveProductsToFB();
-}
-
 // ===== 工序明細表 =====
 function rDet(){
   if(!g('dh')||!g('db')||!g('dp2')) return;
@@ -149,7 +95,7 @@ function rDet(){
   const sv = (g('d-sort')||{value:'ca'}).value||'ca';
   const pp = +(g('d-pp')||{value:50}).value||50;
   const isA = isAdm();
-  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>`+(isA?`<th>Chi phí (${window.cur})<span class="tv">工資</span></th><th>Thao tác<span class="tv">操作</span></th>`:'');
+  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>`+(isA?`<th>Chi phí (${window.cur})<span class="tv">工資</span></th>`:'');
   let src=window.D.filter(d=>{
     const m=!q||(d.code+d.client+d.zh).toLowerCase().includes(q.toLowerCase());
     return m&&(!cf||d.client===cf);
@@ -160,14 +106,14 @@ function rDet(){
   src.forEach(d=>{
     let ops=[...d.ops];
     if(sv==='oa') ops.sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
-    ops.forEach(op=>{ const ri=d.ops.indexOf(op); rows.push({d,op,ri,r:calc(op.sec)}); });
+    ops.forEach(op=>{ rows.push({d,op,r:calc(op.sec)}); });
   });
   const st=(window.dPage-1)*pp, pr=rows.slice(st,st+pp);
   const tb=g('db'); tb.innerHTML='';
   pr.forEach((item,i)=>{
-    const{d,op,ri,r}=item;
+    const{d,op,r}=item;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${d.vi}</td><td>${d.sz}</td><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td><td><div style="display:flex;gap:4px"><button class="btn bsm" onclick="oEop('${d.code}',${ri})"><i class="ti ti-edit"></i></button><button class="btn bsm bd2" onclick="delOp('${d.code}',${ri})"><i class="ti ti-trash"></i></button></div></td>`:'');
+    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${d.vi}</td><td>${d.sz}</td><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td>`:'');
     tb.appendChild(tr);
   });
   mkPager('dp2',window.dPage,rows.length,pp,'goDP');
