@@ -46,7 +46,7 @@ function renderSummaryDetail(d){
       <span class="tg tn">Khách: ${d.client}</span><span class="tg tn">Size: ${d.sz}</span>
       ${isA?`<span class="tg tg2">USD: ${fU(total)}</span><span class="tg tb2">VND: ${fV(total)}</span><span class="tg ta">TWD: ${fT(total)}</span>`:''}
     </div>
-    <div class="ts" style="max-height:320px"><table class="summary-detail-table">
+    <div style="overflow-x:auto"><table class="summary-detail-table">
       <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}<th>操作</th></tr></thead>
       <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
     </table></div>
