@@ -1,6 +1,58 @@
 // ===== 匯入 =====
 let pImp=null, nItms=null, dups=[];
 
+function validateProcessNumbers(ops,code){
+  const label=code||'未知款號';
+  if(!ops.length) return [`款號 ${label}：至少需要工序號 01`];
+  const errors=[];
+  const seen=new Set();
+  ops.forEach(op=>{
+    const no=String(op.no??'').trim();
+    if(!/^(0[1-9]|[1-9][0-9])$/.test(no)){
+      errors.push(`款號 ${label}：工序號「${no||'空白'}」格式錯誤，必須使用 01–99`);
+    } else if(seen.has(no)){
+      errors.push(`款號 ${label}：工序號 ${no} 重複`);
+    }
+    seen.add(no);
+  });
+  const valid=[...seen].filter(no=>/^(0[1-9]|[1-9][0-9])$/.test(no)).sort();
+  const max=valid.length?Math.max(...valid.map(Number)):0;
+  for(let i=1;i<=max;i++){
+    const expected=String(i).padStart(2,'0');
+    if(!seen.has(expected)) errors.push(`款號 ${label}：缺少工序號 ${expected}`);
+  }
+  return [...new Set(errors)];
+}
+
+function validateImportProcessRows(rows){
+  const byCode={};
+  rows.forEach((r,i)=>{
+    const code=String(r[0]).trim();
+    if(!byCode[code]) byCode[code]=[];
+    byCode[code].push({no:String(r[5]).trim(),row:r._excelRow||i+2});
+  });
+  const errors=[];
+  Object.entries(byCode).forEach(([code,ops])=>{
+    const seen=new Map();
+    ops.forEach(op=>{
+      if(!/^(0[1-9]|[1-9][0-9])$/.test(op.no)){
+        errors.push(`第 ${op.row} 行，款號 ${code}：工序號「${op.no||'空白'}」格式錯誤，必須使用 01–99`);
+      } else if(seen.has(op.no)){
+        errors.push(`第 ${op.row} 行，款號 ${code}：工序號 ${op.no} 重複（首次出現在第 ${seen.get(op.no)} 行）`);
+      } else {
+        seen.set(op.no,op.row);
+      }
+    });
+    const valid=[...seen.keys()].sort();
+    const max=valid.length?Math.max(...valid.map(Number)):0;
+    for(let i=1;i<=max;i++){
+      const expected=String(i).padStart(2,'0');
+      if(!seen.has(expected)) errors.push(`款號 ${code}：缺少工序號 ${expected}`);
+    }
+  });
+  return errors;
+}
+
 function setProg(p,l,s){
   g('pw-wrap').style.display='block';
   g('pw-bar').style.width=p+'%';
@@ -75,13 +127,14 @@ function processDetailImportFile(file){
             const wb=XLSX.read(e.target.result,{type:'binary'});
             const ws=wb.Sheets[wb.SheetNames[0]];
             const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-            const dr=rows.filter(r=>r[0]&&!['款號','mã hàng','Mã hàng','mã hàng'].includes(String(r[0]).trim()));
+            const dr=rows.map((r,i)=>{ r._excelRow=i+1; return r; }).filter(r=>r[0]&&!['款號','mã hàng','Mã hàng','mã hàng'].includes(String(r[0]).trim()));
             const errs=[];
             dr.forEach((r,i)=>{
               const sec=r[8];
               if(sec!==''&&sec!==undefined&&isNaN(+sec))
-                errs.push(`Dòng ${i+2}/第${i+2}行：<b>${r[0]}</b> CĐ <b>${r[5]}</b> — Giây không hợp lệ：「${sec}」`);
+                errs.push(`Dòng ${r._excelRow}/第${r._excelRow}行：<b>${r[0]}</b> CĐ <b>${r[5]}</b> — Giây không hợp lệ：「${sec}」`);
             });
+            errs.push(...validateImportProcessRows(dr));
             if(errs.length>0){
               hideProg();
               g('imp-err').style.display='flex';

@@ -109,6 +109,11 @@ function processImportOrderFile(file,input){
         if(!code||!qty) return;
         const prod=window.D.find(p=>p.code===code);
         if(prod){
+          const procErrors=validateProcessNumbers(prod.ops||[],code);
+          if(procErrors.length){
+            skipped.push(`${code}（${procErrors.join('；')}）`);
+            return;
+          }
           matched.push({code,desc:String(r[iDesc]||'').trim(),color:String(r[iColor]||'').trim(),qty,ops:prod.ops||[],zh:prod.zh||'',sz:prod.sz||''});
         } else { skipped.push(code); }
       });

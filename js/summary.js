@@ -122,7 +122,11 @@ async function saveEop(){
   const d=window.D.find(x=>x.code===code); if(!d) return;
   const sec=+g('eo-sec').value;
   if(!sec||sec<=0){ alert('秒數必須大於0 / Giây phải lớn hơn 0'); return; }
-  d.ops[idx]={no:g('eo-no').value,zh:g('eo-zh').value,vi:g('eo-vi').value,sec};
+  const nextOp={no:g('eo-no').value.trim(),zh:g('eo-zh').value,vi:g('eo-vi').value,sec};
+  const nextOps=d.ops.map((op,i)=>i===idx?nextOp:op);
+  const errors=validateProcessNumbers(nextOps,code);
+  if(errors.length){ alert(errors.join('\n')); return; }
+  d.ops[idx]=nextOp;
   cm('m-eop'); rSum(); rDet(); rExp(); rBk();
   if(window.saveProductsToFB) await saveProductsToFB();
 }
@@ -130,6 +134,9 @@ async function saveEop(){
 async function delOp(code,idx){
   if(!confirm('Xác nhận xóa công đoạn? / 確定刪除此工序？')) return;
   const d=window.D.find(x=>x.code===code); if(!d) return;
+  const nextOps=d.ops.filter((_,i)=>i!==idx);
+  const errors=validateProcessNumbers(nextOps,code);
+  if(errors.length){ alert('無法刪除，此操作會造成工序號不連續：\n'+errors.join('\n')); return; }
   d.ops.splice(idx,1); cm('m-det'); rSum(); rDet(); rExp(); rBk();
   if(window.saveProductsToFB) await saveProductsToFB();
 }
