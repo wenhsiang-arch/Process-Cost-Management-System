@@ -3,15 +3,15 @@ const DEFAULT_PERMISSIONS = {
   manager: {
     attendance:true, stats:true, employees:true,
     progress:true, approval:true, replog:true,
-    accounts:true, export:true, history:true, costlog:true,
-    summary:true, backup:true,
+    accounts:true, export:true, costlog:true,
+    summary:true,
     efficiency:false
   },
   clerk: {
     attendance:true, stats:true, employees:true,
     progress:true, approval:false, replog:true,
-    accounts:false, export:true, history:true, costlog:true,
-    summary:true, backup:true,
+    accounts:false, export:true, costlog:true,
+    summary:true,
     efficiency:false
   }
 };
@@ -25,9 +25,7 @@ const PERM_LABELS = {
   approval:'報工審批 / Duyệt báo công',
   replog:'報工紀錄 / Lịch sử báo công',
   summary:'款號總表 / Tổng hợp mã hàng',
-  backup:'備份匯出 / Xuất dự phòng',
   export:'匯出報表 / Xuất báo cáo',
-  history:'匯入記錄 / Lịch sử nhập',
   costlog:'成本變動記錄 / Lịch sử chi phí',
   accounts:'帳號管理 / Quản lý tài khoản',
   efficiency:'效率報表 / Báo cáo hiệu suất'
@@ -36,7 +34,7 @@ const PERM_LABELS = {
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
   { label:'訂單管理 / Đơn hàng', keys:['progress','approval','replog','sync'] },
-  { label:'工序表 / Công đoạn', keys:['summary','history','backup'] },
+  { label:'工序表 / Công đoạn', keys:['summary'] },
   { label:'管理 / Quản lý', keys:['export','costlog','accounts','efficiency'] }
 ];
 
@@ -50,8 +48,12 @@ async function loadPermissions(){
     if(snap.exists()){
       const data = JSON.parse(snap.data().data);
       ['manager','clerk'].forEach(role=>{
-        if(data[role]?.detail===true) data[role].summary=true;
-        if(data[role]) delete data[role].detail;
+        if(data[role]?.detail===true || data[role]?.history===true || data[role]?.backup===true) data[role].summary=true;
+        if(data[role]){
+          delete data[role].detail;
+          delete data[role].history;
+          delete data[role].backup;
+        }
       });
       window.permissionSettings = data;
     } else {

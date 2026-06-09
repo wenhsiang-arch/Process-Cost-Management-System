@@ -375,6 +375,16 @@ function rHist(){
 }
 
 // ===== 成本變動記錄 =====
+function openHistoryModal(){
+  rHist();
+  om('m-history');
+}
+
+function openBackupModal(){
+  rBk();
+  om('m-backup');
+}
+
 function rClog(){
   const el=g('clog-list'); if(!el) return;
   if(!window.cLog.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }

@@ -218,8 +218,6 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây CĐ</span><span class="nzh">工序秒數同步</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
-    <div class="ni" id="nv-history" onclick="sp('history')"><i class="ti ti-history"></i><div class="nl"><span class="nvi">Lịch sử nhập</span><span class="nzh">匯入記錄</span></div></div>
-    <div class="ni" onclick="sp('backup')" id="nv-backup"><i class="ti ti-database-export"></i><div class="nl"><span class="nvi">Xuất dự phòng</span><span class="nzh">備份匯出</span></div></div>
     <div class="sb-sec">Quản lý / 管理</div>
     <div class="ni" id="nv-settings" onclick="sp('settings')"><i class="ti ti-settings"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
     <div class="ni" id="nv-export" onclick="sp('export')"><i class="ti ti-download"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
@@ -400,29 +398,14 @@ tr:hover td{background:#f8fafc}
           <select id="s-client" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
 
           <button class="btn bp" onclick="om('m-add')"><i class="ti ti-plus"></i>Thêm mã hàng / 新增款號</button>
+          <button class="btn" onclick="openHistoryModal()"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
+          <button class="btn" onclick="openBackupModal()"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
         </div>
         <div class="to"><div class="ts summary-table-scroll"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
         <div class="pgr" id="sp2"></div>
       </div>
 
       <!-- 備份匯出 -->
-      <div class="pg" id="pg-backup">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-database-export"></i>備份匯出</div>
-          <div class="fg cols2" style="margin-bottom:16px">
-            <div class="fgrp"><label>客人<span class="lvi">選擇客人匯出</span></label><select id="bk-client"><option value="">全部</option></select></div>
-          </div>
-          <div class="br">
-            <button class="btn bp" onclick="doBackup()"><i class="ti ti-database-export"></i>匯出備份檔案</button>
-          </div>
-          <div id="bk-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span id="bk-ok-msg"></span></div>
-        </div>
-        <div class="card">
-          <div class="ct-title">資料統計</div>
-          <div class="mg" id="bk-stats"></div>
-        </div>
-      </div>
-
       <!-- 成本設定 -->
       <div class="pg" id="pg-settings">
         <div class="card">
@@ -488,13 +471,6 @@ tr:hover td{background:#f8fafc}
       </div>
 
       <!-- 匯入記錄 -->
-      <div class="pg" id="pg-history">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-history"></i>匯入歷史記錄</div>
-          <div id="hist-list"><p style="color:var(--mu);font-size:13px">尚無記錄</p></div>
-        </div>
-      </div>
-
       <!-- 成本變動 -->
       <div class="pg" id="pg-costlog">
         <div class="card">
@@ -802,6 +778,18 @@ tr:hover td{background:#f8fafc}
     <div id="imp-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span id="imp-ok-msg"></span></div>
     <div class="dv"></div>
     <p style="font-size:11px;color:var(--mu)">欄位順序：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 工序中文 · 工序越文 · 秒數</p>
+  </div></div>
+
+  <div class="mb" id="m-history"><div class="md wide">
+    <div class="mt2"><span><i class="ti ti-history"></i> Lịch sử nhập / 匯入記錄</span><button class="btn bsm" onclick="cm('m-history')"><i class="ti ti-x"></i></button></div>
+    <div id="hist-list"><p style="color:var(--mu);font-size:13px">尚無記錄</p></div>
+  </div></div>
+
+  <div class="mb" id="m-backup"><div class="md">
+    <div class="mt2"><span><i class="ti ti-database-export"></i> Xuất dự phòng / 備份匯出</span><button class="btn bsm" onclick="cm('m-backup')"><i class="ti ti-x"></i></button></div>
+    <div class="fgrp" style="margin-bottom:16px"><label>客人<span class="lvi">選擇客人匯出</span></label><select id="bk-client"><option value="">全部</option></select></div>
+    <div class="br"><button class="btn bp" onclick="doBackup()"><i class="ti ti-database-export"></i>匯出備份檔案</button></div>
+    <div id="bk-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span id="bk-ok-msg"></span></div>
   </div></div>
 
   <div class="mb" id="m-eop"><div class="md">

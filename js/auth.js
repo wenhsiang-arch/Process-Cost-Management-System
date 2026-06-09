@@ -40,7 +40,7 @@ function uNav(){
   if(cgEl) cgEl.style.display = isA ? '' : 'none';
 
   // 所有可控制功能
-  const allFeatures = ['attendance','stats','employees','progress','approval','replog','accounts','export','history','costlog','summary','backup','sync','efficiency'];
+  const allFeatures = ['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary','sync','efficiency'];
 
   allFeatures.forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
@@ -92,7 +92,7 @@ function doLogin(){
         const perm = window.permissionSettings;
         const r = window.cu.role;
         if(r==='admin'){ sp('summary'); return; }
-        const order = ['attendance','stats','employees','progress','approval','replog','accounts','export','history','costlog','summary','backup'];
+        const order = ['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary'];
         const allowed = order.find(n=> perm[r] && perm[r][n]===true );
         if(allowed){ sp(allowed); } else {
           document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
@@ -161,7 +161,7 @@ function openDetailImport(){
 
 // ===== 頁面切換 =====
 function sp(name){
-  const adm=['settings','export','history','costlog','accounts'];
+  const adm=['settings','export','costlog','accounts'];
   if(adm.includes(name)&&!isAdm()) return;
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
@@ -170,9 +170,7 @@ function sp(name){
   if(name==='settings')  rAll();
   if(name==='export')    rExp();
   if(name==='accounts')  rAcc();
-  if(name==='history')   rHist();
   if(name==='costlog')   rClog();
-  if(name==='backup')    rBk();
   if(name==='approval')  renderApproval();
   if(name==='progress'){ reloadProcesses().then(()=>{ renderProgress(); renderOrders(); }); }
   if(name==='stats')     renderStats();
@@ -206,7 +204,7 @@ async function saveSetPass(){
     if(DESK_ROLES.includes(cu.role)){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
-      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','accounts','export','history','costlog','summary','backup']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
+      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
       setTimeout(()=>fetchRates(),1000); loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
     } else {
