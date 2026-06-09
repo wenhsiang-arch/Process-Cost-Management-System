@@ -154,17 +154,12 @@ function setCur(c){
   rSum(); rDet(); rExp();
 }
 
-// ===== 頁面切換 =====
-
 function openDetailImport(){
-  const detail=g('pg-detail'), imp=g('pg-import');
-  if(!detail||!imp) return;
-  detail.appendChild(imp);
-  imp.classList.add('active');
-  imp.style.marginTop='16px';
-  g('fi').click();
+  const input=g('fi');
+  if(input) input.click();
 }
 
+// ===== 頁面切換 =====
 function sp(name){
   const adm=['settings','export','history','costlog','accounts'];
   if(adm.includes(name)&&!isAdm()) return;

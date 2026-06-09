@@ -9,8 +9,54 @@ function setProg(p,l,s){
 }
 function hideProg(){ g('pw-wrap').style.display='none'; }
 
+function resetDetailImportDisplay(){
+  ['imp-prev','dup-warn','imp-ok','imp-err'].forEach(id=>g(id).style.display='none');
+  hideProg();
+}
+
+function openDetailImportModal(){
+  resetDetailImportDisplay();
+  om('m-detail-import');
+}
+
+function closeDetailImportModal(){
+  resetDetailImportDisplay();
+  pImp=null; nItms=null; dups=[]; g('fi').value='';
+  cm('m-detail-import');
+}
+
+function handleDetailImportDragOver(event){
+  event.preventDefault();
+  event.dataTransfer.dropEffect='copy';
+  g('detail-import-drop').classList.add('dragging');
+}
+
+function handleDetailImportDragLeave(event){
+  event.preventDefault();
+  g('detail-import-drop').classList.remove('dragging');
+}
+
+function handleDetailImportDrop(event){
+  event.preventDefault();
+  g('detail-import-drop').classList.remove('dragging');
+  const file=event.dataTransfer.files[0];
+  if(!file) return;
+  openDetailImportModal();
+  if(!/\.(xlsx|xls)$/i.test(file.name)){
+    g('imp-err').style.display='flex';
+    g('imp-err-msg').textContent='只支援 .xlsx 或 .xls 檔案';
+    return;
+  }
+  processDetailImportFile(file);
+}
+
 function hImport(input){
   const file=input.files[0]; if(!file) return;
+  openDetailImportModal();
+  processDetailImportFile(file);
+}
+
+function processDetailImportFile(file){
   g('imp-err').style.display='none';
   setProg(10,'Đang đọc file... / 正在讀取檔案...','');
   setTimeout(()=>{
@@ -129,8 +175,7 @@ async function cImp(mode){
 }
 
 function xImp(){
-  ['imp-prev','dup-warn','imp-ok','imp-err'].forEach(id=>g(id).style.display='none');
-  hideProg(); pImp=null; nItms=null; dups=[]; g('fi').value='';
+  closeDetailImportModal();
 }
 
 // ===== 匯出報表 =====
