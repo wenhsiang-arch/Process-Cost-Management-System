@@ -219,6 +219,15 @@ async function confirmImportOrder(){
 }
 
 // ===== 訂單列表 =====
+function toggleOrderManager(){
+  const panel=g('order-manager-panel');
+  if(!panel) return;
+  const open=panel.classList.toggle('open');
+  const button=panel.querySelector('.order-manager-toggle');
+  if(button) button.setAttribute('aria-expanded',open?'true':'false');
+  if(open) renderOrders();
+}
+
 function renderOrders(){
   const q=(g('ord-q')?.value||'').toLowerCase();
   const tb=g('ord-tb'); if(!tb) return;

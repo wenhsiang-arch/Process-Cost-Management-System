@@ -117,6 +117,16 @@ tr:hover td{background:#f8fafc}
 .detail-import-drop span{display:block;font-size:10px;color:var(--mu)}
 .order-import-drop{border-color:#a5b4fc;background:#eef2ff;color:#4338ca}
 .order-import-drop:hover,.order-import-drop.dragging{border-color:#4f46e5;background:#e0e7ff}
+.order-manager-panel{border:1px solid #bfdbfe;border-radius:11px;background:#f0f7ff;margin-bottom:12px;overflow:hidden}
+.order-manager-toggle{width:100%;border:none;background:#e5f1ff;color:var(--navy);padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left}
+.order-manager-toggle:hover{background:#dbeafe}
+.order-manager-toggle i:first-child{font-size:19px;color:var(--accent)}
+.order-manager-toggle strong{display:block;font-size:13px;margin-bottom:2px}
+.order-manager-toggle span{display:block;font-size:10px;color:var(--mu)}
+.order-manager-toggle .order-manager-chevron{font-size:17px;color:var(--accent);margin-left:auto;transition:transform .15s}
+.order-manager-panel.open .order-manager-chevron{transform:rotate(180deg)}
+.order-manager-body{display:none;padding:14px;background:rgba(255,255,255,.72);border-top:1px solid #bfdbfe}
+.order-manager-panel.open .order-manager-body{display:block}
 .pw{background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:12px;display:none}
 .pwl{font-size:13px;color:var(--navy);margin-bottom:8px;font-weight:500}
 .pbb{background:var(--bd);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px}
@@ -574,6 +584,24 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-progress">
         <div class="card">
           <div class="ct-title"><i class="ti ti-chart-bar"></i>Tiến độ đơn hàng / 訂單進度</div>
+          <div class="order-manager-panel" id="order-manager-panel">
+            <button type="button" class="order-manager-toggle" onclick="toggleOrderManager()" aria-expanded="false">
+              <i class="ti ti-file-invoice"></i>
+              <div>
+                <strong>Quản lý đơn hàng / 訂單管理</strong>
+                <span>點擊展開搜尋、查看與刪除訂單</span>
+              </div>
+              <i class="ti ti-chevron-down order-manager-chevron"></i>
+            </button>
+            <div class="order-manager-body" id="order-manager-body">
+              <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
+              <div class="to"><table>
+                <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
+                <tbody id="ord-tb"></tbody>
+              </table></div>
+              <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
+            </div>
+          </div>
           <div class="detail-import-drop order-import-drop" id="order-import-drop" onclick="openImportOrder()" ondragover="handleOrderImportDragOver(event)" ondragleave="handleOrderImportDragLeave(event)" ondrop="handleOrderImportDrop(event)">
             <i class="ti ti-file-invoice"></i>
             <div>
@@ -590,15 +618,6 @@ tr:hover td{background:#f8fafc}
             </select>
           </div>
           <div id="prog-content"></div>
-        </div>
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-file-invoice"></i>Quản lý đơn hàng / 訂單管理</div>
-          <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
-          <div class="to"><table>
-            <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
-            <tbody id="ord-tb"></tbody>
-          </table></div>
-          <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
         </div>
       </div>
 
