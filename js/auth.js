@@ -54,6 +54,11 @@ function uNav(){
     }
     el.className = 'ni'+(show?'':' locked');
   });
+  const reportNav=g('nv-approval');
+  if(reportNav&&!isA){
+    const rp=perm[r]||{};
+    reportNav.className='ni'+((rp.approval===true||rp.replog===true||rp.sync===true)?'':' locked');
+  }
 
   g('upill').className  = 'up'+(isA?' adm':isMgr?' mgr':'');
   g('ulabel').textContent = window.cu.user+' · '+(ROLE_LABEL[r]||r);
@@ -92,7 +97,7 @@ function doLogin(){
         const perm = window.permissionSettings;
         const r = window.cu.role;
         if(r==='admin'){ sp('summary'); return; }
-        const order = ['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary'];
+        const order = ['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary'];
         const allowed = order.find(n=> perm[r] && perm[r][n]===true );
         if(allowed){ sp(allowed); } else {
           document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
@@ -166,7 +171,8 @@ function sp(name){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=g('pg-'+name); if(pg) pg.classList.add('active');
-  const nav=g('nv-'+name); if(nav) nav.classList.add('active');
+  const nav=g((name==='replog'||name==='sync')?'nv-approval':'nv-'+name); if(nav) nav.classList.add('active');
+  if(name==='approval'||name==='replog'||name==='sync') updateReportHubTabs();
   if(name==='settings')  rAll();
   if(name==='export')    rExp();
   if(name==='accounts')  rAcc();
@@ -204,7 +210,7 @@ async function saveSetPass(){
     if(DESK_ROLES.includes(cu.role)){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
-      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
+      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
       setTimeout(()=>fetchRates(),1000); loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
     } else {

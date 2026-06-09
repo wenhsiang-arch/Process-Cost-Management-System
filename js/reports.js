@@ -1,5 +1,21 @@
 window.deskApvUnsub = null;
 
+function updateReportHubTabs(){
+  const role=window.cu?.role;
+  const perm=window.permissionSettings?.[role]||{};
+  document.querySelectorAll('[data-report-feature]').forEach(btn=>{
+    btn.style.display=(role==='admin'||perm[btn.dataset.reportFeature]===true)?'flex':'none';
+  });
+}
+
+function openReportHub(){
+  const role=window.cu?.role;
+  if(role==='admin'){ sp('approval'); return; }
+  const perm=window.permissionSettings?.[role]||{};
+  const first=['approval','replog','sync'].find(name=>perm[name]===true);
+  if(first) sp(first);
+}
+
 function startDeskApvListener(){
   if(window.deskApvUnsub) return;
   window.deskApvUnsub = window._onSnapshot(

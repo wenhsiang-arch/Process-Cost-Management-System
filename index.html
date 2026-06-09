@@ -171,6 +171,12 @@ tr:hover td{background:#f8fafc}
 .pwe{position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--hi);font-size:15px}
 .mb{display:none;position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:50;align-items:flex-start;justify-content:center;padding-top:50px;min-height:640px}
 .mb.open{display:flex}
+.report-hub-tabs{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.report-hub-tab{display:flex;align-items:center;gap:10px;padding:13px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left}
+.report-hub-tab i{font-size:22px;color:var(--accent)}
+.report-hub-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
+.report-hub-tab.active strong{color:var(--accent)}
+@media(max-width:900px){.report-hub-tabs{grid-template-columns:1fr}}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
 .mt2{font-size:15px;font-weight:500;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;color:var(--navy)}
@@ -213,9 +219,7 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-employees" onclick="sp('employees')"><i class="ti ti-users-group"></i><div class="nl"><span class="nvi">Quản lý nhân viên</span><span class="nzh">員工管理</span></div></div>
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
-    <div class="ni locked" id="nv-approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Duyệt báo công</span><span class="nzh">報工審批 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
-    <div class="ni locked" id="nv-replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><div class="nl"><span class="nvi">Lịch sử báo công</span><span class="nzh">報工紀錄</span></div></div>
-    <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây CĐ</span><span class="nzh">工序秒數同步</span></div></div>
+    <div class="ni locked" id="nv-approval" onclick="openReportHub()"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Quản lý báo công</span><span class="nzh">報工管理 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
     <div class="sb-sec">Quản lý / 管理</div>
@@ -321,6 +325,11 @@ tr:hover td{background:#f8fafc}
 
       <!-- 工序秒數同步 -->
       <div class="pg" id="pg-sync">
+        <div class="report-hub-tabs">
+          <button class="report-hub-tab" data-report-feature="approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><strong>Duyệt báo công / 報工審批</strong></button>
+          <button class="report-hub-tab" data-report-feature="replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><strong>Lịch sử báo công / 報工紀錄</strong></button>
+          <button class="report-hub-tab active" data-report-feature="sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><strong>Đồng bộ giây CĐ / 工序秒數同步</strong></button>
+        </div>
         <div class="card">
           <div class="ct-title"><i class="ti ti-refresh"></i>Đồng bộ giây công đoạn / 工序秒數同步工具</div>
           <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#92400e;line-height:1.8">
@@ -506,6 +515,11 @@ tr:hover td{background:#f8fafc}
 
       <!-- 報工審批 -->
       <div class="pg" id="pg-approval">
+        <div class="report-hub-tabs">
+          <button class="report-hub-tab active" data-report-feature="approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><strong>Duyệt báo công / 報工審批</strong></button>
+          <button class="report-hub-tab" data-report-feature="replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><strong>Lịch sử báo công / 報工紀錄</strong></button>
+          <button class="report-hub-tab" data-report-feature="sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><strong>Đồng bộ giây CĐ / 工序秒數同步</strong></button>
+        </div>
         <div class="card">
           <div class="ct-title"><i class="ti ti-check-circle"></i>Duyệt báo công / 報工審批</div>
           <div class="br" style="margin-bottom:10px;gap:6px">
@@ -524,6 +538,11 @@ tr:hover td{background:#f8fafc}
 
       <!-- 報工紀錄 -->
       <div class="pg" id="pg-replog">
+        <div class="report-hub-tabs">
+          <button class="report-hub-tab" data-report-feature="approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><strong>Duyệt báo công / 報工審批</strong></button>
+          <button class="report-hub-tab active" data-report-feature="replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><strong>Lịch sử báo công / 報工紀錄</strong></button>
+          <button class="report-hub-tab" data-report-feature="sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><strong>Đồng bộ giây CĐ / 工序秒數同步</strong></button>
+        </div>
         <div class="card">
           <div class="ct-title"><i class="ti ti-file-search"></i>Lịch sử báo công / 報工紀錄</div>
           <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
