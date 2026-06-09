@@ -261,13 +261,9 @@ async function delEmployee(id){
     ]);
     const repCount=repSnap.docs.length;
     const attCount=attSnap.docs.length;
-    const msg=`Xác nhận xóa nhân viên「${emp.user}」?\n確定刪除員工「${emp.user}」？\n\n- Báo công / 報工記錄：${repCount} 筆\n- Chấm công / 考勤記錄：${attCount} 筆\n\nDữ liệu sẽ không thể khôi phục sau khi xóa.\n刪除後所有資料無法復原。`;
-    if(!confirm(msg)) return;
-    await Promise.all([
-      window._deleteDoc(window._doc(COL.employees,id)),
-      ...repSnap.docs.map(d=>window._deleteDoc(d.ref)),
-      ...attSnap.docs.map(d=>window._deleteDoc(d.ref))
-    ]);
+    const keepHistoryMsg=`確認刪除員工帳號「${emp.user}」？\n\n- 報工記錄：${repCount} 筆（保留）\n- 考勤記錄：${attCount} 筆（保留）\n\n只刪除員工帳號，報工與考勤歷史資料將完整保留。`;
+    if(!confirm(keepHistoryMsg)) return;
+    await window._deleteDoc(window._doc(COL.employees,id));
     window.allEmployees=window.allEmployees.filter(e=>e.id!==id);
     renderEmployees();
   }catch(e){ alert('刪除失敗：'+e.message); }
