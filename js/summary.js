@@ -39,7 +39,7 @@ function renderSummaryDetail(d){
   let total=0;
   const rows=[...d.ops].sort((a,b)=>compareProcessNo(a.no,b.no)).map(op=>{
     const result=calc(op.sec); total+=result.vnd;
-    return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`</tr>`;
+    return`<tr><td>${op.no}</td><td><span class="tg tn">${op.category||'—'} · ${processCategoryLabel(op.category)}</span></td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`</tr>`;
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
@@ -47,8 +47,8 @@ function renderSummaryDetail(d){
       ${isA?`<span class="tg tg2">USD: ${fU(total)}</span><span class="tg tb2">VND: ${fV(total)}</span><span class="tg ta">TWD: ${fT(total)}</span>`:''}
     </div>
     <div style="overflow-x:auto"><table class="summary-detail-table">
-      <thead><tr><th>工序號</th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}</tr></thead>
-      <tbody>${rows||`<tr><td colspan="${isA?6:5}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
+      <thead><tr><th>工序號</th><th>Phân loại<span class="tv">加工分類</span></th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}</tr></thead>
+      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
@@ -95,7 +95,7 @@ function rDet(){
   const sv = (g('d-sort')||{value:'ca'}).value||'ca';
   const pp = +(g('d-pp')||{value:50}).value||50;
   const isA = isAdm();
-  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>`+(isA?`<th>Chi phí (${window.cur})<span class="tv">工資</span></th>`:'');
+  g('dh').innerHTML=`<th>STT</th><th>Mã hàng<span class="tv">款號</span></th><th>Khách hàng<span class="tv">客人</span></th><th>Tên Trung<span class="tv">中文名稱</span></th><th>Tên Việt<span class="tv">越文名稱</span></th><th>Kích thước<span class="tv">尺寸</span></th><th>Số công đoạn<span class="tv">工序號</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>`+(isA?`<th>Chi phí (${window.cur})<span class="tv">工資</span></th>`:'');
   let src=window.D.filter(d=>{
     const m=!q||(d.code+d.client+d.zh).toLowerCase().includes(q.toLowerCase());
     return m&&(!cf||d.client===cf);
@@ -113,7 +113,7 @@ function rDet(){
   pr.forEach((item,i)=>{
     const{d,op,r}=item;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${d.vi}</td><td>${d.sz}</td><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td>`:'');
+    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${d.vi}</td><td>${d.sz}</td><td>${op.no}</td><td><span class="tg tn">${op.category||'—'} · ${processCategoryLabel(op.category)}</span></td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td>`:'');
     tb.appendChild(tr);
   });
   mkPager('dp2',window.dPage,rows.length,pp,'goDP');

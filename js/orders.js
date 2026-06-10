@@ -12,9 +12,41 @@ function setImportProgress(percent,vi,zh){
 }
 function makeOrderProcess(orderId,orderNo,item,op,now){
   return {orderId,orderNo,code:item.code,desc:item.desc,color:item.color,zh:item.zh,sz:item.sz,orderQty:item.qty,
-    processNo:op.no,processZh:op.zh,processVi:op.vi||'',processSec:op.sec||0,quoteSnapshotSec:op.sec||0,
+    processNo:op.no,processCategory:op.category,processZh:op.zh,processVi:op.vi||'',processSec:op.sec||0,quoteSnapshotSec:op.sec||0,
     workStdSec:op.sec||0,slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),
     approvedQty:0,pendingQty:0,createdAt:now};
+}
+
+const ORDER_PROCESS_CATEGORIES=[
+  {code:'BL',vi:'Chuẩn bị',zh:'備料'},
+  {code:'SX',vi:'Sản xuất',zh:'生產'},
+  {code:'QC',vi:'Kiểm phẩm',zh:'品檢'},
+  {code:'DG',vi:'Đóng gói',zh:'包裝'}
+];
+function weightedProcessProgress(procs){
+  let completed=0,total=0;
+  (procs||[]).forEach(p=>{
+    const qty=Math.max(0,Number(p.orderQty)||0);
+    const sec=Math.max(0,Number(p.workStdSec||p.processSec)||0);
+    const approved=Math.min(qty,Math.max(0,Number(p.approvedQty)||0));
+    total+=qty*sec;
+    completed+=approved*sec;
+  });
+  return total>0?Math.min(100,Math.round(completed/total*100)):0;
+}
+function renderCategoryProgress(procs){
+  return ORDER_PROCESS_CATEGORIES.map(category=>{
+    const matched=procs.filter(p=>p.processCategory===category.code);
+    const pct=weightedProcessProgress(matched);
+    const value=matched.length?`${pct}%`:'—';
+    return`<div style="min-width:92px;flex:1">
+      <div style="font-size:10px;color:var(--mu);margin-bottom:3px">${category.code} ${category.vi} / ${category.zh}</div>
+      <div style="position:relative;height:12px;background:var(--bd);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${matched.length?pct:0}%;background:linear-gradient(90deg,#bfdbfe,#60a5fa)"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1e3a5f">${value}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ===== 載入訂單資料 =====
@@ -138,6 +170,10 @@ function processImportOrderFile(file,input){
         const prod=window.D.find(p=>p.code===code);
         if(prod){
           const procErrors=validateProcessNumbers(prod.ops||[],code);
+          (prod.ops||[]).forEach(op=>{
+            if(!ORDER_PROCESS_CATEGORIES.some(x=>x.code===op.category)) procErrors.push(`款號 ${code}：工序 ${op.no} 缺少有效加工分類`);
+            if(!(Number(op.sec)>0)) procErrors.push(`款號 ${code}：工序 ${op.no} 秒數必須大於 0`);
+          });
           if(procErrors.length){
             errors.push(`${code}: ${procErrors.join('；')}`);
             return;
@@ -494,9 +530,8 @@ async function renderProgress(){
     const allProcs=window.allProcesses||[];
     const progMap={};
     allProcs.forEach(p=>{
-      if(!progMap[p.orderId]) progMap[p.orderId]={totalQty:0,approvedQty:0,procs:[]};
+      if(!progMap[p.orderId]) progMap[p.orderId]={totalQty:0,procs:[]};
       progMap[p.orderId].totalQty+=(p.orderQty||0);
-      progMap[p.orderId].approvedQty+=(p.approvedQty||0);
       progMap[p.orderId].procs.push(p);
     });
     let orders=usableOrders();
@@ -510,8 +545,8 @@ async function renderProgress(){
       orders=orders.filter(o=>matchingOrderIds.has(o.id));
     }
     let list=orders.map(o=>{
-      const pm=progMap[o.id]||{totalQty:0,approvedQty:0,procs:[]};
-      const pct=pm.totalQty>0?Math.round(pm.approvedQty/pm.totalQty*100):0;
+      const pm=progMap[o.id]||{totalQty:0,procs:[]};
+      const pct=weightedProcessProgress(pm.procs);
       const actualShipDate=o.actualShipDate||(o.dueDate||null);
       return{...o,pct,pm,actualShipDate};
     });
@@ -620,9 +655,7 @@ function toggleProgDetail(ordId){
   });
   let html='';
   Object.entries(byCode).forEach(([code,cp])=>{
-    const cApv=cp.reduce((a,p)=>a+(p.approvedQty||0),0);
-    const cQty=(cp[0].orderQty||0)*cp.length;
-    const cProg=cQty>0?Math.round(cApv/cQty*100):0;
+    const cProg=weightedProcessProgress(cp);
     const cDone=cp.length?Math.min(...cp.map(p=>p.approvedQty||0)):0;
     const safeCode=String(code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const detailId='prog-code-'+ordId+'-'+encodeURIComponent(code).replace(/%/g,'_');
@@ -639,6 +672,7 @@ function toggleProgDetail(ordId){
           ${canManageOrders()?`<button class="btn bsm" onclick="event.stopPropagation();openOrderQtyAdjust('${ordId}','${code}')"><i class="ti ti-adjustments"></i>Điều chỉnh SL / 調整數量</button>`:''}
         </span>
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 28px;border-bottom:1px solid var(--bd)">${renderCategoryProgress(cp)}</div>
       <div id="${detailId}" style="display:none"></div>
     </div>`;
   });
@@ -659,6 +693,7 @@ function toggleProgCodeDetail(ordId,code,detailId){
     const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
     return`<tr>
       <td style="padding:3px 6px;font-size:12px">${p.processNo}</td>
+      <td style="padding:3px 6px;font-size:12px">${p.processCategory||'—'} · ${processCategoryLabel(p.processCategory)}</td>
       <td style="padding:3px 6px;font-size:12px">${p.processVi||p.processZh||''}</td>
       <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.orderQty||0).toLocaleString()}</td>
       <td style="padding:3px 6px;text-align:right;color:var(--ok);font-weight:500;font-size:12px">${(p.approvedQty||0).toLocaleString()}</td>
@@ -669,6 +704,7 @@ function toggleProgCodeDetail(ordId,code,detailId){
   }).join('');
   detail.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--sf)">
     <th style="padding:4px 6px;text-align:left;width:60px;font-size:11px">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
+    <th style="padding:4px 6px;text-align:left;width:90px;font-size:11px">Phân loại<br><span style="font-weight:400;color:var(--mu)">加工分類</span></th>
     <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
     <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
     <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>

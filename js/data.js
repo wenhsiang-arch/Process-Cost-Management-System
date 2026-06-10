@@ -1,5 +1,7 @@
 // ===== 匯入 =====
 let pImp=null, nItms=null, dups=[];
+const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
+function processCategoryLabel(code){ return PROCESS_CATEGORIES[code]||code||'—'; }
 
 function validateProcessNumbers(ops,code){
   const label=code||'未知款號';
@@ -61,6 +63,37 @@ function validateImportProcessRows(rows){
         zh:`缺少工序號 ${expected}。`
       });
     }
+  });
+  return errors;
+}
+
+function validateRequiredImportFields(rows){
+  const fields=['款號','客人','中文名稱','越文名稱','尺寸','工序號','加工','工序中文','工序越文','秒數'];
+  const viFields=['Mã hàng','Khách hàng','Tên Trung','Tên Việt','Kích thước','Số công đoạn','Phân loại','Tên công đoạn Trung','Tên công đoạn Việt','Giây'];
+  const errors=[];
+  rows.forEach(r=>{
+    const code=String(r[0]??'').trim()||'Không rõ / 未知';
+    fields.forEach((field,i)=>{
+      if(String(r[i]??'').trim()==='') errors.push({
+        code,
+        vi:`Dòng ${r._excelRow}: ${viFields[i]} không được để trống.`,
+        zh:`第 ${r._excelRow} 行：${field}不得空白。`
+      });
+    });
+    const category=String(r[6]??'');
+    if(category&& !Object.prototype.hasOwnProperty.call(PROCESS_CATEGORIES,category)){
+      errors.push({
+        code,
+        vi:`Dòng ${r._excelRow}: Phân loại「${category}」không hợp lệ, chỉ được dùng BL, SX, QC hoặc DG.`,
+        zh:`第 ${r._excelRow} 行：加工分類「${category}」無效，只允許 BL、SX、QC、DG。`
+      });
+    }
+    const sec=String(r[9]??'').trim();
+    if(sec!==''&&(!Number.isFinite(Number(sec))||Number(sec)<=0)) errors.push({
+      code,
+      vi:`Dòng ${r._excelRow}: Giây của công đoạn ${r[5]} phải lớn hơn 0:「${sec}」.`,
+      zh:`第 ${r._excelRow} 行：工序號 ${r[5]} 的秒數必須大於 0：「${sec}」。`
+    });
   });
   return errors;
 }
@@ -161,17 +194,11 @@ function processDetailImportFile(file){
             const wb=XLSX.read(e.target.result,{type:'binary'});
             const ws=wb.Sheets[wb.SheetNames[0]];
             const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-            const dr=rows.map((r,i)=>{ r._excelRow=i+1; return r; }).filter(r=>r[0]&&!['款號','mã hàng','Mã hàng','mã hàng'].includes(String(r[0]).trim()));
-            const errs=[];
-            dr.forEach((r,i)=>{
-              const sec=r[8];
-              if(sec!==''&&sec!==undefined&&isNaN(+sec))
-                errs.push({
-                  code:String(r[0]).trim(),
-                  vi:`Dòng ${r._excelRow}: Giây của công đoạn ${r[5]} không hợp lệ:「${sec}」.`,
-                  zh:`第 ${r._excelRow} 行：工序號 ${r[5]} 的秒數格式錯誤：「${sec}」。`
-                });
+            const dr=rows.map((r,i)=>{ r._excelRow=i+1; return r; }).filter(r=>{
+              const values=r.slice(0,10).map(v=>String(v??'').trim());
+              return values.some(Boolean)&&!['款號','mã hàng','Mã hàng'].includes(values[0]);
             });
+            const errs=validateRequiredImportFields(dr);
             errs.push(...validateImportProcessRows(dr));
             if(errs.length>0){
               hideProg();
@@ -186,7 +213,7 @@ function processDetailImportFile(file){
                 dr.forEach(r=>{
                   const code=String(r[0]).trim();
                   if(!ni[code]) ni[code]={code,client:String(r[1]).trim(),zh:String(r[2]).trim(),vi:String(r[3]).trim(),sz:String(r[4]).trim(),ops:[]};
-                  if(r[8]!==''&&r[8]!==undefined&&!isNaN(+r[8])) ni[code].ops.push({no:normalizeProcessNo(r[5]),zh:String(r[6]).trim(),vi:String(r[7]).trim(),sec:+r[8]});
+                  ni[code].ops.push({no:normalizeProcessNo(r[5]),category:String(r[6]),zh:String(r[7]).trim(),vi:String(r[8]).trim(),sec:+r[9]});
                 });
                 nItms=ni;
                 dups=Object.keys(ni).filter(code=>window.D.find(d=>d.code===code));
@@ -196,12 +223,12 @@ function processDetailImportFile(file){
                   const prev=g('imp-prev'); prev.style.display='block';
                   const thead=document.querySelector('#prev-tbl thead');
                   const tbody=document.querySelector('#prev-tbl tbody');
-                  thead.innerHTML='<tr><th>Mã hàng/款號</th><th>Khách/客人</th><th>Tên TQ/中文</th><th>Tên VN/越文</th><th>Size/尺寸</th><th>Số CĐ/工序號</th><th>CĐ(TQ)</th><th>CĐ(VN)</th><th>Giây/秒數</th></tr>';
+                  thead.innerHTML='<tr><th>Mã hàng/款號</th><th>Khách/客人</th><th>Tên TQ/中文</th><th>Tên VN/越文</th><th>Size/尺寸</th><th>Số CĐ/工序號</th><th>Phân loại/加工</th><th>CĐ(TQ)</th><th>CĐ(VN)</th><th>Giây/秒數</th></tr>';
                   tbody.innerHTML='';
                   dr.slice(0,5).forEach(r=>{
                     const isDup=dups.includes(String(r[0]).trim());
                     const tr=document.createElement('tr');
-                    tr.innerHTML=`<td>${isDup?'<span class="tg tr2">Trùng/重複</span> ':''}<b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td>${r[7]}</td><td>${r[8]}</td>`;
+                    tr.innerHTML=`<td>${isDup?'<span class="tg tr2">Trùng/重複</span> ':''}<b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td>${r[7]}</td><td>${r[8]}</td><td>${r[9]}</td>`;
                     tbody.appendChild(tr);
                   });
                 },500);
@@ -350,7 +377,7 @@ function doExport(){
 
     // 明細 sheet
     if(ty==='detail'){
-      const detHeaders=['款號','客人','中文名稱','工序號','工序中文','工序越文','秒數','產量/小時'];
+      const detHeaders=['款號','客人','中文名稱','工序號','加工','工序中文','工序越文','秒數','產量/小時'];
       if(showUSD) detHeaders.push('工價(USD)');
       if(showVND) detHeaders.push('工價(VND)');
       if(showTWD) detHeaders.push('工價(TWD)');
@@ -361,13 +388,13 @@ function doExport(){
         d.ops.forEach(op=>{
           const r=calc(op.sec); const isAlt=di2%2===1;
           const ns=isAlt?altStyle():normStyle();
-          const vals=[d.code,d.client,d.zh,op.no,op.zh,op.vi||'',op.sec,r.qty];
+          const vals=[d.code,d.client,d.zh,op.no,op.category,op.zh,op.vi||'',op.sec,r.qty];
           if(showUSD) vals.push(r.vnd/window.S.usd);
           if(showVND) vals.push(r.vnd);
           if(showTWD) vals.push(r.vnd/window.S.twd);
           vals.forEach((v,i)=>{
             const cell=String.fromCharCode(65+i)+drow;
-            if(i>=8) wsDet[cell]={v,s:isAlt?(i===8&&showUSD?numUSDAlt():i===8&&!showUSD&&showVND?numVNDAlt():numTWDAlt()):(i===8&&showUSD?numUSD():i===8&&!showUSD&&showVND?numVND():numTWD())};
+            if(i>=9) wsDet[cell]={v,s:isAlt?(i===9&&showUSD?numUSDAlt():i===9&&!showUSD&&showVND?numVNDAlt():numTWDAlt()):(i===9&&showUSD?numUSD():i===9&&!showUSD&&showVND?numVND():numTWD())};
             else wsDet[cell]={v:typeof v==='number'?v:String(v||''),t:typeof v==='number'?'n':'s',s:ns};
           });
           drow++; di2++;
@@ -419,18 +446,18 @@ function doBackup(){
     const numRightAlt=()=>({alignment:{horizontal:'right'},fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
     const txtFmt=()=>({numFmt:'@',border:mkBd()});
     const txtFmtAlt=()=>({numFmt:'@',fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
-    const headers=['款號','客人','中文名稱','越文名稱','尺寸','工序號','工序中文','工序越文','秒數'];
+    const headers=['款號','客人','中文名稱','越文名稱','尺寸','工序號','加工','工序中文','工序越文','秒數'];
     const ws={'!ref':'A1'};
     headers.forEach((h,i)=>{ ws[String.fromCharCode(65+i)+'1']={v:h,s:hStyle()}; });
     let row=2; let di=0;
     fd.forEach(d=>{
       d.ops.forEach(op=>{
         const isAlt=di%2===1;
-        const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.zh,op.vi||'',op.sec];
+        const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,op.no,op.category,op.zh,op.vi||'',op.sec];
         vals.forEach((v,i)=>{
           const cell=String.fromCharCode(65+i)+row;
           if(i===5) ws[cell]={v:String(v),t:'s',s:isAlt?txtFmtAlt():txtFmt()};
-          else if(i===8) ws[cell]={v:Number(v),s:isAlt?numRightAlt():numRight()};
+          else if(i===9) ws[cell]={v:Number(v),s:isAlt?numRightAlt():numRight()};
           else ws[cell]={v:String(v||''),t:'s',s:isAlt?altStyle():normStyle()};
         });
         row++; di++;
@@ -444,10 +471,10 @@ function doBackup(){
         else if(!ws[cell].s.border) ws[cell].s.border=mkBd();
       }
     }
-    ws['!ref']='A1:I'+row;
-    ws['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:20},{wch:20},{wch:8}];
+    ws['!ref']='A1:J'+row;
+    ws['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:10},{wch:20},{wch:20},{wch:8}];
     ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
-    ws['!autofilter']={ref:'A1:I1'};
+    ws['!autofilter']={ref:'A1:J1'};
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'備份資料');
     const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
