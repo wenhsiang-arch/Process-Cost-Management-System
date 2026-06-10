@@ -262,6 +262,7 @@ async function deleteOrder(id,name){
 // ===== 訂單進度 =====
 async function renderProgress(){
   const ordId=g('prog-sel')?.value;
+  const codeQuery=(g('prog-code-q')?.value||'').trim().toLowerCase();
   const filter=g('prog-filter')?.value||'active';
   const content=g('prog-content'); if(!content) return;
   content.innerHTML='<div style="padding:20px;text-align:center;color:var(--mu)">載入中...</div>';
@@ -278,6 +279,14 @@ async function renderProgress(){
     });
     let orders=window.allOrders;
     if(ordId) orders=orders.filter(o=>o.id===ordId);
+    if(codeQuery){
+      const matchingOrderIds=new Set(
+        allProcs
+          .filter(p=>String(p.code||'').toLowerCase().includes(codeQuery))
+          .map(p=>p.orderId)
+      );
+      orders=orders.filter(o=>matchingOrderIds.has(o.id));
+    }
     let list=orders.map(o=>{
       const pm=progMap[o.id]||{totalQty:0,approvedQty:0,procs:[]};
       const pct=pm.totalQty>0?Math.round(pm.approvedQty/pm.totalQty*100):0;
@@ -342,6 +351,7 @@ async function renderProgress(){
     });
     html+='</tbody></table></div>';
     content.innerHTML=html;
+    if(codeQuery) list.forEach(o=>toggleProgDetail(o.id));
   }catch(e){
     content.innerHTML='<div style="color:var(--err);padding:20px">載入失敗：'+e.message+'</div>';
     console.error('renderProgress error:',e);
@@ -378,9 +388,14 @@ function toggleProgDetail(ordId){
   if(btn) btn.innerHTML='<i class="ti ti-chevron-up"></i>';
   const body=document.getElementById('prog-detail-body-'+ordId);
   if(!body) return;
+  const codeQuery=(g('prog-code-q')?.value||'').trim().toLowerCase();
   const procs=(window.allProcesses||[]).filter(p=>p.orderId===ordId);
   const byCode={};
-  procs.forEach(p=>{ if(!byCode[p.code]) byCode[p.code]=[]; byCode[p.code].push(p); });
+  procs.forEach(p=>{
+    if(codeQuery&&!String(p.code||'').toLowerCase().includes(codeQuery)) return;
+    if(!byCode[p.code]) byCode[p.code]=[];
+    byCode[p.code].push(p);
+  });
   let html='';
   Object.entries(byCode).forEach(([code,cp])=>{
     const cApv=cp.reduce((a,p)=>a+(p.approvedQty||0),0);

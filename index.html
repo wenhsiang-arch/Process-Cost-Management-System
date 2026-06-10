@@ -594,6 +594,7 @@ tr:hover td{background:#f8fafc}
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
+            <input id="prog-code-q" type="search" oninput="renderProgress()" placeholder="Tìm mã hàng / 搜尋款號..." style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px">
             <select id="prog-filter" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
               <option value="active">Chưa hoàn thành / 未完成訂單</option>
               <option value="done">Đã hoàn thành / 已完成訂單</option>
