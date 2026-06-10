@@ -1,5 +1,5 @@
 // ===== 共用常數 =====
-const COL = {orders:'orders', processes:'orderProcesses', employees:'employees', reports:'reports', attendance:'attendance', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks'};
+const COL = {orders:'orders', processes:'orderProcesses', employees:'employees', reports:'reports', attendance:'attendance', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks', secondSyncLogs:'secondSyncLogs'};
 const DEPTS = {'備料':'Bị liệu','普工':'Phổ thông','電腦針車':'May điện tử','平車':'May bằng','品檢':'QC','包裝':'Đóng gói'};
 const DESK_ROLES = ['admin','manager','clerk'];
 const ROLE_LABEL = {admin:'管理員',manager:'課長',clerk:'文員',leader:'班長',user:'員工'};
@@ -13,6 +13,32 @@ function isOrderUsable(o){
   return !!o
     && (!o.importStatus||o.importStatus==='ready')
     && (!o.lifecycleStatus||o.lifecycleStatus==='active');
+}
+function isOrderMutationLocked(o){ return !!o&&(o.lifecycleStatus==='syncingSeconds'||o.lifecycleStatus==='deleting'); }
+function reportProcessMatches(report,process){
+  return !!report&&!!process
+    && String(process.orderId)===String(report.orderId)
+    && String(process.code)===String(report.code)
+    && String(process.processNo)===String(report.processNo);
+}
+function reportProcessKey(report){
+  return report.processId?`id|${report.processId}`:`legacy|${report.orderId}|${report.code}|${report.processNo}`;
+}
+async function resolveReportProcess(report){
+  if(report.processId){
+    const snap=await window._getDoc(window._doc(COL.processes,report.processId));
+    if(!snap.exists()) throw new Error('報工對應工序不存在');
+    if(!reportProcessMatches(report,snap.data())) throw new Error('報工 processId 與工序資料不符合');
+    return {id:snap.id,ref:snap.ref,data:snap.data()};
+  }
+  const snap=await window._getDocs(window._query(
+    window._collection(COL.processes),
+    window._where('orderId','==',report.orderId),
+    window._where('code','==',report.code),
+    window._where('processNo','==',report.processNo)
+  ));
+  if(snap.docs.length!==1) throw new Error(`舊報工無法安全找到唯一工序，找到 ${snap.docs.length} 筆`);
+  return {id:snap.docs[0].id,ref:snap.docs[0].ref,data:snap.docs[0].data()};
 }
 function canManageOrders(){
   const role=window.cu?.role;

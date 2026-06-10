@@ -189,9 +189,9 @@ async function mobSubmitReport(){
       if(qty>realRemain) throw new Error(`Vui lòng báo tối đa ${realRemain} SP / 剩餘可報 ${realRemain} 件，本次 ${qty} 件超過訂單數量`);
       t.set(newRepRef,{
         empId:window.cu.id||window.cu.user, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
-        orderId:p.orderId, orderNo:p.orderNo||'', code:p.code,
-        processNo:p.processNo, processVi:p.processVi||p.processZh,
-        processSec:p.processSec||0, slPerHour:p.slPerHour||0,
+        orderId:pd.orderId, orderNo:pd.orderNo||'', code:pd.code, processId:currentProcId,
+        processNo:pd.processNo, processVi:pd.processVi||pd.processZh,
+        processSec:pd.processSec||0, slPerHour:pd.slPerHour||0,
         qty, status:'pending', createdAt:Date.now()
       });
       t.update(procRef,{pendingQty:window._increment(qty)});
@@ -343,19 +343,16 @@ async function mobDoPass(ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
     try{
       const repRef=window._doc(COL.reports,id);
-      const ps=await window._getDocs(
-        window._query(window._collection(COL.processes),
-          window._where('orderId','==',r.orderId),
-          window._where('code','==',r.code),
-          window._where('processNo','==',r.processNo)
-        )
-      );
-      if(ps.empty){ errors.push(r.empName||r.empId); continue; }
-      const procRef=ps.docs[0].ref;
+      const resolved=await resolveReportProcess(r);
+      const procRef=resolved.ref;
+      const orderRef=window._doc(COL.orders,r.orderId);
       await window._runTransaction(async(t)=>{
         const repSnap=await t.get(repRef);
         const procSnap=await t.get(procRef);
+        const orderSnap=await t.get(orderRef);
         if(!repSnap.exists()) throw new Error('報工不存在');
+        if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
+        if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
         if(repQty<=0) throw new Error('報工數量必須大於 0');
@@ -383,19 +380,16 @@ async function mobDoReject(){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
     try{
       const repRef=window._doc(COL.reports,id);
-      const ps=await window._getDocs(
-        window._query(window._collection(COL.processes),
-          window._where('orderId','==',r.orderId),
-          window._where('code','==',r.code),
-          window._where('processNo','==',r.processNo)
-        )
-      );
-      if(ps.empty){ errors.push(r.empName||r.empId); continue; }
-      const procRef=ps.docs[0].ref;
+      const resolved=await resolveReportProcess(r);
+      const procRef=resolved.ref;
+      const orderRef=window._doc(COL.orders,r.orderId);
       await window._runTransaction(async(t)=>{
         const repSnap=await t.get(repRef);
         const procSnap=await t.get(procRef);
+        const orderSnap=await t.get(orderRef);
         if(!repSnap.exists()) throw new Error('報工不存在');
+        if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
+        if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
         if(repQty<=0) throw new Error('報工數量必須大於 0');

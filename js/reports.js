@@ -109,13 +109,16 @@ async function passReports(ids){
     const r=pendingList.find(x=>x.id===id); if(!r) continue;
     try{
       const repRef=window._doc(COL.reports,id);
-      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
-      if(ps.empty){ errors.push(r.empName||r.empId); continue; }
-      const procRef=ps.docs[0].ref;
+      const resolved=await resolveReportProcess(r);
+      const procRef=resolved.ref;
+      const orderRef=window._doc(COL.orders,r.orderId);
       await window._runTransaction(async(t)=>{
         const repSnap=await t.get(repRef);
         const procSnap=await t.get(procRef);
+        const orderSnap=await t.get(orderRef);
         if(!repSnap.exists()) throw new Error('報工不存在');
+        if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
+        if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
         if(repQty<=0) throw new Error('報工數量必須大於 0');
@@ -139,13 +142,16 @@ async function doReject(){
     const r=pendingList.find(x=>x.id===id); if(!r) continue;
     try{
       const repRef=window._doc(COL.reports,id);
-      const ps=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',r.orderId),window._where('code','==',r.code),window._where('processNo','==',r.processNo)));
-      if(ps.empty){ continue; }
-      const procRef=ps.docs[0].ref;
+      const resolved=await resolveReportProcess(r);
+      const procRef=resolved.ref;
+      const orderRef=window._doc(COL.orders,r.orderId);
       await window._runTransaction(async(t)=>{
         const repSnap=await t.get(repRef);
         const procSnap=await t.get(procRef);
+        const orderSnap=await t.get(orderRef);
         if(!repSnap.exists()) throw new Error('報工不存在');
+        if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
+        if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');
         if(repSnap.data().status!=='pending') throw new Error('非待審狀態');
         const repQty=repSnap.data().qty||0;
         if(repQty<=0) throw new Error('報工數量必須大於 0');
@@ -224,19 +230,16 @@ async function confirmVoid(){
   if(!rep){ alert('找不到此筆報工'); return; }
   try{
     const repRef=window._doc(COL.reports,repId);
-    const ps=await window._getDocs(
-      window._query(window._collection(COL.processes),
-        window._where('orderId','==',rep.orderId),
-        window._where('code','==',rep.code),
-        window._where('processNo','==',rep.processNo)
-      )
-    );
-    if(ps.empty){ alert('找不到對應工序，無法作廢'); return; }
-    const procRef=ps.docs[0].ref;
+    const resolved=await resolveReportProcess(rep);
+    const procRef=resolved.ref;
+    const orderRef=window._doc(COL.orders,rep.orderId);
     await window._runTransaction(async(t)=>{
       const repSnap=await t.get(repRef);
       const procSnap=await t.get(procRef);
+      const orderSnap=await t.get(orderRef);
       if(!repSnap.exists()) throw new Error('報工記錄不存在');
+      if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
+      if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');
       if(repSnap.data().status!=='approved') throw new Error('此報工非已審批狀態');
       const repQty=repSnap.data().qty||0;
       if(repQty<=0) throw new Error('報工數量必須大於 0');
@@ -363,10 +366,10 @@ async function confirmManualEntry(){
       if(qty>remain) throw new Error(`剩餘可補登 ${remain} 件，本次 ${qty} 件超過`);
       t.set(newRepRef,{
         empId, empName:emp.name||emp.user, empDept:emp.dept||'',
-        orderId:p.orderId, orderNo:p.orderNo||'',
-        code:p.code, processNo:p.processNo,
-        processVi:p.processVi||p.processZh||'',
-        processSec:p.processSec||0, slPerHour:p.slPerHour||0,
+        orderId:pd.orderId, orderNo:pd.orderNo||'', processId:procId,
+        code:pd.code, processNo:pd.processNo,
+        processVi:pd.processVi||pd.processZh||'',
+        processSec:pd.processSec||0, slPerHour:pd.slPerHour||0,
         qty, status:'approved',
         workDate,
         isManualEntry:true,

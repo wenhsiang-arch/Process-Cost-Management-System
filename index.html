@@ -335,14 +335,14 @@ tr:hover td{background:#f8fafc}
           <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#92400e;line-height:1.8">
             <b>⚠️ Lưu ý</b><br>
             · Chỉ cập nhật đơn hàng đã chọn, không ảnh hưởng đơn hàng khác<br>
-            · Cập nhật giây hiện trường (workStdSec) và SL/giờ (slPerHour), không thay đổi giây báo giá (quoteSnapshotSec)<br>
-            · Tất cả báo công đã nộp của đơn hàng này cũng sẽ được cập nhật SL/giờ<br>
+            · Cập nhật toàn bộ giây và SL/giờ của đơn hàng + công đoạn đã chọn<br>
+            · Tất cả báo công của phạm vi này cũng sẽ được cập nhật giây và SL/giờ<br>
             · Ô để trống sẽ không cập nhật<br>
             <br>
             <b>⚠️ 注意</b><br>
             · 只更新所選訂單，不影響其他訂單<br>
-            · 只更新現場標準秒數（workStdSec）與標準產量/時（slPerHour），接單快照秒數（quoteSnapshotSec）永遠不變，成本報表不受影響<br>
-            · 該訂單所有狀態報工記錄的標準產量/時也會同步更新<br>
+            · 更新所選「訂單＋工序號」的全部秒數與標準產量/時<br>
+            · 該範圍所有狀態報工的工序秒數與標準產量/時也會同步更新<br>
             · 空白欄位不會更新，只有填入新秒數的款號才會被同步
           </div>
           <div class="fg cols2" style="margin-bottom:14px">
@@ -360,6 +360,11 @@ tr:hover td{background:#f8fafc}
             </div>
           </div>
           <div id="sync-table-wrap" style="display:none">
+            <div id="sync-progress-wrap" class="nt ns" style="display:none;margin-bottom:12px;line-height:1.7">
+              <div id="sync-progress-text"></div>
+              <div style="height:8px;background:var(--bd);border-radius:99px;overflow:hidden;margin-top:8px"><div id="sync-progress-bar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div></div>
+              <button class="btn bd2" id="sync-retry-btn" style="display:none;margin-top:10px" onclick="syncRetry()"><i class="ti ti-refresh"></i>Tiếp tục đồng bộ / 繼續同步</button>
+            </div>
             <div class="ct-title" style="margin-bottom:10px"><i class="ti ti-table"></i>Danh sách mã hàng / 款號列表</div>
             <div style="overflow-x:auto">
               <table style="width:100%;border-collapse:collapse;font-size:13px">
