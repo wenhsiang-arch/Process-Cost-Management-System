@@ -271,7 +271,7 @@ function openManualEntry(){
   });
   const ordSel=g('me-order');
   ordSel.innerHTML='<option value="">-- 選擇訂單 --</option>';
-  (window.allOrders||[]).forEach(o=>{
+  (window.allOrders||[]).filter(isOrderUsable).forEach(o=>{
     const opt=document.createElement('option');
     opt.value=o.id; opt.textContent=o.orderId;
     ordSel.appendChild(opt);
@@ -350,10 +350,13 @@ async function confirmManualEntry(){
   if(!emp||!p){ alert('資料錯誤，請重新選擇'); return; }
   try{
     const procRef=window._docRef(COL.processes,procId);
+    const orderRef=window._docRef(COL.orders,p.orderId);
     const newRepRef=window._docRef(COL.reports,Date.now()+'_manual_'+empId);
     await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
+      const orderSnap=await t.get(orderRef);
       if(!procSnap.exists()) throw new Error('工序不存在');
+      if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
       if(qty<=0) throw new Error('補登數量必須大於 0');
       const pd=procSnap.data();
       const remain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);

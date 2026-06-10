@@ -4,7 +4,7 @@ function syncInit(){
   const sel = g('sync-order');
   if(!sel) return;
   sel.innerHTML = '<option value="">-- Chọn đơn hàng / 選擇訂單 --</option>';
-  (window.allOrders||[]).forEach(o=>{
+  (window.allOrders||[]).filter(isOrderUsable).forEach(o=>{
     const opt = document.createElement('option');
     opt.value = o.id;
     opt.textContent = o.orderId + ' · ' + fmtVN(o.dueDate);
@@ -23,6 +23,8 @@ async function syncLoadProcs(){
   g('sync-tb').innerHTML = '';
   if(!ordId) return;
   try{
+    const orderSnap=await window._getDoc(window._doc(COL.orders,ordId));
+    if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
     const snap = await window._getDocs(
       window._query(window._collection(COL.processes), window._where('orderId','==',ordId))
     );

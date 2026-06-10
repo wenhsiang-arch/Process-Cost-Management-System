@@ -4,14 +4,14 @@ const DEFAULT_PERMISSIONS = {
     attendance:true, stats:true, employees:true,
     progress:true, approval:true, replog:true,
     accounts:true, export:true, costlog:true,
-    summary:true,
+    summary:true, orderImport:true,
     efficiency:false
   },
   clerk: {
     attendance:true, stats:true, employees:true,
     progress:true, approval:false, replog:true,
     accounts:false, export:true, costlog:true,
-    summary:true,
+    summary:true, orderImport:true,
     efficiency:false
   }
 };
@@ -28,12 +28,13 @@ const PERM_LABELS = {
   export:'匯出報表 / Xuất báo cáo',
   costlog:'成本變動記錄 / Lịch sử chi phí',
   accounts:'帳號管理 / Quản lý tài khoản',
-  efficiency:'效率報表 / Báo cáo hiệu suất'
+  efficiency:'效率報表 / Báo cáo hiệu suất',
+  orderImport:'Nhập và điều chỉnh đơn hàng / 訂單匯入與調整'
 };
 
 const PERM_GROUPS = [
   { label:'人員管理 / Nhân sự', keys:['attendance','stats','employees'] },
-  { label:'訂單管理 / Đơn hàng', keys:['progress','approval','replog','sync'] },
+  { label:'訂單管理 / Đơn hàng', keys:['progress','orderImport','approval','replog','sync'] },
   { label:'工序表 / Công đoạn', keys:['summary'] },
   { label:'管理 / Quản lý', keys:['export','costlog','accounts','efficiency'] }
 ];
@@ -50,6 +51,7 @@ async function loadPermissions(){
       ['manager','clerk'].forEach(role=>{
         if(data[role]?.detail===true || data[role]?.history===true || data[role]?.backup===true) data[role].summary=true;
         if(data[role]){
+          if(data[role].orderImport===undefined) data[role].orderImport=true;
           delete data[role].detail;
           delete data[role].history;
           delete data[role].backup;

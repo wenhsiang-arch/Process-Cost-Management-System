@@ -1,5 +1,5 @@
 // ===== 共用常數 =====
-const COL = {orders:'orders', processes:'orderProcesses', employees:'employees', reports:'reports', attendance:'attendance'};
+const COL = {orders:'orders', processes:'orderProcesses', employees:'employees', reports:'reports', attendance:'attendance', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks'};
 const DEPTS = {'備料':'Bị liệu','普工':'Phổ thông','電腦針車':'May điện tử','平車':'May bằng','品檢':'QC','包裝':'Đóng gói'};
 const DESK_ROLES = ['admin','manager','clerk'];
 const ROLE_LABEL = {admin:'管理員',manager:'課長',clerk:'文員',leader:'班長',user:'員工'};
@@ -9,6 +9,12 @@ function g(id){ return document.getElementById(id); }
 function om(id){ g(id).classList.add('open'); }
 function cm(id){ g(id).classList.remove('open'); }
 function mG(id){ return document.getElementById(id); }
+function isOrderUsable(o){ return !!o && (!o.importStatus||o.importStatus==='ready'); }
+function canManageOrders(){
+  const role=window.cu?.role;
+  return role==='admin'||window.permissionSettings?.[role]?.orderImport===true;
+}
+function orderLockId(orderNo){ return encodeURIComponent(String(orderNo||'').trim().toUpperCase()); }
 
 // ===== 日期格式 =====
 function fmtVN(ts){

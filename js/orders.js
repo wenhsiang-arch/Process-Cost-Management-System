@@ -2,6 +2,20 @@
 window.allOrders    = [];
 window.allEmployees = [];
 window.allProcesses = [];
+window._failedOrderCleanup = null;
+
+function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
+function setImportProgress(percent,vi,zh){
+  g('imp-progress-wrap').style.display='block';
+  g('imp-progress-bar').style.width=Math.max(0,Math.min(100,percent))+'%';
+  g('imp-progress-text').innerHTML=`<div>${vi}</div><div style="margin-top:4px;color:var(--mu)">${zh}</div>`;
+}
+function makeOrderProcess(orderId,orderNo,item,op,now){
+  return {orderId,orderNo,code:item.code,desc:item.desc,color:item.color,zh:item.zh,sz:item.sz,orderQty:item.qty,
+    processNo:op.no,processZh:op.zh,processVi:op.vi||'',processSec:op.sec||0,quoteSnapshotSec:op.sec||0,
+    workStdSec:op.sec||0,slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),
+    approvedQty:0,pendingQty:0,createdAt:now};
+}
 
 // ===== 載入訂單資料 =====
 async function loadOrderData(){
@@ -41,7 +55,7 @@ function fillOrderSelects(){
   ['prog-sel'].forEach(id=>{
     const sel=g(id); if(!sel) return;
     while(sel.options.length>1) sel.remove(1);
-    window.allOrders.forEach(o=>{
+    usableOrders().forEach(o=>{
       const opt=document.createElement('option');
       opt.value=o.id;
       opt.textContent=`${o.orderId} · ${fmtVN(o.dueDate)}`;
@@ -52,10 +66,13 @@ function fillOrderSelects(){
 
 // ===== 匯入訂單 =====
 function openImportOrder(){
+  if(!canManageOrders()) return;
   g('imp-ord-id').value=''; g('imp-ord-date').value='';
   g('imp-file').value=''; g('imp-filename').textContent='';
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
   g('imp-skip-msg').style.display='none';
+  g('imp-progress-wrap').style.display='none';
+  g('imp-cleanup-btn').style.display='none';
   window._impData=null;
   const clientSel=g('imp-ord-client');
   if(clientSel){
@@ -102,25 +119,30 @@ function processImportOrderFile(file,input){
       const iDesc=headers.findIndex(h=>h.includes('DESC'));
       const iColor=headers.findIndex(h=>h.includes('COLOR')||h.includes('顏色'));
       const iQty=headers.findIndex(h=>h.includes("Q'TY")||h.includes('QTY')||h.includes('數量'));
-      const matched=[], skipped=[];
-      rows.slice(hRow+1).filter(r=>r[iItem]).forEach(r=>{
+      const matched=[], skipped=[], errors=[], seenCodes=new Map();
+      rows.slice(hRow+1).forEach((r,rowIndex)=>{
         const code=String(r[iItem]||'').trim();
-        const qty=parseInt(r[iQty]||0);
-        if(!code||!qty) return;
+        if(!code) return;
+        const excelRow=hRow+2+rowIndex;
+        const rawQty=String(r[iQty]??'').trim(), qty=Number(rawQty);
+        if(seenCodes.has(code)){ errors.push(`Dòng ${excelRow}: mã hàng ${code} bị trùng / 第 ${excelRow} 列：款號 ${code} 重複`); return; }
+        seenCodes.set(code,excelRow);
+        if(!Number.isInteger(qty)||qty<=0){ errors.push(`Dòng ${excelRow}: số lượng không hợp lệ / 第 ${excelRow} 列：數量必須為正整數`); return; }
         const prod=window.D.find(p=>p.code===code);
         if(prod){
           const procErrors=validateProcessNumbers(prod.ops||[],code);
           if(procErrors.length){
-            skipped.push(`${code}（${procErrors.join('；')}）`);
+            errors.push(`${code}: ${procErrors.join('；')}`);
             return;
           }
           matched.push({code,desc:String(r[iDesc]||'').trim(),color:String(r[iColor]||'').trim(),qty,ops:prod.ops||[],zh:prod.zh||'',sz:prod.sz||''});
-        } else { skipped.push(code); }
+        } else { errors.push(`Không tìm thấy mã hàng ${code} trong bảng công đoạn / 工序總表找不到款號 ${code}`); }
       });
+      if(errors.length){ alert(errors.slice(0,15).join('\n')); window._impData=null; return; }
       window._impData={ordId,dueDate,matched,skipped};
       g('imp-step2').style.display='block';
       const _ioMsg=document.getElementById('imp-order-ok');
-      if(_ioMsg) _ioMsg.innerHTML=`<i class="ti ti-check"></i> Tìm thấy <b>${matched.length}</b> mã hàng / 找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> công đoạn / 道工序`;
+      if(_ioMsg) _ioMsg.innerHTML=`<div><i class="ti ti-check"></i> Tìm thấy <b>${matched.length}</b> mã hàng, tổng cộng <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> công đoạn.</div><div style="margin-top:4px">找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> 道工序。</div>`;
       if(skipped.length>0){
         const sm=g('imp-skip-msg'); sm.style.display='flex';
         sm.innerHTML=`<i class="ti ti-alert-triangle"></i> Bỏ qua ${skipped.length} mã hàng (không tìm thấy trong bảng công đoạn) / 跳過 ${skipped.length} 款（工序表找不到）：${skipped.slice(0,5).join('、')}${skipped.length>5?'...':''}`;
@@ -128,7 +150,7 @@ function processImportOrderFile(file,input){
       const tb=g('imp-preview-tb'); tb.innerHTML='';
       matched.forEach(m=>{
         const tr=document.createElement('tr');
-        tr.innerHTML=`<td><b>${m.code}</b></td><td>${m.desc}</td><td>${m.color}</td><td>${m.qty.toLocaleString()}</td><td>${m.ops.length}</td><td><span class="tg tg2">✓ 可匯入</span></td>`;
+        tr.innerHTML=`<td><b>${m.code}</b></td><td>${m.desc}</td><td>${m.color}</td><td>${m.qty.toLocaleString()}</td><td>${m.ops.length}</td><td><span class="tg tg2">Có thể nhập<br>可匯入</span></td>`;
         tb.appendChild(tr);
       });
       skipped.forEach(s=>{
@@ -144,16 +166,43 @@ function processImportOrderFile(file,input){
 async function confirmImportOrder(){
   const d=window._impData;
   if(!d||!d.matched.length){ alert('請先上傳 Excel'); return; }
+  if(!canManageOrders()) return;
   d.ordId = g('imp-ord-id').value.trim();
-  if(window.allOrders.find(o=>o.orderId===d.ordId)){
-    alert(`⚠️ Số đơn hàng "${d.ordId}" đã tồn tại! / 訂單編號「${d.ordId}」已存在，請勿重複匯入。`);
-    return;
-  }
   const btn=g('imp-confirm-btn');
-  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> 匯入中...';
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Đang nhập / 匯入中';
+  let orderRef=null, lockRef=null;
   try{
+    const duplicateOrders=await window._getDocs(window._query(window._collection(COL.orders),window._where('orderId','==',d.ordId)));
+    const orphanProcs=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderNo','==',d.ordId)));
+    lockRef=window._doc(COL.orderLocks,orderLockId(d.ordId));
+    const existingLock=await window._getDoc(lockRef);
+    if(existingLock.exists()){
+      if(existingLock.data().status!=='ready'){
+        window._failedOrderCleanup={id:existingLock.data().orderId||duplicateOrders.docs[0]?.id||null,orderNo:d.ordId};
+        g('imp-cleanup-btn').style.display='';
+        throw new Error(`Số đơn hàng ${d.ordId} đang bị khóa bởi lần nhập trước.\n訂單號 ${d.ordId} 被先前的匯入鎖定，請確認後清理。`);
+      }
+      throw new Error(`Số đơn hàng ${d.ordId} đã tồn tại.\n訂單號 ${d.ordId} 已存在。`);
+    }
+    if(duplicateOrders.empty&&!orphanProcs.empty){
+      window._failedOrderCleanup={id:null,orderNo:d.ordId};
+      g('imp-cleanup-btn').style.display='';
+      throw new Error(`Số đơn hàng ${d.ordId} còn dữ liệu công đoạn chưa dọn.\n訂單號 ${d.ordId} 仍有殘留工序資料，請先清理。`);
+    }
+    const incompleteOrder=duplicateOrders.docs.find(x=>!isOrderUsable(x.data()));
+    if(incompleteOrder){
+      window._failedOrderCleanup={id:incompleteOrder.id,orderNo:d.ordId};
+      g('imp-cleanup-btn').style.display='';
+      throw new Error(`Số đơn hàng ${d.ordId} có lần nhập chưa hoàn tất.\n訂單號 ${d.ordId} 存在未完成匯入，請先清理。`);
+    }
+    if(!duplicateOrders.empty) throw new Error(`Số đơn hàng ${d.ordId} đã tồn tại.\n訂單號 ${d.ordId} 已存在。`);
+    await window._runTransaction(async t=>{
+      const lockSnap=await t.get(lockRef);
+      if(lockSnap.exists()) throw new Error(`Số đơn hàng ${d.ordId} đang được nhập hoặc đã tồn tại.\n訂單號 ${d.ordId} 正在匯入或已存在。`);
+      t.set(lockRef,{orderNo:d.ordId,status:'importing',createdAt:Date.now(),createdBy:window.cu.user});
+    });
     const now=Date.now();
-    const ref=await window._addDoc(window._collection(COL.orders),{
+    orderRef=await window._addDoc(window._collection(COL.orders),{
       orderId:d.ordId, dueDate:new Date(d.dueDate).getTime(),
       client:g('imp-ord-client')?.value||'',
       actualShipDate:new Date(d.dueDate).getTime(),
@@ -162,32 +211,79 @@ async function confirmImportOrder(){
       totalQty:d.matched.reduce((a,m)=>a+m.qty,0),
       createdAt:now, createdBy:window.cu.user,
       snapshotHr:getH(),
-      snapshotWs:window.S?.ws||3000
+      snapshotWs:window.S?.ws||3000,
+      importStatus:'importing'
     });
-    const ordId=ref.id;
-    for(const item of d.matched){
-      for(const op of item.ops){
-        await window._addDoc(window._collection(COL.processes),{
-          orderId: ordId, orderNo:d.ordId,
-          code:item.code, desc:item.desc, color:item.color,
-          zh:item.zh, sz:item.sz, orderQty:item.qty,
-          processNo:op.no, processZh:op.zh, processVi:op.vi||'',
-          processSec:op.sec||0,
-          quoteSnapshotSec:op.sec||0,
-          workStdSec:op.sec||0,
-          slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),
-          approvedQty:0, pendingQty:0, createdAt:now
-        });
-      }
+    const ordId=orderRef.id, processRows=[];
+    d.matched.forEach(item=>(item.ops||[]).forEach(op=>processRows.push(makeOrderProcess(ordId,d.ordId,item,op,now))));
+    const totalBatches=Math.max(1,Math.ceil(processRows.length/450));
+    for(let offset=0,batchNo=1;offset<processRows.length;offset+=450,batchNo++){
+      setImportProgress(Math.round(offset/processRows.length*100),
+        `Đang nhập đợt ${batchNo}/${totalBatches}. Tổng cộng ${processRows.length} công đoạn.`,
+        `正在匯入第 ${batchNo}/${totalBatches} 批，共 ${processRows.length} 道工序。`);
+      const batch=window._writeBatch();
+      processRows.slice(offset,offset+450).forEach(row=>batch.set(window._newDocRef(COL.processes),row));
+      await batch.commit();
     }
+    await window._updateDoc(lockRef,{status:'ready',orderId:ordId,completedAt:Date.now()});
+    await window._updateDoc(orderRef,{importStatus:'ready',importCompletedAt:Date.now()});
+    setImportProgress(100,'Nhập đơn hàng hoàn tất.','訂單匯入完成。');
     const dueDate=new Date(d.dueDate).getTime();
-    window.allOrders.unshift({id:ordId,orderId:d.ordId,client:g('imp-ord-client')?.value||'',dueDate,actualShipDate:dueDate,itemCount:d.matched.length,totalQty:d.matched.reduce((a,m)=>a+m.qty,0),createdAt:now});
+    window.allOrders.unshift({id:ordId,orderId:d.ordId,client:g('imp-ord-client')?.value||'',dueDate,actualShipDate:dueDate,itemCount:d.matched.length,totalQty:d.matched.reduce((a,m)=>a+m.qty,0),createdAt:now,importStatus:'ready'});
     closeImportOrder();
     await reloadProcesses();
     renderOrders(); renderProgress();
-    alert(`✅ Nhập thành công! / 匯入成功！\nĐơn hàng / 訂單：${d.ordId}\nMã hàng / 款號：${d.matched.length} cái / 個\nCông đoạn / 工序：${d.matched.reduce((a,m)=>a+m.ops.length,0)} quy trình / 道`);
-  }catch(err){ alert('匯入失敗：'+err.message); }
+    alert(`Nhập đơn hàng thành công!\nĐơn hàng: ${d.ordId}\nMã hàng: ${d.matched.length}\nCông đoạn: ${d.matched.reduce((a,m)=>a+m.ops.length,0)}\n\n訂單匯入成功！\n訂單：${d.ordId}\n款號：${d.matched.length}\n工序：${d.matched.reduce((a,m)=>a+m.ops.length,0)}`);
+  }catch(err){
+    let cleaned=!orderRef;
+    if(!orderRef&&lockRef){
+      try{ await window._deleteDoc(lockRef); }
+      catch(e){
+        cleaned=false;
+        window._failedOrderCleanup={id:null,orderNo:d.ordId};
+        g('imp-cleanup-btn').style.display='';
+      }
+    }
+    if(orderRef){
+      try{ await cleanupFailedOrder(orderRef.id,d.ordId,true); cleaned=true; }
+      catch(cleanErr){
+        try{ await window._updateDoc(orderRef,{importStatus:'failed',importError:err.message}); }catch(e){}
+        window._failedOrderCleanup={id:orderRef.id,orderNo:d.ordId};
+        window.allOrders.unshift({id:orderRef.id,orderId:d.ordId,importStatus:'failed',createdAt:Date.now()});
+        renderOrders();
+        g('imp-cleanup-btn').style.display='';
+      }
+    }
+    alert(`Nhập đơn hàng thất bại.${cleaned?' Không lưu dữ liệu đơn hàng.':' Vui lòng dọn dữ liệu thất bại trước khi nhập lại.'}\n訂單匯入失敗。${cleaned?'未保留任何訂單資料。':'請先清理失敗資料後再重新匯入。'}\n\n${err.message}`);
+  }
   finally{ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i>確認匯入'; }
+}
+
+async function cleanupFailedOrder(orderId,orderNo,silent=false){
+  if(!canManageOrders()) return;
+  if(!silent&&!confirm(`Dọn toàn bộ dữ liệu nhập chưa hoàn tất của đơn ${orderNo}?\n確定清理訂單 ${orderNo} 的所有未完成匯入資料？`)) return;
+  const procQuery=orderId
+    ?window._query(window._collection(COL.processes),window._where('orderId','==',orderId))
+    :window._query(window._collection(COL.processes),window._where('orderNo','==',orderNo));
+  const snap=await window._getDocs(procQuery);
+  for(let i=0;i<snap.docs.length;i+=450){
+    const batch=window._writeBatch();
+    snap.docs.slice(i,i+450).forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }
+  if(orderId){
+    await window._deleteDoc(window._doc(COL.orders,orderId));
+  }
+  await window._deleteDoc(window._doc(COL.orderLocks,orderLockId(orderNo)));
+  window.allOrders=window.allOrders.filter(o=>o.id!==orderId);
+  window.allProcesses=window.allProcesses.filter(p=>p.orderId!==orderId);
+  window._failedOrderCleanup=null;
+  g('imp-cleanup-btn').style.display='none';
+  if(!silent) alert(`Đã dọn dữ liệu nhập thất bại của đơn ${orderNo}.\n已清理訂單 ${orderNo} 的匯入失敗資料。`);
+}
+function retryFailedImportCleanup(){
+  const x=window._failedOrderCleanup;
+  if(x) cleanupFailedOrder(x.id,x.orderNo);
 }
 
 // ===== 訂單列表 =====
@@ -217,11 +313,12 @@ function renderOrders(){
       <td>${fmtVN(o.dueDate)}</td>
       <td style="min-width:120px">
         <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden"><div style="height:100%;background:var(--accent);width:0%"></div></div>
-        <div style="font-size:11px;color:var(--mu);margin-top:3px">統計中...</div>
+        <div style="font-size:11px;color:${o.importStatus==='failed'?'var(--err)':'var(--mu)'};margin-top:3px">${o.importStatus==='failed'?'Nhập thất bại / 匯入失敗':o.importStatus==='importing'?'Đang nhập / 匯入中':'統計中...'}</div>
       </td>
       <td><div style="display:flex;gap:4px">
-        <button class="btn bsm" onclick="viewOrderProgress('${o.id}')"><i class="ti ti-chart-bar"></i></button>
-        <button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
+        ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress('${o.id}')"><i class="ti ti-chart-bar"></i></button>`:''}
+        ${!isOrderUsable(o)&&canManageOrders()?`<button class="btn bsm" onclick="cleanupFailedOrder('${o.id}','${o.orderId}')"><i class="ti ti-broom"></i></button>`:''}
+        ${isOrderUsable(o)?`<button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
       </div></td>`;
     tb.appendChild(tr);
   });
@@ -249,6 +346,7 @@ async function deleteOrder(id,name){
     if(!confirm(msg)) return;
     await Promise.all([
       window._deleteDoc(window._doc(COL.orders,id)),
+      window._deleteDoc(window._doc(COL.orderLocks,orderLockId(name))),
       ...procSnap.docs.map(d=>window._deleteDoc(d.ref))
     ]);
     window.allOrders=window.allOrders.filter(o=>o.id!==id);
@@ -277,7 +375,7 @@ async function renderProgress(){
       progMap[p.orderId].approvedQty+=(p.approvedQty||0);
       progMap[p.orderId].procs.push(p);
     });
-    let orders=window.allOrders;
+    let orders=usableOrders();
     if(ordId) orders=orders.filter(o=>o.id===ordId);
     if(codeQuery){
       const matchingOrderIds=new Set(
@@ -422,7 +520,9 @@ function toggleProgDetail(ordId){
     html+=`<div style="margin-bottom:10px">
       <div style="font-size:12px;font-weight:500;color:var(--navy);margin-bottom:6px;padding:4px 0;border-bottom:1px solid var(--bd)">
         <b>${code}</b><span style="font-size:11px;color:var(--mu);margin-left:8px">${cp[0].desc||''} ${cp[0].color||''}</span>
-        <span style="float:right;color:var(--accent)">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}</span>
+        <span style="float:right;color:var(--accent);display:flex;align-items:center;gap:8px">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}
+          ${canManageOrders()?`<button class="btn bsm" onclick="event.stopPropagation();openOrderQtyAdjust('${ordId}','${code}')"><i class="ti ti-adjustments"></i>Điều chỉnh SL / 調整數量</button>`:''}
+        </span>
       </div>
       <div style="overflow-x:auto"><table style="width:100%;min-width:600px;border-collapse:collapse;font-size:12px">
         <thead><tr style="background:var(--sf)">
@@ -439,4 +539,62 @@ function toggleProgDetail(ordId){
     </div>`;
   });
   body.innerHTML=html||'<span style="color:var(--mu);font-size:12px">無工序資料</span>';
+}
+
+async function openOrderQtyAdjust(orderId,code){
+  if(!canManageOrders()) return;
+  const procs=(window.allProcesses||[]).filter(p=>p.orderId===orderId&&p.code===code);
+  if(!procs.length) return;
+  const order=window.allOrders.find(o=>o.id===orderId);
+  const current=procs[0].orderQty||0;
+  const minimum=Math.max(...procs.map(p=>(p.approvedQty||0)+(p.pendingQty||0)));
+  g('adj-order-id').value=orderId; g('adj-code').value=code;
+  g('adj-new-qty').value=current; g('adj-reason').value='';
+  g('adj-summary').innerHTML=`<div>Đơn hàng: <b>${order?.orderId||''}</b>　Mã hàng: <b>${code}</b></div>
+    <div style="color:var(--mu)">訂單：<b>${order?.orderId||''}</b>　款號：<b>${code}</b></div>
+    <div style="margin-top:8px">Số lượng hiện tại: <b>${current.toLocaleString()}</b>　Số lượng tối thiểu: <b>${minimum.toLocaleString()}</b>　Công đoạn bị ảnh hưởng: <b>${procs.length}</b></div>
+    <div style="color:var(--mu)">目前數量：<b>${current.toLocaleString()}</b>　最低可調整數量：<b>${minimum.toLocaleString()}</b>　影響工序：<b>${procs.length}</b></div>`;
+  om('m-order-qty-adjust');
+}
+
+async function confirmOrderQtyAdjust(){
+  if(!canManageOrders()) return;
+  const orderId=g('adj-order-id').value, code=g('adj-code').value;
+  const newQty=Number(g('adj-new-qty').value), reason=g('adj-reason').value.trim();
+  if(!Number.isInteger(newQty)||newQty<=0||!reason){ alert('Vui lòng nhập số lượng nguyên dương và lý do.\n請輸入正整數數量與調整原因。'); return; }
+  try{
+    const orderRef=window._doc(COL.orders,orderId);
+    const procQuery=window._query(window._collection(COL.processes),window._where('orderId','==',orderId),window._where('code','==',code));
+    const initialProcSnap=await window._getDocs(procQuery);
+    if(initialProcSnap.empty) throw new Error('Không tìm thấy công đoạn / 找不到工序');
+    const logRef=window._newDocRef(COL.orderAdjustments);
+    await window._runTransaction(async t=>{
+      const orderSnap=await t.get(orderRef);
+      const procSnaps=[];
+      for(const d of initialProcSnap.docs) procSnaps.push(await t.get(d.ref));
+      if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng không thể điều chỉnh / 訂單目前不可調整');
+      if(procSnaps.some(d=>!d.exists())) throw new Error('Dữ liệu công đoạn đã thay đổi / 工序資料已變更');
+      const oldQty=procSnaps[0].data().orderQty||0;
+      if(procSnaps.some(d=>(d.data().orderQty||0)!==oldQty)) throw new Error('Số lượng giữa các công đoạn không đồng nhất / 各工序訂單數量不一致');
+      if(newQty===oldQty) throw new Error('Số lượng mới không thay đổi / 新數量沒有變更');
+      procSnaps.forEach(d=>{
+        const p=d.data(), minimum=(p.approvedQty||0)+(p.pendingQty||0);
+        if(newQty<minimum) throw new Error(`${p.processNo}: tối thiểu ${minimum} / 最低 ${minimum}`);
+      });
+      procSnaps.forEach(d=>t.update(d.ref,{orderQty:newQty,qtyAdjustedAt:Date.now()}));
+      const order=orderSnap.data();
+      t.update(orderRef,{totalQty:(order.totalQty||0)-oldQty+newQty});
+      t.set(logRef,{orderId,orderNo:order.orderId||'',code,oldQty,newQty,reason,processCount:procSnaps.length,createdAt:Date.now(),createdBy:window.cu.user});
+    });
+    cm('m-order-qty-adjust'); await loadOrderData(); renderProgress();
+    alert('Điều chỉnh số lượng thành công.\n訂單數量調整成功。');
+  }catch(e){ alert(`Không thể điều chỉnh số lượng.\n無法調整數量。\n\n${e.message}`); }
+}
+
+async function openOrderAdjustmentHistory(){
+  if(!canManageOrders()) return;
+  const snap=await window._getDocs(window._collection(COL.orderAdjustments));
+  const rows=snap.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  g('order-adjust-history').innerHTML=rows.length?rows.map(r=>`<tr><td>${r.orderNo}</td><td>${r.code}</td><td>${r.oldQty?.toLocaleString()}</td><td>${r.newQty?.toLocaleString()}</td><td>${r.reason||''}</td><td>${r.createdBy||''}<br><span style="font-size:10px;color:var(--mu)">${fmtTimeVN(r.createdAt)}</span></td></tr>`).join(''):'<tr><td colspan="6">Chưa có dữ liệu / 尚無資料</td></tr>';
+  om('m-order-adjust-history');
 }

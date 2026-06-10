@@ -589,8 +589,9 @@ tr:hover td{background:#f8fafc}
               <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
             </div>
           </div>
-          <div class="order-import-action">
+          <div class="order-import-action" data-order-manage>
             <button type="button" class="btn" onclick="openImportOrder()"><i class="ti ti-file-upload"></i>Nhập đơn hàng Excel / 匯入訂單 Excel</button>
+            <button type="button" class="btn" onclick="openOrderAdjustmentHistory()"><i class="ti ti-history"></i>Lịch sử điều chỉnh / 數量調整紀錄</button>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
@@ -841,14 +842,37 @@ tr:hover td{background:#f8fafc}
       <div class="nt ns" id="imp-order-ok" style="margin-bottom:8px"></div>
       <div class="nt nw" id="imp-skip-msg" style="display:none;margin-bottom:8px"></div>
       <div class="to" style="max-height:260px;overflow-y:auto"><table>
-        <thead><tr><th>Mã hàng / 款號</th><th>Mô tả / 說明</th><th>Màu / 顏色</th><th>SL / 數量</th><th>Số CĐ / 工序數</th><th>Trạng thái / 狀態</th></tr></thead>
+        <thead><tr><th>Mã hàng<br><span style="font-size:10px;color:var(--mu)">款號</span></th><th>Mô tả<br><span style="font-size:10px;color:var(--mu)">說明</span></th><th>Màu<br><span style="font-size:10px;color:var(--mu)">顏色</span></th><th>SL<br><span style="font-size:10px;color:var(--mu)">數量</span></th><th>Số CĐ<br><span style="font-size:10px;color:var(--mu)">工序數</span></th><th>Trạng thái<br><span style="font-size:10px;color:var(--mu)">狀態</span></th></tr></thead>
         <tbody id="imp-preview-tb"></tbody>
       </table></div>
     </div>
+    <div id="imp-progress-wrap" style="display:none;margin-top:14px">
+      <div id="imp-progress-text" style="font-size:13px;line-height:1.6;margin-bottom:8px"></div>
+      <div style="height:10px;background:var(--bd);border-radius:99px;overflow:hidden"><div id="imp-progress-bar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div></div>
+    </div>
     <div class="br" style="margin-top:14px">
       <button class="btn bp" id="imp-confirm-btn" onclick="confirmImportOrder()"><i class="ti ti-check"></i>Xác nhận nhập / 確認匯入</button>
+      <button class="btn bd2" id="imp-cleanup-btn" style="display:none" onclick="retryFailedImportCleanup()"><i class="ti ti-broom"></i>Dọn dữ liệu lỗi / 清理失敗資料</button>
       <button class="btn" onclick="closeImportOrder()">取消</button>
     </div>
+  </div></div>
+
+  <div class="mb" id="m-order-qty-adjust"><div class="md" style="width:560px">
+    <div class="mt2"><span><i class="ti ti-adjustments"></i> Điều chỉnh số lượng / 調整訂單數量</span><button class="btn bsm" onclick="cm('m-order-qty-adjust')"><i class="ti ti-x"></i></button></div>
+    <input type="hidden" id="adj-order-id"><input type="hidden" id="adj-code">
+    <div id="adj-summary" class="nt nw" style="margin-bottom:14px;line-height:1.7"></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Số lượng mới / 新訂單數量</label><input type="number" id="adj-new-qty" min="1" step="1"></div>
+    <div class="fgrp" style="margin-bottom:14px"><label>Lý do điều chỉnh / 調整原因</label><textarea id="adj-reason" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font-size:13px;resize:none"></textarea></div>
+    <div class="br"><button class="btn bp" onclick="confirmOrderQtyAdjust()"><i class="ti ti-check"></i>Xác nhận điều chỉnh / 確認調整</button><button class="btn" onclick="cm('m-order-qty-adjust')">Hủy / 取消</button></div>
+  </div></div>
+
+  <div class="mb" id="m-order-adjust-history"><div class="md wide">
+    <div class="mt2"><span><i class="ti ti-history"></i> Lịch sử điều chỉnh số lượng / 數量調整紀錄</span><button class="btn bsm" onclick="cm('m-order-adjust-history')"><i class="ti ti-x"></i></button></div>
+    <div class="to" style="max-height:520px;overflow:auto"><table><thead><tr>
+      <th>Đơn hàng<br><span style="font-size:10px;color:var(--mu)">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu)">款號</span></th>
+      <th>SL cũ<br><span style="font-size:10px;color:var(--mu)">原數量</span></th><th>SL mới<br><span style="font-size:10px;color:var(--mu)">新數量</span></th>
+      <th>Lý do<br><span style="font-size:10px;color:var(--mu)">原因</span></th><th>Người thao tác<br><span style="font-size:10px;color:var(--mu)">操作者</span></th>
+    </tr></thead><tbody id="order-adjust-history"></tbody></table></div>
   </div></div>
 
   <div class="mb" id="m-reject-reason"><div class="md">

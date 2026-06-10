@@ -54,6 +54,9 @@ function uNav(){
     }
     el.className = 'ni'+(show?'':' locked');
   });
+  document.querySelectorAll('[data-order-manage]').forEach(el=>{
+    el.style.display=canManageOrders()?'':'none';
+  });
   const reportNav=g('nv-approval');
   if(reportNav&&!isA){
     const rp=perm[r]||{};

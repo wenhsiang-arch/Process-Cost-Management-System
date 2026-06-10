@@ -89,7 +89,7 @@ function mobSaveHours(){
 async function mobLoadOrders(){
   try{
     const snap=await window._getDocs(window._collection(COL.orders));
-    const orders=snap.docs.map(d=>({id:d.id,...d.data()}));
+    const orders=snap.docs.map(d=>({id:d.id,...d.data()})).filter(isOrderUsable);
     orders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     const sel=mG('mob-sel-order');
     sel.innerHTML='<option value="">-- Chọn đơn hàng --</option>';
@@ -176,10 +176,13 @@ async function mobSubmitReport(){
   }
   try{
     const procRef=window._docRef(COL.processes,currentProcId);
+    const orderRef=window._docRef(COL.orders,p.orderId);
     const newRepRef=window._docRef(COL.reports,Date.now()+'_'+(window.cu.id||window.cu.user));
     await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
+      const orderSnap=await t.get(orderRef);
       if(!procSnap.exists()) throw new Error('工序不存在');
+      if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
       if(qty<=0) throw new Error('報工數量必須大於 0');
       const pd=procSnap.data();
       const realRemain=(pd.orderQty||0)-(pd.approvedQty||0)-(pd.pendingQty||0);

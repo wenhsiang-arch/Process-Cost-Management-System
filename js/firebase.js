@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, increment, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBrlo1gVMQmne4gT92lx4KwnRBVt4QSh4",
@@ -107,7 +107,9 @@ window._getDoc     = (ref)         => getDoc(ref);
 window._setDoc     = (ref,data,opts) => setDoc(ref, data, opts||{});
 window._increment  = (n)           => increment(n);
 window._runTransaction = (fn)      => runTransaction(db, fn);
+window._writeBatch     = ()        => writeBatch(db);
 window._docRef     = (colName, id) => doc(db, colName, id);
+window._newDocRef  = (colName)     => doc(collection(db, colName));
 window._onSnapshot = (...args)     => onSnapshot(...args);
 
 // ===== 初始化 =====
