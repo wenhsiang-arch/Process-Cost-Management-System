@@ -497,48 +497,63 @@ function toggleProgDetail(ordId){
   let html='';
   Object.entries(byCode).forEach(([code,cp])=>{
     const cApv=cp.reduce((a,p)=>a+(p.approvedQty||0),0);
-    const cQty=cp[0].orderQty||0;
+    const cQty=(cp[0].orderQty||0)*cp.length;
     const cProg=cQty>0?Math.round(cApv/cQty*100):0;
-    const procRows=cp.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo))).map(p=>{
-      const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
-      const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
-      return`<tr>
-        <td style="padding:3px 6px;font-size:12px">${p.processNo}</td>
-        <td style="padding:3px 6px;font-size:12px">${p.processVi||p.processZh||''}</td>
-        <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.orderQty||0).toLocaleString()}</td>
-        <td style="padding:3px 6px;text-align:right;color:var(--ok);font-weight:500;font-size:12px">${(p.approvedQty||0).toLocaleString()}</td>
-        <td style="padding:3px 6px;text-align:right;color:var(--warn);font-size:12px">${(p.pendingQty||0).toLocaleString()}</td>
-        <td style="padding:3px 6px;text-align:right;color:var(--accent);font-size:12px">${rem.toLocaleString()}</td>
-        <td style="padding:3px 6px;width:100px">
-          <div style="position:relative;height:16px;background:var(--bd);border-radius:4px;overflow:hidden">
-            <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(pg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
-            <div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#1e3a5f">${pg}%</div>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
+    const cDone=cp.length?Math.min(...cp.map(p=>p.approvedQty||0)):0;
+    const safeCode=String(code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    const detailId='prog-code-'+ordId+'-'+encodeURIComponent(code).replace(/%/g,'_');
     html+=`<div style="margin-bottom:10px">
-      <div style="font-size:12px;font-weight:500;color:var(--navy);margin-bottom:6px;padding:4px 0;border-bottom:1px solid var(--bd)">
-        <b>${code}</b><span style="font-size:11px;color:var(--mu);margin-left:8px">${cp[0].desc||''} ${cp[0].color||''}</span>
-        <span style="float:right;color:var(--accent);display:flex;align-items:center;gap:8px">${cProg}% · ${cApv.toLocaleString()}/${cQty.toLocaleString()}
+      <div onclick="toggleProgCodeDetail('${ordId}','${safeCode}','${detailId}')" style="cursor:pointer;font-size:12px;font-weight:500;color:var(--navy);padding:8px 4px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px">
+        <i id="${detailId}-icon" class="ti ti-chevron-right" style="color:var(--accent)"></i>
+        <b>${code}</b><span style="font-size:11px;color:var(--mu)">${cp[0].desc||''} ${cp[0].color||''}</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--accent)">
+          <div style="position:relative;width:120px;height:16px;background:var(--bd);border-radius:5px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(cProg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1e3a5f">${cProg}%</div>
+          </div>
+          <span>${cDone.toLocaleString()}/${(cp[0].orderQty||0).toLocaleString()}</span>
           ${canManageOrders()?`<button class="btn bsm" onclick="event.stopPropagation();openOrderQtyAdjust('${ordId}','${code}')"><i class="ti ti-adjustments"></i>Điều chỉnh SL / 調整數量</button>`:''}
         </span>
       </div>
-      <div style="overflow-x:auto"><table style="width:100%;min-width:600px;border-collapse:collapse;font-size:12px">
-        <thead><tr style="background:var(--sf)">
-          <th style="padding:4px 6px;text-align:left;width:60px;font-size:11px">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
-          <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
-          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
-          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>
-          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Chờ duyệt<br><span style="font-weight:400;color:var(--mu)">待審批</span></th>
-          <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Còn lại<br><span style="font-weight:400;color:var(--mu)">剩餘</span></th>
-          <th style="padding:4px 6px;width:100px;font-size:11px">Tiến độ<br><span style="font-weight:400;color:var(--mu)">進度</span></th>
-        </tr></thead>
-        <tbody>${procRows}</tbody>
-      </table></div>
+      <div id="${detailId}" style="display:none"></div>
     </div>`;
   });
   body.innerHTML=html||'<span style="color:var(--mu);font-size:12px">無工序資料</span>';
+}
+
+function toggleProgCodeDetail(ordId,code,detailId){
+  const detail=document.getElementById(detailId), icon=document.getElementById(detailId+'-icon');
+  if(!detail) return;
+  if(detail.style.display!=='none'){
+    detail.style.display='none';
+    if(icon) icon.className='ti ti-chevron-right';
+    return;
+  }
+  const cp=(window.allProcesses||[]).filter(p=>p.orderId===ordId&&p.code===code);
+  const procRows=cp.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo))).map(p=>{
+    const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
+    const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
+    return`<tr>
+      <td style="padding:3px 6px;font-size:12px">${p.processNo}</td>
+      <td style="padding:3px 6px;font-size:12px">${p.processVi||p.processZh||''}</td>
+      <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.orderQty||0).toLocaleString()}</td>
+      <td style="padding:3px 6px;text-align:right;color:var(--ok);font-weight:500;font-size:12px">${(p.approvedQty||0).toLocaleString()}</td>
+      <td style="padding:3px 6px;text-align:right;color:var(--warn);font-size:12px">${(p.pendingQty||0).toLocaleString()}</td>
+      <td style="padding:3px 6px;text-align:right;color:var(--accent);font-size:12px">${rem.toLocaleString()}</td>
+      <td style="padding:3px 6px;width:100px"><div style="position:relative;height:16px;background:var(--bd);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(pg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1e3a5f">${pg}%</div></div></td>
+    </tr>`;
+  }).join('');
+  detail.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--sf)">
+    <th style="padding:4px 6px;text-align:left;width:60px;font-size:11px">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
+    <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
+    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
+    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>
+    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Chờ duyệt<br><span style="font-weight:400;color:var(--mu)">待審批</span></th>
+    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Còn lại<br><span style="font-weight:400;color:var(--mu)">剩餘</span></th>
+    <th style="padding:4px 6px;width:100px;font-size:11px">Tiến độ<br><span style="font-weight:400;color:var(--mu)">進度</span></th>
+  </tr></thead><tbody>${procRows}</tbody></table>`;
+  detail.style.display='';
+  if(icon) icon.className='ti ti-chevron-down';
 }
 
 async function openOrderQtyAdjust(orderId,code){
