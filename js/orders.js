@@ -565,10 +565,11 @@ async function openOrderQtyAdjust(orderId,code){
   const minimum=Math.max(...procs.map(p=>(p.approvedQty||0)+(p.pendingQty||0)));
   g('adj-order-id').value=orderId; g('adj-code').value=code;
   g('adj-new-qty').value=current; g('adj-reason').value='';
-  g('adj-summary').innerHTML=`<div>Đơn hàng: <b>${order?.orderId||''}</b>　Mã hàng: <b>${code}</b></div>
-    <div style="color:var(--mu)">訂單：<b>${order?.orderId||''}</b>　款號：<b>${code}</b></div>
-    <div style="margin-top:8px">Số lượng hiện tại: <b>${current.toLocaleString()}</b>　Số lượng tối thiểu: <b>${minimum.toLocaleString()}</b>　Công đoạn bị ảnh hưởng: <b>${procs.length}</b></div>
-    <div style="color:var(--mu)">目前數量：<b>${current.toLocaleString()}</b>　最低可調整數量：<b>${minimum.toLocaleString()}</b>　影響工序：<b>${procs.length}</b></div>`;
+  g('adj-summary').innerHTML=`<div>Đơn hàng/訂單: <b>${order?.orderId||''}</b></div>
+    <div>Mã hàng/款號: <b>${code}</b></div>
+    <div>Số lượng hiện tại/目前數量: <b>${current.toLocaleString()}</b></div>
+    <div>Số lượng tối thiểu/最低可調整數量: <b>${minimum.toLocaleString()}</b></div>
+    <div>Công đoạn bị ảnh hưởng/影響工序: <b>${procs.length}</b></div>`;
   om('m-order-qty-adjust');
 }
 
