@@ -581,7 +581,14 @@ tr:hover td{background:#f8fafc}
               <i class="ti ti-chevron-down order-manager-chevron"></i>
             </button>
             <div class="order-manager-body" id="order-manager-body">
-              <div style="margin-bottom:10px"><input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px"></div>
+              <div style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap">
+                <input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px">
+                <select id="ord-status-filter" onchange="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+                  <option value="active">Đơn đang sử dụng / 使用中訂單</option>
+                  <option value="archived">Đã xóa (lưu trữ) / 已刪除（封存）</option>
+                  <option value="all">Tất cả / 全部</option>
+                </select>
+              </div>
               <div class="to"><table>
                 <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
                 <tbody id="ord-tb"></tbody>
@@ -873,6 +880,21 @@ tr:hover td{background:#f8fafc}
       <th>SL cũ<br><span style="font-size:10px;color:var(--mu)">原數量</span></th><th>SL mới<br><span style="font-size:10px;color:var(--mu)">新數量</span></th>
       <th>Lý do<br><span style="font-size:10px;color:var(--mu)">原因</span></th><th>Người thao tác<br><span style="font-size:10px;color:var(--mu)">操作者</span></th>
     </tr></thead><tbody id="order-adjust-history"></tbody></table></div>
+  </div></div>
+
+  <div class="mb" id="m-order-delete"><div class="md" style="width:640px">
+    <div class="mt2"><span><i class="ti ti-archive"></i> Xóa (Lưu trữ) / 刪除（封存）</span><button class="btn bsm" onclick="closeOrderDeleteModal()"><i class="ti ti-x"></i></button></div>
+    <input type="hidden" id="order-delete-id"><input type="hidden" id="order-delete-name">
+    <div id="order-delete-summary" class="nt nw" style="margin-bottom:14px;line-height:1.7"></div>
+    <div class="fgrp" style="margin-bottom:14px">
+      <label>Nhập đầy đủ số đơn hàng để xác nhận / 輸入完整訂單號確認</label>
+      <input type="text" id="order-delete-confirm" oninput="updateOrderDeleteButtons()" autocomplete="off">
+    </div>
+    <div class="br" style="gap:8px;flex-wrap:wrap">
+      <button class="btn bd2" id="order-archive-btn" disabled onclick="confirmArchiveOrder()"><i class="ti ti-archive"></i>Xóa (Lưu trữ) / 刪除（封存）</button>
+      <button class="btn bd2" id="order-purge-btn" style="display:none;background:var(--errl);color:var(--err)" disabled onclick="confirmPurgeOrder()"><i class="ti ti-trash"></i>Xóa vĩnh viễn dữ liệu thử nghiệm / 永久刪除測試資料</button>
+      <button class="btn" onclick="closeOrderDeleteModal()">Hủy / 取消</button>
+    </div>
   </div></div>
 
   <div class="mb" id="m-reject-reason"><div class="md">

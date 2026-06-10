@@ -9,7 +9,11 @@ function g(id){ return document.getElementById(id); }
 function om(id){ g(id).classList.add('open'); }
 function cm(id){ g(id).classList.remove('open'); }
 function mG(id){ return document.getElementById(id); }
-function isOrderUsable(o){ return !!o && (!o.importStatus||o.importStatus==='ready'); }
+function isOrderUsable(o){
+  return !!o
+    && (!o.importStatus||o.importStatus==='ready')
+    && (!o.lifecycleStatus||o.lifecycleStatus==='active');
+}
 function canManageOrders(){
   const role=window.cu?.role;
   return role==='admin'||window.permissionSettings?.[role]?.orderImport===true;

@@ -83,6 +83,13 @@ function openImportOrder(){
   om('m-import-order');
 }
 
+async function reloadOrders(){
+  const snap=await window._getDocs(window._collection(COL.orders));
+  window.allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
+  window.allOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  fillOrderSelects();
+}
+
 function closeImportOrder(){
   window._impData=null;
   g('imp-file').value='';
@@ -189,7 +196,7 @@ async function confirmImportOrder(){
       g('imp-cleanup-btn').style.display='';
       throw new Error(`Số đơn hàng ${d.ordId} còn dữ liệu công đoạn chưa dọn.\n訂單號 ${d.ordId} 仍有殘留工序資料，請先清理。`);
     }
-    const incompleteOrder=duplicateOrders.docs.find(x=>!isOrderUsable(x.data()));
+    const incompleteOrder=duplicateOrders.docs.find(x=>x.data().importStatus&&x.data().importStatus!=='ready');
     if(incompleteOrder){
       window._failedOrderCleanup={id:incompleteOrder.id,orderNo:d.ordId};
       g('imp-cleanup-btn').style.display='';
@@ -298,10 +305,17 @@ function toggleOrderManager(){
 
 function renderOrders(){
   const q=(g('ord-q')?.value||'').toLowerCase();
+  const statusFilter=(g('ord-status-filter')?.value||'active');
   const tb=g('ord-tb'); if(!tb) return;
   const empty=g('ord-empty');
   tb.innerHTML='';
-  const list=window.allOrders.filter(o=>!q||o.orderId.toLowerCase().includes(q));
+  const list=window.allOrders.filter(o=>{
+    const life=o.lifecycleStatus||'active';
+    const statusMatch=statusFilter==='all'
+      ||(statusFilter==='archived'&&(life==='archived'||life==='deleting'))
+      ||(statusFilter==='active'&&life==='active');
+    return statusMatch&&(!q||o.orderId.toLowerCase().includes(q));
+  });
   if(!list.length){ if(empty) empty.style.display='block'; return; }
   if(empty) empty.style.display='none';
   list.forEach(o=>{
@@ -313,12 +327,14 @@ function renderOrders(){
       <td>${fmtVN(o.dueDate)}</td>
       <td style="min-width:120px">
         <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden"><div style="height:100%;background:var(--accent);width:0%"></div></div>
-        <div style="font-size:11px;color:${o.importStatus==='failed'?'var(--err)':'var(--mu)'};margin-top:3px">${o.importStatus==='failed'?'Nhập thất bại / 匯入失敗':o.importStatus==='importing'?'Đang nhập / 匯入中':'統計中...'}</div>
+        <div style="font-size:11px;color:${o.importStatus==='failed'||o.lifecycleStatus==='deleting'?'var(--err)':'var(--mu)'};margin-top:3px">${o.lifecycleStatus==='archived'?'Đã xóa (lưu trữ) / 已刪除（封存）':o.lifecycleStatus==='deleting'?'Đang xóa vĩnh viễn / 永久刪除中':o.importStatus==='failed'?'Nhập thất bại / 匯入失敗':o.importStatus==='importing'?'Đang nhập / 匯入中':'統計中...'}</div>
       </td>
       <td><div style="display:flex;gap:4px">
         ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress('${o.id}')"><i class="ti ti-chart-bar"></i></button>`:''}
-        ${!isOrderUsable(o)&&canManageOrders()?`<button class="btn bsm" onclick="cleanupFailedOrder('${o.id}','${o.orderId}')"><i class="ti ti-broom"></i></button>`:''}
-        ${isOrderUsable(o)?`<button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
+        ${o.importStatus==='failed'&&canManageOrders()?`<button class="btn bsm" onclick="cleanupFailedOrder('${o.id}','${o.orderId}')"><i class="ti ti-broom"></i></button>`:''}
+        ${isOrderUsable(o)?`<button class="btn bsm bd2" onclick="openOrderDelete('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
+        ${o.lifecycleStatus==='archived'&&canManageOrders()?`<button class="btn bsm" onclick="restoreArchivedOrder('${o.id}','${o.orderId}')"><i class="ti ti-restore"></i>Khôi phục / 還原</button>`:''}
+        ${(o.lifecycleStatus==='archived'||o.lifecycleStatus==='deleting')&&window.cu?.role==='admin'?`<button class="btn bsm bd2" onclick="openOrderDelete('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
       </div></td>`;
     tb.appendChild(tr);
   });
@@ -329,32 +345,140 @@ function viewOrderProgress(id){
   g('prog-sel').value=id; sp('progress'); renderProgress();
 }
 
-async function deleteOrder(id,name){
+async function getOrderDeleteData(id,name){
+  const [procSnap,repSnap,adjSnap]=await Promise.all([
+    window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',id))),
+    window._getDocs(window._query(window._collection(COL.reports),window._where('orderId','==',id))),
+    window._getDocs(window._query(window._collection(COL.orderAdjustments),window._where('orderId','==',id)))
+  ]);
+  const reports=repSnap.docs.map(d=>({...d.data(),ref:d.ref}));
+  const counts={pending:0,approved:0,rejected:0,voided:0};
+  reports.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
+  return {id,name,processes:procSnap.docs,reports,adjustments:adjSnap.docs,counts};
+}
+
+async function openOrderDelete(id,name){
   try{
-    const procSnap=await window._getDocs(
-      window._query(window._collection(COL.processes),window._where('orderId','==',id))
-    );
-    const procCount=procSnap.docs.length;
-    const repSnap=await window._getDocs(
-      window._query(window._collection(COL.reports),window._where('orderId','==',id),window._where('status','in',['approved','pending']))
-    );
-    if(repSnap.docs.length>0){
-      alert(`⚠️ Không thể xóa / 無法刪除！\n\nĐơn hàng「${name}」có ${repSnap.docs.length} báo công chưa hủy / 訂單「${name}」有 ${repSnap.docs.length} 筆報工記錄尚未作廢。\nVui lòng hủy tất cả báo công trước khi xóa đơn hàng.\n請先作廢所有報工記錄再刪除訂單。`);
-      return;
+    const data=await getOrderDeleteData(id,name);
+    window._orderDeleteData=data;
+    g('order-delete-id').value=id;
+    g('order-delete-name').value=name;
+    g('order-delete-confirm').value='';
+    g('order-delete-summary').innerHTML=`<div><b>Đơn hàng / 訂單：${name}</b></div>
+      <div>Công đoạn / 工序：<b>${data.processes.length}</b></div>
+      <div>Báo công chờ duyệt / 待審報工：<b>${data.counts.pending}</b></div>
+      <div>Báo công đã duyệt / 已通過報工：<b>${data.counts.approved}</b></div>
+      <div>Báo công trả lại / 退回報工：<b>${data.counts.rejected}</b></div>
+      <div>Báo công đã hủy / 作廢報工：<b>${data.counts.voided}</b></div>
+      <div>Lịch sử điều chỉnh / 數量調整紀錄：<b>${data.adjustments.length}</b></div>
+      <hr style="border:0;border-top:1px solid var(--bd);margin:10px 0">
+      <div> Xóa (Lưu trữ) sẽ ẩn đơn hàng và ngừng báo công, nhưng giữ toàn bộ dữ liệu lịch sử.</div>
+      <div>刪除（封存）會隱藏訂單並停止報工，但保留全部歷史資料。</div>
+      ${data.counts.pending?'<div style="color:var(--err);margin-top:8px">Còn báo công chờ duyệt, không thể xóa (lưu trữ).<br>仍有待審報工，無法刪除（封存）。</div>':''}
+      ${window.cu?.role==='admin'?'<div style="color:var(--err);margin-top:8px">Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn, toàn bộ báo công và lịch sử điều chỉnh. Không thể khôi phục.<br>永久刪除會移除訂單、工序、全部報工及數量調整紀錄，無法復原。</div>':''}`;
+    g('order-archive-btn').style.display=isOrderUsable(window.allOrders.find(o=>o.id===id))?'':'none';
+    g('order-purge-btn').style.display=window.cu?.role==='admin'?'':'none';
+    updateOrderDeleteButtons();
+    om('m-order-delete');
+  }catch(e){ alert('載入刪除資料失敗：'+e.message); }
+}
+
+function closeOrderDeleteModal(){
+  window._orderDeleteData=null;
+  cm('m-order-delete');
+}
+
+function updateOrderDeleteButtons(){
+  const data=window._orderDeleteData;
+  const matched=!!data&&g('order-delete-confirm').value.trim()===data.name;
+  g('order-archive-btn').disabled=!matched||data?.counts.pending>0;
+  g('order-purge-btn').disabled=!matched||window.cu?.role!=='admin';
+}
+
+async function confirmArchiveOrder(){
+  const data=window._orderDeleteData;
+  if(!data||g('order-delete-confirm').value.trim()!==data.name||data.counts.pending>0) return;
+  try{
+    const ref=window._doc(COL.orders,data.id);
+    await window._runTransaction(async t=>{
+      const snap=await t.get(ref);
+      if(!snap.exists()||!isOrderUsable(snap.data())) throw new Error('Đơn hàng không thể xóa (lưu trữ) / 訂單目前無法刪除（封存）');
+      t.update(ref,{lifecycleStatus:'archived',archivedAt:Date.now(),archivedBy:window.cu.user});
+    });
+    const pending=await window._getDocs(window._query(window._collection(COL.reports),window._where('orderId','==',data.id),window._where('status','==','pending')));
+    if(!pending.empty){
+      await window._updateDoc(ref,{lifecycleStatus:'active',restoredAt:Date.now(),restoredBy:window.cu.user});
+      throw new Error('Có báo công chờ duyệt mới phát sinh. Đơn hàng đã được khôi phục. / 發現新待審報工，訂單已自動還原。');
     }
-    const msg=`Xác nhận xóa đơn hàng「${name}」?\n確定刪除訂單「${name}」？\n\n- Công đoạn / 工序記錄：${procCount} 筆將一併刪除\n\nDữ liệu sẽ không thể khôi phục.\n刪除後無法復原。`;
-    if(!confirm(msg)) return;
-    await Promise.all([
-      window._deleteDoc(window._doc(COL.orders,id)),
-      window._deleteDoc(window._doc(COL.orderLocks,orderLockId(name))),
-      ...procSnap.docs.map(d=>window._deleteDoc(d.ref))
-    ]);
-    window.allOrders=window.allOrders.filter(o=>o.id!==id);
-    window.allProcesses=window.allProcesses.filter(p=>p.orderId!==id);
-    renderOrders();
-    const pg=document.getElementById('pg-progress');
-    if(pg&&pg.classList.contains('active')) renderProgress();
-  }catch(e){ alert('刪除失敗：'+e.message); }
+    const o=window.allOrders.find(x=>x.id===data.id);
+    if(o){ o.lifecycleStatus='archived'; o.archivedAt=Date.now(); o.archivedBy=window.cu.user; }
+    closeOrderDeleteModal();
+    fillOrderSelects(); renderOrders(); renderProgress();
+    alert('Đã xóa (lưu trữ) đơn hàng. Toàn bộ lịch sử vẫn được giữ lại.\n訂單已刪除（封存），全部歷史資料均保留。');
+  }catch(e){ alert('刪除（封存）失敗：'+e.message); }
+}
+
+async function restoreArchivedOrder(id,name){
+  if(!canManageOrders()||!confirm(`Khôi phục đơn hàng「${name}」?\n還原訂單「${name}」？`)) return;
+  try{
+    const ref=window._doc(COL.orders,id);
+    await window._runTransaction(async t=>{
+      const snap=await t.get(ref);
+      if(!snap.exists()||snap.data().lifecycleStatus!=='archived') throw new Error('訂單不是封存狀態');
+      t.update(ref,{lifecycleStatus:'active',restoredAt:Date.now(),restoredBy:window.cu.user});
+    });
+    const o=window.allOrders.find(x=>x.id===id);
+    if(o) o.lifecycleStatus='active';
+    fillOrderSelects(); renderOrders(); renderProgress();
+  }catch(e){ alert('還原失敗：'+e.message); }
+}
+
+async function deleteDocsInBatches(docs){
+  for(let i=0;i<docs.length;i+=450){
+    const batch=window._writeBatch();
+    docs.slice(i,i+450).forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }
+}
+
+async function confirmPurgeOrder(){
+  const data=window._orderDeleteData;
+  if(window.cu?.role!=='admin'||!data||g('order-delete-confirm').value.trim()!==data.name) return;
+  try{
+    const orderRef=window._doc(COL.orders,data.id);
+    const lockRef=window._doc(COL.orderLocks,orderLockId(data.name));
+    await window._runTransaction(async t=>{
+      const snap=await t.get(orderRef);
+      if(!snap.exists()) throw new Error('訂單不存在');
+      if(snap.data().lifecycleStatus!=='deleting'){
+        t.update(orderRef,{lifecycleStatus:'deleting',deletingAt:Date.now(),deletingBy:window.cu.user});
+      }
+    });
+    const fresh=await getOrderDeleteData(data.id,data.name);
+    const docs=[...fresh.processes,...fresh.reports,...fresh.adjustments];
+    if(docs.length+2<=450){
+      const batch=window._writeBatch();
+      docs.forEach(d=>batch.delete(d.ref));
+      batch.delete(lockRef);
+      batch.delete(orderRef);
+      await batch.commit();
+    }else{
+      await deleteDocsInBatches(docs);
+      const finalBatch=window._writeBatch();
+      finalBatch.delete(lockRef);
+      finalBatch.delete(orderRef);
+      await finalBatch.commit();
+    }
+    window.allOrders=window.allOrders.filter(o=>o.id!==data.id);
+    window.allProcesses=window.allProcesses.filter(p=>p.orderId!==data.id);
+    closeOrderDeleteModal();
+    fillOrderSelects(); renderOrders(); renderProgress();
+    alert('Đã xóa vĩnh viễn dữ liệu thử nghiệm.\n已永久刪除測試資料。');
+  }catch(e){
+    alert('永久刪除失敗，可再次執行以繼續清理：'+e.message);
+    closeOrderDeleteModal();
+    await reloadOrders(); await reloadProcesses(); renderOrders(); renderProgress();
+  }
 }
 
 // ===== 訂單進度 =====
@@ -438,7 +562,7 @@ async function renderProgress(){
         <td onclick="event.stopPropagation()"><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td onclick="event.stopPropagation();openRemarkEdit('${o.id}','${remarkVal}')" title="${remarkVal}" style="cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:12px;color:${o.remark?'var(--navy)':'var(--mu)'}">${o.remark||'備註...'}</td>
         <td style="padding:6px 8px" onclick="event.stopPropagation()">
-          <button class="btn bsm bd2" onclick="deleteOrder('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
+          <button class="btn bsm bd2" onclick="openOrderDelete('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
         </td>
       </tr>
       <tr id="prog-detail-${o.id}" style="display:none">
