@@ -887,10 +887,19 @@ tr:hover td{background:#f8fafc}
     </tr></thead><tbody id="order-adjust-history"></tbody></table></div>
   </div></div>
 
-  <div class="mb" id="m-order-delete"><div class="md" style="width:640px">
-    <div class="mt2"><span><i class="ti ti-archive"></i> Xóa (Lưu trữ) / 刪除（封存）</span><button class="btn bsm" onclick="closeOrderDeleteModal()"><i class="ti ti-x"></i></button></div>
+  <div class="mb" id="m-order-delete-warning"><div class="md" style="width:560px">
+    <div class="mt2"><span id="order-delete-warning-title"></span><button class="btn bsm" onclick="closeOrderDeleteWarning()"><i class="ti ti-x"></i></button></div>
+    <div id="order-delete-warning-text" class="nt nd" style="margin-bottom:16px;line-height:1.7;display:block"></div>
+    <div class="br">
+      <button class="btn bd2" onclick="continueOrderDelete()"><i class="ti ti-arrow-right"></i>Tiếp tục / 確認繼續</button>
+      <button class="btn" onclick="closeOrderDeleteWarning()">Hủy / 取消</button>
+    </div>
+  </div></div>
+
+  <div class="mb" id="m-order-delete"><div class="md" style="width:560px">
+    <div class="mt2"><span id="order-delete-title"></span><button class="btn bsm" onclick="closeOrderDeleteModal()"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="order-delete-id"><input type="hidden" id="order-delete-name">
-    <div id="order-delete-summary" class="nt nw" style="margin-bottom:14px;line-height:1.7"></div>
+    <div id="order-delete-summary" class="nt nw" style="margin-bottom:14px;line-height:1.8;display:block"></div>
     <div class="fgrp" style="margin-bottom:14px">
       <label>Nhập đầy đủ số đơn hàng để xác nhận / 輸入完整訂單號確認</label>
       <input type="text" id="order-delete-confirm" oninput="updateOrderDeleteButtons()" autocomplete="off">

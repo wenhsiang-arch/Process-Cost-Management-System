@@ -368,9 +368,10 @@ function renderOrders(){
       <td><div style="display:flex;gap:4px">
         ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress('${o.id}')"><i class="ti ti-chart-bar"></i></button>`:''}
         ${o.importStatus==='failed'&&canManageOrders()?`<button class="btn bsm" onclick="cleanupFailedOrder('${o.id}','${o.orderId}')"><i class="ti ti-broom"></i></button>`:''}
-        ${isOrderUsable(o)?`<button class="btn bsm bd2" onclick="openOrderDelete('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
+        ${isOrderUsable(o)?`<button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive','${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
+        ${isOrderUsable(o)&&window.cu?.role==='admin'?`<button class="btn bsm bd2" style="background:var(--errl);color:var(--err)" title="Xóa vĩnh viễn / 永久刪除" onclick="openOrderDeleteWarning('purge','${o.id}','${o.orderId}')"><i class="ti ti-database-off"></i></button>`:''}
         ${o.lifecycleStatus==='archived'&&canManageOrders()?`<button class="btn bsm" onclick="restoreArchivedOrder('${o.id}','${o.orderId}')"><i class="ti ti-restore"></i>Khôi phục / 還原</button>`:''}
-        ${(o.lifecycleStatus==='archived'||o.lifecycleStatus==='deleting')&&window.cu?.role==='admin'?`<button class="btn bsm bd2" onclick="openOrderDelete('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>`:''}
+        ${(o.lifecycleStatus==='archived'||o.lifecycleStatus==='deleting')&&window.cu?.role==='admin'?`<button class="btn bsm bd2" style="background:var(--errl);color:var(--err)" title="Xóa vĩnh viễn / 永久刪除" onclick="openOrderDeleteWarning('purge','${o.id}','${o.orderId}')"><i class="ti ti-database-off"></i></button>`:''}
       </div></td>`;
     tb.appendChild(tr);
   });
@@ -393,27 +394,50 @@ async function getOrderDeleteData(id,name){
   return {id,name,processes:procSnap.docs,reports,adjustments:adjSnap.docs,counts};
 }
 
-async function openOrderDelete(id,name){
+function openOrderDeleteWarning(mode,id,name){
+  if(mode==='purge'&&window.cu?.role!=='admin') return;
+  window._orderDeleteRequest={mode,id,name};
+  const archive=mode==='archive';
+  g('order-delete-warning-title').innerHTML=`<i class="ti ${archive?'ti-trash':'ti-database-off'}"></i> ${archive?'Xóa (Lưu trữ) / 刪除（封存）':'Xóa vĩnh viễn / 永久刪除'}`;
+  g('order-delete-warning-text').innerHTML=archive
+    ?'<div>Xóa (Lưu trữ) sẽ ẩn đơn hàng và ngừng báo công, nhưng giữ toàn bộ dữ liệu lịch sử.</div><div style="margin-top:10px">刪除（封存）會隱藏訂單並停止報工，但保留全部歷史資料。</div>'
+    :'<div>Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn, toàn bộ báo công và lịch sử điều chỉnh. Không thể khôi phục.</div><div style="margin-top:10px">永久刪除會移除訂單、工序、全部報工及數量調整紀錄，無法復原。</div>';
+  om('m-order-delete-warning');
+}
+
+function closeOrderDeleteWarning(){
+  window._orderDeleteRequest=null;
+  cm('m-order-delete-warning');
+}
+
+function continueOrderDelete(){
+  const request=window._orderDeleteRequest;
+  if(!request) return;
+  cm('m-order-delete-warning');
+  openOrderDelete(request.mode,request.id,request.name);
+}
+
+async function openOrderDelete(mode,id,name){
   try{
     const data=await getOrderDeleteData(id,name);
+    data.mode=mode;
     window._orderDeleteData=data;
+    window._orderDeleteRequest=null;
     g('order-delete-id').value=id;
     g('order-delete-name').value=name;
     g('order-delete-confirm').value='';
-    g('order-delete-summary').innerHTML=`<div><b>Đơn hàng / 訂單：${name}</b></div>
-      <div>Công đoạn / 工序：<b>${data.processes.length}</b></div>
-      <div>Báo công chờ duyệt / 待審報工：<b>${data.counts.pending}</b></div>
-      <div>Báo công đã duyệt / 已通過報工：<b>${data.counts.approved}</b></div>
-      <div>Báo công trả lại / 退回報工：<b>${data.counts.rejected}</b></div>
-      <div>Báo công đã hủy / 作廢報工：<b>${data.counts.voided}</b></div>
-      <div>Lịch sử điều chỉnh / 數量調整紀錄：<b>${data.adjustments.length}</b></div>
-      <hr style="border:0;border-top:1px solid var(--bd);margin:10px 0">
-      <div> Xóa (Lưu trữ) sẽ ẩn đơn hàng và ngừng báo công, nhưng giữ toàn bộ dữ liệu lịch sử.</div>
-      <div>刪除（封存）會隱藏訂單並停止報工，但保留全部歷史資料。</div>
-      ${data.counts.pending?'<div style="color:var(--err);margin-top:8px">Còn báo công chờ duyệt, không thể xóa (lưu trữ).<br>仍有待審報工，無法刪除（封存）。</div>':''}
-      ${window.cu?.role==='admin'?'<div style="color:var(--err);margin-top:8px">Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn, toàn bộ báo công và lịch sử điều chỉnh. Không thể khôi phục.<br>永久刪除會移除訂單、工序、全部報工及數量調整紀錄，無法復原。</div>':''}`;
-    g('order-archive-btn').style.display=isOrderUsable(window.allOrders.find(o=>o.id===id))?'':'none';
-    g('order-purge-btn').style.display=window.cu?.role==='admin'?'':'none';
+    const archive=mode==='archive';
+    g('order-delete-title').innerHTML=`<i class="ti ${archive?'ti-trash':'ti-database-off'}"></i> ${archive?'Xóa (Lưu trữ) / 刪除（封存）':'Xóa vĩnh viễn / 永久刪除'}`;
+    g('order-delete-summary').innerHTML=`<div><b>Đơn hàng / 訂單：</b>${name}</div>
+      <div><b>Công đoạn / 工序：</b>${data.processes.length}</div>
+      <div><b>Báo công chờ duyệt / 待審報工：</b>${data.counts.pending}</div>
+      <div><b>Báo công đã duyệt / 已通過報工：</b>${data.counts.approved}</div>
+      <div><b>Báo công trả lại / 退回報工：</b>${data.counts.rejected}</div>
+      <div><b>Báo công đã hủy / 作廢報工：</b>${data.counts.voided}</div>
+      <div><b>Lịch sử điều chỉnh / 數量調整紀錄：</b>${data.adjustments.length}</div>
+      ${archive&&data.counts.pending?'<div style="color:var(--err);margin-top:10px">Còn báo công chờ duyệt, không thể xóa (lưu trữ).<br>仍有待審報工，無法刪除（封存）。</div>':''}`;
+    g('order-archive-btn').style.display=archive?'':'none';
+    g('order-purge-btn').style.display=archive?'none':'';
     updateOrderDeleteButtons();
     om('m-order-delete');
   }catch(e){ alert('載入刪除資料失敗：'+e.message); }
@@ -427,8 +451,8 @@ function closeOrderDeleteModal(){
 function updateOrderDeleteButtons(){
   const data=window._orderDeleteData;
   const matched=!!data&&g('order-delete-confirm').value.trim()===data.name;
-  g('order-archive-btn').disabled=!matched||data?.counts.pending>0;
-  g('order-purge-btn').disabled=!matched||window.cu?.role!=='admin';
+  g('order-archive-btn').disabled=!matched||data?.mode!=='archive'||data?.counts.pending>0;
+  g('order-purge-btn').disabled=!matched||data?.mode!=='purge'||window.cu?.role!=='admin';
 }
 
 async function confirmArchiveOrder(){
@@ -597,7 +621,8 @@ async function renderProgress(){
         <td onclick="event.stopPropagation()"><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td onclick="event.stopPropagation();openRemarkEdit('${o.id}','${remarkVal}')" title="${remarkVal}" style="cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:12px;color:${o.remark?'var(--navy)':'var(--mu)'}">${o.remark||'備註...'}</td>
         <td style="padding:6px 8px" onclick="event.stopPropagation()">
-          <button class="btn bsm bd2" onclick="openOrderDelete('${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
+          <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive','${o.id}','${o.orderId}')"><i class="ti ti-trash"></i></button>
+          ${window.cu?.role==='admin'?`<button class="btn bsm bd2" style="background:var(--errl);color:var(--err)" title="Xóa vĩnh viễn / 永久刪除" onclick="openOrderDeleteWarning('purge','${o.id}','${o.orderId}')"><i class="ti ti-database-off"></i></button>`:''}
         </td>
       </tr>
       <tr id="prog-detail-${o.id}" style="display:none">
