@@ -36,9 +36,17 @@ function validateImportProcessRows(rows){
     const seen=new Map();
     ops.forEach(op=>{
       if(!/^(0[1-9]|[1-9][0-9])$/.test(op.no)){
-        errors.push(`第 ${op.row} 行，款號 ${code}：工序號「${op.no||'空白'}」格式錯誤，必須使用 01–99`);
+        errors.push({
+          code,
+          vi:`Dòng ${op.row}: Số công đoạn「${op.no||'trống'}」không đúng định dạng, phải dùng 01–99.`,
+          zh:`第 ${op.row} 行：工序號「${op.no||'空白'}」格式錯誤，必須使用 01–99。`
+        });
       } else if(seen.has(op.no)){
-        errors.push(`第 ${op.row} 行，款號 ${code}：工序號 ${op.no} 重複（首次出現在第 ${seen.get(op.no)} 行）`);
+        errors.push({
+          code,
+          vi:`Dòng ${op.row}: Số công đoạn ${op.no} bị trùng, xuất hiện lần đầu tại dòng ${seen.get(op.no)}.`,
+          zh:`第 ${op.row} 行：工序號 ${op.no} 重複，首次出現在第 ${seen.get(op.no)} 行。`
+        });
       } else {
         seen.set(op.no,op.row);
       }
@@ -47,10 +55,36 @@ function validateImportProcessRows(rows){
     const max=valid.length?Math.max(...valid.map(Number)):0;
     for(let i=1;i<=max;i++){
       const expected=String(i).padStart(2,'0');
-      if(!seen.has(expected)) errors.push(`款號 ${code}：缺少工序號 ${expected}`);
+      if(!seen.has(expected)) errors.push({
+        code,
+        vi:`Thiếu số công đoạn ${expected}.`,
+        zh:`缺少工序號 ${expected}。`
+      });
     }
   });
   return errors;
+}
+
+function renderImportErrors(errors){
+  const codes=[...new Set(errors.map(e=>e.code).filter(Boolean))];
+  const shown=errors.slice(0,10);
+  let html=`<div>Phát hiện ${errors.length} lỗi trong ${codes.length} mã hàng.</div>
+    <div style="margin-bottom:8px">發現 ${codes.length} 個款號，共 ${errors.length} 筆錯誤。</div>`;
+  const grouped={};
+  shown.forEach(e=>{
+    const code=e.code||'Khác / 其他';
+    if(!grouped[code]) grouped[code]=[];
+    grouped[code].push(e);
+  });
+  Object.entries(grouped).forEach(([code,list])=>{
+    const total=errors.filter(e=>(e.code||'Khác / 其他')===code).length;
+    html+=`<div style="margin-top:8px;font-weight:600">▼ ${code}　${total} lỗi / ${total} 筆錯誤</div>`;
+    list.forEach(e=>{
+      html+=`<div style="margin:5px 0 0 18px">${e.vi}<br><span style="color:var(--err)">${e.zh}</span></div>`;
+    });
+  });
+  if(errors.length>10) html+=`<div style="margin-top:10px">Hiển thị 10/${errors.length} lỗi.<br>目前顯示 10/${errors.length} 筆錯誤。</div>`;
+  return html;
 }
 
 function setProg(p,l,s){
@@ -132,13 +166,17 @@ function processDetailImportFile(file){
             dr.forEach((r,i)=>{
               const sec=r[8];
               if(sec!==''&&sec!==undefined&&isNaN(+sec))
-                errs.push(`Dòng ${r._excelRow}/第${r._excelRow}行：<b>${r[0]}</b> CĐ <b>${r[5]}</b> — Giây không hợp lệ：「${sec}」`);
+                errs.push({
+                  code:String(r[0]).trim(),
+                  vi:`Dòng ${r._excelRow}: Giây của công đoạn ${r[5]} không hợp lệ:「${sec}」.`,
+                  zh:`第 ${r._excelRow} 行：工序號 ${r[5]} 的秒數格式錯誤：「${sec}」。`
+                });
             });
             errs.push(...validateImportProcessRows(dr));
             if(errs.length>0){
               hideProg();
               g('imp-err').style.display='flex';
-              g('imp-err-msg').innerHTML=`Phát hiện ${errs.length} lỗi / 發現 ${errs.length} 筆格式錯誤：<br>${errs.slice(0,5).join('<br>')}${errs.length>5?`<br>...共 ${errs.length} 筆`:''}`;
+              g('imp-err-msg').innerHTML=renderImportErrors(errs);
               g('fi').value=''; return;
             }
             setProg(70,'Đang xử lý mã hàng... / 正在整理款號...','');
