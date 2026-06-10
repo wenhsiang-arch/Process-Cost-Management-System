@@ -164,23 +164,40 @@ function mobSelectProc(){
 }
 
 // ===== 送出報工 =====
+let mobSubmitBusy=false;
+let mobPendingSubmission=null;
+function createSubmissionId(){
+  return globalThis.crypto?.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
 async function mobSubmitReport(){
+  if(mobSubmitBusy) return;
   const qty=parseInt(mG('mob-qty').value);
   if(!currentProcId){ mobToast('⚠️ Vui lòng chọn công đoạn / 請選擇工序'); return; }
+  const processId=currentProcId;
   if(!qty||qty<=0){ mobToast('⚠️ Vui lòng nhập số lượng / 請輸入數量'); return; }
-  const p=procList.find(x=>x.id===currentProcId); if(!p) return;
+  const p=procList.find(x=>x.id===processId); if(!p) return;
   const remain=(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0);
   if(qty>remain){
     mobToast(`⚠️ Chỉ còn ${remain} SP / 此工序剩餘可報 ${remain} 件，本次 ${qty} 件超過`);
     return;
   }
+  const signature=`${window.cu.id||window.cu.user}|${processId}|${qty}`;
+  if(!mobPendingSubmission||mobPendingSubmission.signature!==signature){
+    mobPendingSubmission={signature,id:createSubmissionId()};
+  }
+  const submissionId=mobPendingSubmission.id;
+  const btn=mG('mob-submit-btn');
+  mobSubmitBusy=true;
+  if(btn){ btn.disabled=true; btn.style.opacity='.65'; btn.innerHTML='<i class="ti ti-loader"></i> Đang gửi / 送出中'; }
   try{
-    const procRef=window._docRef(COL.processes,currentProcId);
+    const procRef=window._docRef(COL.processes,processId);
     const orderRef=window._docRef(COL.orders,p.orderId);
-    const newRepRef=window._docRef(COL.reports,Date.now()+'_'+(window.cu.id||window.cu.user));
-    await window._runTransaction(async(t)=>{
+    const newRepRef=window._docRef(COL.reports,submissionId);
+    const created=await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
       const orderSnap=await t.get(orderRef);
+      const existingRep=await t.get(newRepRef);
+      if(existingRep.exists()) return {created:false,pendingQty:procSnap.exists()?(procSnap.data().pendingQty||0):0};
       if(!procSnap.exists()) throw new Error('工序不存在');
       if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
       if(qty<=0) throw new Error('報工數量必須大於 0');
@@ -189,25 +206,32 @@ async function mobSubmitReport(){
       if(qty>realRemain) throw new Error(`Vui lòng báo tối đa ${realRemain} SP / 剩餘可報 ${realRemain} 件，本次 ${qty} 件超過訂單數量`);
       t.set(newRepRef,{
         empId:window.cu.id||window.cu.user, empName:window.cu.name||window.cu.user, empDept:window.cu.dept||'',
-        orderId:pd.orderId, orderNo:pd.orderNo||'', code:pd.code, processId:currentProcId,
+        orderId:pd.orderId, orderNo:pd.orderNo||'', code:pd.code, processId,
         processNo:pd.processNo, processVi:pd.processVi||pd.processZh,
         processSec:pd.processSec||0, slPerHour:pd.slPerHour||0,
-        qty, status:'pending', createdAt:Date.now()
+        qty, status:'pending', submissionId, createdAt:Date.now()
       });
       t.update(procRef,{pendingQty:window._increment(qty)});
+      return {created:true,pendingQty:(pd.pendingQty||0)+qty};
     });
-    p.pendingQty=(p.pendingQty||0)+qty;
-    mobSelectProc();
-    mG('mob-qty').value='';
+    p.pendingQty=created.pendingQty;
+    mobPendingSubmission=null;
+    if(currentProcId===processId){
+      mobSelectProc();
+      mG('mob-qty').value='';
+    }
     const now=new Date();
     const last=mG('mob-last-submit');
     if(last){
       last.style.display='block';
       last.textContent='Gửi lần cuối：'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
     }
-    mobToast('✅ Báo công thành công / 報工成功');
+    mobToast(created.created?'✅ Báo công thành công / 報工成功':'✅ Báo công đã được gửi / 報工已送出');
   }catch(e){
     mobToast('❌ '+(e.message||'報工失敗，請重試'));
+  }finally{
+    mobSubmitBusy=false;
+    if(btn){ btn.disabled=false; btn.style.opacity=''; btn.innerHTML='<i class="ti ti-send"></i> Gửi báo công / 送出報工'; }
   }
 }
 
