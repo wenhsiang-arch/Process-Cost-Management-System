@@ -1,4 +1,5 @@
 window.deskApvUnsub = null;
+window.deskApvLoaded = false;
 
 function updateReportHubTabs(){
   const role=window.cu?.role;
@@ -18,15 +19,22 @@ function openReportHub(){
 
 function startDeskApvListener(){
   if(window.deskApvUnsub) return;
+  window.deskApvLoaded = false;
+  pendingList = [];
   window.deskApvUnsub = window._onSnapshot(
     window._query(window._collection(COL.reports), window._where('status','==','pending')),
     (snap) => {
       pendingList = snap.docs.map(d=>({id:d.id,...d.data()}));
+      window.deskApvLoaded = true;
       updateApvBadge(pendingList.length);
       const pg = document.getElementById('pg-approval');
       if(pg && pg.classList.contains('active')) renderApproval();
     },
-    (e) => { console.error('deskApvListener error:', e); }
+    (e) => {
+      console.error('deskApvListener error:', e);
+      const tb=g('apv-tb');
+      if(tb) tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--err)">Không thể tải / 載入失敗</td></tr>';
+    }
   );
 }
 
@@ -34,48 +42,48 @@ function startDeskApvListener(){
 let pendingList = [];
 
 // ===== 桌機版審批 =====
-async function renderApproval(){
+function renderApproval(){
   const dept=g('apv-dept')?.value||'';
   const tb=g('apv-tb'); if(!tb) return;
   const empty=g('apv-empty');
-  tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--hi)">載入中...</td></tr>';
-  try{
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
-    pendingList=snap.docs.map(d=>({id:d.id,...d.data()}));
-    let list=[...pendingList];
-    if(dept) list=list.filter(r=>r.empDept===dept);
-    const empQ=(g('apv-emp-q')?.value||'').trim().toLowerCase();
-    if(empQ) list=list.filter(r=>(r.empName||'').toLowerCase().includes(empQ)||(r.empId||'').toLowerCase().includes(empQ));
-    updateApvBadge(pendingList.length);
-    if(!list.length){ tb.innerHTML=''; if(empty) empty.style.display='block'; return; }
+  if(!window.deskApvLoaded){
+    tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--hi)">Đang tải / 載入中...</td></tr>';
     if(empty) empty.style.display='none';
-    tb.innerHTML='';
-    list.forEach(r=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`
-        <td><input type="checkbox" class="apv-chk" value="${r.id}"></td>
-        <td><b>${r.empName||r.empId}</b></td>
-        <td>${r.empDept||'-'}</td>
-        <td>${r.orderNo||''}</td>
-        <td>${r.code||''}</td>
-        <td>${r.processNo} ${r.processVi||''}</td>
-        <td><b>${(r.qty||0).toLocaleString()}</b></td>
-        <td>${fmtVN(r.createdAt)} ${(()=>{const d=new Date(r.createdAt);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})()}</td>
-        <td><div style="display:flex;gap:4px">
-          <button class="btn bsm" style="background:var(--okl);color:var(--ok)" onclick="passOne('${r.id}')"><i class="ti ti-check"></i></button>
-          <button class="btn bsm bd2" onclick="rejectOne('${r.id}')"><i class="ti ti-x"></i></button>
-        </div></td>`;
-      tb.appendChild(tr);
+    return;
+  }
+  let list=[...pendingList];
+  if(dept) list=list.filter(r=>r.empDept===dept);
+  const empQ=(g('apv-emp-q')?.value||'').trim().toLowerCase();
+  if(empQ) list=list.filter(r=>(r.empName||'').toLowerCase().includes(empQ)||(r.empId||'').toLowerCase().includes(empQ));
+  updateApvBadge(pendingList.length);
+  if(!list.length){ tb.innerHTML=''; if(empty) empty.style.display='block'; return; }
+  if(empty) empty.style.display='none';
+  tb.innerHTML='';
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><input type="checkbox" class="apv-chk" value="${r.id}"></td>
+      <td><b>${r.empName||r.empId}</b></td>
+      <td>${r.empDept||'-'}</td>
+      <td>${r.orderNo||''}</td>
+      <td>${r.code||''}</td>
+      <td>${r.processNo} ${r.processVi||''}</td>
+      <td><b>${(r.qty||0).toLocaleString()}</b></td>
+      <td>${fmtVN(r.createdAt)} ${(()=>{const d=new Date(r.createdAt);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})()}</td>
+      <td><div style="display:flex;gap:4px">
+        <button class="btn bsm" style="background:var(--okl);color:var(--ok)" onclick="passOne('${r.id}')"><i class="ti ti-check"></i></button>
+        <button class="btn bsm bd2" onclick="rejectOne('${r.id}')"><i class="ti ti-x"></i></button>
+      </div></td>`;
+    tb.appendChild(tr);
+  });
+  const deptSel=g('apv-dept');
+  if(deptSel&&deptSel.options.length===1){
+    Object.keys(DEPTS).forEach(d=>{
+      const opt=document.createElement('option');
+      opt.value=d; opt.textContent=`${d} / ${DEPTS[d]}`;
+      deptSel.appendChild(opt);
     });
-    const deptSel=g('apv-dept');
-    if(deptSel&&deptSel.options.length===1){
-      Object.keys(DEPTS).forEach(d=>{
-        const opt=document.createElement('option');
-        opt.value=d; opt.textContent=`${d} / ${DEPTS[d]}`;
-        deptSel.appendChild(opt);
-      });
-    }
-  }catch(e){ tb.innerHTML='<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--err)">載入失敗</td></tr>'; }
+  }
 }
 
 function approvalToggleAll(chk){
@@ -83,7 +91,7 @@ function approvalToggleAll(chk){
 }
 function getApvChecked(){ return [...document.querySelectorAll('.apv-chk:checked')].map(c=>c.value); }
 
-async function passOne(id){ await passReports([id]); renderApproval(); }
+async function passOne(id){ await passReports([id]); }
 function rejectOne(id){
   g('rej-target-ids').value=JSON.stringify([id]);
   g('rej-reason-text').value='';
@@ -93,7 +101,7 @@ async function approvalBatchPass(){
   const ids=getApvChecked();
   if(!ids.length){ alert('請先勾選'); return; }
   if(!confirm(`確認通過 ${ids.length} 筆？`)) return;
-  await passReports(ids); renderApproval();
+  await passReports(ids);
 }
 function approvalBatchReject(){
   const ids=getApvChecked();
@@ -162,7 +170,7 @@ async function doReject(){
       });
     }catch(e){}
   }
-  cm('m-reject-reason'); renderApproval();
+  cm('m-reject-reason');
 }
 
 // ===== 報工紀錄 =====
