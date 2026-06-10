@@ -30,7 +30,7 @@ async function syncLoadProcs(){
     );
     const procs = snap.docs.map(d=>({id:d.id,...d.data()}));
     const procNos = [...new Map(procs.map(p=>[String(p.processNo), p])).values()];
-    procNos.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo)));
+    procNos.sort((a,b)=>compareProcessNo(a.processNo,b.processNo));
     procNos.forEach(p=>{
       const opt = document.createElement('option');
       opt.value = String(p.processNo);

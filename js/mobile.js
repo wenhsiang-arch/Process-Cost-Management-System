@@ -136,7 +136,7 @@ function mobSelectCode(){
   currentProcId=null;
   if(!code) return;
   const procs=procList.filter(p=>p.code===code);
-  procs.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo)));
+  procs.sort((a,b)=>compareProcessNo(a.processNo,b.processNo));
   const sel=mG('mob-sel-proc');
   procs.forEach(p=>{
     const opt=document.createElement('option'); opt.value=p.id;

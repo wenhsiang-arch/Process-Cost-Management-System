@@ -37,7 +37,7 @@ function toggleSummaryDetail(code){
 function renderSummaryDetail(d){
   const isA=isAdm();
   let total=0;
-  const rows=d.ops.map(op=>{
+  const rows=[...d.ops].sort((a,b)=>compareProcessNo(a.no,b.no)).map(op=>{
     const result=calc(op.sec); total+=result.vnd;
     return`<tr><td>${op.no}</td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`</tr>`;
   }).join('');
@@ -105,7 +105,7 @@ function rDet(){
   let rows=[];
   src.forEach(d=>{
     let ops=[...d.ops];
-    if(sv==='oa') ops.sort((a,b)=>String(a.no).localeCompare(String(b.no),undefined,{numeric:true}));
+    ops.sort((a,b)=>compareProcessNo(a.no,b.no));
     ops.forEach(op=>{ rows.push({d,op,r:calc(op.sec)}); });
   });
   const st=(window.dPage-1)*pp, pr=rows.slice(st,st+pp);

@@ -313,7 +313,7 @@ function meLoadProcs(){
   g('me-remain-info').style.display='none';
   if(!code) return;
   const procs=window.meProcList.filter(p=>p.code===code);
-  procs.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo)));
+  procs.sort((a,b)=>compareProcessNo(a.processNo,b.processNo));
   procs.forEach(p=>{
     const remain=(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0);
     const o=document.createElement('option');

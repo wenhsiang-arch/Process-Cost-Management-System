@@ -3,22 +3,22 @@ let pImp=null, nItms=null, dups=[];
 
 function validateProcessNumbers(ops,code){
   const label=code||'未知款號';
-  if(!ops.length) return [`款號 ${label}：至少需要工序號 01`];
+  if(!ops.length) return [`款號 ${label}：至少需要工序號 1`];
   const errors=[];
   const seen=new Set();
   ops.forEach(op=>{
     const no=String(op.no??'').trim();
-    if(!/^(0[1-9]|[1-9][0-9])$/.test(no)){
-      errors.push(`款號 ${label}：工序號「${no||'空白'}」格式錯誤，必須使用 01–99`);
+    if(!normalizeProcessNo(no)){
+      errors.push(`款號 ${label}：工序號「${no||'空白'}」格式錯誤，必須使用 1–99，且不可有前導零`);
     } else if(seen.has(no)){
       errors.push(`款號 ${label}：工序號 ${no} 重複`);
     }
     seen.add(no);
   });
-  const valid=[...seen].filter(no=>/^(0[1-9]|[1-9][0-9])$/.test(no)).sort();
+  const valid=[...seen].filter(normalizeProcessNo).sort(compareProcessNo);
   const max=valid.length?Math.max(...valid.map(Number)):0;
   for(let i=1;i<=max;i++){
-    const expected=String(i).padStart(2,'0');
+    const expected=String(i);
     if(!seen.has(expected)) errors.push(`款號 ${label}：缺少工序號 ${expected}`);
   }
   return [...new Set(errors)];
@@ -35,11 +35,11 @@ function validateImportProcessRows(rows){
   Object.entries(byCode).forEach(([code,ops])=>{
     const seen=new Map();
     ops.forEach(op=>{
-      if(!/^(0[1-9]|[1-9][0-9])$/.test(op.no)){
+      if(!normalizeProcessNo(op.no)){
         errors.push({
           code,
-          vi:`Dòng ${op.row}: Số công đoạn「${op.no||'trống'}」không đúng định dạng, phải dùng 01–99.`,
-          zh:`第 ${op.row} 行：工序號「${op.no||'空白'}」格式錯誤，必須使用 01–99。`
+          vi:`Dòng ${op.row}: Số công đoạn「${op.no||'trống'}」không đúng định dạng, phải dùng 1–99 và không có số 0 ở đầu.`,
+          zh:`第 ${op.row} 行：工序號「${op.no||'空白'}」格式錯誤，必須使用 1–99，且不可有前導零。`
         });
       } else if(seen.has(op.no)){
         errors.push({
@@ -51,10 +51,10 @@ function validateImportProcessRows(rows){
         seen.set(op.no,op.row);
       }
     });
-    const valid=[...seen.keys()].sort();
+    const valid=[...seen.keys()].filter(normalizeProcessNo).sort(compareProcessNo);
     const max=valid.length?Math.max(...valid.map(Number)):0;
     for(let i=1;i<=max;i++){
-      const expected=String(i).padStart(2,'0');
+      const expected=String(i);
       if(!seen.has(expected)) errors.push({
         code,
         vi:`Thiếu số công đoạn ${expected}.`,
@@ -186,7 +186,7 @@ function processDetailImportFile(file){
                 dr.forEach(r=>{
                   const code=String(r[0]).trim();
                   if(!ni[code]) ni[code]={code,client:String(r[1]).trim(),zh:String(r[2]).trim(),vi:String(r[3]).trim(),sz:String(r[4]).trim(),ops:[]};
-                  if(r[8]!==''&&r[8]!==undefined&&!isNaN(+r[8])) ni[code].ops.push({no:String(r[5]).trim(),zh:String(r[6]).trim(),vi:String(r[7]).trim(),sec:+r[8]});
+                  if(r[8]!==''&&r[8]!==undefined&&!isNaN(+r[8])) ni[code].ops.push({no:normalizeProcessNo(r[5]),zh:String(r[6]).trim(),vi:String(r[7]).trim(),sec:+r[8]});
                 });
                 nItms=ni;
                 dups=Object.keys(ni).filter(code=>window.D.find(d=>d.code===code));

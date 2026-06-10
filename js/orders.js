@@ -530,7 +530,7 @@ function toggleProgCodeDetail(ordId,code,detailId){
     return;
   }
   const cp=(window.allProcesses||[]).filter(p=>p.orderId===ordId&&p.code===code);
-  const procRows=cp.sort((a,b)=>String(a.processNo).localeCompare(String(b.processNo))).map(p=>{
+  const procRows=cp.sort((a,b)=>compareProcessNo(a.processNo,b.processNo)).map(p=>{
     const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
     const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
     return`<tr>

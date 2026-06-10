@@ -15,6 +15,15 @@ function canManageOrders(){
   return role==='admin'||window.permissionSettings?.[role]?.orderImport===true;
 }
 function orderLockId(orderNo){ return encodeURIComponent(String(orderNo||'').trim().toUpperCase()); }
+function normalizeProcessNo(value){
+  const raw=String(value??'').trim();
+  return /^[1-9]\d?$/.test(raw)?String(Number(raw)):'';
+}
+function compareProcessNo(a,b){
+  const av=Number(a), bv=Number(b);
+  if(Number.isFinite(av)&&Number.isFinite(bv)&&av!==bv) return av-bv;
+  return String(a??'').localeCompare(String(b??''),undefined,{numeric:true});
+}
 
 // ===== 日期格式 =====
 function fmtVN(ts){
