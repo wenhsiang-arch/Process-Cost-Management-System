@@ -297,7 +297,7 @@ function openManualEntry(){
   g('me-qty').value='';
   g('me-reason').value='';
   g('me-remain-info').style.display='none';
-  g('me-date').value=new Date().toISOString().slice(0,10);
+  g('me-date').value=formatLocalDate();
   window.meProcList=[];
   om('m-manual-entry');
 }

@@ -24,14 +24,14 @@ async function effCalc(){
   const now=new Date();
   let fromStr,toStr;
   if(range==='today'){
-    fromStr=toStr=now.toISOString().slice(0,10);
+    fromStr=toStr=formatLocalDate(now);
   } else if(range==='week'){
     const d=new Date(now); d.setDate(d.getDate()-d.getDay()+1);
-    fromStr=d.toISOString().slice(0,10);
-    toStr=now.toISOString().slice(0,10);
+    fromStr=formatLocalDate(d);
+    toStr=formatLocalDate(now);
   } else if(range==='month'){
-    fromStr=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
-    toStr=now.toISOString().slice(0,10);
+    fromStr=formatLocalDate(new Date(now.getFullYear(),now.getMonth(),1));
+    toStr=formatLocalDate(now);
   } else {
     fromStr=g('eff-from')?.value; toStr=g('eff-to')?.value;
     if(!fromStr||!toStr) return;
@@ -92,13 +92,13 @@ async function effSaveLog(){
   const now=new Date();
   let fromStr,toStr;
   if(range==='today'){
-    fromStr=toStr=now.toISOString().slice(0,10);
+    fromStr=toStr=formatLocalDate(now);
   } else if(range==='week'){
     const d=new Date(now); d.setDate(d.getDate()-d.getDay()+1);
-    fromStr=d.toISOString().slice(0,10); toStr=now.toISOString().slice(0,10);
+    fromStr=formatLocalDate(d); toStr=formatLocalDate(now);
   } else if(range==='month'){
-    fromStr=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
-    toStr=now.toISOString().slice(0,10);
+    fromStr=formatLocalDate(new Date(now.getFullYear(),now.getMonth(),1));
+    toStr=formatLocalDate(now);
   } else {
     fromStr=g('eff-from')?.value; toStr=g('eff-to')?.value;
   }

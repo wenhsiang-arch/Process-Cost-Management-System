@@ -9,6 +9,11 @@ function g(id){ return document.getElementById(id); }
 function om(id){ g(id).classList.add('open'); }
 function cm(id){ g(id).classList.remove('open'); }
 function mG(id){ return document.getElementById(id); }
+function formatLocalDate(date=new Date()){
+  const d=date instanceof Date?date:new Date(date);
+  if(Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function isOrderUsable(o){
   return !!o
     && (!o.importStatus||o.importStatus==='ready')

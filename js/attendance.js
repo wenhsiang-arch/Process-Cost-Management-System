@@ -3,8 +3,7 @@
 function renderAttendance(){
   const dateEl=g('att-date');
   if(dateEl&&!dateEl.value){
-    const today=new Date();
-    dateEl.value=today.toISOString().slice(0,10);
+    dateEl.value=formatLocalDate();
   }
   attUpdateBatchTotal();
   buildAttendanceTable();
@@ -108,7 +107,7 @@ async function loadAttHist(empId){
   body.innerHTML='<span style="color:var(--mu)">載入中...</span>';
   try{
     const d40=new Date(); d40.setDate(d40.getDate()-40);
-    const fromStr=d40.toISOString().slice(0,10);
+    const fromStr=formatLocalDate(d40);
     const snap=await window._getDocs(
       window._query(window._collection(COL.attendance),
         window._where('empId','==',empId),
@@ -174,9 +173,11 @@ function renderAttHistTable(empId, records){
 }
 
 async function saveAttRecord(docId, empId){
-  const reg=+(g('att-edit-reg-'+docId)?.value||0);
-  const ot=+(g('att-edit-ot-'+docId)?.value||0);
+  const reg=Number(g('att-edit-reg-'+docId)?.value);
+  const ot=Number(g('att-edit-ot-'+docId)?.value);
   const total=reg+ot;
+  const error=validateAttendanceHours(reg,ot);
+  if(error){ alert(error); return; }
   try{
     await window._updateDoc(window._doc(COL.attendance,docId),{regularHours:reg,overtimeHours:ot,totalHours:total});
     g('att-edit-tot-'+docId).textContent=total.toFixed(1);
@@ -198,7 +199,7 @@ async function delAttRecord(docId, empId){
 }
 
 function openAttApply(){
-  const date=new Date().toISOString().slice(0,10);
+  const date=formatLocalDate();
   g('att-apply-date').value=date;
   const count=(window.allEmployees||[]).filter(e=>!DESK_ROLES.includes(e.role)).length;
   g('att-apply-count').textContent=count;
@@ -213,11 +214,16 @@ async function confirmAttendance(){
     const empId=tr.dataset.empId;
     const emp=(window.allEmployees||[]).find(e=>e.id===empId);
     if(!emp) return;
-    const reg=+(tr.querySelector('.att-reg')?.value||0);
-    const ot=+(tr.querySelector('.att-ot')?.value||0);
+    const reg=Number(tr.querySelector('.att-reg')?.value);
+    const ot=Number(tr.querySelector('.att-ot')?.value);
     rows.push({empId,empName:emp.name||'',empDept:emp.dept||'',user:emp.user||'',regularHours:reg,overtimeHours:ot,totalHours:reg+ot});
   });
   if(!rows.length){ alert('無員工資料'); return; }
+  const invalid=rows.find(r=>validateAttendanceHours(r.regularHours,r.overtimeHours));
+  if(invalid){
+    alert(`${invalid.user||invalid.empName}: ${validateAttendanceHours(invalid.regularHours,invalid.overtimeHours)}`);
+    return;
+  }
   const msg=`套用日期：${date}\n人數：${rows.length} 位\n若該日已有資料，將直接覆蓋同員工記錄。\n\nNgày: ${date} / ${rows.length} nhân viên\nDữ liệu cũ sẽ bị ghi đè.\n\n確認套用？`;
   if(!confirm(msg)) return;
   try{
@@ -232,4 +238,12 @@ async function confirmAttendance(){
     console.error('confirmAttendance error:',e);
     alert('儲存失敗：'+e.message);
   }
+}
+
+function validateAttendanceHours(reg,ot){
+  if(!Number.isFinite(reg)||!Number.isFinite(ot)) return '工時必須是有效數字 / Giờ làm phải là số hợp lệ';
+  if(reg<0) return '正常工時不得為負數 / Giờ thường không được âm';
+  if(ot<0) return '加班工時不得為負數 / Giờ tăng ca không được âm';
+  if(reg+ot>24) return '每日總工時不得超過 24 小時 / Tổng giờ mỗi ngày không được vượt quá 24';
+  return '';
 }

@@ -21,12 +21,12 @@ function getStatsDateRange(){
   if(range==='today'){
     const d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
     fromTs=d.getTime(); toTs=Date.now();
-    fromStr=toStr=d.toISOString().slice(0,10);
+    fromStr=toStr=formatLocalDate(d);
   } else if(range==='month'){
     const d=new Date(now.getFullYear(),now.getMonth(),1);
     fromTs=d.getTime(); toTs=Date.now();
-    fromStr=d.toISOString().slice(0,10);
-    toStr=now.toISOString().slice(0,10);
+    fromStr=formatLocalDate(d);
+    toStr=formatLocalDate(now);
   } else {
     const fv=g('stats-from')?.value,tv=g('stats-to')?.value;
     if(!fv||!tv){alert('請選擇日期範圍');return null;}
