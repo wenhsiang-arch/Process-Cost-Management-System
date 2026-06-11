@@ -41,7 +41,7 @@ async function saveEacc(){
   }
   window.accs[i].user=u; window.accs[i].role=r;
   if(p){
-    const hashed=await bcrypt.hash(p,10); // 儲存前將密碼 hash
+    const hashed=await getBcrypt().hash(p,10); // 儲存前將密碼 hash
     window.accs[i].pass=hashed;
   }
   if(orig===window.cu.user){ window.cu=window.accs[i]; uNav(); }

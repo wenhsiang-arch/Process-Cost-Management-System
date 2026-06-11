@@ -15,6 +15,13 @@ try{ const c=localStorage.getItem('cLog');    if(c) window.cLog=JSON.parse(c);  
 const IDLE = 30*60;
 let idleT = IDLE, idleIv = null;
 
+function getBcrypt(){
+  const lib=window.bcrypt||(window.dcodeIO&&window.dcodeIO.bcrypt);
+  if(lib) return lib;
+  alert('密碼驗證元件載入失敗，請重新整理頁面後再試。 / Không thể tải thành phần xác thực mật khẩu. Vui lòng tải lại trang.');
+  throw new Error('bcrypt library is not loaded');
+}
+
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
 function isCurrentDeskAccount(){
@@ -97,10 +104,10 @@ async function doLogin(){
     if(DESK_ROLES.includes(a.role)){
       if(!a.pass){ window.cu=a; om('m-setpass'); return; }
       const isHashA = a.pass.startsWith('$2a$') || a.pass.startsWith('$2b$'); // 判斷是否已經是 hash
-      const passOkA = isHashA ? await bcrypt.compare(p, a.pass) : (a.pass===p); // hash 比對或明文比對
+      const passOkA = isHashA ? await getBcrypt().compare(p, a.pass) : (a.pass===p); // hash 比對或明文比對
       if(!passOkA){ g('lerr').style.display='flex'; return; }
       if(!isHashA){ // 舊明文密碼，登入成功後自動轉換成 hash
-        const hashed=await bcrypt.hash(a.pass,10);
+        const hashed=await getBcrypt().hash(a.pass,10);
         a.pass=hashed;
         if(window.saveAccsToFB) await saveAccsToFB();
       }
@@ -137,10 +144,10 @@ async function doLogin(){
   if(emp){
     if(!emp.pass){ window.cu=emp; om('m-setpass'); return; }
     const isHashE = emp.pass.startsWith('$2a$') || emp.pass.startsWith('$2b$'); // 判斷是否已經是 hash
-    const passOkE = isHashE ? await bcrypt.compare(p, emp.pass) : (emp.pass===p); // hash 比對或明文比對
+    const passOkE = isHashE ? await getBcrypt().compare(p, emp.pass) : (emp.pass===p); // hash 比對或明文比對
     if(!passOkE){ g('lerr').style.display='flex'; return; }
     if(!isHashE){ // 舊明文密碼，登入成功後自動轉換成 hash
-      const hashed=await bcrypt.hash(emp.pass,10);
+      const hashed=await getBcrypt().hash(emp.pass,10);
       emp.pass=hashed;
       await window._updateDoc(window._doc(COL.employees,emp.id),{pass:hashed});
     }
@@ -220,7 +227,7 @@ async function saveSetPass(){
   if(p1!==p2){ alert('兩次密碼不一致'); return; }
   try{
     const cu=window.cu;
-    const hashed=await bcrypt.hash(p1,10); // 儲存前將密碼 hash
+    const hashed=await getBcrypt().hash(p1,10); // 儲存前將密碼 hash
     if(cu.id){
       await window._updateDoc(window._doc(COL.employees,cu.id),{pass:hashed}); // 更新員工密碼
       cu.pass=hashed;
