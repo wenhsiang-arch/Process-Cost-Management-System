@@ -146,6 +146,7 @@ async function passReports(ids){
 async function doReject(){
   const ids=JSON.parse(g('rej-target-ids').value||'[]');
   const reason=g('rej-reason-text').value.trim();
+  const errors=[];
   for(const id of ids){
     const r=pendingList.find(x=>x.id===id); if(!r) continue;
     try{
@@ -168,9 +169,13 @@ async function doReject(){
         t.update(repRef,{status:'rejected',rejectedAt:Date.now(),rejectedBy:window.cu.user,rejectReason:reason});
         t.update(procRef,{pendingQty:window._increment(-repQty)});
       });
-    }catch(e){}
+    }catch(e){
+      errors.push(`${r.empName||r.empId}: ${e.message||'退回失敗'}`);
+      console.error('doReject error:',e);
+    }
   }
   cm('m-reject-reason');
+  if(errors.length) alert(`退回失敗 ${errors.length} 筆：\n${errors.slice(0,10).join('\n')}`);
 }
 
 // ===== 報工紀錄 =====
@@ -362,10 +367,13 @@ async function confirmManualEntry(){
   try{
     const procRef=window._docRef(COL.processes,procId);
     const orderRef=window._docRef(COL.orders,p.orderId);
-    const newRepRef=window._docRef(COL.reports,Date.now()+'_manual_'+empId);
+    const submissionId=globalThis.crypto?.randomUUID?.()||`${Date.now()}_manual_${empId}_${Math.random().toString(36).slice(2)}`;
+    const newRepRef=window._docRef(COL.reports,submissionId);
     await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
       const orderSnap=await t.get(orderRef);
+      const existingRep=await t.get(newRepRef);
+      if(existingRep.exists()) throw new Error('補登識別碼重複，請重新操作');
       if(!procSnap.exists()) throw new Error('工序不存在');
       if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
       if(qty<=0) throw new Error('補登數量必須大於 0');
@@ -378,7 +386,7 @@ async function confirmManualEntry(){
         code:pd.code, processNo:pd.processNo,
         processVi:pd.processVi||pd.processZh||'',
         processSec:pd.processSec||0, slPerHour:pd.slPerHour||0,
-        qty, status:'approved',
+        qty, status:'approved', submissionId,
         workDate,
         isManualEntry:true,
         manualCreatedBy:window.cu.user,
