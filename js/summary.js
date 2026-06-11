@@ -85,6 +85,8 @@ function rSum(){
   g('m-rows').textContent=tr;
   mkPager('sp2',window.sPage,fd.length,pp,'goSP');
   rcf();
+  const clearBtn=g('admin-clear-products-btn');
+  if(clearBtn) clearBtn.style.display=isA?'':'none';
 }
 
 // ===== 工序明細表 =====
@@ -128,5 +130,43 @@ async function confDel(){
   if(inp!==code){ alert('Mã hàng không khớp / 款號輸入不符合！'); return; }
   window.D=window.D.filter(d=>d.code!==code); cm('m-del'); rSum(); rDet(); rExp(); rBk();
   if(window.saveProductsToFB) await saveProductsToFB();
+}
+
+function openAdminClearProducts(){
+  if(!isAdm()) return;
+  const productCount=window.D.length;
+  const processCount=window.D.reduce((sum,d)=>sum+(d.ops||[]).length,0);
+  g('admin-clear-products-summary').innerHTML=`<div>Mã hàng / 款號：<b>${productCount}</b></div><div>Công đoạn / 工序：<b>${processCount}</b></div>`;
+  g('admin-clear-products-confirm').value='';
+  updateAdminClearProductsButton();
+  om('m-admin-clear-products');
+}
+
+function closeAdminClearProducts(){
+  g('admin-clear-products-confirm').value='';
+  cm('m-admin-clear-products');
+}
+
+function updateAdminClearProductsButton(){
+  const btn=g('admin-clear-products-confirm-btn');
+  if(btn) btn.disabled=!isAdm()||g('admin-clear-products-confirm').value.trim()!=='DELETE'||window.D.length===0;
+}
+
+async function confirmAdminClearProducts(){
+  if(!isAdm()||g('admin-clear-products-confirm').value.trim()!=='DELETE'||window.D.length===0) return;
+  const original=window.D;
+  const btn=g('admin-clear-products-confirm-btn');
+  btn.disabled=true;
+  window.D=[];
+  const ok=window.saveProductsToFB?await saveProductsToFB():false;
+  if(!ok){
+    window.D=original;
+    updateAdminClearProductsButton();
+    alert('Không thể xóa vì lưu Firebase thất bại. Dữ liệu đã được khôi phục. / Firebase 儲存失敗，未刪除資料。');
+    return;
+  }
+  closeAdminClearProducts();
+  rSum(); rDet(); rExp(); rBk();
+  alert('Đã xóa tất cả dữ liệu bảng công đoạn. / 已刪除全部工序總表資料。');
 }
 
