@@ -169,15 +169,6 @@ function processImportOrderFile(file,input){
         if(!Number.isInteger(qty)||qty<=0){ errors.push(`Dòng ${excelRow}: số lượng không hợp lệ / 第 ${excelRow} 列：數量必須為正整數`); return; }
         const prod=window.D.find(p=>p.code===code);
         if(prod){
-          const procErrors=validateProcessNumbers(prod.ops||[],code);
-          (prod.ops||[]).forEach(op=>{
-            if(!ORDER_PROCESS_CATEGORIES.some(x=>x.code===op.category)) procErrors.push(`款號 ${code}：工序 ${op.no} 缺少有效加工分類`);
-            if(!(Number(op.sec)>0)) procErrors.push(`款號 ${code}：工序 ${op.no} 秒數必須大於 0`);
-          });
-          if(procErrors.length){
-            errors.push(`${code}: ${procErrors.join('；')}`);
-            return;
-          }
           matched.push({code,desc:String(r[iDesc]||'').trim(),color:String(r[iColor]||'').trim(),qty,ops:prod.ops||[],zh:prod.zh||'',sz:prod.sz||''});
         } else { errors.push(`Không tìm thấy mã hàng ${code} trong bảng công đoạn / 工序總表找不到款號 ${code}`); }
       });
