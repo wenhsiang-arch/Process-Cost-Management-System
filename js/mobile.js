@@ -81,10 +81,6 @@ function mobPage(pid){
   if(pid==='mob-pg-apv') mobLoadPending();
 }
 
-function mobSaveHours(){
-  localStorage.setItem('wh_'+new Date().toDateString(), mG('mob-hours').value);
-}
-
 // ===== 載入訂單 =====
 async function mobLoadOrders(){
   try{

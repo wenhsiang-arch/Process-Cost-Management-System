@@ -414,7 +414,6 @@ tr:hover td{background:#f8fafc}
           <button class="btn" onclick="rHist();om('m-history')"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
           <button class="btn" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
         </div>
-          <button class="btn bd2" id="admin-clear-products-btn" style="display:none" onclick="openAdminClearProducts()"><i class="ti ti-trash"></i>Xóa tất cả công đoạn / 批量刪除全部工序表</button>
         <div class="to"><div class="ts summary-table-scroll"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
         <div class="pgr" id="sp2"></div>
       </div>
@@ -794,17 +793,6 @@ tr:hover td{background:#f8fafc}
     <div id="imp-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span id="imp-ok-msg"></span></div>
     <div class="dv"></div>
     <p style="font-size:11px;color:var(--mu)">Thứ tự cột: Mã hàng · Khách hàng · Tên Trung · Tên Việt · Kích thước · Số công đoạn · Phân loại (BL/SX/QC/DG) · Tên công đoạn Trung · Tên công đoạn Việt · Giây<br>Có thể để trống tên công đoạn Trung; các trường khác không được để trống.<br>欄位順序：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 加工分類（BL/SX/QC/DG）· 工序中文 · 工序越文 · 秒數；工序中文可空白，其餘欄位皆不得空白</p>
-  </div></div>
-
-  <div class="mb" id="m-admin-clear-products"><div class="md" style="width:520px">
-    <div class="mt2"><span><i class="ti ti-alert-triangle" style="color:var(--err)"></i> Xóa tất cả công đoạn / 批量刪除全部工序表</span><button class="btn bsm" onclick="closeAdminClearProducts()"><i class="ti ti-x"></i></button></div>
-    <div class="nt nd" style="margin-bottom:14px;line-height:1.7"><i class="ti ti-alert-triangle"></i>Chỉ xóa bảng công đoạn tổng. Không xóa đơn hàng, công đoạn đơn hàng hoặc báo công.<br>只刪除工序總表，不刪除訂單、訂單工序或報工。</div>
-    <div id="admin-clear-products-summary" style="font-size:13px;line-height:1.8;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:12px"></div>
-    <div class="fgrp" style="margin-bottom:14px">
-      <label>Nhập DELETE để xác nhận / 輸入 DELETE 確認</label>
-      <input type="text" id="admin-clear-products-confirm" oninput="updateAdminClearProductsButton()" autocomplete="off">
-    </div>
-    <div class="br"><button class="btn bd2" id="admin-clear-products-confirm-btn" disabled onclick="confirmAdminClearProducts()"><i class="ti ti-trash"></i>Xóa tất cả / 全部刪除</button><button class="btn" onclick="closeAdminClearProducts()">Hủy / 取消</button></div>
   </div></div>
 
   <div class="mb" id="m-history"><div class="md wide">

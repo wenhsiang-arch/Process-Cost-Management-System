@@ -592,8 +592,8 @@ async function renderProgress(){
     list.forEach((o,idx)=>{
       const pct=o.pct;
       const totalQty=o.totalQty||0;
-      const actualCompleteDateVal=o.actualCompleteDate?new Date(o.actualCompleteDate).toISOString().slice(0,10):'';
-      const actualShipDateVal=o.actualShipDate?new Date(o.actualShipDate).toISOString().slice(0,10):(o.dueDate?new Date(o.dueDate).toISOString().slice(0,10):'');
+      const actualCompleteDateVal=o.actualCompleteDate?formatLocalDate(o.actualCompleteDate):'';
+      const actualShipDateVal=o.actualShipDate?formatLocalDate(o.actualShipDate):(o.dueDate?formatLocalDate(o.dueDate):'');
       const remarkVal=(o.remark||'').replace(/"/g,'&quot;');
       html+=`<tr style="cursor:pointer" onclick="toggleProgDetail('${o.id}')">
         <td style="color:var(--mu);padding:6px 8px;font-size:12px">${idx+1}</td>

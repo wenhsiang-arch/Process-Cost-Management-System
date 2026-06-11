@@ -1,5 +1,5 @@
 // ===== 匯入 =====
-let pImp=null, nItms=null, dups=[];
+let nItms=null, dups=[];
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
 function processCategoryLabel(code){ return PROCESS_CATEGORIES[code]||code||'—'; }
 
@@ -141,7 +141,7 @@ function openDetailImportModal(){
 
 function closeDetailImportModal(){
   resetDetailImportDisplay();
-  pImp=null; nItms=null; dups=[]; g('fi').value='';
+  nItms=null; dups=[]; g('fi').value='';
   cm('m-detail-import');
 }
 
@@ -283,7 +283,7 @@ async function cImp(mode){
   g('imp-ok-msg').textContent=msg;
   g('imp-ok').style.display='flex';
   ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
-  pImp=null; nItms=null; dups=[]; g('fi').value='';
+  nItms=null; dups=[]; g('fi').value='';
   rSum(); rDet(); rExp(); rBk(); rHist();
   if(window.saveProductsToFB && window.saveHistoryToFB){
     const ok1=await saveProductsToFB();

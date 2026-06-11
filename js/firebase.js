@@ -141,8 +141,6 @@ async function fbInit(){
     if(window.S.mh){ const el=document.getElementById('ss-hr'); if(el) el.value=window.S.mh; }
   }
   showLoading(false);
-  if(typeof window._syncVars==='function') window._syncVars();
-
   // 載入記錄
   const [savedHist, savedClog] = await Promise.all([fbLoad("impHist"), fbLoad("cLog")]);
   if(savedHist&&savedHist.length>0){ window.impHist=savedHist; try{localStorage.setItem('impHist',JSON.stringify(window.impHist));}catch(e){} }

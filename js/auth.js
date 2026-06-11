@@ -8,8 +8,6 @@ window.impHist = [];
 window.cLog    = [];
 window.sPage   = 1;
 window.dPage   = 1;
-window._syncVars = function(){};
-
 // 從 localStorage 載入記錄
 try{ const h=localStorage.getItem('impHist'); if(h) window.impHist=JSON.parse(h); }catch(e){}
 try{ const c=localStorage.getItem('cLog');    if(c) window.cLog=JSON.parse(c);    }catch(e){}
