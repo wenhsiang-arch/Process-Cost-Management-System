@@ -545,8 +545,7 @@ async function renderProgress(){
     const allProcs=window.allProcesses||[];
     const progMap={};
     allProcs.forEach(p=>{
-      if(!progMap[p.orderId]) progMap[p.orderId]={totalQty:0,procs:[]};
-      progMap[p.orderId].totalQty+=(p.orderQty||0);
+      if(!progMap[p.orderId]) progMap[p.orderId]={procs:[]};
       progMap[p.orderId].procs.push(p);
     });
     let orders=usableOrders();
@@ -560,7 +559,7 @@ async function renderProgress(){
       orders=orders.filter(o=>matchingOrderIds.has(o.id));
     }
     let list=orders.map(o=>{
-      const pm=progMap[o.id]||{totalQty:0,procs:[]};
+      const pm=progMap[o.id]||{procs:[]};
       const pct=weightedProcessProgress(pm.procs);
       const actualShipDate=o.actualShipDate||(o.dueDate||null);
       return{...o,pct,pm,actualShipDate};
@@ -592,7 +591,7 @@ async function renderProgress(){
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const pct=o.pct;
-      const totalQty=o.pm.totalQty;
+      const totalQty=o.totalQty||0;
       const actualCompleteDateVal=o.actualCompleteDate?new Date(o.actualCompleteDate).toISOString().slice(0,10):'';
       const actualShipDateVal=o.actualShipDate?new Date(o.actualShipDate).toISOString().slice(0,10):(o.dueDate?new Date(o.dueDate).toISOString().slice(0,10):'');
       const remarkVal=(o.remark||'').replace(/"/g,'&quot;');
