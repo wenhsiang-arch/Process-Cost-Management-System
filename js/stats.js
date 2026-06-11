@@ -227,6 +227,16 @@ function editEmployee(id){
   om('m-employee');
 }
 
+function parseEmployeeUserHistory(snap){
+  if(!snap.exists()) return {};
+  try{
+    const history=JSON.parse(snap.data().data);
+    if(history&&typeof history==='object'&&!Array.isArray(history)) return history;
+    if(Array.isArray(history)) return Object.fromEntries(history.map(user=>[user,true]));
+  }catch(e){}
+  return {};
+}
+
 async function saveEmployee(){
   const id=g('emp-edit-id').value;
   const name=g('emp-name').value.trim();
@@ -235,18 +245,35 @@ async function saveEmployee(){
   const dept=g('emp-dept').value;
   const role=g('emp-role').value;
   if(!name||!user){alert('請填寫姓名和帳號');return;}
-  if(!id&&(window.allEmployees.find(e=>e.user===user)||window.accs.find(a=>a.user===user))){alert('帳號已存在');return;}
+  const current=id?window.allEmployees.find(e=>e.id===id):null;
+  if(window.allEmployees.some(e=>e.user===user&&e.id!==id)||window.accs.some(a=>a.user===user)){alert('帳號已存在');return;}
+  const knownOwner=(window.employeeUserHistory||{})[user];
+  if(knownOwner&&knownOwner!==id&&!(knownOwner===true&&current?.user===user)){alert('此工號已使用過，不可重複使用 / Mã nhân viên đã được sử dụng');return;}
   const data={name,user,dept,role,updatedAt:Date.now()};
   if(pass) data.pass=pass;
   try{
+    const empRef=id?window._doc(COL.employees,id):window._newDocRef(COL.employees);
+    const historyRef=window._doc('system','employeeUserHistory');
+    const savedHistory=await window._runTransaction(async t=>{
+      const historySnap=await t.get(historyRef);
+      const history=parseEmployeeUserHistory(historySnap);
+      if(history[user]&&history[user]!==empRef.id&&!(history[user]===true&&current?.user===user)) throw new Error('此工號已使用過，不可重複使用 / Mã nhân viên đã được sử dụng');
+      if(current?.user) history[current.user]=empRef.id;
+      history[user]=empRef.id;
+      if(id) t.update(empRef,data);
+      else{
+        data.createdAt=Date.now();
+        t.set(empRef,data);
+      }
+      t.set(historyRef,{data:JSON.stringify(history)});
+      return history;
+    });
+    window.employeeUserHistory=savedHistory;
     if(id){
-      await window._updateDoc(window._doc(COL.employees,id),data);
       const i=window.allEmployees.findIndex(e=>e.id===id);
       if(i>=0) window.allEmployees[i]={...window.allEmployees[i],...data};
     } else {
-      data.createdAt=Date.now();
-      const ref=await window._addDoc(window._collection(COL.employees),data);
-      window.allEmployees.push({id:ref.id,...data});
+      window.allEmployees.push({id:empRef.id,...data});
     }
     cm('m-employee'); renderEmployees();
   }catch(e){alert('儲存失敗：'+e.message);}
@@ -263,7 +290,16 @@ async function delEmployee(id){
     const attCount=attSnap.docs.length;
     const keepHistoryMsg=`確認刪除員工帳號「${emp.user}」？\n\n- 報工記錄：${repCount} 筆（保留）\n- 考勤記錄：${attCount} 筆（保留）\n\n只刪除員工帳號，報工與考勤歷史資料將完整保留。`;
     if(!confirm(keepHistoryMsg)) return;
-    await window._deleteDoc(window._doc(COL.employees,id));
+    const savedHistory=await window._runTransaction(async t=>{
+      const historyRef=window._doc('system','employeeUserHistory');
+      const historySnap=await t.get(historyRef);
+      const history=parseEmployeeUserHistory(historySnap);
+      history[emp.user]=id;
+      t.set(historyRef,{data:JSON.stringify(history)});
+      t.delete(window._doc(COL.employees,id));
+      return history;
+    });
+    window.employeeUserHistory=savedHistory;
     window.allEmployees=window.allEmployees.filter(e=>e.id!==id);
     renderEmployees();
   }catch(e){ alert('刪除失敗：'+e.message); }
@@ -308,7 +344,7 @@ async function openAdminPurgeEmployee(id){
       if((proc.data.pendingQty||0)<proc.pending) throw new Error('工序待審數量不足，已停止徹底刪除');
       if((proc.data.approvedQty||0)<proc.approved) throw new Error('工序已審數量不足，已停止徹底刪除');
     }
-    const writeCount=reports.length+attSnap.docs.length+procMap.size+1;
+    const writeCount=reports.length+attSnap.docs.length+procMap.size+2;
     if(writeCount>490) throw new Error(`相關資料共需 ${writeCount} 次寫入，超過單次安全刪除上限，請分批處理`);
     const counts={pending:0,approved:0,rejected:0,voided:0};
     reports.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
@@ -338,8 +374,10 @@ async function confirmAdminPurgeEmployee(){
   if(!plan||g('purge-emp-id').value!==plan.emp.id){ alert('刪除資料已失效，請重新操作'); return; }
   if(g('purge-emp-input').value.trim()!==plan.emp.user){ alert('員工工號輸入不符合'); return; }
   try{
-    await window._runTransaction(async t=>{
+    const savedHistory=await window._runTransaction(async t=>{
       const empRef=window._doc(COL.employees,plan.emp.id);
+      const historyRef=window._doc('system','employeeUserHistory');
+      const historySnap=await t.get(historyRef);
       const reportSnaps=[];
       for(const r of plan.reports) reportSnaps.push(await t.get(r.ref));
       const procEntries=[...plan.procMap.entries()];
@@ -378,7 +416,14 @@ async function confirmAdminPurgeEmployee(){
       plan.reports.forEach(r=>t.delete(r.ref));
       plan.attendance.forEach(a=>t.delete(a.ref));
       t.delete(empRef);
+      const history=parseEmployeeUserHistory(historySnap);
+      Object.keys(history).forEach(user=>{
+        if(user===plan.emp.user||history[user]===plan.emp.id) delete history[user];
+      });
+      t.set(historyRef,{data:JSON.stringify(history)});
+      return history;
     });
+    window.employeeUserHistory=savedHistory;
     window.allEmployees=window.allEmployees.filter(e=>e.id!==plan.emp.id);
     window._purgeEmployeePlan=null;
     cm('m-purge-employee');

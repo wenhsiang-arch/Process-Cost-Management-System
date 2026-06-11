@@ -44,8 +44,16 @@ function startMobHistListener(){
 // ===== 手機版資料 =====
 let myReports=[], mobPending=[], procList=[], mobHistFilter='all', currentProcId=null;
 
+function ensureMobileEmployee(){
+  if(typeof isCurrentEmployee==='function'&&isCurrentEmployee()) return true;
+  mobToast('帳號已不存在或無權使用手機功能 / Tài khoản không tồn tại hoặc không có quyền');
+  doLogout();
+  return false;
+}
+
 // ===== 啟動手機版 =====
 function startMobile(user){
+  if(!ensureMobileEmployee()) return;
   const mob=g('mob');
   mob.style.display='flex';
   const appEl = document.querySelector('#ma .app');
@@ -54,9 +62,8 @@ function startMobile(user){
   g('mob-av').textContent=initials;
   g('mob-name').textContent=user.name||user.user;
   g('mob-info').textContent='Bộ phận: '+(DEPTS[user.dept||'']||user.dept||'')+'  ·  Chức vụ: '+(user.role==='leader'?'Tổ trưởng':'Nhân viên');
-  if(user.role==='leader'){
-    const t=g('mob-tab-apv'); if(t) t.style.display='flex';
-  }
+  const approvalTab=g('mob-tab-apv');
+  if(approvalTab) approvalTab.style.display=user.role==='leader'?'flex':'none';
   mobLoadOrders();
   mobLoadMyReports();
   startMobHistListener();
@@ -65,6 +72,8 @@ function startMobile(user){
 
 // ===== 頁面切換 =====
 function mobPage(pid){
+  if(!ensureMobileEmployee()) return;
+  if(pid==='mob-pg-apv'&&window.cu.role!=='leader') return;
   ['mob-pg-report','mob-pg-hist','mob-pg-apv'].forEach(id=>{
     const el=mG(id); if(el) el.style.display='none';
   });
@@ -166,6 +175,7 @@ function createSubmissionId(){
   return globalThis.crypto?.randomUUID?.()||`${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 async function mobSubmitReport(){
+  if(!ensureMobileEmployee()) return;
   if(mobSubmitBusy) return;
   const qty=parseInt(mG('mob-qty').value);
   if(!currentProcId){ mobToast('⚠️ Vui lòng chọn công đoạn / 請選擇工序'); return; }
@@ -189,11 +199,14 @@ async function mobSubmitReport(){
     const procRef=window._docRef(COL.processes,processId);
     const orderRef=window._docRef(COL.orders,p.orderId);
     const newRepRef=window._docRef(COL.reports,submissionId);
+    const employeeRef=window._docRef(COL.employees,window.cu.id);
     const created=await window._runTransaction(async(t)=>{
       const procSnap=await t.get(procRef);
       const orderSnap=await t.get(orderRef);
       const existingRep=await t.get(newRepRef);
+      const employeeSnap=await t.get(employeeRef);
       if(existingRep.exists()) return {created:false,pendingQty:procSnap.exists()?(procSnap.data().pendingQty||0):0};
+      if(!employeeSnap.exists()||employeeSnap.data().user!==window.cu.user) throw new Error('員工帳號已不存在');
       if(!procSnap.exists()) throw new Error('工序不存在');
       if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
       if(qty<=0) throw new Error('報工數量必須大於 0');
@@ -308,6 +321,7 @@ function mobRenderHist(){
 
 // ===== 班長審批（手機版）=====
 async function mobLoadPending(){
+  if(!ensureMobileEmployee()||window.cu.role!=='leader') return;
   try{
     const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
     mobPending=snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -358,6 +372,7 @@ function mobBatchPass(){ const ids=mobGetChecked(); if(!ids.length){ mobToast('V
 function mobBatchReject(){ const ids=mobGetChecked(); if(!ids.length){ mobToast('Vui lòng chọn'); return; } mG('mob-rej-ids').value=JSON.stringify(ids); mG('mob-rej-reason').value=''; mG('mob-rej-modal').style.display='flex'; }
 
 async function mobDoPass(ids){
+  if(!ensureMobileEmployee()||window.cu.role!=='leader') return;
   let errors=[];
   for(const id of ids){
     const r=mobPending.find(x=>x.id===id); if(!r) continue;
@@ -366,10 +381,13 @@ async function mobDoPass(ids){
       const resolved=await resolveReportProcess(r);
       const procRef=resolved.ref;
       const orderRef=window._doc(COL.orders,r.orderId);
+      const employeeRef=window._doc(COL.employees,window.cu.id);
       await window._runTransaction(async(t)=>{
         const repSnap=await t.get(repRef);
         const procSnap=await t.get(procRef);
         const orderSnap=await t.get(orderRef);
+        const employeeSnap=await t.get(employeeRef);
+        if(!employeeSnap.exists()||employeeSnap.data().user!==window.cu.user||employeeSnap.data().role!=='leader') throw new Error('班長帳號已不存在或無審批權限');
         if(!repSnap.exists()) throw new Error('報工不存在');
         if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
         if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');
@@ -393,6 +411,7 @@ async function mobDoPass(ids){
 }
 
 async function mobDoReject(){
+  if(!ensureMobileEmployee()||window.cu.role!=='leader') return;
   const ids=JSON.parse(mG('mob-rej-ids')?.value||'[]');
   const reason=mG('mob-rej-reason')?.value?.trim()||'';
   let errors=[];
@@ -403,10 +422,13 @@ async function mobDoReject(){
       const resolved=await resolveReportProcess(r);
       const procRef=resolved.ref;
       const orderRef=window._doc(COL.orders,r.orderId);
+      const employeeRef=window._doc(COL.employees,window.cu.id);
       await window._runTransaction(async(t)=>{
         const repSnap=await t.get(repRef);
         const procSnap=await t.get(procRef);
         const orderSnap=await t.get(orderRef);
+        const employeeSnap=await t.get(employeeRef);
+        if(!employeeSnap.exists()||employeeSnap.data().user!==window.cu.user||employeeSnap.data().role!=='leader') throw new Error('班長帳號已不存在或無審批權限');
         if(!repSnap.exists()) throw new Error('報工不存在');
         if(!reportProcessMatches(repSnap.data(),procSnap.data())) throw new Error('報工與工序資料不符合');
         if(orderSnap.exists()&&isOrderMutationLocked(orderSnap.data())) throw new Error('訂單目前鎖定中');

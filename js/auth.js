@@ -17,6 +17,12 @@ let idleT = IDLE, idleIv = null;
 
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
+function isCurrentDeskAccount(){
+  return !!(window.cu&&!window.cu.id&&DESK_ROLES.includes(window.cu.role)&&(window.accs||[]).some(a=>a.user===window.cu.user));
+}
+function isCurrentEmployee(){
+  return !!(window.cu&&window.cu.id&&(window.allEmployees||[]).some(e=>e.id===window.cu.id&&e.user===window.cu.user));
+}
 
 // ===== 導覽權限 =====
 function uNav(){
@@ -111,12 +117,9 @@ function doLogin(){
       loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
       if(typeof loadPermissions==='function') loadPermissions().then(()=>{ if(typeof uNav==='function') uNav(); });
-    } else if(a.role==='leader'){
-      g('ls').style.display='none';
-      g('ma').classList.remove('hidden');
-      startMobile(a);
     } else {
       g('lerr').style.display='flex';
+      window.cu=null;
     }
     return;
   }
@@ -167,6 +170,7 @@ function openDetailImport(){
 
 // ===== 頁面切換 =====
 function sp(name){
+  if(!isCurrentDeskAccount()){ doLogout(); return; }
   const adm=['settings','export','costlog','accounts'];
   if(adm.includes(name)&&!isAdm()) return;
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
@@ -208,15 +212,17 @@ async function saveSetPass(){
     }
     cm('m-setpass');
     alert('✅ 密碼設定成功');
-    if(DESK_ROLES.includes(cu.role)){
+    if(isCurrentDeskAccount()){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
       loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
       setTimeout(()=>fetchRates(),1000); loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
-    } else {
+    } else if(isCurrentEmployee()) {
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       startMobile(cu);
+    } else {
+      doLogout();
     }
   }catch(e){ alert('設定失敗：'+e.message); }
 }

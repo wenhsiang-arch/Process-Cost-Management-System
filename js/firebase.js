@@ -93,6 +93,7 @@ window.savePermissionsToFB = () => fbSave("permissions", window.permissionSettin
 window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
 window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
 window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
+window.employeeUserHistory = {};
 
 window._db         = db;
 window._getDocs    = (q)           => getDocs(q);
@@ -116,11 +117,15 @@ window._onSnapshot = (...args)     => onSnapshot(...args);
 // ===== 初始化 =====
 async function fbInit(){
   showLoading(true);
-  const [savedD, savedAccs, savedS] = await Promise.all([
+  const [savedD, savedAccs, savedS, savedEmployeeUserHistory] = await Promise.all([
     fbLoad("products"),
     fbLoad("accounts"),
-    fbLoad("settings")
+    fbLoad("settings"),
+    fbLoad("employeeUserHistory")
   ]);
+  window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
+    ? savedEmployeeUserHistory
+    : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
   if(savedD){
     if(typeof D !== 'undefined'){ D.length=0; savedD.forEach(item=>D.push(item)); }
     window.D = savedD;

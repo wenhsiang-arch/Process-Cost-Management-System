@@ -28,16 +28,47 @@ function oEacc(user){
 async function saveEacc(){
   const orig=g('ea-orig').value, u=g('ea-u').value.trim(), p=g('ea-p').value, r=g('ea-r').value;
   const i=window.accs.findIndex(a=>a.user===orig); if(i<0) return;
+  if(!u){ alert('帳號不得空白 / Tài khoản không được để trống'); return; }
+  if(window.accs.some((a,idx)=>idx!==i&&a.user===u)||(window.allEmployees||[]).some(e=>e.user===u)){
+    alert('帳號已存在 / Tài khoản đã tồn tại');
+    return;
+  }
+  const original={...window.accs[i]};
+  const adminCount=window.accs.filter(a=>a.role==='admin').length;
+  if(original.role==='admin'&&r!=='admin'&&adminCount<=1){
+    alert('不可變更最後一位管理員的權限 / Không thể thay đổi quản trị viên cuối cùng');
+    return;
+  }
   window.accs[i].user=u; window.accs[i].role=r; if(p) window.accs[i].pass=p;
   if(orig===window.cu.user){ window.cu=window.accs[i]; uNav(); }
+  const ok=window.saveAccsToFB?await saveAccsToFB():false;
+  if(!ok){
+    window.accs[i]=original;
+    if(orig===window.cu.user){ window.cu=window.accs[i]; uNav(); }
+    rAcc();
+    alert('帳號儲存失敗，已恢復原始資料 / Lưu tài khoản thất bại, dữ liệu đã được khôi phục');
+    return;
+  }
   cm('m-eacc'); rAcc();
-  if(window.saveAccsToFB) await saveAccsToFB();
 }
 
 async function delAcc(user){
+  const target=window.accs.find(a=>a.user===user); if(!target) return;
+  if(user===window.cu?.user){ alert('不可刪除自己的帳號 / Không thể xóa tài khoản của chính mình'); return; }
+  if(target.role==='admin'&&window.accs.filter(a=>a.role==='admin').length<=1){
+    alert('不可刪除最後一位管理員 / Không thể xóa quản trị viên cuối cùng');
+    return;
+  }
   if(confirm('Xác nhận xóa / 確定刪除帳號 '+user+'?')){
+    const original=window.accs;
     window.accs=window.accs.filter(a=>a.user!==user);
+    const ok=window.saveAccsToFB?await saveAccsToFB():false;
+    if(!ok){
+      window.accs=original;
+      rAcc();
+      alert('帳號刪除失敗，已恢復原始資料 / Xóa tài khoản thất bại, dữ liệu đã được khôi phục');
+      return;
+    }
     rAcc();
-    if(window.saveAccsToFB) await saveAccsToFB();
   }
 }
