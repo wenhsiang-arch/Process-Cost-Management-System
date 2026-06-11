@@ -12,7 +12,7 @@ function setImportProgress(percent,vi,zh){
 }
 function makeOrderProcess(orderId,orderNo,item,op,now){
   return {orderId,orderNo,code:item.code,desc:item.desc,color:item.color,zh:item.zh,sz:item.sz,orderQty:item.qty,
-    processNo:op.no,processCategory:op.category,processZh:op.zh,processVi:op.vi||'',processSec:op.sec||0,quoteSnapshotSec:op.sec||0,
+    processNo:op.no,processCategory:op.category||'',processZh:op.zh||'',processVi:op.vi||'',processSec:op.sec||0,quoteSnapshotSec:op.sec||0,
     workStdSec:op.sec||0,slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),
     approvedQty:0,pendingQty:0,createdAt:now};
 }

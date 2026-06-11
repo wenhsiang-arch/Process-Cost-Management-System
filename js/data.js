@@ -74,6 +74,7 @@ function validateRequiredImportFields(rows){
   rows.forEach(r=>{
     const code=String(r[0]??'').trim()||'Không rõ / 未知';
     fields.forEach((field,i)=>{
+      if(i===7) return;
       if(String(r[i]??'').trim()==='') errors.push({
         code,
         vi:`Dòng ${r._excelRow}: ${viFields[i]} không được để trống.`,
