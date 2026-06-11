@@ -39,9 +39,9 @@ function renderCategoryProgress(procs){
     const matched=procs.filter(p=>p.processCategory===category.code);
     const pct=weightedProcessProgress(matched);
     const value=matched.length?`${pct}%`:'—';
-    return`<div style="min-width:92px;flex:1">
-      <div style="font-size:10px;color:var(--mu);margin-bottom:3px">${category.code} ${category.vi} / ${category.zh}</div>
-      <div style="position:relative;height:12px;background:var(--bd);border-radius:4px;overflow:hidden">
+    return`<div style="width:86px;min-width:72px;flex:0 1 86px">
+      <div style="font-size:9px;color:var(--mu);margin-bottom:2px;white-space:nowrap">${category.code} ${category.zh}</div>
+      <div style="position:relative;height:11px;background:var(--bd);border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${matched.length?pct:0}%;background:linear-gradient(90deg,#bfdbfe,#60a5fa)"></div>
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1e3a5f">${value}</div>
       </div>
@@ -670,24 +670,19 @@ function toggleProgDetail(ordId){
   });
   let html='';
   Object.entries(byCode).forEach(([code,cp])=>{
-    const cProg=weightedProcessProgress(cp);
     const cDone=cp.length?Math.min(...cp.map(p=>p.approvedQty||0)):0;
     const safeCode=String(code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const detailId='prog-code-'+ordId+'-'+encodeURIComponent(code).replace(/%/g,'_');
     html+=`<div style="margin-bottom:10px">
-      <div onclick="toggleProgCodeDetail('${ordId}','${safeCode}','${detailId}')" style="cursor:pointer;font-size:12px;font-weight:500;color:var(--navy);padding:8px 4px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px">
+      <div onclick="toggleProgCodeDetail('${ordId}','${safeCode}','${detailId}')" style="cursor:pointer;font-size:12px;font-weight:500;color:var(--navy);padding:8px 4px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;white-space:nowrap">
         <i id="${detailId}-icon" class="ti ti-chevron-right" style="color:var(--accent)"></i>
-        <b>${code}</b><span style="font-size:11px;color:var(--mu)">${cp[0].desc||''} ${cp[0].color||''}</span>
-        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--accent)">
-          <div style="position:relative;width:120px;height:16px;background:var(--bd);border-radius:5px;overflow:hidden">
-            <div style="height:100%;width:${Math.min(cProg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1e3a5f">${cProg}%</div>
-          </div>
+        <b>${code}</b><span style="font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:80px;max-width:240px">${cp[0].desc||''} ${cp[0].color||''}</span>
+        <span style="margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--accent);min-width:0">
+          <span style="display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0">${renderCategoryProgress(cp)}</span>
           <span>${cDone.toLocaleString()}/${(cp[0].orderQty||0).toLocaleString()}</span>
-          ${canManageOrders()?`<button class="btn bsm" onclick="event.stopPropagation();openOrderQtyAdjust('${ordId}','${code}')"><i class="ti ti-adjustments"></i>Điều chỉnh SL / 調整數量</button>`:''}
+          ${canManageOrders()?`<button class="btn bsm" title="Điều chỉnh SL / 調整數量" aria-label="Điều chỉnh SL / 調整數量" onclick="event.stopPropagation();openOrderQtyAdjust('${ordId}','${code}')"><i class="ti ti-edit"></i></button>`:''}
         </span>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 28px;border-bottom:1px solid var(--bd)">${renderCategoryProgress(cp)}</div>
       <div id="${detailId}" style="display:none"></div>
     </div>`;
   });
