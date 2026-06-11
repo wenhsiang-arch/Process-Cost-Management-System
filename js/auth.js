@@ -87,16 +87,24 @@ function startIdle(){
 function resetIdle(){ idleT=IDLE; }
 
 // ===== 登入 =====
-function doLogin(){
+async function doLogin(){
   const u=g('lu').value.trim(), p=g('lp').value;
   if(!u){ g('lerr').style.display='flex'; return; }
 
   // 桌機帳號
-  const a = window.accs.find(x=>x.user===u && (x.pass===p || !x.pass));
+  const a = window.accs.find(x=>x.user===u);
   if(a){
-    window.cu = a;
     if(DESK_ROLES.includes(a.role)){
-      if(!a.pass){ om('m-setpass'); return; }
+      if(!a.pass){ window.cu=a; om('m-setpass'); return; }
+      const isHashA = a.pass.startsWith('$2a$') || a.pass.startsWith('$2b$'); // 判斷是否已經是 hash
+      const passOkA = isHashA ? await bcrypt.compare(p, a.pass) : (a.pass===p); // hash 比對或明文比對
+      if(!passOkA){ g('lerr').style.display='flex'; return; }
+      if(!isHashA){ // 舊明文密碼，登入成功後自動轉換成 hash
+        const hashed=await bcrypt.hash(a.pass,10);
+        a.pass=hashed;
+        if(window.saveAccsToFB) await saveAccsToFB();
+      }
+      window.cu = a;
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
       loadPermissions().then(()=>{
@@ -125,9 +133,18 @@ function doLogin(){
   }
 
   // 員工帳號（手機版）
-  const emp = window.allEmployees.find(x=>x.user===u && (x.pass===p || !x.pass));
-  if(emp){ window.cu=emp;
-    if(!emp.pass){ om('m-setpass'); return; }
+  const emp = window.allEmployees.find(x=>x.user===u);
+  if(emp){
+    if(!emp.pass){ window.cu=emp; om('m-setpass'); return; }
+    const isHashE = emp.pass.startsWith('$2a$') || emp.pass.startsWith('$2b$'); // 判斷是否已經是 hash
+    const passOkE = isHashE ? await bcrypt.compare(p, emp.pass) : (emp.pass===p); // hash 比對或明文比對
+    if(!passOkE){ g('lerr').style.display='flex'; return; }
+    if(!isHashE){ // 舊明文密碼，登入成功後自動轉換成 hash
+      const hashed=await bcrypt.hash(emp.pass,10);
+      emp.pass=hashed;
+      await window._updateDoc(window._doc(COL.employees,emp.id),{pass:hashed});
+    }
+    window.cu=emp;
     g('ls').style.display='none'; g('ma').classList.remove('hidden');
     startMobile(emp); return; }
 
@@ -203,12 +220,13 @@ async function saveSetPass(){
   if(p1!==p2){ alert('兩次密碼不一致'); return; }
   try{
     const cu=window.cu;
+    const hashed=await bcrypt.hash(p1,10); // 儲存前將密碼 hash
     if(cu.id){
-      await window._updateDoc(window._doc(COL.employees,cu.id),{pass:p1});
-      cu.pass=p1;
+      await window._updateDoc(window._doc(COL.employees,cu.id),{pass:hashed}); // 更新員工密碼
+      cu.pass=hashed;
     } else {
       const acc=window.accs.find(a=>a.user===cu.user);
-      if(acc){ acc.pass=p1; await saveAccsToFB(); }
+      if(acc){ acc.pass=hashed; await saveAccsToFB(); } // 更新桌機帳號密碼
     }
     cm('m-setpass');
     alert('✅ 密碼設定成功');

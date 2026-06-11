@@ -39,7 +39,11 @@ async function saveEacc(){
     alert('不可變更最後一位管理員的權限 / Không thể thay đổi quản trị viên cuối cùng');
     return;
   }
-  window.accs[i].user=u; window.accs[i].role=r; if(p) window.accs[i].pass=p;
+  window.accs[i].user=u; window.accs[i].role=r;
+  if(p){
+    const hashed=await bcrypt.hash(p,10); // 儲存前將密碼 hash
+    window.accs[i].pass=hashed;
+  }
   if(orig===window.cu.user){ window.cu=window.accs[i]; uNav(); }
   const ok=window.saveAccsToFB?await saveAccsToFB():false;
   if(!ok){
