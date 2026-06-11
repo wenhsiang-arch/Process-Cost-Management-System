@@ -18,7 +18,7 @@ function makeOrderProcess(orderId,orderNo,item,op,now){
 }
 
 const ORDER_PROCESS_CATEGORIES=[
-  {code:'BL',vi:'Chuẩn bị',zh:'備料'},
+  {code:'BL',vi:'Bị liệu',zh:'備料'},
   {code:'SX',vi:'Sản xuất',zh:'生產'},
   {code:'QC',vi:'Kiểm phẩm',zh:'品檢'},
   {code:'DG',vi:'Đóng gói',zh:'包裝'}
