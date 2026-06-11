@@ -41,14 +41,17 @@ async function effCalc(){
 
   try{
     const [repSnap,attSnap]=await Promise.all([
-      window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved'))),
+      window._getDocs(window._query(
+        window._collection(COL.reports),
+        window._where('reportDate','>=',fromStr),
+        window._where('reportDate','<=',toStr)
+      )),
       window._getDocs(window._query(window._collection(COL.attendance),window._where('date','>=',fromStr),window._where('date','<=',toStr)))
     ]);
 
     const prodH=repSnap.docs.reduce((s,d)=>{
       const r=d.data();
-      const ts=r.workDate?new Date(r.workDate).getTime():r.createdAt;
-      if(ts<fromTs||ts>=toTs) return s;
+      if(r.status!=='approved') return s;
       const slph=r.slPerHour||(r.processSec?Math.round((window.S?.ws||3000)/r.processSec):0);
       return s+(slph>0?(r.qty||0)/slph:0);
     },0);

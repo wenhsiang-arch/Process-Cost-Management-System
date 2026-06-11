@@ -551,9 +551,15 @@ tr:hover td{background:#f8fafc}
         <div class="card">
           <div class="ct-title"><i class="ti ti-file-search"></i>Lịch sử báo công / 報工紀錄</div>
           <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
-            <select id="replog-dept" onchange="renderReplog()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
-            <input type="text" id="replog-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="renderReplog()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
-            <button class="btn bp" onclick="renderReplog()"><i class="ti ti-search"></i>查詢</button>
+            <select id="replog-dept" onchange="renderReplog(window.replogRange)" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
+            <input type="text" id="replog-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="renderReplog(window.replogRange)" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
+            <button class="btn" onclick="setReplogRange('yesterday')">Hôm qua / 昨日</button>
+            <button class="btn" onclick="setReplogRange('custom')">Tùy chỉnh / 自訂範圍</button>
+            <div id="replog-custom-range" style="display:none;align-items:center;gap:6px">
+              <input type="date" id="replog-from" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+              <input type="date" id="replog-to" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
+              <button class="btn bp" onclick="renderReplog('custom')"><i class="ti ti-search"></i>查詢</button>
+            </div>
             <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="openManualEntry()"><i class="ti ti-plus"></i>Bổ sung / 補登報工</button>
           </div>
           <div class="to"><table>
@@ -624,8 +630,9 @@ tr:hover td{background:#f8fafc}
           <div class="ct-title"><i class="ti ti-chart-pie"></i>Thống kê sản lượng / 員工產量統計</div>
           <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
             <select id="stats-range" onchange="statsRangeChange()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <option value="today">Hôm nay / 今天</option>
-              <option value="month" selected>Tháng này / 本月</option>
+              <option value="today" selected>Hôm nay / 今天</option>
+              <option value="yesterday">Hôm qua / 昨日</option>
+              <option value="month">Tháng này / 本月</option>
               <option value="custom">Tùy chỉnh / 自訂</option>
             </select>
             <input type="date" id="stats-from" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
@@ -1027,7 +1034,7 @@ tr:hover td{background:#f8fafc}
       </div>
       <div id="mob-pg-hist" style="display:none">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:11px;color:#92400e;padding:6px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;flex:1;text-align:center">Chỉ hiển thị 45 ngày gần nhất</div>
+          <div style="font-size:11px;color:#92400e;padding:6px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;flex:1;text-align:center">Chỉ hiển thị 15 ngày gần nhất / 只顯示最近 15 天</div>
           <button onclick="mobLoadMyReports()" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
         </div>
         <div style="display:flex;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px">

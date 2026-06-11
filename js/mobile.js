@@ -20,12 +20,12 @@ function startMobPendingListener(){
 function startMobHistListener(){
   if(window.mobHistUnsub) return;
   const empId = window.cu.id || window.cu.user;
-  const from45 = Date.now() - 45*24*60*60*1000;
+  const from15 = Date.now() - 15*24*60*60*1000;
   window.mobHistUnsub = window._onSnapshot(
     window._query(
       window._collection(COL.reports),
       window._where('empId','==',empId),
-      window._where('createdAt','>=',from45)
+      window._where('createdAt','>=',from15)
     ),
     (snap) => {
       myReports = snap.docs.map(d=>({id:d.id,...d.data()}));
@@ -218,7 +218,7 @@ async function mobSubmitReport(){
         orderId:pd.orderId, orderNo:pd.orderNo||'', code:pd.code, processId,
         processNo:pd.processNo, processVi:pd.processVi||pd.processZh,
         processSec:pd.processSec||0, slPerHour:pd.slPerHour||0,
-        qty, status:'pending', submissionId, createdAt:Date.now()
+        qty, status:'pending', submissionId, reportDate:formatLocalDate(), createdAt:Date.now()
       });
       t.update(procRef,{pendingQty:window._increment(qty)});
       return {created:true,pendingQty:(pd.pendingQty||0)+qty};
@@ -247,9 +247,9 @@ async function mobSubmitReport(){
 // ===== 我的報工記錄 =====
 async function mobLoadMyReports(){
   try{
-    const d45=new Date(); d45.setDate(d45.getDate()-45);
-    const from45=d45.getTime();
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id||window.cu.user),window._where('createdAt','>=',from45)));
+    const d15=new Date(); d15.setDate(d15.getDate()-15);
+    const from15=d15.getTime();
+    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('empId','==',window.cu.id||window.cu.user),window._where('createdAt','>=',from15)));
     myReports=snap.docs.map(d=>({id:d.id,...d.data()}));
     myReports.sort((a,b)=>b.createdAt-a.createdAt);
     const readTs = parseInt(localStorage.getItem('mob_bell_read')||'0');

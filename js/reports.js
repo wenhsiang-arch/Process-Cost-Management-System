@@ -180,17 +180,47 @@ async function doReject(){
 
 // ===== 報工紀錄 =====
 window.replogList=[];
+window.replogRange='today';
 
-async function renderReplog(){
+function setReplogRange(range){
+  window.replogRange=range;
+  const custom=g('replog-custom-range');
+  if(custom) custom.style.display=range==='custom'?'flex':'none';
+  if(range!=='custom') renderReplog(range);
+}
+
+async function renderReplog(range){
+  if(!range){
+    const custom=g('replog-custom-range');
+    if(custom) custom.style.display='none';
+  }
+  window.replogRange=range||'today';
   const dept=g('replog-dept')?.value||'';
   const empQ=(g('replog-emp-q')?.value||'').trim().toLowerCase();
   const tb=g('replog-tb'); if(!tb) return;
   tb.innerHTML='<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--hi)">載入中...</td></tr>';
   try{
+    const now=new Date();
+    let fromStr,toStr;
+    if(window.replogRange==='yesterday'){
+      const yesterday=new Date(now); yesterday.setDate(yesterday.getDate()-1);
+      fromStr=toStr=formatLocalDate(yesterday);
+    }else if(window.replogRange==='custom'){
+      fromStr=g('replog-from')?.value;
+      toStr=g('replog-to')?.value;
+      if(!fromStr||!toStr||fromStr>toStr){ alert('請選擇有效日期範圍'); return; }
+    }else{
+      window.replogRange='today';
+      fromStr=toStr=formatLocalDate(now);
+    }
     const snap=await window._getDocs(
-      window._query(window._collection(COL.reports),window._where('status','==','approved'))
+      window._query(
+        window._collection(COL.reports),
+        window._where('reportDate','>=',fromStr),
+        window._where('reportDate','<=',toStr)
+      )
     );
-    let list=snap.docs.map(d=>({id:d.id,...d.data()}));
+    let list=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.status==='approved');
     if(dept) list=list.filter(r=>r.empDept===dept);
     if(empQ) list=list.filter(r=>(r.empName||'').toLowerCase().includes(empQ)||(r.empId||'').toLowerCase().includes(empQ));
     list.sort((a,b)=>b.createdAt-a.createdAt);
@@ -387,7 +417,7 @@ async function confirmManualEntry(){
         processVi:pd.processVi||pd.processZh||'',
         processSec:pd.processSec||0, slPerHour:pd.slPerHour||0,
         qty, status:'approved', submissionId,
-        workDate,
+        workDate, reportDate:workDate,
         isManualEntry:true,
         manualCreatedBy:window.cu.user,
         manualReason:reason,

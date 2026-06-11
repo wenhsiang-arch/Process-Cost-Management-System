@@ -15,12 +15,16 @@ function statsRangeChange(){
 }
 
 function getStatsDateRange(){
-  const range=g('stats-range')?.value||'month';
+  const range=g('stats-range')?.value||'today';
   const now=new Date();
   let fromTs,toTs,fromStr,toStr;
   if(range==='today'){
     const d=new Date(now.getFullYear(),now.getMonth(),now.getDate());
     fromTs=d.getTime(); toTs=Date.now();
+    fromStr=toStr=formatLocalDate(d);
+  } else if(range==='yesterday'){
+    const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-1);
+    fromTs=d.getTime(); toTs=fromTs+86400000;
     fromStr=toStr=formatLocalDate(d);
   } else if(range==='month'){
     const d=new Date(now.getFullYear(),now.getMonth(),1);
@@ -48,15 +52,15 @@ async function renderStats(){
   try{
     // 查詢報工與考勤
     const [repSnap,attSnap]=await Promise.all([
-      window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','approved'))),
+      window._getDocs(window._query(
+        window._collection(COL.reports),
+        window._where('reportDate','>=',fromStr),
+        window._where('reportDate','<=',toStr)
+      )),
       window._getDocs(window._query(window._collection(COL.attendance),window._where('date','>=',fromStr),window._where('date','<=',toStr)))
     ]);
 
-    const reports_all=repSnap.docs.map(d=>({id:d.id,...d.data()}));
-    const reports=reports_all.filter(r=>{
-      const ts=r.workDate?new Date(r.workDate).getTime():r.createdAt;
-      return ts>=fromTs&&ts<=toTs;
-    });
+    const reports=repSnap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.status==='approved');
     const attMap={};
     attSnap.docs.forEach(d=>{
       const a=d.data();
