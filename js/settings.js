@@ -1,6 +1,13 @@
 // ===== 成本計算 =====
-function aCC(){
-  if(window.S.mc) return;
+function readSettingNumber(id,fallback,min=0,max=null,writeBack=false){
+  const el=g(id);
+  let v=Number(el?.value);
+  if(!Number.isFinite(v)||v<min) v=fallback;
+  if(max!==null&&v>max) v=max;
+  if(writeBack&&el) el.value=v;
+  return v;
+}
+function aCC(){  if(window.S.mc) return;
   const t=((+g('ss-sal').value)||0)+((+g('ss-ins').value)||0)+((+g('ss-meal').value)||0);
   g('ss-tc').value=Math.round(t);
   if(!window.S.mh) g('ss-hr').value=Math.round(t/208);
@@ -20,7 +27,7 @@ function onMH(){
 }
 
 function uEff(){
-  window.S.eff=+g('ss-eff').value||80;
+  window.S.eff=readSettingNumber('ss-eff',80,1,100,true);
   const m=(1/(window.S.eff/100))*100, i=m-100;
   g('e-in').textContent=window.S.eff+'%';
   g('e-mu').textContent=m.toFixed(2)+'%';
@@ -30,12 +37,12 @@ function uEff(){
 }
 
 function rAll(){
-  window.S.sal  = +g('ss-sal').value||9413769;
-  window.S.ins  = +g('ss-ins').value||1686575;
-  window.S.meal = +g('ss-meal').value||1008000;
-  window.S.usd  = +g('ss-usd').value||25400;
-  window.S.twd  = +g('ss-twd').value||780;
-  window.S.ws   = +g('ss-ws').value||3000;
+  window.S.sal  = readSettingNumber('ss-sal',9413769,0,null,false);
+  window.S.ins  = readSettingNumber('ss-ins',1686575,0,null,false);
+  window.S.meal = readSettingNumber('ss-meal',1008000,0,null,false);
+  window.S.usd  = readSettingNumber('ss-usd',25400,1,null,true);
+  window.S.twd  = readSettingNumber('ss-twd',780,1,null,true);
+  window.S.ws   = readSettingNumber('ss-ws',3000,1,null,true);
   aCC(); rSum(); rDet(); rExp(); rBk();
 }
 

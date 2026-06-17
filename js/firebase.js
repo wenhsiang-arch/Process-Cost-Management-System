@@ -86,8 +86,57 @@ async function fbSaveWithStatus(key, data){
   return ok;
 }
 
+const PENDING_PRODUCTS_KEY = 'pcmsProductsPending';
+const PENDING_PRODUCTS_AT_KEY = 'pcmsProductsPendingAt';
+
+function savePendingProductsSnapshot(){
+  try{
+    localStorage.setItem(PENDING_PRODUCTS_KEY, JSON.stringify(window.D||[]));
+    localStorage.setItem(PENDING_PRODUCTS_AT_KEY, String(Date.now()));
+    return true;
+  }catch(e){
+    console.error('save pending products error:', e);
+    return false;
+  }
+}
+
+function clearPendingProductsSnapshot(){
+  try{
+    localStorage.removeItem(PENDING_PRODUCTS_KEY);
+    localStorage.removeItem(PENDING_PRODUCTS_AT_KEY);
+  }catch(e){ console.error('clear pending products error:', e); }
+}
+
+function loadPendingProductsSnapshot(){
+  try{
+    const raw=localStorage.getItem(PENDING_PRODUCTS_KEY);
+    if(!raw) return null;
+    const data=JSON.parse(raw);
+    if(!Array.isArray(data)) return null;
+    return {data, savedAt:Number(localStorage.getItem(PENDING_PRODUCTS_AT_KEY)||0)};
+  }catch(e){
+    console.error('load pending products error:', e);
+    return null;
+  }
+}
+
+async function retryPendingProductsSync(){
+  const pending=loadPendingProductsSnapshot();
+  if(!pending) return true;
+  const ok=await fbSaveWithStatus('products', pending.data);
+  if(ok) clearPendingProductsSnapshot();
+  return ok;
+}
+
 // ===== 掛到 window =====
-window.saveProductsToFB  = () => fbSaveWithStatus("products",  window.D);
+window.savePendingProductsSnapshot = savePendingProductsSnapshot;
+window.clearPendingProductsSnapshot = clearPendingProductsSnapshot;
+window.retryPendingProductsSync = retryPendingProductsSync;
+window.saveProductsToFB  = async () => {
+  const ok = await fbSaveWithStatus("products",  window.D);
+  if(ok) clearPendingProductsSnapshot();
+  return ok;
+};
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
 window.savePermissionsToFB = () => fbSave("permissions", window.permissionSettings);
 window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
@@ -130,6 +179,15 @@ async function fbInit(){
     if(typeof D !== 'undefined'){ D.length=0; savedD.forEach(item=>D.push(item)); }
     window.D = savedD;
   }
+  const pendingProducts=loadPendingProductsSnapshot();
+  if(pendingProducts){
+    if(typeof D !== 'undefined'){ D.length=0; pendingProducts.data.forEach(item=>D.push(item)); }
+    window.D = pendingProducts.data;
+    setSyncState('failed');
+    showSyncError();
+    if(typeof rSum==='function'){ rSum(); rDet(); rExp(); rBk(); }
+    console.warn('偵測到待同步款號資料，已先載入本機快照。');
+  }
   if(savedAccs){
     if(typeof accs !== 'undefined'){ accs.length=0; savedAccs.forEach(item=>accs.push(item)); }
     window.accs = savedAccs;
@@ -158,6 +216,7 @@ async function fbInit(){
 
   // 即時監聽
   onSnapshot(window._doc("system","products"),(snap)=>{
+    if(loadPendingProductsSnapshot()) return;
     if(snap.exists()){
       try{
         const newD=JSON.parse(snap.data().data);

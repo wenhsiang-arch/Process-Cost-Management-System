@@ -277,6 +277,7 @@ async function cImp(mode){
   const hist={t:new Date().toLocaleString('zh-TW'),u:window.cu.user,c:actualCount,o:to,ow,sk};
   window.impHist.push(hist);
   try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
+  if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot();
   let msg=`✓ 本機已更新：${actualCount} 款，${to} 工序`;
   if(ow) msg+=`，覆蓋 ${ow} 款`;
   if(sk) msg+=`，跳過 ${sk} 款`;
@@ -288,8 +289,15 @@ async function cImp(mode){
   if(window.saveProductsToFB && window.saveHistoryToFB){
     const ok1=await saveProductsToFB();
     const ok2=await saveHistoryToFB();
-    if(ok1&&ok2){ g('imp-ok-msg').textContent=msg.replace('本機已更新','雲端已同步'); }
-    else{ g('imp-ok-msg').textContent=msg+' ⚠️ 雲端同步失敗，資料已暫存本機'; }
+    if(ok1&&ok2){
+      if(window.clearPendingProductsSnapshot) window.clearPendingProductsSnapshot();
+      g('imp-ok-msg').textContent=msg.replace('本機已更新','雲端已同步');
+    } else if(ok1){
+      g('imp-ok-msg').textContent=msg+' ⚠️ 款號已同步，匯入歷史同步失敗，記錄已暫存本機';
+    } else {
+      if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot();
+      g('imp-ok-msg').textContent=msg+' ⚠️ 雲端同步失敗，款號資料已暫存本機';
+    }
   }
 }
 

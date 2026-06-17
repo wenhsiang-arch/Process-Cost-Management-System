@@ -76,9 +76,23 @@ function fmtTimeVN(ts){
 }
 
 // ===== 貨幣格式 =====
-function fV(v){ return '₫'+Math.round(v).toLocaleString(); }
-function fU(v){ return '$'+(Math.round(v/window.S.usd*100)/100).toFixed(2); }
-function fT(v){ return 'NT$'+(Math.round(v/window.S.twd*10)/10).toFixed(1); }
+function safePositiveNumber(value,fallback=0){
+  const n=Number(value);
+  return Number.isFinite(n)&&n>0?n:fallback;
+}
+function safeMoneyNumber(value){
+  const n=Number(value);
+  return Number.isFinite(n)?n:0;
+}
+function fV(v){ return '₫'+Math.round(safeMoneyNumber(v)).toLocaleString(); }
+function fU(v){
+  const usd=safePositiveNumber(window.S?.usd,25400);
+  return '$'+(Math.round(safeMoneyNumber(v)/usd*100)/100).toFixed(2);
+}
+function fT(v){
+  const twd=safePositiveNumber(window.S?.twd,780);
+  return 'NT$'+(Math.round(safeMoneyNumber(v)/twd*10)/10).toFixed(1);
+}
 function fm(v){
   if(window.cur==='VND') return fV(v);
   if(window.cur==='USD') return fU(v);
@@ -93,13 +107,25 @@ function hl(t,q){
 
 // ===== 成本計算 =====
 function getH(){
-  if(window.S.mh) return window.S.mh;
-  return (window.S.mc||(window.S.sal+window.S.ins+window.S.meal))/208;
+  const manualHour=safePositiveNumber(window.S?.mh,0);
+  if(manualHour) return manualHour;
+  const manualMonth=safePositiveNumber(window.S?.mc,0);
+  if(manualMonth) return manualMonth/208;
+  const sal=safePositiveNumber(window.S?.sal,0);
+  const ins=safePositiveNumber(window.S?.ins,0);
+  const meal=safePositiveNumber(window.S?.meal,0);
+  return (sal+ins+meal)/208;
 }
 function calc(sec){
-  if(!sec||isNaN(sec)||sec<=0) return {qty:0,vnd:0};
-  const h=getH(), m=1/(window.S.eff/100), q=window.S.ws/sec;
-  return {qty:Math.round(q), vnd:(h/q)*m};
+  const seconds=safePositiveNumber(sec,0);
+  const workSeconds=safePositiveNumber(window.S?.ws,3000);
+  const efficiency=safePositiveNumber(window.S?.eff,80);
+  const hourCost=safePositiveNumber(getH(),0);
+  if(!seconds||!workSeconds||!efficiency||!hourCost) return {qty:0,vnd:0};
+  const q=workSeconds/seconds;
+  if(!Number.isFinite(q)||q<=0) return {qty:0,vnd:0};
+  const vnd=(hourCost/q)*(100/efficiency);
+  return {qty:Math.round(q), vnd:Number.isFinite(vnd)?vnd:0};
 }
 
 // ===== 分頁 =====
