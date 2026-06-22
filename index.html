@@ -22,6 +22,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .sb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:3px}
 .sb-badge{display:inline-block;margin-top:6px;font-size:10px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:2px 8px;border-radius:10px}
 .sb-sec{padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase}
+.sb-sec-toggle{width:100%;border:none;background:transparent;display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;text-align:left}
+.sb-sec-toggle:hover{color:rgba(255,255,255,.55)}
+.sb-sec-toggle i{font-size:13px;transition:transform .15s}
+.sb-sec-toggle.open i{transform:rotate(90deg)}
+.sb-group{display:none}
+.sb-group.open{display:block}
 .ni{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px;margin:1px 8px;border-radius:8px;transition:all .15s}
 .ni:hover{background:rgba(255,255,255,.1);color:#fff}
 .ni.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500}
@@ -222,13 +228,17 @@ tr:hover td{background:#f8fafc}
     <div class="ni locked" id="nv-approval" onclick="openReportHub()"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Quản lý báo công</span><span class="nzh">報工管理 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
-    <div class="sb-sec">Quản lý / 管理</div>
-    <div class="ni" id="nv-settings" onclick="sp('settings')"><i class="ti ti-settings"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
-    <div class="ni" id="nv-export" onclick="sp('export')"><i class="ti ti-download"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
-    <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử chi phí</span><span class="nzh">成本變動記錄</span></div></div>
-    <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
-    <div class="ni" id="nv-permissions" onclick="sp('permissions')"><i class="ti ti-shield-check"></i><div class="nl"><span class="nvi">Phân quyền</span><span class="nzh">權限管理</span></div></div>
-    <div class="ni locked" id="nv-efficiency" onclick="sp('efficiency')"><i class="ti ti-chart-line"></i><div class="nl"><span class="nvi">Báo cáo hiệu suất</span><span class="nzh">效率報表</span></div></div>
+    <button class="sb-sec-toggle" id="management-toggle" type="button" onclick="toggleManagementNav()">
+      <span>Quản lý / 管理</span><i class="ti ti-chevron-right"></i>
+    </button>
+    <div class="sb-group" id="management-nav">
+      <div class="ni" id="nv-settings" onclick="sp('settings')"><i class="ti ti-settings"></i><div class="nl"><span class="nvi">Cài đặt chi phí</span><span class="nzh">成本設定</span></div></div>
+      <div class="ni" id="nv-export" onclick="sp('export')"><i class="ti ti-download"></i><div class="nl"><span class="nvi">Xuất báo cáo</span><span class="nzh">匯出報表</span></div></div>
+      <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử chi phí</span><span class="nzh">成本變動記錄</span></div></div>
+      <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
+      <div class="ni" id="nv-permissions" onclick="sp('permissions')"><i class="ti ti-shield-check"></i><div class="nl"><span class="nvi">Phân quyền</span><span class="nzh">權限管理</span></div></div>
+      <div class="ni locked" id="nv-efficiency" onclick="sp('efficiency')"><i class="ti ti-chart-line"></i><div class="nl"><span class="nvi">Báo cáo hiệu suất</span><span class="nzh">效率報表</span></div></div>
+    </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
 
@@ -1100,9 +1110,34 @@ tr:hover td{background:#f8fafc}
 <script type="module" src="js/firebase.js"></script>
 
 <script>
+function setManagementNavOpen(open){
+  const group=document.getElementById('management-nav');
+  const toggle=document.getElementById('management-toggle');
+  if(!group||!toggle) return;
+  group.classList.toggle('open',open);
+  toggle.classList.toggle('open',open);
+}
+
+function toggleManagementNav(){
+  const group=document.getElementById('management-nav');
+  setManagementNavOpen(!(group&&group.classList.contains('open')));
+}
+
+function syncManagementNav(){
+  const group=document.getElementById('management-nav');
+  if(group&&group.querySelector('.ni.active')) setManagementNavOpen(true);
+}
+
 // 頁面載入後初始化
 window.addEventListener('DOMContentLoaded', () => {
   rAll();
+  setManagementNavOpen(false);
+  syncManagementNav();
+  const group=document.getElementById('management-nav');
+  if(group){
+    const obs=new MutationObserver(syncManagementNav);
+    group.querySelectorAll('.ni').forEach(item=>obs.observe(item,{attributes:true,attributeFilter:['class']}));
+  }
 });
 </script>
 
