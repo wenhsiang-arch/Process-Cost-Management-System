@@ -240,6 +240,7 @@ function verifyProductsMetaCounts(meta, base){
 async function verifyProductsVersionForOrderImport(){
   const meta=await loadProductsMeta();
   verifyProductsMetaVersion(meta);
+  verifyProductsMetaCounts(meta,getProductsBase());
   return true;
 }
 
