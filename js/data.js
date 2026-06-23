@@ -276,9 +276,11 @@ async function cImp(mode){
   const hist={t:new Date().toLocaleString('zh-TW'),u:window.cu.user,c:actualCount,o:to,ow,sk};
   const changedItems=nd.filter(x=>!dups.includes(x.code)||mode!=='sk');
   if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot(changedItems);
-  let msg=`✓ 雲端已同步：${actualCount} 款，${to} 工序`;
-  if(ow) msg+=`，覆蓋 ${ow} 款`;
-  if(sk) msg+=`，跳過 ${sk} 款`;
+  let msgVi=`✓ Đã đồng bộ lên đám mây: ${actualCount} mã, ${to} công đoạn`;
+  let msgZh=`雲端已同步：${actualCount} 款，${to} 工序`;
+  if(ow){ msgVi+=`, ghi đè ${ow} mã`; msgZh+=`，覆蓋 ${ow} 款`; }
+  if(sk){ msgVi+=`, bỏ qua ${sk} mã`; msgZh+=`，跳過 ${sk} 款`; }
+  const msg=`<div>${msgVi}</div><div>${msgZh}</div>`;
 
   g('imp-ok-msg').textContent=`Đang đồng bộ lên đám mây / 正在同步雲端：${actualCount} 款，${to} 工序`;
   g('imp-ok').style.display='flex';
@@ -301,12 +303,12 @@ async function cImp(mode){
     if(ok2){
       if(window.clearPendingProductsSnapshot) window.clearPendingProductsSnapshot();
     } else {
-      g('imp-ok-msg').textContent=msg+' ⚠️ 款號已同步，匯入紀錄同步失敗，記錄已暫存本機';
+      g('imp-ok-msg').innerHTML=msg+'<div>⚠️ Lịch sử nhập đồng bộ thất bại, đã lưu tạm trên máy này</div><div>匯入紀錄同步失敗，記錄已暫存本機</div>';
     }
     ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
     nItms=null; dups=[]; g('fi').value='';
     rSum(); rDet(); rExp(); rBk(); rHist();
-    if(ok2) g('imp-ok-msg').textContent=msg;
+    if(ok2) g('imp-ok-msg').innerHTML=msg;
   } else {
     g('imp-ok-msg').textContent='❌ Không thể đồng bộ / 無法同步：Firebase 功能尚未載入，正式款號資料未更新';
   }
