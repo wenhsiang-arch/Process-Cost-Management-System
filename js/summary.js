@@ -81,7 +81,7 @@ function rSum(){
       tb.appendChild(detailRow);
     }
   });
-  g('m-total').textContent=window.D.length;
+  g('m-total').textContent=fd.length;
   g('m-rows').textContent=tr;
   mkPager('sp2',window.sPage,fd.length,pp,'goSP');
   rcf();

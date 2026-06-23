@@ -61,6 +61,8 @@ function showLoading(show){
 
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
+let productsUnsubscribe=null;
+let productsSnapshotTimer=null;
 
 async function fbLoad(key){
   try{
@@ -127,11 +129,43 @@ function renderProductViews(){
   });
 }
 
+function productsSnapshotToItems(snap){
+  const items=[];
+  snap.docs.forEach(d=>{
+    const data=d.data();
+    const code=String(data.code||d.id||'').trim();
+    if(!code) return;
+    if(data.deleted) return;
+    items.push(normalizeProductDoc(data,code));
+  });
+  return items.sort((a,b)=>a.code.localeCompare(b.code));
+}
+
 async function refreshProductsFromCloud(){
   const saved=await loadProductsData();
   replaceRuntimeProducts(saved);
   renderProductViews();
   return saved;
+}
+
+function startProductsListener(){
+  if(productsUnsubscribe) return;
+  productsUnsubscribe=onSnapshot(collection(db, PRODUCTS_COL), snap=>{
+    if(loadPendingProductsSnapshot()){
+      setSyncState('failed');
+      showSyncError();
+      return;
+    }
+    clearTimeout(productsSnapshotTimer);
+    productsSnapshotTimer=setTimeout(()=>{
+      replaceRuntimeProducts(productsSnapshotToItems(snap));
+      renderProductViews();
+    }, 600);
+  }, e=>{
+    console.error('款號即時同步失敗：', e);
+    setSyncState('failed');
+    showSyncError();
+  });
 }
 
 async function saveProductItemsToCollection(items){
@@ -310,6 +344,7 @@ async function fbInit(){
   }catch(e){ console.error('載入員工資料失敗：', e); }
 
   // 新架構只讀寫 products collection，避免舊整包款號資料影響正式畫面。
+  startProductsListener();
 
 }
 
