@@ -74,8 +74,9 @@ let runtimeProductsVersion='';
 
 const PRODUCT_SYNC_MESSAGES = {
   tooMany: 'Số mã hàng nhập một lần vượt quá giới hạn an toàn 499 mã. Vui lòng chia nhỏ file Excel để nhập.\n一次匯入款號數超過安全限制 499 款。請分批拆分 Excel（表格檔）後匯入。',
-  versionChanged: 'Dữ liệu mã hàng đã được máy khác cập nhật, vui lòng tải lại rồi thao tác.\n款號資料已被其他電腦更新，請重新載入後再操作。',
-  missingMeta: 'Thiếu dữ liệu phiên bản mã hàng, vui lòng liên hệ quản trị viên khởi tạo.\n缺少款號版本資料，請聯絡管理員初始化後再操作。'
+  versionChanged: 'Dữ liệu mã hàng đã được máy khác cập nhật, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n款號資料已被其他電腦更新，請按 F5（重新整理）或重新打開頁面後再操作。',
+  missingMeta: 'Thiếu dữ liệu phiên bản mã hàng, vui lòng liên hệ quản trị viên khởi tạo.\n缺少款號版本資料，請聯絡管理員初始化後再操作。',
+  localDataMismatch: 'Dữ liệu mã hàng trên máy này không khớp dữ liệu phiên bản, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n本機款號資料與版本資料不一致，請按 F5（重新整理）或重新打開頁面後再操作。'
 };
 
 async function fbLoad(key){
@@ -218,11 +219,35 @@ function localProductsVersion(){
   return String(runtimeProductsVersion || localStorage.getItem(PRODUCTS_CACHE_VERSION_KEY) || '');
 }
 
-async function verifyProductsVersionBeforeWrite(){
-  const meta=await loadProductsMeta();
+// verifyProductsMetaVersion（檢查款號版本號）：只檢查 productsMeta（款號版本資料）的 version（版本號）。
+function verifyProductsMetaVersion(meta){
   if(!meta?.version) throw new Error(PRODUCT_SYNC_MESSAGES.missingMeta);
   const localVersion=localProductsVersion();
   if(!localVersion || String(meta.version)!==localVersion) throw new Error(PRODUCT_SYNC_MESSAGES.versionChanged);
+}
+
+// verifyProductsMetaCounts（檢查款號與工序數）：確認本機資料與 productsMeta（款號版本資料）一致。
+function verifyProductsMetaCounts(meta, base){
+  const counts=countProductOps(base);
+  const metaProductCount=Number(meta.productCount);
+  const metaOpCount=Number(meta.opCount);
+  if(!Number.isFinite(metaProductCount) || !Number.isFinite(metaOpCount) || metaProductCount!==counts.productCount || metaOpCount!==counts.opCount){
+    throw new Error(PRODUCT_SYNC_MESSAGES.localDataMismatch);
+  }
+}
+
+// verifyProductsVersionForOrderImport（訂單匯入前版本重驗）：只讀 system/productsMeta（款號版本資料）一份文件。
+async function verifyProductsVersionForOrderImport(){
+  const meta=await loadProductsMeta();
+  verifyProductsMetaVersion(meta);
+  return true;
+}
+
+// verifyProductsVersionBeforeWrite（寫入前版本重驗）：使用同一份 productsMeta（款號版本資料）檢查版本、款號數與工序數。
+async function verifyProductsVersionBeforeWrite(base){
+  const meta=await loadProductsMeta();
+  verifyProductsMetaVersion(meta);
+  verifyProductsMetaCounts(meta,base);
   return meta;
 }
 
@@ -321,8 +346,8 @@ async function saveProductItemsToCollection(items){
   setSyncState('syncing');
   try{
     if(rows.length>PRODUCTS_MAX_BATCH_ITEMS) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
-    await verifyProductsVersionBeforeWrite();
     const base=getProductsBase();
+    await verifyProductsVersionBeforeWrite(base);
     const merged=mergeProducts(base,rows);
     const meta=buildProductsMeta(merged,'import');
     const batch=writeBatch(db);
@@ -354,8 +379,9 @@ async function deleteProductDoc(code){
   window.lastProductSyncError = '';
   setSyncState('syncing');
   try{
-    await verifyProductsVersionBeforeWrite();
-    const kept=removeProductFromList(getProductsBase(),code);
+    const base=getProductsBase();
+    await verifyProductsVersionBeforeWrite(base);
+    const kept=removeProductFromList(base,code);
     const meta=buildProductsMeta(kept,'delete');
     const batch=writeBatch(db);
     batch.delete(doc(db, PRODUCTS_COL, productDocId(code)));
@@ -377,6 +403,7 @@ async function deleteProductDoc(code){
 window.loadProductsData = loadProductsData;
 window.refreshProductsFromCloud = refreshProductsFromCloud;
 window.ensureProductsLoaded = ensureProductsLoaded;
+window.verifyProductsVersionForOrderImport = verifyProductsVersionForOrderImport;
 window.saveProductItemsToFB = saveProductItemsToCollection;
 window.deleteProductFromFB = deleteProductDoc;
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);

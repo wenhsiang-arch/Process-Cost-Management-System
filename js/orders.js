@@ -210,6 +210,8 @@ async function confirmImportOrder(){
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Đang nhập / 匯入中';
   let orderRef=null, lockRef=null;
   try{
+    if(!window.verifyProductsVersionForOrderImport) throw new Error('Không thể kiểm tra phiên bản mã hàng, vui lòng tải lại rồi thao tác.\n無法檢查款號版本，請重新載入後再操作。');
+    await window.verifyProductsVersionForOrderImport();
     const duplicateOrders=await window._getDocs(window._query(window._collection(COL.orders),window._where('orderId','==',d.ordId)));
     const orphanProcs=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderNo','==',d.ordId)));
     lockRef=window._doc(COL.orderLocks,orderLockId(d.ordId));
