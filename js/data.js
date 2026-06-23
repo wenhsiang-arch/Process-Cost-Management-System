@@ -275,7 +275,6 @@ async function cImp(mode){
   const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
   const hist={t:new Date().toLocaleString('zh-TW'),u:window.cu.user,c:actualCount,o:to,ow,sk};
   const changedItems=nd.filter(x=>!dups.includes(x.code)||mode!=='sk');
-  if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot(changedItems);
   let msgVi=`✓ Đã đồng bộ lên đám mây: ${actualCount} mã, ${to} công đoạn`;
   let msgZh=`雲端已同步：${actualCount} 款，${to} 工序`;
   if(ow){ msgVi+=`, ghi đè ${ow} mã`; msgZh+=`，覆蓋 ${ow} 款`; }
@@ -287,8 +286,13 @@ async function cImp(mode){
   if(window.saveProductItemsToFB && window.saveHistoryToFB){
     const ok1=await saveProductItemsToFB(changedItems);
     if(!ok1){
-      if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot(changedItems);
-      g('imp-ok-msg').textContent='❌ Đồng bộ thất bại / 同步失敗：正式款號資料未更新，資料已保留為待同步暫存';
+      const failMsg=window.lastProductSyncError || '❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại file Excel / 匯入失敗，正式資料未更新。請確認網路後重新匯入 Excel（表格檔）';
+      if(window.lastProductSyncError){
+        g('imp-ok-msg').innerHTML=String(failMsg).split('\n').map(s=>s.replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))).join('<br>');
+      } else {
+        g('imp-ok-msg').textContent=failMsg;
+      }
+      if(window.setSyncState) window.setSyncState('failed', failMsg);
       return;
     }
 
@@ -300,9 +304,7 @@ async function cImp(mode){
     window.impHist.push(hist);
     try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
     const ok2=await saveHistoryToFB();
-    if(ok2){
-      if(window.clearPendingProductsSnapshot) window.clearPendingProductsSnapshot();
-    } else {
+    if(!ok2){
       g('imp-ok-msg').innerHTML=msg+'<div>⚠️ Lịch sử nhập đồng bộ thất bại, đã lưu tạm trên máy này</div><div>匯入紀錄同步失敗，記錄已暫存本機</div>';
     }
     ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');

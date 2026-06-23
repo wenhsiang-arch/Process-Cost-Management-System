@@ -113,7 +113,6 @@ async function doLogin(){
       }
       window.cu = a;
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      if(window.initProductsAfterLogin) await initProductsAfterLogin();
       uNav(); rAll(); rSum(); rAcc(); startIdle();
       loadPermissions().then(()=>{
         uNav();
@@ -194,7 +193,7 @@ function openDetailImport(){
 }
 
 // ===== 頁面切換 =====
-function sp(name){
+async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
   const adm=['settings','export','costlog','accounts'];
   if(adm.includes(name)&&!isAdm()) return;
@@ -202,6 +201,7 @@ function sp(name){
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=g('pg-'+name); if(pg) pg.classList.add('active');
   const nav=g((name==='replog'||name==='sync')?'nv-approval':'nv-'+name); if(nav) nav.classList.add('active');
+  if(['summary','export'].includes(name) && window.ensureProductsLoaded) await ensureProductsLoaded();
   if(name==='approval'||name==='replog'||name==='sync') updateReportHubTabs();
   if(name==='settings')  rAll();
   if(name==='export')    rExp();
@@ -240,7 +240,6 @@ async function saveSetPass(){
     alert('✅ 密碼設定成功');
     if(isCurrentDeskAccount()){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      if(window.initProductsAfterLogin) await initProductsAfterLogin();
       uNav(); rAll(); rSum(); rAcc(); startIdle();
       loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
       setTimeout(()=>fetchRates(),1000); loadOrderData();

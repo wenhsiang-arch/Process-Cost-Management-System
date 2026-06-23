@@ -33,7 +33,7 @@ function setSyncState(state) {
   el.style.display = state==='idle'?'none':'block';
 }
 
-function showSyncError(){
+function showSyncError(message){
   let el = document.getElementById('sync-err-toast');
   if(!el){
     el = document.createElement('div');
@@ -41,7 +41,10 @@ function showSyncError(){
     el.style.cssText = 'position:fixed;bottom:60px;right:16px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;font-size:13px;z-index:999;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.1)';
     document.body.appendChild(el);
   }
-  el.innerHTML = `<b>⚠️ Đồng bộ thất bại / 同步失敗</b><br><span style="font-size:12px;color:#b91c1c">Dữ liệu chính thức chưa cập nhật, dữ liệu chờ đồng bộ đã được giữ lại<br>正式資料未更新，已保留待同步資料</span>`;
+  const detail = message
+    ? String(message).split('\n').map(escapeHtml).join('<br>')
+    : 'Dữ liệu chính thức chưa cập nhật, vui lòng kiểm tra mạng rồi nhập lại file Excel<br>正式資料未更新，請確認網路後重新匯入 Excel（表格檔）';
+  el.innerHTML = `<b>⚠️ Đồng bộ thất bại / 同步失敗</b><br><span style="font-size:12px;color:#b91c1c">${detail}</span>`;
   el.style.display = 'block';
   clearTimeout(window._syncErrTimer);
   window._syncErrTimer = setTimeout(()=>{ el.style.display='none'; }, 6000);
@@ -61,8 +64,19 @@ function showLoading(show){
 
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
-let productsUnsubscribe=null;
-let productsSnapshotTimer=null;
+const PRODUCTS_META_KEY = 'productsMeta';
+const PRODUCTS_CACHE_KEY = 'pcmsProductsCache';
+const PRODUCTS_CACHE_VERSION_KEY = 'pcmsProductsCacheVersion';
+const PRODUCTS_SCHEMA_VERSION = 1;
+const PRODUCTS_MAX_BATCH_ITEMS = 499;
+let productsLoadPromise=null;
+let runtimeProductsVersion='';
+
+const PRODUCT_SYNC_MESSAGES = {
+  tooMany: 'Số mã hàng nhập một lần vượt quá giới hạn an toàn 499 mã. Vui lòng chia nhỏ file Excel để nhập.\n一次匯入款號數超過安全限制 499 款。請分批拆分 Excel（表格檔）後匯入。',
+  versionChanged: 'Dữ liệu mã hàng đã được máy khác cập nhật, vui lòng tải lại rồi thao tác.\n款號資料已被其他電腦更新，請重新載入後再操作。',
+  missingMeta: 'Thiếu dữ liệu phiên bản mã hàng, vui lòng liên hệ quản trị viên khởi tạo.\n缺少款號版本資料，請聯絡管理員初始化後再操作。'
+};
 
 async function fbLoad(key){
   try{
@@ -101,6 +115,117 @@ function productDocId(code){
   return encodeURIComponent(String(code||'').trim());
 }
 
+function currentProductsVersion(){
+  return String(Date.now())+'-'+Math.random().toString(36).slice(2,8);
+}
+
+function escapeHtml(text){
+  return String(text||'').replace(/[&<>"']/g, ch=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[ch]));
+}
+
+function setProductSyncError(message){
+  window.lastProductSyncError = message || '';
+  setSyncState('failed');
+  showSyncError(message);
+}
+
+async function loadProductsMeta(){
+  try{
+    const snap=await window._getDoc(window._doc('system', PRODUCTS_META_KEY));
+    if(snap.exists()) return JSON.parse(snap.data().data||'{}');
+  }catch(e){ console.error('讀取款號版本資料失敗：', e); }
+  return null;
+}
+
+function loadProductsCache(){
+  try{
+    const raw=localStorage.getItem(PRODUCTS_CACHE_KEY);
+    const version=localStorage.getItem(PRODUCTS_CACHE_VERSION_KEY)||'';
+    if(!raw||!version) return null;
+    const data=JSON.parse(raw);
+    if(!Array.isArray(data)) return null;
+    return {data,version};
+  }catch(e){
+    console.error('讀取款號快取失敗：', e);
+    return null;
+  }
+}
+
+function saveProductsCache(items, version){
+  try{
+    localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(items||[]));
+    localStorage.setItem(PRODUCTS_CACHE_VERSION_KEY, String(version||''));
+    return true;
+  }catch(e){
+    console.error('儲存款號快取失敗：', e);
+    return false;
+  }
+}
+
+function normalizeProductsList(items){
+  return (Array.isArray(items)?items:[])
+    .map(item=>normalizeProductDoc(item,item?.code))
+    .filter(item=>item.code)
+    .sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+function getProductsBase(){
+  const runtime=Array.isArray(window.D)&&window.D.length>0?window.D:null;
+  if(runtime) return normalizeProductsList(runtime);
+  const cache=loadProductsCache();
+  return normalizeProductsList(cache?.data||[]);
+}
+
+function mergeProducts(base, rows){
+  const merged=new Map(normalizeProductsList(base).map(item=>[String(item.code||'').trim(),item]));
+  normalizeProductsList(rows).forEach(item=>merged.set(String(item.code||'').trim(),item));
+  return normalizeProductsList([...merged.values()]);
+}
+
+function removeProductFromList(base, code){
+  const target=String(code||'').trim();
+  return normalizeProductsList(base).filter(item=>String(item.code||'').trim()!==target);
+}
+
+function countProductOps(items){
+  const list=normalizeProductsList(items);
+  return {
+    productCount:list.length,
+    opCount:list.reduce((sum,item)=>sum+(Array.isArray(item.ops)?item.ops.length:0),0)
+  };
+}
+
+function buildProductsMeta(items,lastAction){
+  const counts=countProductOps(items);
+  return {
+    version:currentProductsVersion(),
+    updatedAt:Date.now(),
+    updatedBy:window.cu?.user||'',
+    productCount:counts.productCount,
+    opCount:counts.opCount,
+    schemaVersion:PRODUCTS_SCHEMA_VERSION,
+    lastAction
+  };
+}
+
+function localProductsVersion(){
+  return String(runtimeProductsVersion || localStorage.getItem(PRODUCTS_CACHE_VERSION_KEY) || '');
+}
+
+async function verifyProductsVersionBeforeWrite(){
+  const meta=await loadProductsMeta();
+  if(!meta?.version) throw new Error(PRODUCT_SYNC_MESSAGES.missingMeta);
+  const localVersion=localProductsVersion();
+  if(!localVersion || String(meta.version)!==localVersion) throw new Error(PRODUCT_SYNC_MESSAGES.versionChanged);
+  return meta;
+}
+
 async function loadProductsData(){
   const items=[];
   const snap=await getDocs(collection(db, PRODUCTS_COL));
@@ -129,163 +254,129 @@ function renderProductViews(){
   });
 }
 
-function productsSnapshotToItems(snap){
-  const items=[];
-  snap.docs.forEach(d=>{
-    const data=d.data();
-    const code=String(data.code||d.id||'').trim();
-    if(!code) return;
-    if(data.deleted) return;
-    items.push(normalizeProductDoc(data,code));
-  });
-  return items.sort((a,b)=>a.code.localeCompare(b.code));
-}
-
 async function refreshProductsFromCloud(){
   const saved=await loadProductsData();
+  const meta=await loadProductsMeta();
+  if(meta?.version){
+    saveProductsCache(saved, meta.version);
+    runtimeProductsVersion=String(meta.version);
+  } else {
+    runtimeProductsVersion='';
+  }
   replaceRuntimeProducts(saved);
   renderProductViews();
   return saved;
 }
 
-function startProductsListener(){
-  if(productsUnsubscribe) return;
-  productsUnsubscribe=onSnapshot(collection(db, PRODUCTS_COL), snap=>{
-    if(loadPendingProductsSnapshot()){
+async function ensureProductsLoaded(options=false){
+  const opts=typeof options==='object'&&options!==null ? options : {force:!!options};
+  const force=!!opts.force;
+  const requireMeta=!!opts.requireMeta;
+  if(productsLoadPromise) return productsLoadPromise;
+  productsLoadPromise=(async()=>{
+    try{
+      const cache=loadProductsCache();
+      const meta=await loadProductsMeta();
+      if(!force && meta?.version && runtimeProductsVersion===String(meta.version) && Array.isArray(window.D) && window.D.length>0){
+        renderProductViews();
+        return true;
+      }
+      if(!force && cache && meta?.version && cache.version===String(meta.version)){
+        runtimeProductsVersion=String(meta.version);
+        replaceRuntimeProducts(cache.data);
+        renderProductViews();
+        return true;
+      }
+      const saved=await loadProductsData();
+      replaceRuntimeProducts(saved);
+      if(meta?.version){
+        saveProductsCache(saved, meta.version);
+        runtimeProductsVersion=String(meta.version);
+      } else {
+        runtimeProductsVersion='';
+        if(requireMeta){
+          setProductSyncError(PRODUCT_SYNC_MESSAGES.missingMeta);
+          renderProductViews();
+          return false;
+        }
+      }
+      renderProductViews();
+      return true;
+    }catch(e){
+      console.error('載入款號資料失敗：', e);
       setSyncState('failed');
       showSyncError();
-      return;
+      return false;
+    }finally{
+      productsLoadPromise=null;
     }
-    clearTimeout(productsSnapshotTimer);
-    productsSnapshotTimer=setTimeout(()=>{
-      replaceRuntimeProducts(productsSnapshotToItems(snap));
-      renderProductViews();
-    }, 600);
-  }, e=>{
-    console.error('款號即時同步失敗：', e);
-    setSyncState('failed');
-    showSyncError();
-  });
-}
-
-async function initProductsAfterLogin(){
-  try{
-    const saved=await loadProductsData();
-    replaceRuntimeProducts(saved);
-    renderProductViews();
-    startProductsListener();
-    return true;
-  }catch(e){
-    console.error('登入後載入款號資料失敗：', e);
-    setSyncState('failed');
-    showSyncError();
-    return false;
-  }
+  })();
+  return productsLoadPromise;
 }
 
 async function saveProductItemsToCollection(items){
   const rows=(Array.isArray(items)?items:[]).filter(x=>String(x?.code||'').trim());
   if(!rows.length) return true;
+  window.lastProductSyncError = '';
   setSyncState('syncing');
   try{
-    for(let i=0;i<rows.length;i+=400){
-      const batch=writeBatch(db);
-      rows.slice(i,i+400).forEach(item=>{
-        const code=String(item.code).trim();
-        batch.set(doc(db, PRODUCTS_COL, productDocId(code)), {
-          ...item,
-          code,
-          ops:Array.isArray(item.ops)?item.ops:[],
-          updatedAt:Date.now(),
-          updatedBy:window.cu?.user||''
-        }, {merge:false});
-      });
-      await batch.commit();
-    }
+    if(rows.length>PRODUCTS_MAX_BATCH_ITEMS) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
+    await verifyProductsVersionBeforeWrite();
+    const base=getProductsBase();
+    const merged=mergeProducts(base,rows);
+    const meta=buildProductsMeta(merged,'import');
+    const batch=writeBatch(db);
+    rows.forEach(item=>{
+      const code=String(item.code).trim();
+      batch.set(doc(db, PRODUCTS_COL, productDocId(code)), {
+        ...item,
+        code,
+        ops:Array.isArray(item.ops)?item.ops:[],
+        updatedAt:Date.now(),
+        updatedBy:window.cu?.user||''
+      }, {merge:false});
+    });
+    batch.set(doc(db, 'system', PRODUCTS_META_KEY), {data:JSON.stringify(meta)});
+    await batch.commit();
+    saveProductsCache(merged, meta.version);
+    runtimeProductsVersion=String(meta.version);
+    replaceRuntimeProducts(merged);
     setSyncState('success');
-    clearPendingProductsSnapshot();
     return true;
   }catch(e){
     console.error('Firebase product item save error:', e);
-    setSyncState('failed');
-    showSyncError();
-    savePendingProductsSnapshot(rows);
+    setProductSyncError(e.message||'Đồng bộ mã hàng thất bại / 款號同步失敗');
     return false;
   }
 }
 
 async function deleteProductDoc(code){
+  window.lastProductSyncError = '';
   setSyncState('syncing');
   try{
-    await deleteDoc(doc(db, PRODUCTS_COL, productDocId(code)));
+    await verifyProductsVersionBeforeWrite();
+    const kept=removeProductFromList(getProductsBase(),code);
+    const meta=buildProductsMeta(kept,'delete');
+    const batch=writeBatch(db);
+    batch.delete(doc(db, PRODUCTS_COL, productDocId(code)));
+    batch.set(doc(db, 'system', PRODUCTS_META_KEY), {data:JSON.stringify(meta)});
+    await batch.commit();
+    saveProductsCache(kept, meta.version);
+    runtimeProductsVersion=String(meta.version);
+    replaceRuntimeProducts(kept);
     setSyncState('success');
     return true;
   }catch(e){
     console.error('刪除款號雲端文件失敗：', e);
-    setSyncState('failed');
-    showSyncError();
-    return false;
-  }
-}
-
-const PENDING_PRODUCTS_KEY = 'pcmsProductsPending';
-const PENDING_PRODUCTS_AT_KEY = 'pcmsProductsPendingAt';
-
-function savePendingProductsSnapshot(items){
-  try{
-    localStorage.setItem(PENDING_PRODUCTS_KEY, JSON.stringify(items||window.D||[]));
-    localStorage.setItem(PENDING_PRODUCTS_AT_KEY, String(Date.now()));
-    return true;
-  }catch(e){
-    console.error('save pending products error:', e);
-    return false;
-  }
-}
-
-function clearPendingProductsSnapshot(){
-  try{
-    localStorage.removeItem(PENDING_PRODUCTS_KEY);
-    localStorage.removeItem(PENDING_PRODUCTS_AT_KEY);
-  }catch(e){ console.error('clear pending products error:', e); }
-}
-
-function loadPendingProductsSnapshot(){
-  try{
-    const raw=localStorage.getItem(PENDING_PRODUCTS_KEY);
-    if(!raw) return null;
-    const data=JSON.parse(raw);
-    if(!Array.isArray(data)) return null;
-    return {data, savedAt:Number(localStorage.getItem(PENDING_PRODUCTS_AT_KEY)||0)};
-  }catch(e){
-    console.error('load pending products error:', e);
-    return null;
-  }
-}
-
-async function retryPendingProductsSync(){
-  const pending=loadPendingProductsSnapshot();
-  if(!pending) return true;
-  const ok=await saveProductItemsToCollection(pending.data);
-  if(!ok) return false;
-  clearPendingProductsSnapshot();
-  try{
-    await refreshProductsFromCloud();
-    return true;
-  }catch(e){
-    console.error('重傳後重新載入款號失敗：', e);
-    setSyncState('failed');
-    showSyncError();
+    setProductSyncError(e.message||'Xóa mã hàng thất bại / 刪除款號失敗');
     return false;
   }
 }
 
 // ===== 掛到 window =====
-window.savePendingProductsSnapshot = savePendingProductsSnapshot;
-window.clearPendingProductsSnapshot = clearPendingProductsSnapshot;
-window.retryPendingProductsSync = retryPendingProductsSync;
 window.loadProductsData = loadProductsData;
 window.refreshProductsFromCloud = refreshProductsFromCloud;
-window.initProductsAfterLogin = initProductsAfterLogin;
+window.ensureProductsLoaded = ensureProductsLoaded;
 window.saveProductItemsToFB = saveProductItemsToCollection;
 window.deleteProductFromFB = deleteProductDoc;
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
@@ -325,12 +416,6 @@ async function fbInit(){
   window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
     ? savedEmployeeUserHistory
     : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
-  const pendingProducts=loadPendingProductsSnapshot();
-  if(pendingProducts){
-    setSyncState('failed');
-    showSyncError();
-    console.warn('偵測到待同步款號資料，未自動套用為正式資料。');
-  }
   if(savedAccs){
     if(typeof accs !== 'undefined'){ accs.length=0; savedAccs.forEach(item=>accs.push(item)); }
     window.accs = savedAccs;

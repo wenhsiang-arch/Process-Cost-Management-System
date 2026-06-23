@@ -97,8 +97,12 @@ function fillOrderSelects(){
 }
 
 // ===== 匯入訂單 =====
-function openImportOrder(){
+async function openImportOrder(){
   if(!canManageOrders()) return;
+  if(window.ensureProductsLoaded){
+    const ok=await ensureProductsLoaded({requireMeta:true});
+    if(!ok){ alert(window.lastProductSyncError || 'Không thể tải bảng công đoạn / 無法載入工序表'); return; }
+  }
   g('imp-ord-id').value=''; g('imp-ord-date').value='';
   g('imp-file').value=''; g('imp-filename').textContent='';
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
