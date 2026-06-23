@@ -25,7 +25,7 @@ function setSyncState(state) {
     idle:    {text:''},
     syncing: {text:'🟡 雲端同步中... / Đang đồng bộ...'},
     success: {text:'🟢 雲端已同步 / Đã đồng bộ · '+new Date().toLocaleTimeString('zh-TW')},
-    failed:  {text:'🔴 同步失敗，資料暫存本機 / Đồng bộ thất bại'}
+    failed:  {text:'🔴 Đồng bộ thất bại / 同步失敗，正式資料未更新'}
   };
   const m = map[state]||map.idle;
   el.textContent = m.text;
@@ -41,7 +41,7 @@ function showSyncError(){
     el.style.cssText = 'position:fixed;bottom:60px;right:16px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;font-size:13px;z-index:999;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.1)';
     document.body.appendChild(el);
   }
-  el.innerHTML = `<b>⚠️ 雲端同步失敗 / Đồng bộ thất bại</b><br><span style="font-size:12px;color:#b91c1c">資料已暫存本機，請確認網路連線<br>Dữ liệu đã lưu tạm, kiểm tra kết nối mạng</span>`;
+  el.innerHTML = `<b>⚠️ Đồng bộ thất bại / 同步失敗</b><br><span style="font-size:12px;color:#b91c1c">Dữ liệu chính thức chưa cập nhật, dữ liệu chờ đồng bộ đã được giữ lại<br>正式資料未更新，已保留待同步資料</span>`;
   el.style.display = 'block';
   clearTimeout(window._syncErrTimer);
   window._syncErrTimer = setTimeout(()=>{ el.style.display='none'; }, 6000);
@@ -99,33 +99,39 @@ function productDocId(code){
   return encodeURIComponent(String(code||'').trim());
 }
 
-async function loadProductsFromCollection(){
-  const snap=await getDocs(collection(db, PRODUCTS_COL));
-  const items=[];
-  snap.docs.forEach(d=>{
-    const data=d.data();
-    if(data.deleted) return;
-    items.push(normalizeProductDoc(data,d.id));
-  });
-  return items;
-}
-
 async function loadProductsData(){
-  const legacy=await fbLoad("products")||[];
-  const byCode=new Map();
-  legacy.forEach(item=>{
-    const code=String(item?.code||'').trim();
-    if(code) byCode.set(code, normalizeProductDoc(item,code));
-  });
+  const items=[];
   const snap=await getDocs(collection(db, PRODUCTS_COL));
   snap.docs.forEach(d=>{
     const data=d.data();
     const code=String(data.code||d.id||'').trim();
     if(!code) return;
-    if(data.deleted) byCode.delete(code);
-    else byCode.set(code, normalizeProductDoc(data,code));
+    if(data.deleted) return;
+    items.push(normalizeProductDoc(data,code));
   });
-  return [...byCode.values()].sort((a,b)=>a.code.localeCompare(b.code));
+  return items.sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+function replaceRuntimeProducts(items){
+  const saved=Array.isArray(items)?items:[];
+  if(typeof D !== 'undefined'){
+    D.length=0;
+    saved.forEach(item=>D.push(item));
+  }
+  window.D=saved;
+}
+
+function renderProductViews(){
+  ['rSum','rDet','rExp','rBk'].forEach(name=>{
+    if(typeof window[name]==='function') window[name]();
+  });
+}
+
+async function refreshProductsFromCloud(){
+  const saved=await loadProductsData();
+  replaceRuntimeProducts(saved);
+  renderProductViews();
+  return saved;
 }
 
 async function saveProductItemsToCollection(items){
@@ -159,19 +165,14 @@ async function saveProductItemsToCollection(items){
   }
 }
 
-async function markProductDeleted(code){
+async function deleteProductDoc(code){
   setSyncState('syncing');
   try{
-    await setDoc(doc(db, PRODUCTS_COL, productDocId(code)), {
-      code,
-      deleted:true,
-      deletedAt:Date.now(),
-      deletedBy:window.cu?.user||''
-    }, {merge:false});
+    await deleteDoc(doc(db, PRODUCTS_COL, productDocId(code)));
     setSyncState('success');
     return true;
   }catch(e){
-    console.error('Firebase product delete marker error:', e);
+    console.error('刪除款號雲端文件失敗：', e);
     setSyncState('failed');
     showSyncError();
     return false;
@@ -216,8 +217,17 @@ async function retryPendingProductsSync(){
   const pending=loadPendingProductsSnapshot();
   if(!pending) return true;
   const ok=await saveProductItemsToCollection(pending.data);
-  if(ok) clearPendingProductsSnapshot();
-  return ok;
+  if(!ok) return false;
+  clearPendingProductsSnapshot();
+  try{
+    await refreshProductsFromCloud();
+    return true;
+  }catch(e){
+    console.error('重傳後重新載入款號失敗：', e);
+    setSyncState('failed');
+    showSyncError();
+    return false;
+  }
 }
 
 // ===== 掛到 window =====
@@ -225,9 +235,9 @@ window.savePendingProductsSnapshot = savePendingProductsSnapshot;
 window.clearPendingProductsSnapshot = clearPendingProductsSnapshot;
 window.retryPendingProductsSync = retryPendingProductsSync;
 window.loadProductsData = loadProductsData;
+window.refreshProductsFromCloud = refreshProductsFromCloud;
 window.saveProductItemsToFB = saveProductItemsToCollection;
-window.deleteProductFromFB = markProductDeleted;
-window.saveProductsToFB = async () => saveProductItemsToCollection(window.D);
+window.deleteProductFromFB = deleteProductDoc;
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
 window.savePermissionsToFB = () => fbSave("permissions", window.permissionSettings);
 window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
@@ -266,10 +276,7 @@ async function fbInit(){
   window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
     ? savedEmployeeUserHistory
     : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
-  if(savedD){
-    if(typeof D !== 'undefined'){ D.length=0; savedD.forEach(item=>D.push(item)); }
-    window.D = savedD;
-  }
+  if(savedD) replaceRuntimeProducts(savedD);
   const pendingProducts=loadPendingProductsSnapshot();
   if(pendingProducts){
     setSyncState('failed');
@@ -302,7 +309,7 @@ async function fbInit(){
     window.allEmployees = empSnap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){ console.error('載入員工資料失敗：', e); }
 
-  // 新架構改用 products collection，避免 system/products 整包回寫。
+  // 新架構只讀寫 products collection，避免舊整包款號資料影響正式畫面。
 
 }
 

@@ -126,6 +126,9 @@ function askDel(code){
 async function confDel(){
   const code=g('del-code').value, inp=g('del-inp').value.trim();
   if(inp!==code){ alert('Mã hàng không khớp / 款號輸入不符合！'); return; }
+  if(window.deleteProductFromFB){
+    const ok=await deleteProductFromFB(code);
+    if(!ok){ alert('Xóa thất bại, dữ liệu chính thức chưa thay đổi / 刪除失敗，正式資料未變更'); return; }
+  }
   window.D=window.D.filter(d=>d.code!==code); cm('m-del'); rSum(); rDet(); rExp(); rBk();
-  if(window.deleteProductFromFB) await deleteProductFromFB(code);
 }

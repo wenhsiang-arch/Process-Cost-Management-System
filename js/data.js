@@ -266,39 +266,49 @@ async function cImp(mode){
     const isDup=dups.includes(x.code);
     if(isDup){
       if(mode==='sk'){ sk++; return; }
-      const i=window.D.findIndex(d=>d.code===x.code);
-      window.D[i]=x; ow++;
+      ow++;
     } else {
-      window.D.push(x); added++;
+      added++;
     }
   });
   const actualCount=added+ow;
   const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
   const hist={t:new Date().toLocaleString('zh-TW'),u:window.cu.user,c:actualCount,o:to,ow,sk};
-  window.impHist.push(hist);
-  try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
   const changedItems=nd.filter(x=>!dups.includes(x.code)||mode!=='sk');
   if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot(changedItems);
-  let msg=`✓ 本機已更新：${actualCount} 款，${to} 工序`;
+  let msg=`✓ 雲端已同步：${actualCount} 款，${to} 工序`;
   if(ow) msg+=`，覆蓋 ${ow} 款`;
   if(sk) msg+=`，跳過 ${sk} 款`;
-  g('imp-ok-msg').textContent=msg;
+
+  g('imp-ok-msg').textContent=`Đang đồng bộ lên đám mây / 正在同步雲端：${actualCount} 款，${to} 工序`;
   g('imp-ok').style.display='flex';
-  ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
-  nItms=null; dups=[]; g('fi').value='';
-  rSum(); rDet(); rExp(); rBk(); rHist();
   if(window.saveProductItemsToFB && window.saveHistoryToFB){
     const ok1=await saveProductItemsToFB(changedItems);
-    const ok2=await saveHistoryToFB();
-    if(ok1&&ok2){
-      if(window.clearPendingProductsSnapshot) window.clearPendingProductsSnapshot();
-      g('imp-ok-msg').textContent=msg.replace('本機已更新','雲端已同步');
-    } else if(ok1){
-      g('imp-ok-msg').textContent=msg+' ⚠️ 款號已同步，匯入歷史同步失敗，記錄已暫存本機';
-    } else {
+    if(!ok1){
       if(window.savePendingProductsSnapshot) window.savePendingProductsSnapshot(changedItems);
-      g('imp-ok-msg').textContent=msg+' ⚠️ 雲端同步失敗，款號資料已暫存本機';
+      g('imp-ok-msg').textContent='❌ Đồng bộ thất bại / 同步失敗：正式款號資料未更新，資料已保留為待同步暫存';
+      return;
     }
+
+    changedItems.forEach(x=>{
+      const i=window.D.findIndex(d=>d.code===x.code);
+      if(i>=0) window.D[i]=x;
+      else window.D.push(x);
+    });
+    window.impHist.push(hist);
+    try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
+    const ok2=await saveHistoryToFB();
+    if(ok2){
+      if(window.clearPendingProductsSnapshot) window.clearPendingProductsSnapshot();
+    } else {
+      g('imp-ok-msg').textContent=msg+' ⚠️ 款號已同步，匯入紀錄同步失敗，記錄已暫存本機';
+    }
+    ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
+    nItms=null; dups=[]; g('fi').value='';
+    rSum(); rDet(); rExp(); rBk(); rHist();
+    if(ok2) g('imp-ok-msg').textContent=msg;
+  } else {
+    g('imp-ok-msg').textContent='❌ Không thể đồng bộ / 無法同步：Firebase 功能尚未載入，正式款號資料未更新';
   }
 }
 
