@@ -60,6 +60,8 @@ function showLoading(show){
 }
 
 // ===== Firebase 讀寫 =====
+const PRODUCTS_COL = 'products';
+
 async function fbLoad(key){
   try{
     const snap = await window._getDoc(window._doc("system", key));
@@ -86,12 +88,102 @@ async function fbSaveWithStatus(key, data){
   return ok;
 }
 
+function normalizeProductDoc(data,id){
+  const item={...data};
+  item.code=String(item.code||id||'').trim();
+  item.ops=Array.isArray(item.ops)?item.ops:[];
+  return item;
+}
+
+function productDocId(code){
+  return encodeURIComponent(String(code||'').trim());
+}
+
+async function loadProductsFromCollection(){
+  const snap=await getDocs(collection(db, PRODUCTS_COL));
+  const items=[];
+  snap.docs.forEach(d=>{
+    const data=d.data();
+    if(data.deleted) return;
+    items.push(normalizeProductDoc(data,d.id));
+  });
+  return items;
+}
+
+async function loadProductsData(){
+  const legacy=await fbLoad("products")||[];
+  const byCode=new Map();
+  legacy.forEach(item=>{
+    const code=String(item?.code||'').trim();
+    if(code) byCode.set(code, normalizeProductDoc(item,code));
+  });
+  const snap=await getDocs(collection(db, PRODUCTS_COL));
+  snap.docs.forEach(d=>{
+    const data=d.data();
+    const code=String(data.code||d.id||'').trim();
+    if(!code) return;
+    if(data.deleted) byCode.delete(code);
+    else byCode.set(code, normalizeProductDoc(data,code));
+  });
+  return [...byCode.values()].sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+async function saveProductItemsToCollection(items){
+  const rows=(Array.isArray(items)?items:[]).filter(x=>String(x?.code||'').trim());
+  if(!rows.length) return true;
+  setSyncState('syncing');
+  try{
+    for(let i=0;i<rows.length;i+=400){
+      const batch=writeBatch(db);
+      rows.slice(i,i+400).forEach(item=>{
+        const code=String(item.code).trim();
+        batch.set(doc(db, PRODUCTS_COL, productDocId(code)), {
+          ...item,
+          code,
+          ops:Array.isArray(item.ops)?item.ops:[],
+          updatedAt:Date.now(),
+          updatedBy:window.cu?.user||''
+        }, {merge:false});
+      });
+      await batch.commit();
+    }
+    setSyncState('success');
+    clearPendingProductsSnapshot();
+    return true;
+  }catch(e){
+    console.error('Firebase product item save error:', e);
+    setSyncState('failed');
+    showSyncError();
+    savePendingProductsSnapshot(rows);
+    return false;
+  }
+}
+
+async function markProductDeleted(code){
+  setSyncState('syncing');
+  try{
+    await setDoc(doc(db, PRODUCTS_COL, productDocId(code)), {
+      code,
+      deleted:true,
+      deletedAt:Date.now(),
+      deletedBy:window.cu?.user||''
+    }, {merge:false});
+    setSyncState('success');
+    return true;
+  }catch(e){
+    console.error('Firebase product delete marker error:', e);
+    setSyncState('failed');
+    showSyncError();
+    return false;
+  }
+}
+
 const PENDING_PRODUCTS_KEY = 'pcmsProductsPending';
 const PENDING_PRODUCTS_AT_KEY = 'pcmsProductsPendingAt';
 
-function savePendingProductsSnapshot(){
+function savePendingProductsSnapshot(items){
   try{
-    localStorage.setItem(PENDING_PRODUCTS_KEY, JSON.stringify(window.D||[]));
+    localStorage.setItem(PENDING_PRODUCTS_KEY, JSON.stringify(items||window.D||[]));
     localStorage.setItem(PENDING_PRODUCTS_AT_KEY, String(Date.now()));
     return true;
   }catch(e){
@@ -123,7 +215,7 @@ function loadPendingProductsSnapshot(){
 async function retryPendingProductsSync(){
   const pending=loadPendingProductsSnapshot();
   if(!pending) return true;
-  const ok=await fbSaveWithStatus('products', pending.data);
+  const ok=await saveProductItemsToCollection(pending.data);
   if(ok) clearPendingProductsSnapshot();
   return ok;
 }
@@ -132,11 +224,10 @@ async function retryPendingProductsSync(){
 window.savePendingProductsSnapshot = savePendingProductsSnapshot;
 window.clearPendingProductsSnapshot = clearPendingProductsSnapshot;
 window.retryPendingProductsSync = retryPendingProductsSync;
-window.saveProductsToFB  = async () => {
-  const ok = await fbSaveWithStatus("products",  window.D);
-  if(ok) clearPendingProductsSnapshot();
-  return ok;
-};
+window.loadProductsData = loadProductsData;
+window.saveProductItemsToFB = saveProductItemsToCollection;
+window.deleteProductFromFB = markProductDeleted;
+window.saveProductsToFB = async () => saveProductItemsToCollection(window.D);
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
 window.savePermissionsToFB = () => fbSave("permissions", window.permissionSettings);
 window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
@@ -167,7 +258,7 @@ window._onSnapshot = (...args)     => onSnapshot(...args);
 async function fbInit(){
   showLoading(true);
   const [savedD, savedAccs, savedS, savedEmployeeUserHistory] = await Promise.all([
-    fbLoad("products"),
+    loadProductsData(),
     fbLoad("accounts"),
     fbLoad("settings"),
     fbLoad("employeeUserHistory")
@@ -181,12 +272,9 @@ async function fbInit(){
   }
   const pendingProducts=loadPendingProductsSnapshot();
   if(pendingProducts){
-    if(typeof D !== 'undefined'){ D.length=0; pendingProducts.data.forEach(item=>D.push(item)); }
-    window.D = pendingProducts.data;
     setSyncState('failed');
     showSyncError();
-    if(typeof rSum==='function'){ rSum(); rDet(); rExp(); rBk(); }
-    console.warn('偵測到待同步款號資料，已先載入本機快照。');
+    console.warn('偵測到待同步款號資料，未自動套用為正式資料。');
   }
   if(savedAccs){
     if(typeof accs !== 'undefined'){ accs.length=0; savedAccs.forEach(item=>accs.push(item)); }
@@ -214,18 +302,7 @@ async function fbInit(){
     window.allEmployees = empSnap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){ console.error('載入員工資料失敗：', e); }
 
-  // 即時監聽
-  onSnapshot(window._doc("system","products"),(snap)=>{
-    if(loadPendingProductsSnapshot()) return;
-    if(snap.exists()){
-      try{
-        const newD=JSON.parse(snap.data().data);
-        if(typeof D!=='undefined'){ D.length=0; newD.forEach(item=>D.push(item)); }
-        window.D=newD;
-        if(typeof rSum==='function'){ rSum(); rDet(); rExp(); rBk(); }
-      }catch(e){ console.error(e); }
-    }
-  });
+  // 新架構改用 products collection，避免 system/products 整包回寫。
 
 }
 

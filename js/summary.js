@@ -127,5 +127,5 @@ async function confDel(){
   const code=g('del-code').value, inp=g('del-inp').value.trim();
   if(inp!==code){ alert('Mã hàng không khớp / 款號輸入不符合！'); return; }
   window.D=window.D.filter(d=>d.code!==code); cm('m-del'); rSum(); rDet(); rExp(); rBk();
-  if(window.saveProductsToFB) await saveProductsToFB();
+  if(window.deleteProductFromFB) await deleteProductFromFB(code);
 }
