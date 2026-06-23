@@ -113,6 +113,7 @@ async function doLogin(){
       }
       window.cu = a;
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
+      if(window.initProductsAfterLogin) await initProductsAfterLogin();
       uNav(); rAll(); rSum(); rAcc(); startIdle();
       loadPermissions().then(()=>{
         uNav();
@@ -239,6 +240,7 @@ async function saveSetPass(){
     alert('✅ 密碼設定成功');
     if(isCurrentDeskAccount()){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
+      if(window.initProductsAfterLogin) await initProductsAfterLogin();
       uNav(); rAll(); rSum(); rAcc(); startIdle();
       loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
       setTimeout(()=>fetchRates(),1000); loadOrderData();

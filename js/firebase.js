@@ -168,6 +168,21 @@ function startProductsListener(){
   });
 }
 
+async function initProductsAfterLogin(){
+  try{
+    const saved=await loadProductsData();
+    replaceRuntimeProducts(saved);
+    renderProductViews();
+    startProductsListener();
+    return true;
+  }catch(e){
+    console.error('登入後載入款號資料失敗：', e);
+    setSyncState('failed');
+    showSyncError();
+    return false;
+  }
+}
+
 async function saveProductItemsToCollection(items){
   const rows=(Array.isArray(items)?items:[]).filter(x=>String(x?.code||'').trim());
   if(!rows.length) return true;
@@ -270,6 +285,7 @@ window.clearPendingProductsSnapshot = clearPendingProductsSnapshot;
 window.retryPendingProductsSync = retryPendingProductsSync;
 window.loadProductsData = loadProductsData;
 window.refreshProductsFromCloud = refreshProductsFromCloud;
+window.initProductsAfterLogin = initProductsAfterLogin;
 window.saveProductItemsToFB = saveProductItemsToCollection;
 window.deleteProductFromFB = deleteProductDoc;
 window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
@@ -301,8 +317,7 @@ window._onSnapshot = (...args)     => onSnapshot(...args);
 // ===== 初始化 =====
 async function fbInit(){
   showLoading(true);
-  const [savedD, savedAccs, savedS, savedEmployeeUserHistory] = await Promise.all([
-    loadProductsData(),
+  const [savedAccs, savedS, savedEmployeeUserHistory] = await Promise.all([
     fbLoad("accounts"),
     fbLoad("settings"),
     fbLoad("employeeUserHistory")
@@ -310,7 +325,6 @@ async function fbInit(){
   window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
     ? savedEmployeeUserHistory
     : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
-  if(savedD) replaceRuntimeProducts(savedD);
   const pendingProducts=loadPendingProductsSnapshot();
   if(pendingProducts){
     setSyncState('failed');
@@ -342,9 +356,7 @@ async function fbInit(){
     const empSnap = await window._getDocs(window._collection('employees'));
     window.allEmployees = empSnap.docs.map(d=>({id:d.id,...d.data()}));
   }catch(e){ console.error('載入員工資料失敗：', e); }
-
-  // 新架構只讀寫 products collection，避免舊整包款號資料影響正式畫面。
-  startProductsListener();
+  // 款號資料改為登入成功後才載入，避免登入前讀取工序表。
 
 }
 
