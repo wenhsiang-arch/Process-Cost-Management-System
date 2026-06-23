@@ -2,7 +2,7 @@
 const COL = {orders:'orders', processes:'orderProcesses', employees:'employees', reports:'reports', attendance:'attendance', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks', secondSyncLogs:'secondSyncLogs'};
 const DEPTS = {'備料':'Bị liệu','普工':'Phổ thông','電腦針車':'May điện tử','平車':'May bằng','品檢':'QC','包裝':'Đóng gói'};
 const DESK_ROLES = ['admin','manager','clerk'];
-const ROLE_LABEL = {admin:'管理員',manager:'課長',clerk:'文員',leader:'班長',user:'員工'};
+const ROLE_LABEL = {admin:'Quản trị viên / 管理員',manager:'Trưởng bộ phận / 課長',clerk:'Nhân viên văn phòng / 文員',leader:'班長',user:'員工'};
 
 // ===== DOM 工具 =====
 function g(id){ return document.getElementById(id); }
