@@ -1,10 +1,10 @@
-// cutting（裁帶統計）：獨立功能，不讀寫原本訂單、報工或同步資料。
+// cutting（裁帶統計）：獨立功能；模板輸出策略是保留原始 Excel（表格檔）副本，只填數量欄。
 (function(){
   const state = {
     templates: [],
     orderItems: [],
     results: [],
-    orderFileName: ''
+    selectedTemplateId: ''
   };
 
   function text(id, value){
@@ -26,8 +26,16 @@
     return Number.isFinite(n) ? n.toLocaleString('en-US') : '0';
   }
 
-  function normalizeCode(value){
+  function normalizeText(value){
     return String(value ?? '').trim().replace(/\s+/g, '').toUpperCase();
+  }
+
+  function normalizeHeader(value){
+    return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function normalizeCode(value){
+    return normalizeText(value).replace(/[^\w-]/g, '');
   }
 
   function parseNumber(value){
@@ -37,70 +45,171 @@
     return Number.isFinite(n) ? n : 0;
   }
 
-  function expandCodeRule(rule){
-    const raw = normalizeCode(rule);
-    const set = new Set();
-    if(!raw) return [];
-    set.add(raw);
-    const m = raw.match(/^([A-Z]+)(\d+)-([A-Z]+)?(\d+)$/);
-    if(m){
-      const prefix = m[1];
-      const startText = m[2];
-      const endPrefix = m[3] || prefix;
-      const endText = m[4];
-      const start = Number(startText);
-      const end = Number(endText);
-      if(prefix === endPrefix && Number.isInteger(start) && Number.isInteger(end) && end >= start && end - start <= 300){
-        const width = startText.length;
-        for(let i = start; i <= end; i++) set.add(prefix + String(i).padStart(width, '0'));
-      }
-    }
-    return Array.from(set);
+  function addr(rowIndex, colIndex){
+    return XLSX.utils.encode_cell({r: rowIndex, c: colIndex});
+  }
+
+  function isLikelyCode(value){
+    const code = normalizeCode(value);
+    return /^[A-Z]{1,6}\d{2,}[-A-Z0-9]*$/.test(code);
+  }
+
+  function findTemplateHeader(row){
+    let codeCol = -1;
+    let qtyCol = -1;
+    let pieceCol = -1;
+    let totalCol = -1;
+    row.forEach((cell, idx) => {
+      const h = normalizeHeader(cell);
+      if(codeCol < 0 && (h.includes('MAHANG') || h.includes('ITEM') || h.includes('款號'))) codeCol = idx;
+      if(qtyCol < 0 && ((h.includes('SL') && h.includes('PO')) || h.includes('PCS') || h.includes('訂單數量'))) qtyCol = idx;
+      if(pieceCol < 0 && (h.includes('SOKIEN') || h.includes('每件條數') || h.includes('條數'))) pieceCol = idx;
+      if(totalCol < 0 && (h.includes('THUCTE') || h.includes('SL:CAT') || h.includes('裁段總數'))) totalCol = idx;
+    });
+    return codeCol >= 0 && qtyCol >= 0 && pieceCol >= 0
+      ? {codeCol, qtyCol, pieceCol, totalCol}
+      : null;
+  }
+
+  function analyzeTemplateWorkbook(fileName, workbook){
+    const book = {
+      fileName,
+      sheetCount: workbook.SheetNames.length,
+      itemCount: 0,
+      rowCount: 0,
+      warningCount: 0,
+      sheets: [],
+      codes: []
+    };
+    const codeMap = new Map();
+
+    workbook.SheetNames.forEach(sheetName => {
+      const ws = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      const sheetInfo = {name: sheetName, detectedBlocks: 0, rowCount: 0, warningCount: 0};
+      let header = null;
+
+      rows.forEach((row, rIdx) => {
+        const maybeHeader = findTemplateHeader(row);
+        if(maybeHeader){
+          header = maybeHeader;
+          sheetInfo.detectedBlocks += 1;
+          return;
+        }
+        if(!header) return;
+        const rawCode = row[header.codeCol];
+        if(!isLikelyCode(rawCode)) return;
+        const code = normalizeCode(rawCode);
+        const pieces = parseNumber(row[header.pieceCol]);
+        const qtyCell = addr(rIdx, header.qtyCol);
+        const pieceCell = addr(rIdx, header.pieceCol);
+        const totalCell = header.totalCol >= 0 ? addr(rIdx, header.totalCol) : '';
+        const rowInfo = {
+          sheetName,
+          rowNumber: rIdx + 1,
+          code,
+          qtyCell,
+          pieceCell,
+          totalCell,
+          piecesPerRow: pieces
+        };
+        sheetInfo.rowCount += 1;
+        book.rowCount += 1;
+        if(pieces <= 0){
+          sheetInfo.warningCount += 1;
+          book.warningCount += 1;
+          rowInfo.warning = 'Số dây trống hoặc bằng 0 / 每件條數空白或為 0';
+        }
+        if(!codeMap.has(code)){
+          codeMap.set(code, {
+            code,
+            piecesPerItem: 0,
+            rows: [],
+            templateFileName: fileName
+          });
+        }
+        const item = codeMap.get(code);
+        item.rows.push(rowInfo);
+        item.piecesPerItem += pieces;
+      });
+      book.sheets.push(sheetInfo);
+    });
+
+    book.codes = Array.from(codeMap.values()).sort((a, b) => a.code.localeCompare(b.code, undefined, {numeric:true}));
+    book.itemCount = book.codes.length;
+    return book;
   }
 
   function buildTemplateMap(){
     const map = new Map();
-    state.templates.forEach(t => {
-      [t.code, ...(t.aliases || [])].forEach(rule => {
-        expandCodeRule(rule).forEach(code => {
-          if(!map.has(code)) map.set(code, t);
-        });
+    state.templates.forEach(book => {
+      (book.codes || []).forEach(item => {
+        if(!map.has(item.code)){
+          map.set(item.code, {...item, templateId: book.id, fileName: book.fileName});
+        }
       });
     });
     return map;
   }
 
-  function templateAliasText(template){
-    return (template.aliases || []).join(', ');
-  }
-
   async function refreshTemplates(){
     state.templates = window.cuttingStore ? await window.cuttingStore.listTemplates() : [];
     renderTemplateList();
+    recomputeResults();
   }
 
   function renderTemplateList(){
     const tb = g('cut-template-tb');
     if(!tb) return;
     if(!state.templates.length){
-      tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--mu);padding:18px">Chưa có mẫu / 尚無模板</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:18px">Chưa có mẫu / 尚無模板</td></tr>';
       return;
     }
     tb.innerHTML = state.templates.map(t => `
       <tr>
-        <td><b>${esc(t.code)}</b></td>
-        <td style="text-align:right">${fmtNum(t.piecesPerItem)}</td>
-        <td>${esc(templateAliasText(t) || '-')}</td>
-        <td>${esc(t.fileName || '-')}</td>
+        <td><b>${esc(t.fileName)}</b><div style="font-size:10px;color:var(--mu);margin-top:2px">Lưu nguyên file mẫu / 保留原始模板檔</div></td>
+        <td style="text-align:right">${fmtNum(t.sheetCount)}</td>
+        <td style="text-align:right">${fmtNum(t.itemCount)}</td>
+        <td style="text-align:right">${fmtNum(t.rowCount)}</td>
+        <td>${t.warningCount ? `<span class="tg ta">${fmtNum(t.warningCount)} cảnh báo / 警告</span>` : '<span class="tg tg2">Đạt / 通過</span>'}</td>
         <td style="text-align:center"><button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button></td>
       </tr>
     `).join('');
   }
 
-  function guessCodeFromFileName(name){
-    const base = String(name || '').replace(/\.(xlsx|xls)$/i, '').trim();
-    const first = base.split(/\s+/)[0] || base;
-    return normalizeCode(first);
+  function renderTemplateAnalysis(book){
+    const box = g('cut-template-analysis');
+    if(!box) return;
+    if(!book){
+      box.style.display = 'none';
+      html('cut-template-analysis-body', '');
+      return;
+    }
+    box.style.display = 'block';
+    html('cut-template-analysis-body', `
+      <div class="mg">
+        <div class="mc"><div class="ml">Số sheet</div><div class="mvi">工作表</div><div class="mv">${fmtNum(book.sheetCount)}</div></div>
+        <div class="mc"><div class="ml">Mã hàng</div><div class="mvi">款號</div><div class="mv">${fmtNum(book.itemCount)}</div></div>
+        <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">可填數量列</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
+        <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">警告</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
+      </div>
+      <div class="to"><div class="ts" style="max-height:240px"><table>
+        <thead><tr>
+          <th>Mã hàng<br><span class="tv">款號</span></th>
+          <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
+          <th style="text-align:right">Số dòng<br><span class="tv">列數</span></th>
+          <th>Vị trí điền SL<br><span class="tv">數量填寫位置</span></th>
+        </tr></thead>
+        <tbody>
+          ${book.codes.slice(0, 80).map(item => `<tr>
+            <td><b>${esc(item.code)}</b></td>
+            <td style="text-align:right">${fmtNum(item.piecesPerItem)}</td>
+            <td style="text-align:right">${fmtNum(item.rows.length)}</td>
+            <td>${esc(item.rows.slice(0, 6).map(r => `${r.sheetName}!${r.qtyCell}`).join(', '))}${item.rows.length > 6 ? '...' : ''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div></div>
+    `);
   }
 
   function cuttingPickTemplate(){
@@ -108,41 +217,40 @@
     if(input) input.click();
   }
 
-  function cuttingHandleTemplateFile(input){
+  async function cuttingHandleTemplateFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
+    if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
+    if(!/\.(xlsx|xls)$/i.test(file.name)){
+      alert('Chỉ hỗ trợ Excel .xlsx hoặc .xls.\n只支援 Excel（表格檔）.xlsx 或 .xls。');
+      return;
+    }
     text('cut-template-file-name', file.name);
-    const codeInput = g('cut-template-code');
-    if(codeInput && !codeInput.value.trim()) codeInput.value = guessCodeFromFileName(file.name);
-    const nameInput = g('cut-template-source');
-    if(nameInput) nameInput.value = file.name;
-  }
-
-  async function cuttingSaveTemplate(){
-    const code = normalizeCode(g('cut-template-code')?.value);
-    const pieces = Number(g('cut-template-pieces')?.value || 0);
-    const aliasesRaw = String(g('cut-template-aliases')?.value || '');
-    const fileName = String(g('cut-template-source')?.value || '').trim();
-    if(!code){ alert('Vui lòng nhập mã hàng.\n請輸入款號。'); return; }
-    if(!Number.isFinite(pieces) || pieces <= 0){ alert('Vui lòng nhập số dây mỗi sản phẩm lớn hơn 0.\n請輸入大於 0 的每件條數。'); return; }
-    const aliases = aliasesRaw.split(/[,，\n]/).map(normalizeCode).filter(Boolean);
-    await window.cuttingStore.saveTemplate({code, piecesPerItem: pieces, aliases, fileName});
-    g('cut-template-code').value = '';
-    g('cut-template-pieces').value = '';
-    g('cut-template-aliases').value = '';
-    g('cut-template-source').value = '';
-    text('cut-template-file-name', '');
-    const fileInput = g('cut-template-file');
-    if(fileInput) fileInput.value = '';
-    await refreshTemplates();
-    recomputeResults();
+    try{
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, {type:'array', cellFormula:true, cellStyles:true});
+      const book = analyzeTemplateWorkbook(file.name, wb);
+      if(!book.itemCount){
+        renderTemplateAnalysis(book);
+        alert('Không tìm thấy mã hàng trong mẫu. Vui lòng kiểm tra cột Mã hàng / SL:PO / Số kiện.\n模板內找不到款號，請檢查 Mã hàng、SL:PO、Số kiện 欄位。');
+        return;
+      }
+      await window.cuttingStore.saveTemplateBook(book, file);
+      renderTemplateAnalysis(book);
+      await refreshTemplates();
+    }catch(e){
+      console.error(e);
+      alert('Phân tích mẫu Excel thất bại.\n分析 Excel（表格檔）模板失敗。\n\n' + e.message);
+    }finally{
+      input.value = '';
+    }
   }
 
   async function cuttingDeleteTemplate(id){
     if(!confirm('Xóa mẫu này?\n確定刪除此模板？')) return;
     await window.cuttingStore.removeTemplate(id);
+    renderTemplateAnalysis(null);
     await refreshTemplates();
-    recomputeResults();
   }
 
   function cuttingPickOrder(){
@@ -150,11 +258,11 @@
     if(input) input.click();
   }
 
-  function findHeaderIndex(rows){
-    const codeWords = ['MÃHÀNG','MAHANG','ITEM','款號','货号','MODEL','MÃ','MA'];
-    const qtyWords = ['SỐLƯỢNG','SOLUONG','QTY','PCS','SL','數量','数量','訂單數量'];
-    for(let r = 0; r < Math.min(rows.length, 30); r++){
-      const cells = (rows[r] || []).map(v => normalizeCode(v));
+  function findOrderHeader(rows){
+    const codeWords = ['MAHANG','ITEM','款號','货号','MODEL'];
+    const qtyWords = ['SOLUONG','QTY','PCS','SL','數量','数量','訂單數量'];
+    for(let r = 0; r < Math.min(rows.length, 35); r++){
+      const cells = (rows[r] || []).map(v => normalizeHeader(v));
       let codeIdx = -1;
       let qtyIdx = -1;
       cells.forEach((v, i) => {
@@ -167,20 +275,20 @@
   }
 
   function parseOrderRows(rows){
-    const header = findHeaderIndex(rows);
+    const header = findOrderHeader(rows);
     const items = new Map();
     if(header){
       rows.slice(header.row + 1).forEach(row => {
         const code = normalizeCode(row[header.codeIdx]);
         const qty = parseNumber(row[header.qtyIdx]);
-        if(!code || qty <= 0) return;
+        if(!isLikelyCode(code) || qty <= 0) return;
         items.set(code, (items.get(code) || 0) + qty);
       });
     } else {
       rows.forEach(row => {
         const code = normalizeCode(row[0]);
         const qty = parseNumber(row[1]);
-        if(!code || qty <= 0 || code.includes('MÃHÀNG') || code.includes('款號')) return;
+        if(!isLikelyCode(code) || qty <= 0) return;
         items.set(code, (items.get(code) || 0) + qty);
       });
     }
@@ -191,7 +299,6 @@
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
     if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
-    state.orderFileName = file.name;
     text('cut-order-file-name', file.name);
     try{
       const data = await file.arrayBuffer();
@@ -222,12 +329,11 @@
       }
       const pieces = Number(template.piecesPerItem || 0);
       if(pieces <= 0){
-        return {code:item.code, qty:item.qty, templateCode:template.code, piecesPerItem:pieces, totalPieces:0, reverseQty:0, status:'error'};
+        return {...template, qty:item.qty, piecesPerItem:pieces, totalPieces:0, reverseQty:0, status:'error'};
       }
       const totalPieces = item.qty * pieces;
       const reverseQty = totalPieces / pieces;
-      const ok = Math.abs(reverseQty - item.qty) < 0.000001;
-      return {code:item.code, qty:item.qty, templateCode:template.code, piecesPerItem:pieces, totalPieces, reverseQty, status:ok ? 'pass' : 'error'};
+      return {...template, qty:item.qty, totalPieces, reverseQty, status:'pass'};
     });
     renderResults();
   }
@@ -253,19 +359,20 @@
 
     const alertBox = g('cut-alert');
     if(alertBox){
-      if(!total){
+      if(!state.templates.length){
         alertBox.className = 'nt nw';
-        alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Vui lòng nhập đơn hàng để kiểm tra.<br>請先匯入訂單進行比對。</div>';
-        alertBox.style.display = 'flex';
+        alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Vui lòng nhập mẫu Excel trước. Hệ thống sẽ giữ nguyên file mẫu, chỉ phân tích vị trí cần điền số lượng.<br>請先匯入 Excel 模板。系統會保留原始模板檔，只分析要填數量的位置。</div>';
+      } else if(!total){
+        alertBox.className = 'nt nw';
+        alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Đã có mẫu, vui lòng nhập đơn hàng để kiểm tra.<br>已有模板，請匯入訂單進行比對。</div>';
       } else if(canPreview){
         alertBox.className = 'nt ns';
-        alertBox.innerHTML = `<i class="ti ti-check"></i><div>Kiểm tra đạt: ${fmtNum(total)} mã hàng đều có mẫu, có thể xem trước.<br>檢查通過：${fmtNum(total)} 個款號都有模板，可以預覽。</div>`;
-        alertBox.style.display = 'flex';
+        alertBox.innerHTML = `<i class="ti ti-check"></i><div>Kiểm tra đạt: ${fmtNum(total)} mã hàng đều có mẫu. Bước xuất PDF cần dùng bản sao Excel gốc để giữ nguyên màu sắc và hình ảnh.<br>檢查通過：${fmtNum(total)} 個款號都有模板。匯出 PDF 時需使用原始 Excel 副本，才能保留配色與圖片。</div>`;
       } else {
         alertBox.className = 'nt nd';
         alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Không thể xuất: thiếu ${fmtNum(missing.length)} mẫu, lỗi ${fmtNum(errors.length)} dòng.<br>不可匯出：缺少 ${fmtNum(missing.length)} 個款號模板，錯誤 ${fmtNum(errors.length)} 筆。</div>`;
-        alertBox.style.display = 'flex';
       }
+      alertBox.style.display = 'flex';
     }
 
     const missingBox = g('cut-missing-box');
@@ -277,7 +384,7 @@
             <td><span class="tg tr2">Thiếu mẫu / 缺少模板</span></td>
             <td><b>${esc(r.code)}</b></td>
             <td style="text-align:right">${fmtNum(r.qty)}</td>
-            <td>Không có mẫu trong dữ liệu, vui lòng tạo mẫu trước.<br>資料庫沒有此款號模板，請先建檔。</td>
+            <td>Không tìm thấy mã hàng này trong mẫu Excel đã nhập.<br>已匯入的 Excel 模板中找不到此款號。</td>
           </tr>
         `).join(''));
       } else {
@@ -289,29 +396,20 @@
     const tb = g('cut-result-tb');
     if(!tb) return;
     if(!state.results.length){
-      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:22px">Chưa có dữ liệu / 尚無資料</td></tr>';
+      tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:22px">Chưa có dữ liệu / 尚無資料</td></tr>';
       return;
     }
     tb.innerHTML = state.results.map(r => `
       <tr>
-        <td><b>${esc(r.code)}</b>${r.templateCode ? `<div style="font-size:10px;color:var(--mu);margin-top:2px">Mẫu / 模板：${esc(r.templateCode)}</div>` : ''}</td>
+        <td><b>${esc(r.code)}</b>${r.fileName ? `<div style="font-size:10px;color:var(--mu);margin-top:2px">${esc(r.fileName)}</div>` : ''}</td>
         <td style="text-align:right">${fmtNum(r.qty)}</td>
         <td style="text-align:right">${r.piecesPerItem ? fmtNum(r.piecesPerItem) : '-'}</td>
         <td style="text-align:right">${r.totalPieces ? fmtNum(r.totalPieces) : '-'}</td>
         <td style="text-align:right">${r.reverseQty ? fmtNum(r.reverseQty) : '-'}</td>
+        <td>${r.rows ? esc(r.rows.slice(0, 4).map(x => `${x.sheetName}!${x.qtyCell}`).join(', ')) : '-'}</td>
         <td>${statusBadge(r)}</td>
       </tr>
     `).join('');
-  }
-
-  function cuttingOpenPreview(){
-    const missing = state.results.filter(r => r.status !== 'pass');
-    if(missing.length || !state.results.length){
-      alert('Vẫn còn mã hàng thiếu mẫu hoặc lỗi, không thể xem trước.\n仍有缺少模板或錯誤款號，不能預覽。');
-      return;
-    }
-    html('cut-preview-body', buildPreviewHtml());
-    om('m-cutting-preview');
   }
 
   function buildPreviewHtml(){
@@ -323,19 +421,32 @@
         <div class="mc"><div class="ml">Tổng số đơn</div><div class="mvi">訂單總數</div><div class="mv">${fmtNum(totalQty)}</div></div>
         <div class="mc"><div class="ml">Tổng dây cắt</div><div class="mvi">裁段總數</div><div class="mv">${fmtNum(totalPieces)}</div></div>
       </div>
+      <div class="nt nw" style="margin-bottom:12px">
+        <i class="ti ti-file-spreadsheet"></i>
+        <div>PDF chính thức sẽ tạo bằng cách sao chép Excel gốc, điền ô SL:PO, rồi chuyển PDF để giữ nguyên hình ảnh và màu sắc.<br>正式 PDF 會用原始 Excel 副本填入 SL:PO 數量後轉檔，保留圖片與配色。</div>
+      </div>
       <div class="to"><div class="ts" style="max-height:420px"><table>
         <thead><tr>
           <th>Mã hàng<br><span class="tv">款號</span></th>
           <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
           <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
           <th style="text-align:right">Tổng dây<br><span class="tv">裁段總數</span></th>
-          <th style="text-align:right">SL suy ngược<br><span class="tv">反推數量</span></th>
+          <th>Ô sẽ điền<br><span class="tv">將填入儲存格</span></th>
         </tr></thead>
         <tbody>
-          ${state.results.map(r => `<tr><td>${esc(r.code)}</td><td style="text-align:right">${fmtNum(r.qty)}</td><td style="text-align:right">${fmtNum(r.piecesPerItem)}</td><td style="text-align:right">${fmtNum(r.totalPieces)}</td><td style="text-align:right">${fmtNum(r.reverseQty)}</td></tr>`).join('')}
+          ${state.results.map(r => `<tr><td>${esc(r.code)}</td><td style="text-align:right">${fmtNum(r.qty)}</td><td style="text-align:right">${fmtNum(r.piecesPerItem)}</td><td style="text-align:right">${fmtNum(r.totalPieces)}</td><td>${esc((r.rows || []).slice(0, 6).map(x => `${x.sheetName}!${x.qtyCell}`).join(', '))}</td></tr>`).join('')}
         </tbody>
       </table></div></div>
     `;
+  }
+
+  function cuttingOpenPreview(){
+    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
+      alert('Vẫn còn mã hàng thiếu mẫu hoặc lỗi, không thể xem trước.\n仍有缺少模板或錯誤款號，不能預覽。');
+      return;
+    }
+    html('cut-preview-body', buildPreviewHtml());
+    om('m-cutting-preview');
   }
 
   function cuttingExportCheck(){
@@ -344,39 +455,26 @@
       return;
     }
     const rows = [
-      ['Mã hàng / 款號','SL đơn / 訂單數量','Số dây/SP / 每件條數','Tổng dây / 裁段總數','SL suy ngược / 反推數量','Trạng thái / 狀態'],
-      ...state.results.map(r => [r.code, r.qty, r.piecesPerItem, r.totalPieces, r.reverseQty, 'Đạt / 通過'])
+      ['Mã hàng / 款號','SL đơn / 訂單數量','Số dây/SP / 每件條數','Tổng dây / 裁段總數','SL suy ngược / 反推數量','Ô sẽ điền / 將填入儲存格','Trạng thái / 狀態'],
+      ...state.results.map(r => [r.code, r.qty, r.piecesPerItem, r.totalPieces, r.reverseQty, (r.rows || []).map(x => `${x.sheetName}!${x.qtyCell}`).join(', '), 'Đạt / 通過'])
     ];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, '裁帶統計');
+    XLSX.utils.book_append_sheet(wb, ws, '裁帶檢查');
     const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
-    XLSX.writeFile(wb, `裁帶統計_${stamp}.xlsx`);
+    XLSX.writeFile(wb, `裁帶檢查_${stamp}.xlsx`);
   }
 
   function cuttingPrintPreview(){
-    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
-      alert('Không thể in khi còn lỗi.\n仍有錯誤時不能列印。');
-      return;
-    }
-    const win = window.open('', '_blank');
-    if(!win){ alert('Trình duyệt đã chặn cửa sổ in.\n瀏覽器已阻擋列印視窗。'); return; }
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>裁帶統計</title>
-      <style>body{font-family:Arial,"Microsoft JhengHei",sans-serif;padding:20px;color:#1e293b}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:7px 9px;text-align:left}th{background:#f1f5f9}.right{text-align:right}h1{font-size:18px;margin:0 0 12px}</style>
-      </head><body><h1>Thống kê dây cắt / 裁帶統計</h1>${buildPreviewHtml()}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+    alert('Bước này cần kết nối công cụ chuyển PDF trên máy này.\n此步驟需要接上本機 PDF 轉檔助手，才會用原始 Excel 模板輸出。');
   }
 
   async function cuttingInit(){
     await refreshTemplates();
-    renderResults();
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
-  window.cuttingSaveTemplate = cuttingSaveTemplate;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;

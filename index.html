@@ -416,36 +416,20 @@ tr:hover td{background:#f8fafc}
               第一版只使用本機資料，尚未連接 Firebase（雲端資料庫平台）。
             </div>
           </div>
-          <div class="fg cols3">
-            <div class="fgrp">
-              <label>Mã hàng mẫu <span class="lvi">模板款號</span></label>
-              <input type="text" id="cut-template-code" placeholder="Ví dụ: HA01-05 / 例如：HA01-05">
-            </div>
-            <div class="fgrp">
-              <label>Số dây mỗi sản phẩm <span class="lvi">每件條數</span></label>
-              <input type="number" id="cut-template-pieces" min="1" step="1" placeholder="Ví dụ: 4 / 例如：4">
-            </div>
-            <div class="fgrp">
-              <label>Mẫu Excel <span class="lvi">Excel 模板</span></label>
-              <div style="display:flex;gap:6px">
-                <input type="text" id="cut-template-source" readonly placeholder="Chưa chọn file / 尚未選擇檔案">
-                <button class="btn" type="button" onclick="cuttingPickTemplate()"><i class="ti ti-file-upload"></i>Chọn / 選擇</button>
-              </div>
-              <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
-              <span id="cut-template-file-name" style="font-size:10px;color:var(--accent);min-height:14px"></span>
-            </div>
-          </div>
-          <div class="fgrp" style="margin-bottom:12px">
-            <label>Mã đối ứng / phạm vi <span class="lvi">對應款號 / 範圍</span></label>
-            <input type="text" id="cut-template-aliases" placeholder="Ví dụ: HA01, HA02, HA03 hoặc HA01-05 / 例如：HA01、HA02、HA03 或 HA01-05">
-          </div>
           <div class="br">
-            <button class="btn bp" onclick="cuttingSaveTemplate()"><i class="ti ti-device-floppy"></i>Nhập & lưu mẫu / 匯入建檔</button>
+            <button class="btn bp" onclick="cuttingPickTemplate()"><i class="ti ti-file-upload"></i>Nhập mẫu Excel / 匯入 Excel 模板</button>
             <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
             <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
+            <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
             <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
+            <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>
             <span id="cut-order-file-name" style="font-size:12px;color:var(--mu)"></span>
           </div>
+        </div>
+
+        <div class="card" id="cut-template-analysis" style="display:none">
+          <div class="ct-title"><i class="ti ti-file-search"></i>Kết quả phân tích mẫu / 模板分析結果</div>
+          <div id="cut-template-analysis-body"></div>
         </div>
 
         <div class="mg">
@@ -480,6 +464,7 @@ tr:hover td{background:#f8fafc}
                 <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
                 <th style="text-align:right">Tổng dây<br><span class="tv">裁段總數</span></th>
                 <th style="text-align:right">SL suy ngược<br><span class="tv">反推數量</span></th>
+                <th>Ô sẽ điền<br><span class="tv">將填入儲存格</span></th>
                 <th>Trạng thái<br><span class="tv">狀態</span></th>
               </tr></thead>
               <tbody id="cut-result-tb"></tbody>
@@ -492,10 +477,11 @@ tr:hover td{background:#f8fafc}
           <div class="to"><div class="ts" style="max-height:260px">
             <table>
               <thead><tr>
-                <th>Mã hàng mẫu<br><span class="tv">模板款號</span></th>
-                <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
-                <th>Mã đối ứng<br><span class="tv">對應款號</span></th>
                 <th>File mẫu<br><span class="tv">模板檔案</span></th>
+                <th style="text-align:right">Sheet<br><span class="tv">工作表</span></th>
+                <th style="text-align:right">Mã hàng<br><span class="tv">款號</span></th>
+                <th style="text-align:right">Dòng điền<br><span class="tv">填寫列</span></th>
+                <th>Trạng thái<br><span class="tv">狀態</span></th>
                 <th style="text-align:center">Thao tác<br><span class="tv">操作</span></th>
               </tr></thead>
               <tbody id="cut-template-tb"></tbody>
@@ -922,11 +908,11 @@ tr:hover td{background:#f8fafc}
     <div id="cut-preview-body"></div>
     <div class="nt ns" style="margin-bottom:12px">
       <i class="ti ti-check"></i>
-      <div>Chỉ khi toàn bộ mã hàng đạt mới có thể xuất hoặc in.<br>只有全部款號通過時，才可匯出或列印。</div>
+      <div>Chỉ khi toàn bộ mã hàng đạt mới có thể tạo PDF từ bản sao Excel gốc.<br>只有全部款號通過時，才可用原始 Excel 副本產生 PDF。</div>
     </div>
     <div class="br">
       <button class="btn bs" onclick="cuttingExportCheck()"><i class="ti ti-file-spreadsheet"></i>Xuất bảng kiểm / 匯出檢查表</button>
-      <button class="btn bp" onclick="cuttingPrintPreview()"><i class="ti ti-printer"></i>In / 列印</button>
+      <button class="btn bp" onclick="cuttingPrintPreview()"><i class="ti ti-file-type-pdf"></i>Tạo PDF / 產生 PDF</button>
       <button class="btn" onclick="cm('m-cutting-preview')">Hủy / 取消</button>
     </div>
   </div></div>
