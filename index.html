@@ -416,8 +416,14 @@ tr:hover td{background:#f8fafc}
               第一版只使用本機資料，尚未連接 Firebase（雲端資料庫平台）。
             </div>
           </div>
+          <div class="detail-import-drop" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)" style="margin-bottom:12px">
+            <i class="ti ti-file-spreadsheet"></i>
+            <div>
+              <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
+              <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ phân tích mẫu / 支援 .xlsx、.xls，選擇後會分析模板</span>
+            </div>
+          </div>
           <div class="br">
-            <button class="btn bp" onclick="cuttingPickTemplate()"><i class="ti ti-file-upload"></i>Nhập mẫu Excel / 匯入 Excel 模板</button>
             <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
             <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
             <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>

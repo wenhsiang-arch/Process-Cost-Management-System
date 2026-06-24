@@ -455,6 +455,26 @@
     if(input) input.click();
   }
 
+  function cuttingImportDragOver(event){
+    event.preventDefault();
+    const drop = g('cut-template-drop');
+    if(drop) drop.classList.add('dragging');
+  }
+
+  function cuttingImportDragLeave(event){
+    event.preventDefault();
+    const drop = g('cut-template-drop');
+    if(drop) drop.classList.remove('dragging');
+  }
+
+  function cuttingTemplateDrop(event){
+    event.preventDefault();
+    const drop = g('cut-template-drop');
+    if(drop) drop.classList.remove('dragging');
+    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+    if(file) cuttingAnalyzeTemplateFile(file);
+  }
+
   function readTemplateRulesFromUi(){
     const base = state.pendingBook?.rules || [];
     return base.map((rule, i) => {
@@ -502,6 +522,11 @@
   async function cuttingHandleTemplateFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
+    await cuttingAnalyzeTemplateFile(file);
+    input.value = '';
+  }
+
+  async function cuttingAnalyzeTemplateFile(file){
     if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
     if(!/\.(xlsx|xls)$/i.test(file.name)){
       alert('Chỉ hỗ trợ Excel .xlsx hoặc .xls.\n只支援 Excel（表格檔）.xlsx 或 .xls。');
@@ -525,8 +550,6 @@
     }catch(e){
       console.error(e);
       alert('Phân tích mẫu Excel thất bại.\n分析 Excel（表格檔）模板失敗。\n\n' + e.message);
-    }finally{
-      input.value = '';
     }
   }
 
@@ -774,6 +797,9 @@
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;
+  window.cuttingImportDragOver = cuttingImportDragOver;
+  window.cuttingImportDragLeave = cuttingImportDragLeave;
+  window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
   window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
