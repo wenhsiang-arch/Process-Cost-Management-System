@@ -781,28 +781,43 @@
   function buildPreviewHtml(){
     const totalQty = state.results.reduce((sum, r) => sum + r.qty, 0);
     const totalPieces = state.results.reduce((sum, r) => sum + r.totalPieces, 0);
+    const validations = state.results.map(result => ({result, problems: validateExportResult(result)}));
+    const problemRows = validations.flatMap(row => row.problems.map(problem => ({code: row.result.code, problem})));
+    const passed = validations.filter(row => !row.problems.length).length;
+    const failed = validations.length - passed;
+    const statusClass = failed ? 'nt nd' : 'nt ns';
+    const statusIcon = failed ? 'ti ti-alert-triangle' : 'ti ti-check';
+    const statusText = failed
+      ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi xuất.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再匯出。`
+      : `Kiểm tra đạt: ${fmtNum(state.results.length)} mã hàng đều đúng, có thể xuất Excel thành phẩm.<br>驗算通過：${fmtNum(state.results.length)} 個款號都正確，可以匯出成品 Excel。`;
+    const problemHtml = failed ? `
+      <div class="to"><div class="ts" style="max-height:260px"><table>
+        <thead><tr>
+          <th>Mã hàng<br><span class="tv">款號</span></th>
+          <th>Nội dung lỗi<br><span class="tv">錯誤內容</span></th>
+        </tr></thead>
+        <tbody>
+          ${problemRows.map(row => `<tr><td><b>${esc(row.code)}</b></td><td>${esc(row.problem)}</td></tr>`).join('')}
+        </tbody>
+      </table></div></div>
+    ` : `
+      <div class="nt ns">
+        <i class="ti ti-check"></i>
+        <div>SL:PO sẽ được đưa về 0 trước, sau đó chỉ điền mã hàng có trong đơn hàng.<br>SL:PO 會先全部歸零，再只填入訂單內的款號。</div>
+      </div>
+    `;
     return `
       <div class="mg">
         <div class="mc"><div class="ml">Tổng mã hàng</div><div class="mvi">總款號</div><div class="mv">${fmtNum(state.results.length)}</div></div>
         <div class="mc"><div class="ml">Tổng số đơn</div><div class="mvi">訂單總數</div><div class="mv">${fmtNum(totalQty)}</div></div>
         <div class="mc"><div class="ml">Tổng dây cắt</div><div class="mvi">裁段總數</div><div class="mv">${fmtNum(totalPieces)}</div></div>
+        <div class="mc"><div class="ml">Mã hàng đạt</div><div class="mvi">通過款號</div><div class="mv">${fmtNum(passed)}</div></div>
       </div>
-      <div class="nt nw" style="margin-bottom:12px">
-        <i class="ti ti-file-spreadsheet"></i>
-        <div>Excel thành phẩm sẽ sao chép mẫu gốc, chỉ điền SL:PO theo đơn hàng, giữ nguyên hình ảnh và màu sắc.<br>成品 Excel 會複製原始模板，只依訂單填入 SL:PO，保留圖片與配色。</div>
+      <div class="${statusClass}" style="margin-bottom:12px">
+        <i class="${statusIcon}"></i>
+        <div>${statusText}</div>
       </div>
-      <div class="to"><div class="ts" style="max-height:420px"><table>
-        <thead><tr>
-          <th>Mã hàng<br><span class="tv">款號</span></th>
-          <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
-          <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
-          <th style="text-align:right">Tổng dây<br><span class="tv">裁段總數</span></th>
-          <th>Ô sẽ điền<br><span class="tv">將填入儲存格</span></th>
-        </tr></thead>
-        <tbody>
-          ${state.results.map(r => `<tr><td>${esc(r.code)}</td><td style="text-align:right">${fmtNum(r.qty)}</td><td style="text-align:right">${fmtNum(r.piecesPerItem)}</td><td style="text-align:right">${fmtNum(r.totalPieces)}</td><td>${esc((r.rows || []).slice(0, 6).map(x => `${x.sheetName}!${x.qtyCell}`).join(', '))}</td></tr>`).join('')}
-        </tbody>
-      </table></div></div>
+      ${problemHtml}
     `;
   }
 
@@ -811,24 +826,11 @@
       alert('Vẫn còn mã hàng thiếu mẫu hoặc lỗi, không thể xem trước.\n仍有缺少模板或錯誤款號，不能預覽。');
       return;
     }
+    const problems = validateExportResults(state.results);
+    const exportBtn = g('cut-export-filled-btn');
+    if(exportBtn) exportBtn.disabled = problems.length > 0;
     html('cut-preview-body', buildPreviewHtml());
     om('m-cutting-preview');
-  }
-
-  function cuttingExportCheck(){
-    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
-      alert('Không thể xuất khi còn lỗi.\n仍有錯誤時不能匯出。');
-      return;
-    }
-    const rows = [
-      ['Mã hàng / 款號','SL đơn / 訂單數量','Số dây/SP / 每件條數','Tổng dây / 裁段總數','SL suy ngược / 反推數量','Ô sẽ điền / 將填入儲存格','Trạng thái / 狀態'],
-      ...state.results.map(r => [r.code, r.qty, r.piecesPerItem, r.totalPieces, r.reverseQty, (r.rows || []).map(x => `${x.sheetName}!${x.qtyCell}`).join(', '), 'Đạt / 通過'])
-    ];
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, '裁帶檢查');
-    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
-    XLSX.writeFile(wb, `裁帶檢查_${stamp}.xlsx`);
   }
 
   const XLSX_MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -932,24 +934,63 @@
     calcPr.setAttribute('forceFullCalc', '1');
   }
 
-  async function fillTemplateZip(zip, results){
+  function templateQtyRows(template){
+    const rows = [];
+    (template?.codes || []).forEach(item => {
+      (item.rows || []).forEach(rowInfo => {
+        if(rowInfo.sheetName && rowInfo.qtyCell) rows.push({...rowInfo, templateCode: item.code});
+      });
+    });
+    return rows;
+  }
+
+  function buildExportPlan(template, results){
+    const cells = new Map();
+    templateQtyRows(template).forEach(rowInfo => {
+      cells.set(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo, value: 0});
+    });
+    results.forEach(result => {
+      (result.rows || []).forEach(rowInfo => {
+        cells.set(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo, value: result.qty});
+      });
+    });
+    return Array.from(cells.values());
+  }
+
+  function validateExportResult(result){
+    const problems = [];
+    const rows = result.rows || [];
+    const pieces = rows.reduce((sum, rowInfo) => sum + Number(rowInfo.piecesPerRow || 0), 0);
+    const totalPieces = Number(result.qty || 0) * pieces;
+    const reverseQty = pieces ? totalPieces / pieces : 0;
+    if(!rows.length) problems.push('Không có vị trí điền / 沒有填寫位置');
+    if(pieces <= 0) problems.push('Số dây/SP bằng 0 / 每件條數為 0');
+    if(Math.abs(pieces - Number(result.piecesPerItem || 0)) > 0.0001) problems.push('Số dây/SP không khớp / 每件條數不一致');
+    if(Math.abs(totalPieces - Number(result.totalPieces || 0)) > 0.0001) problems.push('Tổng dây không khớp / 裁段總數不一致');
+    if(Math.abs(reverseQty - Number(result.qty || 0)) > 0.0001) problems.push('SL suy ngược không khớp / 反推數量不一致');
+    return problems;
+  }
+
+  function validateExportResults(results){
+    return results.flatMap(result => validateExportResult(result).map(problem => `${result.code}: ${problem}`));
+  }
+
+  async function fillTemplateZip(zip, template, results){
     const {workbookDoc, sheets} = await getSheetPathMap(zip);
     const openedSheets = new Map();
-    for(const result of results){
-      (result.rows || []).forEach(rowInfo => {
-        const path = sheets.get(rowInfo.sheetName);
-        if(!path) throw new Error(`Không tìm thấy sheet: ${rowInfo.sheetName}\n找不到工作表：${rowInfo.sheetName}`);
-      });
-      for(const rowInfo of result.rows || []){
-        const path = sheets.get(rowInfo.sheetName);
-        if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
-        const doc = openedSheets.get(path);
-        const sheetData = xmlElements(doc, 'sheetData')[0];
-        if(!sheetData) throw new Error(`Sheet không có dữ liệu: ${rowInfo.sheetName}\n工作表沒有資料：${rowInfo.sheetName}`);
-        const rowNumber = rowNumberFromAddress(rowInfo.qtyCell);
-        const cell = ensureCell(doc, ensureRow(doc, sheetData, rowNumber), rowInfo.qtyCell);
-        setCellNumber(doc, cell, result.qty);
-      }
+    const plan = buildExportPlan(template, results);
+    if(!plan.length) throw new Error('Không có ô SL:PO nào cần điền.\n沒有可填入的 SL:PO 儲存格。');
+    for(const item of plan){
+      const rowInfo = item.rowInfo;
+      const path = sheets.get(rowInfo.sheetName);
+      if(!path) throw new Error(`Không tìm thấy sheet: ${rowInfo.sheetName}\n找不到工作表：${rowInfo.sheetName}`);
+      if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
+      const doc = openedSheets.get(path);
+      const sheetData = xmlElements(doc, 'sheetData')[0];
+      if(!sheetData) throw new Error(`Sheet không có dữ liệu: ${rowInfo.sheetName}\n工作表沒有資料：${rowInfo.sheetName}`);
+      const rowNumber = rowNumberFromAddress(rowInfo.qtyCell);
+      const cell = ensureCell(doc, ensureRow(doc, sheetData, rowNumber), rowInfo.qtyCell);
+      setCellNumber(doc, cell, item.value);
     }
     forceWorkbookRecalc(workbookDoc);
     zip.file('xl/workbook.xml', serializeXml(workbookDoc));
@@ -981,6 +1022,11 @@
       alert('Thiếu công cụ đọc Excel, vui lòng tải lại trang rồi thử lại.\n缺少 Excel 讀取工具，請重新整理頁面後再試。');
       return;
     }
+    const resultProblems = validateExportResults(state.results);
+    if(resultProblems.length){
+      alert('Kiểm tra số lượng không đạt, không thể xuất.\n數量驗算未通過，不能匯出。\n\n' + resultProblems.slice(0, 8).join('\n'));
+      return;
+    }
     const byTemplate = new Map();
     state.results.forEach(result => {
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
@@ -999,7 +1045,7 @@
         const sourceFile = await cuttingStore.getTemplateFile(templateId);
         if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
         const zip = await JSZip.loadAsync(await sourceFile.arrayBuffer());
-        await fillTemplateZip(zip, results);
+        await fillTemplateZip(zip, template, results);
         const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
         outputs.push({name: finishedExcelName(fileName, stamp), blob});
       }
@@ -1035,7 +1081,6 @@
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
-  window.cuttingExportCheck = cuttingExportCheck;
   window.cuttingExportFilledExcel = cuttingExportFilledExcel;
   window.cuttingInit = cuttingInit;
 
