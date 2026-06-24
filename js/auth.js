@@ -51,7 +51,7 @@ function uNav(){
   if(cgEl) cgEl.style.display = isA ? '' : 'none';
 
   // 所有可控制功能
-  const allFeatures = ['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary','sync','efficiency'];
+  const allFeatures = ['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary','cutting','sync','efficiency'];
 
   allFeatures.forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
@@ -125,7 +125,7 @@ async function doLogin(){
         const perm = window.permissionSettings;
         const r = window.cu.role;
         if(r==='admin'){ sp('summary'); return; }
-        const order = ['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary'];
+        const order = ['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary','cutting'];
         const allowed = order.find(n=> perm[r] && perm[r][n]===true );
         if(allowed){ sp(allowed); } else {
           document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
@@ -226,6 +226,7 @@ async function sp(name){
   if(name==='replog') renderReplog();
   if(name==='sync') syncInit();
   if(name==='efficiency') effInit();
+  if(name==='cutting' && typeof cuttingInit==='function') cuttingInit();
 }
 
 function closeSetPass(){
@@ -262,7 +263,7 @@ async function saveSetPass(){
     if(isCurrentDeskAccount()){
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
       uNav(); rAll(); rSum(); rAcc(); startIdle();
-      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
+      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary','cutting']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
       setTimeout(()=>fetchRates(),1000); loadOrderData();
       if(typeof startDeskApvListener==='function') startDeskApvListener();
     } else if(isCurrentEmployee()) {
