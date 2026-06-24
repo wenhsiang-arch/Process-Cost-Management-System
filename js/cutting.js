@@ -733,7 +733,7 @@
         alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Đã có mẫu, vui lòng nhập đơn hàng để kiểm tra.<br>已有模板，請匯入訂單進行比對。</div>';
       } else if(canPreview){
         alertBox.className = 'nt ns';
-        alertBox.innerHTML = `<i class="ti ti-check"></i><div>Kiểm tra đạt: ${fmtNum(total)} mã hàng đều có mẫu. Bước xuất PDF cần dùng bản sao Excel gốc để giữ nguyên màu sắc và hình ảnh.<br>檢查通過：${fmtNum(total)} 個款號都有模板。匯出 PDF 時需使用原始 Excel 副本，才能保留配色與圖片。</div>`;
+        alertBox.innerHTML = `<i class="ti ti-check"></i><div>Kiểm tra đạt: ${fmtNum(total)} mã hàng đều có mẫu. Có thể xuất Excel thành phẩm từ mẫu gốc để giữ nguyên màu sắc và hình ảnh.<br>檢查通過：${fmtNum(total)} 個款號都有模板。可用原始 Excel 模板匯出成品，保留配色與圖片。</div>`;
       } else {
         alertBox.className = 'nt nd';
         alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Không thể xuất: thiếu ${fmtNum(missing.length)} mẫu, lỗi ${fmtNum(errors.length)} dòng.<br>不可匯出：缺少 ${fmtNum(missing.length)} 個款號模板，錯誤 ${fmtNum(errors.length)} 筆。</div>`;
@@ -789,7 +789,7 @@
       </div>
       <div class="nt nw" style="margin-bottom:12px">
         <i class="ti ti-file-spreadsheet"></i>
-        <div>PDF chính thức sẽ tạo bằng cách sao chép Excel gốc, điền ô SL:PO, rồi chuyển PDF để giữ nguyên hình ảnh và màu sắc.<br>正式 PDF 會用原始 Excel 副本填入 SL:PO 數量後轉檔，保留圖片與配色。</div>
+        <div>Excel thành phẩm sẽ sao chép mẫu gốc, chỉ điền SL:PO theo đơn hàng, giữ nguyên hình ảnh và màu sắc.<br>成品 Excel 會複製原始模板，只依訂單填入 SL:PO，保留圖片與配色。</div>
       </div>
       <div class="to"><div class="ts" style="max-height:420px"><table>
         <thead><tr>
@@ -831,8 +831,192 @@
     XLSX.writeFile(wb, `裁帶檢查_${stamp}.xlsx`);
   }
 
-  function cuttingPrintPreview(){
-    alert('Bước này cần kết nối công cụ chuyển PDF trên máy này.\n此步驟需要接上本機 PDF 轉檔助手，才會用原始 Excel 模板輸出。');
+  const XLSX_MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const XLSX_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const XLSX_DOC_REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+  function xmlElements(root, localName){
+    return Array.from(root.getElementsByTagName('*')).filter(el => el.localName === localName);
+  }
+
+  function parseXml(text){
+    const doc = new DOMParser().parseFromString(text, 'application/xml');
+    const error = doc.getElementsByTagName('parsererror')[0];
+    if(error) throw new Error('Không đọc được cấu trúc Excel.\n無法讀取 Excel 結構。');
+    return doc;
+  }
+
+  async function readXml(zip, path){
+    const file = zip.file(path);
+    if(!file) throw new Error(`Thiếu file trong Excel: ${path}\nExcel 內缺少檔案：${path}`);
+    return parseXml(await file.async('text'));
+  }
+
+  function serializeXml(doc){
+    return new XMLSerializer().serializeToString(doc);
+  }
+
+  function normalizeXlsxTarget(target){
+    const clean = String(target || '').replace(/^\/+/, '').replace(/^\.\//, '');
+    return clean.startsWith('xl/') ? clean : `xl/${clean}`;
+  }
+
+  async function getSheetPathMap(zip){
+    const workbookDoc = await readXml(zip, 'xl/workbook.xml');
+    const relsDoc = await readXml(zip, 'xl/_rels/workbook.xml.rels');
+    const rels = new Map();
+    xmlElements(relsDoc, 'Relationship').forEach(rel => {
+      rels.set(rel.getAttribute('Id'), normalizeXlsxTarget(rel.getAttribute('Target')));
+    });
+    const sheets = new Map();
+    xmlElements(workbookDoc, 'sheet').forEach(sheet => {
+      const relId = sheet.getAttributeNS(XLSX_DOC_REL_NS, 'id') || sheet.getAttribute('r:id');
+      const target = rels.get(relId);
+      if(target) sheets.set(sheet.getAttribute('name'), target);
+    });
+    return {workbookDoc, sheets};
+  }
+
+  function rowNumberFromAddress(cellAddr){
+    const match = String(cellAddr || '').match(/\d+/);
+    return match ? Number(match[0]) : 0;
+  }
+
+  function columnNumberFromAddress(cellAddr){
+    const match = String(cellAddr || '').match(/[A-Z]+/i);
+    return match ? colLettersToIndex(match[0]) : -1;
+  }
+
+  function ensureRow(doc, sheetData, rowNumber){
+    const rows = Array.from(sheetData.childNodes).filter(node => node.nodeType === 1 && node.localName === 'row');
+    let row = rows.find(node => Number(node.getAttribute('r')) === rowNumber);
+    if(row) return row;
+    row = doc.createElementNS(XLSX_MAIN_NS, 'row');
+    row.setAttribute('r', String(rowNumber));
+    const next = rows.find(node => Number(node.getAttribute('r')) > rowNumber);
+    sheetData.insertBefore(row, next || null);
+    return row;
+  }
+
+  function ensureCell(doc, row, cellAddr){
+    const wantedCol = columnNumberFromAddress(cellAddr);
+    const cells = Array.from(row.childNodes).filter(node => node.nodeType === 1 && node.localName === 'c');
+    let cell = cells.find(node => node.getAttribute('r') === cellAddr);
+    if(cell) return cell;
+    cell = doc.createElementNS(XLSX_MAIN_NS, 'c');
+    cell.setAttribute('r', cellAddr);
+    const next = cells.find(node => columnNumberFromAddress(node.getAttribute('r')) > wantedCol);
+    row.insertBefore(cell, next || null);
+    return cell;
+  }
+
+  function setCellNumber(doc, cell, value){
+    cell.removeAttribute('t');
+    Array.from(cell.childNodes).forEach(node => {
+      if(node.nodeType === 1 && ['f','v','is'].includes(node.localName)) cell.removeChild(node);
+    });
+    const v = doc.createElementNS(XLSX_MAIN_NS, 'v');
+    v.textContent = String(Number(value || 0));
+    cell.appendChild(v);
+  }
+
+  function forceWorkbookRecalc(workbookDoc){
+    const workbook = workbookDoc.documentElement;
+    let calcPr = xmlElements(workbookDoc, 'calcPr')[0];
+    if(!calcPr){
+      calcPr = workbookDoc.createElementNS(XLSX_MAIN_NS, 'calcPr');
+      workbook.appendChild(calcPr);
+    }
+    calcPr.setAttribute('calcMode', 'auto');
+    calcPr.setAttribute('fullCalcOnLoad', '1');
+    calcPr.setAttribute('forceFullCalc', '1');
+  }
+
+  async function fillTemplateZip(zip, results){
+    const {workbookDoc, sheets} = await getSheetPathMap(zip);
+    const openedSheets = new Map();
+    for(const result of results){
+      (result.rows || []).forEach(rowInfo => {
+        const path = sheets.get(rowInfo.sheetName);
+        if(!path) throw new Error(`Không tìm thấy sheet: ${rowInfo.sheetName}\n找不到工作表：${rowInfo.sheetName}`);
+      });
+      for(const rowInfo of result.rows || []){
+        const path = sheets.get(rowInfo.sheetName);
+        if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
+        const doc = openedSheets.get(path);
+        const sheetData = xmlElements(doc, 'sheetData')[0];
+        if(!sheetData) throw new Error(`Sheet không có dữ liệu: ${rowInfo.sheetName}\n工作表沒有資料：${rowInfo.sheetName}`);
+        const rowNumber = rowNumberFromAddress(rowInfo.qtyCell);
+        const cell = ensureCell(doc, ensureRow(doc, sheetData, rowNumber), rowInfo.qtyCell);
+        setCellNumber(doc, cell, result.qty);
+      }
+    }
+    forceWorkbookRecalc(workbookDoc);
+    zip.file('xl/workbook.xml', serializeXml(workbookDoc));
+    openedSheets.forEach((doc, path) => zip.file(path, serializeXml(doc)));
+  }
+
+  function downloadBlob(blob, fileName){
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function finishedExcelName(fileName, stamp){
+    const base = String(fileName || 'template.xlsx').replace(/\.(xlsx|xlsm)$/i, '');
+    return `${base}_成品_${stamp}.xlsx`;
+  }
+
+  async function cuttingExportFilledExcel(){
+    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
+      alert('Không thể xuất khi còn lỗi.\n仍有錯誤時不能匯出。');
+      return;
+    }
+    if(!window.JSZip){
+      alert('Thiếu công cụ đọc Excel, vui lòng tải lại trang rồi thử lại.\n缺少 Excel 讀取工具，請重新整理頁面後再試。');
+      return;
+    }
+    const byTemplate = new Map();
+    state.results.forEach(result => {
+      if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
+      byTemplate.get(result.templateId).push(result);
+    });
+    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
+    const outputs = [];
+    try{
+      for(const [templateId, results] of byTemplate.entries()){
+        const template = state.templates.find(item => item.id === templateId);
+        const fileName = template?.fileName || results[0]?.fileName || '';
+        if(!/\.xlsx$/i.test(fileName)){
+          alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
+          return;
+        }
+        const sourceFile = await cuttingStore.getTemplateFile(templateId);
+        if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
+        const zip = await JSZip.loadAsync(await sourceFile.arrayBuffer());
+        await fillTemplateZip(zip, results);
+        const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+        outputs.push({name: finishedExcelName(fileName, stamp), blob});
+      }
+      if(outputs.length === 1){
+        downloadBlob(outputs[0].blob, outputs[0].name);
+      }else{
+        const pack = new JSZip();
+        for(const output of outputs){
+          pack.file(output.name, await output.blob.arrayBuffer());
+        }
+        const packBlob = await pack.generateAsync({type:'blob', mimeType:'application/zip'});
+        downloadBlob(packBlob, `裁帶成品_${stamp}.zip`);
+      }
+    }catch(e){
+      console.error(e);
+      alert('Xuất Excel thành phẩm thất bại.\n匯出成品 Excel 失敗。\n\n' + e.message);
+    }
   }
 
   async function cuttingInit(){
@@ -852,7 +1036,7 @@
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
   window.cuttingExportCheck = cuttingExportCheck;
-  window.cuttingPrintPreview = cuttingPrintPreview;
+  window.cuttingExportFilledExcel = cuttingExportFilledExcel;
   window.cuttingInit = cuttingInit;
 
   window.addEventListener('DOMContentLoaded', cuttingInit);

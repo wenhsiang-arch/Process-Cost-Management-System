@@ -908,11 +908,11 @@ tr:hover td{background:#f8fafc}
     <div id="cut-preview-body"></div>
     <div class="nt ns" style="margin-bottom:12px">
       <i class="ti ti-check"></i>
-      <div>Chỉ khi toàn bộ mã hàng đạt mới có thể tạo PDF từ bản sao Excel gốc.<br>只有全部款號通過時，才可用原始 Excel 副本產生 PDF。</div>
+      <div>Chỉ khi toàn bộ mã hàng đạt mới có thể xuất Excel thành phẩm từ mẫu gốc.<br>只有全部款號通過時，才可用原始 Excel 模板匯出成品。</div>
     </div>
     <div class="br">
       <button class="btn bs" onclick="cuttingExportCheck()"><i class="ti ti-file-spreadsheet"></i>Xuất bảng kiểm / 匯出檢查表</button>
-      <button class="btn bp" onclick="cuttingPrintPreview()"><i class="ti ti-file-type-pdf"></i>Tạo PDF / 產生 PDF</button>
+      <button class="btn bp" onclick="cuttingExportFilledExcel()"><i class="ti ti-file-spreadsheet"></i>Xuất Excel thành phẩm / 匯出成品 Excel</button>
       <button class="btn" onclick="cm('m-cutting-preview')">Hủy / 取消</button>
     </div>
   </div></div>
@@ -1188,6 +1188,7 @@ tr:hover td{background:#f8fafc}
 
 <!-- 外部 JS 函式庫 -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
 <!-- 一般 JS 模組（依賴順序載入）-->
