@@ -34,7 +34,7 @@
   }
 
   function normalizeHeader(value){
-    return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9\u4E00-\u9FFF]/g, '');
   }
 
   function normalizeCode(value){
@@ -578,8 +578,8 @@
   }
 
   function findOrderHeader(rows){
-    const codeWords = ['MAHANG','ITEM','款號','货号','MODEL'];
-    const qtyWords = ['SOLUONG','QTY','PCS','SL','數量','数量','訂單數量'];
+    const codeWords = ['ITEMNO','ITEMNUMBER','ITEM','SKU','STYLE','MODEL','MAHANG','款號','货号'];
+    const qtyWords = ['QTY','QUANTITY','ORDERQTY','PCS','SOLUONG','SL','數量','数量','訂單數量'];
     for(let r = 0; r < Math.min(rows.length, 35); r++){
       const cells = (rows[r] || []).map(v => normalizeHeader(v));
       let codeIdx = -1;
@@ -593,8 +593,47 @@
     return null;
   }
 
+  function inferOrderHeaderByShape(rows){
+    const codeScores = new Map();
+    for(let r = 0; r < Math.min(rows.length, 160); r++){
+      (rows[r] || []).forEach((cell, c) => {
+        if(isLikelyCode(cell)) codeScores.set(c, (codeScores.get(c) || 0) + 1);
+      });
+    }
+    let codeIdx = -1, bestCodeScore = 0;
+    codeScores.forEach((score, col) => {
+      if(score > bestCodeScore){
+        bestCodeScore = score;
+        codeIdx = col;
+      }
+    });
+    if(codeIdx < 0 || bestCodeScore < 2) return null;
+
+    const qtyScores = new Map();
+    for(let r = 0; r < Math.min(rows.length, 220); r++){
+      const row = rows[r] || [];
+      if(!isLikelyCode(row[codeIdx])) continue;
+      row.forEach((cell, c) => {
+        if(c === codeIdx) return;
+        const qty = parseNumber(cell);
+        if(qty <= 0) return;
+        let score = qty >= 10 ? 3 : 1;
+        if(c > codeIdx) score += 1;
+        qtyScores.set(c, (qtyScores.get(c) || 0) + score);
+      });
+    }
+    let qtyIdx = -1, bestQtyScore = 0;
+    qtyScores.forEach((score, col) => {
+      if(score > bestQtyScore){
+        bestQtyScore = score;
+        qtyIdx = col;
+      }
+    });
+    return qtyIdx >= 0 ? {row:-1, codeIdx, qtyIdx, method:'shape'} : null;
+  }
+
   function parseOrderRows(rows){
-    const header = findOrderHeader(rows);
+    let header = findOrderHeader(rows);
     const items = new Map();
     if(header){
       rows.slice(header.row + 1).forEach(row => {
@@ -603,13 +642,17 @@
         if(!isLikelyCode(code) || qty <= 0) return;
         items.set(code, (items.get(code) || 0) + qty);
       });
-    } else {
-      rows.forEach(row => {
-        const code = normalizeCode(row[0]);
-        const qty = parseNumber(row[1]);
-        if(!isLikelyCode(code) || qty <= 0) return;
-        items.set(code, (items.get(code) || 0) + qty);
-      });
+    }
+    if(!items.size){
+      header = inferOrderHeaderByShape(rows);
+      if(header){
+        rows.forEach(row => {
+          const code = normalizeCode(row[header.codeIdx]);
+          const qty = parseNumber(row[header.qtyIdx]);
+          if(!isLikelyCode(code) || qty <= 0) return;
+          items.set(code, (items.get(code) || 0) + qty);
+        });
+      }
     }
     return Array.from(items.entries()).map(([code, qty]) => ({code, qty}));
   }
