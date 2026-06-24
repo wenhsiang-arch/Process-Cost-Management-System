@@ -108,8 +108,14 @@ async function doLogin(){
       if(!passOkA){ g('lerr').style.display='flex'; return; }
       if(!isHashA){ // 舊明文密碼，登入成功後自動轉換成 hash
         const hashed=await getBcrypt().hash(a.pass,10);
+        const oldPass=a.pass;
         a.pass=hashed;
-        if(window.saveAccsToFB) await saveAccsToFB();
+        const ok=window.saveAccsToFB?await saveAccsToFB():false;
+        if(!ok){
+          a.pass=oldPass;
+          alert('Không thể lưu nâng cấp bảo mật mật khẩu, vui lòng kiểm tra mạng rồi đăng nhập lại.\n無法保存密碼安全升級，請確認網路後重新登入。');
+          return;
+        }
       }
       window.cu = a;
       g('ls').style.display='none'; g('ma').classList.remove('hidden');
@@ -148,8 +154,13 @@ async function doLogin(){
     if(!passOkE){ g('lerr').style.display='flex'; return; }
     if(!isHashE){ // 舊明文密碼，登入成功後自動轉換成 hash
       const hashed=await getBcrypt().hash(emp.pass,10);
-      emp.pass=hashed;
-      await window._updateDoc(window._doc(COL.employees,emp.id),{pass:hashed});
+      try{
+        await window._updateDoc(window._doc(COL.employees,emp.id),{pass:hashed});
+        emp.pass=hashed;
+      }catch(e){
+        alert('Không thể lưu nâng cấp bảo mật mật khẩu, vui lòng kiểm tra mạng rồi đăng nhập lại.\n無法保存密碼安全升級，請確認網路後重新登入。');
+        return;
+      }
     }
     window.cu=emp;
     g('ls').style.display='none'; g('ma').classList.remove('hidden');
@@ -234,7 +245,17 @@ async function saveSetPass(){
       cu.pass=hashed;
     } else {
       const acc=window.accs.find(a=>a.user===cu.user);
-      if(acc){ acc.pass=hashed; await saveAccsToFB(); } // 更新桌機帳號密碼
+      if(acc){
+        const oldPass=acc.pass;
+        acc.pass=hashed;
+        const ok=window.saveAccsToFB?await saveAccsToFB():false;
+        if(!ok){
+          acc.pass=oldPass;
+          throw new Error('Không thể lưu mật khẩu, vui lòng kiểm tra mạng rồi thử lại.\n無法保存密碼，請確認網路後再試一次。');
+        }
+      } else {
+        throw new Error('Không tìm thấy tài khoản cần cập nhật.\n找不到需要更新的帳號。');
+      } // 更新桌機帳號密碼
     }
     cm('m-setpass');
     alert('✅ 密碼設定成功');
@@ -250,5 +271,5 @@ async function saveSetPass(){
     } else {
       doLogout();
     }
-  }catch(e){ alert('設定失敗：'+e.message); }
+  }catch(e){ alert('Cài đặt mật khẩu thất bại.\n設定密碼失敗。\n\n'+e.message); }
 }

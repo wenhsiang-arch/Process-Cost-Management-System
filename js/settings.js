@@ -47,9 +47,12 @@ function rAll(){
 }
 
 async function saveSt(){
-  const prev={sal:window.S.sal,ins:window.S.ins,meal:window.S.meal,usd:window.S.usd,twd:window.S.twd,ws:window.S.ws,eff:window.S.eff,hr:Math.round(getH())};
+  const prevS={...window.S};
+  const prevClog=Array.isArray(window.cLog)?window.cLog.map(log=>({...log,ch:Array.isArray(log.ch)?log.ch.map(c=>({...c})):[]})):[];
+  const prev={sal:prevS.sal,ins:prevS.ins,meal:prevS.meal,usd:prevS.usd,twd:prevS.twd,ws:prevS.ws,eff:prevS.eff,hr:Math.round(getH())};
   rAll(); uEff();
   const next={sal:window.S.sal,ins:window.S.ins,meal:window.S.meal,usd:window.S.usd,twd:window.S.twd,ws:window.S.ws,eff:window.S.eff,hr:Math.round(getH())};
+  const nextS={...window.S};
   const lbs={sal:'平均薪資',ins:'平均保險',meal:'餐費',usd:'匯率USD',twd:'匯率TWD',ws:'工作秒數/小時',eff:'生產效率(%)',hr:'平均時薪'};
   const ch=[];
   Object.keys(lbs).forEach(k=>{
@@ -58,14 +61,30 @@ async function saveSt(){
       ch.push({f:lbs[k],b:prev[k],a:next[k],p});
     }
   });
-  if(ch.length>0){
-    window.cLog.push({t:new Date().toLocaleString('zh-TW'),u:window.cu.user,ch});
-    rClog();
-    try{ localStorage.setItem('cLog',JSON.stringify(window.cLog)); }catch(e){}
-    if(window.saveCostLogToFB) await saveCostLogToFB();
+  const nextClog=ch.length>0?[...prevClog,{t:new Date().toLocaleString('zh-TW'),u:window.cu.user,ch}]:prevClog;
+  try{
+    window.S=nextS;
+    window.cLog=nextClog;
+    if(window.saveSettingsToFB){
+      const okSettings=await saveSettingsToFB();
+      if(!okSettings) throw new Error('settings');
+    }
+    if(ch.length>0&&window.saveCostLogToFB){
+      const okLog=await saveCostLogToFB();
+      if(!okLog) throw new Error('cLog');
+    }
+    if(ch.length>0){
+      try{ localStorage.setItem('cLog',JSON.stringify(window.cLog)); }catch(e){}
+      rClog();
+    }
+    rAll(); uEff();
+    const n=g('st-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
+  }catch(e){
+    window.S=prevS;
+    window.cLog=prevClog;
+    rAll(); uEff(); rClog();
+    alert('Lưu cài đặt thất bại, vui lòng kiểm tra mạng rồi thử lại.\n保存設定失敗，請確認網路後再試一次。');
   }
-  const n=g('st-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
-  if(window.saveSettingsToFB) await saveSettingsToFB();
 }
 
 // ===== 自動抓取匯率 =====

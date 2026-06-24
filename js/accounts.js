@@ -14,9 +14,18 @@ async function saveAcc(){
   const u=g('ac-u').value.trim(), r=g('ac-r').value;
   if(!u){ alert('請填入帳號'); return; }
   if(window.accs.find(a=>a.user===u)||(window.allEmployees&&window.allEmployees.find(e=>e.user===u))){ alert('Tài khoản đã tồn tại / 帳號已存在'); return; }
-  window.accs.push({user:u,pass:'',role:r}); cm('m-nacc');
-  g('ac-u').value=''; rAcc();
-  if(window.saveAccsToFB) await saveAccsToFB();
+  const original=window.accs.map(a=>({...a}));
+  window.accs=[...original,{user:u,pass:'',role:r}];
+  const ok=window.saveAccsToFB?await saveAccsToFB():false;
+  if(!ok){
+    window.accs=original;
+    rAcc();
+    alert('Tạo tài khoản thất bại, vui lòng kiểm tra mạng rồi thử lại.\n新增帳號失敗，請確認網路後再試一次。');
+    return;
+  }
+  cm('m-nacc');
+  g('ac-u').value='';
+  rAcc();
 }
 
 function oEacc(user){

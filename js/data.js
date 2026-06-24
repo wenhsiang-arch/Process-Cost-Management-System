@@ -301,11 +301,14 @@ async function cImp(mode){
       if(i>=0) window.D[i]=x;
       else window.D.push(x);
     });
-    window.impHist.push(hist);
-    try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
+    const originalHist=Array.isArray(window.impHist)?window.impHist.map(item=>({...item})):[];
+    window.impHist=[...originalHist,hist];
     const ok2=await saveHistoryToFB();
     if(!ok2){
-      g('imp-ok-msg').innerHTML=msg+'<div>⚠️ Lịch sử nhập đồng bộ thất bại, đã lưu tạm trên máy này</div><div>匯入紀錄同步失敗，記錄已暫存本機</div>';
+      window.impHist=originalHist;
+      g('imp-ok-msg').innerHTML=msg+'<div>⚠️ Lịch sử nhập không lưu được lên đám mây, không lưu tạm trên máy này</div><div>匯入紀錄無法保存到雲端，未暫存在本機</div>';
+    } else {
+      try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
     }
     ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
     nItms=null; dups=[]; g('fi').value='';
