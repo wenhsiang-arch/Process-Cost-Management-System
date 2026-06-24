@@ -420,6 +420,7 @@ tr:hover td{background:#f8fafc}
             <button class="btn bp" onclick="cuttingPickTemplate()"><i class="ti ti-file-upload"></i>Nhập mẫu Excel / 匯入 Excel 模板</button>
             <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
             <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
+            <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
             <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
             <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
             <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>

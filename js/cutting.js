@@ -542,6 +542,18 @@
     if(input) input.click();
   }
 
+  function cuttingClearCurrent(){
+    state.orderItems = [];
+    state.results = [];
+    state.pendingTemplateFile = null;
+    state.pendingWorkbook = null;
+    state.pendingBook = null;
+    text('cut-template-file-name', '');
+    text('cut-order-file-name', '');
+    renderTemplateAnalysis(null);
+    renderResults();
+  }
+
   function findOrderHeader(rows){
     const codeWords = ['MAHANG','ITEM','款號','货号','MODEL'];
     const qtyWords = ['SOLUONG','QTY','PCS','SL','數量','数量','訂單數量'];
@@ -595,6 +607,10 @@
       const merged = new Map();
       all.forEach(item => merged.set(item.code, (merged.get(item.code) || 0) + item.qty));
       state.orderItems = Array.from(merged.entries()).map(([code, qty]) => ({code, qty}));
+      if(!state.orderItems.length){
+        text('cut-order-file-name', file.name + '（không đọc được mã hàng / 未讀到款號）');
+        alert('Không đọc được mã hàng và số lượng trong đơn hàng.\n訂單內沒有讀到款號與數量。\n\n請確認訂單表裡有款號欄與數量欄。');
+      }
       recomputeResults();
     }catch(e){
       console.error(e);
@@ -764,6 +780,7 @@
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
+  window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
   window.cuttingExportCheck = cuttingExportCheck;
   window.cuttingPrintPreview = cuttingPrintPreview;
