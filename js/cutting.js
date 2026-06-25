@@ -888,71 +888,6 @@
     return {workbookDoc, sheets};
   }
 
-  function rowNumberFromAddress(cellAddr){
-    const match = String(cellAddr || '').match(/\d+/);
-    return match ? Number(match[0]) : 0;
-  }
-
-  function columnNumberFromAddress(cellAddr){
-    const match = String(cellAddr || '').match(/[A-Z]+/i);
-    return match ? colLettersToIndex(match[0]) : -1;
-  }
-
-  function ensureRow(doc, sheetData, rowNumber){
-    const rows = Array.from(sheetData.childNodes).filter(node => node.nodeType === 1 && node.localName === 'row');
-    let row = rows.find(node => Number(node.getAttribute('r')) === rowNumber);
-    if(row) return row;
-    row = doc.createElementNS(XLSX_MAIN_NS, 'row');
-    row.setAttribute('r', String(rowNumber));
-    const next = rows.find(node => Number(node.getAttribute('r')) > rowNumber);
-    sheetData.insertBefore(row, next || null);
-    return row;
-  }
-
-  function setRowHidden(doc, sheetData, rowNumber, hidden){
-    const row = ensureRow(doc, sheetData, rowNumber);
-    if(hidden){
-      row.setAttribute('hidden', '1');
-      row.setAttribute('customHeight', row.getAttribute('customHeight') || '1');
-    }else{
-      row.removeAttribute('hidden');
-    }
-  }
-
-  function ensureCell(doc, row, cellAddr){
-    const wantedCol = columnNumberFromAddress(cellAddr);
-    const cells = Array.from(row.childNodes).filter(node => node.nodeType === 1 && node.localName === 'c');
-    let cell = cells.find(node => node.getAttribute('r') === cellAddr);
-    if(cell) return cell;
-    cell = doc.createElementNS(XLSX_MAIN_NS, 'c');
-    cell.setAttribute('r', cellAddr);
-    const next = cells.find(node => columnNumberFromAddress(node.getAttribute('r')) > wantedCol);
-    row.insertBefore(cell, next || null);
-    return cell;
-  }
-
-  function setCellNumber(doc, cell, value){
-    cell.removeAttribute('t');
-    Array.from(cell.childNodes).forEach(node => {
-      if(node.nodeType === 1 && ['f','v','is'].includes(node.localName)) cell.removeChild(node);
-    });
-    const v = doc.createElementNS(XLSX_MAIN_NS, 'v');
-    v.textContent = String(Number(value || 0));
-    cell.appendChild(v);
-  }
-
-  function forceWorkbookRecalc(workbookDoc){
-    const workbook = workbookDoc.documentElement;
-    let calcPr = xmlElements(workbookDoc, 'calcPr')[0];
-    if(!calcPr){
-      calcPr = workbookDoc.createElementNS(XLSX_MAIN_NS, 'calcPr');
-      workbook.appendChild(calcPr);
-    }
-    calcPr.setAttribute('calcMode', 'auto');
-    calcPr.setAttribute('fullCalcOnLoad', '1');
-    calcPr.setAttribute('forceFullCalc', '1');
-  }
-
   function templateQtyRows(template){
     const rows = [];
     (template?.codes || []).forEach(item => {
@@ -1042,37 +977,36 @@
     return found.sort((a, b) => a - b);
   }
 
-  async function fillTemplateZip(zip, workbook, template, results){
-    const {workbookDoc, sheets} = await getSheetPathMap(zip);
-    const openedSheets = new Map();
+  function setWorkbookCellNumber(workbook, sheetName, cellAddr, value){
+    const ws = workbook.Sheets[sheetName];
+    if(!ws) return;
+    const cell = ws[cellAddr] || {};
+    ws[cellAddr] = {...cell, t:'n', v:Number(value || 0), w:undefined, f:undefined};
+  }
+
+  function hideWorkbookRows(workbook, hiddenBySheet){
+    for(const [sheetName, rows] of hiddenBySheet.entries()){
+      const ws = workbook.Sheets[sheetName];
+      if(!ws) continue;
+      ws['!rows'] = ws['!rows'] || [];
+      rows.forEach(rowNumber => {
+        const index = rowNumber - 1;
+        ws['!rows'][index] = {...(ws['!rows'][index] || {}), hidden:true};
+      });
+    }
+  }
+
+  function fillWorkbookForPdf(workbook, template, results){
     const hiddenBySheet = buildHiddenRowMapForWorkbook(workbook, template, results);
     const plan = buildExportPlan(template, results);
     if(!plan.length) throw new Error('Không có ô SL:PO nào cần điền.\n沒有可填入的 SL:PO 儲存格。');
     for(const item of plan){
       const rowInfo = item.rowInfo;
-      const path = sheets.get(rowInfo.sheetName);
-      if(!path) throw new Error(`Không tìm thấy sheet: ${rowInfo.sheetName}\n找不到工作表：${rowInfo.sheetName}`);
-      if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
-      const doc = openedSheets.get(path);
-      const sheetData = xmlElements(doc, 'sheetData')[0];
-      if(!sheetData) throw new Error(`Sheet không có dữ liệu: ${rowInfo.sheetName}\n工作表沒有資料：${rowInfo.sheetName}`);
       const cellAddr = item.cell || rowInfo.qtyCell;
-      const rowNumber = rowNumberFromAddress(cellAddr);
-      const cell = ensureCell(doc, ensureRow(doc, sheetData, rowNumber), cellAddr);
-      setCellNumber(doc, cell, item.value);
+      setWorkbookCellNumber(workbook, rowInfo.sheetName, cellAddr, item.value);
     }
-    for(const [sheetName, rows] of hiddenBySheet.entries()){
-      const path = sheets.get(sheetName);
-      if(!path) continue;
-      if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
-      const doc = openedSheets.get(path);
-      const sheetData = xmlElements(doc, 'sheetData')[0];
-      if(!sheetData) continue;
-      rows.forEach(rowNumber => setRowHidden(doc, sheetData, rowNumber, true));
-    }
-    forceWorkbookRecalc(workbookDoc);
-    zip.file('xl/workbook.xml', serializeXml(workbookDoc));
-    openedSheets.forEach((doc, path) => zip.file(path, serializeXml(doc)));
+    hideWorkbookRows(workbook, hiddenBySheet);
+    return workbook;
   }
 
   function downloadBlob(blob, fileName){
@@ -1096,7 +1030,7 @@
       alert('Không thể xuất khi còn lỗi.\n仍有錯誤時不能匯出。');
       return;
     }
-    if(!window.JSZip){
+    if(!window.XLSX){
       alert('Thiếu công cụ đọc Excel, vui lòng tải lại trang rồi thử lại.\n缺少 Excel 讀取工具，請重新整理頁面後再試。');
       return;
     }
@@ -1124,14 +1058,15 @@
         if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
         const buffer = await sourceFile.arrayBuffer();
         const workbook = XLSX.read(buffer, {type:'array', cellFormula:true, cellStyles:true});
-        const zip = await JSZip.loadAsync(buffer.slice(0));
-        await fillTemplateZip(zip, workbook, template, results);
-        const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+        fillWorkbookForPdf(workbook, template, results);
+        const out = XLSX.write(workbook, {bookType:'xlsx', type:'array', cellStyles:true});
+        const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
         outputs.push({name: finishedExcelName(fileName, stamp).replace('_成品_', '_轉PDF_'), blob});
       }
       if(outputs.length === 1){
         downloadBlob(outputs[0].blob, outputs[0].name);
       }else{
+        if(!window.JSZip) throw new Error('Thiếu công cụ đóng gói ZIP.\n缺少 ZIP 打包工具。');
         const pack = new JSZip();
         for(const output of outputs){
           pack.file(output.name, await output.blob.arrayBuffer());
