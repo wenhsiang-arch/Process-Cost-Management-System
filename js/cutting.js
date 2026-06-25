@@ -788,8 +788,8 @@
     const statusClass = failed ? 'nt nd' : 'nt ns';
     const statusIcon = failed ? 'ti ti-alert-triangle' : 'ti ti-check';
     const statusText = failed
-      ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi xuất Excel.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再匯出 Excel。`
-      : `Kiểm tra đạt: ${fmtNum(state.results.length)} mã hàng đều đúng, có thể xuất Excel để chuyển PDF.<br>驗算通過：${fmtNum(state.results.length)} 個款號都正確，可以匯出轉 PDF 用 Excel。`;
+      ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi tạo PDF.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再產生 PDF。`
+      : `Kiểm tra đạt: ${fmtNum(state.results.length)} mã hàng đều đúng, có thể tạo PDF bằng máy này.<br>驗算通過：${fmtNum(state.results.length)} 個款號都正確，可以由本機產生 PDF。`;
     const problemHtml = failed ? `
       <div class="to"><div class="ts" style="max-height:260px"><table>
         <thead><tr>
@@ -803,7 +803,7 @@
     ` : `
       <div class="nt ns">
         <i class="ti ti-check"></i>
-        <div>Excel sẽ giữ nguyên mẫu gốc, chỉ hiện nhóm có mã hàng trong đơn; SL:PO và SL:CẮT sẽ được ghi lại.<br>Excel 會保留原模板，只顯示包含訂單款號的組；SL:PO 與 SL:CẮT 會重新寫入。</div>
+        <div>Phiên bản đầu chỉ hỗ trợ một mẫu Excel, hệ thống sẽ gửi dữ liệu cho máy này tạo PDF.<br>第一版只支援單一 Excel 模板，系統會把資料送到本機產生 PDF。</div>
       </div>
     `;
     return `
@@ -931,85 +931,6 @@
     return results.flatMap(result => validateExportResult(result).map(problem => `${result.code}: ${problem}`));
   }
 
-  function resultMapByCode(results){
-    const map = new Map();
-    results.forEach(result => map.set(result.code, result));
-    return map;
-  }
-
-  function buildHiddenRowMapForWorkbook(workbook, template, results){
-    const hiddenBySheet = new Map();
-    const resultMap = resultMapByCode(results);
-    const ruleMap = new Map((template.rules || []).map(rule => [rule.sheetName, rule]));
-    workbook.SheetNames.forEach(sheetName => {
-      const rule = ruleMap.get(sheetName);
-      if(!rule || rule.codeCol < 0) return;
-      const ws = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      const headers = headerRowsForPrint(rows, rule);
-      const hiddenRows = new Set();
-      headers.forEach((headerRow, index) => {
-        const nextHeader = headers[index + 1] ?? rows.length;
-        const endRow = nextHeader - 1;
-        let hasOrder = false;
-        for(let r = headerRow + 1; r <= endRow && r < rows.length; r++){
-          const code = normalizeCode((rows[r] || [])[rule.codeCol]);
-          if(isLikelyCode(code) && resultMap.has(code)){
-            hasOrder = true;
-            break;
-          }
-        }
-        if(!hasOrder){
-          for(let r = headerRow; r <= endRow; r++) hiddenRows.add(r + 1);
-        }
-      });
-      hiddenBySheet.set(sheetName, hiddenRows);
-    });
-    return hiddenBySheet;
-  }
-
-  function headerRowsForPrint(rows, rule){
-    const found = [];
-    rows.forEach((row, index) => {
-      if(findTemplateHeader(row)) found.push(index);
-    });
-    if(!found.length && rule && rule.rowNumber) found.push(Number(rule.rowNumber) - 1);
-    return found.sort((a, b) => a - b);
-  }
-
-  function findXmlCell(doc, cellAddr){
-    return xmlElements(doc, 'c').find(cell => cell.getAttribute('r') === cellAddr);
-  }
-
-  function setXmlCellNumber(doc, cell, value){
-    cell.removeAttribute('t');
-    Array.from(cell.childNodes).forEach(node => {
-      if(node.nodeType === 1 && ['f','v','is'].includes(node.localName)) cell.removeChild(node);
-    });
-    const v = doc.createElementNS(XLSX_MAIN_NS, 'v');
-    v.textContent = String(Number(value || 0));
-    cell.appendChild(v);
-  }
-
-  async function fillTemplateZip(zip, template, results){
-    const {sheets} = await getSheetPathMap(zip);
-    const openedSheets = new Map();
-    const plan = buildExportPlan(template, results);
-    if(!plan.length) throw new Error('Không có ô SL:PO nào cần điền.\n沒有可填入的 SL:PO 儲存格。');
-    for(const item of plan){
-      const rowInfo = item.rowInfo;
-      const cellAddr = item.cell || rowInfo.qtyCell;
-      const path = sheets.get(rowInfo.sheetName);
-      if(!path) throw new Error(`Không tìm thấy sheet: ${rowInfo.sheetName}\n找不到工作表：${rowInfo.sheetName}`);
-      if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
-      const doc = openedSheets.get(path);
-      const cell = findXmlCell(doc, cellAddr);
-      if(!cell) continue;
-      setXmlCellNumber(doc, cell, item.value);
-    }
-    openedSheets.forEach((doc, path) => zip.file(path, serializeXml(doc)));
-  }
-
   function downloadBlob(blob, fileName){
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1021,23 +942,38 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  function finishedExcelName(fileName, stamp){
-    const base = String(fileName || 'template.xlsx').replace(/\.(xlsx|xlsm)$/i, '');
-    return `${base}_成品_${stamp}.xlsx`;
+  function localPdfName(fileName){
+    const base = String(fileName || 'cutting.xlsx').replace(/\.(xlsx|xlsm|xls)$/i, '');
+    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
+    return `${base}_PDF_${stamp}.pdf`;
   }
 
-  async function cuttingExportPdfExcel(){
-    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
-      alert('Không thể xuất khi còn lỗi.\n仍有錯誤時不能匯出。');
-      return;
+  function arrayBufferToBase64(buffer){
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for(let i = 0; i < bytes.length; i += chunk){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
     }
-    if(!window.JSZip){
-      alert('Thiếu công cụ đọc Excel, vui lòng tải lại trang rồi thử lại.\n缺少 Excel 讀取工具，請重新整理頁面後再試。');
+    return btoa(binary);
+  }
+
+  function buildLocalPdfWrites(template, results){
+    return buildExportPlan(template, results).map(item => ({
+      sheetName: item.rowInfo.sheetName,
+      cell: item.cell || item.rowInfo.qtyCell,
+      value: Number(item.value || 0)
+    }));
+  }
+
+  async function cuttingCreateLocalPdf(){
+    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
+      alert('Không thể tạo PDF khi còn lỗi.\n仍有錯誤時不能產生 PDF。');
       return;
     }
     const resultProblems = validateExportResults(state.results);
     if(resultProblems.length){
-      alert('Kiểm tra số lượng không đạt, không thể xuất Excel.\n數量驗算未通過，不能匯出 Excel。\n\n' + resultProblems.slice(0, 8).join('\n'));
+      alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
     const byTemplate = new Map();
@@ -1045,38 +981,47 @@
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
       byTemplate.get(result.templateId).push(result);
     });
-    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
-    const outputs = [];
+    if(byTemplate.size !== 1){
+      alert('Phiên bản đầu chỉ hỗ trợ một mẫu Excel. Đơn này đang dùng nhiều mẫu.\n第一版只支援單一 Excel 模板。此訂單目前命中多個模板。');
+      return;
+    }
     try{
-      for(const [templateId, results] of byTemplate.entries()){
-        const template = state.templates.find(item => item.id === templateId);
-        const fileName = template?.fileName || results[0]?.fileName || '';
-        if(!/\.xlsx$/i.test(fileName)){
-          alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
-          return;
-        }
-        const sourceFile = await cuttingStore.getTemplateFile(templateId);
-        if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
-        const buffer = await sourceFile.arrayBuffer();
-        const zip = await JSZip.loadAsync(buffer.slice(0));
-        await fillTemplateZip(zip, template, results);
-        const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-        outputs.push({name: finishedExcelName(fileName, stamp).replace('_成品_', '_轉PDF_'), blob});
+      const [templateId, results] = Array.from(byTemplate.entries())[0];
+      const template = state.templates.find(item => item.id === templateId);
+      const fileName = template?.fileName || results[0]?.fileName || '';
+      if(!/\.xlsx$/i.test(fileName)){
+        alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
+        return;
       }
-      if(outputs.length === 1){
-        downloadBlob(outputs[0].blob, outputs[0].name);
-      }else{
-        if(!window.JSZip) throw new Error('Thiếu công cụ đóng gói ZIP.\n缺少 ZIP 打包工具。');
-        const pack = new JSZip();
-        for(const output of outputs){
-          pack.file(output.name, await output.blob.arrayBuffer());
+      const sourceFile = await cuttingStore.getTemplateFile(templateId);
+      if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
+      const buffer = await sourceFile.arrayBuffer();
+      const payload = {
+        fileName,
+        outputName: localPdfName(fileName),
+        templateBase64: arrayBufferToBase64(buffer),
+        writes: buildLocalPdfWrites(template, results)
+      };
+      const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if(!response.ok){
+        let msg = '';
+        try{
+          const data = await response.json();
+          msg = data.error || response.statusText;
+        }catch(_){
+          msg = response.statusText;
         }
-        const packBlob = await pack.generateAsync({type:'blob', mimeType:'application/zip'});
-        downloadBlob(packBlob, `裁帶轉PDF_${stamp}.zip`);
+        throw new Error(msg || 'Local PDF server error / 本機 PDF 後台錯誤');
       }
+      const pdfBlob = await response.blob();
+      downloadBlob(pdfBlob, payload.outputName);
     }catch(e){
       console.error(e);
-      alert('Xuất Excel chuyển PDF thất bại.\n匯出轉 PDF Excel 失敗。\n\n' + e.message);
+      alert('Tạo PDF thất bại. Vui lòng kiểm tra local server đã chạy.\n產生 PDF 失敗，請確認本機後台已啟動。\n\n' + e.message);
     }
   }
 
@@ -1096,7 +1041,7 @@
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
-  window.cuttingExportPdfExcel = cuttingExportPdfExcel;
+  window.cuttingCreateLocalPdf = cuttingCreateLocalPdf;
   window.cuttingInit = cuttingInit;
 
   window.addEventListener('DOMContentLoaded', cuttingInit);
