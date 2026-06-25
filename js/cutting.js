@@ -788,8 +788,8 @@
     const statusClass = failed ? 'nt nd' : 'nt ns';
     const statusIcon = failed ? 'ti ti-alert-triangle' : 'ti ti-check';
     const statusText = failed
-      ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi tạo PDF.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再產生 PDF。`
-      : `Kiểm tra đạt: ${fmtNum(state.results.length)} mã hàng đều đúng, có thể tạo PDF in.<br>驗算通過：${fmtNum(state.results.length)} 個款號都正確，可以產生 PDF 列印。`;
+      ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi xuất Excel.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再匯出 Excel。`
+      : `Kiểm tra đạt: ${fmtNum(state.results.length)} mã hàng đều đúng, có thể xuất Excel để chuyển PDF.<br>驗算通過：${fmtNum(state.results.length)} 個款號都正確，可以匯出轉 PDF 用 Excel。`;
     const problemHtml = failed ? `
       <div class="to"><div class="ts" style="max-height:260px"><table>
         <thead><tr>
@@ -803,7 +803,7 @@
     ` : `
       <div class="nt ns">
         <i class="ti ti-check"></i>
-        <div>Chỉ nhóm có mã hàng trong đơn mới xuất ra PDF; SL:PO và SL:CẮT sẽ tính lại khi in.<br>只有包含訂單款號的組會輸出到 PDF；列印時會重新計算 SL:PO 與 SL:CẮT。</div>
+        <div>Excel sẽ giữ nguyên mẫu gốc, chỉ hiện nhóm có mã hàng trong đơn; SL:PO và SL:CẮT sẽ được ghi lại.<br>Excel 會保留原模板，只顯示包含訂單款號的組；SL:PO 與 SL:CẮT 會重新寫入。</div>
       </div>
     `;
     return `
@@ -867,41 +867,6 @@
     return String(value);
   }
 
-  function resolveZipPath(basePath, target){
-    const raw = String(target || '').replace(/^\/+/, '');
-    if(raw.startsWith('xl/')) return raw;
-    const parts = basePath.split('/');
-    parts.pop();
-    raw.split('/').forEach(part => {
-      if(!part || part === '.') return;
-      if(part === '..') parts.pop();
-      else parts.push(part);
-    });
-    return parts.join('/');
-  }
-
-  function fileMimeType(path){
-    const ext = String(path || '').split('.').pop().toLowerCase();
-    if(ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
-    if(ext === 'webp') return 'image/webp';
-    if(ext === 'gif') return 'image/gif';
-    return 'image/png';
-  }
-
-  function uint8ToBase64(bytes){
-    let binary = '';
-    const chunkSize = 0x8000;
-    for(let i = 0; i < bytes.length; i += chunkSize){
-      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
-  }
-
-  function firstChildText(node, localName){
-    const found = xmlElements(node, localName)[0];
-    return found ? found.textContent : '';
-  }
-
   function normalizeXlsxTarget(target){
     const clean = String(target || '').replace(/^\/+/, '').replace(/^\.\//, '');
     return clean.startsWith('xl/') ? clean : `xl/${clean}`;
@@ -923,66 +888,6 @@
     return {workbookDoc, sheets};
   }
 
-  function drawingAnchorRange(anchor){
-    const from = xmlElements(anchor, 'from')[0];
-    const to = xmlElements(anchor, 'to')[0];
-    const fromCol = Number(firstChildText(from, 'col') || 0);
-    const fromRow = Number(firstChildText(from, 'row') || 0);
-    const rawToCol = Number(firstChildText(to, 'col') || 0);
-    const rawToRow = Number(firstChildText(to, 'row') || 0);
-    return {
-      fromCol,
-      fromRow,
-      toCol: rawToCol > fromCol ? rawToCol : fromCol + 3,
-      toRow: rawToRow > fromRow ? rawToRow : fromRow + 18
-    };
-  }
-
-  async function extractSheetImages(zip, sheetPath){
-    const relsPath = sheetPath.replace('/worksheets/', '/worksheets/_rels/') + '.rels';
-    const sheetRelsFile = zip.file(relsPath);
-    if(!sheetRelsFile) return [];
-    const sheetRelsDoc = parseXml(await sheetRelsFile.async('text'));
-    const drawingRel = xmlElements(sheetRelsDoc, 'Relationship').find(rel => String(rel.getAttribute('Type') || '').includes('/drawing'));
-    if(!drawingRel) return [];
-    const drawingPath = resolveZipPath(sheetPath, drawingRel.getAttribute('Target'));
-    const drawingFile = zip.file(drawingPath);
-    if(!drawingFile) return [];
-    const drawingDoc = parseXml(await drawingFile.async('text'));
-    const drawingRelsPath = drawingPath.replace('/drawings/', '/drawings/_rels/') + '.rels';
-    const drawingRelsFile = zip.file(drawingRelsPath);
-    if(!drawingRelsFile) return [];
-    const drawingRelsDoc = parseXml(await drawingRelsFile.async('text'));
-    const media = new Map();
-    xmlElements(drawingRelsDoc, 'Relationship').forEach(rel => {
-      media.set(rel.getAttribute('Id'), resolveZipPath(drawingPath, rel.getAttribute('Target')));
-    });
-
-    const images = [];
-    const anchors = xmlElements(drawingDoc, 'twoCellAnchor').concat(xmlElements(drawingDoc, 'oneCellAnchor'));
-    for(const anchor of anchors){
-      const blip = xmlElements(anchor, 'blip')[0];
-      const relId = blip ? (blip.getAttributeNS(XLSX_DOC_REL_NS, 'embed') || blip.getAttribute('r:embed')) : '';
-      const mediaPath = media.get(relId);
-      const mediaFile = mediaPath ? zip.file(mediaPath) : null;
-      if(!mediaFile) continue;
-      const bytes = await mediaFile.async('uint8array');
-      images.push({
-        ...drawingAnchorRange(anchor),
-        dataUrl: `data:${fileMimeType(mediaPath)};base64,${uint8ToBase64(bytes)}`
-      });
-    }
-    return images;
-  }
-
-  async function extractWorkbookImages(zip, sheetPaths){
-    const images = new Map();
-    for(const [sheetName, sheetPath] of sheetPaths.entries()){
-      images.set(sheetName, await extractSheetImages(zip, sheetPath));
-    }
-    return images;
-  }
-
   function rowNumberFromAddress(cellAddr){
     const match = String(cellAddr || '').match(/\d+/);
     return match ? Number(match[0]) : 0;
@@ -1002,6 +907,16 @@
     const next = rows.find(node => Number(node.getAttribute('r')) > rowNumber);
     sheetData.insertBefore(row, next || null);
     return row;
+  }
+
+  function setRowHidden(doc, sheetData, rowNumber, hidden){
+    const row = ensureRow(doc, sheetData, rowNumber);
+    if(hidden){
+      row.setAttribute('hidden', '1');
+      row.setAttribute('customHeight', row.getAttribute('customHeight') || '1');
+    }else{
+      row.removeAttribute('hidden');
+    }
   }
 
   function ensureCell(doc, row, cellAddr){
@@ -1052,10 +967,12 @@
     const cells = new Map();
     templateQtyRows(template).forEach(rowInfo => {
       cells.set(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo, value: 0});
+      if(rowInfo.totalCell) cells.set(`${rowInfo.sheetName}!${rowInfo.totalCell}`, {rowInfo, cell: rowInfo.totalCell, value: 0});
     });
     results.forEach(result => {
       (result.rows || []).forEach(rowInfo => {
         cells.set(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo, value: result.qty});
+        if(rowInfo.totalCell) cells.set(`${rowInfo.sheetName}!${rowInfo.totalCell}`, {rowInfo, cell: rowInfo.totalCell, value: Number(result.qty || 0) * Number(rowInfo.piecesPerRow || 0)});
       });
     });
     return Array.from(cells.values());
@@ -1085,6 +1002,37 @@
     return map;
   }
 
+  function buildHiddenRowMapForWorkbook(workbook, template, results){
+    const hiddenBySheet = new Map();
+    const resultMap = resultMapByCode(results);
+    const ruleMap = new Map((template.rules || []).map(rule => [rule.sheetName, rule]));
+    workbook.SheetNames.forEach(sheetName => {
+      const rule = ruleMap.get(sheetName);
+      if(!rule || rule.codeCol < 0) return;
+      const ws = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      const headers = headerRowsForPrint(rows, rule);
+      const hiddenRows = new Set();
+      headers.forEach((headerRow, index) => {
+        const nextHeader = headers[index + 1] ?? rows.length;
+        const endRow = nextHeader - 1;
+        let hasOrder = false;
+        for(let r = headerRow + 1; r <= endRow && r < rows.length; r++){
+          const code = normalizeCode((rows[r] || [])[rule.codeCol]);
+          if(isLikelyCode(code) && resultMap.has(code)){
+            hasOrder = true;
+            break;
+          }
+        }
+        if(!hasOrder){
+          for(let r = headerRow; r <= endRow; r++) hiddenRows.add(r + 1);
+        }
+      });
+      hiddenBySheet.set(sheetName, hiddenRows);
+    });
+    return hiddenBySheet;
+  }
+
   function headerRowsForPrint(rows, rule){
     const found = [];
     rows.forEach((row, index) => {
@@ -1094,176 +1042,10 @@
     return found.sort((a, b) => a - b);
   }
 
-  function findGroupValue(rows, startRow, endRow, fromCol, toCol, tester){
-    for(let r = startRow; r <= endRow && r < rows.length; r++){
-      const row = rows[r] || [];
-      for(let c = Math.max(0, fromCol); c <= toCol; c++){
-        const value = sheetCellText(row[c]).trim();
-        if(value && tester(value)) return value;
-      }
-    }
-    return '';
-  }
-
-  function pickGroupImage(images, startRow, endRow){
-    return (images || []).find(img => img.fromRow <= endRow && img.toRow >= startRow) || null;
-  }
-
-  function buildPrintBlocksFromWorkbook(workbook, template, results, imagesBySheet){
-    const blocks = [];
-    const resultMap = resultMapByCode(results);
-    const ruleMap = new Map((template.rules || []).map(rule => [rule.sheetName, rule]));
-    workbook.SheetNames.forEach(sheetName => {
-      const rule = ruleMap.get(sheetName);
-      if(!rule || rule.codeCol < 0 || rule.qtyCol < 0 || rule.pieceCol < 0) return;
-      const ws = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      const headers = headerRowsForPrint(rows, rule);
-      headers.forEach((headerRow, index) => {
-        const nextHeader = headers[index + 1] ?? rows.length;
-        const endRow = nextHeader - 1;
-        const itemRows = [];
-        for(let r = headerRow + 1; r <= endRow && r < rows.length; r++){
-          const row = rows[r] || [];
-          const code = normalizeCode(row[rule.codeCol]);
-          if(!isLikelyCode(code)) continue;
-          const order = resultMap.get(code);
-          const pieces = parseNumber(row[rule.pieceCol]);
-          const poQty = order ? Number(order.qty || 0) : 0;
-          itemRows.push({
-            code,
-            color: sheetCellText(row[rule.codeCol + 1] || ''),
-            cutSpec: sheetCellText(row[Math.max(0, rule.qtyCol - 1)] || ''),
-            pieces,
-            poQty,
-            cutQty: poQty * pieces,
-            matched: !!order
-          });
-        }
-        if(!itemRows.some(row => row.matched)) return;
-        const header = rows[headerRow] || [];
-        const image = pickGroupImage(imagesBySheet.get(sheetName), headerRow, endRow);
-        const segment = findGroupValue(rows, headerRow + 1, endRow, 0, Math.max(0, rule.codeCol - 1), value => /ĐOẠN|DOAN/i.test(value)) || sheetName;
-        const beltSpec = findGroupValue(rows, headerRow + 1, endRow, 0, Math.max(0, rule.codeCol - 1), value => /MM|\*/i.test(value));
-        const groupCutSpec = itemRows.find(row => row.cutSpec)?.cutSpec || '';
-        const note = findGroupValue(rows, headerRow + 1, endRow, (rule.totalCol >= 0 ? rule.totalCol + 1 : rule.pieceCol + 2), Math.min(40, (rule.totalCol >= 0 ? rule.totalCol + 4 : rule.pieceCol + 5)), value => !findTemplateHeader([value]));
-        blocks.push({
-          fileName: template.fileName,
-          sheetName,
-          poTitle: sheetCellText(header[0] || ''),
-          codeHeader: sheetCellText(header[rule.codeCol] || 'MÃ HÀNG'),
-          segment,
-          beltSpec,
-          groupCutSpec,
-          note,
-          image,
-          rows: itemRows
-        });
-      });
-    });
-    return blocks;
-  }
-
-  function printBlockHtml(block){
-    const rowCount = Math.max(block.rows.length, 1);
-    return `
-      <section class="cut-print-block">
-        <table>
-          <thead>
-            <tr>
-              <th>${esc(block.poTitle || block.fileName)}</th>
-              <th>QUY CÁCH<br>DÂY ĐAI</th>
-              <th>${esc(block.codeHeader)}</th>
-              <th>MÀU</th>
-              <th>QUY CÁCH<br>CẮT</th>
-              <th>SL:PO<br>PCS</th>
-              <th>SỐ KIỆN</th>
-              <th>SL:CẮT<br>THỰC TẾ</th>
-              <th>SL: THIẾU<br>LIỆU</th>
-              <th>GHI CHÚ</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${block.rows.map((row, index) => `
-              <tr>
-                ${index === 0 ? `<td class="visual" rowspan="${rowCount}"><div class="segment">${esc(block.segment)}</div>${block.image ? `<img src="${block.image.dataUrl}" alt="">` : ''}</td><td class="spec" rowspan="${rowCount}">${esc(block.beltSpec)}</td>` : ''}
-                <td>${esc(row.code)}</td>
-                <td>${esc(row.color)}</td>
-                ${index === 0 ? `<td class="spec" rowspan="${rowCount}">${esc(block.groupCutSpec)}</td>` : ''}
-                <td class="num">${fmtNum(row.poQty)}</td>
-                <td class="num">${fmtNum(row.pieces)}</td>
-                <td class="num cut">${fmtNum(row.cutQty)}</td>
-                <td></td>
-                ${index === 0 ? `<td class="note" rowspan="${rowCount}">${esc(block.note)}</td>` : ''}
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </section>
-    `;
-  }
-
-  function buildPrintDocumentHtml(blocks){
-    const stamp = new Date().toLocaleString('zh-TW');
-    return `<!doctype html>
-      <html><head><meta charset="utf-8">
-      <title>裁帶 PDF 列印</title>
-      <style>
-        @page{size:A4 landscape;margin:8mm}
-        *{box-sizing:border-box}
-        body{margin:0;font-family:Arial,"Microsoft JhengHei",sans-serif;color:#000;background:#fff}
-        .toolbar{position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;background:#f8fafc;border-bottom:1px solid #cbd5e1}
-        .toolbar b{font-size:14px}.toolbar span{font-size:12px;color:#64748b}
-        .toolbar button{border:0;border-radius:6px;background:#2563eb;color:#fff;padding:9px 14px;font-size:14px;cursor:pointer}
-        .page{padding:10px}
-        .cut-print-block{break-inside:avoid;page-break-inside:avoid;margin:0 0 12px}
-        table{width:100%;border-collapse:collapse;table-layout:fixed}
-        th,td{border:1px solid #1f2937;text-align:center;vertical-align:middle;padding:4px 5px;font-size:15px;line-height:1.15}
-        th{background:#08765e;color:white;font-weight:700;font-size:17px}
-        td.visual{width:190px;min-height:260px}
-        .visual .segment{font-size:24px;font-weight:800;margin:10px 0 18px}
-        .visual img{max-width:160px;max-height:230px;object-fit:contain}
-        .spec{font-size:20px;font-weight:800}
-        .num{font-size:18px}
-        .cut{background:#fff2cc;font-weight:800;font-size:20px}
-        .note{font-size:20px;font-weight:800;text-align:left;white-space:pre-line}
-        @media print{.toolbar{display:none}.page{padding:0}.cut-print-block{margin-bottom:8mm}}
-      </style></head>
-      <body>
-        <div class="toolbar"><div><b>PDF in dây cắt / 裁帶 PDF 列印</b><br><span>${esc(stamp)}，${fmtNum(blocks.length)} nhóm / 組</span></div><button onclick="window.print()">In / 列印</button></div>
-        <main class="page">${blocks.map(printBlockHtml).join('')}</main>
-      </body></html>`;
-  }
-
-  async function buildPdfPrintHtml(){
-    const byTemplate = new Map();
-    state.results.forEach(result => {
-      if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
-      byTemplate.get(result.templateId).push(result);
-    });
-    const blocks = [];
-    for(const [templateId, results] of byTemplate.entries()){
-      const template = state.templates.find(item => item.id === templateId);
-      const fileName = template?.fileName || results[0]?.fileName || '';
-      if(!/\.xlsx$/i.test(fileName)){
-        throw new Error(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}`);
-      }
-      const sourceFile = await cuttingStore.getTemplateFile(templateId);
-      if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
-      const buffer = await sourceFile.arrayBuffer();
-      const zip = await JSZip.loadAsync(buffer.slice(0));
-      const {sheets} = await getSheetPathMap(zip);
-      const imagesBySheet = await extractWorkbookImages(zip, sheets);
-      const workbook = XLSX.read(buffer, {type:'array', cellFormula:true, cellStyles:true});
-      blocks.push(...buildPrintBlocksFromWorkbook(workbook, template, results, imagesBySheet));
-    }
-    if(!blocks.length) throw new Error('Không có nhóm nào có mã hàng trong đơn.\n沒有任何組包含訂單款號。');
-    return buildPrintDocumentHtml(blocks);
-  }
-
-  async function fillTemplateZip(zip, template, results){
+  async function fillTemplateZip(zip, workbook, template, results){
     const {workbookDoc, sheets} = await getSheetPathMap(zip);
     const openedSheets = new Map();
+    const hiddenBySheet = buildHiddenRowMapForWorkbook(workbook, template, results);
     const plan = buildExportPlan(template, results);
     if(!plan.length) throw new Error('Không có ô SL:PO nào cần điền.\n沒有可填入的 SL:PO 儲存格。');
     for(const item of plan){
@@ -1274,9 +1056,19 @@
       const doc = openedSheets.get(path);
       const sheetData = xmlElements(doc, 'sheetData')[0];
       if(!sheetData) throw new Error(`Sheet không có dữ liệu: ${rowInfo.sheetName}\n工作表沒有資料：${rowInfo.sheetName}`);
-      const rowNumber = rowNumberFromAddress(rowInfo.qtyCell);
-      const cell = ensureCell(doc, ensureRow(doc, sheetData, rowNumber), rowInfo.qtyCell);
+      const cellAddr = item.cell || rowInfo.qtyCell;
+      const rowNumber = rowNumberFromAddress(cellAddr);
+      const cell = ensureCell(doc, ensureRow(doc, sheetData, rowNumber), cellAddr);
       setCellNumber(doc, cell, item.value);
+    }
+    for(const [sheetName, rows] of hiddenBySheet.entries()){
+      const path = sheets.get(sheetName);
+      if(!path) continue;
+      if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
+      const doc = openedSheets.get(path);
+      const sheetData = xmlElements(doc, 'sheetData')[0];
+      if(!sheetData) continue;
+      rows.forEach(rowNumber => setRowHidden(doc, sheetData, rowNumber, true));
     }
     forceWorkbookRecalc(workbookDoc);
     zip.file('xl/workbook.xml', serializeXml(workbookDoc));
@@ -1299,7 +1091,7 @@
     return `${base}_成品_${stamp}.xlsx`;
   }
 
-  async function cuttingExportFilledExcel(){
+  async function cuttingExportPdfExcel(){
     if(!state.results.length || state.results.some(r => r.status !== 'pass')){
       alert('Không thể xuất khi còn lỗi.\n仍有錯誤時不能匯出。');
       return;
@@ -1310,7 +1102,7 @@
     }
     const resultProblems = validateExportResults(state.results);
     if(resultProblems.length){
-      alert('Kiểm tra số lượng không đạt, không thể xuất.\n數量驗算未通過，不能匯出。\n\n' + resultProblems.slice(0, 8).join('\n'));
+      alert('Kiểm tra số lượng không đạt, không thể xuất Excel.\n數量驗算未通過，不能匯出 Excel。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
     const byTemplate = new Map();
@@ -1330,10 +1122,12 @@
         }
         const sourceFile = await cuttingStore.getTemplateFile(templateId);
         if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
-        const zip = await JSZip.loadAsync(await sourceFile.arrayBuffer());
-        await fillTemplateZip(zip, template, results);
+        const buffer = await sourceFile.arrayBuffer();
+        const workbook = XLSX.read(buffer, {type:'array', cellFormula:true, cellStyles:true});
+        const zip = await JSZip.loadAsync(buffer.slice(0));
+        await fillTemplateZip(zip, workbook, template, results);
         const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-        outputs.push({name: finishedExcelName(fileName, stamp), blob});
+        outputs.push({name: finishedExcelName(fileName, stamp).replace('_成品_', '_轉PDF_'), blob});
       }
       if(outputs.length === 1){
         downloadBlob(outputs[0].blob, outputs[0].name);
@@ -1343,45 +1137,11 @@
           pack.file(output.name, await output.blob.arrayBuffer());
         }
         const packBlob = await pack.generateAsync({type:'blob', mimeType:'application/zip'});
-        downloadBlob(packBlob, `裁帶成品_${stamp}.zip`);
+        downloadBlob(packBlob, `裁帶轉PDF_${stamp}.zip`);
       }
     }catch(e){
       console.error(e);
-      alert('Xuất Excel thành phẩm thất bại.\n匯出成品 Excel 失敗。\n\n' + e.message);
-    }
-  }
-
-  async function cuttingOpenPdfPrint(){
-    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
-      alert('Không thể tạo PDF khi còn lỗi.\n仍有錯誤時不能產生 PDF。');
-      return;
-    }
-    if(!window.JSZip){
-      alert('Thiếu công cụ đọc Excel, vui lòng tải lại trang rồi thử lại.\n缺少 Excel 讀取工具，請重新整理頁面後再試。');
-      return;
-    }
-    const resultProblems = validateExportResults(state.results);
-    if(resultProblems.length){
-      alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
-      return;
-    }
-    const printWindow = window.open('', '_blank');
-    if(!printWindow){
-      alert('Trình duyệt đã chặn cửa sổ in, vui lòng cho phép bật cửa sổ mới.\n瀏覽器已阻擋列印視窗，請允許開啟新視窗。');
-      return;
-    }
-    printWindow.document.write('<!doctype html><meta charset="utf-8"><body style="font-family:Arial,Microsoft JhengHei,sans-serif;padding:24px">Đang tạo PDF in...<br>正在產生 PDF 列印頁...</body>');
-    try{
-      const content = await buildPdfPrintHtml();
-      printWindow.document.open();
-      printWindow.document.write(content);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => printWindow.print(), 700);
-    }catch(e){
-      console.error(e);
-      printWindow.close();
-      alert('Tạo PDF in thất bại.\n產生 PDF 列印頁失敗。\n\n' + e.message);
+      alert('Xuất Excel chuyển PDF thất bại.\n匯出轉 PDF Excel 失敗。\n\n' + e.message);
     }
   }
 
@@ -1401,8 +1161,7 @@
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
-  window.cuttingExportFilledExcel = cuttingExportFilledExcel;
-  window.cuttingOpenPdfPrint = cuttingOpenPdfPrint;
+  window.cuttingExportPdfExcel = cuttingExportPdfExcel;
   window.cuttingInit = cuttingInit;
 
   window.addEventListener('DOMContentLoaded', cuttingInit);
