@@ -111,7 +111,7 @@ while ($listener.IsListening) {
 
     $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
     $body = $reader.ReadToEnd()
-    $payload = $body | ConvertFrom-Json -Depth 50
+    $payload = $body | ConvertFrom-Json
     if (-not $payload.templateBase64 -or -not $payload.writes) {
       Send-Text $response 400 '{"ok":false,"error":"BAD_REQUEST"}'
       continue
