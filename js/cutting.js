@@ -966,6 +966,19 @@
     }));
   }
 
+  function buildLocalPdfOrderCells(results){
+    const cells = [];
+    results.forEach(result => {
+      (result.rows || []).forEach(rowInfo => {
+        cells.push({
+          sheetName: rowInfo.sheetName,
+          cell: rowInfo.qtyCell
+        });
+      });
+    });
+    return cells;
+  }
+
   async function cuttingCreateLocalPdf(){
     if(!state.results.length || state.results.some(r => r.status !== 'pass')){
       alert('Không thể tạo PDF khi còn lỗi.\n仍有錯誤時不能產生 PDF。');
@@ -1000,7 +1013,8 @@
         fileName,
         outputName: localPdfName(fileName),
         templateBase64: arrayBufferToBase64(buffer),
-        writes: buildLocalPdfWrites(template, results)
+        writes: buildLocalPdfWrites(template, results),
+        orderCells: buildLocalPdfOrderCells(results)
       };
       const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
         method: 'POST',
