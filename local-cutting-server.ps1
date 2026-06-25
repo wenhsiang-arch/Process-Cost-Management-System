@@ -337,11 +337,17 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
     $detailStart = $outRow + 1
     $detailEnd = $detailStart + $itemCount - 1
 
+    Set-CuttingStage 'render_group_row_height' "index=$($groupIndex + 1); headerRow=$headerRow; detailRows=$detailStart-$detailEnd; detailHeight=$detailHeight"
     $outSheet.Rows.Item($headerRow).RowHeight = $headerHeight
-    for ($r = $detailStart; $r -le $detailEnd; $r++) { $outSheet.Rows.Item($r).RowHeight = $detailHeight }
+    for ($r = $detailStart; $r -le $detailEnd; $r++) {
+      Set-CuttingStage 'render_group_detail_row_height' "index=$($groupIndex + 1); row=$r; height=$detailHeight"
+      $outSheet.Rows.Item($r).RowHeight = $detailHeight
+    }
 
+    Set-CuttingStage 'render_group_headers' "index=$($groupIndex + 1); row=$headerRow"
     $headers = @($group.Title, 'QUY CACH DAY', 'MA HANG', 'MAU', 'QUY CACH CAT', 'SL:PO PCS', 'SO KIEN', 'SL:CAT THUC TE', 'SL: THIEU LIEU', 'GHI CHU')
     for ($c = 1; $c -le 10; $c++) {
+      Set-CuttingStage 'render_group_header_cell' "index=$($groupIndex + 1); row=$headerRow; col=$c"
       $cell = $outSheet.Cells.Item($headerRow, $c)
       $cell.Value2 = $headers[$c - 1]
       $cell.Interior.Color = 0x5B7F3A
@@ -350,38 +356,47 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
       Release-Com $cell
     }
 
+    Set-CuttingStage 'render_group_merge_cells' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
     foreach ($col in @(1,2,4,5,8,9,10)) {
+      Set-CuttingStage 'render_group_merge_column' "index=$($groupIndex + 1); col=$col; rows=$detailStart-$detailEnd"
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       $range.Merge() | Out-Null
       Release-Com $range
     }
 
+    Set-CuttingStage 'render_group_write_values' "index=$($groupIndex + 1); row=$detailStart"
     $outSheet.Cells.Item($detailStart, 2).Value2 = [string]$group.Belt
     $outSheet.Cells.Item($detailStart, 4).Value2 = [string]$group.Color
     $outSheet.Cells.Item($detailStart, 5).Value2 = [string]$group.CutSpec
     $outSheet.Cells.Item($detailStart, 8).Value2 = [double]$group.TotalCut
     $outSheet.Cells.Item($detailStart, 10).Value2 = [string]$group.Note
 
+    Set-CuttingStage 'render_group_write_items' "index=$($groupIndex + 1); items=$itemCount"
     for ($i = 0; $i -lt $itemCount; $i++) {
       $row = $detailStart + $i
       if ($i -lt $group.Items.Count) {
         $item = $group.Items[$i]
+        Set-CuttingStage 'render_group_write_item_row' "index=$($groupIndex + 1); row=$row; code=$($item.Code); qty=$($item.Qty); piece=$($item.Piece)"
         $outSheet.Cells.Item($row, 3).Value2 = [string]$item.Code
         $outSheet.Cells.Item($row, 6).Value2 = [double]$item.Qty
         $outSheet.Cells.Item($row, 7).Value2 = [double]$item.Piece
       }
     }
 
+    Set-CuttingStage 'render_group_style_block' "index=$($groupIndex + 1); rows=$startRow-$detailEnd"
     $block = $outSheet.Range($outSheet.Cells.Item($startRow, 1), $outSheet.Cells.Item($detailEnd, 10))
     $block.Borders.LineStyle = 1
     $block.Borders.Weight = 2
     Set-CellStyle $block 12 $false
     Release-Com $block
+    Set-CuttingStage 'render_group_style_big_columns' "index=$($groupIndex + 1)"
     foreach ($col in @(2,4,5,8,10)) {
+      Set-CuttingStage 'render_group_style_big_column' "index=$($groupIndex + 1); col=$col; rows=$detailStart-$detailEnd"
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       Set-CellStyle $range 18 $true
       Release-Com $range
     }
+    Set-CuttingStage 'render_group_style_code_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount"
     $codeRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
     Set-CellStyle $codeRange ([Math]::Max(5, [Math]::Min(9, [int](95 / $itemCount)))) $false
     Release-Com $codeRange
