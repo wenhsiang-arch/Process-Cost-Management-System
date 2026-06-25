@@ -1025,17 +1025,21 @@
         let msg = '';
         try{
           const data = await response.json();
-          msg = data.error || response.statusText;
+          const parts = [];
+          if(data.stage) parts.push(`Giai đoạn / 階段：${data.stage}`);
+          if(data.detail) parts.push(`Chi tiết / 細節：${data.detail}`);
+          if(data.error) parts.push(`Lỗi / 錯誤：${data.error}`);
+          msg = parts.join('\n') || response.statusText;
         }catch(_){
           msg = response.statusText;
         }
-        throw new Error(msg || 'Local PDF server error / 本機 PDF 後台錯誤');
+        throw new Error(msg || 'Lỗi máy tạo PDF / 本機 PDF 後台錯誤');
       }
       const pdfBlob = await response.blob();
       downloadBlob(pdfBlob, payload.outputName);
     }catch(e){
       console.error(e);
-      alert('Tạo PDF thất bại. Vui lòng kiểm tra local server đã chạy.\n產生 PDF 失敗，請確認本機後台已啟動。\n\n' + e.message);
+      alert('Tạo PDF thất bại. Vui lòng chụp thông báo này để kiểm tra.\n產生 PDF 失敗，請截圖此訊息方便排查。\n\n' + e.message);
     }
   }
 

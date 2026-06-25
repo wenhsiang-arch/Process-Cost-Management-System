@@ -18,6 +18,19 @@ function Send-Text($response, [int]$statusCode, [string]$text, [string]$contentT
   $response.Close()
 }
 
+function Send-Json($response, [int]$statusCode, $data) {
+  $json = $data | ConvertTo-Json -Compress -Depth 6
+  Send-Text $response $statusCode $json
+}
+
+$script:CuttingStage = ''
+$script:CuttingDetail = ''
+
+function Set-CuttingStage([string]$stage, [string]$detail = '') {
+  $script:CuttingStage = $stage
+  $script:CuttingDetail = $detail
+}
+
 function Send-File($response, [string]$path, [string]$fileName) {
   $bytes = [System.IO.File]::ReadAllBytes($path)
   $safeName = $fileName -replace '[\\/:*?"<>|]', '_'
@@ -228,9 +241,11 @@ function Get-CompactGroups($workbook, $payload) {
   $orderRowsBySheet = Get-OrderRowsBySheet $payload
   $groupsOut = @()
   foreach ($sheetName in $orderRowsBySheet.Keys) {
+    Set-CuttingStage 'analyze_groups' "sheet=$sheetName"
     $sheet = $workbook.Worksheets.Item([string]$sheetName)
     $groups = Get-GroupRanges $sheet
     foreach ($group in $groups) {
+      Set-CuttingStage 'analyze_group_range' "sheet=$sheetName; rows=$($group.Start)-$($group.End)"
       $hasOrder = $false
       foreach ($row in $orderRowsBySheet[$sheetName]) {
         if ($row -ge $group.Start -and $row -le $group.End) { $hasOrder = $true; break }
@@ -242,6 +257,7 @@ function Get-CompactGroups($workbook, $payload) {
       $colors = New-Object System.Collections.Generic.List[string]
       $totalCut = 0.0
       for ($row = $group.Start + 1; $row -le $group.End; $row++) {
+        Set-CuttingStage 'read_group_items' "sheet=$sheetName; row=$row"
         $code = (Get-CellText $sheet $row $cols.Code).Trim()
         if (-not (Is-ItemCode $code)) { continue }
         $color = if ($cols.Color -gt 0) { (Get-CellText $sheet $row $cols.Color).Trim() } else { '' }
@@ -256,6 +272,7 @@ function Get-CompactGroups($workbook, $payload) {
       $cutSpec = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.CutSpec
       $note = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Note
       $title = Get-CellText $sheet $group.Start 1
+      Set-CuttingStage 'find_group_image' "sheet=$sheetName; rows=$($group.Start)-$($group.End); title=$title"
       $image = Find-GroupImage $sheet $group.Start $group.End
       $groupsOut += [PSCustomObject]@{
         Sheet = $sheet; Title = $title; Belt = $belt; Color = ($colors -join ' / ');
@@ -276,9 +293,11 @@ function Set-CellStyle($range, [int]$fontSize, [bool]$bold) {
 }
 
 function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
+  Set-CuttingStage 'collect_groups' 'read matched template groups'
   $groups = Get-CompactGroups $sourceWorkbook $payload
   if (-not $groups -or $groups.Count -eq 0) { throw '沒有任何有訂單數量的組可輸出。' }
 
+  Set-CuttingStage 'create_print_workbook' "groups=$($groups.Count)"
   $outBook = $excel.Workbooks.Add()
   $outSheet = $outBook.Worksheets.Item(1)
   $outSheet.Name = 'PDF_PRINT'
@@ -307,6 +326,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
   $outRow = 1
   $groupIndex = 0
   foreach ($group in $groups) {
+    Set-CuttingStage 'render_group' "index=$($groupIndex + 1); title=$($group.Title); items=$($group.Items.Count)"
     if ($groupIndex -gt 0 -and ($groupIndex % 6) -eq 0) {
       try { $outSheet.HPageBreaks.Add($outSheet.Rows.Item($outRow)) | Out-Null } catch {}
     }
@@ -366,11 +386,13 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
     Set-CellStyle $codeRange ([Math]::Max(5, [Math]::Min(9, [int](95 / $itemCount)))) $false
     Release-Com $codeRange
 
+    Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
     Copy-GroupImage $group.Image $outSheet $detailStart $detailEnd
     $outRow = $detailEnd + 1
     $groupIndex++
   }
 
+  Set-CuttingStage 'set_print_area' "rows=$($outRow - 1)"
   $used = $outSheet.UsedRange
   $outSheet.PageSetup.PrintArea = $used.Address()
   Release-Com $used
@@ -378,12 +400,15 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
 }
 
 function New-CuttingPdf($payload) {
+  Set-CuttingStage 'prepare_temp_files' 'create temp files'
   $root = Join-Path $env:TEMP ("cutting-pdf-" + [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $root | Out-Null
   $templatePath = Join-Path $root 'template_original.xlsx'
   $workPath = Join-Path $root 'template_work.xlsx'
   $pdfPath = Join-Path $root 'cutting_output.pdf'
+  Set-CuttingStage 'decode_template' 'read templateBase64'
   $templateBytes = [Convert]::FromBase64String([string]$payload.templateBase64)
+  Set-CuttingStage 'write_temp_template' "path=$templatePath"
   [System.IO.File]::WriteAllBytes($templatePath, $templateBytes)
   Copy-Item -LiteralPath $templatePath -Destination $workPath
 
@@ -391,21 +416,26 @@ function New-CuttingPdf($payload) {
   $workbook = $null
   $printWorkbook = $null
   try {
+    Set-CuttingStage 'start_excel' 'create Excel COM application'
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
     $excel.DisplayAlerts = $false
     $excel.EnableEvents = $false
 
+    Set-CuttingStage 'open_workbook' "path=$workPath"
     $workbook = $excel.Workbooks.Open($workPath, $null, $false)
     foreach ($write in $payload.writes) {
       $sheetName = [string]$write.sheetName
       $cell = [string]$write.cell
       $value = Convert-ToSafeDouble $write.value
+      Set-CuttingStage 'write_cell' "sheet=$sheetName; cell=$cell; value=$value"
       $sheet = $workbook.Worksheets.Item($sheetName)
       $sheet.Range($cell).Value2 = $value
       Release-Com $sheet
     }
+    Set-CuttingStage 'build_compact_pdf_sheet' 'create compact print layout'
     $printWorkbook = Build-CompactWorkbook $excel $workbook $payload
+    Set-CuttingStage 'export_pdf' "path=$pdfPath"
     $printWorkbook.ExportAsFixedFormat(0, $pdfPath)
     $printWorkbook.Close($false)
     Release-Com $printWorkbook
@@ -445,6 +475,7 @@ while ($listener.IsListening) {
   $request = $context.Request
   $response = $context.Response
   try {
+    Set-CuttingStage 'receive_request' $request.Url.AbsolutePath
     if ($request.HttpMethod -eq 'OPTIONS') {
       Send-Text $response 204 ''
       continue
@@ -459,7 +490,9 @@ while ($listener.IsListening) {
     }
 
     $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
+    Set-CuttingStage 'read_request_body' 'read JSON body'
     $body = $reader.ReadToEnd()
+    Set-CuttingStage 'parse_request_json' 'ConvertFrom-Json'
     $payload = $body | ConvertFrom-Json
     if (-not $payload.templateBase64 -or -not $payload.writes) {
       Send-Text $response 400 '{"ok":false,"error":"BAD_REQUEST"}'
@@ -469,7 +502,12 @@ while ($listener.IsListening) {
     $name = if ($payload.outputName) { [string]$payload.outputName } else { 'cutting.pdf' }
     Send-File $response $pdfPath $name
   } catch {
-    $message = ($_.Exception.Message -replace '\\', '\\' -replace '"', '\"' -replace "`r?`n", ' ')
-    Send-Text $response 500 "{""ok"":false,""error"":""$message""}"
+    $message = ($_.Exception.Message -replace "`r?`n", ' ')
+    Send-Json $response 500 @{
+      ok = $false
+      error = $message
+      stage = $script:CuttingStage
+      detail = $script:CuttingDetail
+    }
   }
 }
