@@ -1,4 +1,4 @@
-param(
+﻿param(
   [int]$Port = 8765
 )
 
@@ -127,6 +127,31 @@ function Get-CellText($sheet, [int]$row, [int]$col) {
   return $text
 }
 
+function Convert-ToSafeDouble($value) {
+  if ($null -eq $value) { return 0.0 }
+  if ($value -is [byte] -or $value -is [int16] -or $value -is [int32] -or $value -is [int64] -or $value -is [single] -or $value -is [double] -or $value -is [decimal]) {
+    return [double]$value
+  }
+  $text = ([string]$value).Trim()
+  if (-not $text) { return 0.0 }
+  $text = $text -replace ',', ''
+  $number = 0.0
+  $style = [Globalization.NumberStyles]::Float -bor [Globalization.NumberStyles]::AllowThousands
+  if ([double]::TryParse($text, $style, [Globalization.CultureInfo]::InvariantCulture, [ref]$number)) { return $number }
+  if ([double]::TryParse($text, $style, [Globalization.CultureInfo]::CurrentCulture, [ref]$number)) { return $number }
+  return 0.0
+}
+
+function Get-CellNumber($sheet, [int]$row, [int]$col) {
+  if ($col -le 0) { return 0.0 }
+  $cell = $sheet.Cells.Item($row, $col)
+  try {
+    return Convert-ToSafeDouble $cell.Value2
+  } finally {
+    Release-Com $cell
+  }
+}
+
 function Find-HeaderColumns($sheet, [int]$row) {
   $used = $sheet.UsedRange
   $firstCol = [int]$used.Column
@@ -221,9 +246,9 @@ function Get-CompactGroups($workbook, $payload) {
         if (-not (Is-ItemCode $code)) { continue }
         $color = if ($cols.Color -gt 0) { (Get-CellText $sheet $row $cols.Color).Trim() } else { '' }
         if ($color -and -not $colors.Contains($color)) { $colors.Add($color) }
-        $qty = if ($cols.Qty -gt 0) { [double]($sheet.Cells.Item($row, $cols.Qty).Value2) } else { 0.0 }
-        $piece = if ($cols.Piece -gt 0) { [double]($sheet.Cells.Item($row, $cols.Piece).Value2) } else { 0.0 }
-        $cut = if ($cols.Total -gt 0) { [double]($sheet.Cells.Item($row, $cols.Total).Value2) } else { ($qty * $piece) }
+        $qty = Get-CellNumber $sheet $row $cols.Qty
+        $piece = Get-CellNumber $sheet $row $cols.Piece
+        $cut = if ($cols.Total -gt 0) { Get-CellNumber $sheet $row $cols.Total } else { ($qty * $piece) }
         $totalCut += $cut
         $items += [PSCustomObject]@{ Code = $code; Qty = $qty; Piece = $piece }
       }
@@ -375,7 +400,7 @@ function New-CuttingPdf($payload) {
     foreach ($write in $payload.writes) {
       $sheetName = [string]$write.sheetName
       $cell = [string]$write.cell
-      $value = [double]$write.value
+      $value = Convert-ToSafeDouble $write.value
       $sheet = $workbook.Worksheets.Item($sheetName)
       $sheet.Range($cell).Value2 = $value
       Release-Com $sheet
