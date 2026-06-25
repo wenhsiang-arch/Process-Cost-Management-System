@@ -120,69 +120,236 @@ function Get-OrderRowsBySheet($payload) {
   return $map
 }
 
-function Get-GroupHeight($sheet, [int]$startRow, [int]$endRow) {
-  $height = 0.0
-  for ($row = $startRow; $row -le $endRow; $row++) {
-    $height += [double]$sheet.Rows.Item($row).RowHeight
+function Get-CellText($sheet, [int]$row, [int]$col) {
+  $cell = $sheet.Cells.Item($row, $col)
+  $text = [string]$cell.Text
+  Release-Com $cell
+  return $text
+}
+
+function Find-HeaderColumns($sheet, [int]$row) {
+  $used = $sheet.UsedRange
+  $firstCol = [int]$used.Column
+  $lastCol = $firstCol + [int]$used.Columns.Count - 1
+  Release-Com $used
+  $cols = @{
+    Code = 0; Color = 0; Qty = 0; Piece = 0; Total = 0; Note = 0; Belt = 0; CutSpec = 0
   }
-  return $height
+  for ($col = $firstCol; $col -le $lastCol; $col++) {
+    $text = Normalize-HeaderText (Get-CellText $sheet $row $col)
+    if ($cols.Code -eq 0 -and ($text.Contains('MAHANG') -or $text.Contains('ITEMNO') -or $text.Contains('ITEM'))) { $cols.Code = $col }
+    if ($cols.Color -eq 0 -and ($text.Contains('MAU') -or $text.Contains('COLOR'))) { $cols.Color = $col }
+    if ($cols.Qty -eq 0 -and ($text.Contains('SLPO') -or $text.Contains('SL:PO') -or $text.Contains('QTY') -or $text.Contains('PCS'))) { $cols.Qty = $col }
+    if ($cols.Piece -eq 0 -and ($text.Contains('SOKIEN') -or $text.Contains('SOBO'))) { $cols.Piece = $col }
+    if ($cols.Total -eq 0 -and (($text.Contains('SLCAT') -or $text.Contains('THUCTE')))) { $cols.Total = $col }
+    if ($cols.Note -eq 0 -and ($text.Contains('GHICHU') -or $text.Contains('NOTE'))) { $cols.Note = $col }
+    if ($cols.Belt -eq 0 -and ($text.Contains('QUYCACH') -and ($text.Contains('DAY') -or $text.Contains('DAI') -or $text.Contains('THUNG')))) { $cols.Belt = $col }
+    if ($cols.CutSpec -eq 0 -and ($text.Contains('QUYCACH') -and $text.Contains('CAT'))) { $cols.CutSpec = $col }
+  }
+  if ($cols.Color -eq 0 -and $cols.Code -gt 0) { $cols.Color = $cols.Code + 1 }
+  if ($cols.CutSpec -eq 0 -and $cols.Qty -gt 1) { $cols.CutSpec = $cols.Qty - 1 }
+  return $cols
 }
 
-function Set-RowRangeHidden($sheet, [int]$startRow, [int]$endRow, [bool]$hidden) {
-  $range = $sheet.Range("A$($startRow):A$($endRow)").EntireRow
-  $range.Hidden = $hidden
-  Release-Com $range
+function Is-ItemCode([string]$text) {
+  $code = ($text.Trim().ToUpperInvariant() -replace '[^\w-]', '')
+  return ($code -match '^[A-Z]{1,6}\d{2,}[-A-Z0-9]*$')
 }
 
-function Format-SheetForPdf($sheet, $orderRows) {
-  $xlLandscape = 2
-  $xlPaperA4 = 9
-  $sheet.PageSetup.Orientation = $xlLandscape
-  $sheet.PageSetup.PaperSize = $xlPaperA4
-  $sheet.PageSetup.Zoom = $false
-  $sheet.PageSetup.FitToPagesWide = 1
-  $sheet.PageSetup.FitToPagesTall = $false
-  $sheet.PageSetup.TopMargin = 18
-  $sheet.PageSetup.BottomMargin = 18
-  $sheet.PageSetup.LeftMargin = 18
-  $sheet.PageSetup.RightMargin = 18
-  try { $sheet.ResetAllPageBreaks() } catch {}
+function First-NonEmptyInColumn($sheet, [int]$startRow, [int]$endRow, [int]$col) {
+  if ($col -le 0) { return '' }
+  for ($row = $startRow; $row -le $endRow; $row++) {
+    $text = (Get-CellText $sheet $row $col).Trim()
+    if ($text) { return $text }
+  }
+  return ''
+}
 
-  $groups = Get-GroupRanges $sheet
-  if (-not $groups -or $groups.Count -eq 0) { return }
+function Find-GroupImage($sheet, [int]$startRow, [int]$endRow) {
+  try {
+    for ($i = 1; $i -le $sheet.Shapes.Count; $i++) {
+      $shape = $sheet.Shapes.Item($i)
+      $topRow = [int]$shape.TopLeftCell.Row
+      $bottomRow = [int]$shape.BottomRightCell.Row
+      if ($topRow -le $endRow -and $bottomRow -ge $startRow) {
+        return $shape
+      }
+      Release-Com $shape
+    }
+  } catch {}
+  return $null
+}
 
-  $keepGroups = @()
-  foreach ($group in $groups) {
-    $hasOrder = $false
-    foreach ($row in $orderRows) {
-      if ($row -ge $group.Start -and $row -le $group.End) {
-        $hasOrder = $true
-        break
+function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow) {
+  if ($null -eq $sourceShape) { return }
+  try {
+    $frame = $targetSheet.Range("A$($startRow):A$($endRow)")
+    $sourceShape.Copy()
+    $targetSheet.Paste() | Out-Null
+    $shape = $targetSheet.Shapes.Item($targetSheet.Shapes.Count)
+    $shape.LockAspectRatio = -1
+    $maxWidth = [double]$frame.Width - 8
+    $maxHeight = [double]$frame.Height - 8
+    if ($shape.Width -gt $maxWidth) { $shape.Width = $maxWidth }
+    if ($shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
+    $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
+    $shape.Top = [double]$frame.Top + (([double]$frame.Height - [double]$shape.Height) / 2)
+    Release-Com $shape
+    Release-Com $frame
+  } catch {}
+}
+
+function Get-CompactGroups($workbook, $payload) {
+  $orderRowsBySheet = Get-OrderRowsBySheet $payload
+  $groupsOut = @()
+  foreach ($sheetName in $orderRowsBySheet.Keys) {
+    $sheet = $workbook.Worksheets.Item([string]$sheetName)
+    $groups = Get-GroupRanges $sheet
+    foreach ($group in $groups) {
+      $hasOrder = $false
+      foreach ($row in $orderRowsBySheet[$sheetName]) {
+        if ($row -ge $group.Start -and $row -le $group.End) { $hasOrder = $true; break }
+      }
+      if (-not $hasOrder) { continue }
+      $cols = Find-HeaderColumns $sheet $group.Start
+      if ($cols.Code -le 0) { continue }
+      $items = @()
+      $colors = New-Object System.Collections.Generic.List[string]
+      $totalCut = 0.0
+      for ($row = $group.Start + 1; $row -le $group.End; $row++) {
+        $code = (Get-CellText $sheet $row $cols.Code).Trim()
+        if (-not (Is-ItemCode $code)) { continue }
+        $color = if ($cols.Color -gt 0) { (Get-CellText $sheet $row $cols.Color).Trim() } else { '' }
+        if ($color -and -not $colors.Contains($color)) { $colors.Add($color) }
+        $qty = if ($cols.Qty -gt 0) { [double]($sheet.Cells.Item($row, $cols.Qty).Value2) } else { 0.0 }
+        $piece = if ($cols.Piece -gt 0) { [double]($sheet.Cells.Item($row, $cols.Piece).Value2) } else { 0.0 }
+        $cut = if ($cols.Total -gt 0) { [double]($sheet.Cells.Item($row, $cols.Total).Value2) } else { ($qty * $piece) }
+        $totalCut += $cut
+        $items += [PSCustomObject]@{ Code = $code; Qty = $qty; Piece = $piece }
+      }
+      $belt = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Belt
+      $cutSpec = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.CutSpec
+      $note = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Note
+      $title = Get-CellText $sheet $group.Start 1
+      $image = Find-GroupImage $sheet $group.Start $group.End
+      $groupsOut += [PSCustomObject]@{
+        Sheet = $sheet; Title = $title; Belt = $belt; Color = ($colors -join ' / ');
+        CutSpec = $cutSpec; Note = $note; Items = $items; TotalCut = $totalCut; Image = $image
       }
     }
-    if ($hasOrder) { $keepGroups += $group }
+    Release-Com $sheet
+  }
+  return $groupsOut
+}
+
+function Set-CellStyle($range, [int]$fontSize, [bool]$bold) {
+  $range.HorizontalAlignment = -4108
+  $range.VerticalAlignment = -4108
+  $range.WrapText = $true
+  $range.Font.Size = $fontSize
+  $range.Font.Bold = $bold
+}
+
+function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
+  $groups = Get-CompactGroups $sourceWorkbook $payload
+  if (-not $groups -or $groups.Count -eq 0) { throw '沒有任何有訂單數量的組可輸出。' }
+
+  $outBook = $excel.Workbooks.Add()
+  $outSheet = $outBook.Worksheets.Item(1)
+  $outSheet.Name = 'PDF_PRINT'
+  while ($outBook.Worksheets.Count -gt 1) {
+    $extra = $outBook.Worksheets.Item($outBook.Worksheets.Count)
+    $extra.Delete()
+    Release-Com $extra
   }
 
+  $cols = @(13, 10, 13, 12, 9, 8, 7, 9, 7, 12)
+  for ($i = 0; $i -lt $cols.Count; $i++) { $outSheet.Columns.Item($i + 1).ColumnWidth = $cols[$i] }
+  $outSheet.PageSetup.Orientation = 1
+  $outSheet.PageSetup.PaperSize = 9
+  $outSheet.PageSetup.Zoom = $false
+  $outSheet.PageSetup.FitToPagesWide = 1
+  $outSheet.PageSetup.FitToPagesTall = $false
+  $outSheet.PageSetup.TopMargin = 0
+  $outSheet.PageSetup.BottomMargin = 0
+  $outSheet.PageSetup.LeftMargin = 0
+  $outSheet.PageSetup.RightMargin = 0
+  $outSheet.PageSetup.HeaderMargin = 0
+  $outSheet.PageSetup.FooterMargin = 0
+
+  $groupHeight = 140.3
+  $headerHeight = 22.0
+  $outRow = 1
+  $groupIndex = 0
   foreach ($group in $groups) {
-    if ($keepGroups -notcontains $group) {
-      Set-RowRangeHidden $sheet $group.Start $group.End $true
-    } else {
-      Set-RowRangeHidden $sheet $group.Start $group.End $false
+    if ($groupIndex -gt 0 -and ($groupIndex % 6) -eq 0) {
+      try { $outSheet.HPageBreaks.Add($outSheet.Rows.Item($outRow)) | Out-Null } catch {}
     }
+    $itemCount = [Math]::Max(1, $group.Items.Count)
+    $detailHeight = ($groupHeight - $headerHeight) / $itemCount
+    $startRow = $outRow
+    $headerRow = $outRow
+    $detailStart = $outRow + 1
+    $detailEnd = $detailStart + $itemCount - 1
+
+    $outSheet.Rows.Item($headerRow).RowHeight = $headerHeight
+    for ($r = $detailStart; $r -le $detailEnd; $r++) { $outSheet.Rows.Item($r).RowHeight = $detailHeight }
+
+    $headers = @($group.Title, 'QUY CACH DAY', 'MA HANG', 'MAU', 'QUY CACH CAT', 'SL:PO PCS', 'SO KIEN', 'SL:CAT THUC TE', 'SL: THIEU LIEU', 'GHI CHU')
+    for ($c = 1; $c -le 10; $c++) {
+      $cell = $outSheet.Cells.Item($headerRow, $c)
+      $cell.Value2 = $headers[$c - 1]
+      $cell.Interior.Color = 0x5B7F3A
+      $cell.Font.Color = 0xFFFFFF
+      Set-CellStyle $cell 11 $true
+      Release-Com $cell
+    }
+
+    foreach ($col in @(1,2,4,5,8,9,10)) {
+      $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
+      $range.Merge() | Out-Null
+      Release-Com $range
+    }
+
+    $outSheet.Cells.Item($detailStart, 2).Value2 = [string]$group.Belt
+    $outSheet.Cells.Item($detailStart, 4).Value2 = [string]$group.Color
+    $outSheet.Cells.Item($detailStart, 5).Value2 = [string]$group.CutSpec
+    $outSheet.Cells.Item($detailStart, 8).Value2 = [double]$group.TotalCut
+    $outSheet.Cells.Item($detailStart, 10).Value2 = [string]$group.Note
+
+    for ($i = 0; $i -lt $itemCount; $i++) {
+      $row = $detailStart + $i
+      if ($i -lt $group.Items.Count) {
+        $item = $group.Items[$i]
+        $outSheet.Cells.Item($row, 3).Value2 = [string]$item.Code
+        $outSheet.Cells.Item($row, 6).Value2 = [double]$item.Qty
+        $outSheet.Cells.Item($row, 7).Value2 = [double]$item.Piece
+      }
+    }
+
+    $block = $outSheet.Range($outSheet.Cells.Item($startRow, 1), $outSheet.Cells.Item($detailEnd, 10))
+    $block.Borders.LineStyle = 1
+    $block.Borders.Weight = 2
+    Set-CellStyle $block 12 $false
+    Release-Com $block
+    foreach ($col in @(2,4,5,8,10)) {
+      $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
+      Set-CellStyle $range 18 $true
+      Release-Com $range
+    }
+    $codeRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
+    Set-CellStyle $codeRange ([Math]::Max(5, [Math]::Min(9, [int](95 / $itemCount)))) $false
+    Release-Com $codeRange
+
+    Copy-GroupImage $group.Image $outSheet $detailStart $detailEnd
+    $outRow = $detailEnd + 1
+    $groupIndex++
   }
 
-  $usableHeight = 595.0 - [double]$sheet.PageSetup.TopMargin - [double]$sheet.PageSetup.BottomMargin
-  $currentHeight = 0.0
-  $isFirst = $true
-  foreach ($group in $keepGroups) {
-    $groupHeight = Get-GroupHeight $sheet $group.Start $group.End
-    if (-not $isFirst -and ($currentHeight + $groupHeight) -gt $usableHeight) {
-      try { $sheet.HPageBreaks.Add($sheet.Rows.Item($group.Start)) | Out-Null } catch {}
-      $currentHeight = 0.0
-    }
-    $currentHeight += $groupHeight
-    $isFirst = $false
-  }
+  $used = $outSheet.UsedRange
+  $outSheet.PageSetup.PrintArea = $used.Address()
+  Release-Com $used
+  return $outBook
 }
 
 function New-CuttingPdf($payload) {
@@ -197,6 +364,7 @@ function New-CuttingPdf($payload) {
 
   $excel = $null
   $workbook = $null
+  $printWorkbook = $null
   try {
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
@@ -212,13 +380,11 @@ function New-CuttingPdf($payload) {
       $sheet.Range($cell).Value2 = $value
       Release-Com $sheet
     }
-    $orderRowsBySheet = Get-OrderRowsBySheet $payload
-    foreach ($sheetName in $orderRowsBySheet.Keys) {
-      $sheet = $workbook.Worksheets.Item([string]$sheetName)
-      Format-SheetForPdf $sheet $orderRowsBySheet[$sheetName]
-      Release-Com $sheet
-    }
-    $workbook.ExportAsFixedFormat(0, $pdfPath)
+    $printWorkbook = Build-CompactWorkbook $excel $workbook $payload
+    $printWorkbook.ExportAsFixedFormat(0, $pdfPath)
+    $printWorkbook.Close($false)
+    Release-Com $printWorkbook
+    $printWorkbook = $null
     $workbook.Close($false)
     Release-Com $workbook
     $workbook = $null
@@ -227,6 +393,10 @@ function New-CuttingPdf($payload) {
     $excel = $null
     return $pdfPath
   } finally {
+    if ($null -ne $printWorkbook) {
+      try { $printWorkbook.Close($false) } catch {}
+      Release-Com $printWorkbook
+    }
     if ($null -ne $workbook) {
       try { $workbook.Close($false) } catch {}
       Release-Com $workbook
