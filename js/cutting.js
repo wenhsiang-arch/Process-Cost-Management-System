@@ -977,36 +977,37 @@
     return found.sort((a, b) => a - b);
   }
 
-  function setWorkbookCellNumber(workbook, sheetName, cellAddr, value){
-    const ws = workbook.Sheets[sheetName];
-    if(!ws) return;
-    const cell = ws[cellAddr] || {};
-    ws[cellAddr] = {...cell, t:'n', v:Number(value || 0), w:undefined, f:undefined};
+  function findXmlCell(doc, cellAddr){
+    return xmlElements(doc, 'c').find(cell => cell.getAttribute('r') === cellAddr);
   }
 
-  function hideWorkbookRows(workbook, hiddenBySheet){
-    for(const [sheetName, rows] of hiddenBySheet.entries()){
-      const ws = workbook.Sheets[sheetName];
-      if(!ws) continue;
-      ws['!rows'] = ws['!rows'] || [];
-      rows.forEach(rowNumber => {
-        const index = rowNumber - 1;
-        ws['!rows'][index] = {...(ws['!rows'][index] || {}), hidden:true};
-      });
-    }
+  function setXmlCellNumber(doc, cell, value){
+    cell.removeAttribute('t');
+    Array.from(cell.childNodes).forEach(node => {
+      if(node.nodeType === 1 && ['f','v','is'].includes(node.localName)) cell.removeChild(node);
+    });
+    const v = doc.createElementNS(XLSX_MAIN_NS, 'v');
+    v.textContent = String(Number(value || 0));
+    cell.appendChild(v);
   }
 
-  function fillWorkbookForPdf(workbook, template, results){
-    const hiddenBySheet = buildHiddenRowMapForWorkbook(workbook, template, results);
+  async function fillTemplateZip(zip, template, results){
+    const {sheets} = await getSheetPathMap(zip);
+    const openedSheets = new Map();
     const plan = buildExportPlan(template, results);
     if(!plan.length) throw new Error('Không có ô SL:PO nào cần điền.\n沒有可填入的 SL:PO 儲存格。');
     for(const item of plan){
       const rowInfo = item.rowInfo;
       const cellAddr = item.cell || rowInfo.qtyCell;
-      setWorkbookCellNumber(workbook, rowInfo.sheetName, cellAddr, item.value);
+      const path = sheets.get(rowInfo.sheetName);
+      if(!path) throw new Error(`Không tìm thấy sheet: ${rowInfo.sheetName}\n找不到工作表：${rowInfo.sheetName}`);
+      if(!openedSheets.has(path)) openedSheets.set(path, await readXml(zip, path));
+      const doc = openedSheets.get(path);
+      const cell = findXmlCell(doc, cellAddr);
+      if(!cell) continue;
+      setXmlCellNumber(doc, cell, item.value);
     }
-    hideWorkbookRows(workbook, hiddenBySheet);
-    return workbook;
+    openedSheets.forEach((doc, path) => zip.file(path, serializeXml(doc)));
   }
 
   function downloadBlob(blob, fileName){
@@ -1030,7 +1031,7 @@
       alert('Không thể xuất khi còn lỗi.\n仍有錯誤時不能匯出。');
       return;
     }
-    if(!window.XLSX){
+    if(!window.JSZip){
       alert('Thiếu công cụ đọc Excel, vui lòng tải lại trang rồi thử lại.\n缺少 Excel 讀取工具，請重新整理頁面後再試。');
       return;
     }
@@ -1057,10 +1058,9 @@
         const sourceFile = await cuttingStore.getTemplateFile(templateId);
         if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
         const buffer = await sourceFile.arrayBuffer();
-        const workbook = XLSX.read(buffer, {type:'array', cellFormula:true, cellStyles:true});
-        fillWorkbookForPdf(workbook, template, results);
-        const out = XLSX.write(workbook, {bookType:'xlsx', type:'array', cellStyles:true});
-        const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+        const zip = await JSZip.loadAsync(buffer.slice(0));
+        await fillTemplateZip(zip, template, results);
+        const blob = await zip.generateAsync({type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
         outputs.push({name: finishedExcelName(fileName, stamp).replace('_成品_', '_轉PDF_'), blob});
       }
       if(outputs.length === 1){
