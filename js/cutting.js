@@ -1118,8 +1118,19 @@
     }catch(e){
       stopCuttingPdfProgressLoop();
       console.error(e);
-      setCuttingPdfProgress(100, 'Tạo PDF thất bại. / 產生 PDF 失敗。', 'Vui lòng chụp thông báo lỗi để kiểm tra. / 請截圖錯誤訊息方便排查。');
-      alert('Tạo PDF thất bại. Vui lòng chụp thông báo này để kiểm tra.\n產生 PDF 失敗，請截圖此訊息方便排查。\n\n' + e.message);
+      const message = String(e && e.message ? e.message : '');
+      const isLocalToolClosed = /Failed to fetch|NetworkError|Load failed/i.test(message);
+      if(isLocalToolClosed){
+        setCuttingPdfProgress(
+          100,
+          'Chưa mở công cụ chuyển PDF trên máy này.<br>Bản PDF chưa được tạo.',
+          '本機尚未啟動 PDF 轉檔工具。<br>PDF 尚未產生。'
+        );
+        alert('Chưa mở công cụ chuyển PDF trên máy này.\nVui lòng mở công cụ chuyển PDF rồi bấm tạo PDF lại.\n\n本機尚未啟動 PDF 轉檔工具。\n請先啟動 PDF 轉檔工具後，再重新產生 PDF。');
+      }else{
+        setCuttingPdfProgress(100, 'Tạo PDF thất bại. / 產生 PDF 失敗。', 'Vui lòng chụp thông báo lỗi để kiểm tra. / 請截圖錯誤訊息方便排查。');
+        alert('Tạo PDF thất bại. Vui lòng chụp thông báo này để kiểm tra.\n產生 PDF 失敗，請截圖此訊息方便排查。\n\n' + message);
+      }
     }finally{
       if(exportBtn) exportBtn.disabled = false;
     }

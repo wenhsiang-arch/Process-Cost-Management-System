@@ -28,7 +28,8 @@ $script:CuttingDetail = ''
 $script:CuttingTimer = $null
 $script:CuttingLastMs = 0
 $script:CuttingLogs = New-Object System.Collections.Generic.List[string]
-$script:CuttingCacheVersion = 4
+$script:CuttingCacheVersion = 5
+$script:CuttingCurrentTempDir = ''
 
 function Set-CuttingStage([string]$stage, [string]$detail = '') {
   $script:CuttingStage = $stage
@@ -68,6 +69,36 @@ function Send-File($response, [string]$path, [string]$fileName) {
   }
   $response.OutputStream.Write($bytes, 0, $bytes.Length)
   $response.Close()
+}
+
+function Remove-CuttingTempDir([string]$path) {
+  if (-not $path) { return }
+  try {
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+    $target = [System.IO.Path]::GetFullPath($path)
+    $trimChars = @([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $name = [System.IO.Path]::GetFileName($target.TrimEnd($trimChars))
+    if ($target.StartsWith($tempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and $name.StartsWith('cutting-pdf-', [System.StringComparison]::OrdinalIgnoreCase)) {
+      Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue
+      Add-CuttingLog 'clean_temp_files' "path=$target"
+    }
+  } catch {
+    Add-CuttingLog 'clean_temp_files_failed' $_.Exception.Message
+  }
+}
+
+function Remove-OldCuttingTempDirs([int]$olderThanHours = 24) {
+  try {
+    $tempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
+    $cutoff = (Get-Date).AddHours(-1 * $olderThanHours)
+    Get-ChildItem -LiteralPath $tempRoot -Directory -Filter 'cutting-pdf-*' -ErrorAction SilentlyContinue | ForEach-Object {
+      if ($_.LastWriteTime -lt $cutoff) {
+        Remove-CuttingTempDir $_.FullName
+      }
+    }
+  } catch {
+    Add-CuttingLog 'clean_old_temp_files_failed' $_.Exception.Message
+  }
 }
 
 function Release-Com($object) {
@@ -331,8 +362,18 @@ function Find-HeaderColumns($sheet, [int]$row) {
   return $cols
 }
 
-function New-LayoutColumn([string]$key, [string]$header, [int]$sourceCol) {
-  return [PSCustomObject]@{ Key = $key; Header = $header; SourceCol = $sourceCol }
+function Get-TemplateColumnWidth($sheet, [int]$col) {
+  if ($col -le 0) { return 0.0 }
+  $column = $sheet.Columns.Item($col)
+  try {
+    return [double]$column.ColumnWidth
+  } finally {
+    Release-Com $column
+  }
+}
+
+function New-LayoutColumn([string]$key, [string]$header, [int]$sourceCol, [double]$width = 0.0) {
+  return [PSCustomObject]@{ Key = $key; Header = $header; SourceCol = $sourceCol; Width = $width }
 }
 
 function Get-DefaultHeader([string]$key) {
@@ -356,7 +397,7 @@ function Get-TemplateLayout($sheet, [int]$headerRow, $cols) {
   $layout = @()
   $title = (Get-CellText $sheet $headerRow 1).Trim()
   if (-not $title) { $title = Get-DefaultHeader 'Image' }
-  $layout += New-LayoutColumn 'Image' $title 1
+  $layout += New-LayoutColumn 'Image' $title 1 (Get-TemplateColumnWidth $sheet 1)
   foreach ($item in @(
     @{ Key = 'Belt'; Col = $cols.Belt },
     @{ Key = 'Code'; Col = $cols.Code },
@@ -373,7 +414,7 @@ function Get-TemplateLayout($sheet, [int]$headerRow, $cols) {
     if ($col -le 0) { continue }
     $header = (Get-CellText $sheet $headerRow $col).Trim()
     if (-not $header) { $header = Get-DefaultHeader ([string]$item.Key) }
-    $layout += New-LayoutColumn ([string]$item.Key) $header $col
+    $layout += New-LayoutColumn ([string]$item.Key) $header $col (Get-TemplateColumnWidth $sheet $col)
   }
   $seen = @{}
   return @($layout | Sort-Object SourceCol | Where-Object {
@@ -698,6 +739,34 @@ function Export-ShapeImage($shape, $sheet, [string]$path) {
   }
 }
 
+function Fit-ShapeInsideFrame($shape, $frame, [double]$topPadding = 0) {
+  $maxWidth = [Math]::Max(8.0, [double]$frame.Width - 8)
+  $maxHeight = [Math]::Max(24.0, [double]$frame.Height - $topPadding - 8)
+  $originalWidth = [Math]::Max(1.0, [double]$shape.Width)
+  $originalHeight = [Math]::Max(1.0, [double]$shape.Height)
+  $scale = [Math]::Min($maxWidth / $originalWidth, $maxHeight / $originalHeight)
+  $shape.LockAspectRatio = -1
+  $shape.Width = $originalWidth * $scale
+  if ([double]$shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
+  $imageTop = [double]$frame.Top + $topPadding
+  $imageHeight = [Math]::Max(24.0, [double]$frame.Height - $topPadding)
+  $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
+  $shape.Top = $imageTop + (($imageHeight - [double]$shape.Height) / 2)
+}
+
+function Add-ImageSegmentDivider($targetSheet, $frame, [double]$topPadding = 0) {
+  if ($topPadding -le 0) { return }
+  $line = $null
+  try {
+    $y = [double]$frame.Top + $topPadding
+    $line = $targetSheet.Shapes.AddLine([double]$frame.Left, $y, [double]$frame.Left + [double]$frame.Width, $y)
+    $line.Line.Weight = 1.5
+    $line.Line.ForeColor.RGB = 0
+  } finally {
+    Release-Com $line
+  }
+}
+
 function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1) {
   if ($null -eq $sourceShape) { return }
   $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
@@ -709,13 +778,8 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
     Set-CuttingStage 'copy_group_image_paste' "rows=$startRow-$endRow"
     $targetSheet.Paste() | Out-Null
     $shape = $targetSheet.Shapes.Item($targetSheet.Shapes.Count)
-    $shape.LockAspectRatio = -1
-    $maxWidth = [double]$frame.Width - 8
-    $maxHeight = [Math]::Max(24.0, [double]$frame.Height - $topPadding - 8)
-    if ($shape.Width -gt $maxWidth) { $shape.Width = $maxWidth }
-    if ($shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
-    $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
-    $shape.Top = [double]$frame.Top + $topPadding + (([double]$frame.Height - $topPadding - [double]$shape.Height) / 2)
+    Add-ImageSegmentDivider $targetSheet $frame $topPadding
+    Fit-ShapeInsideFrame $shape $frame $topPadding
     Release-Com $shape
     Release-Com $frame
     $imageTimer.Stop()
@@ -737,13 +801,8 @@ function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [d
       Set-CuttingStage 'insert_cached_image' "path=$($group.ImagePath); rows=$startRow-$endRow col=$imageCol"
       $frame = $targetSheet.Range($targetSheet.Cells.Item($startRow, $imageCol), $targetSheet.Cells.Item($endRow, $imageCol))
       $shape = $targetSheet.Shapes.AddPicture([string]$group.ImagePath, $false, $true, [double]$frame.Left, [double]$frame.Top, -1, -1)
-      $shape.LockAspectRatio = -1
-      $maxWidth = [double]$frame.Width - 8
-      $maxHeight = [Math]::Max(24.0, [double]$frame.Height - $topPadding - 8)
-      if ($shape.Width -gt $maxWidth) { $shape.Width = $maxWidth }
-      if ($shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
-      $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
-      $shape.Top = [double]$frame.Top + $topPadding + (([double]$frame.Height - $topPadding - [double]$shape.Height) / 2)
+      Add-ImageSegmentDivider $targetSheet $frame $topPadding
+      Fit-ShapeInsideFrame $shape $frame $topPadding
       $imageTimer.Stop()
       Add-CuttingLog 'image_insert' "rows=$startRow-$endRow elapsed=$($imageTimer.ElapsedMilliseconds)ms"
       if ($imageTimer.ElapsedMilliseconds -gt 10000) {
@@ -939,12 +998,12 @@ function Set-SingleLineCellStyle($range, [int]$fontSize, [bool]$bold) {
   $range.Font.Bold = $bold
 }
 
-function Set-SegmentCellStyle($range) {
+function Set-SegmentCellStyle($range, [int]$fontSize = 13) {
   $range.HorizontalAlignment = -4108
-  $range.VerticalAlignment = -4160
+  $range.VerticalAlignment = -4108
   $range.WrapText = $true
   try { $range.ShrinkToFit = $true } catch {}
-  $range.Font.Size = 13
+  $range.Font.Size = $fontSize
   $range.Font.Bold = $true
 }
 
@@ -1015,15 +1074,39 @@ function Get-ColumnWidthByKey([string]$key) {
   }
 }
 
+function Get-LayoutColumnWidth($column) {
+  $width = 0.0
+  try { $width = [double]$column.Width } catch { $width = 0.0 }
+  if ($width -gt 0) { return [Math]::Max(3.0, [Math]::Min(35.0, $width)) }
+  return [double](Get-ColumnWidthByKey ([string]$column.Key))
+}
+
 function Get-PrintColumnWidths($groups) {
-  $widths = @(8,8,8,8,8,8,8,8,8,8)
+  $widths = @(0,0,0,0,0,0,0,0,0,0)
   foreach ($group in $groups) {
     $layout = Get-GroupLayout $group
     for ($i = 0; $i -lt $layout.Count -and $i -lt 10; $i++) {
-      $widths[$i] = [Math]::Max([double]$widths[$i], [double](Get-ColumnWidthByKey ([string]$layout[$i].Key)))
+      $widths[$i] = [Math]::Max([double]$widths[$i], [double](Get-LayoutColumnWidth $layout[$i]))
     }
   }
+  for ($i = 0; $i -lt $widths.Count; $i++) {
+    if ([double]$widths[$i] -le 0) { $widths[$i] = 8 }
+  }
   return $widths
+}
+
+function Get-AdaptiveFontSize([string]$text, [double]$colWidth, [double]$cellHeight, [int]$maxSize, [int]$minSize) {
+  $value = if ($text) { $text.Trim() } else { '' }
+  if (-not $value) { return $maxSize }
+  $longest = 1
+  foreach ($line in ($value -split "(\r\n|\n|\r|/)")) {
+    $len = (($line -replace '\s+', '')).Length
+    if ($len -gt $longest) { $longest = $len }
+  }
+  $widthCapacity = [Math]::Max(1.0, $colWidth * 1.45)
+  $byWidth = [Math]::Floor($maxSize * ($widthCapacity / [Math]::Max(1.0, [double]$longest)))
+  $byHeight = [Math]::Floor([Math]::Max(1.0, $cellHeight) / 4.2)
+  return [Math]::Max($minSize, [Math]::Min($maxSize, [Math]::Min($byWidth, $byHeight)))
 }
 
 function Get-GroupFieldValue($group, [string]$key) {
@@ -1032,7 +1115,7 @@ function Get-GroupFieldValue($group, [string]$key) {
     'Belt' { return Format-BeltDisplayText ([string]$group.Belt) }
     'Segment' { return [string]$group.Segment }
     'CutSpec' { return [string]$group.CutSpec }
-    'Total' { return [double]$group.TotalCut }
+    'Total' { return (Safe-ToText $group.TotalCut) }
     'Shortage' { return '' }
     'Note' { return [string]$group.Note }
     default { return '' }
@@ -1061,7 +1144,16 @@ function Get-ItemFieldValue($item, [string]$key) {
   }
 }
 
-function Merge-RepeatedColorCells($sheet, [int]$startRow, [int]$endRow, [int]$colorCol, $items, [int]$fontSize) {
+function Get-LongestItemFieldValue($items, [string]$key) {
+  $longest = ''
+  foreach ($item in $items) {
+    $value = [string](Get-ItemFieldValue $item $key)
+    if ($value.Length -gt $longest.Length) { $longest = $value }
+  }
+  return $longest
+}
+
+function Merge-RepeatedColorCells($sheet, [int]$startRow, [int]$endRow, [int]$colorCol, $items, [double]$colWidth, [double]$rowHeight) {
   if ($colorCol -le 0 -or $endRow -lt $startRow -or $null -eq $items -or $items.Count -le 1) { return }
   $runStart = $startRow
   $lastColor = ''
@@ -1072,23 +1164,69 @@ function Merge-RepeatedColorCells($sheet, [int]$startRow, [int]$endRow, [int]$co
       continue
     }
     if ($currentColor -ne $lastColor) {
-      Merge-ColorRun $sheet $runStart ($startRow + $i - 1) $colorCol $lastColor $fontSize
+      Merge-ColorRun $sheet $runStart ($startRow + $i - 1) $colorCol $lastColor $colWidth $rowHeight
       $runStart = $startRow + $i
       $lastColor = $currentColor
     }
   }
-  Merge-ColorRun $sheet $runStart $endRow $colorCol $lastColor $fontSize
+  Merge-ColorRun $sheet $runStart $endRow $colorCol $lastColor $colWidth $rowHeight
 }
 
-function Merge-ColorRun($sheet, [int]$startRow, [int]$endRow, [int]$colorCol, [string]$color, [int]$fontSize) {
+function Merge-ColorRun($sheet, [int]$startRow, [int]$endRow, [int]$colorCol, [string]$color, [double]$colWidth, [double]$rowHeight) {
   if (-not $color -or $endRow -le $startRow) { return }
   $range = $sheet.Range($sheet.Cells.Item($startRow, $colorCol), $sheet.Cells.Item($endRow, $colorCol))
   try {
     $range.Merge() | Out-Null
     $range.Value2 = $color
+    $fontSize = Get-AdaptiveFontSize $color $colWidth (($endRow - $startRow + 1) * $rowHeight) 14 7
     Set-SingleLineCellStyle $range $fontSize $false
   } finally {
     Release-Com $range
+  }
+}
+
+function Get-GroupTemplateKey($group) {
+  try {
+    if ($null -ne $group.TemplateIndex) { return [string]$group.TemplateIndex }
+  } catch {}
+  return '1'
+}
+
+function Set-CuttingPrintSheetPageSetup($sheet, $groups) {
+  $cols = Get-PrintColumnWidths $groups
+  for ($i = 0; $i -lt $cols.Count; $i++) { $sheet.Columns.Item($i + 1).ColumnWidth = $cols[$i] }
+  $sheet.PageSetup.Orientation = 1
+  $sheet.PageSetup.PaperSize = 9
+  $sheet.PageSetup.Zoom = $false
+  $sheet.PageSetup.FitToPagesWide = 1
+  $sheet.PageSetup.FitToPagesTall = $false
+  $sheet.PageSetup.TopMargin = 0
+  $sheet.PageSetup.BottomMargin = 0
+  $sheet.PageSetup.LeftMargin = 0
+  $sheet.PageSetup.RightMargin = 0
+  $sheet.PageSetup.HeaderMargin = 0
+  $sheet.PageSetup.FooterMargin = 0
+}
+
+function Get-A4GroupHeight($sheet, $groups, [int]$groupsPerPage = 6) {
+  $a4Width = 595.0
+  $a4Height = 842.0
+  $colCount = 10
+  try {
+    if ($groups -and $groups.Count -gt 0) {
+      $layout = Get-GroupLayout $groups[0]
+      $colCount = [Math]::Max(1, [Math]::Min(10, $layout.Count))
+    }
+    $widthRange = $sheet.Range($sheet.Cells.Item(1, 1), $sheet.Cells.Item(1, $colCount))
+    try {
+      $tableWidth = [Math]::Max(1.0, [double]$widthRange.Width)
+      $scale = [Math]::Min(1.0, $a4Width / $tableWidth)
+      return [Math]::Max(120.0, ($a4Height / [Math]::Max(0.1, $scale)) / [Math]::Max(1, $groupsPerPage))
+    } finally {
+      Release-Com $widthRange
+    }
+  } catch {
+    return 140.3
   }
 }
 
@@ -1106,39 +1244,48 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
   Set-CuttingStage 'create_print_workbook' "groups=$($groups.Count)"
   $outBook = $excel.Workbooks.Add()
   $outSheet = $outBook.Worksheets.Item(1)
-  $outSheet.Name = 'PDF_PRINT'
   while ($outBook.Worksheets.Count -gt 1) {
     $extra = $outBook.Worksheets.Item($outBook.Worksheets.Count)
     $extra.Delete()
     Release-Com $extra
   }
 
-  $cols = Get-PrintColumnWidths $groups
-  for ($i = 0; $i -lt $cols.Count; $i++) { $outSheet.Columns.Item($i + 1).ColumnWidth = $cols[$i] }
-  $outSheet.PageSetup.Orientation = 1
-  $outSheet.PageSetup.PaperSize = 9
-  $outSheet.PageSetup.Zoom = $false
-  $outSheet.PageSetup.FitToPagesWide = 1
-  $outSheet.PageSetup.FitToPagesTall = $false
-  $outSheet.PageSetup.TopMargin = 0
-  $outSheet.PageSetup.BottomMargin = 0
-  $outSheet.PageSetup.LeftMargin = 0
-  $outSheet.PageSetup.RightMargin = 0
-  $outSheet.PageSetup.HeaderMargin = 0
-  $outSheet.PageSetup.FooterMargin = 0
-
   $groupHeight = 140.3
   $headerHeight = 28.0
   $outRow = 1
   $groupIndex = 0
+  $sheetGroupIndex = 0
+  $sheetIndex = 0
+  $currentTemplateKey = ''
+  $outSheets = New-Object System.Collections.Generic.List[object]
   foreach ($group in $groups) {
+    $templateKey = Get-GroupTemplateKey $group
+    if ($currentTemplateKey -ne $templateKey) {
+      $sheetIndex++
+      if ($sheetIndex -eq 1) {
+        $outSheet = $outBook.Worksheets.Item(1)
+      } else {
+        $afterSheet = $outBook.Worksheets.Item($outBook.Worksheets.Count)
+        $outSheet = $outBook.Worksheets.Add([System.Reflection.Missing]::Value, $afterSheet)
+        Release-Com $afterSheet
+      }
+      $outSheet.Name = "PDF_PRINT_$sheetIndex"
+      $templateGroups = @($groups | Where-Object { (Get-GroupTemplateKey $_) -eq $templateKey })
+      Set-CuttingPrintSheetPageSetup $outSheet $templateGroups
+      $groupHeight = Get-A4GroupHeight $outSheet $templateGroups 6
+      $outSheets.Add($outSheet)
+      $outRow = 1
+      $sheetGroupIndex = 0
+      $currentTemplateKey = $templateKey
+      Add-CuttingLog 'create_template_sheet' "sheet=$sheetIndex template=$templateKey groups=$($templateGroups.Count) groupHeight=$groupHeight"
+    }
     $layout = Get-GroupLayout $group
     $colCount = [Math]::Max(1, [Math]::Min(10, $layout.Count))
     $imageCol = Get-LayoutColumnIndex $layout 'Image'
     if ($imageCol -le 0) { $imageCol = 1 }
     $segmentCol = Get-LayoutColumnIndex $layout 'Segment'
     Set-CuttingStage 'render_group' "index=$($groupIndex + 1); title=$($group.Title); items=$($group.Items.Count)"
-    if ($groupIndex -gt 0 -and ($groupIndex % 6) -eq 0) {
+    if ($sheetGroupIndex -gt 0 -and ($sheetGroupIndex % 6) -eq 0) {
       try { $outSheet.HPageBreaks.Add($outSheet.Rows.Item($outRow)) | Out-Null } catch {}
     }
     $itemCount = [Math]::Max(1, $group.Items.Count)
@@ -1215,11 +1362,13 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
       Release-Com $writeRange
     }
 
+    $itemFontSize = Get-ItemFontSize $itemCount $detailHeight
     $colorCol = Get-LayoutColumnIndex $layout 'Color'
     if ($colorCol -gt 0) {
       Set-CuttingStage 'render_group_merge_colors' "index=$($groupIndex + 1); col=$colorCol; rows=$detailStart-$detailEnd"
-      Merge-RepeatedColorCells $outSheet $detailStart $detailEnd $colorCol $group.Items ([Math]::Max(6, $itemFontSize - 1))
+      Merge-RepeatedColorCells $outSheet $detailStart $detailEnd $colorCol $group.Items (Get-LayoutColumnWidth $layout[$colorCol - 1]) $detailHeight
     }
+    $imageTopPadding = if ([string]$group.Segment -and $segmentCol -le 0) { [Math]::Min(38.0, [Math]::Max(22.0, ($groupHeight - $headerHeight) * 0.28)) } else { 0.0 }
 
     Set-CuttingStage 'render_group_style_block' "index=$($groupIndex + 1); rows=$startRow-$detailEnd"
     $block = $outSheet.Range($outSheet.Cells.Item($startRow, 1), $outSheet.Cells.Item($detailEnd, $colCount))
@@ -1227,27 +1376,34 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     $block.Borders.Weight = 2
     Set-CellStyle $block 12 $false
     Release-Com $block
-    $itemFontSize = Get-ItemFontSize $itemCount $detailHeight
     for ($col = 1; $col -le $colCount; $col++) {
       $key = [string]$layout[$col - 1].Key
+      $colWidth = Get-LayoutColumnWidth $layout[$col - 1]
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       if ($key -eq 'Image') {
-        if ([string]$group.Segment -and $segmentCol -le 0) { Set-SegmentCellStyle $range } else { Set-CellStyle $range 12 $false }
+        if ([string]$group.Segment -and $segmentCol -le 0) {
+          Set-SegmentCellStyle $range (Get-AdaptiveFontSize ([string]$group.Segment) $colWidth $imageTopPadding 18 8)
+        } else {
+          Set-CellStyle $range 12 $false
+        }
       } elseif ($key -eq 'Belt') {
         $beltText = [string](Get-GroupFieldValue $group $key)
         if ($beltText.Contains("`n")) {
-          Set-CellStyle $range (Get-FitFontSize $beltText 13 7 4) $true
+          Set-CellStyle $range (Get-AdaptiveFontSize $beltText $colWidth (($detailEnd - $detailStart + 1) * $detailHeight) 13 7) $true
         } else {
-          Set-SingleLineCellStyle $range ([Math]::Max(6, $itemFontSize - 1)) $true
+          Set-SingleLineCellStyle $range (Get-AdaptiveFontSize $beltText $colWidth (($detailEnd - $detailStart + 1) * $detailHeight) 14 7) $true
         }
-      } elseif ($key -eq 'CutSpec' -or $key -eq 'Color') {
-        Set-SingleLineCellStyle $range ([Math]::Max(6, $itemFontSize - 1)) ($key -ne 'Color')
+      } elseif ($key -eq 'Color') {
+        $colorText = Get-LongestItemFieldValue $group.Items $key
+        Set-SingleLineCellStyle $range (Get-AdaptiveFontSize $colorText $colWidth (($detailEnd - $detailStart + 1) * $detailHeight) 14 7) $false
+      } elseif ($key -eq 'CutSpec') {
+        Set-SingleLineCellStyle $range (Get-AdaptiveFontSize ([string]$group.CutSpec) $colWidth (($detailEnd - $detailStart + 1) * $detailHeight) 14 7) $true
       } elseif ($key -eq 'Code' -or $key -eq 'Qty' -or $key -eq 'Piece') {
-        Set-CellStyle $range $itemFontSize $false
+        Set-CellStyle $range ([Math]::Min($itemFontSize, (Get-AdaptiveFontSize (Get-LongestItemFieldValue $group.Items $key) $colWidth $detailHeight 14 7))) $false
       } elseif ($key -eq 'Segment') {
-        Set-CellStyle $range (Get-FitFontSize ([string]$group.Segment) 18 8 4) $true
+        Set-CellStyle $range (Get-AdaptiveFontSize ([string]$group.Segment) $colWidth (($detailEnd - $detailStart + 1) * $detailHeight) 18 8) $true
       } elseif ($key -eq 'Total' -or $key -eq 'Note') {
-        Set-CellStyle $range (Get-FitFontSize ([string](Get-GroupFieldValue $group $key)) 18 8 7) $true
+        Set-CellStyle $range (Get-AdaptiveFontSize ([string](Get-GroupFieldValue $group $key)) $colWidth (($detailEnd - $detailStart + 1) * $detailHeight) 18 8) $true
       } else {
         Set-CellStyle $range 12 $false
       }
@@ -1255,17 +1411,19 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     }
 
     Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
-    $imageTopPadding = if ([string]$group.Segment -and $segmentCol -le 0) { [Math]::Min(38.0, [Math]::Max(22.0, ($groupHeight - $headerHeight) * 0.28)) } else { 0.0 }
     Place-GroupImage $group $outSheet $detailStart $detailEnd $imageTopPadding $imageCol
     $outRow = $detailEnd + 1
     $groupIndex++
+    $sheetGroupIndex++
   }
   Add-CuttingLog 'generate_table' "groups=$groupIndex rows=$($outRow - 1)"
 
-  Set-CuttingStage 'set_print_area' "rows=$($outRow - 1)"
-  $used = $outSheet.UsedRange
-  $outSheet.PageSetup.PrintArea = $used.Address()
-  Release-Com $used
+  Set-CuttingStage 'set_print_area' "sheets=$($outSheets.Count)"
+  foreach ($sheet in $outSheets) {
+    $used = $sheet.UsedRange
+    $sheet.PageSetup.PrintArea = $used.Address()
+    Release-Com $used
+  }
   return $outBook
 }
 
@@ -1273,6 +1431,7 @@ function New-CuttingPdf($payload) {
   Start-CuttingTimer
   Set-CuttingStage 'prepare_temp_files' 'create temp files'
   $root = Join-Path $env:TEMP ("cutting-pdf-" + [Guid]::NewGuid().ToString('N'))
+  $script:CuttingCurrentTempDir = $root
   New-Item -ItemType Directory -Path $root | Out-Null
   $pdfPath = Join-Path $root 'cutting_output.pdf'
   Add-CuttingLog 'prepare_files' "root=$root"
@@ -1340,7 +1499,10 @@ function New-CuttingPdf($payload) {
       Set-CuttingStage 'prepare_cached_groups' "index=$templateIndex; apply order values to cached template"
       $groupsForPrint = Get-CachedGroupsForPayload $cache $templatePayload
       Add-CuttingLog 'prepare_cached_groups' "index=$templateIndex groups=$($groupsForPrint.Count); writes=$($templatePayload.writes.Count)"
-      foreach ($group in $groupsForPrint) { $allGroups += $group }
+      foreach ($group in $groupsForPrint) {
+        $group | Add-Member -NotePropertyName TemplateIndex -NotePropertyValue $templateIndex -Force
+        $allGroups += $group
+      }
     }
 
     if (-not $allGroups -or $allGroups.Count -eq 0) { throw '沒有任何有訂單數量的組可輸出。' }
@@ -1386,6 +1548,8 @@ function New-CuttingPdf($payload) {
   }
 }
 
+Start-CuttingTimer
+Remove-OldCuttingTempDirs 24
 $listener.Start()
 Write-Host "Cutting PDF local server started: $prefix"
 Write-Host "本機裁帶 PDF 後台已啟動：$prefix"
@@ -1395,6 +1559,7 @@ while ($listener.IsListening) {
   $context = $listener.GetContext()
   $request = $context.Request
   $response = $context.Response
+  $pdfPath = ''
   try {
     Set-CuttingStage 'receive_request' $request.Url.AbsolutePath
     if ($request.HttpMethod -eq 'OPTIONS') {
@@ -1422,8 +1587,12 @@ while ($listener.IsListening) {
     $pdfPath = New-CuttingPdf $payload
     $name = if ($payload.outputName) { [string]$payload.outputName } else { 'cutting.pdf' }
     Send-File $response $pdfPath $name
+    Remove-CuttingTempDir $script:CuttingCurrentTempDir
+    $script:CuttingCurrentTempDir = ''
   } catch {
     $message = ($_.Exception.Message -replace "`r?`n", ' ')
+    Remove-CuttingTempDir $script:CuttingCurrentTempDir
+    $script:CuttingCurrentTempDir = ''
     Send-Json $response 500 @{
       ok = $false
       error = $message
