@@ -789,9 +789,11 @@ function New-CuttingPdf($payload) {
     $printWorkbook.Close($false)
     Release-Com $printWorkbook
     $printWorkbook = $null
-    $workbook.Close($false)
-    Release-Com $workbook
-    $workbook = $null
+    if ($null -ne $workbook) {
+      $workbook.Close($false)
+      Release-Com $workbook
+      $workbook = $null
+    }
     $excel.Quit()
     Release-Com $excel
     $excel = $null

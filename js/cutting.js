@@ -955,12 +955,17 @@
     if(sub) sub.innerHTML = subText || 'Vui lòng chờ, không đóng cửa sổ này. / 請稍候，不要關閉此視窗。';
   }
 
+  function openCuttingPdfProgress(){
+    om('m-cutting-pdf-progress');
+  }
+
   function hideCuttingPdfProgress(delay = 0){
     const run = () => {
       const wrap = g('cut-pdf-progress');
       if(wrap) wrap.style.display = 'none';
       const bar = g('cut-pdf-progress-bar');
       if(bar) bar.style.width = '0%';
+      cm('m-cutting-pdf-progress');
     };
     if(delay) setTimeout(run, delay);
     else run();
@@ -1045,6 +1050,7 @@
     const exportBtn = g('cut-export-filled-btn');
     try{
       if(exportBtn) exportBtn.disabled = true;
+      openCuttingPdfProgress();
       setCuttingPdfProgress(8, 'Đang chuẩn bị dữ liệu... / 正在準備資料...', 'Hệ thống đang kiểm tra mẫu và đơn hàng. / 系統正在確認模板與訂單。');
       const [templateId, results] = Array.from(byTemplate.entries())[0];
       const template = state.templates.find(item => item.id === templateId);
