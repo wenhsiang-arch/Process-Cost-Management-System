@@ -942,6 +942,50 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  let cuttingPdfProgressTimer = null;
+
+  function setCuttingPdfProgress(percent, message, subText = ''){
+    const wrap = g('cut-pdf-progress');
+    const bar = g('cut-pdf-progress-bar');
+    const label = g('cut-pdf-progress-text');
+    const sub = g('cut-pdf-progress-sub');
+    if(wrap) wrap.style.display = 'block';
+    if(bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    if(label) label.innerHTML = message;
+    if(sub) sub.innerHTML = subText || 'Vui lòng chờ, không đóng cửa sổ này. / 請稍候，不要關閉此視窗。';
+  }
+
+  function hideCuttingPdfProgress(delay = 0){
+    const run = () => {
+      const wrap = g('cut-pdf-progress');
+      if(wrap) wrap.style.display = 'none';
+      const bar = g('cut-pdf-progress-bar');
+      if(bar) bar.style.width = '0%';
+    };
+    if(delay) setTimeout(run, delay);
+    else run();
+  }
+
+  function startCuttingPdfProgressLoop(){
+    clearInterval(cuttingPdfProgressTimer);
+    const startedAt = Date.now();
+    let visualPercent = 35;
+    cuttingPdfProgressTimer = setInterval(() => {
+      const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+      visualPercent = Math.min(92, visualPercent + (visualPercent < 70 ? 4 : 1));
+      setCuttingPdfProgress(
+        visualPercent,
+        'Đang tạo PDF trên máy này... / 本機正在產生 PDF...',
+        `Đã xử lý khoảng ${seconds} giây. Lần đầu tạo cache sẽ lâu hơn. / 已處理約 ${seconds} 秒，第一次建立快取會比較久。`
+      );
+    }, 1200);
+  }
+
+  function stopCuttingPdfProgressLoop(){
+    clearInterval(cuttingPdfProgressTimer);
+    cuttingPdfProgressTimer = null;
+  }
+
   function localPdfName(fileName){
     const base = String(fileName || 'cutting.xlsx').replace(/\.(xlsx|xlsm|xls)$/i, '');
     const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
@@ -998,29 +1042,42 @@
       alert('Phiên bản đầu chỉ hỗ trợ một mẫu Excel. Đơn này đang dùng nhiều mẫu.\n第一版只支援單一 Excel 模板。此訂單目前命中多個模板。');
       return;
     }
+    const exportBtn = g('cut-export-filled-btn');
     try{
+      if(exportBtn) exportBtn.disabled = true;
+      setCuttingPdfProgress(8, 'Đang chuẩn bị dữ liệu... / 正在準備資料...', 'Hệ thống đang kiểm tra mẫu và đơn hàng. / 系統正在確認模板與訂單。');
       const [templateId, results] = Array.from(byTemplate.entries())[0];
       const template = state.templates.find(item => item.id === templateId);
       const fileName = template?.fileName || results[0]?.fileName || '';
       if(!/\.xlsx$/i.test(fileName)){
+        hideCuttingPdfProgress();
+        if(exportBtn) exportBtn.disabled = false;
         alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
         return;
       }
+      setCuttingPdfProgress(18, 'Đang đọc file mẫu... / 正在讀取模板檔...', 'File mẫu sẽ được gửi sang máy này để tạo PDF. / 模板會送到本機後台產生 PDF。');
       const sourceFile = await cuttingStore.getTemplateFile(templateId);
       if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
       const buffer = await sourceFile.arrayBuffer();
+      setCuttingPdfProgress(28, 'Đang đóng gói dữ liệu... / 正在整理資料...', 'Đang chuẩn bị số lượng cần điền và vị trí ô. / 正在準備填寫數量與儲存格位置。');
       const payload = {
+        templateId,
+        templateUpdatedAt: template?.updatedAt || '',
+        templateFileSize: sourceFile.size || 0,
         fileName,
         outputName: localPdfName(fileName),
         templateBase64: arrayBufferToBase64(buffer),
         writes: buildLocalPdfWrites(template, results),
         orderCells: buildLocalPdfOrderCells(results)
       };
+      setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Nếu là lần đầu dùng mẫu này, hệ thống sẽ tạo cache trước. / 如果此模板第一次使用，會先建立快取。');
+      startCuttingPdfProgressLoop();
       const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
       });
+      stopCuttingPdfProgressLoop();
       if(!response.ok){
         let msg = '';
         try{
@@ -1035,11 +1092,18 @@
         }
         throw new Error(msg || 'Lỗi máy tạo PDF / 本機 PDF 後台錯誤');
       }
+      setCuttingPdfProgress(96, 'Đang nhận file PDF... / 正在接收 PDF 檔...', 'PDF đã tạo xong, đang chuẩn bị tải xuống. / PDF 已產生，正在準備下載。');
       const pdfBlob = await response.blob();
+      setCuttingPdfProgress(100, 'Hoàn tất PDF. / PDF 完成。', 'File đã được tải xuống. / 檔案已下載。');
       downloadBlob(pdfBlob, payload.outputName);
+      hideCuttingPdfProgress(1600);
     }catch(e){
+      stopCuttingPdfProgressLoop();
       console.error(e);
+      setCuttingPdfProgress(100, 'Tạo PDF thất bại. / 產生 PDF 失敗。', 'Vui lòng chụp thông báo lỗi để kiểm tra. / 請截圖錯誤訊息方便排查。');
       alert('Tạo PDF thất bại. Vui lòng chụp thông báo này để kiểm tra.\n產生 PDF 失敗，請截圖此訊息方便排查。\n\n' + e.message);
+    }finally{
+      if(exportBtn) exportBtn.disabled = false;
     }
   }
 

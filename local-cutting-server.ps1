@@ -25,10 +25,30 @@ function Send-Json($response, [int]$statusCode, $data) {
 
 $script:CuttingStage = ''
 $script:CuttingDetail = ''
+$script:CuttingTimer = $null
+$script:CuttingLastMs = 0
+$script:CuttingLogs = New-Object System.Collections.Generic.List[string]
 
 function Set-CuttingStage([string]$stage, [string]$detail = '') {
   $script:CuttingStage = $stage
   $script:CuttingDetail = $detail
+}
+
+function Start-CuttingTimer() {
+  $script:CuttingTimer = [System.Diagnostics.Stopwatch]::StartNew()
+  $script:CuttingLastMs = 0
+  $script:CuttingLogs = New-Object System.Collections.Generic.List[string]
+}
+
+function Add-CuttingLog([string]$name, [string]$detail = '') {
+  if ($null -eq $script:CuttingTimer) { Start-CuttingTimer }
+  $total = [int]$script:CuttingTimer.ElapsedMilliseconds
+  $lap = $total - $script:CuttingLastMs
+  $script:CuttingLastMs = $total
+  $line = "$name total=${total}ms lap=${lap}ms"
+  if ($detail) { $line = "$line $detail" }
+  $script:CuttingLogs.Add($line)
+  Write-Host "[cutting-time] $line"
 }
 
 function Send-File($response, [string]$path, [string]$fileName) {
@@ -40,6 +60,11 @@ function Send-File($response, [string]$path, [string]$fileName) {
   $response.Headers.Add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   $response.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')
   $response.Headers.Add('Content-Disposition', "inline; filename=""$safeName""")
+  if ($script:CuttingLogs -and $script:CuttingLogs.Count -gt 0) {
+    $timing = ($script:CuttingLogs -join ' | ')
+    if ($timing.Length -gt 3500) { $timing = $timing.Substring(0, 3500) }
+    $response.Headers.Add('X-Cutting-Timing', $timing)
+  }
   $response.OutputStream.Write($bytes, 0, $bytes.Length)
   $response.Close()
 }
@@ -58,6 +83,80 @@ function Safe-ToText($value) {
   } catch {
     throw "TEXT_CONVERT_FAILED: $($_.Exception.Message)"
   }
+}
+
+function Safe-FileName([string]$text) {
+  $name = if ($text) { $text } else { 'template' }
+  return ($name -replace '[\\/:*?"<>|]', '_')
+}
+
+function Get-CacheKey($payload) {
+  $raw = if ($payload.templateId) { [string]$payload.templateId } elseif ($payload.fileName) { [string]$payload.fileName } else { 'template' }
+  return Safe-FileName $raw
+}
+
+function Get-CacheDir($payload) {
+  $root = Join-Path $PSScriptRoot 'cutting-cache'
+  if (-not (Test-Path -LiteralPath $root)) { New-Item -ItemType Directory -Path $root | Out-Null }
+  $dir = Join-Path $root (Get-CacheKey $payload)
+  if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  return $dir
+}
+
+function Get-CacheJsonPath($payload) {
+  return (Join-Path (Get-CacheDir $payload) 'template-cache.json')
+}
+
+function Get-ColumnLetters([int]$col) {
+  $n = $col
+  $letters = ''
+  while ($n -gt 0) {
+    $rem = ($n - 1) % 26
+    $letters = [char](65 + $rem) + $letters
+    $n = [Math]::Floor(($n - 1) / 26)
+  }
+  return $letters
+}
+
+function Get-CellAddress1([int]$row, [int]$col) {
+  return "$(Get-ColumnLetters $col)$row"
+}
+
+function Load-TemplateCache($payload) {
+  $path = Get-CacheJsonPath $payload
+  if (-not (Test-Path -LiteralPath $path)) { return $null }
+  try {
+    $cache = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$cache.templateUpdatedAt -ne [string]$payload.templateUpdatedAt) { return $null }
+    if ([string]$cache.fileName -ne [string]$payload.fileName) { return $null }
+    if ([string]$cache.templateFileSize -ne [string]$payload.templateFileSize) { return $null }
+    $cacheDir = Get-CacheDir $payload
+    foreach ($group in $cache.groups) {
+      if ($group.imageFile) {
+        $group | Add-Member -NotePropertyName imagePath -NotePropertyValue (Join-Path $cacheDir ([string]$group.imageFile)) -Force
+      }
+    }
+    return $cache
+  } catch {
+    return $null
+  }
+}
+
+function Save-TemplateCache($payload, $groups) {
+  $cacheDir = Get-CacheDir $payload
+  $path = Get-CacheJsonPath $payload
+  $cache = [PSCustomObject]@{
+    version = 1
+    templateId = [string]$payload.templateId
+    templateUpdatedAt = [string]$payload.templateUpdatedAt
+    templateFileSize = [string]$payload.templateFileSize
+    fileName = [string]$payload.fileName
+    createdAt = (Get-Date).ToString('s')
+    groups = $groups
+  }
+  $json = $cache | ConvertTo-Json -Depth 20
+  [System.IO.File]::WriteAllText($path, $json, [System.Text.Encoding]::UTF8)
+  return $cache
 }
 
 function Normalize-HeaderText([string]$text) {
@@ -162,7 +261,7 @@ function Convert-ToSafeDouble($value) {
   $style = [Globalization.NumberStyles]::Float -bor [Globalization.NumberStyles]::AllowThousands
   if ([double]::TryParse($text, $style, [Globalization.CultureInfo]::InvariantCulture, [ref]$number)) { return $number }
   if ([double]::TryParse($text, $style, [Globalization.CultureInfo]::CurrentCulture, [ref]$number)) { return $number }
-  return 0.0
+  throw "NUMBER_CONVERT_FAILED: value=$text"
 }
 
 function Get-CellNumber($sheet, [int]$row, [int]$col) {
@@ -228,11 +327,36 @@ function Find-GroupImage($sheet, [int]$startRow, [int]$endRow) {
   return $null
 }
 
+function Export-ShapeImage($shape, $sheet, [string]$path) {
+  if ($null -eq $shape) { return $false }
+  $chartObject = $null
+  try {
+    $width = [Math]::Max(80, [double]$shape.Width)
+    $height = [Math]::Max(80, [double]$shape.Height)
+    $shape.CopyPicture(1, 2)
+    $chartObject = $sheet.ChartObjects().Add(0, 0, $width, $height)
+    $chartObject.Chart.Paste()
+    [void]$chartObject.Chart.Export($path, 'PNG')
+    return (Test-Path -LiteralPath $path)
+  } catch {
+    return $false
+  } finally {
+    if ($null -ne $chartObject) {
+      try { $chartObject.Delete() } catch {}
+      Release-Com $chartObject
+    }
+  }
+}
+
 function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow) {
   if ($null -eq $sourceShape) { return }
+  $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
   try {
+    Set-CuttingStage 'copy_group_image_frame' "rows=$startRow-$endRow"
     $frame = $targetSheet.Range("A$($startRow):A$($endRow)")
+    Set-CuttingStage 'copy_group_image_copy' "rows=$startRow-$endRow"
     $sourceShape.Copy()
+    Set-CuttingStage 'copy_group_image_paste' "rows=$startRow-$endRow"
     $targetSheet.Paste() | Out-Null
     $shape = $targetSheet.Shapes.Item($targetSheet.Shapes.Count)
     $shape.LockAspectRatio = -1
@@ -244,7 +368,46 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
     $shape.Top = [double]$frame.Top + (([double]$frame.Height - [double]$shape.Height) / 2)
     Release-Com $shape
     Release-Com $frame
-  } catch {}
+    $imageTimer.Stop()
+    Add-CuttingLog 'image_copy' "rows=$startRow-$endRow elapsed=$($imageTimer.ElapsedMilliseconds)ms"
+    if ($imageTimer.ElapsedMilliseconds -gt 10000) {
+      throw "IMAGE_COPY_TIMEOUT: elapsed=$($imageTimer.ElapsedMilliseconds)ms"
+    }
+  } catch {
+    throw "IMAGE_COPY_FAILED: $($_.Exception.Message)"
+  }
+}
+
+function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow) {
+  if ($group.ImagePath -and (Test-Path -LiteralPath ([string]$group.ImagePath))) {
+    $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
+    $frame = $null
+    $shape = $null
+    try {
+      Set-CuttingStage 'insert_cached_image' "path=$($group.ImagePath); rows=$startRow-$endRow"
+      $frame = $targetSheet.Range("A$($startRow):A$($endRow)")
+      $shape = $targetSheet.Shapes.AddPicture([string]$group.ImagePath, $false, $true, [double]$frame.Left, [double]$frame.Top, -1, -1)
+      $shape.LockAspectRatio = -1
+      $maxWidth = [double]$frame.Width - 8
+      $maxHeight = [double]$frame.Height - 8
+      if ($shape.Width -gt $maxWidth) { $shape.Width = $maxWidth }
+      if ($shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
+      $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
+      $shape.Top = [double]$frame.Top + (([double]$frame.Height - [double]$shape.Height) / 2)
+      $imageTimer.Stop()
+      Add-CuttingLog 'image_insert' "rows=$startRow-$endRow elapsed=$($imageTimer.ElapsedMilliseconds)ms"
+      if ($imageTimer.ElapsedMilliseconds -gt 10000) {
+        throw "IMAGE_INSERT_TIMEOUT: elapsed=$($imageTimer.ElapsedMilliseconds)ms"
+      }
+    } catch {
+      throw "IMAGE_INSERT_FAILED: $($_.Exception.Message)"
+    } finally {
+      Release-Com $shape
+      Release-Com $frame
+    }
+    return
+  }
+  Copy-GroupImage $group.Image $targetSheet $startRow $endRow
 }
 
 function Get-CompactGroups($workbook, $payload) {
@@ -294,6 +457,110 @@ function Get-CompactGroups($workbook, $payload) {
   return $groupsOut
 }
 
+function Build-TemplateCacheGroups($excel, $workbook, $payload) {
+  $cacheDir = Get-CacheDir $payload
+  $groupsOut = @()
+  for ($s = 1; $s -le $workbook.Worksheets.Count; $s++) {
+    $sheet = $workbook.Worksheets.Item($s)
+    $sheetName = [string]$sheet.Name
+    Set-CuttingStage 'cache_analyze_sheet' "sheet=$sheetName"
+    $ranges = Get-GroupRanges $sheet
+    $groupNo = 0
+    foreach ($group in $ranges) {
+      $groupNo++
+      Set-CuttingStage 'cache_analyze_group' "sheet=$sheetName; group=$groupNo; rows=$($group.Start)-$($group.End)"
+      $cols = Find-HeaderColumns $sheet $group.Start
+      if ($cols.Code -le 0) { continue }
+      $items = @()
+      $colors = New-Object System.Collections.Generic.List[string]
+      for ($row = $group.Start + 1; $row -le $group.End; $row++) {
+        $code = (Get-CellText $sheet $row $cols.Code).Trim()
+        if (-not (Is-ItemCode $code)) { continue }
+        $color = if ($cols.Color -gt 0) { (Get-CellText $sheet $row $cols.Color).Trim() } else { '' }
+        if ($color -and -not $colors.Contains($color)) { $colors.Add($color) }
+        $piece = Get-CellNumber $sheet $row $cols.Piece
+        $items += [PSCustomObject]@{
+          code = $code
+          rowNumber = $row
+          qtyCell = if ($cols.Qty -gt 0) { Get-CellAddress1 $row $cols.Qty } else { '' }
+          piece = $piece
+        }
+      }
+      if (-not $items -or $items.Count -eq 0) { continue }
+      $imageFile = ''
+      $shape = Find-GroupImage $sheet $group.Start $group.End
+      if ($null -ne $shape) {
+        $candidate = "group_${s}_${groupNo}.png"
+        $imagePath = Join-Path $cacheDir $candidate
+        Set-CuttingStage 'cache_export_image' "sheet=$sheetName; group=$groupNo; path=$imagePath"
+        if (Export-ShapeImage $shape $sheet $imagePath) { $imageFile = $candidate }
+        Release-Com $shape
+      }
+      $groupsOut += [PSCustomObject]@{
+        sheetName = $sheetName
+        startRow = $group.Start
+        endRow = $group.End
+        title = Get-CellText $sheet $group.Start 1
+        belt = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Belt
+        color = ($colors -join ' / ')
+        cutSpec = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.CutSpec
+        note = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Note
+        imageFile = $imageFile
+        items = $items
+      }
+    }
+    Release-Com $sheet
+  }
+  return $groupsOut
+}
+
+function Get-CachedGroupsForPayload($cache, $payload) {
+  $writeMap = @{}
+  foreach ($write in $payload.writes) {
+    $key = "$([string]$write.sheetName)!$([string]$write.cell)".ToUpperInvariant()
+    $writeMap[$key] = Convert-ToSafeDouble $write.value
+  }
+  $orderMap = @{}
+  foreach ($cell in $payload.orderCells) {
+    $key = "$([string]$cell.sheetName)!$([string]$cell.cell)".ToUpperInvariant()
+    $orderMap[$key] = $true
+  }
+  $groupsOut = @()
+  $cacheDir = Get-CacheDir $payload
+  foreach ($group in $cache.groups) {
+    $items = @()
+    $totalCut = 0.0
+    $hasOrder = $false
+    foreach ($item in $group.items) {
+      $qtyKey = "$([string]$group.sheetName)!$([string]$item.qtyCell)".ToUpperInvariant()
+      $qty = if ($writeMap.ContainsKey($qtyKey)) { [double]$writeMap[$qtyKey] } else { 0.0 }
+      $piece = Convert-ToSafeDouble $item.piece
+      if ($qty -gt 0 -or $orderMap.ContainsKey($qtyKey)) { $hasOrder = $true }
+      $totalCut += ($qty * $piece)
+      $items += [PSCustomObject]@{
+        Code = [string]$item.code
+        Qty = $qty
+        Piece = $piece
+      }
+    }
+    if (-not $hasOrder) { continue }
+    $imagePath = ''
+    if ($group.imageFile) { $imagePath = Join-Path $cacheDir ([string]$group.imageFile) }
+    $groupsOut += [PSCustomObject]@{
+      Title = [string]$group.title
+      Belt = [string]$group.belt
+      Color = [string]$group.color
+      CutSpec = [string]$group.cutSpec
+      Note = [string]$group.note
+      Items = $items
+      TotalCut = $totalCut
+      Image = $null
+      ImagePath = $imagePath
+    }
+  }
+  return $groupsOut
+}
+
 function Set-CellStyle($range, [int]$fontSize, [bool]$bold) {
   $range.HorizontalAlignment = -4108
   $range.VerticalAlignment = -4108
@@ -302,9 +569,15 @@ function Set-CellStyle($range, [int]$fontSize, [bool]$bold) {
   $range.Font.Bold = $bold
 }
 
-function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
+function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups = $null) {
   Set-CuttingStage 'collect_groups' 'read matched template groups'
-  $groups = Get-CompactGroups $sourceWorkbook $payload
+  if ($null -ne $cachedGroups) {
+    $groups = $cachedGroups
+    Add-CuttingLog 'read_template_cache' "groups=$($groups.Count)"
+  } else {
+    $groups = Get-CompactGroups $sourceWorkbook $payload
+    Add-CuttingLog 'read_template' "groups=$($groups.Count)"
+  }
   if (-not $groups -or $groups.Count -eq 0) { throw '沒有任何有訂單數量的組可輸出。' }
 
   Set-CuttingStage 'create_print_workbook' "groups=$($groups.Count)"
@@ -358,20 +631,22 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
     $headers = @($group.Title, 'QUY CACH DAY', 'MA HANG', 'MAU', 'QUY CACH CAT', 'SL:PO PCS', 'SO KIEN', 'SL:CAT THUC TE', 'SL: THIEU LIEU', 'GHI CHU')
     $headerFillColor = [int]5996346
     $headerFontColor = [int]16777215
+    $headerData = New-Object 'object[,]' 1, 10
     for ($c = 1; $c -le 10; $c++) {
-      Set-CuttingStage 'render_group_header_cell' "index=$($groupIndex + 1); row=$headerRow; col=$c"
-      $cell = $outSheet.Cells.Item($headerRow, $c)
-      Set-CuttingStage 'render_group_header_value' "index=$($groupIndex + 1); row=$headerRow; col=$c"
-      $headerText = Safe-ToText $headers[$c - 1]
-      $cell.Value = $headerText
-      Set-CuttingStage 'render_group_header_fill_color' "index=$($groupIndex + 1); row=$headerRow; col=$c; color=$headerFillColor"
-      $cell.Interior.Color = $headerFillColor
-      Set-CuttingStage 'render_group_header_font_color' "index=$($groupIndex + 1); row=$headerRow; col=$c; color=$headerFontColor"
-      $cell.Font.Color = $headerFontColor
-      Set-CuttingStage 'render_group_header_style' "index=$($groupIndex + 1); row=$headerRow; col=$c"
-      Set-CellStyle $cell 11 $true
-      Release-Com $cell
+      $headerIndex = $c - 1
+      $headerData[0, $headerIndex] = Safe-ToText $headers[$headerIndex]
     }
+    Set-CuttingStage 'render_group_header_range' "index=$($groupIndex + 1); row=$headerRow; cols=1-10"
+    $headerRange = $outSheet.Range($outSheet.Cells.Item($headerRow, 1), $outSheet.Cells.Item($headerRow, 10))
+    Set-CuttingStage 'render_group_header_values' "index=$($groupIndex + 1); row=$headerRow; cols=1-10"
+    $headerRange.Value = $headerData
+    Set-CuttingStage 'render_group_header_fill_color' "index=$($groupIndex + 1); row=$headerRow; cols=1-10; color=$headerFillColor"
+    $headerRange.Interior.Color = $headerFillColor
+    Set-CuttingStage 'render_group_header_font_color' "index=$($groupIndex + 1); row=$headerRow; cols=1-10; color=$headerFontColor"
+    $headerRange.Font.Color = $headerFontColor
+    Set-CuttingStage 'render_group_header_style' "index=$($groupIndex + 1); row=$headerRow; cols=1-10"
+    Set-CellStyle $headerRange 11 $true
+    Release-Com $headerRange
 
     Set-CuttingStage 'render_group_merge_cells' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
     foreach ($col in @(1,2,4,5,8,9,10)) {
@@ -389,16 +664,33 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
     $outSheet.Cells.Item($detailStart, 10).Value2 = [string]$group.Note
 
     Set-CuttingStage 'render_group_write_items' "index=$($groupIndex + 1); items=$itemCount"
+    $codeData = New-Object 'object[,]' $itemCount, 1
+    $qtyData = New-Object 'object[,]' $itemCount, 1
+    $pieceData = New-Object 'object[,]' $itemCount, 1
     for ($i = 0; $i -lt $itemCount; $i++) {
       $row = $detailStart + $i
       if ($i -lt $group.Items.Count) {
         $item = $group.Items[$i]
-        Set-CuttingStage 'render_group_write_item_row' "index=$($groupIndex + 1); row=$row; code=$($item.Code); qty=$($item.Qty); piece=$($item.Piece)"
-        $outSheet.Cells.Item($row, 3).Value2 = [string]$item.Code
-        $outSheet.Cells.Item($row, 6).Value2 = [double]$item.Qty
-        $outSheet.Cells.Item($row, 7).Value2 = [double]$item.Piece
+        Set-CuttingStage 'render_group_prepare_item_row' "index=$($groupIndex + 1); row=$row; code=$($item.Code); qty=$($item.Qty); piece=$($item.Piece)"
+        $codeData[$i, 0] = [string]$item.Code
+        $qtyData[$i, 0] = [double]$item.Qty
+        $pieceData[$i, 0] = [double]$item.Piece
+      } else {
+        $codeData[$i, 0] = ''
+        $qtyData[$i, 0] = ''
+        $pieceData[$i, 0] = ''
       }
     }
+    Set-CuttingStage 'render_group_write_item_ranges' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
+    $codeWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
+    $qtyWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 6), $outSheet.Cells.Item($detailEnd, 6))
+    $pieceWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 7), $outSheet.Cells.Item($detailEnd, 7))
+    $codeWriteRange.Value = $codeData
+    $qtyWriteRange.Value = $qtyData
+    $pieceWriteRange.Value = $pieceData
+    Release-Com $codeWriteRange
+    Release-Com $qtyWriteRange
+    Release-Com $pieceWriteRange
 
     Set-CuttingStage 'render_group_style_block' "index=$($groupIndex + 1); rows=$startRow-$detailEnd"
     $block = $outSheet.Range($outSheet.Cells.Item($startRow, 1), $outSheet.Cells.Item($detailEnd, 10))
@@ -419,10 +711,11 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
     Release-Com $codeRange
 
     Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
-    Copy-GroupImage $group.Image $outSheet $detailStart $detailEnd
+    Place-GroupImage $group $outSheet $detailStart $detailEnd
     $outRow = $detailEnd + 1
     $groupIndex++
   }
+  Add-CuttingLog 'generate_table' "groups=$groupIndex rows=$($outRow - 1)"
 
   Set-CuttingStage 'set_print_area' "rows=$($outRow - 1)"
   $used = $outSheet.UsedRange
@@ -432,6 +725,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
 }
 
 function New-CuttingPdf($payload) {
+  Start-CuttingTimer
   Set-CuttingStage 'prepare_temp_files' 'create temp files'
   $root = Join-Path $env:TEMP ("cutting-pdf-" + [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $root | Out-Null
@@ -443,32 +737,55 @@ function New-CuttingPdf($payload) {
   Set-CuttingStage 'write_temp_template' "path=$templatePath"
   [System.IO.File]::WriteAllBytes($templatePath, $templateBytes)
   Copy-Item -LiteralPath $templatePath -Destination $workPath
+  Add-CuttingLog 'prepare_files' "root=$root"
 
   $excel = $null
   $workbook = $null
   $printWorkbook = $null
   try {
+    Set-CuttingStage 'load_template_cache' 'read local template cache'
+    $cache = Load-TemplateCache $payload
+    if ($null -ne $cache) {
+      Add-CuttingLog 'cache_hit' "groups=$($cache.groups.Count)"
+    } else {
+      Add-CuttingLog 'cache_miss'
+    }
+
     Set-CuttingStage 'start_excel' 'create Excel COM application'
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
+    $excel.ScreenUpdating = $false
     $excel.DisplayAlerts = $false
     $excel.EnableEvents = $false
+    try { $excel.Calculation = -4135 } catch {}
+    Add-CuttingLog 'start_excel'
 
-    Set-CuttingStage 'open_workbook' "path=$workPath"
-    $workbook = $excel.Workbooks.Open($workPath, $null, $false)
-    foreach ($write in $payload.writes) {
-      $sheetName = [string]$write.sheetName
-      $cell = [string]$write.cell
-      $value = Convert-ToSafeDouble $write.value
-      Set-CuttingStage 'write_cell' "sheet=$sheetName; cell=$cell; value=$value"
-      $sheet = $workbook.Worksheets.Item($sheetName)
-      $sheet.Range($cell).Value2 = $value
-      Release-Com $sheet
+    if ($null -eq $cache) {
+      Set-CuttingStage 'open_workbook' "path=$workPath"
+      $workbook = $excel.Workbooks.Open($workPath, $null, $true)
+      Add-CuttingLog 'open_template'
+      Set-CuttingStage 'build_template_cache' 'analyze template and export images'
+      $cacheGroups = Build-TemplateCacheGroups $excel $workbook $payload
+      Add-CuttingLog 'build_template_cache' "groups=$($cacheGroups.Count)"
+      $cache = Save-TemplateCache $payload $cacheGroups
+      Add-CuttingLog 'save_template_cache'
+      $workbook.Close($false)
+      Release-Com $workbook
+      $workbook = $null
     }
+
+    Set-CuttingStage 'prepare_cached_groups' 'apply order values to cached template'
+    $groupsForPrint = Get-CachedGroupsForPayload $cache $payload
+    Add-CuttingLog 'prepare_cached_groups' "groups=$($groupsForPrint.Count); writes=$($payload.writes.Count)"
     Set-CuttingStage 'build_compact_pdf_sheet' 'create compact print layout'
-    $printWorkbook = Build-CompactWorkbook $excel $workbook $payload
+    $printWorkbook = Build-CompactWorkbook $excel $workbook $payload $groupsForPrint
+    Add-CuttingLog 'build_compact_workbook'
+    Set-CuttingStage 'calculate_print_workbook' 'calculate before PDF export'
+    try { $excel.CalculateFull() } catch { $excel.Calculate() }
+    Add-CuttingLog 'calculate_print'
     Set-CuttingStage 'export_pdf' "path=$pdfPath"
     $printWorkbook.ExportAsFixedFormat(0, $pdfPath)
+    Add-CuttingLog 'export_pdf'
     $printWorkbook.Close($false)
     Release-Com $printWorkbook
     $printWorkbook = $null
@@ -492,6 +809,7 @@ function New-CuttingPdf($payload) {
       try { $excel.Quit() } catch {}
       Release-Com $excel
     }
+    Add-CuttingLog 'close_excel'
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
   }
@@ -540,6 +858,7 @@ while ($listener.IsListening) {
       error = $message
       stage = $script:CuttingStage
       detail = $script:CuttingDetail
+      timing = $script:CuttingLogs
     }
   }
 }
