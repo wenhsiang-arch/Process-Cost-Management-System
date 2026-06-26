@@ -767,7 +767,24 @@ function Add-ImageSegmentDivider($targetSheet, $frame, [double]$topPadding = 0) 
   }
 }
 
-function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1) {
+function Add-ImageSegmentLabel($targetSheet, $frame, [string]$text, [double]$topPadding = 0, [int]$fontSize = 12) {
+  if (-not $text -or $topPadding -le 0) { return }
+  $box = $null
+  try {
+    $box = $targetSheet.Shapes.AddTextbox(1, [double]$frame.Left + 2, [double]$frame.Top + 1, [Math]::Max(8.0, [double]$frame.Width - 4), [Math]::Max(8.0, $topPadding - 2))
+    $box.TextFrame.Characters().Text = $text
+    $box.TextFrame.HorizontalAlignment = -4108
+    $box.TextFrame.VerticalAlignment = -4108
+    $box.Line.Visible = 0
+    $box.Fill.Visible = 0
+    $box.TextFrame.Characters().Font.Bold = $true
+    $box.TextFrame.Characters().Font.Size = $fontSize
+  } finally {
+    Release-Com $box
+  }
+}
+
+function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1, [string]$segmentText = '', [int]$segmentFontSize = 12) {
   if ($null -eq $sourceShape) { return }
   $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
   try {
@@ -778,6 +795,7 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
     Set-CuttingStage 'copy_group_image_paste' "rows=$startRow-$endRow"
     $targetSheet.Paste() | Out-Null
     $shape = $targetSheet.Shapes.Item($targetSheet.Shapes.Count)
+    Add-ImageSegmentLabel $targetSheet $frame $segmentText $topPadding $segmentFontSize
     Add-ImageSegmentDivider $targetSheet $frame $topPadding
     Fit-ShapeInsideFrame $shape $frame $topPadding
     Release-Com $shape
@@ -792,7 +810,7 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
   }
 }
 
-function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1) {
+function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1, [int]$segmentFontSize = 12) {
   if ($group.ImagePath -and (Test-Path -LiteralPath ([string]$group.ImagePath))) {
     $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $frame = $null
@@ -801,6 +819,7 @@ function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [d
       Set-CuttingStage 'insert_cached_image' "path=$($group.ImagePath); rows=$startRow-$endRow col=$imageCol"
       $frame = $targetSheet.Range($targetSheet.Cells.Item($startRow, $imageCol), $targetSheet.Cells.Item($endRow, $imageCol))
       $shape = $targetSheet.Shapes.AddPicture([string]$group.ImagePath, $false, $true, [double]$frame.Left, [double]$frame.Top, -1, -1)
+      Add-ImageSegmentLabel $targetSheet $frame ([string]$group.Segment) $topPadding $segmentFontSize
       Add-ImageSegmentDivider $targetSheet $frame $topPadding
       Fit-ShapeInsideFrame $shape $frame $topPadding
       $imageTimer.Stop()
@@ -816,7 +835,7 @@ function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [d
     }
     return
   }
-  Copy-GroupImage $group.Image $targetSheet $startRow $endRow $topPadding $imageCol
+  Copy-GroupImage $group.Image $targetSheet $startRow $endRow $topPadding $imageCol ([string]$group.Segment) $segmentFontSize
 }
 
 function Get-CompactGroups($workbook, $payload) {
@@ -1197,8 +1216,8 @@ function Set-CuttingPrintSheetPageSetup($sheet, $groups) {
   for ($i = 0; $i -lt $cols.Count; $i++) { $sheet.Columns.Item($i + 1).ColumnWidth = $cols[$i] }
   $sheet.PageSetup.Orientation = 1
   $sheet.PageSetup.PaperSize = 9
-  $sheet.PageSetup.Zoom = $false
-  $sheet.PageSetup.FitToPagesWide = 1
+  $sheet.PageSetup.Zoom = 100
+  $sheet.PageSetup.FitToPagesWide = $false
   $sheet.PageSetup.FitToPagesTall = $false
   $sheet.PageSetup.TopMargin = 0
   $sheet.PageSetup.BottomMargin = 0
@@ -1206,28 +1225,6 @@ function Set-CuttingPrintSheetPageSetup($sheet, $groups) {
   $sheet.PageSetup.RightMargin = 0
   $sheet.PageSetup.HeaderMargin = 0
   $sheet.PageSetup.FooterMargin = 0
-}
-
-function Get-A4GroupHeight($sheet, $groups, [int]$groupsPerPage = 6) {
-  $a4Width = 595.0
-  $a4Height = 842.0
-  $colCount = 10
-  try {
-    if ($groups -and $groups.Count -gt 0) {
-      $layout = Get-GroupLayout $groups[0]
-      $colCount = [Math]::Max(1, [Math]::Min(10, $layout.Count))
-    }
-    $widthRange = $sheet.Range($sheet.Cells.Item(1, 1), $sheet.Cells.Item(1, $colCount))
-    try {
-      $tableWidth = [Math]::Max(1.0, [double]$widthRange.Width)
-      $scale = [Math]::Min(1.0, $a4Width / $tableWidth)
-      return [Math]::Max(120.0, ($a4Height / [Math]::Max(0.1, $scale)) / [Math]::Max(1, $groupsPerPage))
-    } finally {
-      Release-Com $widthRange
-    }
-  } catch {
-    return 140.3
-  }
 }
 
 function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups = $null) {
@@ -1255,29 +1252,18 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
   $outRow = 1
   $groupIndex = 0
   $sheetGroupIndex = 0
-  $sheetIndex = 0
+  $sheetIndex = 1
   $currentTemplateKey = ''
   $outSheets = New-Object System.Collections.Generic.List[object]
+  $outSheet.Name = 'PDF_PRINT_1'
+  $outSheets.Add($outSheet)
   foreach ($group in $groups) {
     $templateKey = Get-GroupTemplateKey $group
     if ($currentTemplateKey -ne $templateKey) {
-      $sheetIndex++
-      if ($sheetIndex -eq 1) {
-        $outSheet = $outBook.Worksheets.Item(1)
-      } else {
-        $afterSheet = $outBook.Worksheets.Item($outBook.Worksheets.Count)
-        $outSheet = $outBook.Worksheets.Add([System.Reflection.Missing]::Value, $afterSheet)
-        Release-Com $afterSheet
-      }
-      $outSheet.Name = "PDF_PRINT_$sheetIndex"
       $templateGroups = @($groups | Where-Object { (Get-GroupTemplateKey $_) -eq $templateKey })
       Set-CuttingPrintSheetPageSetup $outSheet $templateGroups
-      $groupHeight = Get-A4GroupHeight $outSheet $templateGroups 6
-      $outSheets.Add($outSheet)
-      $outRow = 1
-      $sheetGroupIndex = 0
       $currentTemplateKey = $templateKey
-      Add-CuttingLog 'create_template_sheet' "sheet=$sheetIndex template=$templateKey groups=$($templateGroups.Count) groupHeight=$groupHeight"
+      Add-CuttingLog 'apply_template_layout' "sheet=$sheetIndex template=$templateKey groups=$($templateGroups.Count) groupHeight=$groupHeight"
     }
     $layout = Get-GroupLayout $group
     $colCount = [Math]::Max(1, [Math]::Min(10, $layout.Count))
@@ -1382,7 +1368,8 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       if ($key -eq 'Image') {
         if ([string]$group.Segment -and $segmentCol -le 0) {
-          Set-SegmentCellStyle $range (Get-AdaptiveFontSize ([string]$group.Segment) $colWidth $imageTopPadding 18 8)
+          $range.Value2 = ''
+          Set-CellStyle $range 12 $false
         } else {
           Set-CellStyle $range 12 $false
         }
@@ -1411,7 +1398,8 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     }
 
     Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
-    Place-GroupImage $group $outSheet $detailStart $detailEnd $imageTopPadding $imageCol
+    $segmentFontSize = if ([string]$group.Segment -and $segmentCol -le 0) { Get-AdaptiveFontSize ([string]$group.Segment) (Get-LayoutColumnWidth $layout[$imageCol - 1]) $imageTopPadding 18 8 } else { 12 }
+    Place-GroupImage $group $outSheet $detailStart $detailEnd $imageTopPadding $imageCol $segmentFontSize
     $outRow = $detailEnd + 1
     $groupIndex++
     $sheetGroupIndex++
