@@ -362,7 +362,8 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
       Set-CuttingStage 'render_group_header_cell' "index=$($groupIndex + 1); row=$headerRow; col=$c"
       $cell = $outSheet.Cells.Item($headerRow, $c)
       Set-CuttingStage 'render_group_header_value' "index=$($groupIndex + 1); row=$headerRow; col=$c"
-      $cell.Value2 = Safe-ToText $headers[$c - 1]
+      $headerText = Safe-ToText $headers[$c - 1]
+      $cell.Value = $headerText
       Set-CuttingStage 'render_group_header_fill_color' "index=$($groupIndex + 1); row=$headerRow; col=$c; color=$headerFillColor"
       $cell.Interior.Color = $headerFillColor
       Set-CuttingStage 'render_group_header_font_color' "index=$($groupIndex + 1); row=$headerRow; col=$c; color=$headerFontColor"
