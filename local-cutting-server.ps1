@@ -28,7 +28,7 @@ $script:CuttingDetail = ''
 $script:CuttingTimer = $null
 $script:CuttingLastMs = 0
 $script:CuttingLogs = New-Object System.Collections.Generic.List[string]
-$script:CuttingCacheVersion = 3
+$script:CuttingCacheVersion = 4
 
 function Set-CuttingStage([string]$stage, [string]$detail = '') {
   $script:CuttingStage = $stage
@@ -262,6 +262,25 @@ function Get-CellText($sheet, [int]$row, [int]$col) {
   return $text
 }
 
+function Get-MergedCellText($sheet, [int]$row, [int]$col) {
+  if ($col -le 0) { return '' }
+  $cell = $sheet.Cells.Item($row, $col)
+  try {
+    if ($cell.MergeCells) {
+      $area = $cell.MergeArea
+      try {
+        $first = $area.Cells.Item(1, 1)
+        try { return [string]$first.Text } finally { Release-Com $first }
+      } finally {
+        Release-Com $area
+      }
+    }
+    return [string]$cell.Text
+  } finally {
+    Release-Com $cell
+  }
+}
+
 function Convert-ToSafeDouble($value) {
   if ($null -eq $value) { return 0.0 }
   if ($value -is [byte] -or $value -is [int16] -or $value -is [int32] -or $value -is [int64] -or $value -is [single] -or $value -is [double] -or $value -is [decimal]) {
@@ -293,7 +312,7 @@ function Find-HeaderColumns($sheet, [int]$row) {
   $lastCol = $firstCol + [int]$used.Columns.Count - 1
   Release-Com $used
   $cols = @{
-    Code = 0; Color = 0; Qty = 0; Piece = 0; Total = 0; Note = 0; Belt = 0; CutSpec = 0
+    Code = 0; Color = 0; Qty = 0; Piece = 0; Total = 0; Shortage = 0; Note = 0; Belt = 0; CutSpec = 0; Segment = 0
   }
   for ($col = $firstCol; $col -le $lastCol; $col++) {
     $text = Normalize-HeaderText (Get-CellText $sheet $row $col)
@@ -301,14 +320,74 @@ function Find-HeaderColumns($sheet, [int]$row) {
     if ($cols.Color -eq 0 -and ($text.Contains('MAU') -or $text.Contains('COLOR'))) { $cols.Color = $col }
     if ($cols.Qty -eq 0 -and ($text.Contains('SLPO') -or $text.Contains('SL:PO') -or $text.Contains('QTY') -or $text.Contains('PCS'))) { $cols.Qty = $col }
     if ($cols.Piece -eq 0 -and ($text.Contains('SOKIEN') -or $text.Contains('SOBO'))) { $cols.Piece = $col }
-    if ($cols.Total -eq 0 -and (($text.Contains('SLCAT') -or $text.Contains('THUCTE')))) { $cols.Total = $col }
+    if ($cols.Total -eq 0 -and (($text.Contains('SLCAT') -or $text.Contains('THUCTE'))) -and -not $text.Contains('THIEU')) { $cols.Total = $col }
+    if ($cols.Shortage -eq 0 -and ($text.Contains('THIEU') -or $text.Contains('LIEU'))) { $cols.Shortage = $col }
     if ($cols.Note -eq 0 -and ($text.Contains('GHICHU') -or $text.Contains('NOTE'))) { $cols.Note = $col }
     if ($cols.Belt -eq 0 -and ($text.Contains('QUYCACH') -and ($text.Contains('DAY') -or $text.Contains('DAI') -or $text.Contains('THUNG')))) { $cols.Belt = $col }
     if ($cols.CutSpec -eq 0 -and ($text.Contains('QUYCACH') -and $text.Contains('CAT'))) { $cols.CutSpec = $col }
+    if ($cols.Segment -eq 0 -and ($text.Contains('CONGDOAN') -or $text -eq 'DOAN')) { $cols.Segment = $col }
   }
-  if ($cols.Color -eq 0 -and $cols.Code -gt 0) { $cols.Color = $cols.Code + 1 }
-  if ($cols.CutSpec -eq 0 -and $cols.Qty -gt 1) { $cols.CutSpec = $cols.Qty - 1 }
+  if ($cols.CutSpec -eq 0 -and $cols.Qty -gt 1 -and ($cols.Qty - 1) -ne $cols.Code) { $cols.CutSpec = $cols.Qty - 1 }
   return $cols
+}
+
+function New-LayoutColumn([string]$key, [string]$header, [int]$sourceCol) {
+  return [PSCustomObject]@{ Key = $key; Header = $header; SourceCol = $sourceCol }
+}
+
+function Get-DefaultHeader([string]$key) {
+  switch ($key) {
+    'Image' { return 'PO' }
+    'Belt' { return 'QUY CACH' }
+    'Code' { return 'MA HANG' }
+    'Color' { return 'MAU' }
+    'Segment' { return 'CONG DOAN' }
+    'CutSpec' { return 'QUY CACH' }
+    'Qty' { return 'SL:PO PCS' }
+    'Piece' { return 'SO KIEN' }
+    'Total' { return 'SL:CAT THUC TE' }
+    'Shortage' { return 'SL: THIEU' }
+    'Note' { return 'GHI CHU' }
+    default { return $key }
+  }
+}
+
+function Get-TemplateLayout($sheet, [int]$headerRow, $cols) {
+  $layout = @()
+  $title = (Get-CellText $sheet $headerRow 1).Trim()
+  if (-not $title) { $title = Get-DefaultHeader 'Image' }
+  $layout += New-LayoutColumn 'Image' $title 1
+  foreach ($item in @(
+    @{ Key = 'Belt'; Col = $cols.Belt },
+    @{ Key = 'Code'; Col = $cols.Code },
+    @{ Key = 'Color'; Col = $cols.Color },
+    @{ Key = 'Segment'; Col = $cols.Segment },
+    @{ Key = 'CutSpec'; Col = $cols.CutSpec },
+    @{ Key = 'Qty'; Col = $cols.Qty },
+    @{ Key = 'Piece'; Col = $cols.Piece },
+    @{ Key = 'Total'; Col = $cols.Total },
+    @{ Key = 'Shortage'; Col = $cols.Shortage },
+    @{ Key = 'Note'; Col = $cols.Note }
+  )) {
+    $col = [int]$item.Col
+    if ($col -le 0) { continue }
+    $header = (Get-CellText $sheet $headerRow $col).Trim()
+    if (-not $header) { $header = Get-DefaultHeader ([string]$item.Key) }
+    $layout += New-LayoutColumn ([string]$item.Key) $header $col
+  }
+  $seen = @{}
+  return @($layout | Sort-Object SourceCol | Where-Object {
+    if ($seen.ContainsKey($_.Key)) { return $false }
+    $seen[$_.Key] = $true
+    return $true
+  } | Select-Object -First 10)
+}
+
+function Get-LayoutColumnIndex($layout, [string]$key) {
+  for ($i = 0; $i -lt $layout.Count; $i++) {
+    if ([string]$layout[$i].Key -eq $key) { return ($i + 1) }
+  }
+  return 0
 }
 
 function Is-ItemCode([string]$text) {
@@ -319,7 +398,7 @@ function Is-ItemCode([string]$text) {
 function First-NonEmptyInColumn($sheet, [int]$startRow, [int]$endRow, [int]$col) {
   if ($col -le 0) { return '' }
   for ($row = $startRow; $row -le $endRow; $row++) {
-    $text = (Get-CellText $sheet $row $col).Trim()
+    $text = (Get-MergedCellText $sheet $row $col).Trim()
     if ($text) { return $text }
   }
   return ''
@@ -619,12 +698,12 @@ function Export-ShapeImage($shape, $sheet, [string]$path) {
   }
 }
 
-function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0) {
+function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1) {
   if ($null -eq $sourceShape) { return }
   $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
   try {
-    Set-CuttingStage 'copy_group_image_frame' "rows=$startRow-$endRow"
-    $frame = $targetSheet.Range("A$($startRow):A$($endRow)")
+    Set-CuttingStage 'copy_group_image_frame' "rows=$startRow-$endRow col=$imageCol"
+    $frame = $targetSheet.Range($targetSheet.Cells.Item($startRow, $imageCol), $targetSheet.Cells.Item($endRow, $imageCol))
     Set-CuttingStage 'copy_group_image_copy' "rows=$startRow-$endRow"
     $sourceShape.Copy()
     Set-CuttingStage 'copy_group_image_paste' "rows=$startRow-$endRow"
@@ -649,14 +728,14 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
   }
 }
 
-function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0) {
+function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0, [int]$imageCol = 1) {
   if ($group.ImagePath -and (Test-Path -LiteralPath ([string]$group.ImagePath))) {
     $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $frame = $null
     $shape = $null
     try {
-      Set-CuttingStage 'insert_cached_image' "path=$($group.ImagePath); rows=$startRow-$endRow"
-      $frame = $targetSheet.Range("A$($startRow):A$($endRow)")
+      Set-CuttingStage 'insert_cached_image' "path=$($group.ImagePath); rows=$startRow-$endRow col=$imageCol"
+      $frame = $targetSheet.Range($targetSheet.Cells.Item($startRow, $imageCol), $targetSheet.Cells.Item($endRow, $imageCol))
       $shape = $targetSheet.Shapes.AddPicture([string]$group.ImagePath, $false, $true, [double]$frame.Left, [double]$frame.Top, -1, -1)
       $shape.LockAspectRatio = -1
       $maxWidth = [double]$frame.Width - 8
@@ -678,7 +757,7 @@ function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [d
     }
     return
   }
-  Copy-GroupImage $group.Image $targetSheet $startRow $endRow $topPadding
+  Copy-GroupImage $group.Image $targetSheet $startRow $endRow $topPadding $imageCol
 }
 
 function Get-CompactGroups($workbook, $payload) {
@@ -697,6 +776,7 @@ function Get-CompactGroups($workbook, $payload) {
       if (-not $hasOrder) { continue }
       $cols = Find-HeaderColumns $sheet $group.Start
       if ($cols.Code -le 0) { continue }
+      $layout = Get-TemplateLayout $sheet $group.Start $cols
       $items = @()
       $colors = New-Object System.Collections.Generic.List[string]
       $totalCut = 0.0
@@ -704,7 +784,7 @@ function Get-CompactGroups($workbook, $payload) {
         Set-CuttingStage 'read_group_items' "sheet=$sheetName; row=$row"
         $code = (Get-CellText $sheet $row $cols.Code).Trim()
         if (-not (Is-ItemCode $code)) { continue }
-        $color = if ($cols.Color -gt 0) { (Get-CellText $sheet $row $cols.Color).Trim() } else { '' }
+        $color = if ($cols.Color -gt 0) { (Get-MergedCellText $sheet $row $cols.Color).Trim() } else { '' }
         if ($color -and -not $colors.Contains($color)) { $colors.Add($color) }
         $qty = Get-CellNumber $sheet $row $cols.Qty
         $piece = Get-CellNumber $sheet $row $cols.Piece
@@ -715,12 +795,12 @@ function Get-CompactGroups($workbook, $payload) {
       $belt = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Belt
       $cutSpec = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.CutSpec
       $note = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Note
-      $segment = Find-GroupSegment $sheet $group.Start $group.End $cols.Code
+      $segment = if ($cols.Segment -gt 0) { First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Segment } else { Find-GroupSegment $sheet $group.Start $group.End $cols.Code }
       $title = Get-CellText $sheet $group.Start 1
       Set-CuttingStage 'find_group_image' "sheet=$sheetName; rows=$($group.Start)-$($group.End); title=$title"
       $image = Find-GroupImage $sheet $group.Start $group.End
       $groupsOut += [PSCustomObject]@{
-        Sheet = $sheet; Title = $title; Segment = $segment; Belt = $belt; Color = ($colors -join ' / ');
+        Sheet = $sheet; Title = $title; Layout = $layout; Segment = $segment; Belt = $belt; Color = ($colors -join ' / ');
         CutSpec = $cutSpec; Note = $note; Items = $items; TotalCut = $totalCut; Image = $image
       }
     }
@@ -743,12 +823,13 @@ function Build-TemplateCacheGroups($excel, $workbook, $payload, [string]$templat
       Set-CuttingStage 'cache_analyze_group' "sheet=$sheetName; group=$groupNo; rows=$($group.Start)-$($group.End)"
       $cols = Find-HeaderColumns $sheet $group.Start
       if ($cols.Code -le 0) { continue }
+      $layout = Get-TemplateLayout $sheet $group.Start $cols
       $items = @()
       $colors = New-Object System.Collections.Generic.List[string]
       for ($row = $group.Start + 1; $row -le $group.End; $row++) {
         $code = (Get-CellText $sheet $row $cols.Code).Trim()
         if (-not (Is-ItemCode $code)) { continue }
-        $color = if ($cols.Color -gt 0) { (Get-CellText $sheet $row $cols.Color).Trim() } else { '' }
+        $color = if ($cols.Color -gt 0) { (Get-MergedCellText $sheet $row $cols.Color).Trim() } else { '' }
         if ($color -and -not $colors.Contains($color)) { $colors.Add($color) }
         $piece = Get-CellNumber $sheet $row $cols.Piece
         $items += [PSCustomObject]@{
@@ -770,12 +851,13 @@ function Build-TemplateCacheGroups($excel, $workbook, $payload, [string]$templat
       } elseif (Find-GroupImageFile $sheet $group.Start $group.End $imagePath) {
         $imageFile = $candidate
       }
-      $segment = Find-GroupSegment $sheet $group.Start $group.End $cols.Code
+      $segment = if ($cols.Segment -gt 0) { First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Segment } else { Find-GroupSegment $sheet $group.Start $group.End $cols.Code }
       $groupsOut += [PSCustomObject]@{
         sheetName = $sheetName
         startRow = $group.Start
         endRow = $group.End
         title = Get-CellText $sheet $group.Start 1
+        layout = $layout
         segment = $segment
         belt = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Belt
         color = ($colors -join ' / ')
@@ -824,6 +906,7 @@ function Get-CachedGroupsForPayload($cache, $payload) {
     if ($group.imageFile) { $imagePath = Join-Path $cacheDir ([string]$group.imageFile) }
     $groupsOut += [PSCustomObject]@{
       Title = [string]$group.title
+      Layout = @($group.layout)
       Segment = [string]$group.segment
       Belt = [string]$group.belt
       Color = [string]$group.color
@@ -894,6 +977,121 @@ function Get-GroupSortKey($group) {
   return [string](($codes | Sort-Object)[0])
 }
 
+function Get-DefaultLayout($group) {
+  return @(
+    (New-LayoutColumn 'Image' ([string]$group.Title) 1),
+    (New-LayoutColumn 'Belt' 'QUY CACH' 2),
+    (New-LayoutColumn 'Code' 'MA HANG' 3),
+    (New-LayoutColumn 'Color' 'MAU' 4),
+    (New-LayoutColumn 'CutSpec' 'QUY CACH' 5),
+    (New-LayoutColumn 'Qty' 'SL:PO PCS' 6),
+    (New-LayoutColumn 'Piece' 'SO KIEN' 7),
+    (New-LayoutColumn 'Total' 'SL:CAT THUC TE' 8),
+    (New-LayoutColumn 'Shortage' 'SL: THIEU' 9),
+    (New-LayoutColumn 'Note' 'GHI CHU' 10)
+  )
+}
+
+function Get-GroupLayout($group) {
+  $layout = @($group.Layout)
+  if (-not $layout -or $layout.Count -eq 0) { return (Get-DefaultLayout $group) }
+  return @($layout | Select-Object -First 10)
+}
+
+function Get-ColumnWidthByKey([string]$key) {
+  switch ($key) {
+    'Image' { return 13 }
+    'Belt' { return 10 }
+    'Code' { return 13 }
+    'Color' { return 12 }
+    'Segment' { return 12 }
+    'CutSpec' { return 9 }
+    'Qty' { return 8 }
+    'Piece' { return 7 }
+    'Total' { return 9 }
+    'Shortage' { return 7 }
+    'Note' { return 12 }
+    default { return 9 }
+  }
+}
+
+function Get-PrintColumnWidths($groups) {
+  $widths = @(8,8,8,8,8,8,8,8,8,8)
+  foreach ($group in $groups) {
+    $layout = Get-GroupLayout $group
+    for ($i = 0; $i -lt $layout.Count -and $i -lt 10; $i++) {
+      $widths[$i] = [Math]::Max([double]$widths[$i], [double](Get-ColumnWidthByKey ([string]$layout[$i].Key)))
+    }
+  }
+  return $widths
+}
+
+function Get-GroupFieldValue($group, [string]$key) {
+  switch ($key) {
+    'Image' { return [string]$group.Segment }
+    'Belt' { return Format-BeltDisplayText ([string]$group.Belt) }
+    'Segment' { return [string]$group.Segment }
+    'CutSpec' { return [string]$group.CutSpec }
+    'Total' { return [double]$group.TotalCut }
+    'Shortage' { return '' }
+    'Note' { return [string]$group.Note }
+    default { return '' }
+  }
+}
+
+function Format-BeltDisplayText([string]$text) {
+  $value = if ($text) { $text.Trim() } else { '' }
+  if ($value -match '^([0-9]+(?:\*[0-9.]+)?MM)\s+(.+)$') {
+    return "$($matches[1])`n$($matches[2])"
+  }
+  return $value
+}
+
+function Is-RowField([string]$key) {
+  return ($key -eq 'Code' -or $key -eq 'Color' -or $key -eq 'Qty' -or $key -eq 'Piece')
+}
+
+function Get-ItemFieldValue($item, [string]$key) {
+  switch ($key) {
+    'Code' { return [string]$item.Code }
+    'Color' { return [string]$item.Color }
+    'Qty' { return [double]$item.Qty }
+    'Piece' { return [double]$item.Piece }
+    default { return '' }
+  }
+}
+
+function Merge-RepeatedColorCells($sheet, [int]$startRow, [int]$endRow, [int]$colorCol, $items, [int]$fontSize) {
+  if ($colorCol -le 0 -or $endRow -lt $startRow -or $null -eq $items -or $items.Count -le 1) { return }
+  $runStart = $startRow
+  $lastColor = ''
+  for ($i = 0; $i -lt $items.Count; $i++) {
+    $currentColor = ([string]$items[$i].Color).Trim()
+    if ($i -eq 0) {
+      $lastColor = $currentColor
+      continue
+    }
+    if ($currentColor -ne $lastColor) {
+      Merge-ColorRun $sheet $runStart ($startRow + $i - 1) $colorCol $lastColor $fontSize
+      $runStart = $startRow + $i
+      $lastColor = $currentColor
+    }
+  }
+  Merge-ColorRun $sheet $runStart $endRow $colorCol $lastColor $fontSize
+}
+
+function Merge-ColorRun($sheet, [int]$startRow, [int]$endRow, [int]$colorCol, [string]$color, [int]$fontSize) {
+  if (-not $color -or $endRow -le $startRow) { return }
+  $range = $sheet.Range($sheet.Cells.Item($startRow, $colorCol), $sheet.Cells.Item($endRow, $colorCol))
+  try {
+    $range.Merge() | Out-Null
+    $range.Value2 = $color
+    Set-SingleLineCellStyle $range $fontSize $false
+  } finally {
+    Release-Com $range
+  }
+}
+
 function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups = $null) {
   Set-CuttingStage 'collect_groups' 'read matched template groups'
   if ($null -ne $cachedGroups) {
@@ -915,7 +1113,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     Release-Com $extra
   }
 
-  $cols = @(13, 10, 13, 12, 9, 8, 7, 9, 7, 12)
+  $cols = Get-PrintColumnWidths $groups
   for ($i = 0; $i -lt $cols.Count; $i++) { $outSheet.Columns.Item($i + 1).ColumnWidth = $cols[$i] }
   $outSheet.PageSetup.Orientation = 1
   $outSheet.PageSetup.PaperSize = 9
@@ -934,6 +1132,11 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
   $outRow = 1
   $groupIndex = 0
   foreach ($group in $groups) {
+    $layout = Get-GroupLayout $group
+    $colCount = [Math]::Max(1, [Math]::Min(10, $layout.Count))
+    $imageCol = Get-LayoutColumnIndex $layout 'Image'
+    if ($imageCol -le 0) { $imageCol = 1 }
+    $segmentCol = Get-LayoutColumnIndex $layout 'Segment'
     Set-CuttingStage 'render_group' "index=$($groupIndex + 1); title=$($group.Title); items=$($group.Items.Count)"
     if ($groupIndex -gt 0 -and ($groupIndex % 6) -eq 0) {
       try { $outSheet.HPageBreaks.Add($outSheet.Rows.Item($outRow)) | Out-Null } catch {}
@@ -953,17 +1156,17 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     }
 
     Set-CuttingStage 'render_group_headers' "index=$($groupIndex + 1); row=$headerRow"
-    $headers = @($group.Title, 'QUY CACH DAY', 'MA HANG', 'MAU', 'QUY CACH CAT', 'SL:PO PCS', 'SO KIEN', 'SL:CAT THUC TE', 'SL: THIEU LIEU', 'GHI CHU')
+    $headers = @($layout | ForEach-Object { [string]$_.Header })
     $headerFillColor = [int]5996346
     $headerFontColor = [int]16777215
-    $headerData = New-Object 'object[,]' 1, 10
-    for ($c = 1; $c -le 10; $c++) {
+    $headerData = New-Object 'object[,]' 1, $colCount
+    for ($c = 1; $c -le $colCount; $c++) {
       $headerIndex = $c - 1
       $headerData[0, $headerIndex] = Safe-ToText $headers[$headerIndex]
     }
-    Set-CuttingStage 'render_group_header_range' "index=$($groupIndex + 1); row=$headerRow; cols=1-10"
-    $headerRange = $outSheet.Range($outSheet.Cells.Item($headerRow, 1), $outSheet.Cells.Item($headerRow, 10))
-    Set-CuttingStage 'render_group_header_values' "index=$($groupIndex + 1); row=$headerRow; cols=1-10"
+    Set-CuttingStage 'render_group_header_range' "index=$($groupIndex + 1); row=$headerRow; cols=1-$colCount"
+    $headerRange = $outSheet.Range($outSheet.Cells.Item($headerRow, 1), $outSheet.Cells.Item($headerRow, $colCount))
+    Set-CuttingStage 'render_group_header_values' "index=$($groupIndex + 1); row=$headerRow; cols=1-$colCount"
     $headerRange.Value = $headerData
     Set-CuttingStage 'render_group_header_fill_color' "index=$($groupIndex + 1); row=$headerRow; cols=1-10; color=$headerFillColor"
     $headerRange.Interior.Color = $headerFillColor
@@ -974,107 +1177,86 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     Release-Com $headerRange
 
     Set-CuttingStage 'render_group_merge_cells' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
-    foreach ($col in @(1,2,5,8,9,10)) {
-      Set-CuttingStage 'render_group_merge_column' "index=$($groupIndex + 1); col=$col; rows=$detailStart-$detailEnd"
+    for ($col = 1; $col -le $colCount; $col++) {
+      $key = [string]$layout[$col - 1].Key
+      if (Is-RowField $key) { continue }
+      Set-CuttingStage 'render_group_merge_column' "index=$($groupIndex + 1); col=$col; key=$key; rows=$detailStart-$detailEnd"
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       $range.Merge() | Out-Null
       Release-Com $range
     }
 
     Set-CuttingStage 'render_group_write_values' "index=$($groupIndex + 1); row=$detailStart"
-    $outSheet.Cells.Item($detailStart, 1).Value2 = [string]$group.Segment
-    $outSheet.Cells.Item($detailStart, 2).Value2 = [string]$group.Belt
-    $outSheet.Cells.Item($detailStart, 5).Value2 = [string]$group.CutSpec
-    $outSheet.Cells.Item($detailStart, 8).Value2 = [double]$group.TotalCut
-    $outSheet.Cells.Item($detailStart, 10).Value2 = [string]$group.Note
+    for ($col = 1; $col -le $colCount; $col++) {
+      $key = [string]$layout[$col - 1].Key
+      if (Is-RowField $key) { continue }
+      if ($key -eq 'Image' -and $segmentCol -gt 0) { continue }
+      $outSheet.Cells.Item($detailStart, $col).Value2 = Get-GroupFieldValue $group $key
+    }
 
     Set-CuttingStage 'render_group_write_items' "index=$($groupIndex + 1); items=$itemCount"
-    $codeData = New-Object 'object[,]' $itemCount, 1
-    $colorData = New-Object 'object[,]' $itemCount, 1
-    $qtyData = New-Object 'object[,]' $itemCount, 1
-    $pieceData = New-Object 'object[,]' $itemCount, 1
-    for ($i = 0; $i -lt $itemCount; $i++) {
-      $row = $detailStart + $i
-      if ($i -lt $group.Items.Count) {
-        $item = $group.Items[$i]
-        Set-CuttingStage 'render_group_prepare_item_row' "index=$($groupIndex + 1); row=$row; code=$($item.Code); qty=$($item.Qty); piece=$($item.Piece)"
-        $codeData[$i, 0] = [string]$item.Code
-        $colorData[$i, 0] = [string]$item.Color
-        $qtyData[$i, 0] = [double]$item.Qty
-        $pieceData[$i, 0] = [double]$item.Piece
-      } else {
-        $codeData[$i, 0] = ''
-        $colorData[$i, 0] = ''
-        $qtyData[$i, 0] = ''
-        $pieceData[$i, 0] = ''
+    for ($col = 1; $col -le $colCount; $col++) {
+      $key = [string]$layout[$col - 1].Key
+      if (-not (Is-RowField $key)) { continue }
+      $data = New-Object 'object[,]' $itemCount, 1
+      for ($i = 0; $i -lt $itemCount; $i++) {
+        $row = $detailStart + $i
+        if ($i -lt $group.Items.Count) {
+          $item = $group.Items[$i]
+          Set-CuttingStage 'render_group_prepare_item_row' "index=$($groupIndex + 1); row=$row; key=$key; code=$($item.Code); qty=$($item.Qty); piece=$($item.Piece)"
+          $data[$i, 0] = Get-ItemFieldValue $item $key
+        } else {
+          $data[$i, 0] = ''
+        }
       }
+      Set-CuttingStage 'render_group_write_item_range' "index=$($groupIndex + 1); col=$col; key=$key; rows=$detailStart-$detailEnd"
+      $writeRange = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
+      $writeRange.Value = $data
+      Release-Com $writeRange
     }
-    Set-CuttingStage 'render_group_write_item_ranges' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
-    $codeWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
-    $colorWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 4), $outSheet.Cells.Item($detailEnd, 4))
-    $qtyWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 6), $outSheet.Cells.Item($detailEnd, 6))
-    $pieceWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 7), $outSheet.Cells.Item($detailEnd, 7))
-    $codeWriteRange.Value = $codeData
-    $colorWriteRange.Value = $colorData
-    $qtyWriteRange.Value = $qtyData
-    $pieceWriteRange.Value = $pieceData
-    Release-Com $codeWriteRange
-    Release-Com $colorWriteRange
-    Release-Com $qtyWriteRange
-    Release-Com $pieceWriteRange
+
+    $colorCol = Get-LayoutColumnIndex $layout 'Color'
+    if ($colorCol -gt 0) {
+      Set-CuttingStage 'render_group_merge_colors' "index=$($groupIndex + 1); col=$colorCol; rows=$detailStart-$detailEnd"
+      Merge-RepeatedColorCells $outSheet $detailStart $detailEnd $colorCol $group.Items ([Math]::Max(6, $itemFontSize - 1))
+    }
 
     Set-CuttingStage 'render_group_style_block' "index=$($groupIndex + 1); rows=$startRow-$detailEnd"
-    $block = $outSheet.Range($outSheet.Cells.Item($startRow, 1), $outSheet.Cells.Item($detailEnd, 10))
+    $block = $outSheet.Range($outSheet.Cells.Item($startRow, 1), $outSheet.Cells.Item($detailEnd, $colCount))
     $block.Borders.LineStyle = 1
     $block.Borders.Weight = 2
     Set-CellStyle $block 12 $false
     Release-Com $block
-    if ([string]$group.Segment) {
-      Set-CuttingStage 'render_group_style_segment' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
-      $segmentRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 1), $outSheet.Cells.Item($detailEnd, 1))
-      Set-SegmentCellStyle $segmentRange
-      Release-Com $segmentRange
-    }
-    Set-CuttingStage 'render_group_style_big_columns' "index=$($groupIndex + 1)"
-    $bigColumnStyles = @(
-      @{ Col = 8; Size = Get-FitFontSize ([string]$group.TotalCut) 18 12 6 },
-      @{ Col = 10; Size = Get-FitFontSize ([string]$group.Note) 18 8 7 }
-    )
-    foreach ($style in $bigColumnStyles) {
-      $col = [int]$style.Col
-      Set-CuttingStage 'render_group_style_big_column' "index=$($groupIndex + 1); col=$col; rows=$detailStart-$detailEnd"
-      $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
-      Set-CellStyle $range ([int]$style.Size) $true
-      Release-Com $range
-    }
     $itemFontSize = Get-ItemFontSize $itemCount $detailHeight
-    Set-CuttingStage 'render_group_style_code_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount; font=$itemFontSize"
-    $codeRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
-    Set-CellStyle $codeRange $itemFontSize $false
-    Release-Com $codeRange
-    Set-CuttingStage 'render_group_style_color_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount; font=$itemFontSize"
-    $colorRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 4), $outSheet.Cells.Item($detailEnd, 4))
-    Set-SingleLineCellStyle $colorRange ([Math]::Max(6, $itemFontSize - 1)) $false
-    Release-Com $colorRange
-    Set-CuttingStage 'render_group_style_number_columns' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; font=$itemFontSize"
-    foreach ($col in @(6,7)) {
+    for ($col = 1; $col -le $colCount; $col++) {
+      $key = [string]$layout[$col - 1].Key
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
-      Set-CellStyle $range $itemFontSize $false
-      Release-Com $range
-    }
-    Set-CuttingStage 'render_group_style_single_line_columns' "index=$($groupIndex + 1)"
-    foreach ($style in @(
-      @{ Col = 2; Size = Get-FitFontSize ([string]$group.Belt) 18 8 5 },
-      @{ Col = 5; Size = Get-FitFontSize ([string]$group.CutSpec) 18 8 5 }
-    )) {
-      $range = $outSheet.Range($outSheet.Cells.Item($detailStart, [int]$style.Col), $outSheet.Cells.Item($detailEnd, [int]$style.Col))
-      Set-SingleLineCellStyle $range ([int]$style.Size) $true
+      if ($key -eq 'Image') {
+        if ([string]$group.Segment -and $segmentCol -le 0) { Set-SegmentCellStyle $range } else { Set-CellStyle $range 12 $false }
+      } elseif ($key -eq 'Belt') {
+        $beltText = [string](Get-GroupFieldValue $group $key)
+        if ($beltText.Contains("`n")) {
+          Set-CellStyle $range (Get-FitFontSize $beltText 13 7 4) $true
+        } else {
+          Set-SingleLineCellStyle $range ([Math]::Max(6, $itemFontSize - 1)) $true
+        }
+      } elseif ($key -eq 'CutSpec' -or $key -eq 'Color') {
+        Set-SingleLineCellStyle $range ([Math]::Max(6, $itemFontSize - 1)) ($key -ne 'Color')
+      } elseif ($key -eq 'Code' -or $key -eq 'Qty' -or $key -eq 'Piece') {
+        Set-CellStyle $range $itemFontSize $false
+      } elseif ($key -eq 'Segment') {
+        Set-CellStyle $range (Get-FitFontSize ([string]$group.Segment) 18 8 4) $true
+      } elseif ($key -eq 'Total' -or $key -eq 'Note') {
+        Set-CellStyle $range (Get-FitFontSize ([string](Get-GroupFieldValue $group $key)) 18 8 7) $true
+      } else {
+        Set-CellStyle $range 12 $false
+      }
       Release-Com $range
     }
 
     Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
-    $imageTopPadding = if ([string]$group.Segment) { [Math]::Min(38.0, [Math]::Max(22.0, ($groupHeight - $headerHeight) * 0.28)) } else { 0.0 }
-    Place-GroupImage $group $outSheet $detailStart $detailEnd $imageTopPadding
+    $imageTopPadding = if ([string]$group.Segment -and $segmentCol -le 0) { [Math]::Min(38.0, [Math]::Max(22.0, ($groupHeight - $headerHeight) * 0.28)) } else { 0.0 }
+    Place-GroupImage $group $outSheet $detailStart $detailEnd $imageTopPadding $imageCol
     $outRow = $detailEnd + 1
     $groupIndex++
   }
@@ -1162,9 +1344,8 @@ function New-CuttingPdf($payload) {
     }
 
     if (-not $allGroups -or $allGroups.Count -eq 0) { throw '沒有任何有訂單數量的組可輸出。' }
-    Set-CuttingStage 'sort_print_groups' "groups=$($allGroups.Count)"
-    $allGroups = @($allGroups | Sort-Object -Property @{ Expression = { Get-GroupSortKey $_ } })
-    Add-CuttingLog 'sort_print_groups' "groups=$($allGroups.Count)"
+    Set-CuttingStage 'keep_template_order' "groups=$($allGroups.Count)"
+    Add-CuttingLog 'keep_template_order' "groups=$($allGroups.Count)"
     Set-CuttingStage 'build_compact_pdf_sheet' 'create compact print layout'
     $printWorkbook = Build-CompactWorkbook $excel $workbook $payload $allGroups
     Add-CuttingLog 'build_compact_workbook'
