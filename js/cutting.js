@@ -955,6 +955,14 @@
     if(sub) sub.innerHTML = subText || 'Vui lòng chờ, không đóng cửa sổ này. / 請稍候，不要關閉此視窗。';
   }
 
+  function setCuttingPdfError(message, subText){
+    setCuttingPdfProgress(
+      100,
+      message,
+      `${subText}<div class="br" style="margin-top:14px"><button class="btn" onclick="cuttingClosePdfProgress()"><i class="ti ti-x"></i>Đóng / 關閉</button></div>`
+    );
+  }
+
   function openCuttingPdfProgress(){
     om('m-cutting-pdf-progress');
   }
@@ -969,6 +977,10 @@
     };
     if(delay) setTimeout(run, delay);
     else run();
+  }
+
+  function cuttingClosePdfProgress(){
+    hideCuttingPdfProgress();
   }
 
   function startCuttingPdfProgressLoop(){
@@ -1121,15 +1133,15 @@
       const message = String(e && e.message ? e.message : '');
       const isLocalToolClosed = /Failed to fetch|NetworkError|Load failed/i.test(message);
       if(isLocalToolClosed){
-        setCuttingPdfProgress(
-          100,
+        setCuttingPdfError(
           'Chưa mở công cụ chuyển PDF trên máy này.<br>Bản PDF chưa được tạo.',
           '本機尚未啟動 PDF 轉檔工具。<br>PDF 尚未產生。'
         );
-        alert('Chưa mở công cụ chuyển PDF trên máy này.\nVui lòng mở công cụ chuyển PDF rồi bấm tạo PDF lại.\n\n本機尚未啟動 PDF 轉檔工具。\n請先啟動 PDF 轉檔工具後，再重新產生 PDF。');
       }else{
-        setCuttingPdfProgress(100, 'Tạo PDF thất bại. / 產生 PDF 失敗。', 'Vui lòng chụp thông báo lỗi để kiểm tra. / 請截圖錯誤訊息方便排查。');
-        alert('Tạo PDF thất bại. Vui lòng chụp thông báo này để kiểm tra.\n產生 PDF 失敗，請截圖此訊息方便排查。\n\n' + message);
+        setCuttingPdfError(
+          'Tạo PDF thất bại.<br>產生 PDF 失敗。',
+          `Vui lòng chụp thông báo lỗi để kiểm tra.<br>請截圖錯誤訊息方便排查。<br><br><pre style="white-space:pre-wrap;margin:0">${esc(message)}</pre>`
+        );
       }
     }finally{
       if(exportBtn) exportBtn.disabled = false;
@@ -1153,6 +1165,7 @@
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
   window.cuttingCreateLocalPdf = cuttingCreateLocalPdf;
+  window.cuttingClosePdfProgress = cuttingClosePdfProgress;
   window.cuttingInit = cuttingInit;
 
   window.addEventListener('DOMContentLoaded', cuttingInit);
