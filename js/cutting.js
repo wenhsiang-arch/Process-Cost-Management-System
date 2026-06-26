@@ -981,7 +981,7 @@
       setCuttingPdfProgress(
         visualPercent,
         'Đang tạo PDF trên máy này... / 本機正在產生 PDF...',
-        `Đã xử lý khoảng ${seconds} giây. Lần đầu tạo cache sẽ lâu hơn. / 已處理約 ${seconds} 秒，第一次建立快取會比較久。`
+        `Đã xử lý khoảng ${seconds} giây. Lần đầu tạo cache sẽ lâu hơn.<br>已處理約 ${seconds} 秒，第一次建立快取會比較久。`
       );
     }, 1200);
   }

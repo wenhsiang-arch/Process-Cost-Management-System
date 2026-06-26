@@ -28,6 +28,7 @@ $script:CuttingDetail = ''
 $script:CuttingTimer = $null
 $script:CuttingLastMs = 0
 $script:CuttingLogs = New-Object System.Collections.Generic.List[string]
+$script:CuttingCacheVersion = 2
 
 function Set-CuttingStage([string]$stage, [string]$detail = '') {
   $script:CuttingStage = $stage
@@ -136,6 +137,7 @@ function Load-TemplateCache($payload) {
   if (-not (Test-Path -LiteralPath $path)) { return $null }
   try {
     $cache = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([int]$cache.version -ne $script:CuttingCacheVersion) { return $null }
     if ([string]$cache.templateUpdatedAt -ne [string]$payload.templateUpdatedAt) { return $null }
     if ([string]$cache.fileName -ne [string]$payload.fileName) { return $null }
     if ([string]$cache.templateFileSize -ne [string]$payload.templateFileSize) { return $null }
@@ -157,7 +159,7 @@ function Save-TemplateCache($payload, $groups) {
   $cacheDir = Get-CacheDir $payload
   $path = Get-CacheJsonPath $payload
   $cache = [PSCustomObject]@{
-    version = 1
+    version = $script:CuttingCacheVersion
     templateId = [string]$payload.templateId
     templateUpdatedAt = [string]$payload.templateUpdatedAt
     templateFileSize = [string]$payload.templateFileSize
@@ -323,6 +325,19 @@ function First-NonEmptyInColumn($sheet, [int]$startRow, [int]$endRow, [int]$col)
   return ''
 }
 
+function Find-GroupSegment($sheet, [int]$startRow, [int]$endRow, [int]$codeCol) {
+  $lastCol = if ($codeCol -gt 1) { [Math]::Min($codeCol - 1, 4) } else { 4 }
+  for ($row = $startRow + 1; $row -le $endRow; $row++) {
+    for ($col = 1; $col -le $lastCol; $col++) {
+      $text = (Get-CellText $sheet $row $col).Trim()
+      if (-not $text) { continue }
+      $normalized = Normalize-HeaderText $text
+      if ($normalized.Contains('DOAN') -or $normalized.Contains('CONGDOAN')) { return $text }
+    }
+  }
+  return ''
+}
+
 function Get-GroupImageCandidates($sheet, [int]$startRow, [int]$endRow) {
   $candidates = @()
   try {
@@ -404,6 +419,10 @@ function Export-ShapeImage($shape, $sheet, [string]$path) {
   try {
     $width = [Math]::Max(80, [double]$shape.Width)
     $height = [Math]::Max(80, [double]$shape.Height)
+    $maxSide = 360.0
+    $scale = [Math]::Min(1.0, $maxSide / [Math]::Max($width, $height))
+    $width = [Math]::Max(80, $width * $scale)
+    $height = [Math]::Max(80, $height * $scale)
     $shape.CopyPicture(1, 2)
     $chartObject = $sheet.ChartObjects().Add(0, 0, $width, $height)
     $chartObject.Chart.Paste()
@@ -419,7 +438,7 @@ function Export-ShapeImage($shape, $sheet, [string]$path) {
   }
 }
 
-function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow) {
+function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0) {
   if ($null -eq $sourceShape) { return }
   $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
   try {
@@ -432,11 +451,11 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
     $shape = $targetSheet.Shapes.Item($targetSheet.Shapes.Count)
     $shape.LockAspectRatio = -1
     $maxWidth = [double]$frame.Width - 8
-    $maxHeight = [double]$frame.Height - 8
+    $maxHeight = [Math]::Max(24.0, [double]$frame.Height - $topPadding - 8)
     if ($shape.Width -gt $maxWidth) { $shape.Width = $maxWidth }
     if ($shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
     $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
-    $shape.Top = [double]$frame.Top + (([double]$frame.Height - [double]$shape.Height) / 2)
+    $shape.Top = [double]$frame.Top + $topPadding + (([double]$frame.Height - $topPadding - [double]$shape.Height) / 2)
     Release-Com $shape
     Release-Com $frame
     $imageTimer.Stop()
@@ -449,7 +468,7 @@ function Copy-GroupImage($sourceShape, $targetSheet, [int]$startRow, [int]$endRo
   }
 }
 
-function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow) {
+function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow, [double]$topPadding = 0) {
   if ($group.ImagePath -and (Test-Path -LiteralPath ([string]$group.ImagePath))) {
     $imageTimer = [System.Diagnostics.Stopwatch]::StartNew()
     $frame = $null
@@ -460,11 +479,11 @@ function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow) {
       $shape = $targetSheet.Shapes.AddPicture([string]$group.ImagePath, $false, $true, [double]$frame.Left, [double]$frame.Top, -1, -1)
       $shape.LockAspectRatio = -1
       $maxWidth = [double]$frame.Width - 8
-      $maxHeight = [double]$frame.Height - 8
+      $maxHeight = [Math]::Max(24.0, [double]$frame.Height - $topPadding - 8)
       if ($shape.Width -gt $maxWidth) { $shape.Width = $maxWidth }
       if ($shape.Height -gt $maxHeight) { $shape.Height = $maxHeight }
       $shape.Left = [double]$frame.Left + (([double]$frame.Width - [double]$shape.Width) / 2)
-      $shape.Top = [double]$frame.Top + (([double]$frame.Height - [double]$shape.Height) / 2)
+      $shape.Top = [double]$frame.Top + $topPadding + (([double]$frame.Height - $topPadding - [double]$shape.Height) / 2)
       $imageTimer.Stop()
       Add-CuttingLog 'image_insert' "rows=$startRow-$endRow elapsed=$($imageTimer.ElapsedMilliseconds)ms"
       if ($imageTimer.ElapsedMilliseconds -gt 10000) {
@@ -478,7 +497,7 @@ function Place-GroupImage($group, $targetSheet, [int]$startRow, [int]$endRow) {
     }
     return
   }
-  Copy-GroupImage $group.Image $targetSheet $startRow $endRow
+  Copy-GroupImage $group.Image $targetSheet $startRow $endRow $topPadding
 }
 
 function Get-CompactGroups($workbook, $payload) {
@@ -510,16 +529,17 @@ function Get-CompactGroups($workbook, $payload) {
         $piece = Get-CellNumber $sheet $row $cols.Piece
         $cut = if ($cols.Total -gt 0) { Get-CellNumber $sheet $row $cols.Total } else { ($qty * $piece) }
         $totalCut += $cut
-        $items += [PSCustomObject]@{ Code = $code; Qty = $qty; Piece = $piece }
+        $items += [PSCustomObject]@{ Code = $code; Color = $color; Qty = $qty; Piece = $piece }
       }
       $belt = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Belt
       $cutSpec = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.CutSpec
       $note = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Note
+      $segment = Find-GroupSegment $sheet $group.Start $group.End $cols.Code
       $title = Get-CellText $sheet $group.Start 1
       Set-CuttingStage 'find_group_image' "sheet=$sheetName; rows=$($group.Start)-$($group.End); title=$title"
       $image = Find-GroupImage $sheet $group.Start $group.End
       $groupsOut += [PSCustomObject]@{
-        Sheet = $sheet; Title = $title; Belt = $belt; Color = ($colors -join ' / ');
+        Sheet = $sheet; Title = $title; Segment = $segment; Belt = $belt; Color = ($colors -join ' / ');
         CutSpec = $cutSpec; Note = $note; Items = $items; TotalCut = $totalCut; Image = $image
       }
     }
@@ -552,6 +572,7 @@ function Build-TemplateCacheGroups($excel, $workbook, $payload) {
         $piece = Get-CellNumber $sheet $row $cols.Piece
         $items += [PSCustomObject]@{
           code = $code
+          color = $color
           rowNumber = $row
           qtyCell = if ($cols.Qty -gt 0) { Get-CellAddress1 $row $cols.Qty } else { '' }
           piece = $piece
@@ -565,11 +586,13 @@ function Build-TemplateCacheGroups($excel, $workbook, $payload) {
       if (Find-GroupImageFile $sheet $group.Start $group.End $imagePath) {
         $imageFile = $candidate
       }
+      $segment = Find-GroupSegment $sheet $group.Start $group.End $cols.Code
       $groupsOut += [PSCustomObject]@{
         sheetName = $sheetName
         startRow = $group.Start
         endRow = $group.End
         title = Get-CellText $sheet $group.Start 1
+        segment = $segment
         belt = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.Belt
         color = ($colors -join ' / ')
         cutSpec = First-NonEmptyInColumn $sheet ($group.Start + 1) $group.End $cols.CutSpec
@@ -607,6 +630,7 @@ function Get-CachedGroupsForPayload($cache, $payload) {
       $totalCut += ($qty * $piece)
       $items += [PSCustomObject]@{
         Code = [string]$item.code
+        Color = [string]$item.color
         Qty = $qty
         Piece = $piece
       }
@@ -616,6 +640,7 @@ function Get-CachedGroupsForPayload($cache, $payload) {
     if ($group.imageFile) { $imagePath = Join-Path $cacheDir ([string]$group.imageFile) }
     $groupsOut += [PSCustomObject]@{
       Title = [string]$group.title
+      Segment = [string]$group.segment
       Belt = [string]$group.belt
       Color = [string]$group.color
       CutSpec = [string]$group.cutSpec
@@ -636,6 +661,24 @@ function Set-CellStyle($range, [int]$fontSize, [bool]$bold) {
   try { $range.ShrinkToFit = $true } catch {}
   $range.Font.Size = $fontSize
   $range.Font.Bold = $bold
+}
+
+function Set-SingleLineCellStyle($range, [int]$fontSize, [bool]$bold) {
+  $range.HorizontalAlignment = -4108
+  $range.VerticalAlignment = -4108
+  $range.WrapText = $false
+  try { $range.ShrinkToFit = $true } catch {}
+  $range.Font.Size = $fontSize
+  $range.Font.Bold = $bold
+}
+
+function Set-SegmentCellStyle($range) {
+  $range.HorizontalAlignment = -4108
+  $range.VerticalAlignment = -4160
+  $range.WrapText = $true
+  try { $range.ShrinkToFit = $true } catch {}
+  $range.Font.Size = 13
+  $range.Font.Bold = $true
 }
 
 function Get-FitFontSize([string]$text, [int]$maxSize, [int]$minSize, [int]$stepChars) {
@@ -738,7 +781,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     Release-Com $headerRange
 
     Set-CuttingStage 'render_group_merge_cells' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
-    foreach ($col in @(1,2,4,5,8,9,10)) {
+    foreach ($col in @(1,2,5,8,9,10)) {
       Set-CuttingStage 'render_group_merge_column' "index=$($groupIndex + 1); col=$col; rows=$detailStart-$detailEnd"
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       $range.Merge() | Out-Null
@@ -746,14 +789,15 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     }
 
     Set-CuttingStage 'render_group_write_values' "index=$($groupIndex + 1); row=$detailStart"
+    $outSheet.Cells.Item($detailStart, 1).Value2 = [string]$group.Segment
     $outSheet.Cells.Item($detailStart, 2).Value2 = [string]$group.Belt
-    $outSheet.Cells.Item($detailStart, 4).Value2 = [string]$group.Color
     $outSheet.Cells.Item($detailStart, 5).Value2 = [string]$group.CutSpec
     $outSheet.Cells.Item($detailStart, 8).Value2 = [double]$group.TotalCut
     $outSheet.Cells.Item($detailStart, 10).Value2 = [string]$group.Note
 
     Set-CuttingStage 'render_group_write_items' "index=$($groupIndex + 1); items=$itemCount"
     $codeData = New-Object 'object[,]' $itemCount, 1
+    $colorData = New-Object 'object[,]' $itemCount, 1
     $qtyData = New-Object 'object[,]' $itemCount, 1
     $pieceData = New-Object 'object[,]' $itemCount, 1
     for ($i = 0; $i -lt $itemCount; $i++) {
@@ -762,22 +806,27 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
         $item = $group.Items[$i]
         Set-CuttingStage 'render_group_prepare_item_row' "index=$($groupIndex + 1); row=$row; code=$($item.Code); qty=$($item.Qty); piece=$($item.Piece)"
         $codeData[$i, 0] = [string]$item.Code
+        $colorData[$i, 0] = [string]$item.Color
         $qtyData[$i, 0] = [double]$item.Qty
         $pieceData[$i, 0] = [double]$item.Piece
       } else {
         $codeData[$i, 0] = ''
+        $colorData[$i, 0] = ''
         $qtyData[$i, 0] = ''
         $pieceData[$i, 0] = ''
       }
     }
     Set-CuttingStage 'render_group_write_item_ranges' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
     $codeWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
+    $colorWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 4), $outSheet.Cells.Item($detailEnd, 4))
     $qtyWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 6), $outSheet.Cells.Item($detailEnd, 6))
     $pieceWriteRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 7), $outSheet.Cells.Item($detailEnd, 7))
     $codeWriteRange.Value = $codeData
+    $colorWriteRange.Value = $colorData
     $qtyWriteRange.Value = $qtyData
     $pieceWriteRange.Value = $pieceData
     Release-Com $codeWriteRange
+    Release-Com $colorWriteRange
     Release-Com $qtyWriteRange
     Release-Com $pieceWriteRange
 
@@ -787,11 +836,14 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     $block.Borders.Weight = 2
     Set-CellStyle $block 12 $false
     Release-Com $block
+    if ([string]$group.Segment) {
+      Set-CuttingStage 'render_group_style_segment' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
+      $segmentRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 1), $outSheet.Cells.Item($detailEnd, 1))
+      Set-SegmentCellStyle $segmentRange
+      Release-Com $segmentRange
+    }
     Set-CuttingStage 'render_group_style_big_columns' "index=$($groupIndex + 1)"
     $bigColumnStyles = @(
-      @{ Col = 2; Size = Get-FitFontSize ([string]$group.Belt) 18 10 6 },
-      @{ Col = 4; Size = Get-FitFontSize ([string]$group.Color) 18 9 8 },
-      @{ Col = 5; Size = Get-FitFontSize ([string]$group.CutSpec) 18 10 6 },
       @{ Col = 8; Size = Get-FitFontSize ([string]$group.TotalCut) 18 12 6 },
       @{ Col = 10; Size = Get-FitFontSize ([string]$group.Note) 18 8 7 }
     )
@@ -807,15 +859,29 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     $codeRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
     Set-CellStyle $codeRange $itemFontSize $false
     Release-Com $codeRange
+    Set-CuttingStage 'render_group_style_color_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount; font=$itemFontSize"
+    $colorRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 4), $outSheet.Cells.Item($detailEnd, 4))
+    Set-CellStyle $colorRange ([Math]::Max(7, $itemFontSize - 1)) $false
+    Release-Com $colorRange
     Set-CuttingStage 'render_group_style_number_columns' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; font=$itemFontSize"
     foreach ($col in @(6,7)) {
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
       Set-CellStyle $range $itemFontSize $false
       Release-Com $range
     }
+    Set-CuttingStage 'render_group_style_single_line_columns' "index=$($groupIndex + 1)"
+    foreach ($style in @(
+      @{ Col = 2; Size = Get-FitFontSize ([string]$group.Belt) 18 8 5 },
+      @{ Col = 5; Size = Get-FitFontSize ([string]$group.CutSpec) 18 8 5 }
+    )) {
+      $range = $outSheet.Range($outSheet.Cells.Item($detailStart, [int]$style.Col), $outSheet.Cells.Item($detailEnd, [int]$style.Col))
+      Set-SingleLineCellStyle $range ([int]$style.Size) $true
+      Release-Com $range
+    }
 
     Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
-    Place-GroupImage $group $outSheet $detailStart $detailEnd
+    $imageTopPadding = if ([string]$group.Segment) { [Math]::Min(38.0, [Math]::Max(22.0, ($groupHeight - $headerHeight) * 0.28)) } else { 0.0 }
+    Place-GroupImage $group $outSheet $detailStart $detailEnd $imageTopPadding
     $outRow = $detailEnd + 1
     $groupIndex++
   }
