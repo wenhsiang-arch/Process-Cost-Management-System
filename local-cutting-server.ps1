@@ -107,6 +107,15 @@ function Get-CacheJsonPath($payload) {
   return (Join-Path (Get-CacheDir $payload) 'template-cache.json')
 }
 
+function Test-CuttingImageFile([string]$path) {
+  if (-not $path -or -not (Test-Path -LiteralPath $path)) { return $false }
+  try {
+    return ((Get-Item -LiteralPath $path).Length -ge 1024)
+  } catch {
+    return $false
+  }
+}
+
 function Get-ColumnLetters([int]$col) {
   $n = $col
   $letters = ''
@@ -133,7 +142,9 @@ function Load-TemplateCache($payload) {
     $cacheDir = Get-CacheDir $payload
     foreach ($group in $cache.groups) {
       if ($group.imageFile) {
-        $group | Add-Member -NotePropertyName imagePath -NotePropertyValue (Join-Path $cacheDir ([string]$group.imageFile)) -Force
+        $imagePath = Join-Path $cacheDir ([string]$group.imageFile)
+        if (-not (Test-CuttingImageFile $imagePath)) { return $null }
+        $group | Add-Member -NotePropertyName imagePath -NotePropertyValue $imagePath -Force
       }
     }
     return $cache
@@ -312,19 +323,79 @@ function First-NonEmptyInColumn($sheet, [int]$startRow, [int]$endRow, [int]$col)
   return ''
 }
 
-function Find-GroupImage($sheet, [int]$startRow, [int]$endRow) {
+function Get-GroupImageCandidates($sheet, [int]$startRow, [int]$endRow) {
+  $candidates = @()
   try {
     for ($i = 1; $i -le $sheet.Shapes.Count; $i++) {
       $shape = $sheet.Shapes.Item($i)
-      $topRow = [int]$shape.TopLeftCell.Row
-      $bottomRow = [int]$shape.BottomRightCell.Row
-      if ($topRow -le $endRow -and $bottomRow -ge $startRow) {
-        return $shape
+      try {
+        $topRow = [int]$shape.TopLeftCell.Row
+        $bottomRow = [int]$shape.BottomRightCell.Row
+        if ($topRow -le $endRow -and $bottomRow -ge $startRow) {
+          $leftCol = [int]$shape.TopLeftCell.Column
+          $rightCol = [int]$shape.BottomRightCell.Column
+          $width = [double]$shape.Width
+          $height = [double]$shape.Height
+          $area = $width * $height
+          if ($width -lt 20 -or $height -lt 20) {
+            Release-Com $shape
+            continue
+          }
+          $type = 0
+          try { $type = [int]$shape.Type } catch {}
+          $score = $area
+          if ($leftCol -le 1 -and $rightCol -ge 1) { $score += 100000000 }
+          if ($type -eq 13 -or $type -eq 11 -or $type -eq 6) { $score += 1000000000 }
+          if ($type -eq 1) { $score -= 100000000 }
+          $candidates += [PSCustomObject]@{ Shape = $shape; Score = $score; Index = $i }
+        } else {
+          Release-Com $shape
+        }
+      } catch {
+        Release-Com $shape
       }
-      Release-Com $shape
     }
   } catch {}
-  return $null
+  return @($candidates | Sort-Object -Property Score, Index -Descending | ForEach-Object { $_.Shape })
+}
+
+function Find-GroupImage($sheet, [int]$startRow, [int]$endRow) {
+  $candidates = Get-GroupImageCandidates $sheet $startRow $endRow
+  if (-not $candidates -or $candidates.Count -eq 0) { return $null }
+  for ($i = 1; $i -lt $candidates.Count; $i++) {
+    Release-Com $candidates[$i]
+  }
+  return $candidates[0]
+}
+
+function Find-GroupImageFile($sheet, [int]$startRow, [int]$endRow, [string]$basePath) {
+  $candidates = Get-GroupImageCandidates $sheet $startRow $endRow
+  if (-not $candidates -or $candidates.Count -eq 0) { return '' }
+  $chosen = ''
+  for ($i = 0; $i -lt $candidates.Count; $i++) {
+    $shape = $candidates[$i]
+    $path = $basePath
+    if ($i -gt 0) {
+      $dir = Split-Path -Parent $basePath
+      $name = [System.IO.Path]::GetFileNameWithoutExtension($basePath)
+      $path = Join-Path $dir ("${name}_alt$($i + 1).png")
+    }
+    try {
+      if (Export-ShapeImage $shape $sheet $path -and (Test-CuttingImageFile $path)) {
+        $chosen = $path
+      } elseif (Test-Path -LiteralPath $path) {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+      }
+    } finally {
+      Release-Com $shape
+    }
+    if ($chosen) { break }
+  }
+  if (-not $chosen) { return '' }
+  if ($chosen -ne $basePath) {
+    Move-Item -LiteralPath $chosen -Destination $basePath -Force
+  }
+  return $basePath
 }
 
 function Export-ShapeImage($shape, $sheet, [string]$path) {
@@ -488,13 +559,11 @@ function Build-TemplateCacheGroups($excel, $workbook, $payload) {
       }
       if (-not $items -or $items.Count -eq 0) { continue }
       $imageFile = ''
-      $shape = Find-GroupImage $sheet $group.Start $group.End
-      if ($null -ne $shape) {
-        $candidate = "group_${s}_${groupNo}.png"
-        $imagePath = Join-Path $cacheDir $candidate
-        Set-CuttingStage 'cache_export_image' "sheet=$sheetName; group=$groupNo; path=$imagePath"
-        if (Export-ShapeImage $shape $sheet $imagePath) { $imageFile = $candidate }
-        Release-Com $shape
+      $candidate = "group_${s}_${groupNo}.png"
+      $imagePath = Join-Path $cacheDir $candidate
+      Set-CuttingStage 'cache_export_image' "sheet=$sheetName; group=$groupNo; path=$imagePath"
+      if (Find-GroupImageFile $sheet $group.Start $group.End $imagePath) {
+        $imageFile = $candidate
       }
       $groupsOut += [PSCustomObject]@{
         sheetName = $sheetName
@@ -530,12 +599,11 @@ function Get-CachedGroupsForPayload($cache, $payload) {
   foreach ($group in $cache.groups) {
     $items = @()
     $totalCut = 0.0
-    $hasOrder = $false
     foreach ($item in $group.items) {
       $qtyKey = "$([string]$group.sheetName)!$([string]$item.qtyCell)".ToUpperInvariant()
       $qty = if ($writeMap.ContainsKey($qtyKey)) { [double]$writeMap[$qtyKey] } else { 0.0 }
+      if ($qty -le 0) { continue }
       $piece = Convert-ToSafeDouble $item.piece
-      if ($qty -gt 0 -or $orderMap.ContainsKey($qtyKey)) { $hasOrder = $true }
       $totalCut += ($qty * $piece)
       $items += [PSCustomObject]@{
         Code = [string]$item.code
@@ -543,7 +611,7 @@ function Get-CachedGroupsForPayload($cache, $payload) {
         Piece = $piece
       }
     }
-    if (-not $hasOrder) { continue }
+    if (-not $items -or $items.Count -eq 0) { continue }
     $imagePath = ''
     if ($group.imageFile) { $imagePath = Join-Path $cacheDir ([string]$group.imageFile) }
     $groupsOut += [PSCustomObject]@{
@@ -565,8 +633,29 @@ function Set-CellStyle($range, [int]$fontSize, [bool]$bold) {
   $range.HorizontalAlignment = -4108
   $range.VerticalAlignment = -4108
   $range.WrapText = $true
+  try { $range.ShrinkToFit = $true } catch {}
   $range.Font.Size = $fontSize
   $range.Font.Bold = $bold
+}
+
+function Get-FitFontSize([string]$text, [int]$maxSize, [int]$minSize, [int]$stepChars) {
+  $value = if ($text) { $text } else { '' }
+  $plain = ($value -replace '\s+', '')
+  $lines = @($value -split "(\r\n|\n|\r|/)")
+  $longest = 0
+  foreach ($line in $lines) {
+    $len = (($line -replace '\s+', '')).Length
+    if ($len -gt $longest) { $longest = $len }
+  }
+  $score = [Math]::Max($plain.Length, $longest * 2)
+  $drop = [Math]::Floor([Math]::Max(0, $score - $stepChars) / [Math]::Max(1, $stepChars))
+  return [Math]::Max($minSize, [Math]::Min($maxSize, $maxSize - $drop))
+}
+
+function Get-ItemFontSize([int]$itemCount, [double]$rowHeight) {
+  $byCount = [Math]::Floor(105 / [Math]::Max(1, $itemCount))
+  $byHeight = [Math]::Floor($rowHeight / 2.5)
+  return [Math]::Max(7, [Math]::Min(14, [Math]::Min($byCount, $byHeight)))
 }
 
 function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups = $null) {
@@ -605,7 +694,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
   $outSheet.PageSetup.FooterMargin = 0
 
   $groupHeight = 140.3
-  $headerHeight = 22.0
+  $headerHeight = 28.0
   $outRow = 1
   $groupIndex = 0
   foreach ($group in $groups) {
@@ -645,7 +734,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     Set-CuttingStage 'render_group_header_font_color' "index=$($groupIndex + 1); row=$headerRow; cols=1-10; color=$headerFontColor"
     $headerRange.Font.Color = $headerFontColor
     Set-CuttingStage 'render_group_header_style' "index=$($groupIndex + 1); row=$headerRow; cols=1-10"
-    Set-CellStyle $headerRange 11 $true
+    Set-CellStyle $headerRange 9 $true
     Release-Com $headerRange
 
     Set-CuttingStage 'render_group_merge_cells' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd"
@@ -699,16 +788,31 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     Set-CellStyle $block 12 $false
     Release-Com $block
     Set-CuttingStage 'render_group_style_big_columns' "index=$($groupIndex + 1)"
-    foreach ($col in @(2,4,5,8,10)) {
+    $bigColumnStyles = @(
+      @{ Col = 2; Size = Get-FitFontSize ([string]$group.Belt) 18 10 6 },
+      @{ Col = 4; Size = Get-FitFontSize ([string]$group.Color) 18 9 8 },
+      @{ Col = 5; Size = Get-FitFontSize ([string]$group.CutSpec) 18 10 6 },
+      @{ Col = 8; Size = Get-FitFontSize ([string]$group.TotalCut) 18 12 6 },
+      @{ Col = 10; Size = Get-FitFontSize ([string]$group.Note) 18 8 7 }
+    )
+    foreach ($style in $bigColumnStyles) {
+      $col = [int]$style.Col
       Set-CuttingStage 'render_group_style_big_column' "index=$($groupIndex + 1); col=$col; rows=$detailStart-$detailEnd"
       $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
-      Set-CellStyle $range 18 $true
+      Set-CellStyle $range ([int]$style.Size) $true
       Release-Com $range
     }
-    Set-CuttingStage 'render_group_style_code_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount"
+    $itemFontSize = Get-ItemFontSize $itemCount $detailHeight
+    Set-CuttingStage 'render_group_style_code_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount; font=$itemFontSize"
     $codeRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 3), $outSheet.Cells.Item($detailEnd, 3))
-    Set-CellStyle $codeRange ([Math]::Max(5, [Math]::Min(9, [int](95 / $itemCount)))) $false
+    Set-CellStyle $codeRange $itemFontSize $false
     Release-Com $codeRange
+    Set-CuttingStage 'render_group_style_number_columns' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; font=$itemFontSize"
+    foreach ($col in @(6,7)) {
+      $range = $outSheet.Range($outSheet.Cells.Item($detailStart, $col), $outSheet.Cells.Item($detailEnd, $col))
+      Set-CellStyle $range $itemFontSize $false
+      Release-Com $range
+    }
 
     Set-CuttingStage 'copy_group_image' "index=$($groupIndex + 1); title=$($group.Title); rows=$detailStart-$detailEnd"
     Place-GroupImage $group $outSheet $detailStart $detailEnd
