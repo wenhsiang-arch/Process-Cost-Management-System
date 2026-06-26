@@ -28,7 +28,7 @@ $script:CuttingDetail = ''
 $script:CuttingTimer = $null
 $script:CuttingLastMs = 0
 $script:CuttingLogs = New-Object System.Collections.Generic.List[string]
-$script:CuttingCacheVersion = 2
+$script:CuttingCacheVersion = 3
 
 function Set-CuttingStage([string]$stage, [string]$detail = '') {
   $script:CuttingStage = $stage
@@ -181,7 +181,7 @@ function Normalize-HeaderText([string]$text) {
       [void]$chars.Append($ch)
     }
   }
-  return ($chars.ToString().ToUpperInvariant() -replace '\s+', '')
+  return (($chars.ToString() -replace 'Đ', 'D' -replace 'đ', 'd').ToUpperInvariant() -replace '\s+', '')
 }
 
 function Is-GroupHeaderRow($sheet, [int]$row, [int]$firstCol, [int]$lastCol) {
@@ -336,6 +336,187 @@ function Find-GroupSegment($sheet, [int]$startRow, [int]$endRow, [int]$codeCol) 
     }
   }
   return ''
+}
+
+function Resolve-ZipPath([string]$baseDir, [string]$target) {
+  $target = ([string]$target) -replace '\\', '/'
+  if ($target.StartsWith('/')) { return $target.TrimStart('/') }
+  $parts = New-Object System.Collections.Generic.List[string]
+  if ($baseDir) {
+    foreach ($part in (($baseDir -replace '\\', '/') -split '/')) {
+      if ($part) { $parts.Add($part) }
+    }
+  }
+  foreach ($part in ($target -split '/')) {
+    if (-not $part -or $part -eq '.') { continue }
+    if ($part -eq '..') {
+      if ($parts.Count -gt 0) { $parts.RemoveAt($parts.Count - 1) }
+    } else {
+      $parts.Add($part)
+    }
+  }
+  return ($parts -join '/')
+}
+
+function Read-ZipXml($zip, [string]$path) {
+  $entry = $zip.GetEntry($path)
+  if ($null -eq $entry) { return $null }
+  $stream = $entry.Open()
+  try {
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.PreserveWhitespace = $false
+    $doc.Load($stream)
+    return $doc
+  } finally {
+    $stream.Dispose()
+  }
+}
+
+function Get-XmlNodesByLocalName($node, [string]$localName) {
+  return @($node.GetElementsByTagName('*') | Where-Object { $_.LocalName -eq $localName })
+}
+
+function Get-XmlFirstChildText($node, [string]$localName) {
+  $found = Get-XmlNodesByLocalName $node $localName | Select-Object -First 1
+  if ($null -eq $found) { return '' }
+  return [string]$found.InnerText
+}
+
+function Get-ZipRelTarget($zip, [string]$relsPath, [string]$relationshipId, [string]$baseDir) {
+  $rels = Read-ZipXml $zip $relsPath
+  if ($null -eq $rels) { return '' }
+  foreach ($rel in (Get-XmlNodesByLocalName $rels 'Relationship')) {
+    if ([string]$rel.Id -eq $relationshipId) {
+      return (Resolve-ZipPath $baseDir ([string]$rel.Target))
+    }
+  }
+  return ''
+}
+
+function Get-XlsxSheetDrawingPath($zip, [string]$sheetName) {
+  $workbook = Read-ZipXml $zip 'xl/workbook.xml'
+  if ($null -eq $workbook) { return '' }
+  $sheetRelId = ''
+  foreach ($sheet in (Get-XmlNodesByLocalName $workbook 'sheet')) {
+    if ([string]$sheet.Name -eq $sheetName) {
+      $sheetRelId = $sheet.GetAttribute('id', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships')
+      break
+    }
+  }
+  if (-not $sheetRelId) { return '' }
+  $sheetPath = Get-ZipRelTarget $zip 'xl/_rels/workbook.xml.rels' $sheetRelId 'xl'
+  if (-not $sheetPath) { return '' }
+  $sheetXml = Read-ZipXml $zip $sheetPath
+  if ($null -eq $sheetXml) { return '' }
+  $drawing = Get-XmlNodesByLocalName $sheetXml 'drawing' | Select-Object -First 1
+  if ($null -eq $drawing) { return '' }
+  $drawingRelId = $drawing.GetAttribute('id', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships')
+  if (-not $drawingRelId) { return '' }
+  $sheetDir = Split-Path -Parent $sheetPath
+  $sheetFile = Split-Path -Leaf $sheetPath
+  $sheetRelsPath = (Resolve-ZipPath $sheetDir ("_rels/$sheetFile.rels"))
+  return (Get-ZipRelTarget $zip $sheetRelsPath $drawingRelId $sheetDir)
+}
+
+function Get-XlsxAnchoredImages($zip, [string]$sheetName) {
+  $drawingPath = Get-XlsxSheetDrawingPath $zip $sheetName
+  if (-not $drawingPath) { return @() }
+  $drawing = Read-ZipXml $zip $drawingPath
+  if ($null -eq $drawing) { return @() }
+  $drawingDir = Split-Path -Parent $drawingPath
+  $drawingFile = Split-Path -Leaf $drawingPath
+  $drawingRelsPath = Resolve-ZipPath $drawingDir ("_rels/$drawingFile.rels")
+  $images = @()
+  foreach ($anchor in (Get-XmlNodesByLocalName $drawing 'twoCellAnchor') + (Get-XmlNodesByLocalName $drawing 'oneCellAnchor')) {
+    $from = Get-XmlNodesByLocalName $anchor 'from' | Select-Object -First 1
+    if ($null -eq $from) { continue }
+    $to = Get-XmlNodesByLocalName $anchor 'to' | Select-Object -First 1
+    $startCol = 1 + [int](Get-XmlFirstChildText $from 'col')
+    $startRow = 1 + [int](Get-XmlFirstChildText $from 'row')
+    $endCol = if ($null -ne $to) { 1 + [int](Get-XmlFirstChildText $to 'col') } else { $startCol + 2 }
+    $endRow = if ($null -ne $to) { 1 + [int](Get-XmlFirstChildText $to 'row') } else { $startRow + 8 }
+    $blip = Get-XmlNodesByLocalName $anchor 'blip' | Select-Object -First 1
+    if ($null -eq $blip) { continue }
+    $embedId = $blip.GetAttribute('embed', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships')
+    if (-not $embedId) { continue }
+    $mediaPath = Get-ZipRelTarget $zip $drawingRelsPath $embedId $drawingDir
+    if (-not $mediaPath) { continue }
+    $images += [PSCustomObject]@{
+      StartRow = $startRow; EndRow = $endRow; StartCol = $startCol; EndCol = $endCol; MediaPath = $mediaPath
+    }
+  }
+  return $images
+}
+
+function Save-XlsxImageThumbnail($zip, [string]$mediaPath, [string]$destPath) {
+  $entry = $zip.GetEntry($mediaPath)
+  if ($null -eq $entry) { return $false }
+  $tmp = "$destPath.src"
+  $inStream = $entry.Open()
+  $outStream = [System.IO.File]::Create($tmp)
+  try {
+    $inStream.CopyTo($outStream)
+  } finally {
+    $outStream.Dispose()
+    $inStream.Dispose()
+  }
+  try {
+    try { Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue } catch {}
+    $img = [System.Drawing.Image]::FromFile($tmp)
+    try {
+      $maxPixels = 720.0
+      $scale = [Math]::Min(1.0, $maxPixels / [Math]::Max([double]$img.Width, [double]$img.Height))
+      $w = [Math]::Max(1, [int]([double]$img.Width * $scale))
+      $h = [Math]::Max(1, [int]([double]$img.Height * $scale))
+      $bmp = New-Object System.Drawing.Bitmap $w, $h
+      try {
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        try {
+          $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+          $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+          $g.DrawImage($img, 0, 0, $w, $h)
+        } finally {
+          $g.Dispose()
+        }
+        $bmp.Save($destPath, [System.Drawing.Imaging.ImageFormat]::Png)
+      } finally {
+        $bmp.Dispose()
+      }
+    } finally {
+      $img.Dispose()
+    }
+  } catch {
+    Copy-Item -LiteralPath $tmp -Destination $destPath -Force
+  } finally {
+    Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+  }
+  return (Test-CuttingImageFile $destPath)
+}
+
+function Export-XlsxGroupImage($xlsxPath, [string]$sheetName, [int]$startRow, [int]$endRow, [string]$destPath) {
+  if (-not $xlsxPath -or -not (Test-Path -LiteralPath $xlsxPath)) { return $false }
+  try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($xlsxPath)
+    try {
+      $images = Get-XlsxAnchoredImages $zip $sheetName
+      $candidates = @()
+      foreach ($image in $images) {
+        if ([int]$image.StartRow -le $endRow -and [int]$image.EndRow -ge $startRow) {
+          $overlap = [Math]::Min($endRow, [int]$image.EndRow) - [Math]::Max($startRow, [int]$image.StartRow) + 1
+          $score = [Math]::Max(0, $overlap) * 1000
+          if ([int]$image.StartCol -le 2) { $score += 100000 }
+          $candidates += [PSCustomObject]@{ Image = $image; Score = $score }
+        }
+      }
+      foreach ($candidate in ($candidates | Sort-Object -Property Score -Descending)) {
+        if (Save-XlsxImageThumbnail $zip ([string]$candidate.Image.MediaPath) $destPath) { return $true }
+      }
+    } finally {
+      $zip.Dispose()
+    }
+  } catch {}
+  return $false
 }
 
 function Get-GroupImageCandidates($sheet, [int]$startRow, [int]$endRow) {
@@ -548,7 +729,7 @@ function Get-CompactGroups($workbook, $payload) {
   return $groupsOut
 }
 
-function Build-TemplateCacheGroups($excel, $workbook, $payload) {
+function Build-TemplateCacheGroups($excel, $workbook, $payload, [string]$templatePath = '') {
   $cacheDir = Get-CacheDir $payload
   $groupsOut = @()
   for ($s = 1; $s -le $workbook.Worksheets.Count; $s++) {
@@ -582,8 +763,11 @@ function Build-TemplateCacheGroups($excel, $workbook, $payload) {
       $imageFile = ''
       $candidate = "group_${s}_${groupNo}.png"
       $imagePath = Join-Path $cacheDir $candidate
+      if (Test-Path -LiteralPath $imagePath) { Remove-Item -LiteralPath $imagePath -Force -ErrorAction SilentlyContinue }
       Set-CuttingStage 'cache_export_image' "sheet=$sheetName; group=$groupNo; path=$imagePath"
-      if (Find-GroupImageFile $sheet $group.Start $group.End $imagePath) {
+      if (Export-XlsxGroupImage $templatePath $sheetName $group.Start $group.End $imagePath) {
+        $imageFile = $candidate
+      } elseif (Find-GroupImageFile $sheet $group.Start $group.End $imagePath) {
         $imageFile = $candidate
       }
       $segment = Find-GroupSegment $sheet $group.Start $group.End $cols.Code
@@ -699,6 +883,15 @@ function Get-ItemFontSize([int]$itemCount, [double]$rowHeight) {
   $byCount = [Math]::Floor(105 / [Math]::Max(1, $itemCount))
   $byHeight = [Math]::Floor($rowHeight / 2.5)
   return [Math]::Max(7, [Math]::Min(14, [Math]::Min($byCount, $byHeight)))
+}
+
+function Get-GroupSortKey($group) {
+  $codes = @()
+  foreach ($item in $group.Items) {
+    if ($item.Code) { $codes += [string]$item.Code }
+  }
+  if (-not $codes -or $codes.Count -eq 0) { return '' }
+  return [string](($codes | Sort-Object)[0])
 }
 
 function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups = $null) {
@@ -861,7 +1054,7 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload, $cachedGroups 
     Release-Com $codeRange
     Set-CuttingStage 'render_group_style_color_column' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; itemCount=$itemCount; font=$itemFontSize"
     $colorRange = $outSheet.Range($outSheet.Cells.Item($detailStart, 4), $outSheet.Cells.Item($detailEnd, 4))
-    Set-CellStyle $colorRange ([Math]::Max(7, $itemFontSize - 1)) $false
+    Set-SingleLineCellStyle $colorRange ([Math]::Max(6, $itemFontSize - 1)) $false
     Release-Com $colorRange
     Set-CuttingStage 'render_group_style_number_columns' "index=$($groupIndex + 1); rows=$detailStart-$detailEnd; font=$itemFontSize"
     foreach ($col in @(6,7)) {
@@ -899,28 +1092,21 @@ function New-CuttingPdf($payload) {
   Set-CuttingStage 'prepare_temp_files' 'create temp files'
   $root = Join-Path $env:TEMP ("cutting-pdf-" + [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $root | Out-Null
-  $templatePath = Join-Path $root 'template_original.xlsx'
-  $workPath = Join-Path $root 'template_work.xlsx'
   $pdfPath = Join-Path $root 'cutting_output.pdf'
-  Set-CuttingStage 'decode_template' 'read templateBase64'
-  $templateBytes = [Convert]::FromBase64String([string]$payload.templateBase64)
-  Set-CuttingStage 'write_temp_template' "path=$templatePath"
-  [System.IO.File]::WriteAllBytes($templatePath, $templateBytes)
-  Copy-Item -LiteralPath $templatePath -Destination $workPath
   Add-CuttingLog 'prepare_files' "root=$root"
+
+  $templatePayloads = @()
+  if ($payload.templates) {
+    foreach ($item in @($payload.templates)) { $templatePayloads += $item }
+  } else {
+    $templatePayloads += $payload
+  }
+  if (-not $templatePayloads -or $templatePayloads.Count -eq 0) { throw '沒有可產生 PDF 的模板資料。' }
 
   $excel = $null
   $workbook = $null
   $printWorkbook = $null
   try {
-    Set-CuttingStage 'load_template_cache' 'read local template cache'
-    $cache = Load-TemplateCache $payload
-    if ($null -ne $cache) {
-      Add-CuttingLog 'cache_hit' "groups=$($cache.groups.Count)"
-    } else {
-      Add-CuttingLog 'cache_miss'
-    }
-
     Set-CuttingStage 'start_excel' 'create Excel COM application'
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
@@ -930,25 +1116,57 @@ function New-CuttingPdf($payload) {
     try { $excel.Calculation = -4135 } catch {}
     Add-CuttingLog 'start_excel'
 
-    if ($null -eq $cache) {
+    $allGroups = @()
+    $templateIndex = 0
+    foreach ($templatePayload in $templatePayloads) {
+      $templateIndex++
+      if (-not $templatePayload.templateBase64 -or -not $templatePayload.writes) {
+        throw "BAD_TEMPLATE_PAYLOAD: index=$templateIndex"
+      }
+
+      $templatePath = Join-Path $root "template_${templateIndex}_original.xlsx"
+      $workPath = Join-Path $root "template_${templateIndex}_work.xlsx"
+      Set-CuttingStage 'decode_template' "index=$templateIndex; file=$($templatePayload.fileName)"
+      $templateBytes = [Convert]::FromBase64String([string]$templatePayload.templateBase64)
+      Set-CuttingStage 'write_temp_template' "index=$templateIndex; path=$templatePath"
+      [System.IO.File]::WriteAllBytes($templatePath, $templateBytes)
+      Copy-Item -LiteralPath $templatePath -Destination $workPath
+      Add-CuttingLog 'prepare_template_file' "index=$templateIndex file=$($templatePayload.fileName)"
+
+      Set-CuttingStage 'load_template_cache' "index=$templateIndex; read local template cache"
+      $cache = Load-TemplateCache $templatePayload
+      if ($null -ne $cache) {
+        Add-CuttingLog 'cache_hit' "index=$templateIndex groups=$($cache.groups.Count)"
+      } else {
+        Add-CuttingLog 'cache_miss' "index=$templateIndex"
+      }
+
+      if ($null -eq $cache) {
       Set-CuttingStage 'open_workbook' "path=$workPath"
       $workbook = $excel.Workbooks.Open($workPath, $null, $true)
       Add-CuttingLog 'open_template'
       Set-CuttingStage 'build_template_cache' 'analyze template and export images'
-      $cacheGroups = Build-TemplateCacheGroups $excel $workbook $payload
-      Add-CuttingLog 'build_template_cache' "groups=$($cacheGroups.Count)"
-      $cache = Save-TemplateCache $payload $cacheGroups
-      Add-CuttingLog 'save_template_cache'
+        $cacheGroups = Build-TemplateCacheGroups $excel $workbook $templatePayload $workPath
+        Add-CuttingLog 'build_template_cache' "index=$templateIndex groups=$($cacheGroups.Count)"
+        $cache = Save-TemplateCache $templatePayload $cacheGroups
+        Add-CuttingLog 'save_template_cache' "index=$templateIndex"
       $workbook.Close($false)
       Release-Com $workbook
       $workbook = $null
+      }
+
+      Set-CuttingStage 'prepare_cached_groups' "index=$templateIndex; apply order values to cached template"
+      $groupsForPrint = Get-CachedGroupsForPayload $cache $templatePayload
+      Add-CuttingLog 'prepare_cached_groups' "index=$templateIndex groups=$($groupsForPrint.Count); writes=$($templatePayload.writes.Count)"
+      foreach ($group in $groupsForPrint) { $allGroups += $group }
     }
 
-    Set-CuttingStage 'prepare_cached_groups' 'apply order values to cached template'
-    $groupsForPrint = Get-CachedGroupsForPayload $cache $payload
-    Add-CuttingLog 'prepare_cached_groups' "groups=$($groupsForPrint.Count); writes=$($payload.writes.Count)"
+    if (-not $allGroups -or $allGroups.Count -eq 0) { throw '沒有任何有訂單數量的組可輸出。' }
+    Set-CuttingStage 'sort_print_groups' "groups=$($allGroups.Count)"
+    $allGroups = @($allGroups | Sort-Object -Property @{ Expression = { Get-GroupSortKey $_ } })
+    Add-CuttingLog 'sort_print_groups' "groups=$($allGroups.Count)"
     Set-CuttingStage 'build_compact_pdf_sheet' 'create compact print layout'
-    $printWorkbook = Build-CompactWorkbook $excel $workbook $payload $groupsForPrint
+    $printWorkbook = Build-CompactWorkbook $excel $workbook $payload $allGroups
     Add-CuttingLog 'build_compact_workbook'
     Set-CuttingStage 'calculate_print_workbook' 'calculate before PDF export'
     try { $excel.CalculateFull() } catch { $excel.Calculate() }
@@ -1016,7 +1234,7 @@ while ($listener.IsListening) {
     $body = $reader.ReadToEnd()
     Set-CuttingStage 'parse_request_json' 'ConvertFrom-Json'
     $payload = $body | ConvertFrom-Json
-    if (-not $payload.templateBase64 -or -not $payload.writes) {
+    if ((-not $payload.templates) -and (-not $payload.templateBase64 -or -not $payload.writes)) {
       Send-Text $response 400 '{"ok":false,"error":"BAD_REQUEST"}'
       continue
     }

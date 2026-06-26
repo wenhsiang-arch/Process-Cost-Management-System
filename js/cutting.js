@@ -997,6 +997,11 @@
     return `${base}_PDF_${stamp}.pdf`;
   }
 
+  function localMergedPdfName(){
+    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
+    return `cutting_multi_PDF_${stamp}.pdf`;
+  }
+
   function arrayBufferToBase64(buffer){
     const bytes = new Uint8Array(buffer);
     let binary = '';
@@ -1038,45 +1043,52 @@
       alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
+    const sortedResults = [...state.results].sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, {numeric:true}));
     const byTemplate = new Map();
-    state.results.forEach(result => {
+    sortedResults.forEach(result => {
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
       byTemplate.get(result.templateId).push(result);
     });
-    if(byTemplate.size !== 1){
-      alert('Phiên bản đầu chỉ hỗ trợ một mẫu Excel. Đơn này đang dùng nhiều mẫu.\n第一版只支援單一 Excel 模板。此訂單目前命中多個模板。');
-      return;
-    }
     const exportBtn = g('cut-export-filled-btn');
     try{
       if(exportBtn) exportBtn.disabled = true;
       openCuttingPdfProgress();
       setCuttingPdfProgress(8, 'Đang chuẩn bị dữ liệu... / 正在準備資料...', 'Hệ thống đang kiểm tra mẫu và đơn hàng. / 系統正在確認模板與訂單。');
-      const [templateId, results] = Array.from(byTemplate.entries())[0];
-      const template = state.templates.find(item => item.id === templateId);
-      const fileName = template?.fileName || results[0]?.fileName || '';
-      if(!/\.xlsx$/i.test(fileName)){
-        hideCuttingPdfProgress();
-        if(exportBtn) exportBtn.disabled = false;
-        alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
-        return;
+      const templateEntries = Array.from(byTemplate.entries());
+      const packages = [];
+      for(let i = 0; i < templateEntries.length; i++){
+        const [templateId, results] = templateEntries[i];
+        const template = state.templates.find(item => item.id === templateId);
+        const fileName = template?.fileName || results[0]?.fileName || '';
+        if(!/\.xlsx$/i.test(fileName)){
+          hideCuttingPdfProgress();
+          if(exportBtn) exportBtn.disabled = false;
+          alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
+          return;
+        }
+        setCuttingPdfProgress(
+          Math.min(28, 12 + i * 4),
+          'Đang đọc file mẫu... / 正在讀取模板檔...',
+          `Đang chuẩn bị mẫu ${i + 1}/${templateEntries.length}.<br>正在準備第 ${i + 1}/${templateEntries.length} 個模板。`
+        );
+        const sourceFile = await cuttingStore.getTemplateFile(templateId);
+        if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
+        const buffer = await sourceFile.arrayBuffer();
+        packages.push({
+          templateId,
+          templateUpdatedAt: template?.updatedAt || '',
+          templateFileSize: sourceFile.size || 0,
+          fileName,
+          templateBase64: arrayBufferToBase64(buffer),
+          writes: buildLocalPdfWrites(template, results),
+          orderCells: buildLocalPdfOrderCells(results)
+        });
       }
-      setCuttingPdfProgress(18, 'Đang đọc file mẫu... / 正在讀取模板檔...', 'File mẫu sẽ được gửi sang máy này để tạo PDF. / 模板會送到本機後台產生 PDF。');
-      const sourceFile = await cuttingStore.getTemplateFile(templateId);
-      if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
-      const buffer = await sourceFile.arrayBuffer();
       setCuttingPdfProgress(28, 'Đang đóng gói dữ liệu... / 正在整理資料...', 'Đang chuẩn bị số lượng cần điền và vị trí ô. / 正在準備填寫數量與儲存格位置。');
-      const payload = {
-        templateId,
-        templateUpdatedAt: template?.updatedAt || '',
-        templateFileSize: sourceFile.size || 0,
-        fileName,
-        outputName: localPdfName(fileName),
-        templateBase64: arrayBufferToBase64(buffer),
-        writes: buildLocalPdfWrites(template, results),
-        orderCells: buildLocalPdfOrderCells(results)
-      };
-      setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Nếu là lần đầu dùng mẫu này, hệ thống sẽ tạo cache trước. / 如果此模板第一次使用，會先建立快取。');
+      const payload = packages.length === 1
+        ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
+        : {outputName: localMergedPdfName(), templates: packages};
+      setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ sắp xếp theo mã hàng rồi tạo PDF. / 系統會依款號排序後產生 PDF。');
       startCuttingPdfProgressLoop();
       const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
         method: 'POST',
