@@ -50,6 +50,16 @@ function Release-Com($object) {
   }
 }
 
+function Safe-ToText($value) {
+  if ($null -eq $value) { return '' }
+  try {
+    if ($value -is [System.Array]) { return '' }
+    return [string]$value
+  } catch {
+    throw "TEXT_CONVERT_FAILED: $($_.Exception.Message)"
+  }
+}
+
 function Normalize-HeaderText([string]$text) {
   $formD = $text.Normalize([Text.NormalizationForm]::FormD)
   $chars = New-Object System.Text.StringBuilder
@@ -346,12 +356,18 @@ function Build-CompactWorkbook($excel, $sourceWorkbook, $payload) {
 
     Set-CuttingStage 'render_group_headers' "index=$($groupIndex + 1); row=$headerRow"
     $headers = @($group.Title, 'QUY CACH DAY', 'MA HANG', 'MAU', 'QUY CACH CAT', 'SL:PO PCS', 'SO KIEN', 'SL:CAT THUC TE', 'SL: THIEU LIEU', 'GHI CHU')
+    $headerFillColor = [int]5996346
+    $headerFontColor = [int]16777215
     for ($c = 1; $c -le 10; $c++) {
       Set-CuttingStage 'render_group_header_cell' "index=$($groupIndex + 1); row=$headerRow; col=$c"
       $cell = $outSheet.Cells.Item($headerRow, $c)
-      $cell.Value2 = $headers[$c - 1]
-      $cell.Interior.Color = 0x5B7F3A
-      $cell.Font.Color = 0xFFFFFF
+      Set-CuttingStage 'render_group_header_value' "index=$($groupIndex + 1); row=$headerRow; col=$c"
+      $cell.Value2 = Safe-ToText $headers[$c - 1]
+      Set-CuttingStage 'render_group_header_fill_color' "index=$($groupIndex + 1); row=$headerRow; col=$c; color=$headerFillColor"
+      $cell.Interior.Color = $headerFillColor
+      Set-CuttingStage 'render_group_header_font_color' "index=$($groupIndex + 1); row=$headerRow; col=$c; color=$headerFontColor"
+      $cell.Font.Color = $headerFontColor
+      Set-CuttingStage 'render_group_header_style' "index=$($groupIndex + 1); row=$headerRow; col=$c"
       Set-CellStyle $cell 11 $true
       Release-Com $cell
     }
