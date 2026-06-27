@@ -160,7 +160,7 @@ function Normalize-HeaderText([string]$text) {
     $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($ch)
     if ($category -ne [Globalization.UnicodeCategory]::NonSpacingMark) { [void]$chars.Append($ch) }
   }
-  return (($chars.ToString() -replace '?', 'D' -replace '?', 'd').ToUpperInvariant() -replace '\s+', '')
+  return (($chars.ToString() -replace [char]272, 'D' -replace [char]273, 'd').ToUpperInvariant() -replace '\s+', '')
 }
 
 function Is-ItemCode([string]$text) {

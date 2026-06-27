@@ -1027,7 +1027,7 @@
     const sub = g('cut-pdf-progress-sub');
     const closeBtn = g('cut-pdf-progress-close');
     if(wrap) wrap.style.display = 'block';
-    if(closeBtn) closeBtn.style.display = 'none';
+    if(closeBtn) closeBtn.style.display = 'flex';
     if(bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
     if(label) label.innerHTML = message;
     if(sub) sub.innerHTML = subText || 'Vui lòng chờ, không đóng cửa sổ này. / 請稍候，不要關閉此視窗。';
@@ -1040,7 +1040,7 @@
       message,
       subText
     );
-    if(closeBtn) closeBtn.style.display = 'grid';
+    if(closeBtn) closeBtn.style.display = 'flex';
   }
 
   function openCuttingPdfProgress(){

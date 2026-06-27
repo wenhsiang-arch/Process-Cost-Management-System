@@ -917,7 +917,8 @@ tr:hover td{background:#f8fafc}
     </div>
   </div></div>
 
-  <div class="mb" id="m-cutting-pdf-progress"><div class="md" style="width:520px">
+  <div class="mb" id="m-cutting-pdf-progress"><div class="md" style="width:520px;position:relative">
+    <button class="ib" id="cut-pdf-progress-close" onclick="cuttingClosePdfProgress()" title="Đóng / 關閉" style="display:flex;position:absolute;right:14px;top:14px"><i class="ti ti-x"></i></button>
     <div class="mt2"><span><i class="ti ti-file-type-pdf"></i> Đang tạo PDF / 正在產生 PDF</span></div>
     <div class="pw" id="cut-pdf-progress" style="display:block;margin-bottom:0">
       <div class="pwl" id="cut-pdf-progress-text">Đang chuẩn bị... / 準備中...</div>
