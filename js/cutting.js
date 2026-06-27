@@ -38,7 +38,7 @@
   }
 
   function normalizeCode(value){
-    return normalizeText(value).replace(/[^\w-]/g, '');
+    return normalizeText(value).replace(/[^\w~-]/g, '');
   }
 
   function parseNumber(value){
@@ -54,7 +54,52 @@
 
   function isLikelyCode(value){
     const code = normalizeCode(value);
-    return /^[A-Z]{1,6}\d{2,}[-A-Z0-9]*$/.test(code);
+    return /^[A-Z]{1,6}\d{2,}[-A-Z0-9]*$/.test(code)
+      || /^[A-Z]{1,6}\d{2,}~(?:[A-Z]{1,6})?\d{1,}[-A-Z0-9]*$/.test(code);
+  }
+
+  function expandCodeAliases(value){
+    const code = normalizeCode(value);
+    if(!code) return [];
+    if(!code.includes('~')) return [code];
+    const parts = code.split('~');
+    if(parts.length !== 2) return [code];
+    const left = parts[0];
+    const right = parts[1];
+    const leftMatch = left.match(/^([A-Z]{1,6})(\d+)([-A-Z0-9]*)$/);
+    if(!leftMatch || leftMatch[3]) return [code];
+    const prefix = leftMatch[1];
+    const leftDigits = leftMatch[2];
+    let rightDigits = '';
+    const rightFull = right.match(/^([A-Z]{1,6})(\d+)$/);
+    if(rightFull){
+      if(rightFull[1] !== prefix) return [code];
+      rightDigits = rightFull[2];
+    }else if(/^\d+$/.test(right)){
+      rightDigits = right;
+    }else{
+      return [code];
+    }
+    let baseDigits = '';
+    let leftNum = 0;
+    let rightNum = 0;
+    let width = Math.max(leftDigits.length, rightDigits.length);
+    if(rightDigits.length < leftDigits.length){
+      const baseLength = leftDigits.length - rightDigits.length;
+      baseDigits = leftDigits.slice(0, baseLength);
+      leftNum = Number(leftDigits.slice(baseLength));
+      rightNum = Number(rightDigits);
+      width = rightDigits.length;
+    }else{
+      leftNum = Number(leftDigits);
+      rightNum = Number(rightDigits);
+    }
+    if(!Number.isFinite(leftNum) || !Number.isFinite(rightNum) || rightNum < leftNum || rightNum - leftNum > 200) return [code];
+    const aliases = [];
+    for(let num = leftNum; num <= rightNum; num++){
+      aliases.push(`${prefix}${baseDigits}${String(num).padStart(width, '0')}`);
+    }
+    return aliases;
   }
 
   function colLettersToIndex(letters){
@@ -239,6 +284,7 @@
         if(!codeMap.has(code)){
           codeMap.set(code, {
             code,
+            aliases: expandCodeAliases(code),
             piecesPerItem: 0,
             rows: [],
             templateFileName: fileName
@@ -334,7 +380,7 @@
           rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
         }
         if(!codeMap.has(code)){
-          codeMap.set(code, {code, piecesPerItem: 0, rows: [], templateFileName: fileName});
+          codeMap.set(code, {code, aliases: expandCodeAliases(code), piecesPerItem: 0, rows: [], templateFileName: fileName});
         }
         const item = codeMap.get(code);
         item.rows.push(rowInfo);
@@ -353,9 +399,12 @@
     state.templates.forEach(book => {
       if(book.status !== 'confirmed') return;
       (book.codes || []).forEach(item => {
-        if(!map.has(item.code)){
-          map.set(item.code, {...item, templateId: book.id, fileName: book.fileName});
-        }
+        const templateItem = {...item, templateId: book.id, fileName: book.fileName};
+        const aliases = item.aliases && item.aliases.length ? item.aliases : expandCodeAliases(item.code);
+        aliases.forEach(alias => {
+          if(!map.has(alias)) map.set(alias, templateItem);
+        });
+        if(!map.has(item.code)) map.set(item.code, templateItem);
       });
     });
     return map;
@@ -688,19 +737,32 @@
 
   function recomputeResults(){
     const map = buildTemplateMap();
-    state.results = state.orderItems.map(item => {
+    const grouped = new Map();
+    const missing = [];
+    state.orderItems.forEach(item => {
       const template = map.get(item.code);
       if(!template){
-        return {code:item.code, qty:item.qty, piecesPerItem:0, totalPieces:0, reverseQty:0, status:'missing'};
+        missing.push({code:item.code, qty:item.qty, piecesPerItem:0, totalPieces:0, reverseQty:0, status:'missing'});
+        return;
       }
+      const key = `${template.templateId}|${template.code}`;
+      if(!grouped.has(key)){
+        grouped.set(key, {...template, qty:0, orderCodes: []});
+      }
+      const target = grouped.get(key);
+      target.qty += Number(item.qty || 0);
+      target.orderCodes.push(item.code);
+    });
+    const passed = Array.from(grouped.values()).map(template => {
       const pieces = Number(template.piecesPerItem || 0);
       if(pieces <= 0){
-        return {...template, qty:item.qty, piecesPerItem:pieces, totalPieces:0, reverseQty:0, status:'error'};
+        return {...template, piecesPerItem:pieces, totalPieces:0, reverseQty:0, status:'error'};
       }
-      const totalPieces = item.qty * pieces;
+      const totalPieces = template.qty * pieces;
       const reverseQty = totalPieces / pieces;
-      return {...template, qty:item.qty, totalPieces, reverseQty, status:'pass'};
+      return {...template, qty:template.qty, totalPieces, reverseQty, status:'pass'};
     });
+    state.results = [...passed, ...missing];
     renderResults();
   }
 
@@ -900,14 +962,28 @@
 
   function buildExportPlan(template, results){
     const cells = new Map();
+    const addCellValue = (key, entry, value) => {
+      const current = cells.get(key);
+      if(current){
+        current.value = Number(current.value || 0) + Number(value || 0);
+      }else{
+        cells.set(key, {...entry, value: Number(value || 0)});
+      }
+    };
     templateQtyRows(template).forEach(rowInfo => {
       cells.set(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo, value: 0});
       if(rowInfo.totalCell) cells.set(`${rowInfo.sheetName}!${rowInfo.totalCell}`, {rowInfo, cell: rowInfo.totalCell, value: 0});
     });
     results.forEach(result => {
       (result.rows || []).forEach(rowInfo => {
-        cells.set(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo, value: result.qty});
-        if(rowInfo.totalCell) cells.set(`${rowInfo.sheetName}!${rowInfo.totalCell}`, {rowInfo, cell: rowInfo.totalCell, value: Number(result.qty || 0) * Number(rowInfo.piecesPerRow || 0)});
+        addCellValue(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo}, result.qty);
+        if(rowInfo.totalCell){
+          addCellValue(
+            `${rowInfo.sheetName}!${rowInfo.totalCell}`,
+            {rowInfo, cell: rowInfo.totalCell},
+            Number(result.qty || 0) * Number(rowInfo.piecesPerRow || 0)
+          );
+        }
       });
     });
     return Array.from(cells.values());
@@ -949,18 +1025,22 @@
     const bar = g('cut-pdf-progress-bar');
     const label = g('cut-pdf-progress-text');
     const sub = g('cut-pdf-progress-sub');
+    const closeBtn = g('cut-pdf-progress-close');
     if(wrap) wrap.style.display = 'block';
+    if(closeBtn) closeBtn.style.display = 'none';
     if(bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
     if(label) label.innerHTML = message;
     if(sub) sub.innerHTML = subText || 'Vui lòng chờ, không đóng cửa sổ này. / 請稍候，不要關閉此視窗。';
   }
 
   function setCuttingPdfError(message, subText){
+    const closeBtn = g('cut-pdf-progress-close');
     setCuttingPdfProgress(
       100,
       message,
-      `${subText}<div class="br" style="margin-top:14px"><button class="btn" onclick="cuttingClosePdfProgress()"><i class="ti ti-x"></i>Đóng / 關閉</button></div>`
+      subText
     );
+    if(closeBtn) closeBtn.style.display = 'grid';
   }
 
   function openCuttingPdfProgress(){
@@ -971,6 +1051,8 @@
     const run = () => {
       const wrap = g('cut-pdf-progress');
       if(wrap) wrap.style.display = 'none';
+      const closeBtn = g('cut-pdf-progress-close');
+      if(closeBtn) closeBtn.style.display = 'none';
       const bar = g('cut-pdf-progress-bar');
       if(bar) bar.style.width = '0%';
       cm('m-cutting-pdf-progress');
