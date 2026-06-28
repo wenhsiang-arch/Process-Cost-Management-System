@@ -789,11 +789,13 @@
     const passed = state.results.filter(r => r.status === 'pass').length;
     const missing = state.results.filter(r => r.status === 'missing');
     const errors = state.results.filter(r => r.status === 'error');
+    const orderDrop = g('cut-order-drop');
+    if(orderDrop) orderDrop.style.display = total > 0 ? 'none' : '';
     text('cut-total', fmtNum(total));
     text('cut-pass', fmtNum(passed));
     text('cut-missing', fmtNum(missing.length));
     text('cut-error', fmtNum(errors.length));
-    const canPreview = total > 0 && missing.length === 0 && errors.length === 0;
+    const canPreview = passed > 0 && errors.length === 0;
     const previewBtn = g('cut-preview-btn');
     if(previewBtn) previewBtn.disabled = !canPreview;
 
@@ -805,12 +807,15 @@
       } else if(!total){
         alertBox.className = 'nt nw';
         alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Đã có mẫu, vui lòng nhập đơn hàng để kiểm tra.<br>已有模板，請匯入訂單進行比對。</div>';
+      } else if(canPreview && missing.length){
+        alertBox.className = 'nt nw';
+        alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Có thể xuất ${fmtNum(passed)} mã hàng có mẫu. ${fmtNum(missing.length)} mã hàng thiếu mẫu sẽ không vào PDF.<br>可匯出 ${fmtNum(passed)} 個有模板款號。${fmtNum(missing.length)} 個缺少模板款號不會進入 PDF。</div>`;
       } else if(canPreview){
         alertBox.className = 'nt ns';
         alertBox.innerHTML = `<i class="ti ti-check"></i><div>Kiểm tra đạt: ${fmtNum(total)} mã hàng đều có mẫu. Có thể xuất Excel thành phẩm từ mẫu gốc để giữ nguyên màu sắc và hình ảnh.<br>檢查通過：${fmtNum(total)} 個款號都有模板。可用原始 Excel 模板匯出成品，保留配色與圖片。</div>`;
       } else {
         alertBox.className = 'nt nd';
-        alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Không thể xuất: thiếu ${fmtNum(missing.length)} mẫu, lỗi ${fmtNum(errors.length)} dòng.<br>不可匯出：缺少 ${fmtNum(missing.length)} 個款號模板，錯誤 ${fmtNum(errors.length)} 筆。</div>`;
+        alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Không thể xuất: chưa có mã hàng có mẫu hoặc còn ${fmtNum(errors.length)} lỗi.<br>不可匯出：沒有可匯出的有模板款號，或仍有 ${fmtNum(errors.length)} 筆錯誤。</div>`;
       }
       alertBox.style.display = 'flex';
     }
@@ -853,9 +858,11 @@
   }
 
   function buildPreviewHtml(){
-    const totalQty = state.results.reduce((sum, r) => sum + r.qty, 0);
-    const totalPieces = state.results.reduce((sum, r) => sum + r.totalPieces, 0);
-    const validations = state.results.map(result => ({result, problems: validateExportResult(result)}));
+    const exportableResults = state.results.filter(r => r.status === 'pass');
+    const skippedMissing = state.results.filter(r => r.status === 'missing');
+    const totalQty = exportableResults.reduce((sum, r) => sum + r.qty, 0);
+    const totalPieces = exportableResults.reduce((sum, r) => sum + r.totalPieces, 0);
+    const validations = exportableResults.map(result => ({result, problems: validateExportResult(result)}));
     const problemRows = validations.flatMap(row => row.problems.map(problem => ({code: row.result.code, problem})));
     const passed = validations.filter(row => !row.problems.length).length;
     const failed = validations.length - passed;
@@ -863,7 +870,7 @@
     const statusIcon = failed ? 'ti ti-alert-triangle' : 'ti ti-check';
     const statusText = failed
       ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi tạo PDF.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再產生 PDF。`
-      : `Kiểm tra đạt: ${fmtNum(state.results.length)} mã hàng đều đúng, có thể tạo PDF bằng máy này.<br>驗算通過：${fmtNum(state.results.length)} 個款號都正確，可以由本機產生 PDF。`;
+      : `Kiểm tra đạt: ${fmtNum(exportableResults.length)} mã hàng có mẫu, có thể tạo PDF bằng máy này.<br>驗算通過：${fmtNum(exportableResults.length)} 個有模板款號，可以由本機產生 PDF。`;
     const problemHtml = failed ? `
       <div class="to"><div class="ts" style="max-height:260px"><table>
         <thead><tr>
@@ -882,10 +889,10 @@
     `;
     return `
       <div class="mg">
-        <div class="mc"><div class="ml">Tổng mã hàng</div><div class="mvi">總款號</div><div class="mv">${fmtNum(state.results.length)}</div></div>
+        <div class="mc"><div class="ml">Mã hàng xuất</div><div class="mvi">匯出款號</div><div class="mv">${fmtNum(exportableResults.length)}</div></div>
         <div class="mc"><div class="ml">Tổng số đơn</div><div class="mvi">訂單總數</div><div class="mv">${fmtNum(totalQty)}</div></div>
         <div class="mc"><div class="ml">Tổng dây cắt</div><div class="mvi">裁段總數</div><div class="mv">${fmtNum(totalPieces)}</div></div>
-        <div class="mc"><div class="ml">Mã hàng đạt</div><div class="mvi">通過款號</div><div class="mv">${fmtNum(passed)}</div></div>
+        <div class="mc"><div class="ml">Thiếu mẫu</div><div class="mvi">缺少模板</div><div class="mv">${fmtNum(skippedMissing.length)}</div></div>
       </div>
       <div class="${statusClass}" style="margin-bottom:12px">
         <i class="${statusIcon}"></i>
@@ -896,11 +903,13 @@
   }
 
   function cuttingOpenPreview(){
-    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
-      alert('Vẫn còn mã hàng thiếu mẫu hoặc lỗi, không thể xem trước.\n仍有缺少模板或錯誤款號，不能預覽。');
+    const exportableResults = state.results.filter(r => r.status === 'pass');
+    const hasErrors = state.results.some(r => r.status === 'error');
+    if(!exportableResults.length || hasErrors){
+      alert('Không có mã hàng có mẫu để xuất, hoặc vẫn còn lỗi.\n沒有可匯出的有模板款號，或仍有錯誤。');
       return;
     }
-    const problems = validateExportResults(state.results);
+    const problems = validateExportResults(exportableResults);
     const exportBtn = g('cut-export-filled-btn');
     if(exportBtn) exportBtn.disabled = problems.length > 0;
     html('cut-preview-body', buildPreviewHtml());
@@ -1140,16 +1149,18 @@
   }
 
   async function cuttingCreateLocalPdf(){
-    if(!state.results.length || state.results.some(r => r.status !== 'pass')){
-      alert('Không thể tạo PDF khi còn lỗi.\n仍有錯誤時不能產生 PDF。');
+    const exportableResults = state.results.filter(r => r.status === 'pass');
+    const hasErrors = state.results.some(r => r.status === 'error');
+    if(!exportableResults.length || hasErrors){
+      alert('Không có mã hàng có mẫu để tạo PDF, hoặc vẫn còn lỗi.\n沒有可產生 PDF 的有模板款號，或仍有錯誤。');
       return;
     }
-    const resultProblems = validateExportResults(state.results);
+    const resultProblems = validateExportResults(exportableResults);
     if(resultProblems.length){
       alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
-    const sortedResults = [...state.results].sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, {numeric:true}));
+    const sortedResults = [...exportableResults].sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, {numeric:true}));
     const byTemplate = new Map();
     sortedResults.forEach(result => {
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
