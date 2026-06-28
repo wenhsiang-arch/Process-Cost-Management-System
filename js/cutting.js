@@ -467,6 +467,90 @@
     if(drop) drop.style.pointerEvents = busy ? 'none' : '';
   }
 
+  function cuttingTemplateModal(options){
+    return new Promise(resolve => {
+      let modal = g('cut-template-conflict-modal');
+      if(!modal){
+        modal = document.createElement('div');
+        modal.id = 'cut-template-conflict-modal';
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.52);z-index:9999;display:none;align-items:center;justify-content:center;padding:18px';
+        modal.innerHTML = '<div style="background:var(--sf);border:1px solid var(--bd);border-radius:12px;width:520px;max-width:96vw;box-shadow:0 18px 50px rgba(15,23,42,.22);padding:22px"><div id="cut-template-conflict-title" style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px"></div><div id="cut-template-conflict-body" style="font-size:14px;line-height:1.8;color:var(--ink);margin-bottom:18px"></div><div id="cut-template-conflict-actions" class="br"></div></div>';
+        document.body.appendChild(modal);
+      }
+      const title = g('cut-template-conflict-title');
+      const body = g('cut-template-conflict-body');
+      const actions = g('cut-template-conflict-actions');
+      title.innerHTML = options.title || '';
+      body.innerHTML = options.body || '';
+      actions.innerHTML = '';
+      (options.buttons || []).forEach(btn => {
+        const el = document.createElement('button');
+        el.className = btn.className || 'btn';
+        el.innerHTML = btn.text;
+        el.onclick = () => {
+          modal.style.display = 'none';
+          resolve(btn.value);
+        };
+        actions.appendChild(el);
+      });
+      modal.style.display = 'flex';
+    });
+  }
+
+  function templateCodeKeys(book){
+    const keys = new Set();
+    (book?.codes || []).forEach(item => {
+      [item.code, ...(item.aliases || [])].forEach(code => {
+        const key = normalizeCode(code);
+        if(key) keys.add(key);
+      });
+    });
+    return keys;
+  }
+
+  function findTemplateCodeConflict(book, templates){
+    const incoming = templateCodeKeys(book);
+    const rows = [];
+    (templates || []).forEach(template => {
+      if(template.fileName === book.fileName) return;
+      if(template.status && template.status !== 'confirmed') return;
+      (template.codes || []).forEach(item => {
+        const candidates = [item.code, ...(item.aliases || [])].map(code => normalizeCode(code)).filter(Boolean);
+        const matched = candidates.find(code => incoming.has(code));
+        if(matched) rows.push({code: item.code || matched, fileName: template.fileName || ''});
+      });
+    });
+    return rows;
+  }
+
+  async function checkTemplateSaveConflicts(book){
+    const templates = window.cuttingStore ? await window.cuttingStore.listTemplates() : state.templates;
+    state.templates = Array.isArray(templates) ? templates : [];
+    const codeConflicts = findTemplateCodeConflict(book, state.templates);
+    if(codeConflicts.length){
+      const lines = codeConflicts.slice(0, 8).map(item => `<div><b>${esc(item.code)}</b> - ${esc(item.fileName)}</div>`).join('');
+      await cuttingTemplateModal({
+        title: 'Mã hàng đã tồn tại / 已有相同款號',
+        body: `Không thể nhập mẫu này vì mã hàng đã có trong mẫu khác.<br>此模板有款號已存在於其他模板，禁止匯入。<div style="margin-top:10px">${lines}${codeConflicts.length > 8 ? '<div>...</div>' : ''}</div>`,
+        buttons: [{text:'OK / 確定', value:'ok', className:'btn bp'}]
+      });
+      return false;
+    }
+    const sameFile = state.templates.find(item => item.fileName === book.fileName);
+    if(sameFile){
+      const action = await cuttingTemplateModal({
+        title: 'Tên file mẫu đã tồn tại / 已有相同模板檔名',
+        body: `Đã có mẫu cùng tên file.<br>已存在相同檔名的模板。<br><br><b>${esc(book.fileName)}</b><br><br>Bạn muốn ghi đè mẫu cũ không?<br>是否要覆蓋原本的模板？`,
+        buttons: [
+          {text:'Ghi đè / 覆蓋', value:'overwrite', className:'btn bp'},
+          {text:'Hủy / 取消', value:'cancel', className:'btn'}
+        ]
+      });
+      return action === 'overwrite';
+    }
+    return true;
+  }
+
   function renderTemplateList(){
     const tb = g('cut-template-tb');
     if(!tb) return;
@@ -739,6 +823,11 @@
         return;
       }
       await setTemplateProgress(18, 'Đang chuẩn bị lưu mẫu... / 正在準備儲存模板...', 'Excel sẽ được chia nhỏ để lưu vào cơ sở dữ liệu đám mây. / Excel 會分段存到雲端資料庫。');
+      const canSave = await checkTemplateSaveConflicts(book);
+      if(!canSave){
+        hideTemplateProgress();
+        return;
+      }
       await window.cuttingStore.saveTemplateBook(book, state.pendingTemplateFile, progress => {
         const total = Number(progress?.total || 0);
         const current = Number(progress?.current || 0);
@@ -1270,6 +1359,12 @@
   function setPdfToolStatus(status, detail = ''){
     const box = g('cut-pdf-tool-status');
     if(!box) return;
+    const setupText = [
+      '1. Lần đầu thiết lập: Vào 「OneDrive\\1MAY9」, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.',
+      '2. Sử dụng hằng ngày: Vào 「OneDrive\\1MAY9\\Cong cu chuyen doi PDF」, nhấp đúp file 「Mở công cụ PDF」 để mở công cụ.',
+      '1. 第一次設定：到「OneDrive\\1MAY9」，對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。',
+      '2. 平常使用：到「OneDrive\\1MAY9\\Cong cu chuyen doi PDF」，雙擊「Mở công cụ PDF」檔案啟動工具。'
+    ];
     const map = {
       checking: {
         cls: 'nt nw',
@@ -1284,10 +1379,11 @@
       offline: {
         cls: 'nt nw',
         icon: 'ti-alert-circle',
-        text: 'Chưa mở công cụ PDF / PDF 工具未啟動'
+        text: setupText.join('<br>')
       }
     };
     const item = map[status] || map.offline;
+    if(status === 'offline') detail = '';
     box.className = item.cls;
     box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${detail}</span>` : ''}</div>`;
   }
