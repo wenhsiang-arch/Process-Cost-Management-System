@@ -426,10 +426,10 @@ tr:hover td{background:#f8fafc}
               <i class="ti ti-file-spreadsheet"></i>
               <div>
                 <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-                <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ phân tích mẫu / 支援 .xlsx、.xls，選擇後會分析模板</span>
+                <span>Chỉ hỗ trợ .xlsx, sau khi chọn sẽ phân tích mẫu / 僅支援 .xlsx，選擇後會分析模板</span>
               </div>
             </div>
-            <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
+            <input type="file" id="cut-template-file" accept=".xlsx" style="display:none" onchange="cuttingHandleTemplateFile(this)">
             <div class="br" style="margin-bottom:12px">
               <button class="btn bp" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
               <button class="btn bd2" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>

@@ -103,6 +103,70 @@ function Get-IndexPath($payload) {
   return (Join-Path (Get-IndexDir $payload) 'index.json')
 }
 
+function Remove-TemplateCache($payload) {
+  Set-Stage 'delete_cache' 'remove template cache'
+  $templateId = [string]$payload.templateId
+  if (-not $templateId) { throw 'BAD_CACHE_DELETE_REQUEST' }
+  $root = [System.IO.Path]::GetFullPath((Get-CacheRoot))
+  $safeId = Safe-FileName $templateId
+  $targets = @()
+
+  if ($payload.templateUpdatedAt -and $payload.templateFileSize) {
+    $key = Get-CacheKey $payload
+    $path = Join-Path $root $key
+    if (Test-Path -LiteralPath $path) { $targets += Get-Item -LiteralPath $path }
+  } else {
+    $targets = @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name.StartsWith("$safeId-", [System.StringComparison]::OrdinalIgnoreCase)
+    })
+  }
+
+  $deleted = 0
+  foreach ($target in @($targets)) {
+    $full = [System.IO.Path]::GetFullPath($target.FullName)
+    $isInside = $full.StartsWith($root + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)
+    $isMatch = $target.Name.StartsWith("$safeId-", [System.StringComparison]::OrdinalIgnoreCase)
+    if ($isInside -and $isMatch) {
+      Remove-Item -LiteralPath $full -Recurse -Force -ErrorAction Stop
+      $deleted++
+    }
+  }
+  Add-Log 'delete_cache' "templateId=$templateId deleted=$deleted"
+  return @{ ok = $true; deleted = $deleted }
+}
+
+function Remove-OldTemplateCacheVersions($payload) {
+  $templateId = [string]$payload.templateId
+  if (-not $templateId) { return 0 }
+  $root = [System.IO.Path]::GetFullPath((Get-CacheRoot))
+  $safeId = Safe-FileName $templateId
+  $currentKey = Get-CacheKey $payload
+  $deleted = 0
+  try {
+    $targets = @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue | Where-Object {
+      $_.Name.StartsWith("$safeId-", [System.StringComparison]::OrdinalIgnoreCase) -and
+      -not $_.Name.Equals($currentKey, [System.StringComparison]::OrdinalIgnoreCase)
+    })
+    foreach ($target in @($targets)) {
+      try {
+        $full = [System.IO.Path]::GetFullPath($target.FullName)
+        $isInside = $full.StartsWith($root + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)
+        $isMatch = $target.Name.StartsWith("$safeId-", [System.StringComparison]::OrdinalIgnoreCase)
+        if ($isInside -and $isMatch) {
+          Remove-Item -LiteralPath $full -Recurse -Force -ErrorAction Stop
+          $deleted++
+        }
+      } catch {
+        Add-Log 'clean_old_cache_failed' $_.Exception.Message
+      }
+    }
+  } catch {
+    Add-Log 'clean_old_cache_scan_failed' $_.Exception.Message
+  }
+  if ($deleted -gt 0) { Add-Log 'clean_old_cache' "templateId=$templateId deleted=$deleted" }
+  return $deleted
+}
+
 function New-TempDir() {
   $root = Join-Path ([System.IO.Path]::GetTempPath()) ("cutting-pdf-" + [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Path $root | Out-Null
@@ -697,6 +761,7 @@ function Build-TemplateIndex($payload, [string]$xlsxPath) {
     }
     [System.IO.File]::WriteAllText((Get-IndexPath $payload), ($index | ConvertTo-Json -Depth 40), [System.Text.Encoding]::UTF8)
     Add-Log 'build_index' "groups=$($groups.Count) items=$($items.Count) modules=$($modules.Count) images=$($images.Count)"
+    [void](Remove-OldTemplateCacheVersions $payload)
     return $index
   } finally {
     if ($null -ne $workbook) { try { $workbook.Close($false) } catch {}; Release-Com $workbook }
@@ -1358,6 +1423,30 @@ function Get-ReportField($row, [string]$name) {
   return $property.Value
 }
 
+function Get-ReportSummary($rows) {
+  $qtyTotal = 0.0
+  $cutTotal = 0.0
+  $hasQty = $false
+  $hasCutTotal = $false
+  foreach ($row in @($rows)) {
+    $qtyRaw = Get-ReportField $row 'qty'
+    if (-not [string]::IsNullOrWhiteSpace([string]$qtyRaw)) {
+      $qtyTotal += Convert-ToSafeDouble $qtyRaw
+      $hasQty = $true
+    }
+    $totalRaw = Get-ReportField $row 'total'
+    if (-not [string]::IsNullOrWhiteSpace([string]$totalRaw)) {
+      $cutTotal += Convert-ToSafeDouble $totalRaw
+      $hasCutTotal = $true
+    }
+  }
+  return [PSCustomObject]@{
+    qty = if ($hasQty) { $qtyTotal } else { '' }
+    piece = ''
+    total = if ($hasCutTotal) { $cutTotal } else { '' }
+  }
+}
+
 function Draw-ReportGrid($graphics) {
   $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(224, 224, 224), 0.5)
   try {
@@ -1390,29 +1479,73 @@ function Draw-ReportText($graphics, [string]$text, [System.Drawing.RectangleF]$r
   }
 }
 
-function Draw-ReportTable($graphics, [string]$title, $rows, [float]$x, [float]$y, [float]$bottom) {
-  $width = 470.0
-  $rowHeight = 22.0
-  $headerY = $y + 30.0
-  $columns = @(
-    [PSCustomObject]@{ name = 'code'; label = '款號'; x = $x; width = 150.0; align = 'Near' },
-    [PSCustomObject]@{ name = 'qty'; label = '訂單數量'; x = $x + 150.0; width = 95.0; align = 'Center' },
-    [PSCustomObject]@{ name = 'piece'; label = '工序段'; x = $x + 245.0; width = 95.0; align = 'Center' },
-    [PSCustomObject]@{ name = 'total'; label = '總共工序段'; x = $x + 340.0; width = 130.0; align = 'Center' }
-  )
-  Draw-ReportText $graphics $title ([System.Drawing.RectangleF]::new($x, $y, $width, 24.0)) 15 8 $false 'Center'
-  foreach ($col in $columns) {
-    Draw-ReportText $graphics ([string]$col.label) ([System.Drawing.RectangleF]::new([float]$col.x, $headerY, [float]$col.width, 22.0)) 13 8 $false ([string]$col.align)
-  }
-  $rowY = $headerY + 28.0
-  foreach ($row in @($rows)) {
-    if ($rowY + $rowHeight -gt $bottom) { break }
+function Draw-ReportHeaderText($graphics, [string]$topText, [string]$bottomText, [System.Drawing.RectangleF]$rect) {
+  $topRect = [System.Drawing.RectangleF]::new($rect.X + 2.0, $rect.Y + 3.0, $rect.Width - 4.0, ($rect.Height / 2.0) - 2.0)
+  $bottomRect = [System.Drawing.RectangleF]::new($rect.X + 2.0, $rect.Y + ($rect.Height / 2.0), $rect.Width - 4.0, ($rect.Height / 2.0) - 3.0)
+  Draw-ReportText $graphics $topText $topRect 10.5 6.0 $true 'Center'
+  Draw-ReportText $graphics $bottomText $bottomRect 10.0 6.0 $false 'Center'
+}
+
+function Draw-ReportTable($graphics, [string]$title, $rows, [float]$x, [float]$y, [float]$bottom, $summary = $null) {
+  $width = 535.0
+  $titleHeight = 30.0
+  $headerHeight = 34.0
+  $rowHeight = 20.0
+  $columns = @()
+  $columns += [PSCustomObject]@{ name = 'code'; vi = 'Mã hàng'; zh = '款號'; x = $x; width = 170.0; align = 'Near' }
+  $columns += [PSCustomObject]@{ name = 'qty'; vi = 'SL đơn'; zh = '訂單數量'; x = $x + 170.0; width = 105.0; align = 'Center' }
+  $columns += [PSCustomObject]@{ name = 'piece'; vi = 'Số kiện'; zh = '工序段'; x = $x + 275.0; width = 110.0; align = 'Center' }
+  $columns += [PSCustomObject]@{ name = 'total'; vi = 'Tổng công đoạn'; zh = '總共工序段'; x = $x + 385.0; width = 150.0; align = 'Center' }
+  $borderPen = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(80, 80, 80), 0.8)
+  $lightPen = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(150, 150, 150), 0.5)
+  $headerBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(238, 243, 250))
+  $summaryBrush = [System.Drawing.SolidBrush]::new([System.Drawing.Color]::FromArgb(248, 250, 252))
+  try {
+    $titleRect = [System.Drawing.RectangleF]::new($x, $y, $width, $titleHeight)
+    $graphics.FillRectangle($headerBrush, $titleRect)
+    $graphics.DrawRectangle($borderPen, $titleRect.X, $titleRect.Y, $titleRect.Width, $titleRect.Height)
+    Draw-ReportText $graphics $title ([System.Drawing.RectangleF]::new($x + 4.0, $y, $width - 8.0, $titleHeight)) 13.5 7.0 $true 'Center'
+    $headerY = $y + $titleHeight
     foreach ($col in $columns) {
-      $raw = Get-ReportField $row ([string]$col.name)
-      $value = if ($col.name -eq 'code') { [string]$raw } else { Format-ReportValue $raw }
-      Draw-ReportText $graphics $value ([System.Drawing.RectangleF]::new([float]$col.x, $rowY, [float]$col.width, $rowHeight)) 12 7 $false ([string]$col.align)
+      $rect = [System.Drawing.RectangleF]::new([float]$col.x, $headerY, [float]$col.width, $headerHeight)
+      $graphics.FillRectangle($headerBrush, $rect)
+      $graphics.DrawRectangle($borderPen, $rect.X, $rect.Y, $rect.Width, $rect.Height)
+      Draw-ReportHeaderText $graphics ([string]$col.vi) ([string]$col.zh) $rect
     }
-    $rowY += $rowHeight
+    $rowY = $headerY + $headerHeight
+    foreach ($row in @($rows)) {
+      if ($rowY + $rowHeight -gt $bottom) { break }
+      foreach ($col in $columns) {
+        $rect = [System.Drawing.RectangleF]::new([float]$col.x, $rowY, [float]$col.width, $rowHeight)
+        $graphics.DrawRectangle($lightPen, $rect.X, $rect.Y, $rect.Width, $rect.Height)
+        $raw = Get-ReportField $row ([string]$col.name)
+        $value = if ($col.name -eq 'code') { [string]$raw } else { Format-ReportValue $raw }
+        $textRect = [System.Drawing.RectangleF]::new($rect.X + 4.0, $rect.Y, $rect.Width - 8.0, $rect.Height)
+        Draw-ReportText $graphics $value $textRect 10.5 6.0 $false ([string]$col.align)
+      }
+      $rowY += $rowHeight
+    }
+    if ($null -ne $summary -and $rowY + $rowHeight -le $bottom) {
+      foreach ($col in $columns) {
+        $rect = [System.Drawing.RectangleF]::new([float]$col.x, $rowY, [float]$col.width, $rowHeight)
+        $graphics.FillRectangle($summaryBrush, $rect)
+        $graphics.DrawRectangle($borderPen, $rect.X, $rect.Y, $rect.Width, $rect.Height)
+        if ($col.name -eq 'code') {
+          $value = 'Tổng cộng / 總數'
+        } elseif ($col.name -eq 'piece') {
+          $value = ''
+        } else {
+          $value = Format-ReportValue (Get-ReportField $summary ([string]$col.name))
+        }
+        $textRect = [System.Drawing.RectangleF]::new($rect.X + 4.0, $rect.Y, $rect.Width - 8.0, $rect.Height)
+        Draw-ReportText $graphics $value $textRect 10.5 6.0 $true ([string]$col.align)
+      }
+    }
+  } finally {
+    $borderPen.Dispose()
+    $lightPen.Dispose()
+    $headerBrush.Dispose()
+    $summaryBrush.Dispose()
   }
 }
 
@@ -1429,9 +1562,8 @@ function Save-ReportImage($sections, [string]$path) {
       $scaleX = $width / 595.0
       $scaleY = $height / 842.0
       $graphics.ScaleTransform($scaleX, $scaleY)
-      Draw-ReportGrid $graphics
       foreach ($section in @($sections)) {
-        Draw-ReportTable $graphics ([string]$section.title) @($section.rows) ([float]$section.x) ([float]$section.y) ([float]$section.bottom)
+        Draw-ReportTable $graphics ([string]$section.title) @($section.rows) ([float]$section.x) ([float]$section.y) ([float]$section.bottom) $section.summary
       }
     } finally {
       $graphics.Dispose()
@@ -1449,30 +1581,34 @@ function Save-ReportPages($report, [string]$root) {
   $completedCount = if ($report.completedCount -ne $null) { [int](Convert-ToSafeDouble $report.completedCount) } else { $completedRows.Count }
   $missingCount = if ($report.missingCount -ne $null) { [int](Convert-ToSafeDouble $report.missingCount) } else { $missingRows.Count }
   $pages = @()
-  if ($completedRows.Count -le 12 -and $missingRows.Count -le 12) {
+  $completedSummary = Get-ReportSummary $completedRows
+  $missingSummary = Get-ReportSummary $missingRows
+  if ($completedRows.Count -le 14 -and $missingRows.Count -le 14) {
     $path = Join-Path $root 'report_1.jpg'
     $sections = @(
-      [PSCustomObject]@{ title = "已完成款號(總共$($completedCount)個)"; rows = $completedRows; x = 75.0; y = 65.0; bottom = 410.0 },
-      [PSCustomObject]@{ title = "缺少檔案的工序段(總共$($missingCount)個)"; rows = $missingRows; x = 75.0; y = 470.0; bottom = 810.0 }
+      [PSCustomObject]@{ title = "Danh sách mã hàng hoàn tất / 已完成款號（總共$($completedCount)個）"; rows = $completedRows; summary = $completedSummary; x = 30.0; y = 35.0; bottom = 405.0 },
+      [PSCustomObject]@{ title = "Công đoạn thiếu tệp / 缺少檔案的工序段（總共$($missingCount)個）"; rows = $missingRows; summary = $missingSummary; x = 30.0; y = 445.0; bottom = 812.0 }
     )
     Save-ReportImage $sections $path
     return @($path)
   }
   $pageIndex = 0
   foreach ($sectionData in @(
-    [PSCustomObject]@{ title = "已完成款號(總共$($completedCount)個)"; rows = $completedRows },
-    [PSCustomObject]@{ title = "缺少檔案的工序段(總共$($missingCount)個)"; rows = $missingRows }
+    [PSCustomObject]@{ title = "Danh sách mã hàng hoàn tất / 已完成款號（總共$($completedCount)個）"; rows = $completedRows; summary = $completedSummary },
+    [PSCustomObject]@{ title = "Công đoạn thiếu tệp / 缺少檔案的工序段（總共$($missingCount)個）"; rows = $missingRows; summary = $missingSummary }
   )) {
     $rows = @($sectionData.rows)
     if ($rows.Count -eq 0) {
       continue
     }
-    for ($i = 0; $i -lt $rows.Count; $i += 28) {
-      $take = [Math]::Min(28, $rows.Count - $i)
+    for ($i = 0; $i -lt $rows.Count; $i += 34) {
+      $take = [Math]::Min(34, $rows.Count - $i)
       $chunk = @($rows[$i..($i + $take - 1)])
       $pageIndex++
       $path = Join-Path $root ("report_{0}.jpg" -f $pageIndex)
-      $sections = @([PSCustomObject]@{ title = [string]$sectionData.title; rows = $chunk; x = 75.0; y = 65.0; bottom = 810.0 })
+      $isLastChunk = ($i + $take) -ge $rows.Count
+      $summary = if ($isLastChunk) { $sectionData.summary } else { $null }
+      $sections = @([PSCustomObject]@{ title = [string]$sectionData.title; rows = $chunk; summary = $summary; x = 30.0; y = 35.0; bottom = 812.0 })
       Save-ReportImage $sections $path
       $pages += $path
     }
@@ -1624,6 +1760,13 @@ while ($listener.IsListening) {
     Set-Stage 'receive_request' $request.Url.AbsolutePath
     if ($request.HttpMethod -eq 'OPTIONS') { Send-Text $response 204 ''; continue }
     if ($request.Url.AbsolutePath -eq '/health') { Send-Text $response 200 '{"ok":true,"service":"cutting-pdf-local"}'; continue }
+    if ($request.Url.AbsolutePath -eq '/cutting/cache' -and $request.HttpMethod -eq 'POST') {
+      $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
+      try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
+      $payload = $body | ConvertFrom-Json
+      Send-Json $response 200 (Remove-TemplateCache $payload)
+      continue
+    }
     if ($request.Url.AbsolutePath -ne '/cutting/pdf' -or $request.HttpMethod -ne 'POST') { Send-Text $response 404 '{"ok":false,"error":"NOT_FOUND"}'; continue }
     $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
     try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }

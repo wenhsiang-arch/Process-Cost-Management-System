@@ -726,6 +726,19 @@
     if(file) cuttingAnalyzeTemplateFile(file);
   }
 
+  function isXlsxTemplateFile(file){
+    return !!(file && /\.xlsx$/i.test(file.name || ''));
+  }
+
+  function alertTemplateFileTypeError(fileName){
+    alert(
+      `Chỉ hỗ trợ tệp mẫu .xlsx.\n僅支援 .xlsx 模板檔。\n\n` +
+      `Tệp hiện tại: ${fileName || '-'}\n目前檔案：${fileName || '-'}\n\n` +
+      `Cách xử lý: Mở tệp bằng Excel, chọn lưu dưới dạng .xlsx, rồi nhập lại.\n解決方式：請用 Excel 開啟檔案，選「另存新檔」，存成 .xlsx 後再匯入。\n\n` +
+      `Không chỉ đổi tên đuôi tệp.\n不要只修改副檔名。`
+    );
+  }
+
   function readTemplateRulesFromUi(){
     const base = state.pendingBook?.rules || [];
     return base.map((rule, i) => {
@@ -779,8 +792,8 @@
 
   async function cuttingAnalyzeTemplateFile(file){
     if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
-    if(!/\.(xlsx|xls)$/i.test(file.name)){
-      alert('Chỉ hỗ trợ Excel .xlsx hoặc .xls.\n只支援 Excel（表格檔）.xlsx 或 .xls。');
+    if(!isXlsxTemplateFile(file)){
+      alertTemplateFileTypeError(file.name);
       return;
     }
     text('cut-template-file-name', file.name);
@@ -861,8 +874,8 @@
 
   cuttingAnalyzeTemplateFile = async function(file){
     if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel，請重新整理頁面。'); return; }
-    if(!/\.(xlsx|xls)$/i.test(file.name)){
-      alert('Chỉ hỗ trợ Excel .xlsx hoặc .xls.\n僅支援 Excel .xlsx 或 .xls。');
+    if(!isXlsxTemplateFile(file)){
+      alertTemplateFileTypeError(file.name);
       return;
     }
     text('cut-template-file-name', file.name);
@@ -930,12 +943,21 @@
         return;
       }
       const template = window.cuttingStore.getTemplate ? await window.cuttingStore.getTemplate(id) : null;
-      const sourceFile = await window.cuttingStore.getTemplateFile(id);
-      await cuttingDeleteTemplateCache(template, sourceFile);
       await window.cuttingStore.removeTemplate(id);
+      let cacheCleared = false;
+      try{
+        await cuttingDeleteTemplateCache(template || {id}, null);
+        cacheCleared = true;
+      }catch(cacheError){
+        console.warn('清除裁帶模板快取失敗', cacheError);
+      }
       renderTemplateAnalysis(null);
       await refreshTemplates();
-      alert('Đã xóa mẫu và bộ nhớ đệm.\n已刪除模板與快取。');
+      if(cacheCleared){
+        alert('Đã xóa mẫu và bộ nhớ đệm.\n已刪除模板與快取。');
+      }else{
+        alert('Đã xóa mẫu trên đám mây. Bộ nhớ đệm trên máy này chưa xóa, nhưng sẽ không chặn thao tác.\n已刪除雲端模板。本機快取尚未清除，但不會阻止操作。');
+      }
     }catch(e){
       console.error(e);
       alert('Xóa mẫu thất bại.\n刪除模板失敗。\n\n' + (e.message || e));
