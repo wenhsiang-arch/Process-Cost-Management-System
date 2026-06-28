@@ -1244,7 +1244,7 @@
 
   async function cuttingInit(){
     await refreshTemplates();
-    cuttingSwitchTab('template');
+    cuttingSwitchTab('order');
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;

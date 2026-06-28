@@ -414,11 +414,11 @@ tr:hover td{background:#f8fafc}
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
         <div class="cutting-tabs">
-          <button class="cutting-tab active" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><strong>Nhập mẫu / 匯入模板</strong></button>
-          <button class="cutting-tab" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
+          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
+          <button class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><strong>Nhập mẫu / 匯入模板</strong></button>
         </div>
 
-        <div id="cut-panel-template">
+        <div id="cut-panel-template" style="display:none">
           <div class="card">
             <div class="ct-title"><i class="ti ti-file-spreadsheet"></i>Nhập mẫu / 匯入模板</div>
             <div class="detail-import-drop" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)" style="margin-bottom:12px">
@@ -455,9 +455,8 @@ tr:hover td{background:#f8fafc}
           </div>
         </div>
 
-        <div id="cut-panel-order" style="display:none">
+        <div id="cut-panel-order">
           <div class="card">
-            <div class="ct-title"><i class="ti ti-clipboard-list"></i>Nhập đơn hàng / 匯入訂單</div>
             <div class="br">
               <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
               <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
