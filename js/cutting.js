@@ -516,6 +516,26 @@
     if(input) input.click();
   }
 
+  function cuttingImportDragOver(event){
+    event.preventDefault();
+    const drop = g('cut-template-drop');
+    if(drop) drop.classList.add('dragging');
+  }
+
+  function cuttingImportDragLeave(event){
+    event.preventDefault();
+    const drop = g('cut-template-drop');
+    if(drop) drop.classList.remove('dragging');
+  }
+
+  function cuttingTemplateDrop(event){
+    event.preventDefault();
+    const drop = g('cut-template-drop');
+    if(drop) drop.classList.remove('dragging');
+    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+    if(file) cuttingAnalyzeTemplateFile(file);
+  }
+
   function readTemplateRulesFromUi(){
     const base = state.pendingBook?.rules || [];
     return base.map((rule, i) => {
@@ -604,6 +624,26 @@
   function cuttingPickOrder(){
     const input = g('cut-order-file');
     if(input) input.click();
+  }
+
+  function cuttingOrderDragOver(event){
+    event.preventDefault();
+    const drop = g('cut-order-drop');
+    if(drop) drop.classList.add('dragging');
+  }
+
+  function cuttingOrderDragLeave(event){
+    event.preventDefault();
+    const drop = g('cut-order-drop');
+    if(drop) drop.classList.remove('dragging');
+  }
+
+  function cuttingOrderDrop(event){
+    event.preventDefault();
+    const drop = g('cut-order-drop');
+    if(drop) drop.classList.remove('dragging');
+    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+    if(file) cuttingHandleOrderFile({files:[file]});
   }
 
   function cuttingClearCurrent(){
@@ -1237,12 +1277,18 @@
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;
+  window.cuttingImportDragOver = cuttingImportDragOver;
+  window.cuttingImportDragLeave = cuttingImportDragLeave;
+  window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
   window.cuttingSwitchTab = cuttingSwitchTab;
   window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
+  window.cuttingOrderDragOver = cuttingOrderDragOver;
+  window.cuttingOrderDragLeave = cuttingOrderDragLeave;
+  window.cuttingOrderDrop = cuttingOrderDrop;
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
