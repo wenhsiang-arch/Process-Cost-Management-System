@@ -503,6 +503,7 @@
         <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">可填數量列</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
         <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">警告</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
       </div>
+      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
       <div class="to"><div class="ts" style="max-height:240px"><table>
         <thead><tr>
           <th>Mã hàng<br><span class="tv">款號</span></th>
@@ -520,6 +521,7 @@
         </tbody>
       </table></div></div>
       <div class="dv"></div>
+      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Thiết lập cột theo từng sheet / 各工作表欄位設定</div>
       <div class="to"><div class="ts" style="max-height:180px"><table>
         <thead><tr>
           <th>Sheet<br><span class="tv">工作表</span></th>
@@ -549,6 +551,74 @@
       </div>` : ''}
     `);
   }
+
+  renderTemplateAnalysis = function(book){
+    const box = g('cut-template-analysis');
+    if(!box) return;
+    if(!book){
+      box.style.display = 'none';
+      html('cut-template-analysis-body', '');
+      return;
+    }
+    box.style.display = 'block';
+    const isPending = state.pendingBook && state.pendingBook === book;
+    html('cut-template-analysis-body', `
+      <div class="mg">
+        <div class="mc"><div class="ml">Số sheet</div><div class="mvi">工作表</div><div class="mv">${fmtNum(book.sheetCount)}</div></div>
+        <div class="mc"><div class="ml">Mã hàng</div><div class="mvi">款號</div><div class="mv">${fmtNum(book.itemCount)}</div></div>
+        <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">填寫列數</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
+        <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">警告</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
+      </div>
+
+      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Thiết lập cột theo từng sheet / 各工作表欄位設定</div>
+      ${isPending ? `<div class="nt nw" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div>Hệ thống chỉ đưa ra đề xuất. Vui lòng kiểm tra cột rồi xác nhận mẫu trước khi sử dụng.<br>系統目前只是建議判斷，請檢查欄位後確認模板，才可正式使用。</div></div>
+      <div class="br" style="margin-bottom:12px">
+        <button class="btn" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
+        <button class="btn bp" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
+      </div>` : ''}
+      <div class="to"><div class="ts" style="max-height:180px"><table>
+        <thead><tr>
+          <th>Sheet<br><span class="tv">工作表</span></th>
+          <th>Phương pháp<br><span class="tv">判斷方式</span></th>
+          <th style="text-align:right">Tin cậy<br><span class="tv">信心分數</span></th>
+          <th>Cột mã hàng<br><span class="tv">款號欄</span></th>
+          <th>Cột SL:PO<br><span class="tv">訂單數量欄</span></th>
+          <th>Cột số kiện<br><span class="tv">每件條數欄</span></th>
+          <th>Cột thực tế<br><span class="tv">裁段總數欄</span></th>
+        </tr></thead>
+        <tbody>
+          ${(book.rules || []).map((d, i) => `<tr>
+            <td>${esc(d.sheetName)}</td>
+            <td>${esc(d.method)}</td>
+            <td style="text-align:right">${fmtNum(d.confidence)}</td>
+            <td><select data-cut-rule="${i}" data-cut-field="codeCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.codeCol)}</select></td>
+            <td><select data-cut-rule="${i}" data-cut-field="qtyCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.qtyCol)}</select></td>
+            <td><select data-cut-rule="${i}" data-cut-field="pieceCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.pieceCol)}</select></td>
+            <td><select data-cut-rule="${i}" data-cut-field="totalCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.totalCol)}</select></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div></div>
+
+      <div class="dv"></div>
+      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
+      <div class="to"><div class="ts" style="max-height:240px"><table>
+        <thead><tr>
+          <th>Mã hàng<br><span class="tv">款號</span></th>
+          <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
+          <th style="text-align:right">Số dòng<br><span class="tv">列數</span></th>
+          <th>Vị trí điền SL<br><span class="tv">數量填寫位置</span></th>
+        </tr></thead>
+        <tbody>
+          ${book.codes.slice(0, 80).map(item => `<tr>
+            <td><b>${esc(item.code)}</b></td>
+            <td style="text-align:right">${fmtNum(item.piecesPerItem)}</td>
+            <td style="text-align:right">${fmtNum(item.rows.length)}</td>
+            <td>${esc(item.rows.slice(0, 6).map(r => `${r.sheetName}!${r.qtyCell}`).join(', '))}${item.rows.length > 6 ? '...' : ''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div></div>
+    `);
+  };
 
   function cuttingPickTemplate(){
     const input = g('cut-template-file');
