@@ -458,7 +458,7 @@
   }
 
   function setTemplateBusy(busy){
-    ['cut-template-file', 'cut-template-apply-btn', 'cut-template-confirm-btn'].forEach(id => {
+    ['cut-template-file', 'cut-template-apply-btn', 'cut-template-confirm-btn', 'cut-template-clear-btn'].forEach(id => {
       const el = g(id);
       if(el) el.disabled = !!busy;
     });
@@ -629,8 +629,7 @@
       </table></div></div>
       ${isPending ? `<div class="nt nw" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div>Hệ thống chỉ đưa ra đề xuất. Vui lòng kiểm tra cột rồi xác nhận mẫu trước khi sử dụng.<br>系統目前只是建議判斷，請檢查欄位後確認模板，才可正式使用。</div></div>
       <div class="br">
-        <button class="btn" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
-        <button class="btn bp" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
+        <button class="btn bp" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
       </div>` : ''}
     `);
   }
@@ -656,8 +655,7 @@
       <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Thiết lập cột theo từng sheet / 各工作表欄位設定</div>
       ${isPending ? `<div class="nt nw" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div>Hệ thống chỉ đưa ra đề xuất. Vui lòng kiểm tra cột rồi xác nhận mẫu trước khi sử dụng.<br>系統目前只是建議判斷，請檢查欄位後確認模板，才可正式使用。</div></div>
       <div class="br" style="margin-bottom:12px">
-        <button class="btn" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
-        <button class="btn bp" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
+        <button class="btn bp" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
       </div>` : ''}
       <div class="to"><div class="ts" style="max-height:180px"><table>
         <thead><tr>
@@ -979,6 +977,18 @@
     text('cut-order-file-name', '');
     renderTemplateAnalysis(null);
     renderResults();
+  }
+
+  function cuttingClearTemplateCurrent(){
+    state.pendingTemplateFile = null;
+    state.pendingWorkbook = null;
+    state.pendingBook = null;
+    const input = g('cut-template-file');
+    if(input) input.value = '';
+    text('cut-template-file-name', '');
+    hideTemplateProgress();
+    setTemplateBusy(false);
+    renderTemplateAnalysis(null);
   }
 
   function findOrderHeader(rows){
@@ -1500,10 +1510,11 @@
     cuttingPdfProgressTimer = setInterval(() => {
       const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
       visualPercent = Math.min(92, visualPercent + (visualPercent < 70 ? 4 : 1));
+      const remainingSeconds = Math.max(5, Math.round(seconds * (96 - visualPercent) / Math.max(1, visualPercent - 35)));
       setCuttingPdfProgress(
         visualPercent,
         'Đang tạo PDF trên máy này... / 本機正在產生 PDF...',
-        `Đã xử lý khoảng ${seconds} giây. Lần đầu tạo cache sẽ lâu hơn.<br>已處理約 ${seconds} 秒，第一次建立快取會比較久。`
+        `Đã xử lý khoảng ${seconds} giây. Ước tính còn khoảng ${remainingSeconds} giây. Lần đầu tạo cache sẽ lâu hơn.<br>已處理約 ${seconds} 秒，預估剩餘約 ${remainingSeconds} 秒，第一次建立快取會比較久。`
       );
     }, 1200);
   }
@@ -1701,6 +1712,7 @@
   window.cuttingSwitchTab = cuttingSwitchTab;
   window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
+  window.cuttingClearTemplateCurrent = cuttingClearTemplateCurrent;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
   window.cuttingOrderDragOver = cuttingOrderDragOver;
