@@ -1,7 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getBlob, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBrlo1gVMQmne4gT92lx4KwnRBVt4QSh4",
@@ -14,7 +13,6 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 // ===== 同步狀態 =====
 window.syncState = 'idle';
@@ -434,10 +432,6 @@ window._writeBatch     = ()        => writeBatch(db);
 window._docRef     = (colName, id) => doc(db, colName, id);
 window._newDocRef  = (colName)     => doc(collection(db, colName));
 window._onSnapshot = (...args)     => onSnapshot(...args);
-window._storageRef = (path)        => storageRef(storage, path);
-window._uploadBytes = (ref,data,meta) => uploadBytes(ref, data, meta||{});
-window._getBlob = (ref)            => getBlob(ref);
-window._deleteObject = (ref)       => deleteObject(ref);
 
 // ===== 初始化 =====
 async function fbInit(){
