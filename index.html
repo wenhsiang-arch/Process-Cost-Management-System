@@ -451,14 +451,8 @@ tr:hover td{background:#f8fafc}
         <div id="cut-panel-order">
           <div class="card">
             <div class="ct-title"><i class="ti ti-clipboard-list"></i>Nhập đơn hàng / 匯入訂單</div>
-            <div class="detail-import-drop" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)" style="margin-bottom:12px">
-              <i class="ti ti-file-spreadsheet"></i>
-              <div>
-                <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-                <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ kiểm tra đơn hàng / 支援 .xlsx、.xls，選擇後會檢查訂單</span>
-              </div>
-            </div>
             <div class="br">
+              <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
               <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
               <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
               <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">

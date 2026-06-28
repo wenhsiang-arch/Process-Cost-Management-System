@@ -606,26 +606,6 @@
     if(input) input.click();
   }
 
-  function cuttingOrderDragOver(event){
-    event.preventDefault();
-    const drop = g('cut-order-drop');
-    if(drop) drop.classList.add('dragging');
-  }
-
-  function cuttingOrderDragLeave(event){
-    event.preventDefault();
-    const drop = g('cut-order-drop');
-    if(drop) drop.classList.remove('dragging');
-  }
-
-  function cuttingOrderDrop(event){
-    event.preventDefault();
-    const drop = g('cut-order-drop');
-    if(drop) drop.classList.remove('dragging');
-    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
-    if(file) cuttingHandleOrderFile({files:[file]});
-  }
-
   function cuttingClearCurrent(){
     state.orderItems = [];
     state.results = [];
@@ -789,8 +769,6 @@
     const passed = state.results.filter(r => r.status === 'pass').length;
     const missing = state.results.filter(r => r.status === 'missing');
     const errors = state.results.filter(r => r.status === 'error');
-    const orderDrop = g('cut-order-drop');
-    if(orderDrop) orderDrop.style.display = total > 0 ? 'none' : '';
     text('cut-total', fmtNum(total));
     text('cut-pass', fmtNum(passed));
     text('cut-missing', fmtNum(missing.length));
@@ -1265,9 +1243,6 @@
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
-  window.cuttingOrderDragOver = cuttingOrderDragOver;
-  window.cuttingOrderDragLeave = cuttingOrderDragLeave;
-  window.cuttingOrderDrop = cuttingOrderDrop;
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
