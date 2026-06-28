@@ -188,7 +188,6 @@ tr:hover td{background:#f8fafc}
 .cutting-tab i{font-size:28px;color:var(--accent)}
 .cutting-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
 .cutting-tab.active strong{color:var(--accent)}
-.cutting-tab.dragging{background:var(--al);border-color:var(--accent)}
 @media(max-width:900px){.report-hub-tabs{grid-template-columns:1fr}}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
@@ -415,20 +414,13 @@ tr:hover td{background:#f8fafc}
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
         <div class="cutting-tabs">
-          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingOrderTabClick()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
+          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
           <button class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><strong>Nhập mẫu / 匯入模板</strong></button>
         </div>
 
         <div id="cut-panel-template" style="display:none">
           <div class="card">
             <div class="ct-title"><i class="ti ti-file-spreadsheet"></i>Nhập mẫu / 匯入模板</div>
-            <div class="detail-import-drop" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)" style="margin-bottom:12px">
-              <i class="ti ti-file-spreadsheet"></i>
-              <div>
-                <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-                <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ phân tích mẫu / 支援 .xlsx、.xls，選擇後會分析模板</span>
-              </div>
-            </div>
             <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
             <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>
           </div>
@@ -458,6 +450,14 @@ tr:hover td{background:#f8fafc}
 
         <div id="cut-panel-order">
           <div class="card">
+            <div class="ct-title"><i class="ti ti-clipboard-list"></i>Nhập đơn hàng / 匯入訂單</div>
+            <div class="detail-import-drop" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)" style="margin-bottom:12px">
+              <i class="ti ti-file-spreadsheet"></i>
+              <div>
+                <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
+                <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ kiểm tra đơn hàng / 支援 .xlsx、.xls，選擇後會檢查訂單</span>
+              </div>
+            </div>
             <div class="br">
               <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
               <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>

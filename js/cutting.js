@@ -32,16 +32,6 @@
     if(orderTab) orderTab.classList.toggle('active', isOrder);
   }
 
-  function cuttingOrderTabClick(){
-    const orderPanel = g('cut-panel-order');
-    const isOrderOpen = orderPanel && orderPanel.style.display !== 'none';
-    if(isOrderOpen){
-      cuttingPickOrder();
-      return;
-    }
-    cuttingSwitchTab('order');
-  }
-
   function esc(value){
     return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
@@ -526,26 +516,6 @@
     if(input) input.click();
   }
 
-  function cuttingImportDragOver(event){
-    event.preventDefault();
-    const drop = g('cut-template-drop');
-    if(drop) drop.classList.add('dragging');
-  }
-
-  function cuttingImportDragLeave(event){
-    event.preventDefault();
-    const drop = g('cut-template-drop');
-    if(drop) drop.classList.remove('dragging');
-  }
-
-  function cuttingTemplateDrop(event){
-    event.preventDefault();
-    const drop = g('cut-template-drop');
-    if(drop) drop.classList.remove('dragging');
-    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
-    if(file) cuttingAnalyzeTemplateFile(file);
-  }
-
   function readTemplateRulesFromUi(){
     const base = state.pendingBook?.rules || [];
     return base.map((rule, i) => {
@@ -638,19 +608,19 @@
 
   function cuttingOrderDragOver(event){
     event.preventDefault();
-    const drop = g('cut-tab-order');
+    const drop = g('cut-order-drop');
     if(drop) drop.classList.add('dragging');
   }
 
   function cuttingOrderDragLeave(event){
     event.preventDefault();
-    const drop = g('cut-tab-order');
+    const drop = g('cut-order-drop');
     if(drop) drop.classList.remove('dragging');
   }
 
   function cuttingOrderDrop(event){
     event.preventDefault();
-    const drop = g('cut-tab-order');
+    const drop = g('cut-order-drop');
     if(drop) drop.classList.remove('dragging');
     const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
     if(file) cuttingHandleOrderFile({files:[file]});
@@ -1278,12 +1248,8 @@
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;
-  window.cuttingImportDragOver = cuttingImportDragOver;
-  window.cuttingImportDragLeave = cuttingImportDragLeave;
-  window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
   window.cuttingSwitchTab = cuttingSwitchTab;
-  window.cuttingOrderTabClick = cuttingOrderTabClick;
   window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
