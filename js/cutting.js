@@ -31,7 +31,6 @@
     if(orderPanel) orderPanel.style.display = isOrder ? '' : 'none';
     if(templateTab) templateTab.classList.toggle('active', !isOrder);
     if(orderTab) orderTab.classList.toggle('active', isOrder);
-    if(isOrder) cuttingCheckPdfToolStatus();
   }
 
   function esc(value){
