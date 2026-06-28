@@ -20,6 +20,18 @@
     if(el) el.innerHTML = value;
   }
 
+  function cuttingSwitchTab(tab){
+    const isOrder = tab === 'order';
+    const templatePanel = g('cut-panel-template');
+    const orderPanel = g('cut-panel-order');
+    const templateTab = g('cut-tab-template');
+    const orderTab = g('cut-tab-order');
+    if(templatePanel) templatePanel.style.display = isOrder ? 'none' : '';
+    if(orderPanel) orderPanel.style.display = isOrder ? '' : 'none';
+    if(templateTab) templateTab.classList.toggle('active', !isOrder);
+    if(orderTab) orderTab.classList.toggle('active', isOrder);
+  }
+
   function esc(value){
     return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
@@ -1232,6 +1244,7 @@
 
   async function cuttingInit(){
     await refreshTemplates();
+    cuttingSwitchTab('template');
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;
@@ -1239,6 +1252,7 @@
   window.cuttingImportDragLeave = cuttingImportDragLeave;
   window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
+  window.cuttingSwitchTab = cuttingSwitchTab;
   window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;

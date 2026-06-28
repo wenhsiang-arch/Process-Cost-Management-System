@@ -183,6 +183,11 @@ tr:hover td{background:#f8fafc}
 .report-hub-tab i{font-size:22px;color:var(--accent)}
 .report-hub-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
 .report-hub-tab.active strong{color:var(--accent)}
+.cutting-tabs{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:12px;margin-bottom:14px}
+.cutting-tab{display:flex;align-items:center;gap:12px;padding:18px 22px;border:1px solid var(--bd);border-radius:14px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left;font-size:18px;font-weight:700}
+.cutting-tab i{font-size:28px;color:var(--accent)}
+.cutting-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
+.cutting-tab.active strong{color:var(--accent)}
 @media(max-width:900px){.report-hub-tabs{grid-template-columns:1fr}}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
@@ -408,86 +413,99 @@ tr:hover td{background:#f8fafc}
       <!-- 款號總成本 -->
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-scissors"></i>Thống kê dây cắt / 裁帶統計</div>
-          <div class="detail-import-drop" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)" style="margin-bottom:12px">
-            <i class="ti ti-file-spreadsheet"></i>
-            <div>
-              <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-              <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ phân tích mẫu / 支援 .xlsx、.xls，選擇後會分析模板</span>
+        <div class="cutting-tabs">
+          <button class="cutting-tab active" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><strong>Nhập mẫu / 匯入模板</strong></button>
+          <button class="cutting-tab" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
+        </div>
+
+        <div id="cut-panel-template">
+          <div class="card">
+            <div class="ct-title"><i class="ti ti-file-spreadsheet"></i>Nhập mẫu / 匯入模板</div>
+            <div class="detail-import-drop" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)" style="margin-bottom:12px">
+              <i class="ti ti-file-spreadsheet"></i>
+              <div>
+                <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
+                <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ phân tích mẫu / 支援 .xlsx、.xls，選擇後會分析模板</span>
+              </div>
+            </div>
+            <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
+            <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>
+          </div>
+
+          <div class="card" id="cut-template-analysis" style="display:none">
+            <div class="ct-title"><i class="ti ti-file-search"></i>Kết quả phân tích mẫu / 模板分析結果</div>
+            <div id="cut-template-analysis-body"></div>
+          </div>
+
+          <div class="card">
+            <div class="ct-title"><i class="ti ti-database"></i>Dữ liệu mẫu đã lưu / 已建檔模板</div>
+            <div class="to"><div class="ts" style="max-height:260px">
+              <table>
+                <thead><tr>
+                  <th>File mẫu<br><span class="tv">模板檔案</span></th>
+                  <th style="text-align:right">Sheet<br><span class="tv">工作表</span></th>
+                  <th style="text-align:right">Mã hàng<br><span class="tv">款號</span></th>
+                  <th style="text-align:right">Dòng điền<br><span class="tv">填寫列</span></th>
+                  <th>Trạng thái<br><span class="tv">狀態</span></th>
+                  <th style="text-align:center">Thao tác<br><span class="tv">操作</span></th>
+                </tr></thead>
+                <tbody id="cut-template-tb"></tbody>
+              </table>
+            </div></div>
+          </div>
+        </div>
+
+        <div id="cut-panel-order" style="display:none">
+          <div class="card">
+            <div class="ct-title"><i class="ti ti-clipboard-list"></i>Nhập đơn hàng / 匯入訂單</div>
+            <div class="br">
+              <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
+              <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
+              <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
+              <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
+              <span id="cut-order-file-name" style="font-size:12px;color:var(--mu)"></span>
             </div>
           </div>
-          <div class="br">
-            <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
-            <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
-            <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
-            <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
-            <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
-            <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>
-            <span id="cut-order-file-name" style="font-size:12px;color:var(--mu)"></span>
+
+          <div class="mg">
+            <div class="mc"><div class="ml">Tổng mã hàng</div><div class="mvi">總款號</div><div class="mv" id="cut-total">0</div></div>
+            <div class="mc"><div class="ml">Đạt</div><div class="mvi">通過</div><div class="mv" id="cut-pass">0</div></div>
+            <div class="mc"><div class="ml">Thiếu mẫu</div><div class="mvi">缺少模板</div><div class="mv" id="cut-missing">0</div></div>
+            <div class="mc"><div class="ml">Lỗi</div><div class="mvi">錯誤</div><div class="mv" id="cut-error">0</div></div>
           </div>
-        </div>
 
-        <div class="card" id="cut-template-analysis" style="display:none">
-          <div class="ct-title"><i class="ti ti-file-search"></i>Kết quả phân tích mẫu / 模板分析結果</div>
-          <div id="cut-template-analysis-body"></div>
-        </div>
+          <div id="cut-alert" class="nt nw" style="margin-bottom:12px"></div>
 
-        <div class="mg">
-          <div class="mc"><div class="ml">Tổng mã hàng</div><div class="mvi">總款號</div><div class="mv" id="cut-total">0</div></div>
-          <div class="mc"><div class="ml">Đạt</div><div class="mvi">通過</div><div class="mv" id="cut-pass">0</div></div>
-          <div class="mc"><div class="ml">Thiếu mẫu</div><div class="mvi">缺少模板</div><div class="mv" id="cut-missing">0</div></div>
-          <div class="mc"><div class="ml">Lỗi</div><div class="mvi">錯誤</div><div class="mv" id="cut-error">0</div></div>
-        </div>
-
-        <div id="cut-alert" class="nt nw" style="margin-bottom:12px"></div>
-
-        <div class="card" id="cut-missing-box" style="display:none">
-          <div class="ct-title"><i class="ti ti-alert-triangle"></i>Mã hàng thiếu mẫu / 缺少模板款號</div>
-          <div class="to"><table>
-            <thead><tr>
-              <th>Trạng thái<br><span class="tv">狀態</span></th>
-              <th>Mã hàng<br><span class="tv">款號</span></th>
-              <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
-              <th>Ghi chú<br><span class="tv">說明</span></th>
-            </tr></thead>
-            <tbody id="cut-missing-list"></tbody>
-          </table></div>
-        </div>
-
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-list-check"></i>Kết quả đối chiếu / 比對結果</div>
-          <div class="to"><div class="ts">
-            <table>
+          <div class="card" id="cut-missing-box" style="display:none">
+            <div class="ct-title"><i class="ti ti-alert-triangle"></i>Mã hàng thiếu mẫu / 缺少模板款號</div>
+            <div class="to"><table>
               <thead><tr>
+                <th>Trạng thái<br><span class="tv">狀態</span></th>
                 <th>Mã hàng<br><span class="tv">款號</span></th>
                 <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
-                <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
-                <th style="text-align:right">Tổng dây<br><span class="tv">裁段總數</span></th>
-                <th style="text-align:right">SL suy ngược<br><span class="tv">反推數量</span></th>
-                <th>Ô sẽ điền<br><span class="tv">將填入儲存格</span></th>
-                <th>Trạng thái<br><span class="tv">狀態</span></th>
+                <th>Ghi chú<br><span class="tv">說明</span></th>
               </tr></thead>
-              <tbody id="cut-result-tb"></tbody>
-            </table>
-          </div></div>
-        </div>
+              <tbody id="cut-missing-list"></tbody>
+            </table></div>
+          </div>
 
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-database"></i>Dữ liệu mẫu đã lưu / 已建檔模板</div>
-          <div class="to"><div class="ts" style="max-height:260px">
-            <table>
-              <thead><tr>
-                <th>File mẫu<br><span class="tv">模板檔案</span></th>
-                <th style="text-align:right">Sheet<br><span class="tv">工作表</span></th>
-                <th style="text-align:right">Mã hàng<br><span class="tv">款號</span></th>
-                <th style="text-align:right">Dòng điền<br><span class="tv">填寫列</span></th>
-                <th>Trạng thái<br><span class="tv">狀態</span></th>
-                <th style="text-align:center">Thao tác<br><span class="tv">操作</span></th>
-              </tr></thead>
-              <tbody id="cut-template-tb"></tbody>
-            </table>
-          </div></div>
+          <div class="card">
+            <div class="ct-title"><i class="ti ti-list-check"></i>Kết quả đối chiếu / 比對結果</div>
+            <div class="to"><div class="ts">
+              <table>
+                <thead><tr>
+                  <th>Mã hàng<br><span class="tv">款號</span></th>
+                  <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
+                  <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
+                  <th style="text-align:right">Tổng dây<br><span class="tv">裁段總數</span></th>
+                  <th style="text-align:right">SL suy ngược<br><span class="tv">反推數量</span></th>
+                  <th>Ô sẽ điền<br><span class="tv">將填入儲存格</span></th>
+                  <th>Trạng thái<br><span class="tv">狀態</span></th>
+                </tr></thead>
+                <tbody id="cut-result-tb"></tbody>
+              </table>
+            </div></div>
+          </div>
         </div>
       </div>
 
