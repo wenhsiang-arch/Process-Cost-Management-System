@@ -9,6 +9,7 @@
     pendingWorkbook: null,
     pendingBook: null
   };
+  let pdfToolStatusChecking = false;
 
   function text(id, value){
     const el = g(id);
@@ -672,24 +673,27 @@
         const total = Number(progress?.total || 0);
         const current = Number(progress?.current || 0);
         const percent = Number(progress?.percent || 0);
+        const remainingSeconds = Number(progress?.remainingSeconds || 0);
+        const remainingText = remainingSeconds > 0
+          ? `<br>Ước tính còn khoảng ${remainingSeconds} giây. / 預估剩餘約 ${remainingSeconds} 秒。`
+          : '';
         const label = progress?.stage === 'uploading'
           ? `Đang lưu phân đoạn ${current}/${total}... / 正在儲存分段 ${current}/${total}...`
           : (progress?.message || 'Đang lưu mẫu... / 正在儲存模板...');
         const sub = progress?.stage === 'uploading'
           ? 'Vui lòng chờ đến khi thanh tiến độ hoàn tất. / 請等進度條完成。'
           : 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。';
-        setTemplateProgress(percent || 35, label, sub);
+        setTemplateProgress(percent || 35, label, sub + remainingText);
       });
       await setTemplateProgress(92, 'Đang làm mới danh sách mẫu... / 正在更新模板清單...', 'Sắp hoàn tất. / 即將完成。');
       state.pendingTemplateFile = null;
       state.pendingWorkbook = null;
       state.pendingBook = null;
       text('cut-template-file-name', '');
-      renderTemplateAnalysis(book);
+      renderTemplateAnalysis(null);
       await refreshTemplates();
       await setTemplateProgress(100, 'Đã lưu mẫu. / 已儲存模板。', 'Có thể tiếp tục thao tác. / 可以繼續操作。');
       hideTemplateProgress(800);
-      alert('Đã xác nhận và lưu mẫu.\n已確認並儲存模板。');
     }catch(e){
       console.error(e);
       hideTemplateProgress();
@@ -1218,8 +1222,10 @@
     box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${detail}</span>` : ''}</div>`;
   }
 
-  async function cuttingCheckPdfToolStatus(){
-    setPdfToolStatus('checking');
+  async function cuttingCheckPdfToolStatus(options = {}){
+    if(pdfToolStatusChecking) return false;
+    pdfToolStatusChecking = true;
+    if(!options.silent) setPdfToolStatus('checking');
     let timer = null;
     try{
       const controller = new AbortController();
@@ -1241,6 +1247,7 @@
       return false;
     }finally{
       if(timer) clearTimeout(timer);
+      pdfToolStatusChecking = false;
     }
   }
 

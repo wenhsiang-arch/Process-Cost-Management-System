@@ -52,22 +52,28 @@
     });
   }
 
-  async function putFile(id, blob){
+  async function putFile(id, blob, meta = {}){
     const db = await openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(DB_STORE, 'readwrite');
-      tx.objectStore(DB_STORE).put(blob, id);
+      tx.objectStore(DB_STORE).put({blob, meta:{...meta, cachedAt:nowText()}}, id);
       tx.oncomplete = () => resolve(true);
       tx.onerror = () => reject(tx.error);
     });
   }
 
-  async function getFile(id){
+  async function getCachedFile(id){
     const db = await openDb();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(DB_STORE, 'readonly');
       const req = tx.objectStore(DB_STORE).get(id);
-      req.onsuccess = () => resolve(req.result || null);
+      req.onsuccess = () => {
+        const value = req.result || null;
+        if(!value) return resolve(null);
+        if(value instanceof Blob) return resolve({blob:value, meta:{}});
+        if(value.blob instanceof Blob) return resolve(value);
+        resolve(null);
+      };
       req.onerror = () => reject(req.error);
     });
   }
@@ -195,6 +201,7 @@
   }
 
   async function saveCloudTemplate(book, file, onProgress){
+    const uploadStartedAt = Date.now();
     const currentItems = await listCloudTemplates().catch(() => readMeta());
     const sameFile = currentItems.find(x => x.id === book.id || x.fileName === book.fileName);
     const id = sameFile?.id || book.id || `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -230,11 +237,17 @@
       next.base64Length = base64.length;
 
       const operations = chunks.map((data, index) => batch => {
+        const current = index + 1;
+        const elapsedMs = Date.now() - uploadStartedAt;
+        const avgMs = current > 0 ? elapsedMs / current : 0;
+        const remainingSeconds = avgMs > 0 ? Math.max(1, Math.ceil(((chunks.length - current) * avgMs) / 1000)) : null;
         reportProgress(onProgress, {
           stage: 'uploading',
-          current: index + 1,
+          current,
           total: chunks.length,
-          percent: 35 + Math.round(((index + 1) / chunks.length) * 50)
+          percent: 35 + Math.round((current / chunks.length) * 50),
+          elapsedMs,
+          remainingSeconds
         });
         batch.set(window._doc(CHUNKS_COLLECTION, chunkDocId(id, index)), {
           templateId: id,
@@ -253,7 +266,12 @@
         message: 'Đang dọn phân đoạn cũ... / 正在清理舊分段...'
       });
       await cleanupExtraChunks(id, chunks.length);
-      await putFile(id, file);
+      await putFile(id, file, {
+        templateId: id,
+        updatedAt: next.updatedAt,
+        fileName: next.fileName,
+        fileSize: next.fileSize
+      });
     }else{
       await window._setDoc(window._doc(CLOUD_COLLECTION, id), next, {merge:false});
     }
@@ -296,7 +314,12 @@
       throw new Error('Dữ liệu mẫu không khớp, vui lòng nhập lại mẫu. / 模板資料不一致，請重新匯入模板。');
     }
     const blob = base64ToBlob(base64, item.contentType);
-    await putFile(id, blob);
+    await putFile(id, blob, {
+      templateId: id,
+      updatedAt: item.updatedAt || '',
+      fileName: item.fileName || '',
+      fileSize: item.fileSize || 0
+    });
     return blob;
   }
 
@@ -332,7 +355,12 @@
       } else {
         items.push(next);
       }
-      if(file) await putFile(next.id, file);
+      if(file) await putFile(next.id, file, {
+        templateId: next.id,
+        updatedAt: next.updatedAt,
+        fileName: next.fileName || '',
+        fileSize: next.fileSize || file.size || 0
+      });
       reportProgress(onProgress, {
         stage: 'local',
         percent: 85,
@@ -351,9 +379,11 @@
       return true;
     },
     async getTemplateFile(id){
-      const cached = await getFile(id);
-      if(cached) return cached;
-      if(!cloudReady()) return null;
+      const cached = await getCachedFile(id);
+      if(!cloudReady()) return cached?.blob || null;
+      const item = await this.getTemplate(id);
+      if(cached?.blob && item?.updatedAt && cached.meta?.updatedAt === item.updatedAt) return cached.blob;
+      if(cached?.blob && !item) return cached.blob;
       return loadCloudTemplateFile(id);
     }
   };
