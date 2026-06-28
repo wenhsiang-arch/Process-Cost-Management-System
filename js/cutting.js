@@ -30,6 +30,7 @@
     if(orderPanel) orderPanel.style.display = isOrder ? '' : 'none';
     if(templateTab) templateTab.classList.toggle('active', !isOrder);
     if(orderTab) orderTab.classList.toggle('active', isOrder);
+    if(isOrder) cuttingCheckPdfToolStatus();
   }
 
   function esc(value){
@@ -614,11 +615,49 @@
     }
   }
 
+  async function cuttingDeleteTemplateCache(template, sourceFile){
+    const payload = {
+      templateId: template?.id || '',
+      templateUpdatedAt: template?.updatedAt || '',
+      templateFileSize: sourceFile?.size || '',
+      fileName: template?.fileName || ''
+    };
+    if(!payload.templateId) throw new Error('Thiếu mã mẫu cần xóa.\n缺少要刪除的模板編號。');
+    const response = await fetch('http://127.0.0.1:8765/cutting/cache', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if(!response.ok){
+      let message = 'Không thể xóa bộ nhớ đệm mẫu.\n無法刪除模板快取。';
+      try{
+        const data = await response.json();
+        if(data.error) message += `\n${data.error}`;
+      }catch(_){}
+      throw new Error(message);
+    }
+    return response.json();
+  }
+
   async function cuttingDeleteTemplate(id){
     if(!confirm('Xóa mẫu này?\n確定刪除此模板？')) return;
-    await window.cuttingStore.removeTemplate(id);
-    renderTemplateAnalysis(null);
-    await refreshTemplates();
+    try{
+      const pdfToolReady = await cuttingCheckPdfToolStatus();
+      if(!pdfToolReady){
+        alert('Vui lòng mở công cụ PDF trước khi xóa mẫu.\n刪除模板前請先啟動 PDF 工具。');
+        return;
+      }
+      const template = window.cuttingStore.getTemplate ? await window.cuttingStore.getTemplate(id) : null;
+      const sourceFile = await window.cuttingStore.getTemplateFile(id);
+      await cuttingDeleteTemplateCache(template, sourceFile);
+      await window.cuttingStore.removeTemplate(id);
+      renderTemplateAnalysis(null);
+      await refreshTemplates();
+      alert('Đã xóa mẫu và bộ nhớ đệm.\n已刪除模板與快取。');
+    }catch(e){
+      console.error(e);
+      alert('Xóa mẫu thất bại.\n刪除模板失敗。\n\n' + (e.message || e));
+    }
   }
 
   function cuttingPickOrder(){
@@ -1032,6 +1071,76 @@
     return results.flatMap(result => validateExportResult(result).map(problem => `${result.code}: ${problem}`));
   }
 
+  function setPdfToolStatus(status, detail = ''){
+    const box = g('cut-pdf-tool-status');
+    if(!box) return;
+    const map = {
+      checking: {
+        cls: 'nt nw',
+        icon: 'ti-loader',
+        text: 'Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...'
+      },
+      online: {
+        cls: 'nt ns',
+        icon: 'ti-circle-check',
+        text: 'Đã mở công cụ PDF / PDF 工具已啟動'
+      },
+      offline: {
+        cls: 'nt nw',
+        icon: 'ti-alert-circle',
+        text: 'Chưa mở công cụ PDF / PDF 工具未啟動'
+      }
+    };
+    const item = map[status] || map.offline;
+    box.className = item.cls;
+    box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${detail}</span>` : ''}</div>`;
+  }
+
+  async function cuttingCheckPdfToolStatus(){
+    setPdfToolStatus('checking');
+    let timer = null;
+    try{
+      const controller = new AbortController();
+      timer = setTimeout(() => controller.abort(), 1800);
+      const response = await fetch('http://127.0.0.1:8765/health', {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if(response.ok){
+        setPdfToolStatus('online');
+      }else{
+        setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
+      }
+      return response.ok;
+    }catch(_){
+      setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
+      return false;
+    }finally{
+      if(timer) clearTimeout(timer);
+    }
+  }
+
+  function orderExportableResultsByTemplate(results){
+    const map = new Map();
+    results.forEach(result => {
+      const key = `${result.templateId}|${result.code}`;
+      map.set(key, result);
+    });
+    const ordered = [];
+    state.templates.forEach(template => {
+      (template.codes || []).forEach(item => {
+        const found = map.get(`${template.id}|${item.code}`);
+        if(found) ordered.push(found);
+      });
+    });
+    results.forEach(result => {
+      if(!ordered.includes(result)) ordered.push(result);
+    });
+    return ordered;
+  }
+
   function downloadBlob(blob, fileName){
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1175,7 +1284,7 @@
   }
 
   async function cuttingCreateLocalPdf(){
-    const exportableResults = state.results.filter(r => r.status === 'pass');
+    const exportableResults = orderExportableResultsByTemplate(state.results.filter(r => r.status === 'pass'));
     const hasErrors = state.results.some(r => r.status === 'error');
     if(!exportableResults.length || hasErrors){
       alert('Không có mã hàng có mẫu để tạo PDF, hoặc vẫn còn lỗi.\n沒有可產生 PDF 的有模板款號，或仍有錯誤。');
@@ -1186,9 +1295,13 @@
       alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
-    const sortedResults = [...exportableResults].sort((a, b) => String(a.code || '').localeCompare(String(b.code || ''), undefined, {numeric:true}));
+    const pdfToolReady = await cuttingCheckPdfToolStatus();
+    if(!pdfToolReady){
+      alert('Chưa mở công cụ PDF trên máy này.\n本機尚未啟動 PDF 工具。');
+      return;
+    }
     const byTemplate = new Map();
-    sortedResults.forEach(result => {
+    exportableResults.forEach(result => {
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
       byTemplate.get(result.templateId).push(result);
     });
@@ -1233,7 +1346,7 @@
         ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
         : {outputName: localMergedPdfName(), templates: packages};
       payload.report = report;
-      setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ sắp xếp theo mã hàng rồi tạo PDF. / 系統會依款號排序後產生 PDF。');
+      setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ tạo PDF theo thứ tự mẫu. / 系統會依模板順序產生 PDF。');
       startCuttingPdfProgressLoop();
       const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
         method: 'POST',

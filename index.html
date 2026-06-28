@@ -459,6 +459,9 @@ tr:hover td{background:#f8fafc}
         <div id="cut-panel-order">
           <div class="card">
             <div class="ct-title"><i class="ti ti-clipboard-list"></i>Nhập đơn hàng / 匯入訂單</div>
+            <div id="cut-pdf-tool-status" class="nt nw" style="margin-bottom:12px">
+              <i class="ti ti-loader"></i><div>Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...</div>
+            </div>
             <div class="detail-import-drop" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)" style="margin-bottom:12px">
               <i class="ti ti-file-spreadsheet"></i>
               <div>
@@ -932,10 +935,6 @@ tr:hover td{background:#f8fafc}
   <div class="mb" id="m-cutting-preview"><div class="md wide" style="width:880px">
     <div class="mt2"><span><i class="ti ti-eye"></i> Xem trước thống kê dây cắt / 裁帶統計預覽</span><button class="btn bsm" onclick="cm('m-cutting-preview')"><i class="ti ti-x"></i></button></div>
     <div id="cut-preview-body"></div>
-    <div class="nt ns" style="margin-bottom:12px">
-      <i class="ti ti-check"></i>
-      <div>Chỉ khi toàn bộ mã hàng đạt mới có thể tạo PDF bằng máy này.<br>只有全部款號通過時，才可由本機產生 PDF。</div>
-    </div>
     <div class="br">
       <button class="btn bp" id="cut-export-filled-btn" onclick="cuttingCreateLocalPdf()"><i class="ti ti-file-type-pdf"></i>Tạo PDF / 產生 PDF</button>
       <button class="btn" onclick="cm('m-cutting-preview')">Hủy / 取消</button>
