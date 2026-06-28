@@ -431,6 +431,11 @@ tr:hover td{background:#f8fafc}
             </div>
             <input type="file" id="cut-template-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleTemplateFile(this)">
             <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>
+            <div class="pw" id="cut-template-progress-wrap" style="display:none;margin:12px 0 0">
+              <div class="pwl" id="cut-template-progress-text">Đang chuẩn bị... / 準備中...</div>
+              <div class="pbb"><div class="pbar" id="cut-template-progress-bar" style="width:0%"></div></div>
+              <div class="psb" id="cut-template-progress-sub">Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。</div>
+            </div>
           </div>
 
           <div class="card" id="cut-template-analysis" style="display:none">

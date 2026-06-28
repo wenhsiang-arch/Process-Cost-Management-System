@@ -429,6 +429,43 @@
     recomputeResults();
   }
 
+  function waitForTemplateProgressPaint(){
+    return new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+  }
+
+  async function setTemplateProgress(percent, message, subMessage){
+    const wrap = g('cut-template-progress-wrap');
+    const bar = g('cut-template-progress-bar');
+    const label = g('cut-template-progress-text');
+    const sub = g('cut-template-progress-sub');
+    if(!wrap) return;
+    wrap.style.display = 'block';
+    if(bar) bar.style.width = `${Math.max(0, Math.min(100, Number(percent) || 0))}%`;
+    if(label) label.innerHTML = message || 'Đang xử lý... / 處理中...';
+    if(sub) sub.innerHTML = subMessage || 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。';
+    await waitForTemplateProgressPaint();
+  }
+
+  function hideTemplateProgress(delay = 0){
+    const run = () => {
+      const wrap = g('cut-template-progress-wrap');
+      const bar = g('cut-template-progress-bar');
+      if(wrap) wrap.style.display = 'none';
+      if(bar) bar.style.width = '0%';
+    };
+    if(delay > 0) setTimeout(run, delay);
+    else run();
+  }
+
+  function setTemplateBusy(busy){
+    ['cut-template-file', 'cut-template-apply-btn', 'cut-template-confirm-btn'].forEach(id => {
+      const el = g(id);
+      if(el) el.disabled = !!busy;
+    });
+    const drop = g('cut-template-drop');
+    if(drop) drop.style.pointerEvents = busy ? 'none' : '';
+  }
+
   function renderTemplateList(){
     const tb = g('cut-template-tb');
     if(!tb) return;
@@ -506,8 +543,8 @@
       </table></div></div>
       ${isPending ? `<div class="nt nw" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div>Hệ thống chỉ đưa ra đề xuất. Vui lòng kiểm tra cột rồi xác nhận mẫu trước khi sử dụng.<br>系統目前只是建議判斷，請檢查欄位後確認模板，才可正式使用。</div></div>
       <div class="br">
-        <button class="btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
-        <button class="btn bp" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
+        <button class="btn" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
+        <button class="btn bp" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
       </div>` : ''}
     `);
   }
@@ -614,6 +651,91 @@
       alert('Phân tích mẫu Excel thất bại.\n分析 Excel（表格檔）模板失敗。\n\n' + e.message);
     }
   }
+
+  cuttingConfirmTemplate = async function(){
+    if(!state.pendingTemplateFile || !state.pendingWorkbook || !state.pendingBook){
+      alert('Chưa có mẫu cần xác nhận.\n尚無需要確認的模板。');
+      return;
+    }
+    setTemplateBusy(true);
+    try{
+      await setTemplateProgress(8, 'Đang kiểm tra cột mẫu... / 正在檢查模板欄位...', 'Hệ thống sẽ áp dụng thiết lập cột hiện tại. / 系統會套用目前欄位設定。');
+      cuttingApplyTemplateRules();
+      const book = {...state.pendingBook, status:'confirmed', confirmedAt:new Date().toISOString()};
+      if(!book.itemCount){
+        hideTemplateProgress();
+        alert('Không có mã hàng sau khi áp dụng quy tắc, không thể lưu mẫu.\n套用規則後沒有款號，無法儲存模板。');
+        return;
+      }
+      await setTemplateProgress(18, 'Đang chuẩn bị lưu mẫu... / 正在準備儲存模板...', 'Excel sẽ được chia nhỏ để lưu vào cơ sở dữ liệu đám mây. / Excel 會分段存到雲端資料庫。');
+      await window.cuttingStore.saveTemplateBook(book, state.pendingTemplateFile, progress => {
+        const total = Number(progress?.total || 0);
+        const current = Number(progress?.current || 0);
+        const percent = Number(progress?.percent || 0);
+        const label = progress?.stage === 'uploading'
+          ? `Đang lưu phân đoạn ${current}/${total}... / 正在儲存分段 ${current}/${total}...`
+          : (progress?.message || 'Đang lưu mẫu... / 正在儲存模板...');
+        const sub = progress?.stage === 'uploading'
+          ? 'Vui lòng chờ đến khi thanh tiến độ hoàn tất. / 請等進度條完成。'
+          : 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。';
+        setTemplateProgress(percent || 35, label, sub);
+      });
+      await setTemplateProgress(92, 'Đang làm mới danh sách mẫu... / 正在更新模板清單...', 'Sắp hoàn tất. / 即將完成。');
+      state.pendingTemplateFile = null;
+      state.pendingWorkbook = null;
+      state.pendingBook = null;
+      text('cut-template-file-name', '');
+      renderTemplateAnalysis(book);
+      await refreshTemplates();
+      await setTemplateProgress(100, 'Đã lưu mẫu. / 已儲存模板。', 'Có thể tiếp tục thao tác. / 可以繼續操作。');
+      hideTemplateProgress(800);
+      alert('Đã xác nhận và lưu mẫu.\n已確認並儲存模板。');
+    }catch(e){
+      console.error(e);
+      hideTemplateProgress();
+      alert('Lưu mẫu thất bại.\n儲存模板失敗。\n' + (e.message || e));
+    }finally{
+      setTemplateBusy(false);
+    }
+  };
+
+  cuttingAnalyzeTemplateFile = async function(file){
+    if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel，請重新整理頁面。'); return; }
+    if(!/\.(xlsx|xls)$/i.test(file.name)){
+      alert('Chỉ hỗ trợ Excel .xlsx hoặc .xls.\n僅支援 Excel .xlsx 或 .xls。');
+      return;
+    }
+    text('cut-template-file-name', file.name);
+    setTemplateBusy(true);
+    try{
+      await setTemplateProgress(8, 'Đang đọc file mẫu... / 正在讀取模板檔案...', esc(file.name));
+      const data = await file.arrayBuffer();
+      await setTemplateProgress(30, 'Đang mở Excel... / 正在開啟 Excel...', 'Hệ thống đang đọc nội dung bảng tính. / 系統正在讀取活頁簿內容。');
+      const wb = XLSX.read(data, {type:'array', cellFormula:true, cellStyles:true});
+      await setTemplateProgress(58, 'Đang phân tích cột và mã hàng... / 正在分析欄位與款號...', 'Tệp càng lớn thì bước này càng lâu. / 檔案越大，這一步會越久。');
+      const book = analyzeTemplateWorkbook(file.name, wb);
+      if(!book.itemCount){
+        await setTemplateProgress(100, 'Không tìm thấy mã hàng. / 找不到款號。', 'Vui lòng kiểm tra cột mã hàng, SL:PO, số kiện. / 請檢查款號、SL:PO、件數欄位。');
+        renderTemplateAnalysis(book);
+        alert('Không tìm thấy mã hàng trong mẫu. Vui lòng kiểm tra cột Mã hàng / SL:PO / Số kiện.\n模板中找不到款號，請檢查 Mã hàng、SL:PO、Số kiện 欄位。');
+        hideTemplateProgress(800);
+        return;
+      }
+      book.status = 'pending';
+      state.pendingTemplateFile = file;
+      state.pendingWorkbook = wb;
+      state.pendingBook = book;
+      await setTemplateProgress(100, 'Phân tích mẫu hoàn tất. / 模板分析完成。', 'Vui lòng kiểm tra cột rồi xác nhận mẫu. / 請檢查欄位後確認模板。');
+      renderTemplateAnalysis(book);
+      hideTemplateProgress(800);
+    }catch(e){
+      console.error(e);
+      hideTemplateProgress();
+      alert('Phân tích mẫu Excel thất bại.\n分析 Excel 模板失敗。\n' + (e.message || e));
+    }finally{
+      setTemplateBusy(false);
+    }
+  };
 
   async function cuttingDeleteTemplateCache(template, sourceFile){
     const payload = {

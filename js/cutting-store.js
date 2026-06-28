@@ -188,7 +188,13 @@
     return snap.exists() ? stripChunkOnlyFields({id:snap.id, ...snap.data()}) : null;
   }
 
-  async function saveCloudTemplate(book, file){
+  function reportProgress(onProgress, payload){
+    if(typeof onProgress === 'function'){
+      try{ onProgress(payload); }catch(e){ console.error('裁帶模板進度回報失敗', e); }
+    }
+  }
+
+  async function saveCloudTemplate(book, file, onProgress){
     const currentItems = await listCloudTemplates().catch(() => readMeta());
     const sameFile = currentItems.find(x => x.id === book.id || x.fileName === book.fileName);
     const id = sameFile?.id || book.id || `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -208,12 +214,28 @@
     };
 
     if(file){
+      reportProgress(onProgress, {
+        stage: 'encoding',
+        percent: 24,
+        message: 'Đang chuyển tệp mẫu... / 正在轉換模板檔案...'
+      });
       const base64 = await blobToBase64(file);
+      reportProgress(onProgress, {
+        stage: 'splitting',
+        percent: 32,
+        message: 'Đang chia nhỏ tệp mẫu... / 正在分割模板檔案...'
+      });
       const chunks = splitBase64(base64);
       next.chunkCount = chunks.length;
       next.base64Length = base64.length;
 
       const operations = chunks.map((data, index) => batch => {
+        reportProgress(onProgress, {
+          stage: 'uploading',
+          current: index + 1,
+          total: chunks.length,
+          percent: 35 + Math.round(((index + 1) / chunks.length) * 50)
+        });
         batch.set(window._doc(CHUNKS_COLLECTION, chunkDocId(id, index)), {
           templateId: id,
           index,
@@ -225,6 +247,11 @@
         batch.set(window._doc(CLOUD_COLLECTION, id), next);
       });
       await commitOperations(operations);
+      reportProgress(onProgress, {
+        stage: 'cleanup',
+        percent: 88,
+        message: 'Đang dọn phân đoạn cũ... / 正在清理舊分段...'
+      });
       await cleanupExtraChunks(id, chunks.length);
       await putFile(id, file);
     }else{
@@ -291,9 +318,9 @@
       }
       return readMeta().find(x => x.id === id) || null;
     },
-    async saveTemplateBook(book, file){
+    async saveTemplateBook(book, file, onProgress){
       if(cloudReady()){
-        return saveCloudTemplate(book, file);
+        return saveCloudTemplate(book, file, onProgress);
       }
       const items = readMeta();
       const id = book.id || `tpl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -306,6 +333,11 @@
         items.push(next);
       }
       if(file) await putFile(next.id, file);
+      reportProgress(onProgress, {
+        stage: 'local',
+        percent: 85,
+        message: 'Đang lưu tạm trên trình duyệt... / 正在暫存到瀏覽器...'
+      });
       writeMeta(items);
       return next;
     },
