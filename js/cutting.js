@@ -32,6 +32,16 @@
     if(orderTab) orderTab.classList.toggle('active', isOrder);
   }
 
+  function cuttingOrderTabClick(){
+    const orderPanel = g('cut-panel-order');
+    const isOrderOpen = orderPanel && orderPanel.style.display !== 'none';
+    if(isOrderOpen){
+      cuttingPickOrder();
+      return;
+    }
+    cuttingSwitchTab('order');
+  }
+
   function esc(value){
     return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
@@ -624,6 +634,26 @@
   function cuttingPickOrder(){
     const input = g('cut-order-file');
     if(input) input.click();
+  }
+
+  function cuttingOrderDragOver(event){
+    event.preventDefault();
+    const drop = g('cut-tab-order');
+    if(drop) drop.classList.add('dragging');
+  }
+
+  function cuttingOrderDragLeave(event){
+    event.preventDefault();
+    const drop = g('cut-tab-order');
+    if(drop) drop.classList.remove('dragging');
+  }
+
+  function cuttingOrderDrop(event){
+    event.preventDefault();
+    const drop = g('cut-tab-order');
+    if(drop) drop.classList.remove('dragging');
+    const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+    if(file) cuttingHandleOrderFile({files:[file]});
   }
 
   function cuttingClearCurrent(){
@@ -1253,10 +1283,14 @@
   window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
   window.cuttingSwitchTab = cuttingSwitchTab;
+  window.cuttingOrderTabClick = cuttingOrderTabClick;
   window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
+  window.cuttingOrderDragOver = cuttingOrderDragOver;
+  window.cuttingOrderDragLeave = cuttingOrderDragLeave;
+  window.cuttingOrderDrop = cuttingOrderDrop;
   window.cuttingHandleOrderFile = cuttingHandleOrderFile;
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;

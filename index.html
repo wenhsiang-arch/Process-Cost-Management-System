@@ -188,6 +188,7 @@ tr:hover td{background:#f8fafc}
 .cutting-tab i{font-size:28px;color:var(--accent)}
 .cutting-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
 .cutting-tab.active strong{color:var(--accent)}
+.cutting-tab.dragging{background:var(--al);border-color:var(--accent)}
 @media(max-width:900px){.report-hub-tabs{grid-template-columns:1fr}}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
@@ -414,7 +415,7 @@ tr:hover td{background:#f8fafc}
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
         <div class="cutting-tabs">
-          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
+          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingOrderTabClick()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
           <button class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><strong>Nhập mẫu / 匯入模板</strong></button>
         </div>
 
@@ -458,7 +459,6 @@ tr:hover td{background:#f8fafc}
         <div id="cut-panel-order">
           <div class="card">
             <div class="br">
-              <button class="btn" onclick="cuttingPickOrder()"><i class="ti ti-file-spreadsheet"></i>Nhập đơn hàng / 匯入訂單</button>
               <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
               <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
               <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
