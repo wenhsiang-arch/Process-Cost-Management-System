@@ -1032,13 +1032,37 @@ function Draw-CenteredSingleLineText($graphics, [string]$text, [System.Drawing.R
   }
 }
 
+function Split-HeadSideTextLine([string]$line) {
+  $clean = ([string]$line).Trim()
+  if ($clean -match '^(?i)(.*?(?:ĐẦU|DAU))\s+((?:TRÁI|TRAI)\s+(?:PHẢI|PHAI).*)$') {
+    $left = ([string]$Matches[1]).Trim()
+    $right = ([string]$Matches[2]).Trim()
+    if ($left -and $right) { return @($left, $right) }
+  }
+  return @($clean)
+}
+
 function Get-DisplayTextLines([string]$text) {
   $value = Normalize-PdfCellText $text
   if (-not $value) { return @('') }
   if ($value.Contains("`n")) {
-    return @($value -split "`n" | ForEach-Object { ([string]$_).Trim() })
+    $result = @()
+    foreach ($line in @($value -split "`n" | ForEach-Object { ([string]$_).Trim() })) {
+      $result += @(Split-HeadSideTextLine $line)
+    }
+    return $result
   }
   $flat = ($value -replace '\s+', ' ').Trim()
+  $headSideLines = @(Split-HeadSideTextLine $flat)
+  if ($headSideLines.Count -gt 1) { return $headSideLines }
+  if ($flat -match '^\d+(?:\.\d+)?\s*MM\s*[*xX×]\s*\d+(?:\.\d+)?\s*MM$') {
+    return @($flat)
+  }
+  if ($flat -match '^(\d+(?:\.\d+)?\s*MM\s*[*xX×]\s*\d+(?:\.\d+)?\s*MM)(.+)$') {
+    $left = ([string]$Matches[1]).Trim()
+    $right = ([string]$Matches[2]).Trim()
+    if ($left -and $right) { return @($left, $right) }
+  }
   if ($flat -match '^(.*?MM)(.+)$') {
     $left = ([string]$Matches[1]).Trim()
     $right = ([string]$Matches[2]).Trim()
@@ -1051,10 +1075,48 @@ function Draw-CenteredTextLines($graphics, [string[]]$lines, [System.Drawing.Rec
   if ($null -eq $brush) { $brush = [System.Drawing.Brushes]::Black }
   $cleanLines = @($lines | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne '' })
   if ($cleanLines.Count -eq 0) { $cleanLines = @('') }
-  $lineHeight = [float]($rect.Height / [Math]::Max(1, $cleanLines.Count))
-  for ($i = 0; $i -lt $cleanLines.Count; $i++) {
-    $lineRect = [System.Drawing.RectangleF]::new($rect.X, $rect.Y + ($i * $lineHeight), $rect.Width, $lineHeight)
-    Draw-CenteredSingleLineText $graphics ([string]$cleanLines[$i]) $lineRect $maxSize $minSize $bold $brush
+  $style = if ($bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
+  $longestLine = [string]$cleanLines[0]
+  $measureFont = [System.Drawing.Font]::new('Arial', [single]$maxSize, [System.Drawing.FontStyle]$style)
+  try {
+    $longestWidth = $graphics.MeasureString($longestLine, $measureFont).Width
+    foreach ($line in $cleanLines) {
+      $lineWidth = $graphics.MeasureString([string]$line, $measureFont).Width
+      if ($lineWidth -gt $longestWidth) {
+        $longestLine = [string]$line
+        $longestWidth = $lineWidth
+      }
+    }
+  } finally {
+    $measureFont.Dispose()
+  }
+  $font = Get-FitSingleLineFont $graphics $longestLine 'Arial' $maxSize $minSize $rect.Width $style
+  try {
+    while ($font.Size -gt $minSize) {
+      $lineHeight = [float]($font.GetHeight($graphics) * 1.18)
+      if (($lineHeight * $cleanLines.Count) -le ($rect.Height + 2)) { break }
+      $nextSize = [Math]::Max($minSize, $font.Size - 0.5)
+      $font.Dispose()
+      $font = [System.Drawing.Font]::new('Arial', [single]$nextSize, [System.Drawing.FontStyle]$style)
+    }
+    $lineHeight = [float]($font.GetHeight($graphics) * 1.18)
+    $blockHeight = [float]($lineHeight * $cleanLines.Count)
+    $startY = [float]($rect.Y + (($rect.Height - $blockHeight) / 2))
+    $format = New-Object System.Drawing.StringFormat
+    try {
+      $format.Alignment = [System.Drawing.StringAlignment]::Center
+      $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+      $format.Trimming = [System.Drawing.StringTrimming]::None
+      $format.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
+      for ($i = 0; $i -lt $cleanLines.Count; $i++) {
+        $lineRect = [System.Drawing.RectangleF]::new($rect.X, $startY + ($i * $lineHeight), $rect.Width, $lineHeight)
+        $graphics.DrawString([string]$cleanLines[$i], $font, $brush, $lineRect, $format)
+      }
+    } finally {
+      $format.Dispose()
+    }
+  } finally {
+    $font.Dispose()
   }
 }
 
@@ -1277,6 +1339,147 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
   }
 }
 
+function Format-ReportValue($value) {
+  if ($null -eq $value) { return '' }
+  $text = [string]$value
+  if ([string]::IsNullOrWhiteSpace($text)) { return '' }
+  $number = 0.0
+  if ([double]::TryParse($text, [System.Globalization.NumberStyles]::Any, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$number)) {
+    if ([Math]::Abs($number - [Math]::Round($number)) -lt 0.0001) { return ('{0:N0}' -f $number) }
+    return (('{0:N2}' -f $number).TrimEnd('0').TrimEnd('.'))
+  }
+  return $text
+}
+
+function Get-ReportField($row, [string]$name) {
+  if ($null -eq $row) { return '' }
+  $property = $row.PSObject.Properties[$name]
+  if ($null -eq $property) { return '' }
+  return $property.Value
+}
+
+function Draw-ReportGrid($graphics) {
+  $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(224, 224, 224), 0.5)
+  try {
+    for ($x = 0; $x -le 595; $x += 80) { $graphics.DrawLine($pen, [float]$x, 0.0, [float]$x, 842.0) }
+    for ($y = 0; $y -le 842; $y += 36) { $graphics.DrawLine($pen, 0.0, [float]$y, 595.0, [float]$y) }
+  } finally {
+    $pen.Dispose()
+  }
+}
+
+function Draw-ReportText($graphics, [string]$text, [System.Drawing.RectangleF]$rect, [float]$maxSize = 15, [float]$minSize = 8, [bool]$bold = $false, [string]$align = 'Near') {
+  $style = if ($bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
+  $font = Get-FitSingleLineFont $graphics $text 'Microsoft JhengHei' $maxSize $minSize $rect.Width $style
+  $format = New-Object System.Drawing.StringFormat
+  try {
+    if ($align -eq 'Center') {
+      $format.Alignment = [System.Drawing.StringAlignment]::Center
+    } elseif ($align -eq 'Far') {
+      $format.Alignment = [System.Drawing.StringAlignment]::Far
+    } else {
+      $format.Alignment = [System.Drawing.StringAlignment]::Near
+    }
+    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $format.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+    $format.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
+    $graphics.DrawString($text, $font, [System.Drawing.Brushes]::Black, $rect, $format)
+  } finally {
+    $format.Dispose()
+    $font.Dispose()
+  }
+}
+
+function Draw-ReportTable($graphics, [string]$title, $rows, [float]$x, [float]$y, [float]$bottom) {
+  $width = 470.0
+  $rowHeight = 22.0
+  $headerY = $y + 30.0
+  $columns = @(
+    [PSCustomObject]@{ name = 'code'; label = '款號'; x = $x; width = 150.0; align = 'Near' },
+    [PSCustomObject]@{ name = 'qty'; label = '訂單數量'; x = $x + 150.0; width = 95.0; align = 'Center' },
+    [PSCustomObject]@{ name = 'piece'; label = '工序段'; x = $x + 245.0; width = 95.0; align = 'Center' },
+    [PSCustomObject]@{ name = 'total'; label = '總共工序段'; x = $x + 340.0; width = 130.0; align = 'Center' }
+  )
+  Draw-ReportText $graphics $title ([System.Drawing.RectangleF]::new($x, $y, $width, 24.0)) 15 8 $false 'Center'
+  foreach ($col in $columns) {
+    Draw-ReportText $graphics ([string]$col.label) ([System.Drawing.RectangleF]::new([float]$col.x, $headerY, [float]$col.width, 22.0)) 13 8 $false ([string]$col.align)
+  }
+  $rowY = $headerY + 28.0
+  foreach ($row in @($rows)) {
+    if ($rowY + $rowHeight -gt $bottom) { break }
+    foreach ($col in $columns) {
+      $raw = Get-ReportField $row ([string]$col.name)
+      $value = if ($col.name -eq 'code') { [string]$raw } else { Format-ReportValue $raw }
+      Draw-ReportText $graphics $value ([System.Drawing.RectangleF]::new([float]$col.x, $rowY, [float]$col.width, $rowHeight)) 12 7 $false ([string]$col.align)
+    }
+    $rowY += $rowHeight
+  }
+}
+
+function Save-ReportImage($sections, [string]$path) {
+  $width = 1240
+  $height = 1754
+  $bitmap = New-Object System.Drawing.Bitmap $width, $height
+  try {
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    try {
+      $graphics.Clear([System.Drawing.Color]::White)
+      $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+      $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+      $scaleX = $width / 595.0
+      $scaleY = $height / 842.0
+      $graphics.ScaleTransform($scaleX, $scaleY)
+      Draw-ReportGrid $graphics
+      foreach ($section in @($sections)) {
+        Draw-ReportTable $graphics ([string]$section.title) @($section.rows) ([float]$section.x) ([float]$section.y) ([float]$section.bottom)
+      }
+    } finally {
+      $graphics.Dispose()
+    }
+    $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+  } finally {
+    $bitmap.Dispose()
+  }
+}
+
+function Save-ReportPages($report, [string]$root) {
+  if ($null -eq $report) { return @() }
+  $completedRows = @($report.completed)
+  $missingRows = @($report.missing)
+  $completedCount = if ($report.completedCount -ne $null) { [int](Convert-ToSafeDouble $report.completedCount) } else { $completedRows.Count }
+  $missingCount = if ($report.missingCount -ne $null) { [int](Convert-ToSafeDouble $report.missingCount) } else { $missingRows.Count }
+  $pages = @()
+  if ($completedRows.Count -le 12 -and $missingRows.Count -le 12) {
+    $path = Join-Path $root 'report_1.jpg'
+    $sections = @(
+      [PSCustomObject]@{ title = "已完成款號(總共$($completedCount)個)"; rows = $completedRows; x = 75.0; y = 65.0; bottom = 410.0 },
+      [PSCustomObject]@{ title = "缺少檔案的工序段(總共$($missingCount)個)"; rows = $missingRows; x = 75.0; y = 470.0; bottom = 810.0 }
+    )
+    Save-ReportImage $sections $path
+    return @($path)
+  }
+  $pageIndex = 0
+  foreach ($sectionData in @(
+    [PSCustomObject]@{ title = "已完成款號(總共$($completedCount)個)"; rows = $completedRows },
+    [PSCustomObject]@{ title = "缺少檔案的工序段(總共$($missingCount)個)"; rows = $missingRows }
+  )) {
+    $rows = @($sectionData.rows)
+    if ($rows.Count -eq 0) {
+      continue
+    }
+    for ($i = 0; $i -lt $rows.Count; $i += 28) {
+      $take = [Math]::Min(28, $rows.Count - $i)
+      $chunk = @($rows[$i..($i + $take - 1)])
+      $pageIndex++
+      $path = Join-Path $root ("report_{0}.jpg" -f $pageIndex)
+      $sections = @([PSCustomObject]@{ title = [string]$sectionData.title; rows = $chunk; x = 75.0; y = 65.0; bottom = 810.0 })
+      Save-ReportImage $sections $path
+      $pages += $path
+    }
+  }
+  return $pages
+}
+
 function Save-JpegPage($groups, [string]$path) {
   $width = 1240
   $height = 1754
@@ -1386,6 +1589,11 @@ function New-CuttingPdf($payload) {
   }
   if ($printGroups.Count -eq 0) { throw '沒有符合列印條件的款號資料。' }
   $pageImages = @()
+  $reportPages = @(Save-ReportPages $payload.report $root)
+  if ($reportPages.Count -gt 0) {
+    $pageImages += $reportPages
+    Add-Log 'render_report' "pages=$($reportPages.Count)"
+  }
   for ($i = 0; $i -lt $printGroups.Count; $i += 6) {
     $take = [Math]::Min(6, $printGroups.Count - $i)
     $pageGroups = @($printGroups[$i..($i + $take - 1)])

@@ -884,11 +884,6 @@
     const problemRows = validations.flatMap(row => row.problems.map(problem => ({code: row.result.code, problem})));
     const passed = validations.filter(row => !row.problems.length).length;
     const failed = validations.length - passed;
-    const statusClass = failed ? 'nt nd' : 'nt ns';
-    const statusIcon = failed ? 'ti ti-alert-triangle' : 'ti ti-check';
-    const statusText = failed
-      ? `Kiểm tra không đạt: ${fmtNum(failed)} mã hàng có lỗi, vui lòng sửa trước khi tạo PDF.<br>驗算未通過：${fmtNum(failed)} 個款號有錯誤，請修正後再產生 PDF。`
-      : `Kiểm tra đạt: ${fmtNum(exportableResults.length)} mã hàng có mẫu, có thể tạo PDF bằng máy này.<br>驗算通過：${fmtNum(exportableResults.length)} 個有模板款號，可以由本機產生 PDF。`;
     const problemHtml = failed ? `
       <div class="to"><div class="ts" style="max-height:260px"><table>
         <thead><tr>
@@ -899,22 +894,13 @@
           ${problemRows.map(row => `<tr><td><b>${esc(row.code)}</b></td><td>${esc(row.problem)}</td></tr>`).join('')}
         </tbody>
       </table></div></div>
-    ` : `
-      <div class="nt ns">
-        <i class="ti ti-check"></i>
-        <div>Phiên bản đầu chỉ hỗ trợ một mẫu Excel, hệ thống sẽ gửi dữ liệu cho máy này tạo PDF.<br>第一版只支援單一 Excel 模板，系統會把資料送到本機產生 PDF。</div>
-      </div>
-    `;
+    ` : '';
     return `
       <div class="mg">
         <div class="mc"><div class="ml">Mã hàng xuất</div><div class="mvi">匯出款號</div><div class="mv">${fmtNum(exportableResults.length)}</div></div>
         <div class="mc"><div class="ml">Tổng số đơn</div><div class="mvi">訂單總數</div><div class="mv">${fmtNum(totalQty)}</div></div>
         <div class="mc"><div class="ml">Tổng dây cắt</div><div class="mvi">裁段總數</div><div class="mv">${fmtNum(totalPieces)}</div></div>
         <div class="mc"><div class="ml">Thiếu mẫu</div><div class="mvi">缺少模板</div><div class="mv">${fmtNum(skippedMissing.length)}</div></div>
-      </div>
-      <div class="${statusClass}" style="margin-bottom:12px">
-        <i class="${statusIcon}"></i>
-        <div>${statusText}</div>
       </div>
       ${problemHtml}
     `;
@@ -1166,6 +1152,28 @@
     return cells;
   }
 
+  function buildLocalPdfReport(exportableResults, allResults){
+    const missingResults = allResults.filter(result => result.status === 'missing');
+    const completed = exportableResults.map(result => ({
+      code: result.code || '',
+      qty: Number(result.qty || 0),
+      piece: Number(result.piecesPerItem || 0),
+      total: Number(result.totalPieces || 0)
+    }));
+    const missing = missingResults.map(result => ({
+      code: result.code || '',
+      qty: Number(result.qty || 0),
+      piece: '',
+      total: ''
+    }));
+    return {
+      completed,
+      missing,
+      completedCount: completed.length,
+      missingCount: missing.length
+    };
+  }
+
   async function cuttingCreateLocalPdf(){
     const exportableResults = state.results.filter(r => r.status === 'pass');
     const hasErrors = state.results.some(r => r.status === 'error');
@@ -1220,9 +1228,11 @@
         });
       }
       setCuttingPdfProgress(28, 'Đang đóng gói dữ liệu... / 正在整理資料...', 'Đang chuẩn bị số lượng cần điền và vị trí ô. / 正在準備填寫數量與儲存格位置。');
+      const report = buildLocalPdfReport(exportableResults, state.results);
       const payload = packages.length === 1
         ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
         : {outputName: localMergedPdfName(), templates: packages};
+      payload.report = report;
       setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ sắp xếp theo mã hàng rồi tạo PDF. / 系統會依款號排序後產生 PDF。');
       startCuttingPdfProgressLoop();
       const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
