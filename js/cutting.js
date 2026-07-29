@@ -113,6 +113,7 @@
       itemCount: 0,
       rowCount: 0,
       warningCount: 0,
+      issues: [],
       sheets: [],
       codes: []
     };
@@ -164,6 +165,14 @@
             sheetInfo.warningCount += 1;
             book.warningCount += 1;
             rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
+            book.issues.push({
+              sheetName,
+              cell: rowInfo.pieceCell,
+              rowNumber: rowInfo.rowNumber,
+              code,
+              viMessage: 'Số kiện trống hoặc bằng 0. Vui lòng nhập số kiện chính xác.',
+              zhMessage: '件數空白或為 0，請填入正確件數。'
+            });
           }
           if(!codeMap.has(code)){
             codeMap.set(code, {
@@ -181,11 +190,27 @@
         if(!blockRowCount){
           sheetInfo.warningCount += 1;
           book.warningCount += 1;
+          book.issues.push({
+            sheetName,
+            cell: addr(headerIndex + 1, FIXED_TEMPLATE_COLUMNS.codeCol),
+            rowNumber: headerIndex + 2,
+            code: '',
+            viMessage: `Không tìm thấy mã hàng bên dưới tiêu đề ở dòng ${headerIndex + 1}.`,
+            zhMessage: `第 ${headerIndex + 1} 列表頭下方找不到款號。`
+          });
         }
       });
       if(!sheetInfo.detectedBlocks){
         sheetInfo.warningCount += 1;
         book.warningCount += 1;
+        book.issues.push({
+          sheetName,
+          cell: '',
+          rowNumber: 0,
+          code: '',
+          viMessage: 'Không tìm thấy tiêu đề cố định A–K. Vui lòng kiểm tra cột B, G, H và I.',
+          zhMessage: '找不到 A–K 固定表頭，請檢查 B、G、H、I 欄位。'
+        });
       }
       book.sheets.push(sheetInfo);
     });
@@ -281,6 +306,51 @@
         actions.appendChild(el);
       });
       modal.style.display = 'flex';
+    });
+  }
+
+  // templateIssuesHtml（模板錯誤明細）：以工作表、儲存格、款號與原因呈現可直接修改的位置。
+  function templateIssuesHtml(book, limit = 20){
+    const issues = Array.isArray(book?.issues) ? book.issues : [];
+    if(!issues.length){
+      return '<div>Không xác định được vị trí lỗi. Vui lòng kiểm tra tiêu đề A–K trên từng sheet.<br>無法判斷錯誤位置，請檢查每個工作表的 A–K 表頭。</div>';
+    }
+    const rows = issues.slice(0, limit).map(issue => `
+      <tr>
+        <td><b>${esc(issue.sheetName || '-')}</b></td>
+        <td><b>${esc(issue.cell || '-')}</b></td>
+        <td>${issue.code ? `<b>${esc(issue.code)}</b>` : '-'}</td>
+        <td>
+          <div>${esc(issue.viMessage || '')}</div>
+          <div class="tv" style="margin-top:3px">${esc(issue.zhMessage || '')}</div>
+        </td>
+      </tr>
+    `).join('');
+    const remaining = issues.length - Math.min(issues.length, limit);
+    return `
+      <div style="margin-bottom:10px">
+        Phát hiện ${fmtNum(issues.length)} lỗi. Vui lòng sửa đúng ô được liệt kê rồi nhập lại.<br>
+        發現 ${fmtNum(issues.length)} 個錯誤，請修改列出的儲存格後重新匯入。
+      </div>
+      <div class="to"><div class="ts" style="max-height:320px"><table>
+        <thead><tr>
+          <th>Trang tính<br><span class="tv">工作表</span></th>
+          <th>Ô<br><span class="tv">儲存格</span></th>
+          <th>Mã hàng<br><span class="tv">款號</span></th>
+          <th>Vấn đề<br><span class="tv">問題</span></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div></div>
+      ${remaining > 0 ? `<div style="margin-top:8px;color:var(--mu)">Còn ${fmtNum(remaining)} lỗi chưa hiển thị. / 另有 ${fmtNum(remaining)} 個錯誤未顯示。</div>` : ''}
+    `;
+  }
+
+  // showTemplateIssues（顯示模板錯誤）：匯入或確認失敗時顯示同一份明細。
+  async function showTemplateIssues(book){
+    await cuttingTemplateModal({
+      title: 'Chi tiết lỗi mẫu / 模板錯誤明細',
+      body: templateIssuesHtml(book),
+      buttons: [{text:'Đã hiểu / 確定', value:'ok', className:'btn bp'}]
     });
   }
 
@@ -384,6 +454,10 @@
           ? 'Một số sheet không đúng mẫu cố định A-K. / 部分工作表不符合 A-K 固定新規格。'
           : 'Đã xác nhận cấu trúc cố định A-K. / 已確認 A-K 固定新規格。'}</div>
       </div>
+      ${book.warningCount ? `
+        <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Chi tiết cần sửa / 需要修改的位置</div>
+        ${templateIssuesHtml(book, 50)}
+      ` : ''}
       <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
       <div class="to"><div class="ts" style="max-height:240px"><table>
         <thead><tr>
@@ -459,7 +533,7 @@
       const book = {...state.pendingBook, status:'confirmed', confirmedAt:new Date().toISOString()};
       if(!book.itemCount || book.warningCount){
         hideTemplateProgress();
-        alert('Cấu trúc mẫu không đúng quy cách mới, không thể lưu.\n模板結構不符合新規格，無法儲存。');
+        await showTemplateIssues(book);
         return;
       }
       await setTemplateProgress(18, 'Đang chuẩn bị lưu mẫu... / 正在準備儲存模板...', 'Excel sẽ được chia nhỏ để lưu vào cơ sở dữ liệu đám mây. / Excel 會分段存到雲端資料庫。');
@@ -517,9 +591,13 @@
       await setTemplateProgress(58, 'Đang kiểm tra cột A–K và mã hàng... / 正在檢查 A–K 欄位與款號...', 'Mỗi phân trang được đọc tiêu đề riêng. / 每個分頁都會獨立讀取抬頭。');
       const book = analyzeTemplateWorkbook(file.name, wb);
       if(!book.itemCount || book.warningCount){
-        await setTemplateProgress(100, 'Mẫu không đúng quy cách mới. / 模板不符合新規格。', 'Vui lòng kiểm tra cột A–K trên mọi phân trang. / 請檢查每個分頁的 A–K 欄位。');
+        const firstIssue = Array.isArray(book.issues) && book.issues.length ? book.issues[0] : null; // firstIssue（第一筆模板錯誤）
+        const issueLocation = firstIssue
+          ? `Trang tính ${esc(firstIssue.sheetName || '-')} · Ô ${esc(firstIssue.cell || '-')} / 工作表 ${esc(firstIssue.sheetName || '-')} · 儲存格 ${esc(firstIssue.cell || '-')}`
+          : 'Vui lòng xem chi tiết lỗi bên dưới. / 請查看下方錯誤明細。';
+        await setTemplateProgress(100, 'Mẫu có dữ liệu cần sửa. / 模板有資料需要修改。', issueLocation);
         renderTemplateAnalysis(book);
-        alert('Mẫu không đúng quy cách mới. Vui lòng kiểm tra cột A–K trên mọi phân trang.\n模板不符合新規格，請檢查每個分頁的 A–K 欄位。');
+        await showTemplateIssues(book);
         hideTemplateProgress(800);
         return;
       }
