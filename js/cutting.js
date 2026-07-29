@@ -114,6 +114,8 @@
       rowCount: 0,
       warningCount: 0,
       issues: [],
+      noticeCount: 0,
+      notices: [],
       sheets: [],
       codes: []
     };
@@ -130,6 +132,7 @@
       headerIndexes.forEach((headerIndex, blockIndex) => {
         const nextHeaderIndex = blockIndex + 1 < headerIndexes.length ? headerIndexes[blockIndex + 1] : rows.length; // nextHeaderIndex（下一個表頭列索引）
         let blockRowCount = 0; // blockRowCount（本組款號列數）
+        const blockRows = []; // blockRows（本組款號資料列）
         sheetInfo.detectedBlocks += 1;
         sheetInfo.detections.push({
           rowNumber: headerIndex + 1,
@@ -159,6 +162,7 @@
             detectConfidence: 100
           };
           blockRowCount += 1;
+          blockRows.push(rowInfo);
           sheetInfo.rowCount += 1;
           book.rowCount += 1;
           if(pieces <= 0){
@@ -197,6 +201,22 @@
             code: '',
             viMessage: `Không tìm thấy mã hàng bên dưới tiêu đề ở dòng ${headerIndex + 1}.`,
             zhMessage: `第 ${headerIndex + 1} 列表頭下方找不到款號。`
+          });
+        }
+        const positivePieceRows = blockRows.filter(row => row.piecesPerRow > 0); // positivePieceRows（有效件數資料列）
+        const pieceValues = new Set(positivePieceRows.map(row => row.piecesPerRow)); // pieceValues（同組件數值）
+        if(pieceValues.size > 1){
+          book.noticeCount += 1;
+          book.notices.push({
+            sheetName,
+            headerRowNumber: headerIndex + 1,
+            details: positivePieceRows.map(row => ({
+              code: row.code,
+              cell: row.pieceCell,
+              pieces: row.piecesPerRow
+            })),
+            viMessage: 'Số kiện trong cùng một nhóm không giống nhau. Vui lòng kiểm tra trước khi nhập.',
+            zhMessage: '同一組別的每件條數不一致，請確認後再匯入。'
           });
         }
       });
@@ -362,6 +382,58 @@
     });
   }
 
+  // templateNoticesHtml（模板提醒明細）：同組件數不一致時列出每個款號、儲存格與條數。
+  function templateNoticesHtml(book, limit = 20){
+    const notices = Array.isArray(book?.notices) ? book.notices : [];
+    if(!notices.length) return '';
+    const rows = notices.slice(0, limit).map(notice => {
+      const detailLines = (notice.details || []).map(detail => `
+        <div>
+          <b>${esc(detail.code || '-')}</b>
+          · ${esc(detail.cell || '-')}
+          · ${fmtNum(detail.pieces)} dây/SP / 每件 ${fmtNum(detail.pieces)} 條
+        </div>
+      `).join('');
+      return `
+        <tr>
+          <td><b>${esc(notice.sheetName || '-')}</b></td>
+          <td>${fmtNum(notice.headerRowNumber)}</td>
+          <td>${detailLines}</td>
+          <td>
+            <div>${esc(notice.viMessage || '')}</div>
+            <div class="tv" style="margin-top:3px">${esc(notice.zhMessage || '')}</div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    const remaining = notices.length - Math.min(notices.length, limit);
+    return `
+      <div style="margin-bottom:10px">
+        Đây là cảnh báo, vẫn có thể xác nhận và nhập mẫu.<br>
+        此項屬於提醒，仍可確認並匯入模板。
+      </div>
+      <div class="to"><div class="ts" style="max-height:320px"><table>
+        <thead><tr>
+          <th>Trang tính<br><span class="tv">工作表</span></th>
+          <th>Dòng tiêu đề<br><span class="tv">表頭列</span></th>
+          <th>Vị trí và số kiện<br><span class="tv">位置與條數</span></th>
+          <th>Cảnh báo<br><span class="tv">提醒</span></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div></div>
+      ${remaining > 0 ? `<div style="margin-top:8px;color:var(--mu)">Còn ${fmtNum(remaining)} cảnh báo chưa hiển thị. / 另有 ${fmtNum(remaining)} 個提醒未顯示。</div>` : ''}
+    `;
+  }
+
+  // showTemplateNotices（顯示模板提醒）：提醒使用者檢查，但不清除待匯入資料。
+  async function showTemplateNotices(book){
+    await cuttingTemplateModal({
+      title: 'Cảnh báo số kiện / 每件條數提醒',
+      body: templateNoticesHtml(book),
+      buttons: [{text:'Tiếp tục / 繼續', value:'continue', className:'btn bp'}]
+    });
+  }
+
   function templateCodeKeys(book){
     const keys = new Set();
     (book?.codes || []).forEach(item => {
@@ -433,7 +505,11 @@
         <td>${t.schemaVersion !== 'fixed-2026-07'
           ? '<span class="tg ta">Mẫu cũ đã ngừng / 舊格式已停用</span>'
           : (t.status === 'confirmed'
-            ? (t.warningCount ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.warningCount)} cảnh báo / 已確認，${fmtNum(t.warningCount)} 警告</span>` : '<span class="tg tg2">Đã xác nhận / 已確認</span>')
+            ? (t.warningCount
+              ? `<span class="tg ta">Có lỗi / 有錯誤</span>`
+              : (t.noticeCount
+                ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.noticeCount)} cảnh báo / 已確認，${fmtNum(t.noticeCount)} 個提醒</span>`
+                : '<span class="tg tg2">Đã xác nhận / 已確認</span>'))
             : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>')}</td>
         <td style="text-align:center"><button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button></td>
       </tr>
@@ -455,16 +531,23 @@
         <div class="mc"><div class="ml">Mã hàng</div><div class="mvi">款號</div><div class="mv">${fmtNum(book.itemCount)}</div></div>
         <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">填寫列數</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
         <div class="mc"><div class="ml">Lỗi</div><div class="mvi">錯誤</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
+        <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">提醒</div><div class="mv">${fmtNum(book.noticeCount)}</div></div>
       </div>
-      <div class="nt ${book.warningCount ? 'nw' : 'ns'}" style="margin-bottom:12px">
-        <i class="ti ${book.warningCount ? 'ti-alert-triangle' : 'ti-circle-check'}"></i>
+      <div class="nt ${book.warningCount || book.noticeCount ? 'nw' : 'ns'}" style="margin-bottom:12px">
+        <i class="ti ${book.warningCount || book.noticeCount ? 'ti-alert-triangle' : 'ti-circle-check'}"></i>
         <div>${book.warningCount
           ? 'Một số sheet không đúng mẫu cố định A-K. / 部分工作表不符合 A-K 固定新規格。'
-          : 'Đã xác nhận cấu trúc cố định A-K. / 已確認 A-K 固定新規格。'}</div>
+          : (book.noticeCount
+            ? 'Có nhóm có số kiện khác nhau, nhưng vẫn có thể nhập mẫu. / 部分組別的每件條數不同，但仍可匯入模板。'
+            : 'Đã xác nhận cấu trúc cố định A-K. / 已確認 A-K 固定新規格。')}</div>
       </div>
       ${book.warningCount ? `
         <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Chi tiết cần sửa / 需要修改的位置</div>
         ${templateIssuesHtml(book, 50)}
+      ` : ''}
+      ${book.noticeCount ? `
+        <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Cảnh báo số kiện / 每件條數提醒</div>
+        ${templateNoticesHtml(book, 50)}
       ` : ''}
       <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
       <div class="to"><div class="ts" style="max-height:240px"><table>
@@ -618,8 +701,13 @@
       book.status = 'pending';
       state.pendingTemplateFile = file;
       state.pendingBook = book;
-      await setTemplateProgress(100, 'Phân tích mẫu hoàn tất. / 模板分析完成。', 'Cấu trúc cố định đã hợp lệ. / 固定格式已通過檢查。');
+      await setTemplateProgress(
+        100,
+        book.noticeCount ? 'Phân tích hoàn tất, có cảnh báo. / 分析完成，另有提醒。' : 'Phân tích mẫu hoàn tất. / 模板分析完成。',
+        book.noticeCount ? 'Vẫn có thể xác nhận và nhập mẫu. / 仍可確認並匯入模板。' : 'Cấu trúc cố định đã hợp lệ. / 固定格式已通過檢查。'
+      );
       renderTemplateAnalysis(book);
+      if(book.noticeCount) await showTemplateNotices(book);
       hideTemplateProgress(800);
     }catch(e){
       console.error(e);
