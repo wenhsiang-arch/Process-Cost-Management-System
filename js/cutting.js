@@ -4,11 +4,22 @@
     templates: [],
     orderItems: [],
     results: [],
-    selectedTemplateId: '',
     pendingTemplateFile: null,
-    pendingWorkbook: null,
     pendingBook: null
   };
+  const FIXED_TEMPLATE_COLUMNS = Object.freeze({
+    imageCol: 0,
+    codeCol: 1,
+    colorCol: 2,
+    beltCol: 3,
+    segmentCol: 4,
+    cutSpecCol: 5,
+    qtyCol: 6,
+    pieceCol: 7,
+    totalCol: 8,
+    shortageCol: 9,
+    noteCol: 10
+  });
   let pdfToolStatusChecking = false;
 
   function text(id, value){
@@ -65,170 +76,33 @@
     return XLSX.utils.encode_cell({r: rowIndex, c: colIndex});
   }
 
-  function isLikelyCode(value){
+  function isItemCode(value){
     const code = normalizeCode(value);
-    return /^[A-Z]{1,6}\d{2,}[-A-Z0-9]*$/.test(code)
-      || /^[A-Z]{1,6}\d{2,}~(?:[A-Z]{1,6})?\d{1,}[-A-Z0-9]*$/.test(code);
+    return /^[A-Z0-9][A-Z0-9-]{2,}$/.test(code);
   }
 
-  function expandCodeAliases(value){
+  function codeAliases(value){
     const code = normalizeCode(value);
-    if(!code) return [];
-    if(!code.includes('~')) return [code];
-    const parts = code.split('~');
-    if(parts.length !== 2) return [code];
-    const left = parts[0];
-    const right = parts[1];
-    const leftMatch = left.match(/^([A-Z]{1,6})(\d+)([-A-Z0-9]*)$/);
-    if(!leftMatch || leftMatch[3]) return [code];
-    const prefix = leftMatch[1];
-    const leftDigits = leftMatch[2];
-    let rightDigits = '';
-    const rightFull = right.match(/^([A-Z]{1,6})(\d+)$/);
-    if(rightFull){
-      if(rightFull[1] !== prefix) return [code];
-      rightDigits = rightFull[2];
-    }else if(/^\d+$/.test(right)){
-      rightDigits = right;
-    }else{
-      return [code];
-    }
-    let baseDigits = '';
-    let leftNum = 0;
-    let rightNum = 0;
-    let width = Math.max(leftDigits.length, rightDigits.length);
-    if(rightDigits.length < leftDigits.length){
-      const baseLength = leftDigits.length - rightDigits.length;
-      baseDigits = leftDigits.slice(0, baseLength);
-      leftNum = Number(leftDigits.slice(baseLength));
-      rightNum = Number(rightDigits);
-      width = rightDigits.length;
-    }else{
-      leftNum = Number(leftDigits);
-      rightNum = Number(rightDigits);
-    }
-    if(!Number.isFinite(leftNum) || !Number.isFinite(rightNum) || rightNum < leftNum || rightNum - leftNum > 200) return [code];
-    const aliases = [];
-    for(let num = leftNum; num <= rightNum; num++){
-      aliases.push(`${prefix}${baseDigits}${String(num).padStart(width, '0')}`);
-    }
-    return aliases;
+    return code ? [code] : [];
   }
 
-  function colLettersToIndex(letters){
-    let n = 0;
-    String(letters || '').toUpperCase().split('').forEach(ch => {
-      n = n * 26 + (ch.charCodeAt(0) - 64);
-    });
-    return n - 1;
-  }
-
-  function formulaRefs(formula){
-    const refs = [];
-    String(formula || '').replace(/\$?([A-Z]{1,3})\$?(\d+)/g, (_, col, row) => {
-      refs.push({col: colLettersToIndex(col), row: Number(row) - 1});
-      return _;
-    });
-    return refs;
-  }
-
-  function colOptions(selected){
-    const cols = [];
-    for(let i = 0; i < 32; i++){
-      const label = XLSX.utils.encode_col(i);
-      cols.push(`<option value="${i}" ${i === selected ? 'selected' : ''}>${label}</option>`);
-    }
-    return `<option value="-1">-</option>${cols.join('')}`;
-  }
-
-  function findTemplateHeader(row){
-    const found = {codeCol:-1, qtyCol:-1, pieceCol:-1, totalCol:-1, confidence:0, method:'header'};
-    row.forEach((cell, idx) => {
-      const h = normalizeHeader(cell);
-      if(found.codeCol < 0 && (h.includes('MAHANG') || h.includes('ITEM') || h.includes('款號'))) found.codeCol = idx;
-      if(found.qtyCol < 0 && ((h.includes('SL') && h.includes('PO')) || h.includes('PCS') || h.includes('訂單數量'))) found.qtyCol = idx;
-      if(found.pieceCol < 0 && (h.includes('SOKIEN') || h.includes('SOBO') || h.includes('每件條數') || h.includes('條數'))) found.pieceCol = idx;
-      if(found.totalCol < 0 && (h.includes('THUCTE') || h.includes('SLCAT') || h.includes('裁段總數'))) found.totalCol = idx;
-    });
-    found.confidence = ['codeCol','qtyCol','pieceCol'].filter(k => found[k] >= 0).length;
-    return found.confidence >= 2 ? found : null;
-  }
-
-  function inferHeaderFromRows(rows, ws, startRow, currentHeader){
-    const scores = new Map();
-    const add = (col, key, score) => {
-      if(col < 0 || col > 80) return;
-      const row = scores.get(col) || {code:0, qty:0, piece:0, total:0};
-      row[key] += score;
-      scores.set(col, row);
-    };
-
-    if(currentHeader){
-      if(currentHeader.codeCol >= 0) add(currentHeader.codeCol, 'code', 12);
-      if(currentHeader.qtyCol >= 0) add(currentHeader.qtyCol, 'qty', 12);
-      if(currentHeader.pieceCol >= 0) add(currentHeader.pieceCol, 'piece', 12);
-      if(currentHeader.totalCol >= 0) add(currentHeader.totalCol, 'total', 8);
-    }
-
-    for(let r = startRow; r < Math.min(rows.length, startRow + 80); r++){
-      const row = rows[r] || [];
-      row.forEach((cell, c) => {
-        const value = parseNumber(cell);
-        if(isLikelyCode(cell)) add(c, 'code', 3);
-        if(value > 0 && value <= 20 && Number.isInteger(value)) add(c, 'piece', 2);
-        if(value > 20) add(c, 'qty', 1);
-      });
-      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-      for(let c = range.s.c; c <= Math.min(range.e.c, 80); c++){
-        const cell = ws[addr(r, c)];
-        if(!cell || typeof cell.f !== 'string') continue;
-        const refs = formulaRefs(cell.f);
-        if(refs.length >= 2){
-          add(c, 'total', 5);
-          refs.forEach(ref => {
-            if(ref.row === r){
-              add(ref.col, 'qty', 2);
-              add(ref.col, 'piece', 2);
-            }
-          });
-        }
-      }
-    }
-
-    const pick = (key, exclude=[]) => {
-      let best = -1, bestScore = 0;
-      scores.forEach((score, col) => {
-        if(exclude.includes(col)) return;
-        if(score[key] > bestScore){
-          bestScore = score[key];
-          best = col;
-        }
-      });
-      return {col: best, score: bestScore};
-    };
-
-    const code = pick('code');
-    const total = pick('total', [code.col]);
-    const qty = pick('qty', [code.col, total.col]);
-    const piece = pick('piece', [code.col, total.col, qty.col]);
-    let confidence = 0;
-    if(code.col >= 0) confidence += Math.min(code.score, 10);
-    if(qty.col >= 0) confidence += Math.min(qty.score, 10);
-    if(piece.col >= 0) confidence += Math.min(piece.score, 10);
-    if(total.col >= 0) confidence += Math.min(total.score, 6);
-    return {
-      codeCol: code.col,
-      qtyCol: qty.col,
-      pieceCol: piece.col,
-      totalCol: total.col,
-      confidence,
-      method: currentHeader ? 'header+formula+shape' : 'formula+shape'
-    };
+  function isFixedTemplateHeader(row){
+    const code = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.codeCol]);
+    const qty = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.qtyCol]);
+    const piece = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.pieceCol]);
+    const total = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.totalCol]);
+    return (
+      code.includes('MAHANG') &&
+      (qty.includes('SLPO') || qty.includes('PCS')) &&
+      piece.includes('SOKIEN') &&
+      (total.includes('SLCAT') || total.includes('THUCTE'))
+    );
   }
 
   function analyzeTemplateWorkbook(fileName, workbook){
     const book = {
       fileName,
+      schemaVersion: 'fixed-2026-07',
       sheetCount: workbook.SheetNames.length,
       itemCount: 0,
       rowCount: 0,
@@ -242,53 +116,42 @@
       const ws = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       const sheetInfo = {name: sheetName, detectedBlocks: 0, rowCount: 0, warningCount: 0, detections: []};
-      let header = null;
-
-      rows.forEach((row, rIdx) => {
-        const maybeHeader = findTemplateHeader(row);
-        if(maybeHeader){
-          header = inferHeaderFromRows(rows, ws, rIdx + 1, maybeHeader);
-          sheetInfo.detectedBlocks += 1;
-          sheetInfo.detections.push({
-            rowNumber: rIdx + 1,
-            method: header.method,
-            confidence: header.confidence,
-            codeCol: header.codeCol,
-            qtyCol: header.qtyCol,
-            pieceCol: header.pieceCol,
-            totalCol: header.totalCol
-          });
-          if(header.confidence < 16){
-            sheetInfo.warningCount += 1;
-            book.warningCount += 1;
-          }
+      rows.forEach((row, headerIndex) => {
+        if(!isFixedTemplateHeader(row)) return;
+        const dataIndex = headerIndex + 1;
+        const dataRow = rows[dataIndex] || [];
+        const rawCode = dataRow[FIXED_TEMPLATE_COLUMNS.codeCol];
+        if(!isItemCode(rawCode)){
+          sheetInfo.warningCount += 1;
+          book.warningCount += 1;
           return;
         }
-        if(!header && rIdx === 0){
-          header = inferHeaderFromRows(rows, ws, 0, null);
-          if(header.confidence < 14) header = null;
-        }
-        if(!header || header.codeCol < 0 || header.qtyCol < 0 || header.pieceCol < 0) return;
-        const rawCode = row[header.codeCol];
-        if(!isLikelyCode(rawCode)) return;
         const code = normalizeCode(rawCode);
-        const pieces = parseNumber(row[header.pieceCol]);
-        const qtyCell = addr(rIdx, header.qtyCol);
-        const pieceCell = addr(rIdx, header.pieceCol);
-        const totalCell = header.totalCol >= 0 ? addr(rIdx, header.totalCol) : '';
+        const pieces = parseNumber(dataRow[FIXED_TEMPLATE_COLUMNS.pieceCol]);
         const rowInfo = {
           sheetName,
-          rowNumber: rIdx + 1,
+          headerRowNumber: headerIndex + 1,
+          rowNumber: dataIndex + 1,
           code,
-          qtyCell,
-          pieceCell,
-          totalCell,
+          qtyCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.qtyCol),
+          pieceCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.pieceCol),
+          totalCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.totalCol),
           piecesPerRow: pieces,
-          detectMethod: header.method,
-          detectConfidence: header.confidence
+          detectMethod: 'fixed-new-spec',
+          detectConfidence: 100
         };
+        sheetInfo.detectedBlocks += 1;
         sheetInfo.rowCount += 1;
         book.rowCount += 1;
+        sheetInfo.detections.push({
+          rowNumber: headerIndex + 1,
+          method: 'fixed-new-spec',
+          confidence: 100,
+          codeCol: FIXED_TEMPLATE_COLUMNS.codeCol,
+          qtyCol: FIXED_TEMPLATE_COLUMNS.qtyCol,
+          pieceCol: FIXED_TEMPLATE_COLUMNS.pieceCol,
+          totalCol: FIXED_TEMPLATE_COLUMNS.totalCol
+        });
         if(pieces <= 0){
           sheetInfo.warningCount += 1;
           book.warningCount += 1;
@@ -297,7 +160,7 @@
         if(!codeMap.has(code)){
           codeMap.set(code, {
             code,
-            aliases: expandCodeAliases(code),
+            aliases: codeAliases(code),
             piecesPerItem: 0,
             rows: [],
             templateFileName: fileName
@@ -307,98 +170,10 @@
         item.rows.push(rowInfo);
         item.piecesPerItem += pieces;
       });
-      book.sheets.push(sheetInfo);
-    });
-
-    book.codes = Array.from(codeMap.values()).sort((a, b) => a.code.localeCompare(b.code, undefined, {numeric:true}));
-    book.itemCount = book.codes.length;
-    book.rules = book.sheets.map(sheet => {
-      const best = (sheet.detections || []).slice().sort((a, b) => b.confidence - a.confidence)[0];
-      return best ? {
-        sheetName: sheet.name,
-        method: best.method,
-        confidence: best.confidence,
-        codeCol: best.codeCol,
-        qtyCol: best.qtyCol,
-        pieceCol: best.pieceCol,
-        totalCol: best.totalCol
-      } : {
-        sheetName: sheet.name,
-        method: 'not-detected',
-        confidence: 0,
-        codeCol: -1,
-        qtyCol: -1,
-        pieceCol: -1,
-        totalCol: -1
-      };
-    });
-    return book;
-  }
-
-  function buildTemplateBookFromRules(fileName, workbook, rules){
-    const book = {
-      fileName,
-      sheetCount: workbook.SheetNames.length,
-      itemCount: 0,
-      rowCount: 0,
-      warningCount: 0,
-      status: 'pending',
-      sheets: [],
-      codes: [],
-      rules: rules.map(r => ({...r}))
-    };
-    const ruleMap = new Map(book.rules.map(r => [r.sheetName, r]));
-    const codeMap = new Map();
-
-    workbook.SheetNames.forEach(sheetName => {
-      const ws = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      const rule = ruleMap.get(sheetName);
-      const sheetInfo = {
-        name: sheetName,
-        detectedBlocks: rule && rule.codeCol >= 0 ? 1 : 0,
-        rowCount: 0,
-        warningCount: 0,
-        detections: rule ? [{...rule, method: 'confirmed-rule'}] : []
-      };
-
-      if(!rule || rule.codeCol < 0 || rule.qtyCol < 0 || rule.pieceCol < 0){
+      if(!sheetInfo.detectedBlocks){
         sheetInfo.warningCount += 1;
         book.warningCount += 1;
-        book.sheets.push(sheetInfo);
-        return;
       }
-
-      rows.forEach((row, rIdx) => {
-        const rawCode = row[rule.codeCol];
-        if(!isLikelyCode(rawCode)) return;
-        const code = normalizeCode(rawCode);
-        const pieces = parseNumber(row[rule.pieceCol]);
-        const rowInfo = {
-          sheetName,
-          rowNumber: rIdx + 1,
-          code,
-          qtyCell: addr(rIdx, rule.qtyCol),
-          pieceCell: addr(rIdx, rule.pieceCol),
-          totalCell: rule.totalCol >= 0 ? addr(rIdx, rule.totalCol) : '',
-          piecesPerRow: pieces,
-          detectMethod: 'confirmed-rule',
-          detectConfidence: rule.confidence
-        };
-        sheetInfo.rowCount += 1;
-        book.rowCount += 1;
-        if(pieces <= 0){
-          sheetInfo.warningCount += 1;
-          book.warningCount += 1;
-          rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
-        }
-        if(!codeMap.has(code)){
-          codeMap.set(code, {code, aliases: expandCodeAliases(code), piecesPerItem: 0, rows: [], templateFileName: fileName});
-        }
-        const item = codeMap.get(code);
-        item.rows.push(rowInfo);
-        item.piecesPerItem += pieces;
-      });
       book.sheets.push(sheetInfo);
     });
 
@@ -410,10 +185,10 @@
   function buildTemplateMap(){
     const map = new Map();
     state.templates.forEach(book => {
-      if(book.status !== 'confirmed') return;
+      if(book.status !== 'confirmed' || book.schemaVersion !== 'fixed-2026-07') return;
       (book.codes || []).forEach(item => {
         const templateItem = {...item, templateId: book.id, fileName: book.fileName};
-        const aliases = item.aliases && item.aliases.length ? item.aliases : expandCodeAliases(item.code);
+        const aliases = item.aliases && item.aliases.length ? item.aliases : codeAliases(item.code);
         aliases.forEach(alias => {
           if(!map.has(alias)) map.set(alias, templateItem);
         });
@@ -458,7 +233,7 @@
   }
 
   function setTemplateBusy(busy){
-    ['cut-template-file', 'cut-template-apply-btn', 'cut-template-confirm-btn', 'cut-template-clear-btn'].forEach(id => {
+    ['cut-template-file', 'cut-template-confirm-btn', 'cut-template-clear-btn'].forEach(id => {
       const el = g(id);
       if(el) el.disabled = !!busy;
     });
@@ -513,6 +288,7 @@
     (templates || []).forEach(template => {
       if(template.fileName === book.fileName) return;
       if(template.status && template.status !== 'confirmed') return;
+      if(template.schemaVersion !== 'fixed-2026-07') return;
       (template.codes || []).forEach(item => {
         const candidates = [item.code, ...(item.aliases || [])].map(code => normalizeCode(code)).filter(Boolean);
         const matched = candidates.find(code => incoming.has(code));
@@ -563,7 +339,11 @@
         <td style="text-align:right">${fmtNum(t.sheetCount)}</td>
         <td style="text-align:right">${fmtNum(t.itemCount)}</td>
         <td style="text-align:right">${fmtNum(t.rowCount)}</td>
-        <td>${t.status === 'confirmed' ? (t.warningCount ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.warningCount)} cảnh báo / 已確認，${fmtNum(t.warningCount)} 警告</span>` : '<span class="tg tg2">Đã xác nhận / 已確認</span>') : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>'}</td>
+        <td>${t.schemaVersion !== 'fixed-2026-07'
+          ? '<span class="tg ta">Mẫu cũ đã ngừng / 舊格式已停用</span>'
+          : (t.status === 'confirmed'
+            ? (t.warningCount ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.warningCount)} cảnh báo / 已確認，${fmtNum(t.warningCount)} 警告</span>` : '<span class="tg tg2">Đã xác nhận / 已確認</span>')
+            : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>')}</td>
         <td style="text-align:center"><button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button></td>
       </tr>
     `).join('');
@@ -578,72 +358,6 @@
       return;
     }
     box.style.display = 'block';
-    const isPending = state.pendingBook && state.pendingBook === book;
-    html('cut-template-analysis-body', `
-      <div class="mg">
-        <div class="mc"><div class="ml">Số sheet</div><div class="mvi">工作表</div><div class="mv">${fmtNum(book.sheetCount)}</div></div>
-        <div class="mc"><div class="ml">Mã hàng</div><div class="mvi">款號</div><div class="mv">${fmtNum(book.itemCount)}</div></div>
-        <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">可填數量列</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
-        <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">警告</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
-      </div>
-      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
-      <div class="to"><div class="ts" style="max-height:240px"><table>
-        <thead><tr>
-          <th>Mã hàng<br><span class="tv">款號</span></th>
-          <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
-          <th style="text-align:right">Số dòng<br><span class="tv">列數</span></th>
-          <th>Vị trí điền SL<br><span class="tv">數量填寫位置</span></th>
-        </tr></thead>
-        <tbody>
-          ${book.codes.slice(0, 80).map(item => `<tr>
-            <td><b>${esc(item.code)}</b></td>
-            <td style="text-align:right">${fmtNum(item.piecesPerItem)}</td>
-            <td style="text-align:right">${fmtNum(item.rows.length)}</td>
-            <td>${esc(item.rows.slice(0, 6).map(r => `${r.sheetName}!${r.qtyCell}`).join(', '))}${item.rows.length > 6 ? '...' : ''}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div></div>
-      <div class="dv"></div>
-      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Thiết lập cột theo từng sheet / 各工作表欄位設定</div>
-      <div class="to"><div class="ts" style="max-height:180px"><table>
-        <thead><tr>
-          <th>Sheet<br><span class="tv">工作表</span></th>
-          <th>Phương pháp<br><span class="tv">判斷方式</span></th>
-          <th style="text-align:right">Tin cậy<br><span class="tv">信心分數</span></th>
-          <th>Cột mã hàng<br><span class="tv">款號欄</span></th>
-          <th>Cột SL:PO<br><span class="tv">訂單數量欄</span></th>
-          <th>Cột số kiện<br><span class="tv">每件條數欄</span></th>
-          <th>Cột thực tế<br><span class="tv">裁段總數欄</span></th>
-        </tr></thead>
-        <tbody>
-          ${(book.rules || []).map((d, i) => `<tr>
-            <td>${esc(d.sheetName)}</td>
-            <td>${esc(d.method)}</td>
-            <td style="text-align:right">${fmtNum(d.confidence)}</td>
-            <td><select data-cut-rule="${i}" data-cut-field="codeCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.codeCol)}</select></td>
-            <td><select data-cut-rule="${i}" data-cut-field="qtyCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.qtyCol)}</select></td>
-            <td><select data-cut-rule="${i}" data-cut-field="pieceCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.pieceCol)}</select></td>
-            <td><select data-cut-rule="${i}" data-cut-field="totalCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.totalCol)}</select></td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div></div>
-      ${isPending ? `<div class="nt nw" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div>Hệ thống chỉ đưa ra đề xuất. Vui lòng kiểm tra cột rồi xác nhận mẫu trước khi sử dụng.<br>系統目前只是建議判斷，請檢查欄位後確認模板，才可正式使用。</div></div>
-      <div class="br">
-        <button class="btn bp" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
-      </div>` : ''}
-    `);
-  }
-
-  renderTemplateAnalysis = function(book){
-    const box = g('cut-template-analysis');
-    if(!box) return;
-    if(!book){
-      box.style.display = 'none';
-      html('cut-template-analysis-body', '');
-      return;
-    }
-    box.style.display = 'block';
-    const isPending = state.pendingBook && state.pendingBook === book;
     html('cut-template-analysis-body', `
       <div class="mg">
         <div class="mc"><div class="ml">Số sheet</div><div class="mvi">工作表</div><div class="mv">${fmtNum(book.sheetCount)}</div></div>
@@ -651,36 +365,12 @@
         <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">填寫列數</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
         <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">警告</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
       </div>
-
-      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Thiết lập cột theo từng sheet / 各工作表欄位設定</div>
-      ${isPending ? `<div class="nt nw" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i><div>Hệ thống chỉ đưa ra đề xuất. Vui lòng kiểm tra cột rồi xác nhận mẫu trước khi sử dụng.<br>系統目前只是建議判斷，請檢查欄位後確認模板，才可正式使用。</div></div>
-      <div class="br" style="margin-bottom:12px">
-        <button class="btn bp" id="cut-template-apply-btn" onclick="cuttingApplyTemplateRules()"><i class="ti ti-refresh"></i>Áp dụng chỉnh sửa / 套用修正</button>
-      </div>` : ''}
-      <div class="to"><div class="ts" style="max-height:180px"><table>
-        <thead><tr>
-          <th>Sheet<br><span class="tv">工作表</span></th>
-          <th>Phương pháp<br><span class="tv">判斷方式</span></th>
-          <th style="text-align:right">Tin cậy<br><span class="tv">信心分數</span></th>
-          <th>Cột mã hàng<br><span class="tv">款號欄</span></th>
-          <th>Cột SL:PO<br><span class="tv">訂單數量欄</span></th>
-          <th>Cột số kiện<br><span class="tv">每件條數欄</span></th>
-          <th>Cột thực tế<br><span class="tv">裁段總數欄</span></th>
-        </tr></thead>
-        <tbody>
-          ${(book.rules || []).map((d, i) => `<tr>
-            <td>${esc(d.sheetName)}</td>
-            <td>${esc(d.method)}</td>
-            <td style="text-align:right">${fmtNum(d.confidence)}</td>
-            <td><select data-cut-rule="${i}" data-cut-field="codeCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.codeCol)}</select></td>
-            <td><select data-cut-rule="${i}" data-cut-field="qtyCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.qtyCol)}</select></td>
-            <td><select data-cut-rule="${i}" data-cut-field="pieceCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.pieceCol)}</select></td>
-            <td><select data-cut-rule="${i}" data-cut-field="totalCol" style="padding:5px 8px;border:1px solid var(--bd);border-radius:7px">${colOptions(d.totalCol)}</select></td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div></div>
-
-      <div class="dv"></div>
+      <div class="nt ${book.warningCount ? 'nw' : 'ns'}" style="margin-bottom:12px">
+        <i class="ti ${book.warningCount ? 'ti-alert-triangle' : 'ti-circle-check'}"></i>
+        <div>${book.warningCount
+          ? 'Một số sheet không đúng mẫu cố định A-K. / 部分工作表不符合 A-K 固定新規格。'
+          : 'Đã xác nhận cấu trúc cố định A-K. / 已確認 A-K 固定新規格。'}</div>
+      </div>
       <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
       <div class="to"><div class="ts" style="max-height:240px"><table>
         <thead><tr>
@@ -699,7 +389,7 @@
         </tbody>
       </table></div></div>
     `);
-  };
+  }
 
   function cuttingPickTemplate(){
     const input = g('cut-template-file');
@@ -739,97 +429,24 @@
     );
   }
 
-  function readTemplateRulesFromUi(){
-    const base = state.pendingBook?.rules || [];
-    return base.map((rule, i) => {
-      const next = {...rule};
-      document.querySelectorAll(`[data-cut-rule="${i}"]`).forEach(sel => {
-        next[sel.dataset.cutField] = Number(sel.value);
-      });
-      next.method = 'manual-confirm';
-      next.confidence = Math.max(next.confidence || 0, 100);
-      return next;
-    });
-  }
-
-  function cuttingApplyTemplateRules(){
-    if(!state.pendingWorkbook || !state.pendingBook){
-      alert('Chưa có mẫu cần chỉnh sửa.\n目前沒有可修正的模板。');
-      return;
-    }
-    const rules = readTemplateRulesFromUi();
-    state.pendingBook = buildTemplateBookFromRules(state.pendingBook.fileName, state.pendingWorkbook, rules);
-    renderTemplateAnalysis(state.pendingBook);
-  }
-
-  async function cuttingConfirmTemplate(){
-    if(!state.pendingTemplateFile || !state.pendingWorkbook || !state.pendingBook){
-      alert('Chưa có mẫu cần xác nhận.\n目前沒有可確認的模板。');
-      return;
-    }
-    cuttingApplyTemplateRules();
-    const book = {...state.pendingBook, status:'confirmed', confirmedAt:new Date().toISOString()};
-    if(!book.itemCount){
-      alert('Không có mã hàng sau khi áp dụng quy tắc, không thể lưu mẫu.\n套用規則後沒有款號，不能保存模板。');
-      return;
-    }
-    await window.cuttingStore.saveTemplateBook(book, state.pendingTemplateFile);
-    state.pendingTemplateFile = null;
-    state.pendingWorkbook = null;
-    state.pendingBook = null;
-    text('cut-template-file-name', '');
-    renderTemplateAnalysis(book);
-    await refreshTemplates();
-    alert('Đã xác nhận và lưu mẫu.\n已確認並保存模板。');
-  }
-
   async function cuttingHandleTemplateFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
     await cuttingAnalyzeTemplateFile(file);
     input.value = '';
   }
-
-  async function cuttingAnalyzeTemplateFile(file){
-    if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
-    if(!isXlsxTemplateFile(file)){
-      alertTemplateFileTypeError(file.name);
-      return;
-    }
-    text('cut-template-file-name', file.name);
-    try{
-      const data = await file.arrayBuffer();
-      const wb = XLSX.read(data, {type:'array', cellFormula:true, cellStyles:true});
-      const book = analyzeTemplateWorkbook(file.name, wb);
-      if(!book.itemCount){
-        renderTemplateAnalysis(book);
-        alert('Không tìm thấy mã hàng trong mẫu. Vui lòng kiểm tra cột Mã hàng / SL:PO / Số kiện.\n模板內找不到款號，請檢查 Mã hàng、SL:PO、Số kiện 欄位。');
-        return;
-      }
-      book.status = 'pending';
-      state.pendingTemplateFile = file;
-      state.pendingWorkbook = wb;
-      state.pendingBook = book;
-      renderTemplateAnalysis(book);
-    }catch(e){
-      console.error(e);
-      alert('Phân tích mẫu Excel thất bại.\n分析 Excel（表格檔）模板失敗。\n\n' + e.message);
-    }
-  }
-
-  cuttingConfirmTemplate = async function(){
-    if(!state.pendingTemplateFile || !state.pendingWorkbook || !state.pendingBook){
+  async function cuttingConfirmTemplate(){
+    if(!state.pendingTemplateFile || !state.pendingBook){
       alert('Chưa có mẫu cần xác nhận.\n尚無需要確認的模板。');
       return;
     }
     setTemplateBusy(true);
     try{
-      await setTemplateProgress(8, 'Đang kiểm tra cột mẫu... / 正在檢查模板欄位...', 'Hệ thống sẽ áp dụng thiết lập cột hiện tại. / 系統會套用目前欄位設定。');
-      cuttingApplyTemplateRules();
+      await setTemplateProgress(8, 'Đang kiểm tra cấu trúc cố định... / 正在檢查固定格式...', 'Hệ thống chỉ nhận mẫu mới có cột A–K cố định. / 系統只接受新版 A–K 固定欄位模板。');
       const book = {...state.pendingBook, status:'confirmed', confirmedAt:new Date().toISOString()};
-      if(!book.itemCount){
+      if(!book.itemCount || book.warningCount){
         hideTemplateProgress();
-        alert('Không có mã hàng sau khi áp dụng quy tắc, không thể lưu mẫu.\n套用規則後沒有款號，無法儲存模板。');
+        alert('Cấu trúc mẫu không đúng quy cách mới, không thể lưu.\n模板結構不符合新規格，無法儲存。');
         return;
       }
       await setTemplateProgress(18, 'Đang chuẩn bị lưu mẫu... / 正在準備儲存模板...', 'Excel sẽ được chia nhỏ để lưu vào cơ sở dữ liệu đám mây. / Excel 會分段存到雲端資料庫。');
@@ -856,7 +473,6 @@
       });
       await setTemplateProgress(92, 'Đang làm mới danh sách mẫu... / 正在更新模板清單...', 'Sắp hoàn tất. / 即將完成。');
       state.pendingTemplateFile = null;
-      state.pendingWorkbook = null;
       state.pendingBook = null;
       text('cut-template-file-name', '');
       renderTemplateAnalysis(null);
@@ -870,9 +486,9 @@
     }finally{
       setTemplateBusy(false);
     }
-  };
+  }
 
-  cuttingAnalyzeTemplateFile = async function(file){
+  async function cuttingAnalyzeTemplateFile(file){
     if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel，請重新整理頁面。'); return; }
     if(!isXlsxTemplateFile(file)){
       alertTemplateFileTypeError(file.name);
@@ -884,21 +500,20 @@
       await setTemplateProgress(8, 'Đang đọc file mẫu... / 正在讀取模板檔案...', esc(file.name));
       const data = await file.arrayBuffer();
       await setTemplateProgress(30, 'Đang mở Excel... / 正在開啟 Excel...', 'Hệ thống đang đọc nội dung bảng tính. / 系統正在讀取活頁簿內容。');
-      const wb = XLSX.read(data, {type:'array', cellFormula:true, cellStyles:true});
-      await setTemplateProgress(58, 'Đang phân tích cột và mã hàng... / 正在分析欄位與款號...', 'Tệp càng lớn thì bước này càng lâu. / 檔案越大，這一步會越久。');
+      const wb = XLSX.read(data, {type:'array', cellFormula:false, cellStyles:false});
+      await setTemplateProgress(58, 'Đang kiểm tra cột A–K và mã hàng... / 正在檢查 A–K 欄位與款號...', 'Mỗi phân trang được đọc tiêu đề riêng. / 每個分頁都會獨立讀取抬頭。');
       const book = analyzeTemplateWorkbook(file.name, wb);
-      if(!book.itemCount){
-        await setTemplateProgress(100, 'Không tìm thấy mã hàng. / 找不到款號。', 'Vui lòng kiểm tra cột mã hàng, SL:PO, số kiện. / 請檢查款號、SL:PO、件數欄位。');
+      if(!book.itemCount || book.warningCount){
+        await setTemplateProgress(100, 'Mẫu không đúng quy cách mới. / 模板不符合新規格。', 'Vui lòng kiểm tra cột A–K trên mọi phân trang. / 請檢查每個分頁的 A–K 欄位。');
         renderTemplateAnalysis(book);
-        alert('Không tìm thấy mã hàng trong mẫu. Vui lòng kiểm tra cột Mã hàng / SL:PO / Số kiện.\n模板中找不到款號，請檢查 Mã hàng、SL:PO、Số kiện 欄位。');
+        alert('Mẫu không đúng quy cách mới. Vui lòng kiểm tra cột A–K trên mọi phân trang.\n模板不符合新規格，請檢查每個分頁的 A–K 欄位。');
         hideTemplateProgress(800);
         return;
       }
       book.status = 'pending';
       state.pendingTemplateFile = file;
-      state.pendingWorkbook = wb;
       state.pendingBook = book;
-      await setTemplateProgress(100, 'Phân tích mẫu hoàn tất. / 模板分析完成。', 'Vui lòng kiểm tra cột rồi xác nhận mẫu. / 請檢查欄位後確認模板。');
+      await setTemplateProgress(100, 'Phân tích mẫu hoàn tất. / 模板分析完成。', 'Cấu trúc cố định đã hợp lệ. / 固定格式已通過檢查。');
       renderTemplateAnalysis(book);
       hideTemplateProgress(800);
     }catch(e){
@@ -908,7 +523,7 @@
     }finally{
       setTemplateBusy(false);
     }
-  };
+  }
 
   async function cuttingDeleteTemplateCache(template, sourceFile){
     const payload = {
@@ -993,7 +608,6 @@
     state.orderItems = [];
     state.results = [];
     state.pendingTemplateFile = null;
-    state.pendingWorkbook = null;
     state.pendingBook = null;
     text('cut-template-file-name', '');
     text('cut-order-file-name', '');
@@ -1003,7 +617,6 @@
 
   function cuttingClearTemplateCurrent(){
     state.pendingTemplateFile = null;
-    state.pendingWorkbook = null;
     state.pendingBook = null;
     const input = g('cut-template-file');
     if(input) input.value = '';
@@ -1033,7 +646,7 @@
     const codeScores = new Map();
     for(let r = 0; r < Math.min(rows.length, 160); r++){
       (rows[r] || []).forEach((cell, c) => {
-        if(isLikelyCode(cell)) codeScores.set(c, (codeScores.get(c) || 0) + 1);
+        if(isItemCode(cell)) codeScores.set(c, (codeScores.get(c) || 0) + 1);
       });
     }
     let codeIdx = -1, bestCodeScore = 0;
@@ -1048,7 +661,7 @@
     const qtyScores = new Map();
     for(let r = 0; r < Math.min(rows.length, 220); r++){
       const row = rows[r] || [];
-      if(!isLikelyCode(row[codeIdx])) continue;
+      if(!isItemCode(row[codeIdx])) continue;
       row.forEach((cell, c) => {
         if(c === codeIdx) return;
         const qty = parseNumber(cell);
@@ -1075,7 +688,7 @@
       rows.slice(header.row + 1).forEach(row => {
         const code = normalizeCode(row[header.codeIdx]);
         const qty = parseNumber(row[header.qtyIdx]);
-        if(!isLikelyCode(code) || qty <= 0) return;
+        if(!isItemCode(code) || qty <= 0) return;
         items.set(code, (items.get(code) || 0) + qty);
       });
     }
@@ -1085,7 +698,7 @@
         rows.forEach(row => {
           const code = normalizeCode(row[header.codeIdx]);
           const qty = parseNumber(row[header.qtyIdx]);
-          if(!isLikelyCode(code) || qty <= 0) return;
+          if(!isItemCode(code) || qty <= 0) return;
           items.set(code, (items.get(code) || 0) + qty);
         });
       }
@@ -1273,61 +886,6 @@
     if(exportBtn) exportBtn.disabled = problems.length > 0;
     html('cut-preview-body', buildPreviewHtml());
     om('m-cutting-preview');
-  }
-
-  const XLSX_MAIN_NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-  const XLSX_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
-  const XLSX_DOC_REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-
-  function xmlElements(root, localName){
-    return Array.from(root.getElementsByTagName('*')).filter(el => el.localName === localName);
-  }
-
-  function parseXml(text){
-    const doc = new DOMParser().parseFromString(text, 'application/xml');
-    const error = doc.getElementsByTagName('parsererror')[0];
-    if(error) throw new Error('Không đọc được cấu trúc Excel.\n無法讀取 Excel 結構。');
-    return doc;
-  }
-
-  async function readXml(zip, path){
-    const file = zip.file(path);
-    if(!file) throw new Error(`Thiếu file trong Excel: ${path}\nExcel 內缺少檔案：${path}`);
-    return parseXml(await file.async('text'));
-  }
-
-  function serializeXml(doc){
-    return new XMLSerializer().serializeToString(doc);
-  }
-
-  function sheetCellText(value){
-    if(value == null) return '';
-    if(typeof value === 'object' && value !== null){
-      if(value.w != null) return String(value.w);
-      if(value.v != null) return String(value.v);
-    }
-    return String(value);
-  }
-
-  function normalizeXlsxTarget(target){
-    const clean = String(target || '').replace(/^\/+/, '').replace(/^\.\//, '');
-    return clean.startsWith('xl/') ? clean : `xl/${clean}`;
-  }
-
-  async function getSheetPathMap(zip){
-    const workbookDoc = await readXml(zip, 'xl/workbook.xml');
-    const relsDoc = await readXml(zip, 'xl/_rels/workbook.xml.rels');
-    const rels = new Map();
-    xmlElements(relsDoc, 'Relationship').forEach(rel => {
-      rels.set(rel.getAttribute('Id'), normalizeXlsxTarget(rel.getAttribute('Target')));
-    });
-    const sheets = new Map();
-    xmlElements(workbookDoc, 'sheet').forEach(sheet => {
-      const relId = sheet.getAttributeNS(XLSX_DOC_REL_NS, 'id') || sheet.getAttribute('r:id');
-      const target = rels.get(relId);
-      if(target) sheets.set(sheet.getAttribute('name'), target);
-    });
-    return {workbookDoc, sheets};
   }
 
   function templateQtyRows(template){
@@ -1610,6 +1168,17 @@
     };
   }
 
+  async function getCuttingPdfCacheStatus(templates){
+    const response = await fetch('http://127.0.0.1:8765/cutting/cache/status', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({templates})
+    });
+    if(!response.ok) return new Set();
+    const data = await response.json();
+    return new Set(Array.isArray(data.cachedTemplateIds) ? data.cachedTemplateIds : []);
+  }
+
   async function cuttingCreateLocalPdf(){
     const exportableResults = orderExportableResultsByTemplate(state.results.filter(r => r.status === 'pass'));
     const hasErrors = state.results.some(r => r.status === 'error');
@@ -1638,6 +1207,16 @@
       openCuttingPdfProgress();
       setCuttingPdfProgress(8, 'Đang chuẩn bị dữ liệu... / 正在準備資料...', 'Hệ thống đang kiểm tra mẫu và đơn hàng. / 系統正在確認模板與訂單。');
       const templateEntries = Array.from(byTemplate.entries());
+      const cacheChecks = templateEntries.map(([templateId, results]) => {
+        const template = state.templates.find(item => item.id === templateId);
+        return {
+          templateId,
+          templateUpdatedAt: template?.updatedAt || '',
+          templateFileSize: Number(template?.fileSize || 0),
+          fileName: template?.fileName || results[0]?.fileName || ''
+        };
+      });
+      const cachedTemplateIds = await getCuttingPdfCacheStatus(cacheChecks);
       const packages = [];
       for(let i = 0; i < templateEntries.length; i++){
         const [templateId, results] = templateEntries[i];
@@ -1649,23 +1228,27 @@
           alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
           return;
         }
-        setCuttingPdfProgress(
-          Math.min(28, 12 + i * 4),
-          'Đang đọc file mẫu... / 正在讀取模板檔...',
-          `Đang chuẩn bị mẫu ${i + 1}/${templateEntries.length}.<br>正在準備第 ${i + 1}/${templateEntries.length} 個模板。`
-        );
-        const sourceFile = await cuttingStore.getTemplateFile(templateId);
-        if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
-        const buffer = await sourceFile.arrayBuffer();
-        packages.push({
+        const packageData = {
           templateId,
           templateUpdatedAt: template?.updatedAt || '',
-          templateFileSize: sourceFile.size || 0,
+          templateFileSize: Number(template?.fileSize || 0),
           fileName,
-          templateBase64: arrayBufferToBase64(buffer),
           writes: buildLocalPdfWrites(template, results),
           orderCells: buildLocalPdfOrderCells(results)
-        });
+        };
+        if(!cachedTemplateIds.has(templateId)){
+          setCuttingPdfProgress(
+            Math.min(28, 12 + i * 4),
+            'Đang đọc file mẫu... / 正在讀取模板檔...',
+            `Đang chuẩn bị mẫu ${i + 1}/${templateEntries.length}.<br>正在準備第 ${i + 1}/${templateEntries.length} 個模板。`
+          );
+          const sourceFile = await cuttingStore.getTemplateFile(templateId);
+          if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
+          const buffer = await sourceFile.arrayBuffer();
+          packageData.templateFileSize = sourceFile.size || 0;
+          packageData.templateBase64 = arrayBufferToBase64(buffer);
+        }
+        packages.push(packageData);
       }
       setCuttingPdfProgress(28, 'Đang đóng gói dữ liệu... / 正在整理資料...', 'Đang chuẩn bị số lượng cần điền và vị trí ô. / 正在準備填寫數量與儲存格位置。');
       const report = buildLocalPdfReport(exportableResults, state.results);
@@ -1732,7 +1315,6 @@
   window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
   window.cuttingSwitchTab = cuttingSwitchTab;
-  window.cuttingApplyTemplateRules = cuttingApplyTemplateRules;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingClearTemplateCurrent = cuttingClearTemplateCurrent;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
