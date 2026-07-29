@@ -7,7 +7,6 @@ $script:IndexVersion = 15
 $script:Prefix = "http://127.0.0.1:$Port/"
 $script:Stage = ''
 $script:Detail = ''
-$script:Logs = New-Object System.Collections.Generic.List[string]
 $script:Timer = $null
 $script:LastMs = 0
 $script:CurrentTempDir = ''
@@ -23,7 +22,6 @@ function Set-Stage([string]$stage, [string]$detail = '') {
 function Start-Timer() {
   $script:Timer = [System.Diagnostics.Stopwatch]::StartNew()
   $script:LastMs = 0
-  $script:Logs = New-Object System.Collections.Generic.List[string]
 }
 
 function Add-Log([string]$name, [string]$detail = '') {
@@ -33,7 +31,6 @@ function Add-Log([string]$name, [string]$detail = '') {
   $script:LastMs = $total
   $line = "$name total=${total}ms lap=${lap}ms"
   if ($detail) { $line = "$line $detail" }
-  $script:Logs.Add($line)
   Write-Host "[cutting-time] $line"
 }
 
@@ -920,22 +917,6 @@ function Draw-CenteredText($graphics, [string]$text, [System.Drawing.RectangleF]
   }
 }
 
-function Draw-CenteredSingleLineText($graphics, [string]$text, [System.Drawing.RectangleF]$rect, [float]$maxSize = 12, [float]$minSize = 3.0, [bool]$bold = $false, $brush = $null) {
-  if ($null -eq $brush) { $brush = [System.Drawing.Brushes]::Black }
-  $style = if ($bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
-  $font = Get-FitSingleLineFont $graphics $text 'Arial' $maxSize $minSize $rect.Width $style
-  try {
-    $format = New-Object System.Drawing.StringFormat
-    $format.Alignment = [System.Drawing.StringAlignment]::Center
-    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
-    $format.Trimming = [System.Drawing.StringTrimming]::None
-    $format.FormatFlags = [System.Drawing.StringFormatFlags]::NoWrap
-    $graphics.DrawString($text, $font, $brush, $rect, $format)
-  } finally {
-    $font.Dispose()
-  }
-}
-
 function Split-HeadSideTextLine([string]$line) {
   $clean = ([string]$line).Trim()
   if ($clean -match '^(?i)(.*?(?:ĐẦU|DAU))\s+((?:TRÁI|TRAI)\s+(?:PHẢI|PHAI).*)$') {
@@ -1061,7 +1042,7 @@ function Get-PrintableCellValue($item, [string]$key) {
   }
 }
 
-function Draw-BodyCellText($graphics, [string]$key, [string]$value, [System.Drawing.RectangleF]$rect, [bool]$bold = $false, [bool]$allowSingleLine = $true, [float]$fixedSize = 0) {
+function Draw-BodyCellText($graphics, [string]$key, [string]$value, [System.Drawing.RectangleF]$rect, [bool]$bold = $false, [float]$fixedSize = 0) {
   $lines = Get-DisplayTextLines $value
   Draw-CenteredTextLines $graphics $lines $rect 11 3.0 ($bold -or $key -eq 'Code') $null $fixedSize
 }
@@ -1213,7 +1194,7 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
         $graphics.DrawRectangle($linePen, $rowRect.X, $rowRect.Y, $rowRect.Width, $rowRect.Height)
         $value = Get-PrintableCellValue $items[$i] $key
         $fontSize = if ($null -ne $bodyFontSizes -and $bodyFontSizes.ContainsKey($key)) { [float]$bodyFontSizes[$key] } else { 0.0 }
-        Draw-BodyCellText $graphics $key $value $rowRect ($key -eq 'Total') $true $fontSize
+        Draw-BodyCellText $graphics $key $value $rowRect ($key -eq 'Total') $fontSize
       }
     }
 
@@ -1224,7 +1205,7 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
       $graphics.DrawRectangle($linePen, $mergeRect.X, $mergeRect.Y, $mergeRect.Width, $mergeRect.Height)
       $mergeKey = [string]$mergedCell.key
       $fontSize = if ($null -ne $bodyFontSizes -and $bodyFontSizes.ContainsKey($mergeKey)) { [float]$bodyFontSizes[$mergeKey] } else { 0.0 }
-      Draw-BodyCellText $graphics $mergeKey ([string]$mergedCell.value) $mergeRect ($mergeKeys -contains 'Total') $true $fontSize
+      Draw-BodyCellText $graphics $mergeKey ([string]$mergedCell.value) $mergeRect ($mergeKeys -contains 'Total') $fontSize
     }
 
   } finally {
@@ -1274,16 +1255,6 @@ function Get-ReportSummary($rows) {
     qty = if ($hasQty) { $qtyTotal } else { '' }
     piece = ''
     total = if ($hasCutTotal) { $cutTotal } else { '' }
-  }
-}
-
-function Draw-ReportGrid($graphics) {
-  $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::FromArgb(224, 224, 224), 0.5)
-  try {
-    for ($x = 0; $x -le 595; $x += 80) { $graphics.DrawLine($pen, [float]$x, 0.0, [float]$x, 842.0) }
-    for ($y = 0; $y -le 842; $y += 36) { $graphics.DrawLine($pen, 0.0, [float]$y, 595.0, [float]$y) }
-  } finally {
-    $pen.Dispose()
   }
 }
 

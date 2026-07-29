@@ -8,17 +8,10 @@
     pendingBook: null
   };
   const FIXED_TEMPLATE_COLUMNS = Object.freeze({
-    imageCol: 0,
     codeCol: 1,
-    colorCol: 2,
-    beltCol: 3,
-    segmentCol: 4,
-    cutSpecCol: 5,
     qtyCol: 6,
     pieceCol: 7,
-    totalCol: 8,
-    shortageCol: 9,
-    noteCol: 10
+    totalCol: 8
   });
   const TEMPLATE_SCHEMA_VERSION = 'fixed-2026-07'; // TEMPLATE_SCHEMA_VERSION（固定模板規格版本）
   const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
@@ -175,8 +168,6 @@
       issues: [],
       noticeCount: 0,
       notices: [],
-      mergeRangeCount: 0,
-      sheets: [],
       codes: []
     };
     const codeMap = new Map();
@@ -185,9 +176,7 @@
       const ws = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       const mergeMap = buildTemplateMergeMap(ws, sheetName); // mergeMap（合併儲存格索引）
-      const mergeRangeCount = new Set(Array.from(mergeMap.values(), item => item.id)).size;
-      book.mergeRangeCount += mergeRangeCount;
-      const sheetInfo = {name: sheetName, detectedBlocks: 0, rowCount: 0, warningCount: 0, mergeRangeCount, detections: []};
+      let detectedBlocks = 0; // detectedBlocks（已找到的原始組別數）
       const issuePieceCells = new Set(); // issuePieceCells（已記錄錯誤的件數儲存格）
       const headerIndexes = []; // headerIndexes（表頭列索引）
       rows.forEach((row, rowIndex) => {
@@ -197,16 +186,7 @@
         const nextHeaderIndex = blockIndex + 1 < headerIndexes.length ? headerIndexes[blockIndex + 1] : rows.length; // nextHeaderIndex（下一個表頭列索引）
         let blockRowCount = 0; // blockRowCount（本組款號列數）
         const blockRows = []; // blockRows（本組款號資料列）
-        sheetInfo.detectedBlocks += 1;
-        sheetInfo.detections.push({
-          rowNumber: headerIndex + 1,
-          method: 'fixed-new-spec',
-          confidence: 100,
-          codeCol: FIXED_TEMPLATE_COLUMNS.codeCol,
-          qtyCol: FIXED_TEMPLATE_COLUMNS.qtyCol,
-          pieceCol: FIXED_TEMPLATE_COLUMNS.pieceCol,
-          totalCol: FIXED_TEMPLATE_COLUMNS.totalCol
-        });
+        detectedBlocks += 1;
         for(let dataIndex = headerIndex + 1; dataIndex < nextHeaderIndex; dataIndex++){
           const codeSource = resolveTemplateCell(ws, dataIndex, FIXED_TEMPLATE_COLUMNS.codeCol, mergeMap); // codeSource（款號來源）
           const pieceSource = resolveTemplateCell(ws, dataIndex, FIXED_TEMPLATE_COLUMNS.pieceCol, mergeMap); // pieceSource（每件條數來源）
@@ -218,29 +198,21 @@
           const pieces = parseNumber(pieceSource.value);
           const rowInfo = {
             sheetName,
-            headerRowNumber: headerIndex + 1,
             rowNumber: dataIndex + 1,
             code,
-            codeCell: codeSource.cell,
             qtyCell: qtySource.cell,
             pieceCell: pieceSource.cell,
             totalCell: totalSource.cell,
-            codeMergeRef: codeSource.mergeRef,
             qtyMergeRef: qtySource.mergeRef,
-            pieceMergeRef: pieceSource.mergeRef,
             totalMergeRef: totalSource.mergeRef,
-            piecesPerRow: pieces,
-            detectMethod: 'fixed-new-spec',
-            detectConfidence: 100
+            piecesPerRow: pieces
           };
           blockRowCount += 1;
           blockRows.push(rowInfo);
-          sheetInfo.rowCount += 1;
           book.rowCount += 1;
           const pieceSourceKey = `${sheetName}!${pieceSource.cell}`; // pieceSourceKey（每件條數來源識別）
           if(pieces <= 0 && !issuePieceCells.has(pieceSourceKey)){
             issuePieceCells.add(pieceSourceKey);
-            sheetInfo.warningCount += 1;
             book.warningCount += 1;
             rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
             book.issues.push({
@@ -258,8 +230,7 @@
               aliases: codeAliases(code),
               piecesPerItem: 0,
               rows: [],
-              pieceSourceKeys: [],
-              templateFileName: fileName
+              pieceSourceKeys: []
             });
           }
           const item = codeMap.get(code);
@@ -270,7 +241,6 @@
           }
         }
         if(!blockRowCount){
-          sheetInfo.warningCount += 1;
           book.warningCount += 1;
           book.issues.push({
             sheetName,
@@ -302,8 +272,7 @@
           });
         }
       });
-      if(!sheetInfo.detectedBlocks){
-        sheetInfo.warningCount += 1;
+      if(!detectedBlocks){
         book.warningCount += 1;
         book.issues.push({
           sheetName,
@@ -314,7 +283,6 @@
           zhMessage: '找不到 A–K 固定表頭，請檢查 B、G、H、I 欄位。'
         });
       }
-      book.sheets.push(sheetInfo);
     });
 
     book.codes = Array.from(codeMap.values()).map(item => {
@@ -1483,23 +1451,6 @@
     }));
   }
 
-  function buildLocalPdfOrderCells(results){
-    const cells = [];
-    const seen = new Set(); // seen（已加入的訂單數量位置）
-    results.forEach(result => {
-      (result.rows || []).forEach(rowInfo => {
-        const key = `${rowInfo.sheetName}!${rowInfo.qtyCell}`;
-        if(seen.has(key)) return;
-        seen.add(key);
-        cells.push({
-          sheetName: rowInfo.sheetName,
-          cell: rowInfo.qtyCell
-        });
-      });
-    });
-    return cells;
-  }
-
   function buildLocalPdfReport(exportableResults, allResults){
     const missingResults = allResults.filter(result => result.status === 'missing');
     const completed = exportableResults.map(result => ({
@@ -1587,8 +1538,7 @@
           templateUpdatedAt: template?.updatedAt || '',
           templateFileSize: Number(template?.fileSize || 0),
           fileName,
-          writes: buildLocalPdfWrites(template, results),
-          orderCells: buildLocalPdfOrderCells(results)
+          writes: buildLocalPdfWrites(template, results)
         };
         if(!cachedTemplateIds.has(templateId)){
           setCuttingPdfProgress(
