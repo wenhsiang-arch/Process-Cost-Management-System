@@ -3,7 +3,7 @@
 )
 
 $ErrorActionPreference = 'Stop'
-$script:IndexVersion = 9
+$script:IndexVersion = 15
 $script:Prefix = "http://127.0.0.1:$Port/"
 $script:Stage = ''
 $script:Detail = ''
@@ -55,26 +55,20 @@ function Send-Json($response, [int]$statusCode, $data) {
 function Send-File($response, [string]$path, [string]$fileName) {
   $bytes = [System.IO.File]::ReadAllBytes($path)
   $safeName = $fileName -replace '[\\/:*?"<>|]', '_'
+  $asciiName = ($safeName -replace '[^\x20-\x7E]', '_') -replace '[";\\]', '_'
+  if (-not $asciiName) { $asciiName = 'cutting.pdf' }
+  $encodedName = [System.Uri]::EscapeDataString($safeName)
   $response.StatusCode = 200
   $response.ContentType = 'application/pdf'
+  $response.ContentLength64 = $bytes.Length
   $response.Headers.Add('Access-Control-Allow-Origin', '*')
   $response.Headers.Add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   $response.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')
-  $response.Headers.Add('Content-Disposition', "inline; filename=""$safeName""")
-  if ($script:Logs.Count -gt 0) {
-    $timing = ($script:Logs -join ' | ')
-    if ($timing.Length -gt 3500) { $timing = $timing.Substring(0, 3500) }
-    $response.Headers.Add('X-Cutting-Timing', $timing)
-  }
+  $response.Headers.Add('Content-Disposition', "attachment; filename=""$asciiName""; filename*=UTF-8''$encodedName")
   $response.OutputStream.Write($bytes, 0, $bytes.Length)
   $response.Close()
 }
 
-function Release-Com($object) {
-  if ($null -ne $object -and [System.Runtime.InteropServices.Marshal]::IsComObject($object)) {
-    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($object)
-  }
-}
 
 function Safe-FileName([string]$text) {
   $name = if ($text) { $text } else { 'template' }
@@ -227,77 +221,6 @@ function Normalize-HeaderText([string]$text) {
   return (($chars.ToString() -replace [char]272, 'D' -replace [char]273, 'd').ToUpperInvariant() -replace '\s+', '')
 }
 
-function Is-ItemCode([string]$text) {
-  $value = ([string]$text).Trim().ToUpperInvariant()
-  return (
-    $value -match '^[A-Z]{1,6}\d{2,}[-A-Z0-9]*$' -or
-    $value -match '^[A-Z]{1,6}\d{2,}~(?:[A-Z]{1,6})?\d{1,}[-A-Z0-9]*$'
-  )
-}
-
-function Expand-ItemCodeAliases([string]$text) {
-  $value = ([string]$text).Trim().ToUpperInvariant() -replace '\s+', ''
-  if (-not $value) { return @() }
-  if ($value -notmatch '~') { return @($value) }
-  $parts = $value -split '~', 2
-  if ($parts.Count -ne 2) { return @($value) }
-  $left = $parts[0]
-  $right = $parts[1]
-  if ($left -notmatch '^([A-Z]{1,6})(\d+)([-A-Z0-9]*)$') { return @($value) }
-  $prefix = $Matches[1]
-  $leftDigits = $Matches[2]
-  $suffix = $Matches[3]
-  if ($suffix) { return @($value) }
-  $rightDigits = ''
-  if ($right -match '^([A-Z]{1,6})(\d+)$') {
-    if ($Matches[1] -ne $prefix) { return @($value) }
-    $rightDigits = $Matches[2]
-  } elseif ($right -match '^(\d+)$') {
-    $rightDigits = $Matches[1]
-  } else {
-    return @($value)
-  }
-  if ($rightDigits.Length -lt $leftDigits.Length) {
-    $baseLength = $leftDigits.Length - $rightDigits.Length
-    $baseDigits = $leftDigits.Substring(0, $baseLength)
-    $leftTail = $leftDigits.Substring($baseLength)
-    $leftNum = [int]$leftTail
-    $rightNum = [int]$rightDigits
-    $width = $rightDigits.Length
-  } else {
-    $baseDigits = ''
-    $leftNum = [int]$leftDigits
-    $rightNum = [int]$rightDigits
-    $width = [Math]::Max($leftDigits.Length, $rightDigits.Length)
-  }
-  if ($rightNum -lt $leftNum -or ($rightNum - $leftNum) -gt 200) { return @($value) }
-  $aliases = @()
-  for ($num = $leftNum; $num -le $rightNum; $num++) {
-    $aliases += ($prefix + $baseDigits + $num.ToString("D$width"))
-  }
-  return $aliases
-}
-
-function Get-ColumnLetters([int]$col) {
-  $n = $col
-  $letters = ''
-  while ($n -gt 0) {
-    $rem = ($n - 1) % 26
-    $letters = [char](65 + $rem) + $letters
-    $n = [Math]::Floor(($n - 1) / 26)
-  }
-  return $letters
-}
-
-function Get-CellAddress1([int]$row, [int]$col) {
-  return "$(Get-ColumnLetters $col)$row"
-}
-
-function Get-CellText($sheet, [int]$row, [int]$col) {
-  $cell = $sheet.Cells.Item($row, $col)
-  try { return [string]$cell.Text } finally { Release-Com $cell }
-}
-
 function Normalize-PdfCellText([string]$text) {
   if ($null -eq $text) { return '' }
   $normalized = [string]$text
@@ -305,217 +228,6 @@ function Normalize-PdfCellText([string]$text) {
   $normalized = $normalized -replace "`r", "`n"
   $lines = @($normalized -split "`n" | ForEach-Object { ([string]$_).Trim() })
   return (($lines -join "`n").Trim())
-}
-
-function Get-CellValueText($cell) {
-  $value = $cell.Value2
-  if ($null -ne $value) { return Normalize-PdfCellText ([string]$value) }
-  return Normalize-PdfCellText ([string]$cell.Text)
-}
-
-function Get-CellNumber($sheet, [int]$row, [int]$col) {
-  if ($col -le 0) { return 0.0 }
-  $cell = $sheet.Cells.Item($row, $col)
-  try { return Convert-ToSafeDouble $cell.Value2 } finally { Release-Com $cell }
-}
-
-function Get-MergedCellText($sheet, [int]$row, [int]$col) {
-  if ($col -le 0) { return '' }
-  $cell = $sheet.Cells.Item($row, $col)
-  try {
-    if ($cell.MergeCells) {
-      $area = $cell.MergeArea
-      try {
-        $first = $area.Cells.Item(1, 1)
-        try { return [string]$first.Text } finally { Release-Com $first }
-      } finally {
-        Release-Com $area
-      }
-    }
-    return [string]$cell.Text
-  } finally {
-    Release-Com $cell
-  }
-}
-
-function Get-MergedCellValueText($sheet, [int]$row, [int]$col) {
-  if ($col -le 0) { return '' }
-  $cell = $sheet.Cells.Item($row, $col)
-  try {
-    if ($cell.MergeCells) {
-      $area = $cell.MergeArea
-      try {
-        $first = $area.Cells.Item(1, 1)
-        try { return Get-CellValueText $first } finally { Release-Com $first }
-      } finally {
-        Release-Com $area
-      }
-    }
-    return Get-CellValueText $cell
-  } finally {
-    Release-Com $cell
-  }
-}
-
-function Is-GroupHeaderRow($sheet, [int]$row, [int]$firstCol, [int]$lastCol) {
-  $texts = @()
-  for ($col = $firstCol; $col -le $lastCol; $col++) {
-    $text = Get-CellText $sheet $row $col
-    if ($text) { $texts += $text }
-  }
-  $joined = Normalize-HeaderText (($texts -join ' '))
-  return (
-    ($joined.Contains('MAHANG') -or $joined.Contains('ITEMNO') -or $joined.Contains('ITEM')) -and
-    ($joined.Contains('SLPO') -or $joined.Contains('SL:PO') -or $joined.Contains('QTY') -or $joined.Contains('PCS'))
-  )
-}
-
-function Get-UsedBounds($sheet) {
-  $used = $sheet.UsedRange
-  try {
-    return [PSCustomObject]@{
-      FirstRow = [int]$used.Row
-      FirstCol = [int]$used.Column
-      LastRow = [int]$used.Row + [int]$used.Rows.Count - 1
-      LastCol = [int]$used.Column + [int]$used.Columns.Count - 1
-    }
-  } finally {
-    Release-Com $used
-  }
-}
-
-function Get-GroupRanges($sheet) {
-  $bounds = Get-UsedBounds $sheet
-  $starts = New-Object System.Collections.Generic.List[int]
-  for ($row = $bounds.FirstRow; $row -le $bounds.LastRow; $row++) {
-    if (Is-GroupHeaderRow $sheet $row $bounds.FirstCol $bounds.LastCol) { $starts.Add($row) }
-  }
-  $groups = @()
-  for ($i = 0; $i -lt $starts.Count; $i++) {
-    $start = $starts[$i]
-    $end = if ($i + 1 -lt $starts.Count) { $starts[$i + 1] - 1 } else { $bounds.LastRow }
-    $groups += [PSCustomObject]@{ Start = $start; End = $end }
-  }
-  return $groups
-}
-
-function Find-HeaderColumns($sheet, [int]$row) {
-  $bounds = Get-UsedBounds $sheet
-  $cols = @{
-    Code = 0; Color = 0; Qty = 0; Piece = 0; Total = 0; Note = 0; Belt = 0; CutSpec = 0; Segment = 0
-  }
-  for ($col = $bounds.FirstCol; $col -le $bounds.LastCol; $col++) {
-    $text = Normalize-HeaderText (Get-CellText $sheet $row $col)
-    if ($cols.Code -eq 0 -and ($text.Contains('MAHANG') -or $text.Contains('ITEMNO') -or $text.Contains('ITEM'))) { $cols.Code = $col }
-    if ($cols.Color -eq 0 -and ($text.Contains('MAU') -or $text.Contains('COLOR'))) { $cols.Color = $col }
-    if ($cols.Qty -eq 0 -and ($text.Contains('SLPO') -or $text.Contains('SL:PO') -or $text.Contains('QTY') -or $text.Contains('PCS'))) { $cols.Qty = $col }
-    if ($cols.Piece -eq 0 -and ($text.Contains('SOKIEN') -or $text.Contains('SOBO'))) { $cols.Piece = $col }
-    if ($cols.Total -eq 0 -and (($text.Contains('SLCAT') -or $text.Contains('THUCTE'))) -and -not $text.Contains('THIEU')) { $cols.Total = $col }
-    if ($cols.Note -eq 0 -and ($text.Contains('GHICHU') -or $text.Contains('NOTE'))) { $cols.Note = $col }
-    if ($cols.Belt -eq 0 -and ($text.Contains('QUYCACH') -and ($text.Contains('DAY') -or $text.Contains('DAI') -or $text.Contains('THUNG')))) { $cols.Belt = $col }
-    if ($cols.CutSpec -eq 0 -and ($text.Contains('QUYCACH') -and $text.Contains('CAT'))) { $cols.CutSpec = $col }
-    if ($cols.Segment -eq 0 -and ($text.Contains('CONGDOAN') -or $text -eq 'DOAN')) { $cols.Segment = $col }
-  }
-  if ($cols.CutSpec -eq 0 -and $cols.Qty -gt 1 -and ($cols.Qty - 1) -ne $cols.Code) { $cols.CutSpec = $cols.Qty - 1 }
-  return $cols
-}
-
-function Get-ColumnWidth($sheet, [int]$col) {
-  if ($col -le 0) { return 0.0 }
-  $column = $sheet.Columns.Item($col)
-  try { return [double]$column.ColumnWidth } finally { Release-Com $column }
-}
-
-function Get-ColumnKeyForSourceCol([int]$col, $cols) {
-  if ($col -eq 1) { return 'Image' }
-  if ($col -eq [int]$cols.Code) { return 'Code' }
-  if ($col -eq [int]$cols.Color) { return 'Color' }
-  if ($col -eq [int]$cols.Qty) { return 'Qty' }
-  if ($col -eq [int]$cols.Piece) { return 'Piece' }
-  if ($col -eq [int]$cols.Total) { return 'Total' }
-  if ($col -eq [int]$cols.Note) { return 'Note' }
-  if ($col -eq [int]$cols.Belt) { return 'Belt' }
-  if ($col -eq [int]$cols.CutSpec) { return 'CutSpec' }
-  if ($col -eq [int]$cols.Segment) { return 'Segment' }
-  return "Static_$col"
-}
-
-function Get-MergedCellInfo($sheet, [int]$row, [int]$col) {
-  if ($col -le 0) { return $null }
-  $cell = $sheet.Cells.Item($row, $col)
-  try {
-    if (-not $cell.MergeCells) { return $null }
-    $area = $cell.MergeArea
-    try {
-      $rows = $area.Rows
-      $columns = $area.Columns
-      try {
-        return [PSCustomObject]@{
-          startRow = [int]$area.Row
-          endRow = [int]$area.Row + [int]$rows.Count - 1
-          startCol = [int]$area.Column
-          endCol = [int]$area.Column + [int]$columns.Count - 1
-        }
-      } finally {
-        Release-Com $rows
-        Release-Com $columns
-      }
-    } finally {
-      Release-Com $area
-    }
-  } finally {
-    Release-Com $cell
-  }
-}
-
-function Get-TemplateColumns($sheet, [int]$headerRow, [int]$startCol, [int]$endCol, $cols) {
-  $result = @()
-  $seen = @{}
-  for ($col = $startCol; $col -le $endCol; $col++) {
-    $key = Get-ColumnKeyForSourceCol $col $cols
-    if ($seen.ContainsKey($key)) { $key = "Static_$col" }
-    $header = (Get-CellText $sheet $headerRow $col).Trim()
-    $result += [PSCustomObject]@{
-      key = $key
-      sourceCol = $col
-      header = $header
-      width = [double](Get-ColumnWidth $sheet $col)
-    }
-    $seen[$key] = $true
-  }
-  return @($result)
-}
-
-function Get-StaticValueMap($sheet, [int]$row, $columns, $cols) {
-  $map = @{}
-  foreach ($column in @($columns)) {
-    $key = [string]$column.key
-    if ($key -in @('Code','Qty','Piece','Total')) { continue }
-    $sourceCol = [int]$column.sourceCol
-    if ($sourceCol -le 0) { continue }
-    $value = ''
-    if ($key -in @('Image','Color','Belt','CutSpec','Segment','Note') -or $key.StartsWith('Static_')) {
-      $value = Get-MergedCellValueText $sheet $row $sourceCol
-      if (-not $value) { $value = (Get-CellText $sheet $row $sourceCol).Trim() }
-    }
-    if ($value) { $map[$key] = $value }
-  }
-  return $map
-}
-
-function Get-StaticMergeMap($sheet, [int]$row, $columns, [string]$sheetName) {
-  $map = @{}
-  foreach ($column in @($columns)) {
-    $key = [string]$column.key
-    if ($key -in @('Image','Code','Qty','Piece','Total')) { continue }
-    $sourceCol = [int]$column.sourceCol
-    if ($sourceCol -le 0) { continue }
-    $merge = Get-MergedCellInfo $sheet $row $sourceCol
-    if ($null -eq $merge) { continue }
-    if ([int]$merge.endRow -le [int]$merge.startRow) { continue }
-    $map[$key] = "$sheetName!R$($merge.startRow)C$($merge.startCol):R$($merge.endRow)C$($merge.endCol)"
-  }
-  return $map
 }
 
 function Get-ImageHash([string]$path) {
@@ -526,248 +238,6 @@ function Get-ImageHash([string]$path) {
     try { return ([BitConverter]::ToString($sha.ComputeHash($stream)) -replace '-', '').ToLowerInvariant() } finally { $sha.Dispose() }
   } finally {
     $stream.Dispose()
-  }
-}
-
-function Export-ShapeImage($shape, $sheet, [string]$path) {
-  if ($null -eq $shape) { return $false }
-  $chart = $null
-  try {
-    $width = [Math]::Max(80.0, [double]$shape.Width)
-    $height = [Math]::Max(80.0, [double]$shape.Height)
-    $shape.CopyPicture(1, 2)
-    $chart = $sheet.ChartObjects().Add(0, 0, $width, $height)
-    $chart.Chart.Paste()
-    [void]$chart.Chart.Export($path, 'PNG')
-    return (Test-Path -LiteralPath $path)
-  } catch {
-    return $false
-  } finally {
-    if ($null -ne $chart) {
-      try { $chart.Delete() } catch {}
-      Release-Com $chart
-    }
-  }
-}
-
-function Find-GroupImageShape($sheet, [int]$startRow, [int]$endRow) {
-  $best = $null
-  $bestScore = -1.0
-  try {
-    for ($i = 1; $i -le $sheet.Shapes.Count; $i++) {
-      $shape = $sheet.Shapes.Item($i)
-      try {
-        $topRow = [int]$shape.TopLeftCell.Row
-        $bottomRow = [int]$shape.BottomRightCell.Row
-        if ($topRow -le $endRow -and $bottomRow -ge $startRow) {
-          $leftCol = [int]$shape.TopLeftCell.Column
-          $area = [double]$shape.Width * [double]$shape.Height
-          $score = $area
-          if ($leftCol -le 2) { $score += 100000000 }
-          if ($score -gt $bestScore) {
-            if ($null -ne $best) { Release-Com $best }
-            $best = $shape
-            $bestScore = $score
-          } else {
-            Release-Com $shape
-          }
-        } else {
-          Release-Com $shape
-        }
-      } catch {
-        Release-Com $shape
-      }
-    }
-  } catch {}
-  return $best
-}
-
-function Get-ModuleKey($columns) {
-  $parts = @()
-  foreach ($col in $columns) { $parts += "$($col.key):$([Math]::Round([double]$col.width, 2))" }
-  return ($parts -join '|')
-}
-
-function Build-TemplateIndex($payload, [string]$xlsxPath) {
-  Set-Stage 'build_index' 'analyze template'
-  $indexDir = Get-IndexDir $payload
-  $imageDir = Join-Path $indexDir 'images'
-  if (-not (Test-Path -LiteralPath $imageDir)) { New-Item -ItemType Directory -Path $imageDir | Out-Null }
-
-  $excel = $null
-  $workbook = $null
-  try {
-    $excel = New-Object -ComObject Excel.Application
-    $excel.Visible = $false
-    $excel.ScreenUpdating = $false
-    $excel.DisplayAlerts = $false
-    $excel.EnableEvents = $false
-    try { $excel.Calculation = -4135 } catch {}
-    $workbook = $excel.Workbooks.Open($xlsxPath, $null, $true)
-    $embeddedImageMap = Get-XlsxEmbeddedImageMap $xlsxPath
-
-    $modules = @{}
-    $images = @{}
-    $groups = @()
-    $items = @()
-    $codeIndex = @{}
-    $moduleNo = 0
-    $imageNo = 0
-
-    for ($s = 1; $s -le $workbook.Worksheets.Count; $s++) {
-      $sheet = $workbook.Worksheets.Item($s)
-      try {
-        $sheetName = [string]$sheet.Name
-        $ranges = @(Get-GroupRanges $sheet)
-        if ($ranges.Count -eq 0) { continue }
-        $firstGroup = $ranges[0]
-        $cols = Find-HeaderColumns $sheet $firstGroup.Start
-        if ($cols.Code -le 0 -or $cols.Qty -le 0 -or $cols.Piece -le 0) { continue }
-        $bounds = Get-UsedBounds $sheet
-        $startCol = [Math]::Max(1, [int]$bounds.FirstCol)
-        $knownCols = @(
-          [int]$cols.Note, [int]$cols.Total, [int]$cols.Piece, [int]$cols.Qty,
-          [int]$cols.CutSpec, [int]$cols.Segment, [int]$cols.Color,
-          [int]$cols.Code, [int]$cols.Belt, 1
-        ) | Where-Object { $_ -gt 0 }
-        $endCol = ($knownCols | Measure-Object -Maximum).Maximum
-        $columns = @(Get-TemplateColumns $sheet $firstGroup.Start $startCol $endCol $cols)
-        $moduleKey = Get-ModuleKey $columns
-        $moduleId = ''
-        if ($modules.ContainsKey($moduleKey)) {
-          $moduleId = [string]$modules[$moduleKey].id
-        } else {
-          $moduleNo++
-          $moduleId = "module_$moduleNo"
-          $modules[$moduleKey] = [PSCustomObject]@{
-            id = $moduleId
-            key = $moduleKey
-            columns = $columns
-            headerHeight = 28.0
-            groupHeight = 140.3
-            sourceSheet = $sheetName
-            sourceStartRow = $firstGroup.Start
-            sourceEndRow = $firstGroup.End
-          }
-        }
-
-        $groupNo = 0
-        foreach ($group in $ranges) {
-          $groupNo++
-          $groupId = "$sheetName`_$groupNo"
-          $imageId = ''
-          $tempImage = Join-Path $imageDir "tmp_${s}_${groupNo}.png"
-          $imageReady = $false
-          $embeddedImage = if ($embeddedImageMap.ContainsKey($sheetName)) { Find-EmbeddedImageInfo $embeddedImageMap[$sheetName] $group.Start $group.End } else { $null }
-          if ($null -ne $embeddedImage) {
-            $extension = [System.IO.Path]::GetExtension([string]$embeddedImage.mediaPath)
-            if (-not $extension) { $extension = '.png' }
-            $tempImage = Join-Path $imageDir "tmp_${s}_${groupNo}$extension"
-            $imageReady = Copy-XlsxEntryToFile $xlsxPath ([string]$embeddedImage.mediaPath) $tempImage
-          }
-          if (-not $imageReady) {
-            $shape = Find-GroupImageShape $sheet $group.Start $group.End
-            if ($null -ne $shape) {
-              $tempImage = Join-Path $imageDir "tmp_${s}_${groupNo}.png"
-              try {
-                $imageReady = (Export-ShapeImage $shape $sheet $tempImage) -and (Test-UsableImageFile $tempImage)
-              } finally {
-                Release-Com $shape
-              }
-            }
-          }
-          if ($imageReady) {
-            try {
-              $hash = Get-ImageHash $tempImage
-              if ($hash) {
-                if ($images.ContainsKey($hash)) {
-                  $imageId = [string]$images[$hash].id
-                  Remove-Item -LiteralPath $tempImage -Force -ErrorAction SilentlyContinue
-                } else {
-                  $imageNo++
-                  $imageId = "image_$imageNo"
-                  $imageExt = [System.IO.Path]::GetExtension($tempImage)
-                  if (-not $imageExt) { $imageExt = '.png' }
-                  $imagePath = Join-Path $imageDir "$imageId$imageExt"
-                  Move-Item -LiteralPath $tempImage -Destination $imagePath -Force
-                  $images[$hash] = [PSCustomObject]@{ id = $imageId; hash = $hash; file = "images/$imageId$imageExt" }
-                }
-              }
-            } finally {
-              Remove-Item -LiteralPath $tempImage -Force -ErrorAction SilentlyContinue
-            }
-          }
-
-          $groupItems = @()
-          for ($row = $group.Start + 1; $row -le $group.End; $row++) {
-            $code = (Get-CellText $sheet $row $cols.Code).Trim()
-            if (-not (Is-ItemCode $code)) { continue }
-            $piece = Get-CellNumber $sheet $row $cols.Piece
-            $color = if ($cols.Color -gt 0) { Get-MergedCellValueText $sheet $row $cols.Color } else { '' }
-            $values = Get-StaticValueMap $sheet $row $columns $cols
-            $merges = Get-StaticMergeMap $sheet $row $columns $sheetName
-            $item = [PSCustomObject]@{
-              code = $code
-              aliases = @(Expand-ItemCodeAliases $code)
-              sheetName = $sheetName
-              groupId = $groupId
-              moduleId = $moduleId
-              imageId = $imageId
-              rowNumber = $row
-              qtyCell = Get-CellAddress1 $row $cols.Qty
-              pieceCell = Get-CellAddress1 $row $cols.Piece
-              totalCell = if ($cols.Total -gt 0) { Get-CellAddress1 $row $cols.Total } else { '' }
-              piece = $piece
-              color = $color
-              values = $values
-              merges = $merges
-            }
-            $groupItems += $item
-            $items += $item
-            foreach ($alias in @($item.aliases)) {
-              if (-not $codeIndex.ContainsKey($alias)) { $codeIndex[$alias] = @() }
-              $codeIndex[$alias] += $item
-            }
-          }
-          if ($groupItems.Count -gt 0) {
-            $groups += [PSCustomObject]@{
-              id = $groupId
-              sheetName = $sheetName
-              index = $groupNo
-              moduleId = $moduleId
-              imageId = $imageId
-              startRow = $group.Start
-              endRow = $group.End
-              items = $groupItems
-            }
-          }
-        }
-      } finally {
-        Release-Com $sheet
-      }
-    }
-
-    $index = [PSCustomObject]@{
-      version = $script:IndexVersion
-      templateId = [string]$payload.templateId
-      fileName = [string]$payload.fileName
-      templateUpdatedAt = [string]$payload.templateUpdatedAt
-      templateFileSize = [string]$payload.templateFileSize
-      createdAt = (Get-Date).ToString('s')
-      modules = @($modules.Values)
-      images = @($images.Values)
-      groups = $groups
-      items = $items
-    }
-    [System.IO.File]::WriteAllText((Get-IndexPath $payload), ($index | ConvertTo-Json -Depth 40), [System.Text.Encoding]::UTF8)
-    Add-Log 'build_index' "groups=$($groups.Count) items=$($items.Count) modules=$($modules.Count) images=$($images.Count)"
-    [void](Remove-OldTemplateCacheVersions $payload)
-    return $index
-  } finally {
-    if ($null -ne $workbook) { try { $workbook.Close($false) } catch {}; Release-Com $workbook }
-    if ($null -ne $excel) { try { $excel.Quit() } catch {}; Release-Com $excel }
-    [GC]::Collect()
-    [GC]::WaitForPendingFinalizers()
   }
 }
 
@@ -786,6 +256,19 @@ function Load-TemplateIndex($payload) {
   }
 }
 
+function Get-TemplateCacheStatus($payload) {
+  $cachedTemplateIds = @()
+  foreach ($template in @($payload.templates)) {
+    $indexDir = Join-Path (Get-CacheRoot) (Get-CacheKey $template)
+    $indexPath = Join-Path $indexDir 'index.json'
+    if (-not (Test-Path -LiteralPath $indexPath)) { continue }
+    if ($null -ne (Load-TemplateIndex $template)) {
+      $cachedTemplateIds += [string]$template.templateId
+    }
+  }
+  return @{ ok = $true; cachedTemplateIds = $cachedTemplateIds }
+}
+
 function Get-OrBuildTemplateIndex($payload, [string]$templatePath) {
   $index = Load-TemplateIndex $payload
   if ($null -ne $index) {
@@ -793,7 +276,7 @@ function Get-OrBuildTemplateIndex($payload, [string]$templatePath) {
     return $index
   }
   Add-Log 'index_miss' "file=$($payload.fileName)"
-  return Build-TemplateIndex $payload $templatePath
+  return Build-FixedTemplateIndex $payload $templatePath
 }
 
 function Get-WriteMap($payload) {
@@ -969,15 +452,378 @@ function Find-EmbeddedImageInfo($images, [int]$startRow, [int]$endRow) {
   return $best
 }
 
-function Get-OrderQtyMap($payload) {
+function Get-XlsxSharedStrings($zip) {
+  $values = @()
+  $text = Get-ZipEntryText $zip 'xl/sharedStrings.xml'
+  if (-not $text) { return $values }
+  [xml]$xml = $text
+  foreach ($item in @(Get-XmlNodesByLocalName $xml 'si')) {
+    $parts = @(Get-XmlNodesByLocalName $item 't' | ForEach-Object { [string]$_.InnerText })
+    $values += ($parts -join '')
+  }
+  return $values
+}
+
+function Get-XlsxCellText($cell, $sharedStrings) {
+  if ($null -eq $cell) { return '' }
+  $type = [string]$cell.GetAttribute('t')
+  if ($type -eq 'inlineStr') {
+    return [string]((Get-XmlNodesByLocalName $cell 't' | ForEach-Object { [string]$_.InnerText }) -join '')
+  }
+  $valueNode = Get-FirstXmlNodeByLocalName $cell 'v'
+  if ($null -eq $valueNode) { return '' }
+  $value = [string]$valueNode.InnerText
+  if ($type -eq 's') {
+    $index = 0
+    if ([int]::TryParse($value, [ref]$index) -and $index -ge 0 -and $index -lt $sharedStrings.Count) {
+      return [string]$sharedStrings[$index]
+    }
+  }
+  return $value
+}
+
+function Get-XlsxRowMap($rowNode, $sharedStrings) {
   $map = @{}
-  foreach ($item in @($payload.orderItems)) {
-    $code = ([string]$item.code).Trim().ToUpperInvariant()
-    if (-not $code) { continue }
-    if (-not $map.ContainsKey($code)) { $map[$code] = 0.0 }
-    $map[$code] = [double]$map[$code] + (Convert-ToSafeDouble $item.qty)
+  foreach ($cell in @(Get-XmlNodesByLocalName $rowNode 'c')) {
+    $reference = ([string]$cell.GetAttribute('r')).ToUpperInvariant()
+    if ($reference -notmatch '^([A-Z]+)\d+$') { continue }
+    $map[$Matches[1]] = Get-XlsxCellText $cell $sharedStrings
   }
   return $map
+}
+
+function Convert-XlsxColumnLettersToNumber([string]$letters) {
+  if ([string]::IsNullOrWhiteSpace($letters)) { return 0 }
+  $number = 0
+  foreach ($character in $letters.Trim().ToUpperInvariant().ToCharArray()) {
+    $code = [int][char]$character
+    if ($code -lt 65 -or $code -gt 90) { return 0 }
+    $number = ($number * 26) + ($code - 64)
+  }
+  return $number
+}
+
+function Convert-XlsxColumnNumberToLetters([int]$number) {
+  if ($number -le 0) { return '' }
+  $letters = ''
+  while ($number -gt 0) {
+    $number--
+    $letters = ([char](65 + ($number % 26))) + $letters
+    $number = [int][Math]::Floor($number / 26)
+  }
+  return $letters
+}
+
+function Get-XlsxMergeCellMap($sheetXml, $rowsByNumber, [string]$sheetName, [int]$maxColumn = 11) {
+  $map = @{}
+  foreach ($mergeNode in @(Get-XmlNodesByLocalName $sheetXml 'mergeCell')) {
+    $reference = ([string]$mergeNode.GetAttribute('ref')).ToUpperInvariant()
+    if ($reference -notmatch '^([A-Z]+)(\d+):([A-Z]+)(\d+)$') { continue }
+    $startLetter = [string]$Matches[1]
+    $startRow = [int]$Matches[2]
+    $endLetter = [string]$Matches[3]
+    $endRow = [int]$Matches[4]
+    $startColumn = Convert-XlsxColumnLettersToNumber $startLetter
+    $endColumn = Convert-XlsxColumnLettersToNumber $endLetter
+    if ($startRow -le 0 -or $endRow -lt $startRow -or $startColumn -le 0 -or $endColumn -lt $startColumn) { continue }
+
+    $value = ''
+    if ($rowsByNumber.ContainsKey($startRow) -and $rowsByNumber[$startRow].ContainsKey($startLetter)) {
+      $value = [string]$rowsByNumber[$startRow][$startLetter]
+    }
+    $mergeInfo = [PSCustomObject]@{
+      id = "$sheetName!$reference"
+      reference = $reference
+      value = $value
+      anchorCell = "$startLetter$startRow"
+      startRow = $startRow
+      endRow = $endRow
+      startColumn = $startColumn
+      endColumn = $endColumn
+    }
+    $firstColumn = [Math]::Max(1, $startColumn)
+    $lastColumn = [Math]::Min($maxColumn, $endColumn)
+    if ($lastColumn -lt $firstColumn) { continue }
+    for ($rowNumber = $startRow; $rowNumber -le $endRow; $rowNumber++) {
+      for ($columnNumber = $firstColumn; $columnNumber -le $lastColumn; $columnNumber++) {
+        $columnLetter = Convert-XlsxColumnNumberToLetters $columnNumber
+        $map["$columnLetter$rowNumber"] = $mergeInfo
+      }
+    }
+  }
+  return $map
+}
+
+function Get-XlsxResolvedCellText($rowMap, [int]$rowNumber, [string]$columnLetter, $mergeCellMap) {
+  $cellKey = "$($columnLetter.ToUpperInvariant())$rowNumber"
+  if ($mergeCellMap.ContainsKey($cellKey)) { return [string]$mergeCellMap[$cellKey].value }
+  if ($null -ne $rowMap -and $rowMap.ContainsKey($columnLetter)) { return [string]$rowMap[$columnLetter] }
+  return ''
+}
+
+function Get-XlsxResolvedCellAddress([int]$rowNumber, [string]$columnLetter, $mergeCellMap) {
+  $cellKey = "$($columnLetter.ToUpperInvariant())$rowNumber"
+  if ($mergeCellMap.ContainsKey($cellKey)) { return [string]$mergeCellMap[$cellKey].anchorCell }
+  return "$($columnLetter.ToUpperInvariant())$rowNumber"
+}
+
+function Get-XlsxCellMergeId([int]$rowNumber, [string]$columnLetter, $mergeCellMap) {
+  $cellKey = "$($columnLetter.ToUpperInvariant())$rowNumber"
+  if ($mergeCellMap.ContainsKey($cellKey)) { return [string]$mergeCellMap[$cellKey].id }
+  return ''
+}
+
+function Get-XlsxColumnWidths($sheetXml) {
+  $widths = @{}
+  foreach ($column in @(Get-XmlNodesByLocalName $sheetXml 'col')) {
+    $min = [int]$column.GetAttribute('min')
+    $max = [int]$column.GetAttribute('max')
+    $width = Convert-ToSafeDouble $column.GetAttribute('width')
+    if ($min -le 0 -or $max -lt $min -or $width -le 0) { continue }
+    for ($index = $min; $index -le [Math]::Min(11, $max); $index++) { $widths[$index] = $width }
+  }
+  return $widths
+}
+
+function Get-FixedTemplateColumns($headerRow, [int]$headerRowNumber, $widths, $mergeCellMap) {
+  $keys = @('Image','Code','Color','Belt','Segment','CutSpec','Qty','Piece','Total','Shortage','Note')
+  $letters = @('A','B','C','D','E','F','G','H','I','J','K')
+  $columns = @()
+  for ($index = 0; $index -lt $keys.Count; $index++) {
+    $sourceColumn = $index + 1
+    $width = if ($widths.ContainsKey($sourceColumn)) { [double]$widths[$sourceColumn] } else { 9.14 }
+    # header（表頭文字）：表頭有合併儲存格時同樣使用左上角來源。
+    $header = Normalize-PdfCellText (Get-XlsxResolvedCellText $headerRow $headerRowNumber $letters[$index] $mergeCellMap)
+    $columns += [PSCustomObject]@{
+      key = $keys[$index]
+      sourceCol = $sourceColumn
+      width = $width
+      header = $header
+    }
+  }
+  return $columns
+}
+
+function Test-FixedTemplateHeader($rowMap, [int]$rowNumber, $mergeCellMap) {
+  $code = Normalize-HeaderText (Get-XlsxResolvedCellText $rowMap $rowNumber 'B' $mergeCellMap)
+  $qty = Normalize-HeaderText (Get-XlsxResolvedCellText $rowMap $rowNumber 'G' $mergeCellMap)
+  $piece = Normalize-HeaderText (Get-XlsxResolvedCellText $rowMap $rowNumber 'H' $mergeCellMap)
+  $total = Normalize-HeaderText (Get-XlsxResolvedCellText $rowMap $rowNumber 'I' $mergeCellMap)
+  return (
+    $code.Contains('MAHANG') -and
+    ($qty.Contains('SLPO') -or $qty.Contains('PCS')) -and
+    $piece.Contains('SOKIEN') -and
+    ($total.Contains('SLCAT') -or $total.Contains('THUCTE'))
+  )
+}
+
+function Get-FixedModuleKey($columns) {
+  return (@($columns | ForEach-Object { "$($_.key):$([Math]::Round([double]$_.width, 2))" }) -join '|')
+}
+
+function Add-FixedIndexedImage([string]$xlsxPath, [string]$mediaPath, [string]$imageDir, $imagesByHash, $imagesByMedia, [ref]$imageNo) {
+  if (-not $mediaPath) { return '' }
+  if ($imagesByMedia.ContainsKey($mediaPath)) { return [string]$imagesByMedia[$mediaPath] }
+  $extension = [System.IO.Path]::GetExtension($mediaPath)
+  if (-not $extension) { $extension = '.png' }
+  $tempPath = Join-Path $imageDir ("image_pending_" + [Guid]::NewGuid().ToString('N') + $extension)
+  try {
+    if (-not (Copy-XlsxEntryToFile $xlsxPath $mediaPath $tempPath)) { return '' }
+    $hash = Get-ImageHash $tempPath
+    if (-not $hash) { return '' }
+    if ($imagesByHash.ContainsKey($hash)) {
+      $imageId = [string]$imagesByHash[$hash].id
+      $imagesByMedia[$mediaPath] = $imageId
+      return $imageId
+    }
+    $imageNo.Value++
+    $imageId = "image_$($imageNo.Value)"
+    $relativePath = "images/$imageId$extension"
+    $finalPath = Join-Path (Split-Path -Parent $imageDir) $relativePath
+    Move-Item -LiteralPath $tempPath -Destination $finalPath -Force
+    $imagesByHash[$hash] = [PSCustomObject]@{ id = $imageId; hash = $hash; file = $relativePath }
+    $imagesByMedia[$mediaPath] = $imageId
+    return $imageId
+  } finally {
+    Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
+function Build-FixedTemplateIndex($payload, [string]$xlsxPath) {
+  Set-Stage 'build_index' 'read fixed A-K template'
+  if (-not $xlsxPath -or -not (Test-Path -LiteralPath $xlsxPath)) { throw 'TEMPLATE_CACHE_MISS' }
+  $indexDir = Get-IndexDir $payload
+  $imageDir = Join-Path $indexDir 'images'
+  if (-not (Test-Path -LiteralPath $imageDir)) { New-Item -ItemType Directory -Path $imageDir | Out-Null }
+  $embeddedImageMap = Get-XlsxEmbeddedImageMap $xlsxPath
+  $zip = [System.IO.Compression.ZipFile]::OpenRead($xlsxPath)
+  try {
+    $sharedStrings = @(Get-XlsxSharedStrings $zip)
+    $workbookText = Get-ZipEntryText $zip 'xl/workbook.xml'
+    if (-not $workbookText) { throw 'INVALID_XLSX_WORKBOOK' }
+    [xml]$workbookXml = $workbookText
+    $workbookRels = Get-OpenXmlRels $zip 'xl/workbook.xml'
+    $modulesByKey = @{}
+    $groups = @()
+    $imagesByHash = @{}
+    $imagesByMedia = @{}
+    $items = @()
+    $moduleNo = 0
+    $groupNo = 0
+    $imageNo = 0
+    $validRows = 0
+    $mergeRangeCount = 0
+    $fixedColumnLetters = [ordered]@{
+      Image = 'A'
+      Code = 'B'
+      Color = 'C'
+      Belt = 'D'
+      Segment = 'E'
+      CutSpec = 'F'
+      Qty = 'G'
+      Piece = 'H'
+      Total = 'I'
+      Shortage = 'J'
+      Note = 'K'
+    }
+
+    foreach ($sheetNode in $workbookXml.GetElementsByTagName('sheet')) {
+      $sheetName = [string]$sheetNode.GetAttribute('name')
+      $relId = [string]$sheetNode.GetAttribute('id', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships')
+      if (-not $sheetName -or -not $workbookRels.ContainsKey($relId)) { continue }
+      $sheetPath = [string]$workbookRels[$relId]
+      $sheetText = Get-ZipEntryText $zip $sheetPath
+      if (-not $sheetText) { continue }
+      [xml]$sheetXml = $sheetText
+      $widths = Get-XlsxColumnWidths $sheetXml
+      $rowNodes = @(Get-XmlNodesByLocalName $sheetXml 'row')
+      $rowsByNumber = @{}
+      foreach ($rowNode in $rowNodes) {
+        $rowNumber = [int]$rowNode.GetAttribute('r')
+        if ($rowNumber -gt 0) { $rowsByNumber[$rowNumber] = Get-XlsxRowMap $rowNode $sharedStrings }
+      }
+      # mergeCellMap（合併儲存格索引）：保留匯入範本 A-K 的實際合併範圍、左上角內容與來源位置。
+      $mergeCellMap = Get-XlsxMergeCellMap $sheetXml $rowsByNumber $sheetName 11
+      $mergeRangeCount += @($mergeCellMap.Values | ForEach-Object { [string]$_.id } | Sort-Object -Unique).Count
+      # headerRowNumbers（表頭列編號）：每個表頭到下一個表頭之間的所有有效 B 欄款號都要建立索引。
+      $headerRowNumbers = @($rowsByNumber.Keys | Where-Object {
+        Test-FixedTemplateHeader $rowsByNumber[$_] ([int]$_) $mergeCellMap
+      } | Sort-Object)
+      for ($headerIndex = 0; $headerIndex -lt $headerRowNumbers.Count; $headerIndex++) {
+        $headerRowNumber = [int]$headerRowNumbers[$headerIndex]
+        $headerRow = $rowsByNumber[$headerRowNumber]
+        $nextHeaderRowNumber = if ($headerIndex + 1 -lt $headerRowNumbers.Count) {
+          [int]$headerRowNumbers[$headerIndex + 1]
+        } else {
+          [int](($rowsByNumber.Keys | Measure-Object -Maximum).Maximum) + 1
+        }
+        $columns = @(Get-FixedTemplateColumns $headerRow $headerRowNumber $widths $mergeCellMap)
+        $moduleKey = Get-FixedModuleKey $columns
+        if (-not $modulesByKey.ContainsKey($moduleKey)) {
+          $moduleNo++
+          $modulesByKey[$moduleKey] = [PSCustomObject]@{
+            id = "module_$moduleNo"
+            key = $moduleKey
+            columns = $columns
+            headerHeight = 28.0
+            groupHeight = 140.3
+            sourceSheet = $sheetName
+            sourceStartRow = $headerRowNumber
+            sourceEndRow = $nextHeaderRowNumber - 1
+          }
+        }
+        $module = $modulesByKey[$moduleKey]
+        # embeddedImage（組別圖片）：使用完整原始組別範圍判斷一次，避免前後款號取得不同圖片。
+        $embeddedImage = if ($embeddedImageMap.ContainsKey($sheetName)) {
+          Find-EmbeddedImageInfo $embeddedImageMap[$sheetName] $headerRowNumber ($nextHeaderRowNumber - 1)
+        } else { $null }
+        $imageId = ''
+        if ($null -ne $embeddedImage) {
+          $imageId = Add-FixedIndexedImage $xlsxPath ([string]$embeddedImage.mediaPath) $imageDir $imagesByHash $imagesByMedia ([ref]$imageNo)
+        }
+        $groupNo++
+        # sourceKey（原始組別識別）：只依工作表與原始表頭列定位，禁止依內容自行合併。
+        $sourceKey = "$sheetName!R$headerRowNumber"
+        $group = [PSCustomObject]@{
+          id = "group_$groupNo"
+          sourceKey = $sourceKey
+          sheetName = $sheetName
+          index = $groupNo
+          moduleId = [string]$module.id
+          imageId = $imageId
+          columns = $columns
+          startRow = $headerRowNumber
+          endRow = $nextHeaderRowNumber - 1
+          items = @()
+        }
+        for ($dataRowNumber = $headerRowNumber + 1; $dataRowNumber -lt $nextHeaderRowNumber; $dataRowNumber++) {
+          # dataRow（資料列）：即使 XML（可延伸標記語言）沒有實體列，也要讓合併範圍提供左上角內容。
+          $dataRow = if ($rowsByNumber.ContainsKey($dataRowNumber)) { $rowsByNumber[$dataRowNumber] } else { @{} }
+          $code = (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'B' $mergeCellMap).Trim().ToUpperInvariant()
+          if ([string]::IsNullOrWhiteSpace($code)) { continue }
+          $piece = Convert-ToSafeDouble (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'H' $mergeCellMap)
+          if ($piece -le 0) { continue }
+          $validRows++
+
+          $values = @{
+            Image = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'A' $mergeCellMap)
+            Color = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'C' $mergeCellMap)
+            Belt = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'D' $mergeCellMap)
+            Segment = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'E' $mergeCellMap)
+            CutSpec = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'F' $mergeCellMap)
+            Shortage = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'J' $mergeCellMap)
+            Note = Normalize-PdfCellText (Get-XlsxResolvedCellText $dataRow $dataRowNumber 'K' $mergeCellMap)
+          }
+          $itemMerges = @{}
+          foreach ($entry in $fixedColumnLetters.GetEnumerator()) {
+            $mergeId = Get-XlsxCellMergeId $dataRowNumber ([string]$entry.Value) $mergeCellMap
+            if ($mergeId) { $itemMerges[[string]$entry.Key] = $mergeId }
+          }
+          $item = [PSCustomObject]@{
+            code = $code
+            aliases = @($code)
+            sheetName = $sheetName
+            groupId = [string]$group.id
+            moduleId = [string]$module.id
+            imageId = $imageId
+            rowNumber = $dataRowNumber
+            qtyCell = Get-XlsxResolvedCellAddress $dataRowNumber 'G' $mergeCellMap
+            pieceCell = Get-XlsxResolvedCellAddress $dataRowNumber 'H' $mergeCellMap
+            totalCell = Get-XlsxResolvedCellAddress $dataRowNumber 'I' $mergeCellMap
+            piece = $piece
+            color = [string]$values.Color
+            values = $values
+            merges = $itemMerges
+          }
+          $group.items += $item
+          $items += $item
+        }
+        if (@($group.items).Count -gt 0) {
+          $groups += $group
+        }
+      }
+    }
+    if ($validRows -le 0) { throw 'FIXED_TEMPLATE_STRUCTURE_NOT_FOUND' }
+    $index = [PSCustomObject]@{
+      version = $script:IndexVersion
+      schemaVersion = 'fixed-2026-07'
+      templateId = [string]$payload.templateId
+      fileName = [string]$payload.fileName
+      templateUpdatedAt = [string]$payload.templateUpdatedAt
+      templateFileSize = [string]$payload.templateFileSize
+      createdAt = (Get-Date).ToString('s')
+      modules = @($modulesByKey.Values)
+      images = @($imagesByHash.Values)
+      groups = $groups
+      items = $items
+    }
+    [System.IO.File]::WriteAllText((Get-IndexPath $payload), ($index | ConvertTo-Json -Depth 40), [System.Text.Encoding]::UTF8)
+    Add-Log 'build_index' "groups=$($groups.Count) items=$($items.Count) modules=$($modulesByKey.Count) images=$($imagesByHash.Count) merges=$mergeRangeCount"
+    [void](Remove-OldTemplateCacheVersions $payload)
+    return $index
+  } finally {
+    $zip.Dispose()
+  }
 }
 
 function Get-ImagePathForId($index, [string]$imageId, [string]$indexDir) {
@@ -997,7 +843,6 @@ function Get-ModuleById($index, [string]$moduleId) {
 
 function Get-PrintableGroups($index, $payload) {
   $writeMap = Get-WriteMap $payload
-  $orderQtyMap = Get-OrderQtyMap $payload
   $indexDir = Get-IndexDir $payload
   $result = @()
   foreach ($group in @($index.groups)) {
@@ -1005,12 +850,6 @@ function Get-PrintableGroups($index, $payload) {
     foreach ($item in @($group.items)) {
       $qtyKey = "$([string]$item.sheetName)!$([string]$item.qtyCell)".ToUpperInvariant()
       $qty = if ($writeMap.ContainsKey($qtyKey)) { [double]$writeMap[$qtyKey] } else { 0.0 }
-      if ($qty -le 0 -and $orderQtyMap.Count -gt 0) {
-        foreach ($alias in @($item.aliases)) {
-          $aliasKey = ([string]$alias).ToUpperInvariant()
-          if ($orderQtyMap.ContainsKey($aliasKey)) { $qty += [double]$orderQtyMap[$aliasKey] }
-        }
-      }
       if ($qty -le 0) { continue }
       $total = 0.0
       if ($item.totalCell) {
@@ -1136,34 +975,44 @@ function Get-DisplayTextLines([string]$text) {
   return @($flat)
 }
 
-function Draw-CenteredTextLines($graphics, [string[]]$lines, [System.Drawing.RectangleF]$rect, [float]$maxSize = 12, [float]$minSize = 3.0, [bool]$bold = $false, $brush = $null) {
+# Get-FitTextLinesFontSize（多行文字合適字級）：同時計算最長行寬與全部行高。
+function Get-FitTextLinesFontSize($graphics, [string[]]$lines, [float]$maxSize, [float]$minSize, [float]$width, [float]$height, [int]$style = 0) {
+  $cleanLines = @($lines | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne '' })
+  if ($cleanLines.Count -eq 0) { return $maxSize }
+  $size = $maxSize
+  while ($size -gt $minSize) {
+    $font = [System.Drawing.Font]::new('Arial', [single]$size, [System.Drawing.FontStyle]$style)
+    try {
+      $fitsWidth = $true
+      foreach ($line in $cleanLines) {
+        if ($graphics.MeasureString([string]$line, $font).Width -gt ($width + 2)) {
+          $fitsWidth = $false
+          break
+        }
+      }
+      $lineHeight = [float]($font.GetHeight($graphics) * 1.18)
+      if ($fitsWidth -and (($lineHeight * $cleanLines.Count) -le ($height + 2))) { return [float]$size }
+    } finally {
+      $font.Dispose()
+    }
+    $size -= 0.5
+  }
+  return [float]$minSize
+}
+
+function Draw-CenteredTextLines($graphics, [string[]]$lines, [System.Drawing.RectangleF]$rect, [float]$maxSize = 12, [float]$minSize = 3.0, [bool]$bold = $false, $brush = $null, [float]$fixedSize = 0) {
   if ($null -eq $brush) { $brush = [System.Drawing.Brushes]::Black }
   $cleanLines = @($lines | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -ne '' })
   if ($cleanLines.Count -eq 0) { $cleanLines = @('') }
   $style = if ($bold) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
-  $longestLine = [string]$cleanLines[0]
-  $measureFont = [System.Drawing.Font]::new('Arial', [single]$maxSize, [System.Drawing.FontStyle]$style)
-  try {
-    $longestWidth = $graphics.MeasureString($longestLine, $measureFont).Width
-    foreach ($line in $cleanLines) {
-      $lineWidth = $graphics.MeasureString([string]$line, $measureFont).Width
-      if ($lineWidth -gt $longestWidth) {
-        $longestLine = [string]$line
-        $longestWidth = $lineWidth
-      }
-    }
-  } finally {
-    $measureFont.Dispose()
+  # fontSize（實際字級）：指定共同字級時不再讓每格文字各自放大。
+  $fontSize = if ($fixedSize -gt 0) {
+    [Math]::Max($minSize, [Math]::Min($maxSize, $fixedSize))
+  } else {
+    Get-FitTextLinesFontSize $graphics $cleanLines $maxSize $minSize $rect.Width $rect.Height $style
   }
-  $font = Get-FitSingleLineFont $graphics $longestLine 'Arial' $maxSize $minSize $rect.Width $style
+  $font = [System.Drawing.Font]::new('Arial', [single]$fontSize, [System.Drawing.FontStyle]$style)
   try {
-    while ($font.Size -gt $minSize) {
-      $lineHeight = [float]($font.GetHeight($graphics) * 1.18)
-      if (($lineHeight * $cleanLines.Count) -le ($rect.Height + 2)) { break }
-      $nextSize = [Math]::Max($minSize, $font.Size - 0.5)
-      $font.Dispose()
-      $font = [System.Drawing.Font]::new('Arial', [single]$nextSize, [System.Drawing.FontStyle]$style)
-    }
     $lineHeight = [float]($font.GetHeight($graphics) * 1.18)
     $blockHeight = [float]($lineHeight * $cleanLines.Count)
     $startY = [float]($rect.Y + (($rect.Height - $blockHeight) / 2))
@@ -1212,9 +1061,9 @@ function Get-PrintableCellValue($item, [string]$key) {
   }
 }
 
-function Draw-BodyCellText($graphics, [string]$key, [string]$value, [System.Drawing.RectangleF]$rect, [bool]$bold = $false, [bool]$allowSingleLine = $true) {
+function Draw-BodyCellText($graphics, [string]$key, [string]$value, [System.Drawing.RectangleF]$rect, [bool]$bold = $false, [bool]$allowSingleLine = $true, [float]$fixedSize = 0) {
   $lines = Get-DisplayTextLines $value
-  Draw-CenteredTextLines $graphics $lines $rect 11 3.0 ($bold -or $key -eq 'Code')
+  Draw-CenteredTextLines $graphics $lines $rect 11 3.0 ($bold -or $key -eq 'Code') $null $fixedSize
 }
 
 function Get-ColumnRects($columns, [float]$x, [float]$y, [float]$width, [float]$height) {
@@ -1246,13 +1095,15 @@ function Draw-ImageFit($graphics, [string]$path, [System.Drawing.RectangleF]$rec
   }
 }
 
-function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [float]$groupHeight) {
+function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [float]$groupHeight, $bodyFontSizes = $null) {
   $columns = @($printGroup.module.columns)
+  $headerColumns = @()
+  if ($null -ne $printGroup.group -and $null -ne $printGroup.group.PSObject.Properties['columns']) {
+    $headerColumns = @($printGroup.group.columns | Where-Object { $null -ne $_ })
+  }
   $headerHeight = 28.0
   $items = @($printGroup.items)
-  $showTotalRow = ($items.Count -gt 1)
-  $contentRows = $items.Count + $(if ($showTotalRow) { 1 } else { 0 })
-  $detailHeight = ($groupHeight - $headerHeight) / [Math]::Max(1, $contentRows)
+  $detailHeight = Get-PrintDetailHeight $printGroup $groupHeight
   $rects = Get-ColumnRects $columns 0 $top $pageWidth $groupHeight
   $green = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(0, 121, 95))
   $white = [System.Drawing.Brushes]::White
@@ -1265,7 +1116,14 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
       $headerRect = [System.Drawing.RectangleF]::new($rect.X, $top, $rect.Width, $headerHeight)
       $graphics.FillRectangle($green, $headerRect)
       $graphics.DrawRectangle($linePen, $headerRect.X, $headerRect.Y, $headerRect.Width, $headerRect.Height)
-      Draw-CenteredText $graphics ([string]$column.header) $headerRect 11 6 $true $white
+      $headerText = [string]$column.header
+      foreach ($headerColumn in $headerColumns) {
+        if ([string]$headerColumn.key -eq $key) {
+          $headerText = [string]$headerColumn.header
+          break
+        }
+      }
+      Draw-CenteredText $graphics $headerText $headerRect 11 6 $true $white
       $bodyRect = [System.Drawing.RectangleF]::new($rect.X, $top + $headerHeight, $rect.Width, $groupHeight - $headerHeight)
       if ($key -eq 'Total') { $graphics.FillRectangle($cream, $bodyRect) }
       $graphics.DrawRectangle($linePen, $bodyRect.X, $bodyRect.Y, $bodyRect.Width, $bodyRect.Height)
@@ -1296,39 +1154,50 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
 
     $skipCells = @{}
     $mergedCells = @()
-    foreach ($column in $columns) {
-      $key = [string]$column.key
-      if ($key -in @('Image','Code','Qty','Piece','Total')) { continue }
-      if (-not $rects.ContainsKey($key)) { continue }
-      $i = 0
-      while ($i -lt $items.Count) {
-        $mergeId = Get-ValueFromMap $items[$i].merges $key
-        if (-not $mergeId) {
-          $i++
-          continue
+    $mergeGroups = @{}
+    $bodyColumnKeys = @($columns | ForEach-Object { [string]$_.key } | Where-Object { $_ -ne 'Image' -and $rects.ContainsKey($_) })
+    for ($rowIndex = 0; $rowIndex -lt $items.Count; $rowIndex++) {
+      for ($columnIndex = 0; $columnIndex -lt $bodyColumnKeys.Count; $columnIndex++) {
+        $key = [string]$bodyColumnKeys[$columnIndex]
+        $mergeId = Get-ValueFromMap $items[$rowIndex].merges $key
+        if (-not $mergeId) { continue }
+        if (-not $mergeGroups.ContainsKey($mergeId)) { $mergeGroups[$mergeId] = @() }
+        $mergeGroups[$mergeId] += [PSCustomObject]@{
+          rowIndex = $rowIndex
+          columnIndex = $columnIndex
+          key = $key
+          value = Get-PrintableCellValue $items[$rowIndex] $key
         }
-        $startIndex = $i
-        $endIndex = $i
-        while (($endIndex + 1) -lt $items.Count) {
-          $nextMergeId = Get-ValueFromMap $items[$endIndex + 1].merges $key
-          if ($nextMergeId -ne $mergeId) { break }
-          $endIndex++
+      }
+    }
+    foreach ($mergeId in @($mergeGroups.Keys)) {
+      $mergeParts = @($mergeGroups[$mergeId])
+      if ($mergeParts.Count -le 1) { continue }
+      $orderedParts = @($mergeParts | Sort-Object rowIndex, columnIndex)
+      $firstPart = $orderedParts[0]
+      $minRowIndex = [int](($mergeParts | Measure-Object rowIndex -Minimum).Minimum)
+      $maxRowIndex = [int](($mergeParts | Measure-Object rowIndex -Maximum).Maximum)
+      $minColumnIndex = [int](($mergeParts | Measure-Object columnIndex -Minimum).Minimum)
+      $maxColumnIndex = [int](($mergeParts | Measure-Object columnIndex -Maximum).Maximum)
+      $firstKey = [string]$bodyColumnKeys[$minColumnIndex]
+      $lastKey = [string]$bodyColumnKeys[$maxColumnIndex]
+      $firstCell = $rects[$firstKey]
+      $lastCell = $rects[$lastKey]
+      $mergeTop = $top + $headerHeight + ($minRowIndex * $detailHeight)
+      $mergeHeight = ($maxRowIndex - $minRowIndex + 1) * $detailHeight
+      $mergeWidth = ($lastCell.X + $lastCell.Width) - $firstCell.X
+      $mergeRect = [System.Drawing.RectangleF]::new($firstCell.X, $mergeTop, $mergeWidth, $mergeHeight)
+      $mergeKeys = @($mergeParts.key | Sort-Object -Unique)
+      $mergedCells += [PSCustomObject]@{
+        key = [string]$firstPart.key
+        keys = $mergeKeys
+        rect = $mergeRect
+        value = [string]$firstPart.value
+      }
+      for ($rowNo = $minRowIndex; $rowNo -le $maxRowIndex; $rowNo++) {
+        for ($columnNo = $minColumnIndex; $columnNo -le $maxColumnIndex; $columnNo++) {
+          $skipCells["$([string]$bodyColumnKeys[$columnNo])|$rowNo"] = $true
         }
-        if ($endIndex -gt $startIndex) {
-          $cell = $rects[$key]
-          $mergeTop = $top + $headerHeight + ($startIndex * $detailHeight)
-          $mergeHeight = ($endIndex - $startIndex + 1) * $detailHeight
-          $mergeRect = [System.Drawing.RectangleF]::new($cell.X, $mergeTop, $cell.Width, $mergeHeight)
-          $mergedCells += [PSCustomObject]@{
-            key = $key
-            rect = $mergeRect
-            value = Get-PrintableCellValue $items[$startIndex] $key
-          }
-          for ($j = $startIndex; $j -le $endIndex; $j++) {
-            $skipCells["$key|$j"] = $true
-          }
-        }
-        $i = $endIndex + 1
       }
     }
 
@@ -1343,60 +1212,21 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
         if ($key -eq 'Total') { $graphics.FillRectangle($cream, $rowRect) }
         $graphics.DrawRectangle($linePen, $rowRect.X, $rowRect.Y, $rowRect.Width, $rowRect.Height)
         $value = Get-PrintableCellValue $items[$i] $key
-        Draw-BodyCellText $graphics $key $value $rowRect ($key -eq 'Total') $true
+        $fontSize = if ($null -ne $bodyFontSizes -and $bodyFontSizes.ContainsKey($key)) { [float]$bodyFontSizes[$key] } else { 0.0 }
+        Draw-BodyCellText $graphics $key $value $rowRect ($key -eq 'Total') $true $fontSize
       }
     }
 
     foreach ($mergedCell in $mergedCells) {
       $mergeRect = $mergedCell.rect
-      $graphics.FillRectangle([System.Drawing.Brushes]::White, $mergeRect)
+      $mergeKeys = @($mergedCell.keys)
+      if ($mergeKeys -contains 'Total') { $graphics.FillRectangle($cream, $mergeRect) } else { $graphics.FillRectangle([System.Drawing.Brushes]::White, $mergeRect) }
       $graphics.DrawRectangle($linePen, $mergeRect.X, $mergeRect.Y, $mergeRect.Width, $mergeRect.Height)
-      Draw-BodyCellText $graphics ([string]$mergedCell.key) ([string]$mergedCell.value) $mergeRect $false $true
+      $mergeKey = [string]$mergedCell.key
+      $fontSize = if ($null -ne $bodyFontSizes -and $bodyFontSizes.ContainsKey($mergeKey)) { [float]$bodyFontSizes[$mergeKey] } else { 0.0 }
+      Draw-BodyCellText $graphics $mergeKey ([string]$mergedCell.value) $mergeRect ($mergeKeys -contains 'Total') $true $fontSize
     }
 
-    if ($showTotalRow) {
-      $totalTop = $top + $headerHeight + ($items.Count * $detailHeight)
-      $sumTotal = 0.0
-      foreach ($item in $items) { $sumTotal += [double]$item.total }
-      $totalRect = $null
-      if ($rects.ContainsKey('Total')) {
-        $totalRect = $rects['Total']
-      }
-      $labelCells = @()
-      foreach ($column in $columns) {
-        $key = [string]$column.key
-        if ($key -in @('Image','Total')) { continue }
-        $cell = $rects[$key]
-        if (($null -eq $totalRect) -or (($cell.X + ($cell.Width / 2.0)) -lt $totalRect.X)) {
-          $labelCells += $cell
-        }
-      }
-      $labelRect = $null
-      if ($labelCells.Count -gt 0) {
-        $labelX = ($labelCells | Measure-Object -Property X -Minimum).Minimum
-        $labelRight = ($labelCells | ForEach-Object { $_.X + $_.Width } | Measure-Object -Maximum).Maximum
-        $labelRect = [System.Drawing.RectangleF]::new([float]$labelX, [float]$totalTop, [float]($labelRight - $labelX), [float]$detailHeight)
-        $graphics.FillRectangle([System.Drawing.Brushes]::White, $labelRect)
-        $graphics.DrawRectangle($linePen, $labelRect.X, $labelRect.Y, $labelRect.Width, $labelRect.Height)
-        Draw-CenteredText $graphics 'TỔNG CỘNG' $labelRect 12 7 $true
-      }
-      foreach ($column in $columns) {
-        $key = [string]$column.key
-        if ($key -eq 'Image') { continue }
-        $cell = $rects[$key]
-        if (($null -ne $labelRect) -and ($key -ne 'Total') -and ($cell.X -ge ($labelRect.X - 0.1)) -and (($cell.X + $cell.Width) -le ($labelRect.X + $labelRect.Width + 0.1))) {
-          continue
-        }
-        $rowRect = [System.Drawing.RectangleF]::new($cell.X, $totalTop, $cell.Width, $detailHeight)
-        if ($key -eq 'Total') {
-          $graphics.FillRectangle($cream, $rowRect)
-          $graphics.DrawRectangle($linePen, $rowRect.X, $rowRect.Y, $rowRect.Width, $rowRect.Height)
-          Draw-CenteredText $graphics ([string]([int][Math]::Round($sumTotal))) $rowRect 12 7 $true
-        } else {
-          $graphics.DrawRectangle($linePen, $rowRect.X, $rowRect.Y, $rowRect.Width, $rowRect.Height)
-        }
-      }
-    }
   } finally {
     $green.Dispose()
     $linePen.Dispose()
@@ -1616,7 +1446,83 @@ function Save-ReportPages($report, [string]$root) {
   return $pages
 }
 
-function Save-JpegPage($groups, [string]$path) {
+# Get-StandardDetailHeight（五格標準列高）：第六格起沿用此列高增加組別高度。
+function Get-StandardDetailHeight() {
+  return (140.3 - 28.0) / 5.0
+}
+
+function Get-PrintGroupHeight($printGroup) {
+  $itemCount = @($printGroup.items).Count
+  if ($itemCount -le 5) { return 140.3 }
+  $detailHeight = Get-StandardDetailHeight
+  return 28.0 + ($itemCount * $detailHeight)
+}
+
+# Get-PrintDetailHeight（實際款號列高）：1～5 格平均填滿固定高度，第六格起使用五格標準列高。
+function Get-PrintDetailHeight($printGroup, [float]$groupHeight) {
+  $itemCount = @($printGroup.items).Count
+  if ($itemCount -le 0) { return [Math]::Max(1.0, $groupHeight - 28.0) }
+  if ($itemCount -le 5) { return ($groupHeight - 28.0) / $itemCount }
+  return Get-StandardDetailHeight
+}
+
+# Get-BodyFontSizesForGroups（報表欄位共同字級）：以整份 PDF 的最長內容決定各欄統一字級。
+function Get-BodyFontSizesForGroups($groups, [float]$pageWidth = 595.0) {
+  $fontSizes = @{}
+  $bitmap = New-Object System.Drawing.Bitmap 16, 16
+  try {
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    try {
+      $graphics.ScaleTransform((1240.0 / 595.0), (1754.0 / 842.0))
+      foreach ($printGroup in @($groups)) {
+        $groupHeight = [float](Get-PrintGroupHeight $printGroup)
+        $detailHeight = [float](Get-PrintDetailHeight $printGroup $groupHeight)
+        $columns = @($printGroup.module.columns)
+        $rects = Get-ColumnRects $columns 0.0 0.0 $pageWidth $groupHeight
+        foreach ($column in $columns) {
+          $key = [string]$column.key
+          if ($key -eq 'Image' -or -not $rects.ContainsKey($key)) { continue }
+          $style = if ($key -in @('Code','Total')) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
+          foreach ($item in @($printGroup.items)) {
+            $value = Get-PrintableCellValue $item $key
+            if ([string]::IsNullOrWhiteSpace([string]$value)) { continue }
+            $lines = Get-DisplayTextLines $value
+            $fitSize = [float](Get-FitTextLinesFontSize $graphics $lines 11.0 3.0 ([float]$rects[$key].Width) $detailHeight $style)
+            if (-not $fontSizes.ContainsKey($key) -or $fitSize -lt [float]$fontSizes[$key]) {
+              $fontSizes[$key] = $fitSize
+            }
+          }
+        }
+      }
+    } finally {
+      $graphics.Dispose()
+    }
+  } finally {
+    $bitmap.Dispose()
+  }
+  return $fontSizes
+}
+
+function Split-PrintGroupsIntoPages($groups) {
+  $pages = @()
+  $current = @()
+  $usedHeight = 0.0
+  foreach ($group in @($groups)) {
+    $height = Get-PrintGroupHeight $group
+    if ($height -gt 842.0) { throw 'GROUP_EXCEEDS_A4_PAGE' }
+    if ($current.Count -gt 0 -and ($usedHeight + $height) -gt 842.0) {
+      $pages += [PSCustomObject]@{ groups = @($current) }
+      $current = @()
+      $usedHeight = 0.0
+    }
+    $current += $group
+    $usedHeight += $height
+  }
+  if ($current.Count -gt 0) { $pages += [PSCustomObject]@{ groups = @($current) } }
+  return $pages
+}
+
+function Save-JpegPage($groups, [string]$path, $bodyFontSizes = $null) {
   $width = 1240
   $height = 1754
   $bitmap = New-Object System.Drawing.Bitmap $width, $height
@@ -1629,8 +1535,11 @@ function Save-JpegPage($groups, [string]$path) {
       $scaleX = $width / 595.0
       $scaleY = $height / 842.0
       $graphics.ScaleTransform($scaleX, $scaleY)
-      for ($i = 0; $i -lt $groups.Count; $i++) {
-        Draw-Group $graphics $groups[$i] 595.0 ([float]($i * 140.3)) 140.3
+      $top = 0.0
+      foreach ($group in @($groups)) {
+        $groupHeight = Get-PrintGroupHeight $group
+        Draw-Group $graphics $group 595.0 ([float]$top) ([float]$groupHeight) $bodyFontSizes
+        $top += $groupHeight
       }
     } finally {
       $graphics.Dispose()
@@ -1715,28 +1624,34 @@ function New-CuttingPdf($payload) {
   $templateIndex = 0
   foreach ($templatePayload in $templatePayloads) {
     $templateIndex++
-    if (-not $templatePayload.templateBase64 -or -not $templatePayload.writes) { throw "BAD_TEMPLATE_PAYLOAD: index=$templateIndex" }
-    $templatePath = Join-Path $root "template_${templateIndex}.xlsx"
-    [System.IO.File]::WriteAllBytes($templatePath, [Convert]::FromBase64String([string]$templatePayload.templateBase64))
+    if (-not $templatePayload.writes) { throw "BAD_TEMPLATE_PAYLOAD: index=$templateIndex" }
+    $templatePath = ''
+    if ($templatePayload.templateBase64) {
+      $templatePath = Join-Path $root "template_${templateIndex}.xlsx"
+      [System.IO.File]::WriteAllBytes($templatePath, [Convert]::FromBase64String([string]$templatePayload.templateBase64))
+    }
     $index = Get-OrBuildTemplateIndex $templatePayload $templatePath
     $groups = @(Get-PrintableGroups $index $templatePayload)
     Add-Log 'select_groups' "index=$templateIndex groups=$($groups.Count)"
     $printGroups += $groups
   }
   if ($printGroups.Count -eq 0) { throw '沒有符合列印條件的款號資料。' }
+  $bodyFontSizes = Get-BodyFontSizesForGroups $printGroups 595.0
+  $fontSizeLog = @($bodyFontSizes.Keys | Sort-Object | ForEach-Object { "$_=$([Math]::Round([double]$bodyFontSizes[$_], 1))" }) -join ','
+  Add-Log 'body_font_sizes' $fontSizeLog
   $pageImages = @()
   $reportPages = @(Save-ReportPages $payload.report $root)
   if ($reportPages.Count -gt 0) {
     $pageImages += $reportPages
     Add-Log 'render_report' "pages=$($reportPages.Count)"
   }
-  for ($i = 0; $i -lt $printGroups.Count; $i += 6) {
-    $take = [Math]::Min(6, $printGroups.Count - $i)
-    $pageGroups = @($printGroups[$i..($i + $take - 1)])
-    $jpgPath = Join-Path $root ("page_{0}.jpg" -f (($i / 6) + 1))
-    Save-JpegPage $pageGroups $jpgPath
+  $packedPages = @(Split-PrintGroupsIntoPages $printGroups)
+  for ($i = 0; $i -lt $packedPages.Count; $i++) {
+    $pageGroups = @($packedPages[$i].groups)
+    $jpgPath = Join-Path $root ("page_{0}.jpg" -f ($i + 1))
+    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes
     $pageImages += $jpgPath
-    Add-Log 'render_page' "page=$($pageImages.Count) groups=$take"
+    Add-Log 'render_page' "page=$($pageImages.Count) groups=$($pageGroups.Count)"
   }
   New-PdfFromJpegs $pageImages $pdfPath
   Add-Log 'export_pdf' "pages=$($pageImages.Count)"
@@ -1760,6 +1675,13 @@ while ($listener.IsListening) {
     Set-Stage 'receive_request' $request.Url.AbsolutePath
     if ($request.HttpMethod -eq 'OPTIONS') { Send-Text $response 204 ''; continue }
     if ($request.Url.AbsolutePath -eq '/health') { Send-Text $response 200 '{"ok":true,"service":"cutting-pdf-local"}'; continue }
+    if ($request.Url.AbsolutePath -eq '/cutting/cache/status' -and $request.HttpMethod -eq 'POST') {
+      $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
+      try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
+      $payload = $body | ConvertFrom-Json
+      Send-Json $response 200 (Get-TemplateCacheStatus $payload)
+      continue
+    }
     if ($request.Url.AbsolutePath -eq '/cutting/cache' -and $request.HttpMethod -eq 'POST') {
       $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
       try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
@@ -1771,7 +1693,7 @@ while ($listener.IsListening) {
     $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
     try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
     $payload = $body | ConvertFrom-Json
-    if ((-not $payload.templates) -and (-not $payload.templateBase64 -or -not $payload.writes)) { Send-Text $response 400 '{"ok":false,"error":"BAD_REQUEST"}'; continue }
+    if ((-not $payload.templates) -and (-not $payload.templateId -or -not $payload.writes)) { Send-Text $response 400 '{"ok":false,"error":"BAD_REQUEST"}'; continue }
     $pdfPath = New-CuttingPdf $payload
     $name = if ($payload.outputName) { [string]$payload.outputName } else { 'cutting.pdf' }
     Send-File $response $pdfPath $name

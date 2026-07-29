@@ -20,6 +20,8 @@
     shortageCol: 9,
     noteCol: 10
   });
+  const TEMPLATE_SCHEMA_VERSION = 'fixed-2026-07'; // TEMPLATE_SCHEMA_VERSION（固定模板規格版本）
+  const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
   let pdfToolStatusChecking = false;
 
   function text(id, value){
@@ -92,11 +94,67 @@
     return code ? [code] : [];
   }
 
-  function isFixedTemplateHeader(row){
-    const code = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.codeCol]);
-    const qty = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.qtyCol]);
-    const piece = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.pieceCol]);
-    const total = normalizeHeader(row?.[FIXED_TEMPLATE_COLUMNS.totalCol]);
+  // buildTemplateMergeMap（建立模板合併儲存格索引）：合併範圍內每一格都指向左上角來源。
+  function buildTemplateMergeMap(ws, sheetName){
+    const map = new Map();
+    const analyzedColumns = [
+      FIXED_TEMPLATE_COLUMNS.codeCol,
+      FIXED_TEMPLATE_COLUMNS.qtyCol,
+      FIXED_TEMPLATE_COLUMNS.pieceCol,
+      FIXED_TEMPLATE_COLUMNS.totalCol
+    ]; // analyzedColumns（需要解析合併狀態的固定欄）
+    (ws?.['!merges'] || []).forEach(range => {
+      const startRow = Number(range?.s?.r);
+      const startCol = Number(range?.s?.c);
+      const endRow = Number(range?.e?.r);
+      const endCol = Number(range?.e?.c);
+      if(![startRow, startCol, endRow, endCol].every(Number.isInteger)) return;
+      if(startRow < 0 || startCol < 0 || endRow < startRow || endCol < startCol) return;
+      const anchorCell = addr(startRow, startCol);
+      const reference = `${anchorCell}:${addr(endRow, endCol)}`;
+      const info = {
+        id: `${sheetName}!${reference}`,
+        reference,
+        anchorCell,
+        anchorRow: startRow,
+        anchorCol: startCol,
+        value: ws?.[anchorCell]?.v ?? ''
+      };
+      for(let rowIndex = startRow; rowIndex <= endRow; rowIndex++){
+        for(const colIndex of analyzedColumns){
+          if(colIndex < startCol || colIndex > endCol) continue;
+          map.set(addr(rowIndex, colIndex), info);
+        }
+      }
+    });
+    return map;
+  }
+
+  // resolveTemplateCell（解析模板儲存格）：回傳實際來源位置、合併範圍與左上角內容。
+  function resolveTemplateCell(ws, rowIndex, colIndex, mergeMap){
+    const cell = addr(rowIndex, colIndex);
+    const merge = mergeMap.get(cell);
+    if(merge){
+      return {
+        cell: merge.anchorCell,
+        value: merge.value,
+        mergeId: merge.id,
+        mergeRef: merge.reference
+      };
+    }
+    return {
+      cell,
+      value: ws?.[cell]?.v ?? '',
+      mergeId: '',
+      mergeRef: ''
+    };
+  }
+
+  function isFixedTemplateHeader(ws, rowIndex, mergeMap){
+    const code = normalizeHeader(resolveTemplateCell(ws, rowIndex, FIXED_TEMPLATE_COLUMNS.codeCol, mergeMap).value);
+    const qty = normalizeHeader(resolveTemplateCell(ws, rowIndex, FIXED_TEMPLATE_COLUMNS.qtyCol, mergeMap).value);
+    const piece = normalizeHeader(resolveTemplateCell(ws, rowIndex, FIXED_TEMPLATE_COLUMNS.pieceCol, mergeMap).value);
+    const total = normalizeHeader(resolveTemplateCell(ws, rowIndex, FIXED_TEMPLATE_COLUMNS.totalCol, mergeMap).value);
     return (
       code.includes('MAHANG') &&
       (qty.includes('SLPO') || qty.includes('PCS')) &&
@@ -108,7 +166,8 @@
   function analyzeTemplateWorkbook(fileName, workbook){
     const book = {
       fileName,
-      schemaVersion: 'fixed-2026-07',
+      schemaVersion: TEMPLATE_SCHEMA_VERSION,
+      analysisVersion: TEMPLATE_ANALYSIS_VERSION,
       sheetCount: workbook.SheetNames.length,
       itemCount: 0,
       rowCount: 0,
@@ -116,6 +175,7 @@
       issues: [],
       noticeCount: 0,
       notices: [],
+      mergeRangeCount: 0,
       sheets: [],
       codes: []
     };
@@ -124,10 +184,14 @@
     workbook.SheetNames.forEach(sheetName => {
       const ws = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      const sheetInfo = {name: sheetName, detectedBlocks: 0, rowCount: 0, warningCount: 0, detections: []};
+      const mergeMap = buildTemplateMergeMap(ws, sheetName); // mergeMap（合併儲存格索引）
+      const mergeRangeCount = new Set(Array.from(mergeMap.values(), item => item.id)).size;
+      book.mergeRangeCount += mergeRangeCount;
+      const sheetInfo = {name: sheetName, detectedBlocks: 0, rowCount: 0, warningCount: 0, mergeRangeCount, detections: []};
+      const issuePieceCells = new Set(); // issuePieceCells（已記錄錯誤的件數儲存格）
       const headerIndexes = []; // headerIndexes（表頭列索引）
       rows.forEach((row, rowIndex) => {
-        if(isFixedTemplateHeader(row)) headerIndexes.push(rowIndex);
+        if(isFixedTemplateHeader(ws, rowIndex, mergeMap)) headerIndexes.push(rowIndex);
       });
       headerIndexes.forEach((headerIndex, blockIndex) => {
         const nextHeaderIndex = blockIndex + 1 < headerIndexes.length ? headerIndexes[blockIndex + 1] : rows.length; // nextHeaderIndex（下一個表頭列索引）
@@ -144,19 +208,27 @@
           totalCol: FIXED_TEMPLATE_COLUMNS.totalCol
         });
         for(let dataIndex = headerIndex + 1; dataIndex < nextHeaderIndex; dataIndex++){
-          const dataRow = rows[dataIndex] || [];
-          const rawCode = dataRow[FIXED_TEMPLATE_COLUMNS.codeCol];
+          const codeSource = resolveTemplateCell(ws, dataIndex, FIXED_TEMPLATE_COLUMNS.codeCol, mergeMap); // codeSource（款號來源）
+          const pieceSource = resolveTemplateCell(ws, dataIndex, FIXED_TEMPLATE_COLUMNS.pieceCol, mergeMap); // pieceSource（每件條數來源）
+          const qtySource = resolveTemplateCell(ws, dataIndex, FIXED_TEMPLATE_COLUMNS.qtyCol, mergeMap); // qtySource（訂單數量來源）
+          const totalSource = resolveTemplateCell(ws, dataIndex, FIXED_TEMPLATE_COLUMNS.totalCol, mergeMap); // totalSource（裁段總數來源）
+          const rawCode = codeSource.value;
           if(!isItemCode(rawCode)) continue;
           const code = normalizeCode(rawCode);
-          const pieces = parseNumber(dataRow[FIXED_TEMPLATE_COLUMNS.pieceCol]);
+          const pieces = parseNumber(pieceSource.value);
           const rowInfo = {
             sheetName,
             headerRowNumber: headerIndex + 1,
             rowNumber: dataIndex + 1,
             code,
-            qtyCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.qtyCol),
-            pieceCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.pieceCol),
-            totalCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.totalCol),
+            codeCell: codeSource.cell,
+            qtyCell: qtySource.cell,
+            pieceCell: pieceSource.cell,
+            totalCell: totalSource.cell,
+            codeMergeRef: codeSource.mergeRef,
+            qtyMergeRef: qtySource.mergeRef,
+            pieceMergeRef: pieceSource.mergeRef,
+            totalMergeRef: totalSource.mergeRef,
             piecesPerRow: pieces,
             detectMethod: 'fixed-new-spec',
             detectConfidence: 100
@@ -165,7 +237,9 @@
           blockRows.push(rowInfo);
           sheetInfo.rowCount += 1;
           book.rowCount += 1;
-          if(pieces <= 0){
+          const pieceSourceKey = `${sheetName}!${pieceSource.cell}`; // pieceSourceKey（每件條數來源識別）
+          if(pieces <= 0 && !issuePieceCells.has(pieceSourceKey)){
+            issuePieceCells.add(pieceSourceKey);
             sheetInfo.warningCount += 1;
             book.warningCount += 1;
             rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
@@ -184,12 +258,16 @@
               aliases: codeAliases(code),
               piecesPerItem: 0,
               rows: [],
+              pieceSourceKeys: [],
               templateFileName: fileName
             });
           }
           const item = codeMap.get(code);
           item.rows.push(rowInfo);
-          item.piecesPerItem += pieces;
+          if(!item.pieceSourceKeys.includes(pieceSourceKey)){
+            item.pieceSourceKeys.push(pieceSourceKey);
+            item.piecesPerItem += pieces;
+          }
         }
         if(!blockRowCount){
           sheetInfo.warningCount += 1;
@@ -203,7 +281,11 @@
             zhMessage: `第 ${headerIndex + 1} 列表頭下方找不到款號。`
           });
         }
-        const positivePieceRows = blockRows.filter(row => row.piecesPerRow > 0); // positivePieceRows（有效件數資料列）
+        const positivePieceRows = Array.from(new Map(
+          blockRows
+            .filter(row => row.piecesPerRow > 0)
+            .map(row => [`${row.code}|${row.sheetName}!${row.pieceCell}`, row])
+        ).values()); // positivePieceRows（去除合併重複後的有效件數資料列）
         const pieceValues = new Set(positivePieceRows.map(row => row.piecesPerRow)); // pieceValues（同組件數值）
         if(pieceValues.size > 1){
           book.noticeCount += 1;
@@ -235,7 +317,10 @@
       book.sheets.push(sheetInfo);
     });
 
-    book.codes = Array.from(codeMap.values()).sort((a, b) => a.code.localeCompare(b.code, undefined, {numeric:true}));
+    book.codes = Array.from(codeMap.values()).map(item => {
+      const {pieceSourceKeys, ...storedItem} = item;
+      return storedItem;
+    }).sort((a, b) => a.code.localeCompare(b.code, undefined, {numeric:true}));
     book.itemCount = book.codes.length;
     return book;
   }
@@ -243,7 +328,11 @@
   function buildTemplateMap(){
     const map = new Map();
     state.templates.forEach(book => {
-      if(book.status !== 'confirmed' || book.schemaVersion !== 'fixed-2026-07') return;
+      if(
+        book.status !== 'confirmed' ||
+        book.schemaVersion !== TEMPLATE_SCHEMA_VERSION ||
+        book.analysisVersion !== TEMPLATE_ANALYSIS_VERSION
+      ) return;
       (book.codes || []).forEach(item => {
         const templateItem = {...item, templateId: book.id, fileName: book.fileName};
         const aliases = item.aliases && item.aliases.length ? item.aliases : codeAliases(item.code);
@@ -451,7 +540,10 @@
     (templates || []).forEach(template => {
       if(template.fileName === book.fileName) return;
       if(template.status && template.status !== 'confirmed') return;
-      if(template.schemaVersion !== 'fixed-2026-07') return;
+      if(
+        template.schemaVersion !== TEMPLATE_SCHEMA_VERSION ||
+        template.analysisVersion !== TEMPLATE_ANALYSIS_VERSION
+      ) return;
       (template.codes || []).forEach(item => {
         const candidates = [item.code, ...(item.aliases || [])].map(code => normalizeCode(code)).filter(Boolean);
         const matched = candidates.find(code => incoming.has(code));
@@ -502,15 +594,17 @@
         <td style="text-align:right">${fmtNum(t.sheetCount)}</td>
         <td style="text-align:right">${fmtNum(t.itemCount)}</td>
         <td style="text-align:right">${fmtNum(t.rowCount)}</td>
-        <td>${t.schemaVersion !== 'fixed-2026-07'
+        <td>${t.schemaVersion !== TEMPLATE_SCHEMA_VERSION
           ? '<span class="tg ta">Mẫu cũ đã ngừng / 舊格式已停用</span>'
+          : (t.analysisVersion !== TEMPLATE_ANALYSIS_VERSION
+            ? '<span class="tg ta">Cần nhập lại / 需要重新匯入</span>'
           : (t.status === 'confirmed'
             ? (t.warningCount
               ? `<span class="tg ta">Có lỗi / 有錯誤</span>`
               : (t.noticeCount
                 ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.noticeCount)} cảnh báo / 已確認，${fmtNum(t.noticeCount)} 個提醒</span>`
                 : '<span class="tg tg2">Đã xác nhận / 已確認</span>'))
-            : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>')}</td>
+            : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>'))}</td>
         <td style="text-align:center"><button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button></td>
       </tr>
     `).join('');
@@ -1041,9 +1135,13 @@
     const totalQty = exportableResults.reduce((sum, r) => sum + r.qty, 0);
     const totalPieces = exportableResults.reduce((sum, r) => sum + r.totalPieces, 0);
     const validations = exportableResults.map(result => ({result, problems: validateExportResult(result)}));
-    const problemRows = validations.flatMap(row => row.problems.map(problem => ({code: row.result.code, problem})));
+    const sharedProblems = validateSharedWriteTargets(exportableResults);
+    const problemRows = [
+      ...validations.flatMap(row => row.problems.map(problem => ({code: row.result.code, problem}))),
+      ...sharedProblems.map(problem => ({code: '-', problem}))
+    ];
     const passed = validations.filter(row => !row.problems.length).length;
-    const failed = validations.length - passed;
+    const failed = validations.length - passed + sharedProblems.length;
     const problemHtml = failed ? `
       <div class="to"><div class="ts" style="max-height:260px"><table>
         <thead><tr>
@@ -1105,14 +1203,26 @@
       if(rowInfo.totalCell) cells.set(`${rowInfo.sheetName}!${rowInfo.totalCell}`, {rowInfo, cell: rowInfo.totalCell, value: 0});
     });
     results.forEach(result => {
+      const qtyTargets = new Set(); // qtyTargets（本款號已寫入的訂單數量位置）
+      const totalContributions = new Set(); // totalContributions（本款號已計算的裁段來源）
       (result.rows || []).forEach(rowInfo => {
-        addCellValue(`${rowInfo.sheetName}!${rowInfo.qtyCell}`, {rowInfo}, result.qty);
+        const qtyKey = `${rowInfo.sheetName}!${rowInfo.qtyCell}`;
+        if(!qtyTargets.has(qtyKey)){
+          qtyTargets.add(qtyKey);
+          addCellValue(qtyKey, {rowInfo}, result.qty);
+        }
         if(rowInfo.totalCell){
-          addCellValue(
-            `${rowInfo.sheetName}!${rowInfo.totalCell}`,
-            {rowInfo, cell: rowInfo.totalCell},
-            Number(result.qty || 0) * Number(rowInfo.piecesPerRow || 0)
-          );
+          const totalKey = `${rowInfo.sheetName}!${rowInfo.totalCell}`;
+          const pieceKey = `${rowInfo.sheetName}!${rowInfo.pieceCell || `R${rowInfo.rowNumber || 0}`}`;
+          const contributionKey = `${totalKey}|${pieceKey}`;
+          if(!totalContributions.has(contributionKey)){
+            totalContributions.add(contributionKey);
+            addCellValue(
+              totalKey,
+              {rowInfo, cell: rowInfo.totalCell},
+              Number(result.qty || 0) * Number(rowInfo.piecesPerRow || 0)
+            );
+          }
         }
       });
     });
@@ -1122,7 +1232,11 @@
   function validateExportResult(result){
     const problems = [];
     const rows = result.rows || [];
-    const pieces = rows.reduce((sum, rowInfo) => sum + Number(rowInfo.piecesPerRow || 0), 0);
+    const uniquePieceRows = Array.from(new Map(rows.map(rowInfo => [
+      `${rowInfo.sheetName}!${rowInfo.pieceCell || `R${rowInfo.rowNumber || 0}`}`,
+      rowInfo
+    ])).values()); // uniquePieceRows（去除合併重複後的每件條數資料列）
+    const pieces = uniquePieceRows.reduce((sum, rowInfo) => sum + Number(rowInfo.piecesPerRow || 0), 0);
     const totalPieces = Number(result.qty || 0) * pieces;
     const reverseQty = pieces ? totalPieces / pieces : 0;
     if(!rows.length) problems.push('Không có vị trí điền / 沒有填寫位置');
@@ -1133,8 +1247,52 @@
     return problems;
   }
 
+  // validateSharedWriteTargets（檢查共用寫入位置）：不同款號或不同欄位不得共用同一個合併來源格。
+  function validateSharedWriteTargets(results){
+    const targets = new Map();
+    const addTarget = (result, rowInfo, field, label) => {
+      const cell = rowInfo?.[field];
+      if(!rowInfo?.sheetName || !cell) return;
+      const key = `${rowInfo.sheetName}!${cell}`.toUpperCase();
+      if(!targets.has(key)){
+        targets.set(key, {
+          sheetName: rowInfo.sheetName,
+          cell,
+          mergeRef: rowInfo[`${field.replace('Cell', '')}MergeRef`] || '',
+          entries: new Map()
+        });
+      }
+      const target = targets.get(key);
+      const entryKey = `${label}|${result.code}`;
+      if(!target.entries.has(entryKey)) target.entries.set(entryKey, {label, code: result.code});
+    };
+    (results || []).forEach(result => {
+      (result.rows || []).forEach(rowInfo => {
+        addTarget(result, rowInfo, 'qtyCell', 'SL:PO');
+        addTarget(result, rowInfo, 'totalCell', 'SL:CẮT THỰC TẾ');
+      });
+    });
+    const problems = [];
+    targets.forEach(target => {
+      const entries = Array.from(target.entries.values());
+      const roles = new Set(entries.map(entry => entry.label));
+      const codes = new Set(entries.map(entry => entry.code));
+      if(roles.size <= 1 && codes.size <= 1) return;
+      const location = `${target.sheetName}!${target.mergeRef || target.cell}`;
+      const codeText = Array.from(codes).join(', ');
+      problems.push(
+        `Ô gộp ${location} được nhiều mã hàng hoặc cột dùng chung (${codeText}). Vui lòng tách ô trước khi xuất. / ` +
+        `合併儲存格 ${location} 被多個款號或不同欄位共用（${codeText}），請拆開後再匯出。`
+      );
+    });
+    return problems;
+  }
+
   function validateExportResults(results){
-    return results.flatMap(result => validateExportResult(result).map(problem => `${result.code}: ${problem}`));
+    return [
+      ...results.flatMap(result => validateExportResult(result).map(problem => `${result.code}: ${problem}`)),
+      ...validateSharedWriteTargets(results)
+    ];
   }
 
   function setPdfToolStatus(status, detail = ''){
@@ -1327,8 +1485,12 @@
 
   function buildLocalPdfOrderCells(results){
     const cells = [];
+    const seen = new Set(); // seen（已加入的訂單數量位置）
     results.forEach(result => {
       (result.rows || []).forEach(rowInfo => {
+        const key = `${rowInfo.sheetName}!${rowInfo.qtyCell}`;
+        if(seen.has(key)) return;
+        seen.add(key);
         cells.push({
           sheetName: rowInfo.sheetName,
           cell: rowInfo.qtyCell
