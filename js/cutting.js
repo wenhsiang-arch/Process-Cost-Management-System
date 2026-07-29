@@ -61,8 +61,9 @@
     return normalizeText(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Z0-9\u4E00-\u9FFF]/g, '');
   }
 
+  // normalizeCode（標準化款號）：保留款號中的英文字母、數字與所有符號，只清除前後空白並統一英文大小寫。
   function normalizeCode(value){
-    return normalizeText(value).replace(/[^\w~-]/g, '');
+    return String(value ?? '').trim().toUpperCase();
   }
 
   function parseNumber(value){
@@ -77,8 +78,13 @@
   }
 
   function isItemCode(value){
+    return normalizeCode(value).length > 0;
+  }
+
+  // isLikelyItemCode（推測款號格式）：只用於沒有表頭時推測訂單欄位，不限制已確認欄位內的正式款號。
+  function isLikelyItemCode(value){
     const code = normalizeCode(value);
-    return /^[A-Z0-9][A-Z0-9-]{2,}$/.test(code);
+    return !!code && /[A-Z0-9]/.test(code);
   }
 
   function codeAliases(value){
@@ -116,33 +122,14 @@
       const ws = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       const sheetInfo = {name: sheetName, detectedBlocks: 0, rowCount: 0, warningCount: 0, detections: []};
-      rows.forEach((row, headerIndex) => {
-        if(!isFixedTemplateHeader(row)) return;
-        const dataIndex = headerIndex + 1;
-        const dataRow = rows[dataIndex] || [];
-        const rawCode = dataRow[FIXED_TEMPLATE_COLUMNS.codeCol];
-        if(!isItemCode(rawCode)){
-          sheetInfo.warningCount += 1;
-          book.warningCount += 1;
-          return;
-        }
-        const code = normalizeCode(rawCode);
-        const pieces = parseNumber(dataRow[FIXED_TEMPLATE_COLUMNS.pieceCol]);
-        const rowInfo = {
-          sheetName,
-          headerRowNumber: headerIndex + 1,
-          rowNumber: dataIndex + 1,
-          code,
-          qtyCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.qtyCol),
-          pieceCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.pieceCol),
-          totalCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.totalCol),
-          piecesPerRow: pieces,
-          detectMethod: 'fixed-new-spec',
-          detectConfidence: 100
-        };
+      const headerIndexes = []; // headerIndexes（表頭列索引）
+      rows.forEach((row, rowIndex) => {
+        if(isFixedTemplateHeader(row)) headerIndexes.push(rowIndex);
+      });
+      headerIndexes.forEach((headerIndex, blockIndex) => {
+        const nextHeaderIndex = blockIndex + 1 < headerIndexes.length ? headerIndexes[blockIndex + 1] : rows.length; // nextHeaderIndex（下一個表頭列索引）
+        let blockRowCount = 0; // blockRowCount（本組款號列數）
         sheetInfo.detectedBlocks += 1;
-        sheetInfo.rowCount += 1;
-        book.rowCount += 1;
         sheetInfo.detections.push({
           rowNumber: headerIndex + 1,
           method: 'fixed-new-spec',
@@ -152,23 +139,49 @@
           pieceCol: FIXED_TEMPLATE_COLUMNS.pieceCol,
           totalCol: FIXED_TEMPLATE_COLUMNS.totalCol
         });
-        if(pieces <= 0){
+        for(let dataIndex = headerIndex + 1; dataIndex < nextHeaderIndex; dataIndex++){
+          const dataRow = rows[dataIndex] || [];
+          const rawCode = dataRow[FIXED_TEMPLATE_COLUMNS.codeCol];
+          if(!isItemCode(rawCode)) continue;
+          const code = normalizeCode(rawCode);
+          const pieces = parseNumber(dataRow[FIXED_TEMPLATE_COLUMNS.pieceCol]);
+          const rowInfo = {
+            sheetName,
+            headerRowNumber: headerIndex + 1,
+            rowNumber: dataIndex + 1,
+            code,
+            qtyCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.qtyCol),
+            pieceCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.pieceCol),
+            totalCell: addr(dataIndex, FIXED_TEMPLATE_COLUMNS.totalCol),
+            piecesPerRow: pieces,
+            detectMethod: 'fixed-new-spec',
+            detectConfidence: 100
+          };
+          blockRowCount += 1;
+          sheetInfo.rowCount += 1;
+          book.rowCount += 1;
+          if(pieces <= 0){
+            sheetInfo.warningCount += 1;
+            book.warningCount += 1;
+            rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
+          }
+          if(!codeMap.has(code)){
+            codeMap.set(code, {
+              code,
+              aliases: codeAliases(code),
+              piecesPerItem: 0,
+              rows: [],
+              templateFileName: fileName
+            });
+          }
+          const item = codeMap.get(code);
+          item.rows.push(rowInfo);
+          item.piecesPerItem += pieces;
+        }
+        if(!blockRowCount){
           sheetInfo.warningCount += 1;
           book.warningCount += 1;
-          rowInfo.warning = 'Số kiện trống hoặc bằng 0 / 每件條數空白或為 0';
         }
-        if(!codeMap.has(code)){
-          codeMap.set(code, {
-            code,
-            aliases: codeAliases(code),
-            piecesPerItem: 0,
-            rows: [],
-            templateFileName: fileName
-          });
-        }
-        const item = codeMap.get(code);
-        item.rows.push(rowInfo);
-        item.piecesPerItem += pieces;
       });
       if(!sheetInfo.detectedBlocks){
         sheetInfo.warningCount += 1;
@@ -646,7 +659,7 @@
     const codeScores = new Map();
     for(let r = 0; r < Math.min(rows.length, 160); r++){
       (rows[r] || []).forEach((cell, c) => {
-        if(isItemCode(cell)) codeScores.set(c, (codeScores.get(c) || 0) + 1);
+        if(isLikelyItemCode(cell)) codeScores.set(c, (codeScores.get(c) || 0) + 1);
       });
     }
     let codeIdx = -1, bestCodeScore = 0;
@@ -661,7 +674,7 @@
     const qtyScores = new Map();
     for(let r = 0; r < Math.min(rows.length, 220); r++){
       const row = rows[r] || [];
-      if(!isItemCode(row[codeIdx])) continue;
+      if(!isLikelyItemCode(row[codeIdx])) continue;
       row.forEach((cell, c) => {
         if(c === codeIdx) return;
         const qty = parseNumber(cell);
