@@ -271,12 +271,20 @@
   }
 
   function setTemplateBusy(busy){
-    ['cut-template-file', 'cut-template-confirm-btn', 'cut-template-clear-btn'].forEach(id => {
+    ['cut-template-file', 'cut-template-clear-btn'].forEach(id => {
       const el = g(id);
       if(el) el.disabled = !!busy;
     });
+    const confirmButton = g('cut-template-confirm-btn'); // confirmButton（確認模板按鈕）
+    if(confirmButton) confirmButton.disabled = !!busy || !state.pendingTemplateFile || !state.pendingBook;
     const drop = g('cut-template-drop');
     if(drop) drop.style.pointerEvents = busy ? 'none' : '';
+  }
+
+  // clearPendingTemplate（清除待確認模板）：新檔案分析失敗時不得沿用上一份已通過資料。
+  function clearPendingTemplate(){
+    state.pendingTemplateFile = null;
+    state.pendingBook = null;
   }
 
   function cuttingTemplateModal(options){
@@ -446,7 +454,7 @@
         <div class="mc"><div class="ml">Số sheet</div><div class="mvi">工作表</div><div class="mv">${fmtNum(book.sheetCount)}</div></div>
         <div class="mc"><div class="ml">Mã hàng</div><div class="mvi">款號</div><div class="mv">${fmtNum(book.itemCount)}</div></div>
         <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">填寫列數</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
-        <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">警告</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
+        <div class="mc"><div class="ml">Lỗi</div><div class="mvi">錯誤</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
       </div>
       <div class="nt ${book.warningCount ? 'nw' : 'ns'}" style="margin-bottom:12px">
         <i class="ti ${book.warningCount ? 'ti-alert-triangle' : 'ti-circle-check'}"></i>
@@ -576,8 +584,14 @@
   }
 
   async function cuttingAnalyzeTemplateFile(file){
-    if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel，請重新整理頁面。'); return; }
+    clearPendingTemplate();
+    if(!window.XLSX){
+      setTemplateBusy(false);
+      alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel，請重新整理頁面。');
+      return;
+    }
     if(!isXlsxTemplateFile(file)){
+      setTemplateBusy(false);
       alertTemplateFileTypeError(file.name);
       return;
     }
@@ -698,17 +712,16 @@
   function cuttingClearCurrent(){
     state.orderItems = [];
     state.results = [];
-    state.pendingTemplateFile = null;
-    state.pendingBook = null;
+    clearPendingTemplate();
     text('cut-template-file-name', '');
     text('cut-order-file-name', '');
+    setTemplateBusy(false);
     renderTemplateAnalysis(null);
     renderResults();
   }
 
   function cuttingClearTemplateCurrent(){
-    state.pendingTemplateFile = null;
-    state.pendingBook = null;
+    clearPendingTemplate();
     const input = g('cut-template-file');
     if(input) input.value = '';
     text('cut-template-file-name', '');
@@ -1397,6 +1410,7 @@
 
   async function cuttingInit(){
     await refreshTemplates();
+    setTemplateBusy(false);
     cuttingSwitchTab('order');
   }
 
