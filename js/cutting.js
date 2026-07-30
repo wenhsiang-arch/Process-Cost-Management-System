@@ -1221,7 +1221,8 @@
     const addTarget = (result, rowInfo, field, label) => {
       const cell = rowInfo?.[field];
       if(!rowInfo?.sheetName || !cell) return;
-      const key = `${rowInfo.sheetName}!${cell}`.toUpperCase();
+      // key（寫入位置識別）：必須包含模板編號，避免不同模板的相同工作表與儲存格被誤判為共用。
+      const key = `${result.templateId || result.fileName || ''}|${rowInfo.sheetName}!${cell}`.toUpperCase();
       if(!targets.has(key)){
         targets.set(key, {
           sheetName: rowInfo.sheetName,
