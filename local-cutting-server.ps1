@@ -1354,7 +1354,7 @@ function Get-PdfRenderOptions($payload) {
   # renderOptions（繪圖品質設定）：mode（模式）、width（寬度）、height（高度）、jpegQuality（JPEG 品質）、isHighQuality（是否高品質）。
   $mode = if ([string]$payload.pdfQuality -eq 'high') { 'high' } else { 'standard' } # mode（品質模式）
   if ($mode -eq 'high') {
-    return [PSCustomObject]@{ mode = 'high'; width = 2480; height = 3508; jpegQuality = 95; isHighQuality = $true }
+    return [PSCustomObject]@{ mode = 'high'; width = 2480; height = 3508; jpegQuality = 100; isHighQuality = $true }
   }
   return [PSCustomObject]@{ mode = 'standard'; width = 1240; height = 1754; jpegQuality = 0; isHighQuality = $false }
 }
