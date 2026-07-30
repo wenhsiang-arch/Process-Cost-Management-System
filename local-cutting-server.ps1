@@ -1350,9 +1350,43 @@ function Draw-ReportTable($graphics, [string]$title, $rows, [float]$x, [float]$y
   }
 }
 
-function Save-ReportImage($sections, [string]$path) {
-  $width = 1240
-  $height = 1754
+function Get-PdfRenderOptions($payload) {
+  # renderOptions（繪圖品質設定）：mode（模式）、width（寬度）、height（高度）、jpegQuality（JPEG 品質）、isHighQuality（是否高品質）。
+  $mode = if ([string]$payload.pdfQuality -eq 'high') { 'high' } else { 'standard' } # mode（品質模式）
+  if ($mode -eq 'high') {
+    return [PSCustomObject]@{ mode = 'high'; width = 2480; height = 3508; jpegQuality = 95; isHighQuality = $true }
+  }
+  return [PSCustomObject]@{ mode = 'standard'; width = 1240; height = 1754; jpegQuality = 0; isHighQuality = $false }
+}
+
+# Save-BitmapAsJpeg（儲存 JPEG 圖片）：標準品質沿用原本設定，高品質才指定壓縮品質。
+function Save-BitmapAsJpeg([System.Drawing.Bitmap]$bitmap, [string]$path, [int]$jpegQuality = 0) {
+  if ($jpegQuality -le 0) {
+    $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+    return
+  }
+  # codec（圖片編碼器）
+  $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
+    Where-Object { $_.MimeType -eq 'image/jpeg' } |
+    Select-Object -First 1
+  if ($null -eq $codec) { throw 'JPEG_ENCODER_NOT_FOUND（找不到 JPEG 圖片編碼器）' }
+  $encoderParameters = [System.Drawing.Imaging.EncoderParameters]::new(1) # encoderParameters（圖片編碼參數集合）
+  $encoderParameter = [System.Drawing.Imaging.EncoderParameter]::new( # encoderParameter（圖片編碼參數）
+    [System.Drawing.Imaging.Encoder]::Quality,
+    [int64]$jpegQuality
+  )
+  try {
+    $encoderParameters.Param[0] = $encoderParameter
+    $bitmap.Save($path, $codec, $encoderParameters)
+  } finally {
+    $encoderParameter.Dispose()
+    $encoderParameters.Dispose()
+  }
+}
+
+function Save-ReportImage($sections, [string]$path, $renderOptions) {
+  $width = [int]$renderOptions.width
+  $height = [int]$renderOptions.height
   $bitmap = New-Object System.Drawing.Bitmap $width, $height
   try {
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
@@ -1360,6 +1394,11 @@ function Save-ReportImage($sections, [string]$path) {
       $graphics.Clear([System.Drawing.Color]::White)
       $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
       $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+      if ([bool]$renderOptions.isHighQuality) {
+        $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+      }
       $scaleX = $width / 595.0
       $scaleY = $height / 842.0
       $graphics.ScaleTransform($scaleX, $scaleY)
@@ -1369,13 +1408,13 @@ function Save-ReportImage($sections, [string]$path) {
     } finally {
       $graphics.Dispose()
     }
-    $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+    Save-BitmapAsJpeg $bitmap $path ([int]$renderOptions.jpegQuality)
   } finally {
     $bitmap.Dispose()
   }
 }
 
-function Save-ReportPages($report, [string]$root) {
+function Save-ReportPages($report, [string]$root, $renderOptions) {
   if ($null -eq $report) { return @() }
   $completedRows = @($report.completed)
   $missingRows = @($report.missing)
@@ -1390,7 +1429,7 @@ function Save-ReportPages($report, [string]$root) {
       [PSCustomObject]@{ title = "Danh sách mã hàng hoàn tất / 已完成款號（總共$($completedCount)個）"; rows = $completedRows; summary = $completedSummary; x = 30.0; y = 35.0; bottom = 405.0 },
       [PSCustomObject]@{ title = "Công đoạn thiếu tệp / 缺少檔案的工序段（總共$($missingCount)個）"; rows = $missingRows; summary = $missingSummary; x = 30.0; y = 445.0; bottom = 812.0 }
     )
-    Save-ReportImage $sections $path
+    Save-ReportImage $sections $path $renderOptions
     return @($path)
   }
   $pageIndex = 0
@@ -1410,7 +1449,7 @@ function Save-ReportPages($report, [string]$root) {
       $isLastChunk = ($i + $take) -ge $rows.Count
       $summary = if ($isLastChunk) { $sectionData.summary } else { $null }
       $sections = @([PSCustomObject]@{ title = [string]$sectionData.title; rows = $chunk; summary = $summary; x = 30.0; y = 35.0; bottom = 812.0 })
-      Save-ReportImage $sections $path
+      Save-ReportImage $sections $path $renderOptions
       $pages += $path
     }
   }
@@ -1493,9 +1532,9 @@ function Split-PrintGroupsIntoPages($groups) {
   return $pages
 }
 
-function Save-JpegPage($groups, [string]$path, $bodyFontSizes = $null) {
-  $width = 1240
-  $height = 1754
+function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions) {
+  $width = [int]$renderOptions.width
+  $height = [int]$renderOptions.height
   $bitmap = New-Object System.Drawing.Bitmap $width, $height
   try {
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
@@ -1503,6 +1542,11 @@ function Save-JpegPage($groups, [string]$path, $bodyFontSizes = $null) {
       $graphics.Clear([System.Drawing.Color]::White)
       $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
       $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+      if ([bool]$renderOptions.isHighQuality) {
+        $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
+        $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+        $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+      }
       $scaleX = $width / 595.0
       $scaleY = $height / 842.0
       $graphics.ScaleTransform($scaleX, $scaleY)
@@ -1515,7 +1559,7 @@ function Save-JpegPage($groups, [string]$path, $bodyFontSizes = $null) {
     } finally {
       $graphics.Dispose()
     }
-    $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Jpeg)
+    Save-BitmapAsJpeg $bitmap $path ([int]$renderOptions.jpegQuality)
   } finally {
     $bitmap.Dispose()
   }
@@ -1610,8 +1654,10 @@ function New-CuttingPdf($payload) {
   $bodyFontSizes = Get-BodyFontSizesForGroups $printGroups 595.0
   $fontSizeLog = @($bodyFontSizes.Keys | Sort-Object | ForEach-Object { "$_=$([Math]::Round([double]$bodyFontSizes[$_], 1))" }) -join ','
   Add-Log 'body_font_sizes' $fontSizeLog
+  $renderOptions = Get-PdfRenderOptions $payload
+  Add-Log 'render_quality' "mode=$($renderOptions.mode) width=$($renderOptions.width) height=$($renderOptions.height) jpegQuality=$($renderOptions.jpegQuality)"
   $pageImages = @()
-  $reportPages = @(Save-ReportPages $payload.report $root)
+  $reportPages = @(Save-ReportPages $payload.report $root $renderOptions)
   if ($reportPages.Count -gt 0) {
     $pageImages += $reportPages
     Add-Log 'render_report' "pages=$($reportPages.Count)"
@@ -1620,7 +1666,7 @@ function New-CuttingPdf($payload) {
   for ($i = 0; $i -lt $packedPages.Count; $i++) {
     $pageGroups = @($packedPages[$i].groups)
     $jpgPath = Join-Path $root ("page_{0}.jpg" -f ($i + 1))
-    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes
+    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes $renderOptions
     $pageImages += $jpgPath
     Add-Log 'render_page' "page=$($pageImages.Count) groups=$($pageGroups.Count)"
   }

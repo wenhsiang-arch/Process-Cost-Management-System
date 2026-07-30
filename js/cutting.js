@@ -15,6 +15,7 @@
   });
   const TEMPLATE_SCHEMA_VERSION = 'fixed-2026-07'; // TEMPLATE_SCHEMA_VERSION（固定模板規格版本）
   const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
+  const PDF_QUALITY_STORAGE_KEY = 'cuttingPdfQuality'; // PDF_QUALITY_STORAGE_KEY（PDF 品質記憶鍵）
   let pdfToolStatusChecking = false;
 
   function text(id, value){
@@ -46,6 +47,36 @@
   function fmtNum(value){
     const n = Number(value || 0);
     return Number.isFinite(n) ? n.toLocaleString('en-US') : '0';
+  }
+
+  // normalizePdfQuality（標準化 PDF 品質）：high（高品質）以外一律使用 standard（標準品質）。
+  function normalizePdfQuality(value){
+    return value === 'high' ? 'high' : 'standard';
+  }
+
+  // getSavedPdfQuality（取得已記住的 PDF 品質）：無紀錄時維持 standard（標準品質）。
+  function getSavedPdfQuality(){
+    try{
+      return normalizePdfQuality(localStorage.getItem(PDF_QUALITY_STORAGE_KEY));
+    }catch(_){
+      return 'standard';
+    }
+  }
+
+  // restorePdfQualitySelection（還原 PDF 品質選擇）：開啟預覽時顯示上次選項。
+  function restorePdfQualitySelection(){
+    const select = g('cut-pdf-quality'); // select（品質選單）
+    if(select) select.value = getSavedPdfQuality();
+  }
+
+  // getSelectedPdfQuality（取得目前 PDF 品質）：產生檔案時記住使用者選擇。
+  function getSelectedPdfQuality(){
+    const select = g('cut-pdf-quality'); // select（品質選單）
+    const quality = normalizePdfQuality(select?.value); // quality（品質設定）
+    try{
+      localStorage.setItem(PDF_QUALITY_STORAGE_KEY, quality);
+    }catch(_){}
+    return quality;
   }
 
   function normalizeText(value){
@@ -1143,6 +1174,7 @@
     const exportBtn = g('cut-export-filled-btn');
     if(exportBtn) exportBtn.disabled = problems.length > 0;
     html('cut-preview-body', buildPreviewHtml());
+    restorePdfQualitySelection();
     om('m-cutting-preview');
   }
 
@@ -1561,6 +1593,7 @@
         ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
         : {outputName: localMergedPdfName(), templates: packages};
       payload.report = report;
+      payload.pdfQuality = getSelectedPdfQuality(); // pdfQuality（PDF 品質）：standard（標準）或 high（高品質）。
       setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ tạo PDF theo thứ tự mẫu. / 系統會依模板順序產生 PDF。');
       startCuttingPdfProgressLoop();
       const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {

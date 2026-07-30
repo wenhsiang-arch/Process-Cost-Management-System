@@ -953,6 +953,15 @@ tr:hover td{background:#f8fafc}
     <div class="mt2"><span><i class="ti ti-eye"></i> Xem trước thống kê dây cắt / 裁帶統計預覽</span><button class="btn bsm" onclick="cm('m-cutting-preview')"><i class="ti ti-x"></i></button></div>
     <div id="cut-preview-body"></div>
     <div class="br">
+      <div class="fgrp" style="margin:0;min-width:230px">
+        <label for="cut-pdf-quality">Chất lượng PDF / PDF 品質</label>
+        <select id="cut-pdf-quality">
+          <!-- standard（標準品質） -->
+          <option value="standard">Tiêu chuẩn / 標準品質（檔案較小）</option>
+          <!-- high（高品質） -->
+          <option value="high">Chất lượng cao / 高品質（列印推薦）</option>
+        </select>
+      </div>
       <button class="btn bp" id="cut-export-filled-btn" onclick="cuttingCreateLocalPdf()"><i class="ti ti-file-type-pdf"></i>Tạo PDF / 產生 PDF</button>
       <button class="btn" onclick="cm('m-cutting-preview')">Hủy / 取消</button>
     </div>
