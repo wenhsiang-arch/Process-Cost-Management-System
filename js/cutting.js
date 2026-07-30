@@ -1386,6 +1386,16 @@
     );
   }
 
+  // showCuttingPdfFileBusyAlert（顯示檔案占用提示）：另存新檔視窗關閉後立即提醒使用者。
+  function showCuttingPdfFileBusyAlert(){
+    alert(
+      'Tệp PDF đang được mở.\n' +
+      'Vui lòng đóng tệp rồi tạo lại.\n\n' +
+      'PDF 檔案目前正在開啟。\n' +
+      '請先關閉該檔案，再重新產生。'
+    );
+  }
+
   // chooseCuttingPdfSaveHandle（選擇 PDF 儲存位置）：必須在使用者點擊後、產生檔案前呼叫。
   async function chooseCuttingPdfSaveHandle(suggestedName){
     if(typeof window.showSaveFilePicker !== 'function'){
@@ -1402,6 +1412,10 @@
         excludeAcceptAllOption: true
       });
     }catch(error){
+      if(isCuttingPdfFileBusyError(error)){
+        showCuttingPdfFileBusyAlert();
+        return null;
+      }
       if(error?.name === 'AbortError') return null;
       if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
         showCuttingPdfSaveUnsupported();
@@ -1409,6 +1423,16 @@
       }
       throw error;
     }
+  }
+
+  // isCuttingPdfFileBusyError（判斷檔案占用錯誤）：包含 NoModificationAllowedError（無法取得檔案寫入鎖）與常見系統訊息。
+  function isCuttingPdfFileBusyError(error){
+    const name = String(error?.name || ''); // name（錯誤名稱）
+    const message = String(error?.message || ''); // message（錯誤內容）
+    return (
+      name === 'NoModificationAllowedError' ||
+      /file is locked|being used by another process|cannot access the file|sharing violation|檔案.*使用中|另一個處理程序正在使用/i.test(message)
+    );
   }
 
   // writeCuttingPdfToHandle（將 PDF 寫入所選位置）：失敗時中止未完成的寫入。
@@ -1672,6 +1696,13 @@
       stopCuttingPdfProgressLoop();
       console.error(e);
       const message = String(e && e.message ? e.message : '');
+      if(isCuttingPdfFileBusyError(e)){
+        setCuttingPdfError(
+          'Tệp PDF đang được mở.<br>Vui lòng đóng tệp rồi tạo lại.',
+          'PDF 檔案目前正在開啟。<br>請先關閉該檔案，再重新產生。'
+        );
+        return;
+      }
       const isLocalToolClosed = /Failed to fetch|NetworkError|Load failed/i.test(message);
       if(isLocalToolClosed){
         setCuttingPdfError(
