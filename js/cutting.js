@@ -1376,15 +1376,54 @@
     return ordered;
   }
 
-  function downloadBlob(blob, fileName){
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // showCuttingPdfSaveUnsupported（顯示不支援另存新檔提示）：不改用瀏覽器預設下載位置。
+  function showCuttingPdfSaveUnsupported(){
+    alert(
+      'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
+      'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
+      '此瀏覽器不支援選擇檔案儲存位置。\n' +
+      '請使用最新版 Microsoft Edge 或 Google Chrome。'
+    );
+  }
+
+  // chooseCuttingPdfSaveHandle（選擇 PDF 儲存位置）：必須在使用者點擊後、產生檔案前呼叫。
+  async function chooseCuttingPdfSaveHandle(suggestedName){
+    if(typeof window.showSaveFilePicker !== 'function'){
+      showCuttingPdfSaveUnsupported();
+      return null;
+    }
+    try{
+      return await window.showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: 'Tệp PDF / PDF 檔案',
+          accept: {'application/pdf': ['.pdf']}
+        }],
+        excludeAcceptAllOption: true
+      });
+    }catch(error){
+      if(error?.name === 'AbortError') return null;
+      if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
+        showCuttingPdfSaveUnsupported();
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // writeCuttingPdfToHandle（將 PDF 寫入所選位置）：失敗時中止未完成的寫入。
+  async function writeCuttingPdfToHandle(fileHandle, pdfBlob){
+    const writable = await fileHandle.createWritable(); // writable（可寫入檔案串流）
+    let completed = false; // completed（是否寫入完成）
+    try{
+      await writable.write(pdfBlob);
+      await writable.close();
+      completed = true;
+    }finally{
+      if(!completed){
+        try{ await writable.abort(); }catch(_){}
+      }
+    }
   }
 
   let cuttingPdfProgressTimer = null;
@@ -1529,22 +1568,30 @@
       alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
-    const pdfToolReady = await cuttingCheckPdfToolStatus();
-    if(!pdfToolReady){
-      alert('Chưa mở công cụ PDF trên máy này.\n本機尚未啟動 PDF 工具。');
-      return;
-    }
     const byTemplate = new Map();
     exportableResults.forEach(result => {
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
       byTemplate.get(result.templateId).push(result);
     });
+    const templateEntries = Array.from(byTemplate.entries()); // templateEntries（依模板整理的輸出資料）
+    const firstTemplateId = templateEntries[0]?.[0] || ''; // firstTemplateId（第一個模板識別碼）
+    const firstTemplateResults = templateEntries[0]?.[1] || []; // firstTemplateResults（第一個模板的輸出資料）
+    const firstTemplate = state.templates.find(item => item.id === firstTemplateId); // firstTemplate（第一個模板）
+    const suggestedOutputName = templateEntries.length === 1
+      ? localPdfName(firstTemplate?.fileName || firstTemplateResults[0]?.fileName || '')
+      : localMergedPdfName(); // suggestedOutputName（建議輸出檔名）
+    const saveHandle = await chooseCuttingPdfSaveHandle(suggestedOutputName); // saveHandle（使用者選擇的儲存位置）
+    if(!saveHandle) return;
+    const pdfToolReady = await cuttingCheckPdfToolStatus();
+    if(!pdfToolReady){
+      alert('Chưa mở công cụ PDF trên máy này.\n本機尚未啟動 PDF 工具。');
+      return;
+    }
     const exportBtn = g('cut-export-filled-btn');
     try{
       if(exportBtn) exportBtn.disabled = true;
       openCuttingPdfProgress();
       setCuttingPdfProgress(8, 'Đang chuẩn bị dữ liệu... / 正在準備資料...', 'Hệ thống đang kiểm tra mẫu và đơn hàng. / 系統正在確認模板與訂單。');
-      const templateEntries = Array.from(byTemplate.entries());
       const cacheChecks = templateEntries.map(([templateId, results]) => {
         const template = state.templates.find(item => item.id === templateId);
         return {
@@ -1616,10 +1663,10 @@
         }
         throw new Error(msg || 'Lỗi máy tạo PDF / 本機 PDF 後台錯誤');
       }
-      setCuttingPdfProgress(96, 'Đang nhận file PDF... / 正在接收 PDF 檔...', 'PDF đã tạo xong, đang chuẩn bị tải xuống. / PDF 已產生，正在準備下載。');
+      setCuttingPdfProgress(96, 'Đang nhận file PDF... / 正在接收 PDF 檔...', 'PDF đã tạo xong, đang chuẩn bị lưu. / PDF 已產生，正在準備儲存。');
       const pdfBlob = await response.blob();
-      setCuttingPdfProgress(100, 'Hoàn tất PDF. / PDF 完成。', 'File đã được tải xuống. / 檔案已下載。');
-      downloadBlob(pdfBlob, payload.outputName);
+      await writeCuttingPdfToHandle(saveHandle, pdfBlob);
+      setCuttingPdfProgress(100, 'Hoàn tất PDF. / PDF 完成。', 'Tệp đã được lưu vào vị trí đã chọn. / 檔案已儲存到選擇的位置。');
       hideCuttingPdfProgress(1600);
     }catch(e){
       stopCuttingPdfProgressLoop();
