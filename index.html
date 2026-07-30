@@ -952,7 +952,8 @@ tr:hover td{background:#f8fafc}
   <div class="mb" id="m-cutting-preview"><div class="md wide" style="width:880px">
     <div class="mt2"><span><i class="ti ti-eye"></i> Xem trước thống kê dây cắt / 裁帶統計預覽</span><button class="btn bsm" onclick="cm('m-cutting-preview')"><i class="ti ti-x"></i></button></div>
     <div id="cut-preview-body"></div>
-    <div class="br">
+    <!-- align-items:flex-end（下方控制項底部對齊） -->
+    <div class="br" style="align-items:flex-end">
       <div class="fgrp" style="margin:0;min-width:230px">
         <label for="cut-pdf-quality">Chất lượng PDF / PDF 品質</label>
         <select id="cut-pdf-quality">
