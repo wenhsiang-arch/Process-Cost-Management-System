@@ -1386,25 +1386,6 @@
     );
   }
 
-  // showCuttingPdfFileBusyAlert（顯示檔案占用提示）：顯示實際檔名並說明不必關閉網頁或啟動器。
-  function showCuttingPdfFileBusyAlert(fileName = ''){
-    const targetName = String(fileName || '').trim(); // targetName（提示檔名）
-    const viTarget = targetName ? `Tệp “${targetName}”` : 'Tệp PDF đã chọn'; // viTarget（越文檔名說明）
-    const zhTarget = targetName ? `「${targetName}」` : '選擇的 PDF 檔案'; // zhTarget（中文檔名說明）
-    alert(
-      'Không thể lưu hoặc ghi đè tệp PDF.\n\n' +
-      `${viTarget} có thể đang được mở trong chương trình đọc PDF hoặc không thể ghi vào vị trí đã chọn.\n` +
-      'Vui lòng đóng tệp PDF này, sau đó nhấn “Tạo PDF” để xuất lại.\n' +
-      'Nếu vẫn thất bại, hãy đổi tên tệp hoặc chọn vị trí lưu khác.\n' +
-      'Không cần đóng trang web hoặc công cụ PDF.\n\n' +
-      '無法儲存或覆蓋 PDF 檔案。\n\n' +
-      `${zhTarget}可能正在 PDF 閱讀器中開啟，或選擇的位置目前無法寫入。\n` +
-      '請關閉這個 PDF，再點選「產生 PDF」重新匯出。\n' +
-      '若仍然失敗，請更改檔名或選擇其他儲存位置。\n' +
-      '不需要關閉本網頁或 PDF 啟動器。'
-    );
-  }
-
   // chooseCuttingPdfSaveHandle（選擇 PDF 儲存位置）：必須在使用者點擊後、產生檔案前呼叫。
   async function chooseCuttingPdfSaveHandle(suggestedName){
     if(typeof window.showSaveFilePicker !== 'function'){
@@ -1421,10 +1402,6 @@
         excludeAcceptAllOption: true
       });
     }catch(error){
-      if(isCuttingPdfFileBusyError(error)){
-        showCuttingPdfFileBusyAlert(suggestedName);
-        return null;
-      }
       if(error?.name === 'AbortError') return null;
       if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
         showCuttingPdfSaveUnsupported();
@@ -1434,32 +1411,16 @@
     }
   }
 
-  // isCuttingPdfFileBusyError（判斷檔案占用錯誤）：包含 NoModificationAllowedError（無法取得檔案寫入鎖）與常見系統訊息。
-  function isCuttingPdfFileBusyError(error){
-    const name = String(error?.name || ''); // name（錯誤名稱）
-    const message = String(error?.message || ''); // message（錯誤內容）
-    return (
-      name === 'NoModificationAllowedError' ||
-      /file is locked|being used by another process|cannot access the file|sharing violation|檔案.*使用中|另一個處理程序正在使用/i.test(message)
-    );
-  }
-
   // writeCuttingPdfToHandle（將 PDF 寫入所選位置）：失敗時中止未完成的寫入。
   async function writeCuttingPdfToHandle(fileHandle, pdfBlob){
-    let writable = null; // writable（可寫入檔案串流）
+    const writable = await fileHandle.createWritable(); // writable（可寫入檔案串流）
     let completed = false; // completed（是否寫入完成）
     try{
-      writable = await fileHandle.createWritable();
       await writable.write(pdfBlob);
       await writable.close();
       completed = true;
-    }catch(error){
-      const writeError = new Error(String(error?.message || 'Không thể ghi tệp PDF / 無法寫入 PDF 檔案')); // writeError（PDF 寫入階段錯誤）
-      writeError.name = String(error?.name || 'CuttingPdfWriteError'); // name（錯誤名稱）
-      writeError.cuttingPdfWriteFailed = true; // cuttingPdfWriteFailed（PDF 寫入失敗標記）
-      throw writeError;
     }finally{
-      if(writable && !completed){
+      if(!completed){
         try{ await writable.abort(); }catch(_){}
       }
     }
@@ -1711,14 +1672,6 @@
       stopCuttingPdfProgressLoop();
       console.error(e);
       const message = String(e && e.message ? e.message : '');
-      if(e?.cuttingPdfWriteFailed || isCuttingPdfFileBusyError(e)){
-        showCuttingPdfFileBusyAlert(saveHandle?.name || suggestedOutputName);
-        setCuttingPdfError(
-          'Không thể lưu hoặc ghi đè tệp PDF.<br>Vui lòng đóng tệp PDF đang mở rồi xuất lại.',
-          '無法儲存或覆蓋 PDF 檔案。<br>請關閉正在開啟的 PDF，再重新匯出；若仍失敗，請更改檔名或儲存位置。'
-        );
-        return;
-      }
       const isLocalToolClosed = /Failed to fetch|NetworkError|Load failed/i.test(message);
       if(isLocalToolClosed){
         setCuttingPdfError(
