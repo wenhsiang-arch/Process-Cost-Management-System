@@ -1386,13 +1386,20 @@
     );
   }
 
-  // showCuttingPdfFileBusyAlert（顯示檔案占用提示）：另存新檔視窗關閉後立即提醒使用者。
-  function showCuttingPdfFileBusyAlert(){
+  // showCuttingPdfFileBusyAlert（顯示檔案占用提示）：顯示實際檔名並說明不必關閉網頁或啟動器。
+  function showCuttingPdfFileBusyAlert(fileName = ''){
+    const targetName = String(fileName || '').trim(); // targetName（提示檔名）
+    const viTarget = targetName ? `Tệp “${targetName}”` : 'Tệp PDF đã chọn'; // viTarget（越文檔名說明）
+    const zhTarget = targetName ? `「${targetName}」` : '選擇的 PDF 檔案'; // zhTarget（中文檔名說明）
     alert(
-      'Tệp PDF đang được mở.\n' +
-      'Vui lòng đóng tệp rồi tạo lại.\n\n' +
-      'PDF 檔案目前正在開啟。\n' +
-      '請先關閉該檔案，再重新產生。'
+      'Không thể ghi đè tệp PDF.\n\n' +
+      `${viTarget} đang được mở trong chương trình đọc PDF.\n` +
+      'Vui lòng đóng tệp PDF này, sau đó nhấn “Tạo PDF” để xuất lại.\n' +
+      'Không cần đóng trang web hoặc công cụ PDF.\n\n' +
+      '無法覆蓋 PDF 檔案。\n\n' +
+      `${zhTarget}目前正在 PDF 閱讀器中開啟。\n` +
+      '請關閉這個 PDF，再點選「產生 PDF」重新匯出。\n' +
+      '不需要關閉本網頁或 PDF 啟動器。'
     );
   }
 
@@ -1413,7 +1420,7 @@
       });
     }catch(error){
       if(isCuttingPdfFileBusyError(error)){
-        showCuttingPdfFileBusyAlert();
+        showCuttingPdfFileBusyAlert(suggestedName);
         return null;
       }
       if(error?.name === 'AbortError') return null;
@@ -1697,9 +1704,10 @@
       console.error(e);
       const message = String(e && e.message ? e.message : '');
       if(isCuttingPdfFileBusyError(e)){
+        showCuttingPdfFileBusyAlert(saveHandle?.name || suggestedOutputName);
         setCuttingPdfError(
-          'Tệp PDF đang được mở.<br>Vui lòng đóng tệp rồi tạo lại.',
-          'PDF 檔案目前正在開啟。<br>請先關閉該檔案，再重新產生。'
+          'Không thể ghi đè tệp PDF.<br>Vui lòng đóng tệp PDF đang mở rồi xuất lại.',
+          '無法覆蓋 PDF 檔案。<br>請關閉正在開啟的 PDF，再重新匯出。'
         );
         return;
       }
