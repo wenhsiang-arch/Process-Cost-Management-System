@@ -335,13 +335,75 @@ function rExp(){
   });
 }
 
-function doExport(){
+// showSpreadsheetSaveUnsupported（顯示不支援選擇表格檔儲存位置的提示）。
+function showSpreadsheetSaveUnsupported(){
+  alert(
+    'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
+    'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
+    '此瀏覽器不支援選擇檔案儲存位置。\n' +
+    '請使用最新版 Microsoft Edge 或 Google Chrome。'
+  );
+}
+
+// chooseSpreadsheetSaveHandle（選擇表格檔儲存位置）：必須由使用者點擊匯出後直接呼叫。
+async function chooseSpreadsheetSaveHandle(suggestedName){
+  if(typeof window.showSaveFilePicker !== 'function'){
+    showSpreadsheetSaveUnsupported();
+    return null;
+  }
   try{
-    const cf=g('ex-cl').value, ty=g('ex-ty').value;
+    return await window.showSaveFilePicker({
+      suggestedName,
+      types:[{
+        description:'Tệp Excel / Excel 表格檔',
+        // application/vnd.openxmlformats-officedocument.spreadsheetml.sheet（Excel 表格檔內容類型）。
+        accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}
+      }],
+      excludeAcceptAllOption:true
+    });
+  }catch(error){
+    if(error?.name==='AbortError') return null;
+    if(error?.name==='SecurityError'||error?.name==='NotAllowedError'){
+      showSpreadsheetSaveUnsupported();
+      return null;
+    }
+    throw error;
+  }
+}
+
+// writeSpreadsheetWorkbookToHandle（將表格活頁簿寫入使用者選擇的位置）。
+async function writeSpreadsheetWorkbookToHandle(fileHandle,workbook){
+  const workbookBytes=XLSX.write(workbook,{bookType:'xlsx',type:'array'}); // workbookBytes（活頁簿位元資料）。
+  const spreadsheetBlob=new Blob(
+    [workbookBytes],
+    // spreadsheetBlob（表格檔資料）；type（內容類型）使用 Excel 表格檔標準值。
+    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+  );
+  const writable=await fileHandle.createWritable(); // writable（可寫入檔案串流）。
+  let completed=false; // completed（是否寫入完成）。
+  try{
+    await writable.write(spreadsheetBlob);
+    await writable.close();
+    completed=true;
+  }finally{
+    if(!completed){
+      try{ await writable.abort(); }catch(_){}
+    }
+  }
+}
+
+async function doExport(){
+  try{
+    const cf=g('ex-cl').value;
+    const currencyType=g('ex-cu').value; // currencyType（幣別選項）。
+    const reportType=g('ex-ty').value; // reportType（報表類型）。
+    const fname='工序成本_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+    const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
+    if(!saveHandle) return;
     const fd=window.D.filter(d=>!cf||d.client===cf);
     const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
     const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
-    const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center'},border:mkBdH()});
+    const hStyle=()=>({font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1A3A5C'}},alignment:{horizontal:'center',vertical:'center',wrapText:true},border:mkBdH()});
     const normStyle=()=>({border:mkBd()});
     const altStyle=()=>({fill:{fgColor:{rgb:'F8FAFC'}},border:mkBd()});
     const numVND=()=>({numFmt:'#,##0',border:mkBd()});
@@ -355,6 +417,15 @@ function doExport(){
     const subNumUSD=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0.00',border:mkBd()});
     const subNumTWD=()=>({font:{bold:true,color:{rgb:'166534'}},fill:{fgColor:{rgb:'DCFCE7'}},numFmt:'#,##0.0',border:mkBd()});
 
+    // makeCurrencyCell（建立可在 Excel 內調整小數位數的數字儲存格）。
+    function makeCurrencyCell(value,currencyType,isAlt){
+      const numberFormat=currencyType==='usd'?'#,##0.00':currencyType==='twd'?'#,##0.0':'#,##0'; // numberFormat（預設數字格式）。
+      const style=isAlt
+        ? (currencyType==='usd'?numUSDAlt():currencyType==='twd'?numTWDAlt():numVNDAlt())
+        : (currencyType==='usd'?numUSD():currencyType==='twd'?numTWD():numVND());
+      return {v:Number(value),t:'n',z:numberFormat,s:style}; // n（數字類型）；z（Excel 預設顯示格式）。
+    }
+
     function fillBorders(ws,totalCols,totalRows){
       for(let r=1;r<=totalRows;r++){
         for(let c=0;c<totalCols;c++){
@@ -367,29 +438,32 @@ function doExport(){
     }
 
     // 總表 sheet
-    const showUSD=!['vnd','twd'].includes(ty);
-    const showVND=!['usd','twd'].includes(ty);
-    const showTWD=['twd','all'].includes(ty);
-    const sumHeaders=['款號','客人','中文名稱','越文名稱','尺寸','工序數'];
-    if(showUSD) sumHeaders.push('總工價(USD)');
-    if(showVND) sumHeaders.push('總工價(VND)');
-    if(showTWD) sumHeaders.push('總工價(TWD)');
+    const showUSD=!['vnd','twd'].includes(currencyType);
+    const showVND=!['usd','twd'].includes(currencyType);
+    const showTWD=['twd','all'].includes(currencyType);
+    const vndPerUsd=safePositiveNumber(window.S?.usd,25400); // vndPerUsd（每美元兌越盾匯率）。
+    const vndPerTwd=safePositiveNumber(window.S?.twd,780); // vndPerTwd（每台幣兌越盾匯率）。
+    const twdPerUsd=safePositiveNumber(window.S?.usdTwd,vndPerUsd/vndPerTwd); // twdPerUsd（每美元兌台幣匯率）。
+    const twdPerUsdLabel=twdPerUsd.toFixed(2); // twdPerUsdLabel（美台匯率表頭文字）。
+    const vndPerTwdLabel=Number(vndPerTwd.toFixed(2)).toString(); // vndPerTwdLabel（台越匯率表頭文字）。
+    const currencyColumns=[]; // currencyColumns（依匯出順序排列的幣別欄位）。
+    if(showUSD) currencyColumns.push({type:'usd',header:'總工價(USD)',value:v=>v/vndPerUsd}); // usd（美元）。
+    if(showTWD) currencyColumns.push({type:'twd',header:`總工價(TWD)\n(美台匯率${twdPerUsdLabel})`,value:v=>v/vndPerTwd}); // twd（新臺幣）。
+    if(showVND) currencyColumns.push({type:'vnd',header:`總工價(VND)\n(台越匯率${vndPerTwdLabel})`,value:v=>v}); // vnd（越南盾）。
+    const sumHeaders=['款號','客人','中文名稱','越文名稱','尺寸','工序數',...currencyColumns.map(column=>column.header)];
     const wsSum={'!ref':'A1'};
     sumHeaders.forEach((h,i)=>{ wsSum[String.fromCharCode(65+i)+'1']={v:h,s:hStyle()}; });
+    wsSum['!rows']=[{hpt:34}];
     let row=2;
     fd.forEach((d,di)=>{
       let sv=0; d.ops.forEach(op=>{ sv+=calc(op.sec).vnd; });
       const isAlt=di%2===1;
       const ns=isAlt?altStyle():normStyle();
       const vals=[d.code,d.client,d.zh,d.vi||'',d.sz,d.ops.length];
-      if(showUSD) vals.push(sv/window.S.usd);
-      if(showVND) vals.push(sv);
-      if(showTWD) vals.push(sv/window.S.twd);
+      currencyColumns.forEach(column=>vals.push(column.value(sv)));
       vals.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
-        if(i===6&&showUSD) wsSum[cell]={v,s:isAlt?numUSDAlt():numUSD()};
-        else if((i===7&&showUSD&&showVND)||(i===6&&!showUSD&&showVND)) wsSum[cell]={v,s:isAlt?numVNDAlt():numVND()};
-        else if(showTWD&&i===vals.length-1) wsSum[cell]={v,s:isAlt?numTWDAlt():numTWD()};
+        if(i>=6) wsSum[cell]=makeCurrencyCell(v,currencyColumns[i-6].type,isAlt);
         else wsSum[cell]={v:String(v||''),t:'s',s:ns};
       });
       row++;
@@ -403,25 +477,21 @@ function doExport(){
     XLSX.utils.book_append_sheet(wb,wsSum,'款號總成本');
 
     // 明細 sheet
-    if(ty==='detail'){
-      const detHeaders=['款號','客人','中文名稱','工序號','加工','工序中文','工序越文','秒數','產量/小時'];
-      if(showUSD) detHeaders.push('工價(USD)');
-      if(showVND) detHeaders.push('工價(VND)');
-      if(showTWD) detHeaders.push('工價(TWD)');
+    if(reportType==='detail'){
+      const detHeaders=['款號','客人','中文名稱','工序號','加工','工序中文','工序越文','秒數','產量/小時',...currencyColumns.map(column=>column.header)];
       const wsDet={'!ref':'A1'};
       detHeaders.forEach((h,i)=>{ wsDet[String.fromCharCode(65+i)+'1']={v:h,s:hStyle()}; });
+      wsDet['!rows']=[{hpt:34}];
       let drow=2; let di2=0;
       fd.forEach(d=>{
         d.ops.forEach(op=>{
           const r=calc(op.sec); const isAlt=di2%2===1;
           const ns=isAlt?altStyle():normStyle();
           const vals=[d.code,d.client,d.zh,op.no,op.category,op.zh,op.vi||'',op.sec,r.qty];
-          if(showUSD) vals.push(r.vnd/window.S.usd);
-          if(showVND) vals.push(r.vnd);
-          if(showTWD) vals.push(r.vnd/window.S.twd);
+          currencyColumns.forEach(column=>vals.push(column.value(r.vnd)));
           vals.forEach((v,i)=>{
             const cell=String.fromCharCode(65+i)+drow;
-            if(i>=9) wsDet[cell]={v,s:isAlt?(i===9&&showUSD?numUSDAlt():i===9&&!showUSD&&showVND?numVNDAlt():numTWDAlt()):(i===9&&showUSD?numUSD():i===9&&!showUSD&&showVND?numVND():numTWD())};
+            if(i>=9) wsDet[cell]=makeCurrencyCell(v,currencyColumns[i-9].type,isAlt);
             else wsDet[cell]={v:typeof v==='number'?v:String(v||''),t:typeof v==='number'?'n':'s',s:ns};
           });
           drow++; di2++;
@@ -434,10 +504,9 @@ function doExport(){
       XLSX.utils.book_append_sheet(wb,wsDet,'工序明細');
     }
 
-    const fname='工序成本_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
-    XLSX.writeFile(wb,fname);
+    await writeSpreadsheetWorkbookToHandle(saveHandle,wb);
     const n=g('ex-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
-  }catch(err){ alert('匯出失敗：'+err.message); console.error(err); }
+  }catch(err){ alert('Xuất thất bại / 匯出失敗：'+err.message); console.error(err); }
 }
 
 // ===== 備份匯出 =====
@@ -460,9 +529,12 @@ function rBk(){
     <div class="mc"><div class="ml">客人數</div><div class="mvi">Số khách hàng</div><div class="mv">${cl.length}</div></div>`;
 }
 
-function doBackup(){
+async function doBackup(){
   try{
     const cf=g('bk-client').value;
+    const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+    const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
+    if(!saveHandle) return;
     const fd=window.D.filter(d=>!cf||d.client===cf);
     const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
     const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
@@ -504,12 +576,11 @@ function doBackup(){
     ws['!autofilter']={ref:'A1:J1'};
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'備份資料');
-    const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
-    XLSX.writeFile(wb,fname);
+    await writeSpreadsheetWorkbookToHandle(saveHandle,wb);
     const n=g('bk-ok');
     g('bk-ok-msg').textContent=`✓ 已匯出 ${fd.length} 個款號，${fd.reduce((a,d)=>a+d.ops.length,0)} 道工序 / Đã xuất ${fd.length} mã hàng.`;
     n.style.display='flex'; setTimeout(()=>n.style.display='none',4000);
-  }catch(err){ alert('匯出失敗：'+err.message); console.error(err); }
+  }catch(err){ alert('Xuất thất bại / 匯出失敗：'+err.message); console.error(err); }
 }
 
 // ===== 匯入記錄 =====

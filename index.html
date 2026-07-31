@@ -610,7 +610,7 @@ tr:hover td{background:#f8fafc}
           <div class="ct-title"><i class="ti ti-download"></i>匯出報表</div>
           <div class="fg cols3">
             <div class="fgrp"><label>客人<span class="lvi">選擇客人</span></label><select id="ex-cl"><option value="">全部</option></select></div>
-            <div class="fgrp"><label>幣別<span class="lvi">選擇幣別</span></label><select id="ex-cu"><option value="both">USD + VND</option><option value="all">USD + VND + TWD</option><option value="usd">USD</option><option value="vnd">VND</option><option value="twd">TWD</option></select></div>
+            <div class="fgrp"><label>幣別<span class="lvi">選擇幣別</span></label><select id="ex-cu"><option value="both">USD（美金）+ VND（越盾）</option><option value="all">USD（美金）+ TWD（台幣）+ VND（越盾）</option><option value="usd">USD（美金）</option><option value="vnd">VND（越盾）</option><option value="twd">TWD（台幣）</option></select></div>
             <div class="fgrp"><label>報表類型<span class="lvi">選擇報表類型</span></label><select id="ex-ty"><option value="summary">僅總表</option><option value="detail">含工序明細</option></select></div>
           </div>
           <div class="br"><button class="btn bs" onclick="doExport()"><i class="ti ti-file-spreadsheet"></i>匯出 Excel</button></div>
@@ -1255,9 +1255,11 @@ tr:hover td{background:#f8fafc}
 <!-- 一般 JS 模組（依賴順序載入）-->
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
-<script src="js/settings.js"></script>
+<!-- js/settings.js（設定程式）快取版本 -->
+<script src="js/settings.js?v=20260731-1"></script>
 <script src="js/summary.js"></script>
-<script src="js/data.js"></script>
+<!-- js/data.js（資料與匯出程式）快取版本 -->
+<script src="js/data.js?v=20260731-2"></script>
 <script src="js/cutting-store.js"></script>
 <script src="js/cutting.js?v=20260731-4"></script>
 <script src="js/accounts.js"></script>
