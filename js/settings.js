@@ -100,7 +100,6 @@ async function fetchRates(){
     const vndPerUsd=Math.round(data.rates.VND);
     const twdPerUsd=data.rates.TWD;
     const vndPerTwd=Math.round(vndPerUsd/twdPerUsd);
-    window.S.usdTwd=twdPerUsd; // usdTwd（每美元兌台幣即時匯率）：供匯出報表表頭使用。
     const usdEl=g('ss-usd'), twdEl=g('ss-twd');
     if(usdEl) usdEl.value=vndPerUsd;
     if(twdEl) twdEl.value=vndPerTwd;

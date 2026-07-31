@@ -443,13 +443,13 @@ async function doExport(){
     const showTWD=['twd','all'].includes(currencyType);
     const vndPerUsd=safePositiveNumber(window.S?.usd,25400); // vndPerUsd（每美元兌越盾匯率）。
     const vndPerTwd=safePositiveNumber(window.S?.twd,780); // vndPerTwd（每台幣兌越盾匯率）。
-    const twdPerUsd=safePositiveNumber(window.S?.usdTwd,vndPerUsd/vndPerTwd); // twdPerUsd（每美元兌台幣匯率）。
+    const twdPerUsd=vndPerUsd/vndPerTwd; // twdPerUsd（本表實際匯率推算的每美元兌台幣匯率）。
     const twdPerUsdLabel=twdPerUsd.toFixed(2); // twdPerUsdLabel（美台匯率表頭文字）。
     const vndPerTwdLabel=Number(vndPerTwd.toFixed(2)).toString(); // vndPerTwdLabel（台越匯率表頭文字）。
     const currencyColumns=[]; // currencyColumns（依匯出順序排列的幣別欄位）。
-    if(showUSD) currencyColumns.push({type:'usd',header:'總工價(USD)',value:v=>v/vndPerUsd}); // usd（美元）。
-    if(showTWD) currencyColumns.push({type:'twd',header:`總工價(TWD)\n(美台匯率${twdPerUsdLabel})`,value:v=>v/vndPerTwd}); // twd（新臺幣）。
-    if(showVND) currencyColumns.push({type:'vnd',header:`總工價(VND)\n(台越匯率${vndPerTwdLabel})`,value:v=>v}); // vnd（越南盾）。
+    if(showUSD) currencyColumns.push({type:'usd',header:`總工價(USD)\n(美台匯率 ${twdPerUsdLabel})`,value:v=>v/vndPerUsd}); // usd（美元）。
+    if(showTWD) currencyColumns.push({type:'twd',header:`總工價(TWD)\n(台越匯率 ${vndPerTwdLabel})`,value:v=>v/vndPerTwd}); // twd（新臺幣）。
+    if(showVND) currencyColumns.push({type:'vnd',header:'總工價(VND)',value:v=>v}); // vnd（越南盾）。
     const sumHeaders=['款號','客人','中文名稱','越文名稱','尺寸','工序數',...currencyColumns.map(column=>column.header)];
     const wsSum={'!ref':'A1'};
     sumHeaders.forEach((h,i)=>{ wsSum[String.fromCharCode(65+i)+'1']={v:h,s:hStyle()}; });
@@ -470,7 +470,10 @@ async function doExport(){
     });
     fillBorders(wsSum,sumHeaders.length,row-1);
     wsSum['!ref']='A1:'+String.fromCharCode(65+sumHeaders.length-1)+row;
-    wsSum['!cols']=[{wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},{wch:14},{wch:14},{wch:14}].slice(0,sumHeaders.length);
+    wsSum['!cols']=[
+      {wch:14},{wch:12},{wch:22},{wch:22},{wch:8},{wch:8},
+      ...currencyColumns.map(()=>({wch:20}))
+    ]; // currencyColumns（幣別欄位）加寬，避免第二行匯率被篩選按鈕遮住。
     wsSum['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
     wsSum['!autofilter']={ref:'A1:'+String.fromCharCode(65+sumHeaders.length-1)+'1'};
     const wb=XLSX.utils.book_new();
@@ -499,7 +502,10 @@ async function doExport(){
       });
       fillBorders(wsDet,detHeaders.length,drow-1);
       wsDet['!ref']='A1:'+String.fromCharCode(65+detHeaders.length-1)+drow;
-      wsDet['!cols']=[{wch:14},{wch:12},{wch:22},{wch:8},{wch:20},{wch:20},{wch:8},{wch:10},{wch:12},{wch:12},{wch:12}].slice(0,detHeaders.length);
+      wsDet['!cols']=[
+        {wch:14},{wch:12},{wch:22},{wch:8},{wch:20},{wch:20},{wch:8},{wch:10},{wch:12},
+        ...currencyColumns.map(()=>({wch:20}))
+      ]; // currencyColumns（幣別欄位）加寬，完整顯示第二行匯率。
       wsDet['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
       XLSX.utils.book_append_sheet(wb,wsDet,'工序明細');
     }
