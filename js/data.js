@@ -464,6 +464,7 @@ async function doExport(){
       vals.forEach((v,i)=>{
         const cell=String.fromCharCode(65+i)+row;
         if(i>=6) wsSum[cell]=makeCurrencyCell(v,currencyColumns[i-6].type,isAlt);
+        else if(i===5) wsSum[cell]={v:Number(v)||0,t:'n',z:'0',s:{...ns,numFmt:'0'}}; // n（數字類型）；工序數以整數儲存。
         else wsSum[cell]={v:String(v||''),t:'s',s:ns};
       });
       row++;
