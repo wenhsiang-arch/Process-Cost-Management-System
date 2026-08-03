@@ -83,6 +83,16 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .bs{background:#16a34a;color:#fff;border-color:#16a34a}.bs:hover{background:var(--ok)}
 .bd2{color:var(--err);border-color:#fca5a5}.bd2:hover{background:var(--errl)}
 .bsm{padding:3px 8px;font-size:11px;height:26px}
+/* cut-template-actions（模板操作區）：下載與刪除固定左右並排，越文在上、中文在下。 */
+.cut-template-actions{display:flex;justify-content:center;align-items:stretch;gap:8px;min-width:220px}
+.cut-template-action{width:106px;height:62px;padding:7px 8px;justify-content:center;white-space:normal;line-height:1.15}
+.cut-template-action i{font-size:17px;flex:0 0 auto}
+.cut-template-action-text{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+.cut-template-action-vi{font-size:11px;font-weight:600}
+.cut-template-action-zh{font-size:10px;font-weight:400;color:var(--hi)}
+.cut-template-download{color:var(--accent);border-color:#bfdbfe}
+.cut-template-download:hover{background:var(--al)}
+.cut-template-action.bd2 .cut-template-action-zh{color:inherit;opacity:.82}
 .br{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
 .sr{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .sw{position:relative;flex:1;min-width:160px}
@@ -457,7 +467,7 @@ tr:hover td{background:#f8fafc}
                   <th style="text-align:right">Mã hàng<br><span class="tv">款號</span></th>
                   <th style="text-align:right">Dòng điền<br><span class="tv">填寫列</span></th>
                   <th>Trạng thái<br><span class="tv">狀態</span></th>
-                  <th style="text-align:center">Thao tác<br><span class="tv">操作</span></th>
+                  <th style="text-align:center;min-width:236px">Thao tác<br><span class="tv">操作</span></th>
                 </tr></thead>
                 <tbody id="cut-template-tb"></tbody>
               </table>
@@ -1275,7 +1285,7 @@ tr:hover td{background:#f8fafc}
 <!-- js/data.js（資料與匯出程式）快取版本 -->
 <script src="js/data.js?v=20260731-4"></script>
 <script src="js/cutting-store.js"></script>
-<script src="js/cutting.js?v=20260804-2"></script>
+<script src="js/cutting.js?v=20260804-3"></script>
 <script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>

@@ -607,39 +607,96 @@
                 : '<span class="tg tg2">Đã xác nhận / 已確認</span>'))
             : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>'))}</td>
         <td style="text-align:center">
-          <div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap">
-            <button class="btn bsm" onclick="cuttingDownloadTemplate('${esc(t.id)}', this)"><i class="ti ti-file-download"></i>Tải file gốc / 下載原始檔</button>
-            <button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button>
+          <div class="cut-template-actions">
+            <button class="btn cut-template-action cut-template-download" onclick="cuttingDownloadTemplate('${esc(t.id)}', this)">
+              <i class="ti ti-file-download"></i>
+              <span class="cut-template-action-text"><span class="cut-template-action-vi">Tải file gốc</span><span class="cut-template-action-zh">下載原始檔</span></span>
+            </button>
+            <button class="btn cut-template-action bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')">
+              <i class="ti ti-trash"></i>
+              <span class="cut-template-action-text"><span class="cut-template-action-vi">Xóa</span><span class="cut-template-action-zh">刪除</span></span>
+            </button>
           </div>
         </td>
       </tr>
     `).join('');
   }
 
-  // cuttingDownloadTemplate（下載原始模板）：優先使用瀏覽器快取，必要時才從雲端還原原始檔。
-  async function cuttingDownloadTemplate(templateId, button){
-    if(!templateId || button?.disabled) return;
-    const template = state.templates.find(item => item.id === templateId);
-    const originalHtml = button?.innerHTML || '';
-    if(button){
-      button.disabled = true;
-      button.innerHTML = '<i class="ti ti-loader-2"></i>Đang tải / 下載中';
+  // showCuttingTemplateSaveUnsupported（顯示模板不支援另存新檔提示）：禁止改用瀏覽器預設下載位置。
+  function showCuttingTemplateSaveUnsupported(){
+    alert(
+      'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
+      'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
+      '此瀏覽器不支援選擇檔案儲存位置。\n' +
+      '請使用最新版 Microsoft Edge 或 Google Chrome。'
+    );
+  }
+
+  // chooseCuttingTemplateSaveHandle（選擇模板儲存位置）：必須由使用者點擊後直接呼叫。
+  async function chooseCuttingTemplateSaveHandle(suggestedName){
+    if(typeof window.showSaveFilePicker !== 'function'){
+      showCuttingTemplateSaveUnsupported();
+      return null;
     }
     try{
-      const sourceFile = await cuttingStore.getTemplateFile(templateId);
+      return await window.showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: 'Tệp Excel / Excel 表格檔',
+          accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']}
+        }],
+        excludeAcceptAllOption: true
+      });
+    }catch(error){
+      if(error?.name === 'AbortError') return null;
+      if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
+        showCuttingTemplateSaveUnsupported();
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  // writeCuttingTemplateToHandle（寫入原始模板檔）：失敗時中止未完成的寫入。
+  async function writeCuttingTemplateToHandle(fileHandle, sourceFile){
+    const writable = await fileHandle.createWritable(); // writable（可寫入檔案串流）
+    let completed = false; // completed（是否寫入完成）
+    try{
+      await writable.write(sourceFile);
+      await writable.close();
+      completed = true;
+    }finally{
+      if(!completed){
+        try{ await writable.abort(); }catch(_){}
+      }
+    }
+  }
+
+  // cuttingDownloadTemplate（下載原始模板）：先選擇儲存位置，再優先使用瀏覽器快取，必要時才從雲端還原原始檔。
+  async function cuttingDownloadTemplate(templateId, button){
+    if(!templateId || button?.disabled) return;
+    const template = state.templates.find(item => item.id === templateId); // template（模板資料）
+    const fileName = template?.fileName || 'mau-cat-day.xlsx'; // fileName（檔案名稱）
+    let saveHandle = null; // saveHandle（儲存檔案控制物件）
+    try{
+      saveHandle = await chooseCuttingTemplateSaveHandle(fileName);
+    }catch(error){
+      console.error('Mở cửa sổ lưu file thất bại / 開啟儲存視窗失敗', error);
+      alert('Không thể mở cửa sổ chọn vị trí lưu.\n無法開啟儲存位置選擇視窗。');
+      return;
+    }
+    if(!saveHandle) return;
+    const originalHtml = button?.innerHTML || ''; // originalHtml（按鈕原始內容）
+    if(button){
+      button.disabled = true;
+      button.innerHTML = '<i class="ti ti-loader-2"></i><span class="cut-template-action-text"><span class="cut-template-action-vi">Đang tải</span><span class="cut-template-action-zh">下載中</span></span>';
+    }
+    try{
+      const sourceFile = await cuttingStore.getTemplateFile(templateId); // sourceFile（原始模板檔）
       if(!sourceFile){
         throw new Error('Không tìm thấy file mẫu gốc. / 找不到原始模板檔。');
       }
-      const fileName = template?.fileName || 'mau-cat-day.xlsx';
-      const objectUrl = URL.createObjectURL(sourceFile); // objectUrl（暫時下載網址）
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = fileName;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+      await writeCuttingTemplateToHandle(saveHandle, sourceFile);
     }catch(error){
       console.error('Tải file mẫu thất bại / 下載模板檔失敗', error);
       alert(
