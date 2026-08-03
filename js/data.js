@@ -508,6 +508,7 @@ async function doExport(){
         ...currencyColumns.map(()=>({wch:20}))
       ]; // currencyColumns（幣別欄位）加寬，完整顯示第二行匯率。
       wsDet['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
+      wsDet['!autofilter']={ref:'A1:'+String.fromCharCode(65+detHeaders.length-1)+'1'}; // autofilter（自動篩選）：在明細表第一列表頭提供篩選與排序。
       XLSX.utils.book_append_sheet(wb,wsDet,'工序明細');
     }
 
