@@ -1557,19 +1557,23 @@
     }
   }
 
+  // invokeCuttingLauncher（呼叫本機啟動器）：只使用程式內固定的啟動或取消連結。
+  function invokeCuttingLauncher(uri){
+    const launcherFrame = document.createElement('iframe'); // launcherFrame（啟動連結隱藏框架）
+    launcherFrame.style.display = 'none';
+    launcherFrame.setAttribute('aria-hidden', 'true');
+    launcherFrame.src = uri;
+    document.body.appendChild(launcherFrame);
+    setTimeout(() => launcherFrame.remove(), 2500);
+  }
+
   // cuttingStartPdfTool（啟動 PDF 工具）：由使用者點擊直接呼叫本機登記連結，再輪詢健康狀態。
   async function cuttingStartPdfTool(){
     const button = g('cut-start-pdf-tool-btn'); // button（啟動按鈕）
     if(button?.disabled) return;
     if(button) button.disabled = true;
     setPdfToolStatus('checking', 'Đang gửi yêu cầu khởi động... / 正在送出啟動要求...');
-
-    const launcherFrame = document.createElement('iframe'); // launcherFrame（啟動連結隱藏框架）
-    launcherFrame.style.display = 'none';
-    launcherFrame.setAttribute('aria-hidden', 'true');
-    launcherFrame.src = 'cuttingpdf://start';
-    document.body.appendChild(launcherFrame);
-    setTimeout(() => launcherFrame.remove(), 2500);
+    invokeCuttingLauncher('cuttingpdf://start');
 
     let ready = false; // ready（工具是否啟動成功）
     try{
@@ -1589,6 +1593,23 @@
     }finally{
       if(button) button.disabled = false;
     }
+  }
+
+  // cuttingUnregisterPdfTool（取消啟動路徑）：確認後只要求本機啟動器移除目前使用者的路徑登記。
+  function cuttingUnregisterPdfTool(){
+    if(!confirm('Hủy đường dẫn khởi động PDF hiện tại?\n取消目前的 PDF 工具啟動路徑？')) return;
+    const button = g('cut-unregister-pdf-tool-btn'); // button（取消路徑按鈕）
+    if(button?.disabled) return;
+    if(button) button.disabled = true;
+    setPdfToolStatus('checking', 'Đang gửi yêu cầu hủy đường dẫn... / 正在送出取消路徑要求...');
+    invokeCuttingLauncher('cuttingpdf://unregister');
+    setTimeout(() => {
+      if(button) button.disabled = false;
+      setPdfToolStatus(
+        'offline',
+        'Đã gửi yêu cầu hủy. Nếu không xuất hiện cửa sổ xác nhận, đường dẫn có thể chưa được đăng ký. / 已送出取消要求；若沒有出現確認視窗，目前可能尚未登記路徑。'
+      );
+    }, 2000);
   }
 
   function orderExportableResultsByTemplate(results){
@@ -1905,6 +1926,7 @@
   window.cuttingOpenPreview = cuttingOpenPreview;
   window.cuttingCreateLocalPdf = cuttingCreateLocalPdf;
   window.cuttingStartPdfTool = cuttingStartPdfTool;
+  window.cuttingUnregisterPdfTool = cuttingUnregisterPdfTool;
   window.cuttingCheckPdfToolStatus = cuttingCheckPdfToolStatus;
   window.cuttingConfirmOrderLabel = cuttingConfirmOrderLabel;
   window.cuttingCancelOrderLabel = cuttingCancelOrderLabel;

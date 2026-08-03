@@ -485,27 +485,16 @@ tr:hover td{background:#f8fafc}
                 <strong>Thiết lập lần đầu:</strong><br>
                 1. Trong OneDrive, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.<br>
                 2. Trên mỗi máy tính, nhấp đúp 「啟動PDF工具.bat」 một lần để đăng ký đường dẫn của máy đó.<br>
-                <strong>Sử dụng hằng ngày:</strong><br>
-                1. Mở hệ thống và nhấn nút 「Mở công cụ PDF」 bên dưới.<br>
-                2. Nếu trình duyệt hỏi, hãy cho phép mở ứng dụng. Khi thấy 「Đã mở công cụ PDF」 thì có thể tạo PDF.<br>
-                <strong>Đổi vị trí OneDrive:</strong><br>
-                1. Nhấp đúp 「取消PDF啟動路徑.bat」 để hủy đường dẫn cũ.<br>
-                2. Tại vị trí mới, nhấp đúp lại 「啟動PDF工具.bat」 để đăng ký đường dẫn mới.<br>
                 <br>
                 <strong>第一次設定：</strong><br>
                 1. 在 OneDrive（雲端同步資料夾）對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。<br>
                 2. 每台電腦先雙擊一次「啟動PDF工具.bat（PDF 工具啟動批次檔）」，登記該電腦的實際路徑。<br>
-                <strong>日常使用：</strong><br>
-                1. 開啟系統，點擊下方「Mở công cụ PDF / 啟動 PDF 工具」。<br>
-                2. 瀏覽器詢問時允許開啟應用程式；看到「Đã mở công cụ PDF / PDF 工具已啟動」後即可轉檔。<br>
-                <strong>OneDrive 位置變更：</strong><br>
-                1. 雙擊「取消PDF啟動路徑.bat（取消啟動設定批次檔）」解除舊路徑。<br>
-                2. 到新位置再次雙擊「啟動PDF工具.bat（PDF 工具啟動批次檔）」登記新路徑。
               </div>
             </div>
             <div class="br" style="margin-bottom:0">
               <button class="btn bp" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()"><i class="ti ti-player-play"></i>Mở công cụ PDF / 啟動 PDF 工具</button>
               <button class="btn" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()"><i class="ti ti-refresh"></i>Kiểm tra trạng thái / 檢查狀態</button>
+              <button class="btn bd2" id="cut-unregister-pdf-tool-btn" onclick="cuttingUnregisterPdfTool()"><i class="ti ti-unlink"></i>Hủy đường dẫn / 取消啟動路徑</button>
             </div>
             <div class="nt nw" id="cut-pdf-tool-status" style="margin-bottom:12px">
               <i class="ti ti-loader"></i><div>Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...</div>
@@ -1306,7 +1295,7 @@ tr:hover td{background:#f8fafc}
 <!-- js/data.js（資料與匯出程式）快取版本 -->
 <script src="js/data.js?v=20260731-4"></script>
 <script src="js/cutting-store.js?v=20260804-4"></script>
-<script src="js/cutting.js?v=20260804-4"></script>
+<script src="js/cutting.js?v=20260804-5"></script>
 <script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>
