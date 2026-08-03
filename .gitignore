@@ -2,3 +2,5 @@ firebase-diagnose.html
 *.docx
 .docx_render_tmp/
 cutting-cache/
+Khởi động công cụ PDF - 啟動PDF工具.bat
+Hủy đường dẫn khởi động PDF - 取消PDF啟動路徑.bat

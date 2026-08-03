@@ -1587,7 +1587,7 @@
       if(!ready){
         setPdfToolStatus(
           'offline',
-          'Nếu đây là lần đầu sử dụng trên máy này, hãy nhấp đúp 「啟動PDF工具.bat」 trong thư mục OneDrive trước. / 若此電腦第一次使用，請先到 OneDrive 資料夾雙擊「啟動PDF工具.bat（PDF 工具啟動批次檔）」。'
+          'Nếu đây là lần đầu sử dụng trên máy này, hãy nhấp đúp 「Khởi động công cụ PDF - 啟動PDF工具.bat」 trong thư mục OneDrive trước. / 若此電腦第一次使用，請先到 OneDrive 資料夾雙擊「Khởi động công cụ PDF - 啟動PDF工具.bat」。'
         );
       }
     }finally{
