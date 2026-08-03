@@ -1194,6 +1194,24 @@
     try{
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, {type:'array'});
+      const sheetCount = Array.isArray(wb.SheetNames) ? wb.SheetNames.length : 0; // sheetCount（訂單工作表數量）
+      if(sheetCount !== 1){
+        const sheetNames = sheetCount ? wb.SheetNames.map(name => String(name || '')).join(', ') : '-'; // sheetNames（訂單工作表名稱）
+        state.orderItems = [];
+        state.orderLabel = '';
+        state.results = [];
+        text('cut-order-file-name', `${file.name}（${sheetCount} trang tính, bị từ chối / 共 ${sheetCount} 個工作表，已禁止匯入）`);
+        recomputeResults();
+        alert(
+          `Tệp đơn hàng chỉ được có 1 trang tính.\n` +
+          `Tệp hiện tại có ${sheetCount} trang tính: ${sheetNames}.\n` +
+          `Vui lòng xóa các trang tính khác hoặc lưu riêng trang cần nhập rồi thử lại.\n\n` +
+          `訂單檔案只允許 1 個工作表。\n` +
+          `此檔案共有 ${sheetCount} 個工作表：${sheetNames}。\n` +
+          `請刪除其他工作表，或將需要匯入的工作表另存成單獨檔案後再試。`
+        );
+        return;
+      }
       const all = [];
       const detectedOrderNumbers = []; // detectedOrderNumbers（各工作表辨識到的訂單號碼）
       wb.SheetNames.forEach(name => {
