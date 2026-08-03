@@ -84,12 +84,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .bd2{color:var(--err);border-color:#fca5a5}.bd2:hover{background:var(--errl)}
 .bsm{padding:3px 8px;font-size:11px;height:26px}
 /* cut-template-actions（模板操作區）：下載與刪除固定左右並排，越文在上、中文在下。 */
-.cut-template-actions{display:flex;justify-content:center;align-items:stretch;gap:8px;min-width:220px}
-.cut-template-action{width:106px;height:62px;padding:7px 8px;justify-content:center;white-space:normal;line-height:1.15}
-.cut-template-action i{font-size:17px;flex:0 0 auto}
-.cut-template-action-text{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
-.cut-template-action-vi{font-size:11px;font-weight:600}
-.cut-template-action-zh{font-size:10px;font-weight:400;color:var(--hi)}
+.cut-template-actions{display:flex;justify-content:center;align-items:stretch;gap:6px;min-width:180px}
+.cut-template-action{width:87px;height:50px;padding:4px 6px;justify-content:center;flex-direction:column;gap:2px;white-space:normal;line-height:1.05}
+.cut-template-action i{font-size:15px;flex:0 0 auto}
+.cut-template-action-text{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center}
+.cut-template-action-vi{font-size:10px;font-weight:600}
+.cut-template-action-zh{font-size:9px;font-weight:400;color:var(--hi)}
 .cut-template-download{color:var(--accent);border-color:#bfdbfe}
 .cut-template-download:hover{background:var(--al)}
 .cut-template-action.bd2 .cut-template-action-zh{color:inherit;opacity:.82}
@@ -467,7 +467,7 @@ tr:hover td{background:#f8fafc}
                   <th style="text-align:right">Mã hàng<br><span class="tv">款號</span></th>
                   <th style="text-align:right">Dòng điền<br><span class="tv">填寫列</span></th>
                   <th>Trạng thái<br><span class="tv">狀態</span></th>
-                  <th style="text-align:center;min-width:236px">Thao tác<br><span class="tv">操作</span></th>
+                  <th style="text-align:center;min-width:196px">Thao tác<br><span class="tv">操作</span></th>
                 </tr></thead>
                 <tbody id="cut-template-tb"></tbody>
               </table>
@@ -483,11 +483,20 @@ tr:hover td{background:#f8fafc}
               <div>
                 <strong>Hướng dẫn công cụ PDF / PDF 轉檔工具說明</strong><br>
                 1. Lần đầu thiết lập: Vào 「OneDrive\1MAY9」, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.<br>
-                2. Sử dụng hằng ngày: Vào 「OneDrive\1MAY9\Cong cu chuyen doi PDF」, nhấp đúp file 「Mở công cụ PDF」 để mở công cụ.<br>
+                2. Trên mỗi máy tính, nhấp đúp 「啟動PDF工具.bat」 một lần để đăng ký nút khởi động.<br>
+                3. Sau đó có thể dùng nút 「Mở công cụ PDF」 bên dưới.<br>
                 <br>
                 1. 第一次設定：到「OneDrive\1MAY9」，對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。<br>
-                2. 平常使用：到「OneDrive\1MAY9\Cong cu chuyen doi PDF」，雙擊「Mở công cụ PDF」檔案啟動工具。
+                2. 每台電腦先雙擊一次「啟動PDF工具.bat（PDF 工具啟動批次檔）」登記啟動按鈕。<br>
+                3. 之後可直接使用下方「Mở công cụ PDF / 啟動 PDF 工具」按鈕。
               </div>
+            </div>
+            <div class="br" style="margin-bottom:0">
+              <button class="btn bp" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()"><i class="ti ti-player-play"></i>Mở công cụ PDF / 啟動 PDF 工具</button>
+              <button class="btn" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()"><i class="ti ti-refresh"></i>Kiểm tra trạng thái / 檢查狀態</button>
+            </div>
+            <div class="nt nw" id="cut-pdf-tool-status" style="margin-bottom:12px">
+              <i class="ti ti-loader"></i><div>Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...</div>
             </div>
             <div class="detail-import-drop" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)" style="margin-bottom:12px">
               <i class="ti ti-file-spreadsheet"></i>
@@ -1284,8 +1293,8 @@ tr:hover td{background:#f8fafc}
 <script src="js/summary.js"></script>
 <!-- js/data.js（資料與匯出程式）快取版本 -->
 <script src="js/data.js?v=20260731-4"></script>
-<script src="js/cutting-store.js"></script>
-<script src="js/cutting.js?v=20260804-3"></script>
+<script src="js/cutting-store.js?v=20260804-4"></script>
+<script src="js/cutting.js?v=20260804-4"></script>
 <script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>

@@ -293,8 +293,8 @@
     return true;
   }
 
-  async function loadCloudTemplateFile(id){
-    const item = await getCloudTemplate(id);
+  async function loadCloudTemplateFile(id, knownItem = null){
+    const item = knownItem || await getCloudTemplate(id); // item（已取得或補讀的雲端模板資料）
     if(!item || item.storageMode !== 'firestoreChunks') return null;
     const chunkCount = Number(item.chunkCount || 0);
     const rows = await queryTemplateChunks(id);
@@ -384,7 +384,7 @@
       const item = await this.getTemplate(id);
       if(cached?.blob && item?.updatedAt && cached.meta?.updatedAt === item.updatedAt) return cached.blob;
       if(cached?.blob && !item) return cached.blob;
-      return loadCloudTemplateFile(id);
+      return loadCloudTemplateFile(id, item);
     }
   };
 })();

@@ -121,7 +121,7 @@
   }
 
   // buildTemplateMergeMap（建立模板合併儲存格索引）：合併範圍內每一格都指向左上角來源。
-  function buildTemplateMergeMap(ws, sheetName){
+  function buildTemplateMergeMap(ws){
     const map = new Map();
     const analyzedColumns = [
       FIXED_TEMPLATE_COLUMNS.codeCol,
@@ -139,11 +139,8 @@
       const anchorCell = addr(startRow, startCol);
       const reference = `${anchorCell}:${addr(endRow, endCol)}`;
       const info = {
-        id: `${sheetName}!${reference}`,
         reference,
         anchorCell,
-        anchorRow: startRow,
-        anchorCol: startCol,
         value: ws?.[anchorCell]?.v ?? ''
       };
       for(let rowIndex = startRow; rowIndex <= endRow; rowIndex++){
@@ -164,14 +161,12 @@
       return {
         cell: merge.anchorCell,
         value: merge.value,
-        mergeId: merge.id,
         mergeRef: merge.reference
       };
     }
     return {
       cell,
       value: ws?.[cell]?.v ?? '',
-      mergeId: '',
       mergeRef: ''
     };
   }
@@ -208,7 +203,7 @@
     workbook.SheetNames.forEach(sheetName => {
       const ws = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      const mergeMap = buildTemplateMergeMap(ws, sheetName); // mergeMap（合併儲存格索引）
+      const mergeMap = buildTemplateMergeMap(ws); // mergeMap（合併儲存格索引）
       let detectedBlocks = 0; // detectedBlocks（已找到的原始組別數）
       const issuePieceCells = new Set(); // issuePieceCells（已記錄錯誤的件數儲存格）
       const headerIndexes = []; // headerIndexes（表頭列索引）
@@ -622,8 +617,8 @@
     `).join('');
   }
 
-  // showCuttingTemplateSaveUnsupported（顯示模板不支援另存新檔提示）：禁止改用瀏覽器預設下載位置。
-  function showCuttingTemplateSaveUnsupported(){
+  // showCuttingSaveUnsupported（顯示不支援另存新檔提示）：所有裁帶下載都禁止改用瀏覽器預設位置。
+  function showCuttingSaveUnsupported(){
     alert(
       'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
       'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
@@ -632,37 +627,34 @@
     );
   }
 
-  // chooseCuttingTemplateSaveHandle（選擇模板儲存位置）：必須由使用者點擊後直接呼叫。
-  async function chooseCuttingTemplateSaveHandle(suggestedName){
+  // chooseCuttingSaveHandle（選擇儲存位置）：由模板與 PDF 下載共用，必須由使用者點擊後直接呼叫。
+  async function chooseCuttingSaveHandle(suggestedName, fileType){
     if(typeof window.showSaveFilePicker !== 'function'){
-      showCuttingTemplateSaveUnsupported();
+      showCuttingSaveUnsupported();
       return null;
     }
     try{
       return await window.showSaveFilePicker({
         suggestedName,
-        types: [{
-          description: 'Tệp Excel / Excel 表格檔',
-          accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']}
-        }],
+        types: [fileType],
         excludeAcceptAllOption: true
       });
     }catch(error){
       if(error?.name === 'AbortError') return null;
       if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
-        showCuttingTemplateSaveUnsupported();
+        showCuttingSaveUnsupported();
         return null;
       }
       throw error;
     }
   }
 
-  // writeCuttingTemplateToHandle（寫入原始模板檔）：失敗時中止未完成的寫入。
-  async function writeCuttingTemplateToHandle(fileHandle, sourceFile){
+  // writeCuttingFileToHandle（寫入所選檔案）：模板與 PDF 共用，失敗時中止未完成的寫入。
+  async function writeCuttingFileToHandle(fileHandle, fileData){
     const writable = await fileHandle.createWritable(); // writable（可寫入檔案串流）
     let completed = false; // completed（是否寫入完成）
     try{
-      await writable.write(sourceFile);
+      await writable.write(fileData);
       await writable.close();
       completed = true;
     }finally{
@@ -679,7 +671,10 @@
     const fileName = template?.fileName || 'mau-cat-day.xlsx'; // fileName（檔案名稱）
     let saveHandle = null; // saveHandle（儲存檔案控制物件）
     try{
-      saveHandle = await chooseCuttingTemplateSaveHandle(fileName);
+      saveHandle = await chooseCuttingSaveHandle(fileName, {
+        description: 'Tệp Excel / Excel 表格檔',
+        accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']}
+      });
     }catch(error){
       console.error('Mở cửa sổ lưu file thất bại / 開啟儲存視窗失敗', error);
       alert('Không thể mở cửa sổ chọn vị trí lưu.\n無法開啟儲存位置選擇視窗。');
@@ -696,7 +691,7 @@
       if(!sourceFile){
         throw new Error('Không tìm thấy file mẫu gốc. / 找不到原始模板檔。');
       }
-      await writeCuttingTemplateToHandle(saveHandle, sourceFile);
+      await writeCuttingFileToHandle(saveHandle, sourceFile);
     }catch(error){
       console.error('Tải file mẫu thất bại / 下載模板檔失敗', error);
       alert(
@@ -1504,12 +1499,6 @@
   function setPdfToolStatus(status, detail = ''){
     const box = g('cut-pdf-tool-status');
     if(!box) return;
-    const setupText = [
-      '1. Lần đầu thiết lập: Vào 「OneDrive\\1MAY9」, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.',
-      '2. Sử dụng hằng ngày: Vào 「OneDrive\\1MAY9\\Cong cu chuyen doi PDF」, nhấp đúp file 「Mở công cụ PDF」 để mở công cụ.',
-      '1. 第一次設定：到「OneDrive\\1MAY9」，對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。',
-      '2. 平常使用：到「OneDrive\\1MAY9\\Cong cu chuyen doi PDF」，雙擊「Mở công cụ PDF」檔案啟動工具。'
-    ];
     const map = {
       checking: {
         cls: 'nt nw',
@@ -1524,11 +1513,10 @@
       offline: {
         cls: 'nt nw',
         icon: 'ti-alert-circle',
-        text: setupText.join('<br>')
+        text: 'Chưa mở công cụ PDF trên máy này. / 本機尚未啟動 PDF 工具。'
       }
     };
     const item = map[status] || map.offline;
-    if(status === 'offline') detail = '';
     box.className = item.cls;
     box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${detail}</span>` : ''}</div>`;
   }
@@ -1547,18 +1535,59 @@
         signal: controller.signal
       });
       clearTimeout(timer);
+      let health = null; // health（本機工具健康狀態）
       if(response.ok){
+        try{ health = await response.json(); }catch(_){}
+      }
+      const ready = !!(response.ok && health?.ok === true && health?.service === 'cutting-pdf-local'); // ready（是否為正確的裁帶 PDF 工具）
+      if(ready){
         setPdfToolStatus('online');
-      }else{
+      }else if(!options.silent){
         setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
       }
-      return response.ok;
+      return ready;
     }catch(_){
-      setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
+      if(!options.silent){
+        setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
+      }
       return false;
     }finally{
       if(timer) clearTimeout(timer);
       pdfToolStatusChecking = false;
+    }
+  }
+
+  // cuttingStartPdfTool（啟動 PDF 工具）：由使用者點擊直接呼叫本機登記連結，再輪詢健康狀態。
+  async function cuttingStartPdfTool(){
+    const button = g('cut-start-pdf-tool-btn'); // button（啟動按鈕）
+    if(button?.disabled) return;
+    if(button) button.disabled = true;
+    setPdfToolStatus('checking', 'Đang gửi yêu cầu khởi động... / 正在送出啟動要求...');
+
+    const launcherFrame = document.createElement('iframe'); // launcherFrame（啟動連結隱藏框架）
+    launcherFrame.style.display = 'none';
+    launcherFrame.setAttribute('aria-hidden', 'true');
+    launcherFrame.src = 'cuttingpdf://start';
+    document.body.appendChild(launcherFrame);
+    setTimeout(() => launcherFrame.remove(), 2500);
+
+    let ready = false; // ready（工具是否啟動成功）
+    try{
+      for(let attempt = 0; attempt < 20; attempt++){
+        await new Promise(resolve => setTimeout(resolve, 600));
+        if(await cuttingCheckPdfToolStatus({silent:true})){
+          ready = true;
+          break;
+        }
+      }
+      if(!ready){
+        setPdfToolStatus(
+          'offline',
+          'Nếu đây là lần đầu sử dụng trên máy này, hãy nhấp đúp 「啟動PDF工具.bat」 trong thư mục OneDrive trước. / 若此電腦第一次使用，請先到 OneDrive 資料夾雙擊「啟動PDF工具.bat（PDF 工具啟動批次檔）」。'
+        );
+      }
+    }finally{
+      if(button) button.disabled = false;
     }
   }
 
@@ -1579,56 +1608,6 @@
       if(!ordered.includes(result)) ordered.push(result);
     });
     return ordered;
-  }
-
-  // showCuttingPdfSaveUnsupported（顯示不支援另存新檔提示）：不改用瀏覽器預設下載位置。
-  function showCuttingPdfSaveUnsupported(){
-    alert(
-      'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
-      'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
-      '此瀏覽器不支援選擇檔案儲存位置。\n' +
-      '請使用最新版 Microsoft Edge 或 Google Chrome。'
-    );
-  }
-
-  // chooseCuttingPdfSaveHandle（選擇 PDF 儲存位置）：必須在使用者點擊後、產生檔案前呼叫。
-  async function chooseCuttingPdfSaveHandle(suggestedName){
-    if(typeof window.showSaveFilePicker !== 'function'){
-      showCuttingPdfSaveUnsupported();
-      return null;
-    }
-    try{
-      return await window.showSaveFilePicker({
-        suggestedName,
-        types: [{
-          description: 'Tệp PDF / PDF 檔案',
-          accept: {'application/pdf': ['.pdf']}
-        }],
-        excludeAcceptAllOption: true
-      });
-    }catch(error){
-      if(error?.name === 'AbortError') return null;
-      if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
-        showCuttingPdfSaveUnsupported();
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  // writeCuttingPdfToHandle（將 PDF 寫入所選位置）：失敗時中止未完成的寫入。
-  async function writeCuttingPdfToHandle(fileHandle, pdfBlob){
-    const writable = await fileHandle.createWritable(); // writable（可寫入檔案串流）
-    let completed = false; // completed（是否寫入完成）
-    try{
-      await writable.write(pdfBlob);
-      await writable.close();
-      completed = true;
-    }finally{
-      if(!completed){
-        try{ await writable.abort(); }catch(_){}
-      }
-    }
   }
 
   let cuttingPdfProgressTimer = null;
@@ -1787,7 +1766,10 @@
     const suggestedOutputName = templateEntries.length === 1
       ? localPdfName(firstTemplate?.fileName || firstTemplateResults[0]?.fileName || '')
       : localMergedPdfName(); // suggestedOutputName（建議輸出檔名）
-    const saveHandle = await chooseCuttingPdfSaveHandle(suggestedOutputName); // saveHandle（使用者選擇的儲存位置）
+    const saveHandle = await chooseCuttingSaveHandle(suggestedOutputName, {
+      description: 'Tệp PDF / PDF 檔案',
+      accept: {'application/pdf': ['.pdf']}
+    }); // saveHandle（使用者選擇的儲存位置）
     if(!saveHandle) return;
     const pdfToolReady = await cuttingCheckPdfToolStatus();
     if(!pdfToolReady){
@@ -1873,7 +1855,7 @@
       }
       setCuttingPdfProgress(96, 'Đang nhận file PDF... / 正在接收 PDF 檔...', 'PDF đã tạo xong, đang chuẩn bị lưu. / PDF 已產生，正在準備儲存。');
       const pdfBlob = await response.blob();
-      await writeCuttingPdfToHandle(saveHandle, pdfBlob);
+      await writeCuttingFileToHandle(saveHandle, pdfBlob);
       setCuttingPdfProgress(100, 'Hoàn tất PDF. / PDF 完成。', 'Tệp đã được lưu vào vị trí đã chọn. / 檔案已儲存到選擇的位置。');
       hideCuttingPdfProgress(1600);
     }catch(e){
@@ -1901,6 +1883,7 @@
     await refreshTemplates();
     setTemplateBusy(false);
     cuttingSwitchTab('order');
+    cuttingCheckPdfToolStatus();
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;
@@ -1921,6 +1904,8 @@
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
   window.cuttingCreateLocalPdf = cuttingCreateLocalPdf;
+  window.cuttingStartPdfTool = cuttingStartPdfTool;
+  window.cuttingCheckPdfToolStatus = cuttingCheckPdfToolStatus;
   window.cuttingConfirmOrderLabel = cuttingConfirmOrderLabel;
   window.cuttingCancelOrderLabel = cuttingCancelOrderLabel;
   window.cuttingClosePdfProgress = cuttingClosePdfProgress;
