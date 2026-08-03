@@ -606,9 +606,53 @@
                 ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.noticeCount)} cảnh báo / 已確認，${fmtNum(t.noticeCount)} 個提醒</span>`
                 : '<span class="tg tg2">Đã xác nhận / 已確認</span>'))
             : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>'))}</td>
-        <td style="text-align:center"><button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button></td>
+        <td style="text-align:center">
+          <div style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap">
+            <button class="btn bsm" onclick="cuttingDownloadTemplate('${esc(t.id)}', this)"><i class="ti ti-file-download"></i>Tải file gốc / 下載原始檔</button>
+            <button class="btn bsm bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')"><i class="ti ti-trash"></i>Xóa / 刪除</button>
+          </div>
+        </td>
       </tr>
     `).join('');
+  }
+
+  // cuttingDownloadTemplate（下載原始模板）：優先使用瀏覽器快取，必要時才從雲端還原原始檔。
+  async function cuttingDownloadTemplate(templateId, button){
+    if(!templateId || button?.disabled) return;
+    const template = state.templates.find(item => item.id === templateId);
+    const originalHtml = button?.innerHTML || '';
+    if(button){
+      button.disabled = true;
+      button.innerHTML = '<i class="ti ti-loader-2"></i>Đang tải / 下載中';
+    }
+    try{
+      const sourceFile = await cuttingStore.getTemplateFile(templateId);
+      if(!sourceFile){
+        throw new Error('Không tìm thấy file mẫu gốc. / 找不到原始模板檔。');
+      }
+      const fileName = template?.fileName || 'mau-cat-day.xlsx';
+      const objectUrl = URL.createObjectURL(sourceFile); // objectUrl（暫時下載網址）
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = fileName;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+    }catch(error){
+      console.error('Tải file mẫu thất bại / 下載模板檔失敗', error);
+      alert(
+        'Không thể tải file mẫu gốc. Vui lòng thử lại.\n' +
+        '無法下載原始模板檔，請稍後再試。\n\n' +
+        String(error?.message || '')
+      );
+    }finally{
+      if(button){
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+      }
+    }
   }
 
   function renderTemplateAnalysis(book){
@@ -1811,6 +1855,7 @@
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingClearTemplateCurrent = cuttingClearTemplateCurrent;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;
+  window.cuttingDownloadTemplate = cuttingDownloadTemplate;
   window.cuttingPickOrder = cuttingPickOrder;
   window.cuttingOrderDragOver = cuttingOrderDragOver;
   window.cuttingOrderDragLeave = cuttingOrderDragLeave;
