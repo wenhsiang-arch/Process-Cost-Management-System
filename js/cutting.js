@@ -1505,6 +1505,11 @@
         icon: 'ti-loader',
         text: 'Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...'
       },
+      requested: {
+        cls: 'nt nw',
+        icon: 'ti-send',
+        text: 'Đã gửi yêu cầu khởi động. / 已送出啟動要求。'
+      },
       online: {
         cls: 'nt ns',
         icon: 'ti-circle-check',
@@ -1567,32 +1572,10 @@
     setTimeout(() => launcherFrame.remove(), 2500);
   }
 
-  // cuttingStartPdfTool（啟動 PDF 工具）：由使用者點擊直接呼叫本機登記連結，再輪詢健康狀態。
-  async function cuttingStartPdfTool(){
-    const button = g('cut-start-pdf-tool-btn'); // button（啟動按鈕）
-    if(button?.disabled) return;
-    if(button) button.disabled = true;
-    setPdfToolStatus('checking', 'Đang gửi yêu cầu khởi động... / 正在送出啟動要求...');
+  // cuttingStartPdfTool（啟動 PDF 工具）：送出本機啟動要求後立即結束，不鎖定按鈕或等待工具回應。
+  function cuttingStartPdfTool(){
+    setPdfToolStatus('requested', 'Nếu đã hủy, có thể nhấn lại. / 若已取消，可重新點擊。');
     invokeCuttingLauncher('cuttingpdf://start');
-
-    let ready = false; // ready（工具是否啟動成功）
-    try{
-      for(let attempt = 0; attempt < 20; attempt++){
-        await new Promise(resolve => setTimeout(resolve, 600));
-        if(await cuttingCheckPdfToolStatus({silent:true})){
-          ready = true;
-          break;
-        }
-      }
-      if(!ready){
-        setPdfToolStatus(
-          'offline',
-          'Nếu đây là lần đầu sử dụng trên máy này, hãy nhấp đúp 「Khởi động công cụ PDF - 啟動PDF工具.bat」 trong thư mục OneDrive trước. / 若此電腦第一次使用，請先到 OneDrive 資料夾雙擊「Khởi động công cụ PDF - 啟動PDF工具.bat」。'
-        );
-      }
-    }finally{
-      if(button) button.disabled = false;
-    }
   }
 
   // cuttingUnregisterPdfTool（取消啟動路徑）：確認後只要求本機啟動器移除目前使用者的路徑登記。
