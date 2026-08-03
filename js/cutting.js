@@ -3,6 +3,7 @@
   const state = {
     templates: [],
     orderItems: [],
+    orderLabel: '', // orderLabel（PDF 左上角內容）：自動辨識後可由使用者修改。
     results: [],
     pendingTemplateFile: null,
     pendingBook: null
@@ -17,6 +18,7 @@
   const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
   const PDF_QUALITY_STORAGE_KEY = 'cuttingPdfQuality'; // PDF_QUALITY_STORAGE_KEY（PDF 品質記憶鍵）
   let pdfToolStatusChecking = false;
+  let orderLabelDialogResolve = null; // orderLabelDialogResolve（訂單文字視窗回傳函式）
 
   function text(id, value){
     const el = g(id);
@@ -892,6 +894,7 @@
 
   function cuttingClearCurrent(){
     state.orderItems = [];
+    state.orderLabel = '';
     state.results = [];
     clearPendingTemplate();
     text('cut-template-file-name', '');
@@ -991,19 +994,120 @@
     return Array.from(items.entries()).map(([code, qty]) => ({code, qty}));
   }
 
+  // extractOrderHeadingValue（解析訂單標題儲存格）：支援 ORDER NO（訂單編號）與 ORDER NUMBER（訂單編號）。
+  function extractOrderHeadingValue(value){
+    const raw = String(value ?? '').replace(/\u00a0/g, ' ').trim();
+    if(!raw) return null;
+    const match = raw.match(/^ORDER\s*(?:NO\.?|NUMBER)\s*[:：]?\s*(.*)$/i);
+    return match ? String(match[1] || '').trim() : null;
+  }
+
+  // findOrderNumbersInRows（從訂單列尋找訂單號碼）：標題同格無號碼時，讀取右側最近的非空白儲存格。
+  function findOrderNumbersInRows(rows){
+    const numbers = [];
+    (rows || []).forEach(row => {
+      const cells = Array.isArray(row) ? row : [];
+      cells.forEach((cell, columnIndex) => {
+        let number = extractOrderHeadingValue(cell);
+        if(number === null) return;
+        if(!number){
+          const lastColumn = Math.min(cells.length - 1, columnIndex + 12);
+          for(let nextColumn = columnIndex + 1; nextColumn <= lastColumn; nextColumn++){
+            const candidate = String(cells[nextColumn] ?? '').trim();
+            if(!candidate) continue;
+            number = candidate.replace(/^[:：]\s*/, '').trim();
+            break;
+          }
+        }
+        if(number) numbers.push(number);
+      });
+    });
+    return numbers;
+  }
+
+  // buildDetectedOrderLabel（建立辨識後的左上角文字）：唯一結果預加 PO#（訂單編號前綴），多個不同結果視為無法辨識。
+  function buildDetectedOrderLabel(numbers){
+    const unique = new Map();
+    (numbers || []).forEach(value => {
+      const number = String(value ?? '').trim();
+      if(number) unique.set(number.toUpperCase(), number);
+    });
+    if(unique.size !== 1) return '';
+    const number = Array.from(unique.values())[0];
+    return /^PO\s*#/i.test(number) ? number.replace(/^PO\s*#\s*/i, 'PO#') : `PO#${number}`;
+  }
+
+  // openCuttingOrderLabelDialog（開啟訂單文字視窗）：有辨識結果時預填，沒有結果時保持空白。
+  function openCuttingOrderLabelDialog(defaultValue){
+    const input = g('cut-order-label-input');
+    const help = g('cut-order-label-help');
+    const error = g('cut-order-label-error');
+    if(!input) return Promise.resolve(null);
+    input.value = String(defaultValue || '');
+    if(help){
+      help.innerHTML = input.value
+        ? 'Đã tự nhận diện số đơn hàng. Có thể sửa nội dung trước khi xuất.<br>已自動辨識訂單號碼，匯出前仍可修改內容。'
+        : 'Không nhận diện được số đơn hàng. Vui lòng tự nhập nội dung cần hiển thị.<br>未辨識到訂單號碼，請自行輸入要顯示的內容。';
+    }
+    if(error){ error.textContent = ''; error.style.display = 'none'; }
+    input.onkeydown = event => {
+      if(event.key === 'Enter'){ // Enter（確認鍵）
+        event.preventDefault();
+        cuttingConfirmOrderLabel();
+      }
+    };
+    om('m-cutting-order-label');
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+    return new Promise(resolve => { orderLabelDialogResolve = resolve; });
+  }
+
+  // cuttingConfirmOrderLabel（確認訂單文字）：空白或只有空格時禁止繼續。
+  function cuttingConfirmOrderLabel(){
+    const input = g('cut-order-label-input');
+    const error = g('cut-order-label-error');
+    const value = String(input?.value || '').trim();
+    if(!value){
+      if(error){
+        error.textContent = 'Vui lòng nhập nội dung trước khi tạo PDF. / 請輸入內容後再產生 PDF。';
+        error.style.display = 'block';
+      }
+      input?.focus();
+      return;
+    }
+    state.orderLabel = value;
+    cm('m-cutting-order-label');
+    const resolve = orderLabelDialogResolve;
+    orderLabelDialogResolve = null;
+    if(resolve) resolve(value);
+  }
+
+  // cuttingCancelOrderLabel（取消訂單文字視窗）：停止本次 PDF 匯出。
+  function cuttingCancelOrderLabel(){
+    cm('m-cutting-order-label');
+    const resolve = orderLabelDialogResolve;
+    orderLabelDialogResolve = null;
+    if(resolve) resolve(null);
+  }
+
   async function cuttingHandleOrderFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
     if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
     text('cut-order-file-name', file.name);
+    state.orderLabel = '';
     try{
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, {type:'array'});
       const all = [];
+      const detectedOrderNumbers = []; // detectedOrderNumbers（各工作表辨識到的訂單號碼）
       wb.SheetNames.forEach(name => {
-        const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, defval:''});
+        const worksheet = wb.Sheets[name]; // worksheet（目前訂單工作表）
+        const rows = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:''});
         all.push(...parseOrderRows(rows));
+        const displayRows = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:'', raw:false}); // displayRows（依 Excel 顯示文字讀取的資料列）
+        detectedOrderNumbers.push(...findOrderNumbersInRows(displayRows));
       });
+      state.orderLabel = buildDetectedOrderLabel(detectedOrderNumbers);
       const merged = new Map();
       all.forEach(item => merged.set(item.code, (merged.get(item.code) || 0) + item.qty));
       state.orderItems = Array.from(merged.entries()).map(([code, qty]) => ({code, qty}));
@@ -1568,6 +1672,8 @@
       alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
       return;
     }
+    const confirmedOrderLabel = await openCuttingOrderLabelDialog(state.orderLabel); // confirmedOrderLabel（使用者確認的 PDF 左上角內容）
+    if(confirmedOrderLabel === null) return;
     const byTemplate = new Map();
     exportableResults.forEach(result => {
       if(!byTemplate.has(result.templateId)) byTemplate.set(result.templateId, []);
@@ -1640,6 +1746,7 @@
         ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
         : {outputName: localMergedPdfName(), templates: packages};
       payload.report = report;
+      payload.orderLabel = confirmedOrderLabel; // orderLabel（PDF 左上角內容）：完全依照匯出前輸入框的確認值。
       payload.pdfQuality = getSelectedPdfQuality(); // pdfQuality（PDF 品質）：standard（標準）或 high（高品質）。
       setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ tạo PDF theo thứ tự mẫu. / 系統會依模板順序產生 PDF。');
       startCuttingPdfProgressLoop();
@@ -1712,6 +1819,8 @@
   window.cuttingClearCurrent = cuttingClearCurrent;
   window.cuttingOpenPreview = cuttingOpenPreview;
   window.cuttingCreateLocalPdf = cuttingCreateLocalPdf;
+  window.cuttingConfirmOrderLabel = cuttingConfirmOrderLabel;
+  window.cuttingCancelOrderLabel = cuttingCancelOrderLabel;
   window.cuttingClosePdfProgress = cuttingClosePdfProgress;
   window.cuttingInit = cuttingInit;
 

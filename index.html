@@ -968,6 +968,20 @@ tr:hover td{background:#f8fafc}
     </div>
   </div></div>
 
+  <div class="mb" id="m-cutting-order-label"><div class="md" style="width:480px">
+    <div class="mt2"><span><i class="ti ti-file-description"></i> Số đơn hàng / 訂單號碼</span><button class="btn bsm" onclick="cuttingCancelOrderLabel()"><i class="ti ti-x"></i></button></div>
+    <div class="nt ni" id="cut-order-label-help" style="margin-bottom:14px"></div>
+    <div class="fgrp" style="margin-bottom:8px">
+      <label for="cut-order-label-input">Nội dung góc trên bên trái / 左上角內容</label>
+      <input type="text" id="cut-order-label-input" maxlength="120" placeholder="Ví dụ: PO#2606-00293Syls hoặc hàng mẫu / 例如：PO#2606-00293Syls 或樣品用">
+    </div>
+    <div id="cut-order-label-error" style="display:none;color:var(--err);font-size:12px;margin-bottom:12px"></div>
+    <div class="br">
+      <button class="btn bp" onclick="cuttingConfirmOrderLabel()"><i class="ti ti-file-type-pdf"></i>Tiếp tục tạo PDF / 繼續產生 PDF</button>
+      <button class="btn" onclick="cuttingCancelOrderLabel()">Hủy / 取消</button>
+    </div>
+  </div></div>
+
   <div class="mb" id="m-cutting-pdf-progress"><div class="md" style="width:520px;position:relative">
     <button class="ib" id="cut-pdf-progress-close" onclick="cuttingClosePdfProgress()" title="Đóng / 關閉" style="display:flex;position:absolute;right:14px;top:14px"><i class="ti ti-x"></i></button>
     <div class="mt2"><span><i class="ti ti-file-type-pdf"></i> Đang tạo PDF / 正在產生 PDF</span></div>
@@ -1261,7 +1275,7 @@ tr:hover td{background:#f8fafc}
 <!-- js/data.js（資料與匯出程式）快取版本 -->
 <script src="js/data.js?v=20260731-4"></script>
 <script src="js/cutting-store.js"></script>
-<script src="js/cutting.js?v=20260731-4"></script>
+<script src="js/cutting.js?v=20260804-1"></script>
 <script src="js/accounts.js"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>
