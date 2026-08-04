@@ -1042,6 +1042,14 @@ function Get-PrintableCellValue($item, [string]$key) {
   }
 }
 
+# Test-BodyCellBold（資料欄粗體規則）：Code（款號）、Belt（帶材規格）、CutSpec（裁切規格）、Total（裁帶數量）、Note（備註）。
+function Test-BodyCellBold($keys) {
+  foreach ($key in @($keys)) {
+    if ([string]$key -in @('Code','Belt','CutSpec','Total','Note')) { return $true }
+  }
+  return $false
+}
+
 function Draw-BodyCellText($graphics, [string]$key, [string]$value, [System.Drawing.RectangleF]$rect, [bool]$bold = $false, [float]$fixedSize = 0) {
   $lines = Get-DisplayTextLines $value
   Draw-CenteredTextLines $graphics $lines $rect 11 3.0 ($bold -or $key -eq 'Code') $null $fixedSize
@@ -1194,7 +1202,7 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
         $graphics.DrawRectangle($linePen, $rowRect.X, $rowRect.Y, $rowRect.Width, $rowRect.Height)
         $value = Get-PrintableCellValue $items[$i] $key
         $fontSize = if ($null -ne $bodyFontSizes -and $bodyFontSizes.ContainsKey($key)) { [float]$bodyFontSizes[$key] } else { 0.0 }
-        Draw-BodyCellText $graphics $key $value $rowRect ($key -eq 'Total') $fontSize
+        Draw-BodyCellText $graphics $key $value $rowRect (Test-BodyCellBold $key) $fontSize
       }
     }
 
@@ -1205,7 +1213,7 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
       $graphics.DrawRectangle($linePen, $mergeRect.X, $mergeRect.Y, $mergeRect.Width, $mergeRect.Height)
       $mergeKey = [string]$mergedCell.key
       $fontSize = if ($null -ne $bodyFontSizes -and $bodyFontSizes.ContainsKey($mergeKey)) { [float]$bodyFontSizes[$mergeKey] } else { 0.0 }
-      Draw-BodyCellText $graphics $mergeKey ([string]$mergedCell.value) $mergeRect ($mergeKeys -contains 'Total') $fontSize
+      Draw-BodyCellText $graphics $mergeKey ([string]$mergedCell.value) $mergeRect (Test-BodyCellBold $mergeKeys) $fontSize
     }
 
   } finally {
@@ -1492,7 +1500,7 @@ function Get-BodyFontSizesForGroups($groups, [float]$pageWidth = 595.0) {
         foreach ($column in $columns) {
           $key = [string]$column.key
           if ($key -eq 'Image' -or -not $rects.ContainsKey($key)) { continue }
-          $style = if ($key -in @('Code','Total')) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
+          $style = if (Test-BodyCellBold $key) { [System.Drawing.FontStyle]::Bold } else { [System.Drawing.FontStyle]::Regular }
           foreach ($item in @($printGroup.items)) {
             $value = Get-PrintableCellValue $item $key
             if ([string]::IsNullOrWhiteSpace([string]$value)) { continue }
