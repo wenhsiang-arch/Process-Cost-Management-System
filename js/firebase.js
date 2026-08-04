@@ -32,6 +32,31 @@ window.firebaseLoadUserAccess = async (user) => {
     ...snap.data()
   };
 };
+window.firebaseLoadUserAccessList = async () => {
+  const snap = await getDocs(collection(db, 'userAccess'));
+  return snap.docs.map(item=>({authUid:item.id,...item.data()}));
+};
+window.firebaseSaveUserAccess = async (authUid,data) => {
+  await setDoc(doc(db, 'userAccess', authUid), data);
+};
+window.firebaseDeleteUserAccess = async (authUid) => {
+  await deleteDoc(doc(db, 'userAccess', authUid));
+};
+window.firebaseLoadRolePermissions = async () => {
+  const roles=['manager','clerk'];
+  const snapshots=await Promise.all(roles.map(role=>getDoc(doc(db,'rolePermissions',role))));
+  return Object.fromEntries(roles.map((role,index)=>[
+    role,
+    snapshots[index].exists()?snapshots[index].data():null
+  ]));
+};
+window.firebaseSaveRolePermissions = async (roleDocuments) => {
+  const batch=writeBatch(db);
+  ['manager','clerk'].forEach(role=>{
+    batch.set(doc(db,'rolePermissions',role),roleDocuments[role]);
+  });
+  await batch.commit();
+};
 
 // ===== 同步狀態 =====
 window.syncState = 'idle';
@@ -426,8 +451,6 @@ window.ensureProductsLoaded = ensureProductsLoaded;
 window.verifyProductsVersionForOrderImport = verifyProductsVersionForOrderImport;
 window.saveProductItemsToFB = saveProductItemsToCollection;
 window.deleteProductFromFB = deleteProductDoc;
-window.saveAccsToFB      = () => fbSaveWithStatus("accounts",  window.accs);
-window.savePermissionsToFB = () => fbSave("permissions", window.permissionSettings);
 window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
 window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
 window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
@@ -460,9 +483,14 @@ async function fbInitForAuthorizedUser(){
   authorizedInitPromise = (async()=>{
   showLoading(true);
   try{
-    const [savedS, savedEmployeeUserHistory] = await Promise.all([
+    const role=window.cu?.role||'';
+    const hasFeature=(feature)=>role==='admin'||window.permissionSettings?.[role]?.[feature]===true;
+    const canReadEmployees=['employees','attendance','stats','approval','replog','efficiency'].some(hasFeature);
+    const canReadImportHistory=hasFeature('summary')||hasFeature('export');
+    const canReadCostLog=hasFeature('costlog');
+    const [savedS,savedEmployeeUserHistory] = await Promise.all([
       fbLoad("settings"),
-      fbLoad("employeeUserHistory")
+      hasFeature('employees')?fbLoad("employeeUserHistory"):Promise.resolve(null)
     ]);
     window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
       ? savedEmployeeUserHistory
@@ -479,12 +507,25 @@ async function fbInitForAuthorizedUser(){
       if(window.S.mh){ const el=document.getElementById('ss-hr'); if(el) el.value=window.S.mh; }
     }
 
-    const [savedHist, savedClog] = await Promise.all([fbLoad("impHist"), fbLoad("cLog")]);
-    if(savedHist&&savedHist.length>0){ window.impHist=savedHist; try{localStorage.setItem('impHist',JSON.stringify(window.impHist));}catch(e){} }
-    if(savedClog&&savedClog.length>0){ window.cLog=savedClog; try{localStorage.setItem('cLog',JSON.stringify(window.cLog));}catch(e){} }
+    const [savedHist,savedClog] = await Promise.all([
+      canReadImportHistory?fbLoad("impHist"):Promise.resolve(null),
+      canReadCostLog?fbLoad("cLog"):Promise.resolve(null)
+    ]);
+    window.impHist=Array.isArray(savedHist)?savedHist:[];
+    window.cLog=Array.isArray(savedClog)?savedClog:[];
+    try{
+      if(canReadImportHistory) localStorage.setItem('impHist',JSON.stringify(window.impHist));
+      else localStorage.removeItem('impHist');
+      if(canReadCostLog) localStorage.setItem('cLog',JSON.stringify(window.cLog));
+      else localStorage.removeItem('cLog');
+    }catch(e){}
 
-    const empSnap = await window._getDocs(window._collection('employees'));
-    window.allEmployees = empSnap.docs.map(d=>({id:d.id,...d.data()}));
+    if(canReadEmployees){
+      const empSnap=await window._getDocs(window._collection('employees'));
+      window.allEmployees=empSnap.docs.map(d=>({id:d.id,...d.data()}));
+    }else{
+      window.allEmployees=[];
+    }
     return true;
   }catch(e){
     console.error('驗證後載入雲端資料失敗：', e);

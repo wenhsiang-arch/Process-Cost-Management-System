@@ -15,13 +15,6 @@ try{ const c=localStorage.getItem('cLog');    if(c) window.cLog=JSON.parse(c);  
 const IDLE = 30*60;
 let idleT = IDLE, idleIv = null;
 
-function getBcrypt(){
-  const lib=window.bcrypt||(window.dcodeIO&&window.dcodeIO.bcrypt);
-  if(lib) return lib;
-  alert('密碼驗證元件載入失敗，請重新整理頁面後再試。 / Không thể tải thành phần xác thực mật khẩu. Vui lòng tải lại trang.');
-  throw new Error('bcrypt library is not loaded');
-}
-
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
 function isCurrentDeskAccount(){
@@ -124,6 +117,19 @@ function clearSessionUi(){
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
   window.cu=null;
+  window.accs=[];
+  window.allEmployees=[];
+  window.allOrders=[];
+  window.allProcesses=[];
+  window.employeeUserHistory={};
+  window.impHist=[];
+  window.cLog=[];
+  window.D=[];
+  if(typeof resetPermissionsToDefaults==='function') resetPermissionsToDefaults();
+  try{
+    localStorage.removeItem('impHist');
+    localStorage.removeItem('cLog');
+  }catch(e){}
   const appEl=document.querySelector('#ma .app');
   if(appEl) appEl.style.display='';
   g('ls').style.display='';
@@ -143,7 +149,16 @@ async function enterAuthorizedDeskSystem(user,access){
     department:access.department||'',
     role:access.role
   };
+  const permissionState=typeof loadPermissions==='function'
+    ? await loadPermissions()
+    : {manager:false,clerk:false};
+  if(window.cu.role!=='admin'&&permissionState?.[window.cu.role]!==true){
+    const error=new Error('Role permissions are not ready');
+    error.code='role-permissions-not-ready';
+    throw error;
+  }
   await window.fbInitForAuthorizedUser();
+  if(window.cu.role==='admin'&&typeof loadAccounts==='function') await loadAccounts();
   g('ls').style.display='none';
   g('ma').classList.remove('hidden');
   hideLoginMessage();
@@ -151,18 +166,18 @@ async function enterAuthorizedDeskSystem(user,access){
 
   if(window.cu.role==='admin'){
     sp('summary');
-  }else if(typeof loadPermissions==='function'){
-    await loadPermissions();
-    uNav();
+  }else{
     const perm=window.permissionSettings;
     const role=window.cu.role;
-    const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary','cutting'];
+    const order=['attendance','stats','employees','progress','approval','replog','sync','export','costlog','summary','cutting','efficiency'];
     const allowed=order.find(name=>perm[role]&&perm[role][name]===true);
     if(allowed) sp(allowed);
   }
   setTimeout(()=>fetchRates(),1000);
-  loadOrderData();
-  if(typeof startDeskApvListener==='function') startDeskApvListener();
+  const role=window.cu.role;
+  const hasFeature=(feature)=>role==='admin'||window.permissionSettings?.[role]?.[feature]===true;
+  if(['progress','orderImport','approval','replog','sync','efficiency'].some(hasFeature)) loadOrderData();
+  if(hasFeature('approval')&&typeof startDeskApvListener==='function') startDeskApvListener();
 }
 
 window.handleFirebaseAuthState=async function(user){
@@ -204,8 +219,13 @@ window.handleFirebaseAuthState=async function(user){
     await enterAuthorizedDeskSystem(user,access);
   }catch(e){
     console.error('Firebase Authentication 登入流程失敗：',e);
+    if(e?.code==='role-permissions-not-ready'&&typeof window.firebaseAuthLogout==='function'){
+      try{ await window.firebaseAuthLogout(); }catch(logoutError){}
+    }
     clearSessionUi();
-    showLoginMessage('Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。');
+    showLoginMessage(e?.code==='role-permissions-not-ready'
+      ? 'Quyền vai trò chưa được quản trị viên thiết lập. / 管理員尚未設定此角色權限。'
+      : 'Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。');
   }finally{
     firebaseAuthStateBusy=false;
     setGoogleLoginBusy(false);
@@ -252,13 +272,6 @@ async function doLogout(){
   }
 }
 
-// ===== 密碼顯示切換 =====
-function tpw(id,icon){
-  const el=g(id); const show=el.type==='password';
-  el.type=show?'text':'password';
-  icon.className=show?'ti ti-eye-off pwe':'ti ti-eye pwe';
-}
-
 // ===== 幣別切換 =====
 function setCur(c){
   window.cur=c;
@@ -274,8 +287,17 @@ function openDetailImport(){
 // ===== 頁面切換 =====
 async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
-  const adm=['settings','export','costlog','accounts'];
-  if(adm.includes(name)&&!isAdm()) return;
+  const adminOnly=['settings','accounts','permissions'];
+  if(adminOnly.includes(name)&&!isAdm()) return;
+  if(!isAdm()){
+    const featureByPage={
+      attendance:'attendance',stats:'stats',employees:'employees',progress:'progress',
+      approval:'approval',replog:'replog',sync:'sync',export:'export',costlog:'costlog',
+      summary:'summary',cutting:'cutting',efficiency:'efficiency'
+    };
+    const feature=featureByPage[name];
+    if(feature&&window.permissionSettings?.[window.cu.role]?.[feature]!==true) return;
+  }
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=g('pg-'+name); if(pg) pg.classList.add('active');
@@ -284,7 +306,8 @@ async function sp(name){
   if(name==='approval'||name==='replog'||name==='sync') updateReportHubTabs();
   if(name==='settings')  rAll();
   if(name==='export')    rExp();
-  if(name==='accounts')  rAcc();
+  if(name==='accounts'&&typeof loadAccounts==='function') await loadAccounts();
+  if(name==='permissions'&&typeof renderPermissions==='function') renderPermissions();
   if(name==='costlog')   rClog();
   if(name==='approval')  renderApproval();
   if(name==='progress'){ reloadProcesses().then(()=>{ renderProgress(); renderOrders(); }); }
@@ -295,50 +318,4 @@ async function sp(name){
   if(name==='sync') syncInit();
   if(name==='efficiency') effInit();
   if(name==='cutting' && typeof cuttingInit==='function') cuttingInit();
-}
-
-function closeSetPass(){
-  if(window.cu && !window.cu.pass){ doLogout(); return; }
-  cm('m-setpass');
-}
-
-async function saveSetPass(){
-  const p1=g('sp-p1')?.value, p2=g('sp-p2')?.value;
-  if(!p1||p1.length<4){ alert('密碼至少需要4個字元'); return; }
-  if(p1!==p2){ alert('兩次密碼不一致'); return; }
-  try{
-    const cu=window.cu;
-    const hashed=await getBcrypt().hash(p1,10); // 儲存前將密碼 hash
-    if(cu.id){
-      await window._updateDoc(window._doc(COL.employees,cu.id),{pass:hashed}); // 更新員工密碼
-      cu.pass=hashed;
-    } else {
-      const acc=window.accs.find(a=>a.user===cu.user);
-      if(acc){
-        const oldPass=acc.pass;
-        acc.pass=hashed;
-        const ok=window.saveAccsToFB?await saveAccsToFB():false;
-        if(!ok){
-          acc.pass=oldPass;
-          throw new Error('Không thể lưu mật khẩu, vui lòng kiểm tra mạng rồi thử lại.\n無法保存密碼，請確認網路後再試一次。');
-        }
-      } else {
-        throw new Error('Không tìm thấy tài khoản cần cập nhật.\n找不到需要更新的帳號。');
-      } // 更新桌機帳號密碼
-    }
-    cm('m-setpass');
-    alert('✅ 密碼設定成功');
-    if(isCurrentDeskAccount()){
-      g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      uNav(); rAll(); rSum(); rAcc(); startIdle();
-      loadPermissions().then(()=>{ uNav(); const perm=window.permissionSettings; const r=cu.role; if(r==='admin'){ sp('summary'); return; } const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary','cutting']; const allowed=order.find(n=>perm[r]&&perm[r][n]===true); if(allowed){ sp(allowed); } });
-      setTimeout(()=>fetchRates(),1000); loadOrderData();
-      if(typeof startDeskApvListener==='function') startDeskApvListener();
-    } else if(isCurrentEmployee()) {
-      g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      startMobile(cu);
-    } else {
-      doLogout();
-    }
-  }catch(e){ alert('Cài đặt mật khẩu thất bại.\n設定密碼失敗。\n\n'+e.message); }
 }

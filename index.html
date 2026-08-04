@@ -49,6 +49,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .up.adm{background:var(--okl);color:var(--ok)}
 .ib{width:32px;height:32px;border-radius:8px;border:1px solid var(--bd);font-size:13px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center}
 .ib:hover{background:#f1f5f9}
+.logout-btn{height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--bd);font-size:12px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.logout-btn:hover{background:#f1f5f9;color:var(--navy)}
 .idle-bar{height:3px;background:var(--al)}
 .idle-prog{height:100%;background:var(--accent);transition:width 1s linear}
 .ct{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
@@ -270,7 +272,7 @@ tr:hover td{background:#f8fafc}
         <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
       </div>
       <div class="up" id="upill"><i class="ti ti-user"></i><span id="ulabel"></span></div>
-      <button class="ib" onclick="doLogout()" title="登出"><i class="ti ti-logout"></i></button>
+      <button class="logout-btn" onclick="doLogout()" title="Đăng xuất / 登出"><i class="ti ti-logout"></i><span>Đăng xuất / 登出</span></button>
     </div>
     <div class="idle-bar"><div class="idle-prog" id="idleprog" style="width:100%"></div></div>
 
@@ -658,10 +660,17 @@ tr:hover td{background:#f8fafc}
       <!-- 帳號管理 -->
       <div class="pg" id="pg-accounts">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-users"></i>帳號管理</div>
-          <div class="br"><button class="btn bp" onclick="om('m-nacc')"><i class="ti ti-plus"></i>新增帳號</button></div>
+          <div class="ct-title"><i class="ti ti-users"></i>Quản lý tài khoản / 帳號管理</div>
+          <p style="font-size:12px;color:var(--mu);margin-bottom:14px">Tài khoản sử dụng Google và UID do Firebase cấp; hệ thống không lưu mật khẩu cũ.<br>帳號使用 Google（Google 帳號）與 Firebase（雲端平台）提供的 UID（使用者識別碼）；系統不再保存舊密碼。</p>
+          <div class="br"><button class="btn bp" onclick="om('m-nacc')"><i class="ti ti-plus"></i>Thêm tài khoản / 新增帳號</button></div>
           <div class="to"><table>
-            <thead><tr><th>帳號</th><th>權限</th><th>操作</th></tr></thead>
+            <thead><tr>
+              <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號</span></th>
+              <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th>
+              <th>Trạng thái<br><span style="font-size:10px;color:var(--mu);font-weight:400">狀態</span></th>
+              <th>UID<br><span style="font-size:10px;color:var(--mu);font-weight:400">使用者識別碼</span></th>
+              <th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th>
+            </tr></thead>
             <tbody id="acc-tb"></tbody>
           </table></div>
         </div>
@@ -1030,19 +1039,24 @@ tr:hover td{background:#f8fafc}
   </div></div>
 
   <div class="mb" id="m-nacc"><div class="md">
-    <div class="mt2">新增帳號 <button class="btn bsm" onclick="cm('m-nacc')"><i class="ti ti-x"></i></button></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>帳號</label><input type="text" id="ac-u"></div>
-    <div class="fgrp" style="margin-bottom:18px"><label>權限</label><select id="ac-r"><option value="admin">管理員</option><option value="manager">課長</option><option value="clerk">文員</option></select></div>
-    <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>新增</button><button class="btn" onclick="cm('m-nacc')">取消</button></div>
+    <div class="mt2">Thêm tài khoản / 新增帳號 <button class="btn bsm" onclick="cm('m-nacc')"><i class="ti ti-x"></i></button></div>
+    <div class="nt ni2" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>Người dùng phải đăng nhập Google một lần, sau đó nhập đúng UID từ Firebase Authentication.<br>使用者必須先嘗試登入 Google（Google 帳號）一次，再填入 Firebase Authentication（Firebase 身分驗證）中的正確 UID（使用者識別碼）。</span></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>UID / 使用者識別碼</label><input type="text" id="ac-uid" autocomplete="off"></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ac-u" maxlength="100" autocomplete="off"></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ac-r"><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="admin">Quản trị viên / 管理員</option></select></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px"><input type="checkbox" id="ac-active" checked style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
+    <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>Thêm / 新增</button><button class="btn" onclick="cm('m-nacc')">Hủy / 取消</button></div>
   </div></div>
 
   <div class="mb" id="m-eacc"><div class="md">
-    <div class="mt2">修改帳號 <button class="btn bsm" onclick="cm('m-eacc')"><i class="ti ti-x"></i></button></div>
+    <div class="mt2">Chỉnh sửa tài khoản / 修改帳號 <button class="btn bsm" onclick="cm('m-eacc')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="ea-orig">
-    <div class="fgrp" style="margin-bottom:12px"><label>帳號</label><input type="text" id="ea-u"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>新密碼（留空不變）</label><div class="pww"><input type="password" id="ea-p" placeholder="留空不變更"><i class="ti ti-eye pwe" onclick="tpw('ea-p',this)"></i></div></div>
-    <div class="fgrp" style="margin-bottom:18px"><label>權限</label><select id="ea-r"><option value="admin">管理員</option><option value="manager">課長</option><option value="clerk">文員</option></select></div>
-    <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>儲存</button><button class="btn" onclick="cm('m-eacc')">取消</button></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>UID / 使用者識別碼</label><input type="text" id="ea-uid-view" readonly></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ea-u" maxlength="100" autocomplete="off"></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ea-r"><option value="admin">Quản trị viên / 管理員</option><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option></select></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="ea-active" style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
+    <div class="nt nw" id="ea-self-note" style="display:none;margin-bottom:12px"><i class="ti ti-shield-lock"></i><span>Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập.<br>目前登入帳號不可停用或降低權限。</span></div>
+    <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>Lưu / 儲存</button><button class="btn" onclick="cm('m-eacc')">Hủy / 取消</button></div>
   </div></div>
 
   <div class="mb" id="m-import-order"><div class="md wide">
@@ -1285,11 +1299,10 @@ tr:hover td{background:#f8fafc}
 <!-- 外部 JS 函式庫 -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js"></script>
 
 <!-- 一般 JS 模組（依賴順序載入）-->
 <script src="js/utils.js"></script>
-<script src="js/auth.js"></script>
+<script src="js/auth.js?v=20260804-2"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
 <script src="js/settings.js?v=20260731-2"></script>
 <script src="js/summary.js"></script>
@@ -1297,18 +1310,18 @@ tr:hover td{background:#f8fafc}
 <script src="js/data.js?v=20260731-4"></script>
 <script src="js/cutting-store.js?v=20260804-4"></script>
 <script src="js/cutting.js?v=20260804-8"></script>
-<script src="js/accounts.js"></script>
+<script src="js/accounts.js?v=20260804-2"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/efficiency.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/attendance.js"></script>
-<script src="js/permissions.js"></script>
+<script src="js/permissions.js?v=20260804-2"></script>
 <script src="js/mobile.js"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js"></script>
+<script type="module" src="js/firebase.js?v=20260804-2"></script>
 
 <script>
 // cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。
@@ -1352,12 +1365,5 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js');
 }
 </script>
-  <div class="mb" id="m-setpass"><div class="md">
-    <div class="mt2">Đặt mật khẩu / 設定密碼 <button class="btn bsm" onclick="closeSetPass()"><i class="ti ti-x"></i></button></div>
-    <p style="font-size:13px;color:var(--mu);margin-bottom:14px">Vui lòng đặt mật khẩu cho tài khoản của bạn.<br>請為您的帳號設定密碼。</p>
-    <div class="fgrp" style="margin-bottom:12px"><label>Mật khẩu mới / 新密碼</label><div class="pww"><input type="password" id="sp-p1" placeholder="請輸入新密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p1',this)"></i></div></div>
-    <div class="fgrp" style="margin-bottom:18px"><label>Xác nhận mật khẩu / 確認密碼</label><div class="pww"><input type="password" id="sp-p2" placeholder="請再次輸入密碼"><i class="ti ti-eye pwe" onclick="tpw('sp-p2',this)"></i></div></div>
-    <div class="br"><button class="btn bp" onclick="saveSetPass()"><i class="ti ti-check"></i>Xác nhận / 確認</button></div>
-  </div></div>
 </body>
 </html>
