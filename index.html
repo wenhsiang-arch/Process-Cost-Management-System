@@ -1325,7 +1325,7 @@ tr:hover td{background:#f8fafc}
 <!-- 一般 JS 模組（依賴順序載入）-->
 <script src="js/utils.js?v=20260805-1"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/auth.js?v=20260805-3"></script>
+<script src="js/auth.js?v=20260805-4"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
 <script src="js/settings.js?v=20260805-1"></script>
 <script src="js/summary.js?v=20260805-1"></script>
@@ -1365,21 +1365,10 @@ function toggleManagementNav(){
   setManagementNavOpen(!(group&&group.classList.contains('open')));
 }
 
-function syncManagementNav(){
-  const group=document.getElementById('management-nav');
-  if(group&&group.querySelector('.ni.active')) setManagementNavOpen(true);
-}
-
 // 頁面載入後初始化
 window.addEventListener('DOMContentLoaded', () => {
   rAll();
   setManagementNavOpen(false);
-  syncManagementNav();
-  const group=document.getElementById('management-nav');
-  if(group){
-    const obs=new MutationObserver(syncManagementNav);
-    group.querySelectorAll('.ni').forEach(item=>obs.observe(item,{attributes:true,attributeFilter:['class']}));
-  }
 });
 </script>
 

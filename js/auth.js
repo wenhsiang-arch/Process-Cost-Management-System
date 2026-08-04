@@ -136,6 +136,7 @@ function hideLoginMessage(){
 function clearSessionUi(){
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
+  if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   window.cu=null;
   window.accs=[];
   window.allEmployees=[];
@@ -189,6 +190,7 @@ async function enterAuthorizedDeskSystem(user,access){
   g('ls').style.display='none';
   g('ma').classList.remove('hidden');
   hideLoginMessage();
+  if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   uNav(); rAll(); rSum(); rAcc(); startIdle();
 
   if(window.cu.role==='admin'){
