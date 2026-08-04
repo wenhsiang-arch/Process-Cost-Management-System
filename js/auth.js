@@ -1,5 +1,5 @@
 // ===== 全域狀態 =====
-window.accs = [{user:'admin',pass:'admin123',role:'admin'}];
+window.accs = [];
 window.cu   = null;
 window.cur  = 'VND';
 window.S    = {sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
@@ -25,7 +25,11 @@ function getBcrypt(){
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
 function isCurrentDeskAccount(){
-  return !!(window.cu&&!window.cu.id&&DESK_ROLES.includes(window.cu.role)&&(window.accs||[]).some(a=>a.user===window.cu.user));
+  return !!(
+    window.cu?.authUid
+    && DESK_ROLES.includes(window.cu.role)
+    && window.firebaseAuthUser?.uid===window.cu.authUid
+  );
 }
 function isCurrentEmployee(){
   return !!(window.cu&&window.cu.id&&(window.allEmployees||[]).some(e=>e.id===window.cu.id&&e.user===window.cu.user));
@@ -93,95 +97,159 @@ function startIdle(){
 }
 function resetIdle(){ idleT=IDLE; }
 
-// ===== 登入 =====
-async function doLogin(){
-  const u=g('lu').value.trim(), p=g('lp').value;
-  if(!u){ g('lerr').style.display='flex'; return; }
+// ===== Firebase Authentication（Firebase 身分驗證）登入 =====
+let firebaseAuthStateBusy = false;
 
-  // 桌機帳號
-  const a = window.accs.find(x=>x.user===u);
-  if(a){
-    if(DESK_ROLES.includes(a.role)){
-      if(!a.pass){ window.cu=a; om('m-setpass'); return; }
-      const isHashA = a.pass.startsWith('$2a$') || a.pass.startsWith('$2b$'); // 判斷是否已經是 hash
-      const passOkA = isHashA ? await getBcrypt().compare(p, a.pass) : (a.pass===p); // hash 比對或明文比對
-      if(!passOkA){ g('lerr').style.display='flex'; return; }
-      if(!isHashA){ // 舊明文密碼，登入成功後自動轉換成 hash
-        const hashed=await getBcrypt().hash(a.pass,10);
-        const oldPass=a.pass;
-        a.pass=hashed;
-        const ok=window.saveAccsToFB?await saveAccsToFB():false;
-        if(!ok){
-          a.pass=oldPass;
-          alert('Không thể lưu nâng cấp bảo mật mật khẩu, vui lòng kiểm tra mạng rồi đăng nhập lại.\n無法保存密碼安全升級，請確認網路後重新登入。');
-          return;
-        }
-      }
-      window.cu = a;
-      g('ls').style.display='none'; g('ma').classList.remove('hidden');
-      uNav(); rAll(); rSum(); rAcc(); startIdle();
-      loadPermissions().then(()=>{
-        uNav();
-        const perm = window.permissionSettings;
-        const r = window.cu.role;
-        if(r==='admin'){ sp('summary'); return; }
-        const order = ['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary','cutting'];
-        const allowed = order.find(n=> perm[r] && perm[r][n]===true );
-        if(allowed){ sp(allowed); } else {
-          document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
-          document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
-          const mn = document.querySelector('.mn .ct');
-          if(mn) mn.innerHTML='<div style="text-align:center;padding:60px;color:var(--mu)"><i class="ti ti-lock" style="font-size:48px;display:block;margin-bottom:16px"></i><div style="font-size:15px;font-weight:500">無可用功能 / Không có chức năng khả dụng</div><div style="font-size:12px;margin-top:8px">請聯絡管理員開放權限</div></div>';
-        }
-      });
-      setTimeout(()=>fetchRates(), 1000);
-      loadOrderData();
-      if(typeof startDeskApvListener==='function') startDeskApvListener();
-      if(typeof loadPermissions==='function') loadPermissions().then(()=>{ if(typeof uNav==='function') uNav(); });
-    } else {
-      g('lerr').style.display='flex';
-      window.cu=null;
-    }
-    return;
-  }
-
-  // 員工帳號（手機版）
-  const emp = window.allEmployees.find(x=>x.user===u);
-  if(emp){
-    if(!emp.pass){ window.cu=emp; om('m-setpass'); return; }
-    const isHashE = emp.pass.startsWith('$2a$') || emp.pass.startsWith('$2b$'); // 判斷是否已經是 hash
-    const passOkE = isHashE ? await getBcrypt().compare(p, emp.pass) : (emp.pass===p); // hash 比對或明文比對
-    if(!passOkE){ g('lerr').style.display='flex'; return; }
-    if(!isHashE){ // 舊明文密碼，登入成功後自動轉換成 hash
-      const hashed=await getBcrypt().hash(emp.pass,10);
-      try{
-        await window._updateDoc(window._doc(COL.employees,emp.id),{pass:hashed});
-        emp.pass=hashed;
-      }catch(e){
-        alert('Không thể lưu nâng cấp bảo mật mật khẩu, vui lòng kiểm tra mạng rồi đăng nhập lại.\n無法保存密碼安全升級，請確認網路後重新登入。');
-        return;
-      }
-    }
-    window.cu=emp;
-    g('ls').style.display='none'; g('ma').classList.remove('hidden');
-    startMobile(emp); return; }
-
-  g('lerr').style.display='flex';
+function setGoogleLoginBusy(busy){
+  const btn=g('google-login-btn');
+  if(!btn) return;
+  btn.disabled=!!busy;
+  btn.innerHTML=busy
+    ? '<i class="ti ti-loader-2"></i> Đang xác minh / 驗證中...'
+    : '<i class="ti ti-brand-google"></i> Đăng nhập bằng Google / 使用 Google 登入';
 }
 
-// ===== 登出 =====
-function doLogout(){
+function showLoginMessage(message){
+  const box=g('lerr'), text=g('lerr-text');
+  if(text) text.textContent=message;
+  if(box) box.style.display='flex';
+}
+
+function hideLoginMessage(){
+  const box=g('lerr');
+  if(box) box.style.display='none';
+}
+
+function clearSessionUi(){
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
   window.cu=null;
-  const appEl = document.querySelector('#ma .app');
-  if(appEl) appEl.style.display = '';
-  g('ls').style.display=''; g('ma').classList.add('hidden');
+  const appEl=document.querySelector('#ma .app');
+  if(appEl) appEl.style.display='';
+  g('ls').style.display='';
+  g('ma').classList.add('hidden');
   g('mob').style.display='none';
   if(window.mobPendingUnsub){ window.mobPendingUnsub(); window.mobPendingUnsub=null; }
   if(window.deskApvUnsub){ window.deskApvUnsub(); window.deskApvUnsub=null; }
   if(window.mobHistUnsub){ window.mobHistUnsub(); window.mobHistUnsub=null; }
-  g('lu').value=''; g('lp').value=''; g('lerr').style.display='none';
+}
+
+async function enterAuthorizedDeskSystem(user,access){
+  window.cu={
+    authUid:user.uid,
+    email:user.email||'',
+    user:access.username||user.email||user.uid,
+    name:access.displayName||user.displayName||access.username||user.email||'',
+    department:access.department||'',
+    role:access.role
+  };
+  await window.fbInitForAuthorizedUser();
+  g('ls').style.display='none';
+  g('ma').classList.remove('hidden');
+  hideLoginMessage();
+  uNav(); rAll(); rSum(); rAcc(); startIdle();
+
+  if(window.cu.role==='admin'){
+    sp('summary');
+  }else if(typeof loadPermissions==='function'){
+    await loadPermissions();
+    uNav();
+    const perm=window.permissionSettings;
+    const role=window.cu.role;
+    const order=['attendance','stats','employees','progress','approval','replog','sync','accounts','export','costlog','summary','cutting'];
+    const allowed=order.find(name=>perm[role]&&perm[role][name]===true);
+    if(allowed) sp(allowed);
+  }
+  setTimeout(()=>fetchRates(),1000);
+  loadOrderData();
+  if(typeof startDeskApvListener==='function') startDeskApvListener();
+}
+
+window.handleFirebaseAuthState=async function(user){
+  if(firebaseAuthStateBusy) return;
+  firebaseAuthStateBusy=true;
+  setGoogleLoginBusy(true);
+  try{
+    if(!user){
+      clearSessionUi();
+      return;
+    }
+
+    let access=null;
+    try{
+      access=await window.firebaseLoadUserAccess(user);
+    }catch(e){
+      if(e?.code!=='permission-denied') console.error('讀取使用者權限失敗：',e);
+    }
+
+    if(!access){
+      await window.firebaseAuthLogout();
+      clearSessionUi();
+      showLoginMessage('Tài khoản Google chưa được cấp quyền sử dụng. / Google 帳號尚未開通。');
+      return;
+    }
+    if(access.active!==true){
+      await window.firebaseAuthLogout();
+      clearSessionUi();
+      showLoginMessage('Tài khoản đã bị vô hiệu hóa. / 帳號已停用。');
+      return;
+    }
+    if(!DESK_ROLES.includes(access.role)){
+      await window.firebaseAuthLogout();
+      clearSessionUi();
+      showLoginMessage('Chức năng di động hiện đang tạm dừng. / 手機端功能目前暫停使用。');
+      return;
+    }
+
+    await enterAuthorizedDeskSystem(user,access);
+  }catch(e){
+    console.error('Firebase Authentication 登入流程失敗：',e);
+    clearSessionUi();
+    showLoginMessage('Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。');
+  }finally{
+    firebaseAuthStateBusy=false;
+    setGoogleLoginBusy(false);
+  }
+};
+
+async function doLogin(){
+  hideLoginMessage();
+  if(typeof window.firebaseGoogleLogin!=='function'){
+    showLoginMessage('Dịch vụ xác thực chưa sẵn sàng. / 身分驗證服務尚未就緒。');
+    return;
+  }
+  setGoogleLoginBusy(true);
+  try{
+    await window.firebaseGoogleLogin();
+  }catch(e){
+    if(e?.code==='auth/popup-closed-by-user' || e?.code==='auth/cancelled-popup-request'){
+      showLoginMessage('Đã hủy đăng nhập. / 已取消登入。');
+    }else if(e?.code==='auth/operation-not-allowed'){
+      showLoginMessage('Chưa bật đăng nhập Google trong Firebase. / Firebase 尚未啟用 Google 登入。');
+    }else if(e?.code==='auth/unauthorized-domain'){
+      showLoginMessage('Tên miền này chưa được Firebase cho phép. / 此網域尚未加入 Firebase 授權網域。');
+    }else{
+      console.error('Google 登入失敗：',e);
+      showLoginMessage('Đăng nhập Google thất bại, vui lòng thử lại. / Google 登入失敗，請重試。');
+    }
+  }finally{
+    setGoogleLoginBusy(false);
+  }
+}
+
+// ===== 登出 =====
+async function doLogout(){
+  clearSessionUi();
+  hideLoginMessage();
+  if(typeof window.resetAuthorizedFirebaseInit==='function') window.resetAuthorizedFirebaseInit();
+  try{
+    if(typeof window.firebaseAuthLogout==='function'&&window.firebaseAuthUser){
+      await window.firebaseAuthLogout();
+    }
+  }catch(e){
+    console.error('Firebase 登出失敗：',e);
+    showLoginMessage('Đăng xuất chưa hoàn tất, vui lòng tải lại trang. / 登出未完成，請重新整理頁面。');
+  }
 }
 
 // ===== 密碼顯示切換 =====

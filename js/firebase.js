@@ -1,6 +1,7 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBBrlo1gVMQmne4gT92lx4KwnRBVt4QSh4",
@@ -13,6 +14,24 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+window.firebaseAuthUser = null;
+window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
+window.firebaseAuthLogout = () => signOut(auth);
+window.firebaseLoadUserAccess = async (user) => {
+  if(!user?.uid) return null;
+  const snap = await getDoc(doc(db, 'userAccess', user.uid));
+  if(!snap.exists()) return null;
+  return {
+    authUid: user.uid,
+    email: user.email || '',
+    googleDisplayName: user.displayName || '',
+    ...snap.data()
+  };
+};
 
 // ===== 同步狀態 =====
 window.syncState = 'idle';
@@ -433,44 +452,61 @@ window._docRef     = (colName, id) => doc(db, colName, id);
 window._newDocRef  = (colName)     => doc(collection(db, colName));
 window._onSnapshot = (...args)     => onSnapshot(...args);
 
-// ===== 初始化 =====
-async function fbInit(){
-  showLoading(true);
-  const [savedAccs, savedS, savedEmployeeUserHistory] = await Promise.all([
-    fbLoad("accounts"),
-    fbLoad("settings"),
-    fbLoad("employeeUserHistory")
-  ]);
-  window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
-    ? savedEmployeeUserHistory
-    : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
-  if(savedAccs){
-    if(typeof accs !== 'undefined'){ accs.length=0; savedAccs.forEach(item=>accs.push(item)); }
-    window.accs = savedAccs;
-  }
-  if(savedS){
-    if(typeof S !== 'undefined') Object.assign(S, savedS);
-    window.S = {...window.S, ...savedS};
-    const fields = {
-      'ss-sal':window.S.sal,'ss-ins':window.S.ins,'ss-meal':window.S.meal,
-      'ss-usd':window.S.usd,'ss-twd':window.S.twd,'ss-ws':window.S.ws,'ss-eff':window.S.eff
-    };
-    Object.entries(fields).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
-    if(window.S.mc){ const el=document.getElementById('ss-tc'); if(el) el.value=window.S.mc; }
-    if(window.S.mh){ const el=document.getElementById('ss-hr'); if(el) el.value=window.S.mh; }
-  }
-  showLoading(false);
-  // 載入記錄
-  const [savedHist, savedClog] = await Promise.all([fbLoad("impHist"), fbLoad("cLog")]);
-  if(savedHist&&savedHist.length>0){ window.impHist=savedHist; try{localStorage.setItem('impHist',JSON.stringify(window.impHist));}catch(e){} }
-  if(savedClog&&savedClog.length>0){ window.cLog=savedClog; try{localStorage.setItem('cLog',JSON.stringify(window.cLog));}catch(e){} }
+// ===== 驗證成功後初始化 =====
+let authorizedInitPromise = null;
 
+async function fbInitForAuthorizedUser(){
+  if(authorizedInitPromise) return authorizedInitPromise;
+  authorizedInitPromise = (async()=>{
+  showLoading(true);
   try{
+    const [savedS, savedEmployeeUserHistory] = await Promise.all([
+      fbLoad("settings"),
+      fbLoad("employeeUserHistory")
+    ]);
+    window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
+      ? savedEmployeeUserHistory
+      : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
+    if(savedS){
+      if(typeof S !== 'undefined') Object.assign(S, savedS);
+      window.S = {...window.S, ...savedS};
+      const fields = {
+        'ss-sal':window.S.sal,'ss-ins':window.S.ins,'ss-meal':window.S.meal,
+        'ss-usd':window.S.usd,'ss-twd':window.S.twd,'ss-ws':window.S.ws,'ss-eff':window.S.eff
+      };
+      Object.entries(fields).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
+      if(window.S.mc){ const el=document.getElementById('ss-tc'); if(el) el.value=window.S.mc; }
+      if(window.S.mh){ const el=document.getElementById('ss-hr'); if(el) el.value=window.S.mh; }
+    }
+
+    const [savedHist, savedClog] = await Promise.all([fbLoad("impHist"), fbLoad("cLog")]);
+    if(savedHist&&savedHist.length>0){ window.impHist=savedHist; try{localStorage.setItem('impHist',JSON.stringify(window.impHist));}catch(e){} }
+    if(savedClog&&savedClog.length>0){ window.cLog=savedClog; try{localStorage.setItem('cLog',JSON.stringify(window.cLog));}catch(e){} }
+
     const empSnap = await window._getDocs(window._collection('employees'));
     window.allEmployees = empSnap.docs.map(d=>({id:d.id,...d.data()}));
-  }catch(e){ console.error('載入員工資料失敗：', e); }
-  // 款號資料改為登入成功後才載入，避免登入前讀取工序表。
-
+    return true;
+  }catch(e){
+    console.error('驗證後載入雲端資料失敗：', e);
+    throw e;
+  }finally{
+    showLoading(false);
+  }
+  })();
+  try{
+    return await authorizedInitPromise;
+  }catch(e){
+    authorizedInitPromise = null;
+    throw e;
+  }
 }
 
-window.addEventListener('load', ()=>setTimeout(fbInit, 300));
+window.fbInitForAuthorizedUser = fbInitForAuthorizedUser;
+window.resetAuthorizedFirebaseInit = () => { authorizedInitPromise = null; };
+
+onAuthStateChanged(auth, async(user)=>{
+  window.firebaseAuthUser = user || null;
+  if(typeof window.handleFirebaseAuthState === 'function'){
+    await window.handleFirebaseAuthState(user || null);
+  }
+});

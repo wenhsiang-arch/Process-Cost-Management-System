@@ -217,12 +217,11 @@ tr:hover td{background:#f8fafc}
 <div class="lw">
   <div class="lc">
     <div class="ll"><i class="ti ti-chart-bar"></i></div>
-    <div id="lerr" class="nt nd" style="display:none;margin-bottom:12px"><i class="ti ti-alert-circle"></i>帳號或密碼錯誤 / Sai tài khoản hoặc mật khẩu</div>
-    <div class="lf"><label>Tài khoản / 帳號</label><input type="text" id="lu" placeholder="Nhập tài khoản / 輸入帳號"></div>
-    <div class="lf"><label>Mật khẩu / 密碼</label>
-      <div class="pww"><input type="password" id="lp" placeholder="Nhập mật khẩu / 輸入密碼" onkeydown="if(event.key==='Enter')doLogin()"><i class="ti ti-eye pwe" onclick="tpw('lp',this)"></i></div>
-    </div>
-    <button class="btn bp" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()"><i class="ti ti-login"></i>Đăng nhập / 登入</button>
+    <div class="lt">Đăng nhập hệ thống / 系統登入</div>
+    <div class="ls">Xác minh danh tính an toàn bằng tài khoản Google<br>使用 Google 帳號進行安全身分驗證</div>
+    <div id="lerr" class="nt nd" style="display:none;margin-bottom:12px"><i class="ti ti-alert-circle"></i><span id="lerr-text">Không thể đăng nhập / 無法登入</span></div>
+    <button id="google-login-btn" class="btn bp" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()"><i class="ti ti-brand-google"></i>Đăng nhập bằng Google / 使用 Google 登入</button>
+    <div class="nt ni2" style="margin-top:12px"><i class="ti ti-shield-lock"></i><span>Chỉ tài khoản đã được quản trị viên cấp quyền mới có thể sử dụng.<br>只有管理員已開通的帳號可以使用。</span></div>
   </div>
 </div>
 </div>
@@ -1312,6 +1311,11 @@ tr:hover td{background:#f8fafc}
 <script type="module" src="js/firebase.js"></script>
 
 <script>
+// cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。
+if(typeof window.cuttingInit==='function'){
+  window.removeEventListener('DOMContentLoaded',window.cuttingInit);
+}
+
 function setManagementNavOpen(open){
   const group=document.getElementById('management-nav');
   const toggle=document.getElementById('management-toggle');
