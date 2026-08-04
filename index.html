@@ -173,26 +173,28 @@ tr:hover td{background:#f8fafc}
 .pgb.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .pgb:disabled{opacity:.4;cursor:not-allowed}
 .pgi{font-size:12px;color:var(--mu);margin-right:auto}
-.lw{position:relative;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:32px;font-family:"Segoe UI","Noto Sans TC",Arial,sans-serif;background:radial-gradient(circle at 12% 18%,rgba(96,165,250,.22),transparent 32%),radial-gradient(circle at 88% 82%,rgba(125,211,252,.14),transparent 30%),linear-gradient(135deg,#102a46 0%,#1a3a5c 48%,#2d5f8e 100%)}
+.lw{position:relative;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:32px;font-family:"Segoe UI","Noto Sans TC",Arial,sans-serif;background:radial-gradient(circle at 14% 16%,rgba(245,176,65,.12),transparent 28%),radial-gradient(circle at 88% 82%,rgba(77,133,203,.2),transparent 32%),linear-gradient(135deg,#071d3f 0%,#0b2d63 52%,#164b91 100%)}
 .lw::before,.lw::after{content:'';position:absolute;border:1px solid rgba(255,255,255,.12);border-radius:999px;pointer-events:none}
 .lw::before{width:420px;height:420px;left:-180px;bottom:-240px}
 .lw::after{width:280px;height:280px;right:-100px;top:-150px}
-.login-shell{position:relative;z-index:1;width:min(460px,100%);overflow:hidden;border:1px solid rgba(255,255,255,.22);border-radius:24px;background:rgba(255,255,255,.98);box-shadow:0 28px 70px rgba(4,20,38,.32)}
-.lc{display:flex;min-width:0;flex-direction:column;padding:48px 44px;background:var(--sf)}
-.login-mark{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:34px;color:var(--navy)}
-.login-logo{width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:14px;background:linear-gradient(145deg,#102a46,#2d5f8e);box-shadow:0 8px 18px rgba(16,42,70,.2);color:#fff;font-size:18px;font-weight:700;letter-spacing:.04em}
+.login-shell{position:relative;z-index:1;width:min(960px,100%);min-height:560px;display:grid;grid-template-columns:minmax(320px,.86fr) minmax(420px,1.14fr);overflow:hidden;border:1px solid rgba(255,255,255,.25);border-radius:26px;background:rgba(255,255,255,.98);box-shadow:0 30px 78px rgba(1,15,40,.42)}
+.login-visual{position:relative;min-width:0;background-image:linear-gradient(180deg,rgba(4,23,59,.16),rgba(3,20,51,.3)),url('icon-512.png');background-size:cover;background-position:center;background-repeat:no-repeat}
+.login-visual::after{content:'';position:absolute;top:0;right:0;width:3px;height:100%;background:linear-gradient(180deg,#f7b733,#d88d18);box-shadow:0 0 18px rgba(247,183,51,.28)}
+.lc{display:flex;min-width:0;flex-direction:column;justify-content:center;padding:58px 54px;background:linear-gradient(145deg,#fff 0%,#f8fbff 100%)}
+.login-mark{display:flex;align-items:center;justify-content:flex-start;gap:13px;margin-bottom:58px;color:var(--navy)}
+.login-logo{width:50px;height:50px;display:flex;align-items:center;justify-content:center;border:2px solid #efb13e;border-radius:14px;background:linear-gradient(145deg,#102a46,#24558f);box-shadow:0 8px 18px rgba(16,42,70,.18);color:#fff;font-size:18px;font-weight:700;letter-spacing:.04em}
 .login-brand-name{font-size:17px;font-weight:600;line-height:1.2}
 .login-brand-sub{display:block;margin-top:4px;color:var(--mu);font-size:10px;font-weight:400}
-.lt{display:flex;flex-direction:column;margin-bottom:28px;color:var(--navy);line-height:1.16;text-align:center}
-.login-title-vi{font-size:27px;font-weight:600;letter-spacing:-.02em}
-.login-title-zh{margin-top:6px;color:var(--mu);font-size:16px;font-weight:500}
-#google-login-btn{width:100%;min-height:50px;height:auto;justify-content:center;padding:11px 15px;border:none;border-radius:12px;background:linear-gradient(135deg,#2563a8,#2d5f8e);box-shadow:0 10px 22px rgba(37,99,168,.22);color:#fff;font-size:13px;font-weight:600;line-height:1.35;white-space:normal;text-align:center}
-#google-login-btn:hover{background:linear-gradient(135deg,#1f5795,#244d75);box-shadow:0 12px 26px rgba(37,99,168,.28);transform:translateY(-1px)}
+.lt{display:flex;flex-direction:column;margin-bottom:34px;color:var(--navy);line-height:1.16;text-align:center}
+.login-title-vi{font-size:32px;font-weight:600;letter-spacing:-.02em}
+.login-title-zh{margin-top:8px;color:var(--mu);font-size:17px;font-weight:500}
+#google-login-btn{width:100%;min-height:54px;height:auto;justify-content:center;padding:13px 16px;border:none;border-radius:13px;background:linear-gradient(135deg,#1d64c0,#173f82);box-shadow:0 12px 26px rgba(29,100,192,.25);color:#fff;font-size:13px;font-weight:600;line-height:1.35;white-space:normal;text-align:center}
+#google-login-btn:hover{background:linear-gradient(135deg,#1959aa,#12376f);box-shadow:0 14px 30px rgba(29,100,192,.31);transform:translateY(-1px)}
 #google-login-btn:disabled{cursor:wait;opacity:.72;box-shadow:none;transform:none}
 #google-login-btn i{font-size:18px}
 #lerr{margin:0 0 14px!important;border-radius:11px;padding:12px 13px;line-height:1.5}
-@media(max-width:760px){.lw{align-items:flex-start;padding:18px;overflow-y:auto}.login-shell{max-width:440px;margin:auto;border-radius:22px}.lc{padding:38px 28px}.login-title-vi{font-size:25px}.login-title-zh{font-size:15px}}
-@media(max-width:420px){.lw{padding:12px}.login-shell{border-radius:18px}.lc{padding:32px 22px}.login-mark{margin-bottom:28px}.login-brand-name{font-size:15px}#google-login-btn{font-size:12px}}
+@media(max-width:760px){.lw{align-items:flex-start;padding:18px;overflow-y:auto}.login-shell{display:block;max-width:440px;min-height:0;margin:auto;border-radius:22px}.login-visual{height:210px;background-size:cover;background-position:center 38%}.login-visual::after{top:auto;bottom:0;width:100%;height:3px}.lc{padding:36px 28px 40px}.login-mark{margin-bottom:30px}.login-title-vi{font-size:25px}.login-title-zh{font-size:15px}}
+@media(max-width:420px){.lw{padding:12px}.login-shell{border-radius:18px}.login-visual{height:170px}.lc{padding:30px 22px 34px}.login-mark{margin-bottom:26px}.login-brand-name{font-size:15px}#google-login-btn{font-size:12px}}
 .lf{display:flex;flex-direction:column;gap:4px;margin-bottom:13px}
 .lf label{font-size:12px;color:var(--mu);font-weight:500}
 .lf input{padding:9px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:14px;height:42px}
@@ -232,6 +234,7 @@ tr:hover td{background:#f8fafc}
 <div id="ls">
 <div class="lw">
   <div class="login-shell">
+    <div class="login-visual" aria-hidden="true"></div>
     <main class="lc">
       <div class="login-mark">
         <div class="login-logo">M9</div>
