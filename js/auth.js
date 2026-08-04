@@ -102,10 +102,10 @@ function refreshGoogleLoginButton(){
   const busy=checking||firebaseAuthStateBusy||googleLoginRequestBusy;
   btn.disabled=busy;
   btn.innerHTML=checking
-    ? '<i class="ti ti-loader-2"></i> Đang kiểm tra trạng thái đăng nhập... / 正在確認登入狀態…'
+    ? '<i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy"><span>Đang kiểm tra trạng thái đăng nhập...</span><span class="login-btn-zh">正在確認登入狀態…</span></span>'
     : busy
-      ? '<i class="ti ti-loader-2"></i> Đang xác minh... / 驗證中…'
-      : '<i class="ti ti-brand-google"></i> Đăng nhập bằng Google / 使用 Google 登入';
+      ? '<i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy"><span>Đang xác minh...</span><span class="login-btn-zh">驗證中…</span></span>'
+      : '<span class="google-login-logo" aria-hidden="true"><img src="google-g.svg" alt=""></span><span class="login-btn-copy"><span>Đăng nhập bằng Google</span><span class="login-btn-zh">使用 Google 登入</span></span>';
 }
 
 function setGoogleLoginBusy(busy){
