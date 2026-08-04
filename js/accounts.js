@@ -4,17 +4,39 @@ function accountUpdatedBy(){
   return String(window.cu?.user||window.firebaseAuthUser?.uid||'system').slice(0,100);
 }
 
-function normalizeUserAccessAccount(authUid,data){
+// normalizeAccessEmail（標準化核准電子信箱）
+function normalizeAccessEmail(value){
+  return String(value||'').trim().toLowerCase();
+}
+
+// normalizeUserAccessAccount（標準化使用者權限帳號）
+function normalizeUserAccessAccount(accessId,data){
+  const email=normalizeAccessEmail(data?.email);
+  const accessMode=email?'email':'uid';
   return {
-    authUid:String(authUid||''),
+    accessId:String(accessId||''),
+    accessMode,
+    email,
+    authUid:String(data?.authUid||(accessMode==='uid'?accessId:'')),
     user:String(data?.username||''),
     role:String(data?.role||''),
     active:data?.active===true,
+    googleDisplayName:typeof data?.googleDisplayName==='string'?data.googleDisplayName:'',
     displayName:typeof data?.displayName==='string'?data.displayName:'',
     department:typeof data?.department==='string'?data.department:'',
+    createdAt:Number(data?.createdAt)||0,
+    lastLoginAt:Number(data?.lastLoginAt)||0,
     updatedAt:Number(data?.updatedAt)||0,
     updatedBy:String(data?.updatedBy||'')
   };
+}
+
+// isCurrentAccessAccount（判斷目前登入的權限帳號）
+function isCurrentAccessAccount(account){
+  if(!account||!window.cu) return false;
+  if(account.accessId&&account.accessId===window.cu.accessId) return true;
+  if(account.authUid&&account.authUid===window.cu.authUid) return true;
+  return !!(account.email&&account.email===normalizeAccessEmail(window.cu.email));
 }
 
 function sortUserAccessAccounts(list){
@@ -31,7 +53,7 @@ async function loadAccounts(){
   if(typeof window.firebaseLoadUserAccessList!=='function') return false;
   try{
     const list=await window.firebaseLoadUserAccessList();
-    window.accs=sortUserAccessAccounts(list.map(item=>normalizeUserAccessAccount(item.authUid,item)));
+    window.accs=sortUserAccessAccounts(list.map(item=>normalizeUserAccessAccount(item.accessId,item)));
     rAcc();
     return true;
   }catch(e){
@@ -57,7 +79,7 @@ function rAcc(){
   if(!list.length){
     const tr=document.createElement('tr');
     const td=document.createElement('td');
-    td.colSpan=5;
+    td.colSpan=6;
     td.style.cssText='text-align:center;padding:24px;color:var(--mu)';
     td.textContent='Chưa có tài khoản được cấp quyền / 尚無已授權帳號';
     tr.appendChild(td);
@@ -66,8 +88,11 @@ function rAcc(){
   }
 
   list.forEach(a=>{
-    const isMe=a.authUid===window.cu?.authUid;
+    const isMe=isCurrentAccessAccount(a);
     const tr=document.createElement('tr');
+
+    const emailText=a.email||(isMe?normalizeAccessEmail(window.cu?.email):'');
+    appendAccountCell(tr,emailText||'Chưa ghi nhận / 尚未記錄');
 
     const userCell=appendAccountCell(tr,a.user||'-');
     if(isMe){
@@ -92,7 +117,7 @@ function rAcc(){
     statusCell.appendChild(statusTag);
     tr.appendChild(statusCell);
 
-    const uidCell=appendAccountCell(tr,a.authUid);
+    const uidCell=appendAccountCell(tr,a.authUid||'Chưa đăng nhập / 尚未登入');
     uidCell.style.cssText='font-family:monospace;font-size:11px;word-break:break-all;max-width:260px';
 
     const actionCell=document.createElement('td');
@@ -102,14 +127,14 @@ function rAcc(){
     editButton.className='btn bsm';
     editButton.title='Chỉnh sửa / 編輯';
     editButton.innerHTML='<i class="ti ti-edit"></i>';
-    editButton.addEventListener('click',()=>oEacc(a.authUid));
+    editButton.addEventListener('click',()=>oEacc(a.accessId));
     actions.appendChild(editButton);
     if(!isMe){
       const deleteButton=document.createElement('button');
       deleteButton.className='btn bsm bd2';
       deleteButton.title='Xóa quyền truy cập / 刪除使用權限';
       deleteButton.innerHTML='<i class="ti ti-trash"></i>';
-      deleteButton.addEventListener('click',()=>delAcc(a.authUid));
+      deleteButton.addEventListener('click',()=>delAcc(a.accessId));
       actions.appendChild(deleteButton);
     }
     actionCell.appendChild(actions);
@@ -118,9 +143,10 @@ function rAcc(){
   });
 }
 
-function validUserAccessInput(authUid,username){
-  if(!authUid||authUid.length>128||authUid.includes('/')){
-    alert('UID không hợp lệ / UID（使用者識別碼）格式不正確');
+// validEmailAccessInput（檢查電子信箱核准資料）
+function validEmailAccessInput(email,username){
+  if(!email||email.length>254||email.includes('/')||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    alert('Email Google không hợp lệ / Google 電子信箱格式不正確');
     return false;
   }
   if(!username||username.length>100){
@@ -130,7 +156,8 @@ function validUserAccessInput(authUid,username){
   return true;
 }
 
-function buildUserAccessPayload(account,username,role,active){
+// buildUserAccessPayload（建立使用者權限寫入資料）
+function buildUserAccessPayload(account,email,username,role,active){
   const payload={
     username,
     role,
@@ -138,31 +165,38 @@ function buildUserAccessPayload(account,username,role,active){
     updatedAt:Date.now(),
     updatedBy:accountUpdatedBy()
   };
+  if(email){
+    payload.email=email;
+    payload.authUid=String(account?.authUid||'');
+    payload.googleDisplayName=String(account?.googleDisplayName||'').slice(0,200);
+    payload.createdAt=account?.createdAt||Date.now();
+    if(account?.lastLoginAt) payload.lastLoginAt=account.lastLoginAt;
+  }
   if(account?.displayName) payload.displayName=account.displayName;
   if(account?.department) payload.department=account.department;
   return payload;
 }
 
 async function saveAcc(){
-  const authUid=g('ac-uid').value.trim();
+  const email=normalizeAccessEmail(g('ac-email').value);
   const username=g('ac-u').value.trim();
   const role=g('ac-r').value;
   const active=g('ac-active').checked;
-  if(!validUserAccessInput(authUid,username)) return;
-  if(window.accs.some(a=>a.authUid===authUid)){
-    alert('UID đã tồn tại / UID（使用者識別碼）已存在');
+  if(!validEmailAccessInput(email,username)) return;
+  if(window.accs.some(a=>a.accessId===email||a.email===email)){
+    alert('Email Google đã được phê duyệt / Google 電子信箱已經核准');
     return;
   }
   if(window.accs.some(a=>a.user===username)||(window.allEmployees||[]).some(e=>e.user===username)){
     alert('Tài khoản đã tồn tại / 帳號已存在');
     return;
   }
-  const payload=buildUserAccessPayload(null,username,role,active);
+  const payload=buildUserAccessPayload(null,email,username,role,active);
   try{
-    await window.firebaseSaveUserAccess(authUid,payload);
-    window.accs=sortUserAccessAccounts([...window.accs,normalizeUserAccessAccount(authUid,payload)]);
+    await window.firebaseSaveUserAccess(email,payload);
+    window.accs=sortUserAccessAccounts([...window.accs,normalizeUserAccessAccount(email,payload)]);
     cm('m-nacc');
-    g('ac-uid').value='';
+    g('ac-email').value='';
     g('ac-u').value='';
     g('ac-r').value='manager';
     g('ac-active').checked=true;
@@ -173,12 +207,13 @@ async function saveAcc(){
   }
 }
 
-function oEacc(authUid){
-  const account=window.accs.find(a=>a.authUid===authUid);
+function oEacc(accessId){
+  const account=window.accs.find(a=>a.accessId===accessId);
   if(!account) return;
-  const isMe=account.authUid===window.cu?.authUid;
-  g('ea-orig').value=account.authUid;
-  g('ea-uid-view').value=account.authUid;
+  const isMe=isCurrentAccessAccount(account);
+  g('ea-orig').value=account.accessId;
+  g('ea-email-view').value=account.email||(isMe?normalizeAccessEmail(window.cu?.email):'Chưa ghi nhận / 尚未記錄');
+  g('ea-uid-view').value=account.authUid||'Chưa đăng nhập / 尚未登入';
   g('ea-u').value=account.user;
   g('ea-r').value=account.role;
   g('ea-active').checked=account.active;
@@ -189,18 +224,21 @@ function oEacc(authUid){
 }
 
 async function saveEacc(){
-  const authUid=g('ea-orig').value;
-  const account=window.accs.find(a=>a.authUid===authUid);
+  const accessId=g('ea-orig').value;
+  const account=window.accs.find(a=>a.accessId===accessId);
   if(!account) return;
   const username=g('ea-u').value.trim();
   const role=g('ea-r').value;
   const active=g('ea-active').checked;
-  if(!validUserAccessInput(authUid,username)) return;
-  if(window.accs.some(a=>a.authUid!==authUid&&a.user===username)||(window.allEmployees||[]).some(e=>e.user===username)){
+  if(!username||username.length>100){
+    alert('Vui lòng nhập tên tài khoản hợp lệ / 請輸入正確的帳號名稱');
+    return;
+  }
+  if(window.accs.some(a=>a.accessId!==accessId&&a.user===username)||(window.allEmployees||[]).some(e=>e.user===username)){
     alert('Tài khoản đã tồn tại / 帳號已存在');
     return;
   }
-  const isMe=authUid===window.cu?.authUid;
+  const isMe=isCurrentAccessAccount(account);
   if(isMe&&(role!=='admin'||active!==true)){
     alert('Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập / 不可停用或降低目前登入帳號的權限');
     return;
@@ -211,11 +249,11 @@ async function saveEacc(){
     return;
   }
 
-  const payload=buildUserAccessPayload(account,username,role,active);
+  const payload=buildUserAccessPayload(account,account.email,username,role,active);
   try{
-    await window.firebaseSaveUserAccess(authUid,payload);
-    const index=window.accs.findIndex(a=>a.authUid===authUid);
-    window.accs[index]=normalizeUserAccessAccount(authUid,payload);
+    await window.firebaseSaveUserAccess(accessId,payload);
+    const index=window.accs.findIndex(a=>a.accessId===accessId);
+    window.accs[index]=normalizeUserAccessAccount(accessId,payload);
     window.accs=sortUserAccessAccounts(window.accs);
     if(isMe){
       window.cu.user=username;
@@ -229,10 +267,10 @@ async function saveEacc(){
   }
 }
 
-async function delAcc(authUid){
-  const account=window.accs.find(a=>a.authUid===authUid);
+async function delAcc(accessId){
+  const account=window.accs.find(a=>a.accessId===accessId);
   if(!account) return;
-  if(authUid===window.cu?.authUid){
+  if(isCurrentAccessAccount(account)){
     alert('Không thể xóa tài khoản đang đăng nhập / 不可刪除目前登入的帳號');
     return;
   }
@@ -241,10 +279,10 @@ async function delAcc(authUid){
     alert('Không thể xóa quản trị viên cuối cùng / 不可刪除最後一位管理員');
     return;
   }
-  if(!confirm('Xóa quyền truy cập của tài khoản này? / 確定刪除此帳號的使用權限？\n\n'+account.user)) return;
+  if(!confirm('Xóa quyền truy cập của tài khoản này? / 確定刪除此帳號的使用權限？\n\n'+(account.email||account.user))) return;
   try{
-    await window.firebaseDeleteUserAccess(authUid);
-    window.accs=window.accs.filter(a=>a.authUid!==authUid);
+    await window.firebaseDeleteUserAccess(accessId);
+    window.accs=window.accs.filter(a=>a.accessId!==accessId);
     rAcc();
   }catch(e){
     console.error('Không thể xóa userAccess / 無法刪除使用者權限：',e);

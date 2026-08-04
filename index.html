@@ -661,11 +661,12 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-accounts">
         <div class="card">
           <div class="ct-title"><i class="ti ti-users"></i>Quản lý tài khoản / 帳號管理</div>
-          <p style="font-size:12px;color:var(--mu);margin-bottom:14px">Tài khoản sử dụng Google và UID do Firebase cấp; hệ thống không lưu mật khẩu cũ.<br>帳號使用 Google（Google 帳號）與 Firebase（雲端平台）提供的 UID（使用者識別碼）；系統不再保存舊密碼。</p>
+          <p style="font-size:12px;color:var(--mu);margin-bottom:14px">Quản trị viên phê duyệt trước địa chỉ Google; UID sẽ tự động liên kết khi người dùng đăng nhập lần đầu.<br>管理員預先核准 Google（Google 帳號）電子信箱；使用者第一次登入時會自動綁定 UID（使用者識別碼）。</p>
           <div class="br"><button class="btn bp" onclick="om('m-nacc')"><i class="ti ti-plus"></i>Thêm tài khoản / 新增帳號</button></div>
           <div class="to"><table>
             <thead><tr>
-              <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號</span></th>
+              <th>Email Google<br><span style="font-size:10px;color:var(--mu);font-weight:400">Google 電子信箱</span></th>
+              <th>Tên tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號名稱</span></th>
               <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th>
               <th>Trạng thái<br><span style="font-size:10px;color:var(--mu);font-weight:400">狀態</span></th>
               <th>UID<br><span style="font-size:10px;color:var(--mu);font-weight:400">使用者識別碼</span></th>
@@ -1040,8 +1041,8 @@ tr:hover td{background:#f8fafc}
 
   <div class="mb" id="m-nacc"><div class="md">
     <div class="mt2">Thêm tài khoản / 新增帳號 <button class="btn bsm" onclick="cm('m-nacc')"><i class="ti ti-x"></i></button></div>
-    <div class="nt ni2" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>Người dùng phải đăng nhập Google một lần, sau đó nhập đúng UID từ Firebase Authentication.<br>使用者必須先嘗試登入 Google（Google 帳號）一次，再填入 Firebase Authentication（Firebase 身分驗證）中的正確 UID（使用者識別碼）。</span></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>UID / 使用者識別碼</label><input type="text" id="ac-uid" autocomplete="off"></div>
+    <div class="nt ni2" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>Phê duyệt trước địa chỉ Google; người dùng có thể vào hệ thống ngay khi đăng nhập lần đầu.<br>先核准 Google（Google 帳號）電子信箱；使用者第一次登入時即可直接進入系統。</span></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Email Google / Google 電子信箱</label><input type="email" id="ac-email" maxlength="254" autocomplete="off" placeholder="name@example.com"></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ac-u" maxlength="100" autocomplete="off"></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ac-r"><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="admin">Quản trị viên / 管理員</option></select></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px"><input type="checkbox" id="ac-active" checked style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
@@ -1051,6 +1052,7 @@ tr:hover td{background:#f8fafc}
   <div class="mb" id="m-eacc"><div class="md">
     <div class="mt2">Chỉnh sửa tài khoản / 修改帳號 <button class="btn bsm" onclick="cm('m-eacc')"><i class="ti ti-x"></i></button></div>
     <input type="hidden" id="ea-orig">
+    <div class="fgrp" style="margin-bottom:12px"><label>Email Google / Google 電子信箱</label><input type="text" id="ea-email-view" readonly></div>
     <div class="fgrp" style="margin-bottom:12px"><label>UID / 使用者識別碼</label><input type="text" id="ea-uid-view" readonly></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ea-u" maxlength="100" autocomplete="off"></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ea-r"><option value="admin">Quản trị viên / 管理員</option><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option></select></div>
@@ -1302,7 +1304,7 @@ tr:hover td{background:#f8fafc}
 
 <!-- 一般 JS 模組（依賴順序載入）-->
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=20260804-2"></script>
+<script src="js/auth.js?v=20260804-3"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
 <script src="js/settings.js?v=20260731-2"></script>
 <script src="js/summary.js"></script>
@@ -1310,7 +1312,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/data.js?v=20260731-4"></script>
 <script src="js/cutting-store.js?v=20260804-4"></script>
 <script src="js/cutting.js?v=20260804-8"></script>
-<script src="js/accounts.js?v=20260804-2"></script>
+<script src="js/accounts.js?v=20260804-3"></script>
 <script src="js/orders.js"></script>
 <script src="js/sync.js"></script>
 <script src="js/efficiency.js"></script>
@@ -1321,7 +1323,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/mobile.js"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260804-2"></script>
+<script type="module" src="js/firebase.js?v=20260804-3"></script>
 
 <script>
 // cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。

@@ -143,6 +143,9 @@ function clearSessionUi(){
 async function enterAuthorizedDeskSystem(user,access){
   window.cu={
     authUid:user.uid,
+    // accessId（權限文件識別碼）、accessMode（權限文件模式）
+    accessId:access.accessId||user.uid,
+    accessMode:access.accessMode||'uid',
     email:user.email||'',
     user:access.username||user.email||user.uid,
     name:access.displayName||user.displayName||access.username||user.email||'',

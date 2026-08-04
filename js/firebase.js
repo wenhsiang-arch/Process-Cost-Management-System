@@ -21,26 +21,70 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 window.firebaseAuthUser = null;
 window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
 window.firebaseAuthLogout = () => signOut(auth);
+
+// normalizeGoogleEmail（標準化 Google 電子信箱）
+function normalizeGoogleEmail(value){
+  return String(value||'').trim().toLowerCase();
+}
+
+// isVerifiedGoogleUser（檢查已驗證的 Google 使用者）
+function isVerifiedGoogleUser(user){
+  return !!(
+    user?.uid
+    && user.emailVerified===true
+    && normalizeGoogleEmail(user.email)
+    && Array.isArray(user.providerData)
+    && user.providerData.some(provider=>provider?.providerId==='google.com')
+  );
+}
+
 window.firebaseLoadUserAccess = async (user) => {
-  if(!user?.uid) return null;
-  const snap = await getDoc(doc(db, 'userAccess', user.uid));
-  if(!snap.exists()) return null;
+  if(!isVerifiedGoogleUser(user)) return null;
+  const uidRef=doc(db,'userAccess',user.uid);
+  const uidSnap=await getDoc(uidRef);
+  if(uidSnap.exists()){
+    return {
+      accessId:user.uid,
+      accessMode:'uid',
+      authUid:user.uid,
+      email:normalizeGoogleEmail(user.email),
+      googleDisplayName:user.displayName||'',
+      ...uidSnap.data()
+    };
+  }
+
+  const email=normalizeGoogleEmail(user.email);
+  const emailRef=doc(db,'userAccess',email);
+  const emailSnap=await getDoc(emailRef);
+  if(!emailSnap.exists()) return null;
+  const access=emailSnap.data();
+  const canBind=access.active===true&&['admin','manager','clerk'].includes(access.role);
+  const binding={
+    authUid:user.uid,
+    googleDisplayName:String(user.displayName||'').slice(0,200),
+    lastLoginAt:Date.now()
+  };
+  if(canBind){
+    await updateDoc(emailRef,binding);
+  }
   return {
+    accessId:email,
+    accessMode:'email',
     authUid: user.uid,
-    email: user.email || '',
-    googleDisplayName: user.displayName || '',
-    ...snap.data()
+    email,
+    ...access,
+    ...(canBind?binding:{})
   };
 };
 window.firebaseLoadUserAccessList = async () => {
   const snap = await getDocs(collection(db, 'userAccess'));
-  return snap.docs.map(item=>({authUid:item.id,...item.data()}));
+  return snap.docs.map(item=>({accessId:item.id,...item.data()}));
 };
-window.firebaseSaveUserAccess = async (authUid,data) => {
-  await setDoc(doc(db, 'userAccess', authUid), data);
+window.firebaseSaveUserAccess = async (accessId,data) => {
+  await setDoc(doc(db, 'userAccess', accessId), data);
 };
-window.firebaseDeleteUserAccess = async (authUid) => {
-  await deleteDoc(doc(db, 'userAccess', authUid));
+window.firebaseDeleteUserAccess = async (accessId) => {
+  await deleteDoc(doc(db, 'userAccess', accessId));
 };
 window.firebaseLoadRolePermissions = async () => {
   const roles=['manager','clerk'];
