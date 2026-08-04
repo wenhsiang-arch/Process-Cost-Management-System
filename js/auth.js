@@ -2,7 +2,8 @@
 window.accs = [];
 window.cu   = null;
 window.cur  = 'VND';
-window.S    = {sal:9413769,ins:1686575,meal:1008000,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
+// S（系統計算設定）：公開程式只保留非敏感預設值；薪資與成本由授權後的雲端資料載入。
+window.S    = {sal:0,ins:0,meal:0,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
 window.D    = [];
 window.impHist = [];
 window.cLog    = [];
@@ -10,13 +11,20 @@ window.sPage   = 1;
 window.dPage   = 1;
 // 從 localStorage 載入記錄
 try{ const h=localStorage.getItem('impHist'); if(h) window.impHist=JSON.parse(h); }catch(e){}
-try{ const c=localStorage.getItem('cLog');    if(c) window.cLog=JSON.parse(c);    }catch(e){}
+// cLog（成本變動記錄）不得放在跨帳號共用的 localStorage（瀏覽器本機儲存空間）。
+try{ localStorage.removeItem('cLog'); }catch(e){}
 
 const IDLE = 30*60;
 let idleT = IDLE, idleIv = null;
 
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
+function canViewCosts(){
+  if(isAdm()) return true;
+  const role=window.cu?.role;
+  return (role==='manager'||role==='clerk')
+    && window.permissionSettings?.[role]?.costView===true;
+}
 function isCurrentDeskAccount(){
   return !!(
     window.cu?.authUid
@@ -60,6 +68,7 @@ function uNav(){
     } else if(isClk){
       show = perm.clerk ? (perm.clerk[n]===true) : false;
     }
+    if(n==='costlog'&&!canViewCosts()) show=false;
     el.className = 'ni'+(show?'':' locked');
   });
   document.querySelectorAll('[data-order-manage]').forEach(el=>{
@@ -135,6 +144,11 @@ function clearSessionUi(){
   window.employeeUserHistory={};
   window.impHist=[];
   window.cLog=[];
+  // 登出時立即清除記憶體中的薪資與成本，避免同一分頁換帳號後殘留。
+  window.S={sal:0,ins:0,meal:0,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
+  ['ss-sal','ss-ins','ss-meal','ss-tc','ss-hr'].forEach(id=>{
+    const field=g(id); if(field) field.value=0;
+  });
   window.D=[];
   if(typeof resetPermissionsToDefaults==='function') resetPermissionsToDefaults();
   try{
@@ -186,7 +200,7 @@ async function enterAuthorizedDeskSystem(user,access){
     const allowed=order.find(name=>perm[role]&&perm[role][name]===true);
     if(allowed) sp(allowed);
   }
-  setTimeout(()=>fetchRates(),1000);
+  if(isAdm()) setTimeout(()=>fetchRates(),1000);
 }
 
 window.handleFirebaseAuthState=async function(user){
@@ -303,22 +317,23 @@ async function ensurePageData(name){
   const add=(task)=>{ if(task&&typeof task.then==='function') tasks.push(task); };
 
   if(['summary','export'].includes(name)){
-    add(window.ensureSettingsLoaded?.());
+    add(window.ensureOperationSettingsLoaded?.());
+    if(canViewCosts()) add(window.ensureCostSettingsLoaded?.());
     add(window.ensureImportHistoryLoaded?.());
   }
   if(name==='settings'){
-    add(window.ensureSettingsLoaded?.());
+    add(window.ensureOperationSettingsLoaded?.());
+    add(window.ensureCostSettingsLoaded?.());
     add(window.ensureCostLogLoaded?.());
   }
-  if(name==='costlog') add(window.ensureCostLogLoaded?.());
-  if(['stats','progress','sync','efficiency'].includes(name)) add(window.ensureSettingsLoaded?.());
+  if(name==='costlog'&&canViewCosts()) add(window.ensureCostLogLoaded?.());
+  if(['stats','progress','sync','efficiency'].includes(name)) add(window.ensureOperationSettingsLoaded?.());
   if(['employees','stats','attendance','approval','replog','accounts'].includes(name)){
     add(window.ensureEmployeesLoaded?.());
   }
   if(name==='employees') add(window.ensureEmployeeUserHistoryLoaded?.());
   if(name==='progress') add(loadOrderData());
   if(['replog','sync'].includes(name)) add(reloadOrders());
-  if(name==='efficiency') add(window.ensureSettingsLoaded?.());
 
   if(!tasks.length) return;
   window.firebaseShowLoading?.(true);
@@ -347,6 +362,7 @@ async function sp(name){
     };
     const feature=featureByPage[name];
     if(feature&&window.permissionSettings?.[window.cu.role]?.[feature]!==true) return;
+    if(name==='costlog'&&!canViewCosts()) return;
   }
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));

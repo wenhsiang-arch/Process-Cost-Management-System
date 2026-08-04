@@ -121,9 +121,11 @@ function calc(sec){
   const workSeconds=safePositiveNumber(window.S?.ws,3000);
   const efficiency=safePositiveNumber(window.S?.eff,80);
   const hourCost=safePositiveNumber(getH(),0);
-  if(!seconds||!workSeconds||!efficiency||!hourCost) return {qty:0,vnd:0};
+  // qty（標準產量）不依賴工價權限；未載入成本時只讓 vnd（越盾工價）為 0。
+  if(!seconds||!workSeconds) return {qty:0,vnd:0};
   const q=workSeconds/seconds;
   if(!Number.isFinite(q)||q<=0) return {qty:0,vnd:0};
+  if(!efficiency||!hourCost) return {qty:Math.round(q),vnd:0};
   const vnd=(hourCost/q)*(100/efficiency);
   return {qty:Math.round(q), vnd:Number.isFinite(vnd)?vnd:0};
 }

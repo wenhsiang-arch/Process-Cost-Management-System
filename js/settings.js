@@ -37,12 +37,17 @@ function uEff(){
 }
 
 function rAll(){
-  window.S.sal  = readSettingNumber('ss-sal',9413769,0,null,false);
-  window.S.ins  = readSettingNumber('ss-ins',1686575,0,null,false);
-  window.S.meal = readSettingNumber('ss-meal',1008000,0,null,false);
-  window.S.usd  = readSettingNumber('ss-usd',25400,1,null,true);
-  window.S.twd  = readSettingNumber('ss-twd',780,1,null,true);
-  window.S.ws   = readSettingNumber('ss-ws',3000,1,null,true);
+  // 非管理員不得從隱藏的設定欄位覆蓋已授權載入的 S（系統計算設定）。
+  if(!isAdm()){
+    rSum(); rDet(); rExp(); rBk();
+    return;
+  }
+  window.S.sal  = readSettingNumber('ss-sal',0,0,null,false);
+  window.S.ins  = readSettingNumber('ss-ins',0,0,null,false);
+  window.S.meal = readSettingNumber('ss-meal',0,0,null,false);
+  window.S.usd  = readSettingNumber('ss-usd',window.S.usd||25400,1,null,true);
+  window.S.twd  = readSettingNumber('ss-twd',window.S.twd||780,1,null,true);
+  window.S.ws   = readSettingNumber('ss-ws',window.S.ws||3000,1,null,true);
   aCC(); rSum(); rDet(); rExp(); rBk();
 }
 
@@ -74,7 +79,6 @@ async function saveSt(){
       if(!okLog) throw new Error('cLog');
     }
     if(ch.length>0){
-      try{ localStorage.setItem('cLog',JSON.stringify(window.cLog)); }catch(e){}
       rClog();
     }
     rAll(); uEff();

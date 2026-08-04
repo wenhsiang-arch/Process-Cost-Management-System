@@ -5,7 +5,7 @@
 
   const DATABASE_NAME = 'pcms-data-cache-v1'; // DATABASE_NAME（資料庫名稱）
   const STORE_NAME = 'entries';                // STORE_NAME（資料儲存區名稱）
-  const DATABASE_VERSION = 1;                  // DATABASE_VERSION（資料庫結構版本）
+  const DATABASE_VERSION = 2;                  // DATABASE_VERSION（資料庫結構版本）：第 2 版清除舊敏感快取。
   const MAX_CACHE_BYTES = 1024 * 1024 * 1024;  // MAX_CACHE_BYTES（快取容量上限）：1 GB（十億位元組）
   let databasePromise = null;
   let persistenceRequested = false;
@@ -49,10 +49,23 @@
       const request=indexedDB.open(DATABASE_NAME,DATABASE_VERSION);
       request.onupgradeneeded=()=>{
         const database=request.result;
+        let store;
         if(!database.objectStoreNames.contains(STORE_NAME)){
-          const store=database.createObjectStore(STORE_NAME,{keyPath:'key'});
+          store=database.createObjectStore(STORE_NAME,{keyPath:'key'});
           store.createIndex('lastAccessedAt','lastAccessedAt',{unique:false});
           store.createIndex('userId','userId',{unique:false});
+        }else{
+          store=request.transaction.objectStore(STORE_NAME);
+        }
+        // settings（舊合併設定）與 cLog（成本記錄）曾包含敏感金額，升級時全部清除。
+        if(request.oldVersion<2&&store){
+          const cursorRequest=store.openCursor();
+          cursorRequest.onsuccess=()=>{
+            const cursor=cursorRequest.result;
+            if(!cursor) return;
+            if(cursor.value?.scope==='settings'||cursor.value?.scope==='cLog') cursor.delete();
+            cursor.continue();
+          };
         }
       };
       request.onsuccess=()=>resolve(request.result);

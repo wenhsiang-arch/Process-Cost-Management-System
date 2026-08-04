@@ -609,9 +609,9 @@ tr:hover td{background:#f8fafc}
         <div class="card">
           <div class="ct-title"><i class="ti ti-currency-dollar"></i>直接工價設定</div>
           <div class="fg cols3">
-            <div class="fgrp"><label>平均薪資 (VND/月)<span class="lvi">Lương TB/tháng</span></label><input type="number" id="ss-sal" value="9413769" oninput="aCC()"></div>
-            <div class="fgrp"><label>平均保險 (VND/月)<span class="lvi">Bảo hiểm TB/tháng</span></label><input type="number" id="ss-ins" value="1686575" oninput="aCC()"></div>
-            <div class="fgrp"><label>餐費 (VND/月)<span class="lvi">Phí ăn uống/tháng</span></label><input type="number" id="ss-meal" value="1008000" oninput="aCC()"></div>
+            <div class="fgrp"><label>平均薪資 (VND/月)<span class="lvi">Lương TB/tháng</span></label><input type="number" id="ss-sal" value="0" oninput="aCC()"></div>
+            <div class="fgrp"><label>平均保險 (VND/月)<span class="lvi">Bảo hiểm TB/tháng</span></label><input type="number" id="ss-ins" value="0" oninput="aCC()"></div>
+            <div class="fgrp"><label>餐費 (VND/月)<span class="lvi">Phí ăn uống/tháng</span></label><input type="number" id="ss-meal" value="0" oninput="aCC()"></div>
           </div>
           <div class="fg cols3">
             <div class="fgrp"><label>平均總成本/月 <span id="ct-tag" class="at">自動</span><span class="lvi">Tổng chi phí TB/tháng</span></label><input type="number" id="ss-tc" oninput="onMC()"></div>
@@ -653,7 +653,7 @@ tr:hover td{background:#f8fafc}
           <div class="ct-title"><i class="ti ti-download"></i>匯出報表</div>
           <div class="fg cols3">
             <div class="fgrp"><label>客人<span class="lvi">選擇客人</span></label><select id="ex-cl"><option value="">全部</option></select></div>
-            <div class="fgrp"><label>幣別<span class="lvi">選擇幣別</span></label><select id="ex-cu"><option value="both">USD（美金）+ VND（越盾）</option><option value="all">USD（美金）+ TWD（台幣）+ VND（越盾）</option><option value="usd">USD（美金）</option><option value="vnd">VND（越盾）</option><option value="twd">TWD（台幣）</option></select></div>
+            <div class="fgrp" id="ex-cu-group"><label>幣別<span class="lvi">選擇幣別</span></label><select id="ex-cu"><option value="both">USD（美金）+ VND（越盾）</option><option value="all">USD（美金）+ TWD（台幣）+ VND（越盾）</option><option value="usd">USD（美金）</option><option value="vnd">VND（越盾）</option><option value="twd">TWD（台幣）</option></select></div>
             <div class="fgrp"><label>報表類型<span class="lvi">選擇報表類型</span></label><select id="ex-ty"><option value="summary">僅總表</option><option value="detail">含工序明細</option></select></div>
           </div>
           <div class="br"><button class="btn bs" onclick="doExport()"><i class="ti ti-file-spreadsheet"></i>匯出 Excel</button></div>
@@ -662,7 +662,7 @@ tr:hover td{background:#f8fafc}
         <div class="card">
           <div class="ct-title">報表預覽</div>
           <div class="to"><div class="ts"><table>
-            <thead><tr><th>款號</th><th>客人</th><th>中文名稱</th><th>尺寸</th><th>工序數</th><th>總工價(USD)</th><th>總工價(VND)</th><th>總工價(TWD)</th></tr></thead>
+            <thead><tr id="ex-th"></tr></thead>
             <tbody id="ex-tb"></tbody>
           </table></div></div>
         </div>
@@ -702,7 +702,7 @@ tr:hover td{background:#f8fafc}
       <div class="pg" id="pg-permissions">
         <div class="card">
           <div class="ct-title"><i class="ti ti-shield-check"></i>Phân quyền / 權限管理</div>
-          <p style="font-size:12px;color:var(--mu);margin-bottom:14px">設定各角色可存取的功能頁面。未勾選表示該角色無法使用該功能。變更後須點擊「儲存套用」才會生效。</p>
+          <p style="font-size:12px;color:var(--mu);margin-bottom:14px">Thiết lập quyền theo từng chức năng hoặc tắt toàn bộ một nhóm. Các mục cố định vẫn được hiển thị nhưng không thể chỉnh sửa.<br>可逐項設定權限或關閉整個功能分類；固定權限仍會顯示，但無法操作。變更後須點擊「儲存套用」才會生效。</p>
           <div id="perm-table-wrap" style="margin-bottom:16px"></div>
           <div class="br">
             <button class="btn bp" onclick="applyPermissions()"><i class="ti ti-device-floppy"></i>Lưu & Áp dụng / 儲存套用</button>
@@ -1323,28 +1323,28 @@ tr:hover td{background:#f8fafc}
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <!-- 一般 JS 模組（依賴順序載入）-->
-<script src="js/utils.js"></script>
-<script src="js/data-cache.js?v=20260805-1"></script>
-<script src="js/auth.js?v=20260805-2"></script>
+<script src="js/utils.js?v=20260805-1"></script>
+<script src="js/data-cache.js?v=20260805-2"></script>
+<script src="js/auth.js?v=20260805-3"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
-<script src="js/settings.js?v=20260731-2"></script>
-<script src="js/summary.js"></script>
+<script src="js/settings.js?v=20260805-1"></script>
+<script src="js/summary.js?v=20260805-1"></script>
 <!-- js/data.js（資料與匯出程式）快取版本 -->
-<script src="js/data.js?v=20260731-4"></script>
+<script src="js/data.js?v=20260805-1"></script>
 <script src="js/cutting-store.js?v=20260804-4"></script>
 <script src="js/cutting.js?v=20260804-8"></script>
 <script src="js/accounts.js?v=20260804-3"></script>
-<script src="js/orders.js?v=20260805-1"></script>
+<script src="js/orders.js?v=20260805-2"></script>
 <script src="js/sync.js"></script>
 <script src="js/efficiency.js"></script>
 <script src="js/reports.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/attendance.js"></script>
-<script src="js/permissions.js?v=20260804-2"></script>
+<script src="js/permissions.js?v=20260805-1"></script>
 <script src="js/mobile.js"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260805-1"></script>
+<script type="module" src="js/firebase.js?v=20260805-2"></script>
 
 <script>
 // cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。

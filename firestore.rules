@@ -126,7 +126,7 @@ service cloud.firestore {
 
     // 功能識別：attendance（考勤）、stats（統計）、employees（員工管理）
     // progress（訂單進度）、approval（報工審批）、replog（報工記錄）
-    // accounts（帳號管理）、export（匯出）、costlog（成本記錄）
+    // accounts（帳號管理）、export（匯出）、costView（查看工價）、costlog（成本記錄）
     // summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
     // efficiency（效率報表）、sync（工序秒數同步）
     // validFeatureMap（功能權限欄位檢查）
@@ -134,12 +134,12 @@ service cloud.firestore {
       return features is map
         && features.keys().hasAll([
           'attendance', 'stats', 'employees', 'progress', 'approval', 'replog',
-          'accounts', 'export', 'costlog', 'summary', 'orderImport', 'cutting',
+          'accounts', 'export', 'costView', 'costlog', 'summary', 'orderImport', 'cutting',
           'efficiency', 'sync'
         ])
         && features.keys().hasOnly([
           'attendance', 'stats', 'employees', 'progress', 'approval', 'replog',
-          'accounts', 'export', 'costlog', 'summary', 'orderImport', 'cutting',
+          'accounts', 'export', 'costView', 'costlog', 'summary', 'orderImport', 'cutting',
           'efficiency', 'sync'
         ])
         && features.attendance is bool
@@ -150,12 +150,15 @@ service cloud.firestore {
         && features.replog is bool
         && features.accounts is bool
         && features.export is bool
+        && features.costView is bool
         && features.costlog is bool
         && features.summary is bool
         && features.orderImport is bool
         && features.cutting is bool
         && features.efficiency is bool
-        && features.sync is bool;
+        && features.sync is bool
+        && features.accounts == false
+        && (features.costlog == false || features.costView == true);
     }
 
     // validUserAccess（使用者存取權限資料檢查）
@@ -364,7 +367,8 @@ service cloud.firestore {
       return request.resource.data.keys().hasAll(['updatedAt', 'updatedBy'])
         && request.resource.data.keys().hasOnly([
           'updatedAt', 'updatedBy', 'orders', 'orderProcesses', 'employees',
-          'reports', 'attendance', 'settings', 'impHist', 'cLog', 'employeeUserHistory'
+          'reports', 'attendance', 'settings', 'operationSettings', 'costSettings',
+          'impHist', 'cLog', 'employeeUserHistory'
         ])
         && request.resource.data.updatedAt is int
         && request.resource.data.updatedAt > 0
@@ -379,7 +383,7 @@ service cloud.firestore {
         && (!keys.hasAny(['employees']) || hasFeature('employees'))
         && (!keys.hasAny(['reports']) || hasFeature('approval') || hasFeature('replog'))
         && (!keys.hasAny(['attendance']) || hasFeature('attendance'))
-        && (!keys.hasAny(['settings', 'cLog']) || isAdmin())
+        && (!keys.hasAny(['settings', 'operationSettings', 'costSettings', 'cLog']) || isAdmin())
         && (!keys.hasAny(['impHist']) || hasFeature('summary'))
         && (!keys.hasAny(['employeeUserHistory']) || hasFeature('employees'));
     }
@@ -427,9 +431,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // system/settings（系統設定）
+    // system/settings（舊合併設定）：只供管理員讀取舊資料並轉換，禁止再寫入。
     match /system/settings {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // system/operationSettings（一般運算設定）：不含薪資、保險、餐費與時薪。
+    match /system/operationSettings {
       allow read: if isDeskUser();
+      allow write: if isAdmin() && validSystemData(200000);
+    }
+
+    // system/costSettings（成本設定）：管理員或具有 costView（查看工價）權限者可讀取。
+    match /system/costSettings {
+      allow read: if hasFeature('costView');
       allow write: if isAdmin() && validSystemData(200000);
     }
 
@@ -447,7 +463,7 @@ service cloud.firestore {
 
     // system/cLog（成本變動記錄）
     match /system/cLog {
-      allow read: if hasFeature('costlog');
+      allow read: if hasFeature('costlog') && hasFeature('costView');
       allow write: if isAdmin() && validSystemData(900000);
     }
 
@@ -473,7 +489,9 @@ service cloud.firestore {
 
     // orders（訂單資料）
     match /orders/{orderId} {
-      allow read: if canReadOrders();
+      // 舊訂單若仍含 snapshotHr（平均時薪快照），只有可查看工價者能讀取；管理員載入後會自動清除該欄位。
+      allow read: if canReadOrders()
+        && (!('snapshotHr' in resource.data) || hasFeature('costView'));
       allow create: if hasFeature('orderImport') && validOrder();
       allow update: if (hasFeature('orderImport') || hasFeature('progress')
         || hasFeature('approval') || hasFeature('sync')) && validOrder();

@@ -5,6 +5,7 @@ window.allProcesses = [];
 window._failedOrderCleanup = null;
 let ordersLoadPromise = null;
 let processesLoadPromise = null;
+let legacyOrderCostCleanupPromise = null;
 
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 function setImportProgress(percent,vi,zh){
@@ -131,6 +132,7 @@ async function reloadOrders(options={}){
         window.allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
       }
       window.allOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      if(isAdm()) await cleanupLegacyOrderCostSnapshots();
       fillOrderSelects();
       return window.allOrders;
     }finally{
@@ -138,6 +140,29 @@ async function reloadOrders(options={}){
     }
   })();
   return ordersLoadPromise;
+}
+
+// cleanupLegacyOrderCostSnapshots（清除舊訂單成本快照）：snapshotHr（平均時薪快照）未被功能使用，不應留在一般訂單資料。
+async function cleanupLegacyOrderCostSnapshots(){
+  if(!isAdm()||legacyOrderCostCleanupPromise) return legacyOrderCostCleanupPromise;
+  const legacy=(window.allOrders||[]).filter(order=>order?.id&&Object.prototype.hasOwnProperty.call(order,'snapshotHr'));
+  if(!legacy.length) return true;
+  legacyOrderCostCleanupPromise=(async()=>{
+    for(let offset=0;offset<legacy.length;offset+=400){
+      const batch=window._writeBatch();
+      legacy.slice(offset,offset+400).forEach(order=>{
+        batch.update(window._doc(COL.orders,order.id),{snapshotHr:window._deleteField()});
+      });
+      await batch.commit();
+    }
+    legacy.forEach(order=>delete order.snapshotHr);
+    return true;
+  })();
+  try{
+    return await legacyOrderCostCleanupPromise;
+  }finally{
+    legacyOrderCostCleanupPromise=null;
+  }
 }
 
 function closeImportOrder(){
@@ -264,7 +289,6 @@ async function confirmImportOrder(){
       itemCount:d.matched.length,
       totalQty:d.matched.reduce((a,m)=>a+m.qty,0),
       createdAt:now, createdBy:window.cu.user,
-      snapshotHr:getH(),
       snapshotWs:window.S?.ws||3000,
       importStatus:'importing'
     });

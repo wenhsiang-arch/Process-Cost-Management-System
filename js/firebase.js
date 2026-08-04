@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -21,7 +21,7 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
 const CACHEABLE_COLLECTIONS = new Set(['orders','orderProcesses','employees','reports','attendance']);
-const CACHEABLE_SYSTEM_KEYS = new Set(['settings','impHist','cLog','employeeUserHistory']);
+const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','impHist','cLog','employeeUserHistory']);
 const DATA_VERSION_MEMORY_MS = 15000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
@@ -597,15 +597,51 @@ window.ensureProductsLoaded = ensureProductsLoaded;
 window.verifyProductsVersionForOrderImport = verifyProductsVersionForOrderImport;
 window.saveProductItemsToFB = saveProductItemsToCollection;
 window.deleteProductFromFB = deleteProductDoc;
-window.saveSettingsToFB  = () => fbSaveWithStatus("settings",  window.S);
+const OPERATION_SETTING_KEYS = ['usd','twd','ws','eff']; // OPERATION_SETTING_KEYS（一般運算設定欄位）。
+const COST_SETTING_KEYS = ['sal','ins','meal','mc','mh']; // COST_SETTING_KEYS（成本設定欄位）。
+
+function pickSettingFields(source,keys){
+  const picked={};
+  keys.forEach(key=>{
+    if(source&&Object.prototype.hasOwnProperty.call(source,key)) picked[key]=source[key];
+  });
+  return picked;
+}
+
+async function saveSplitSettingsToFB(){
+  setSyncState('syncing');
+  try{
+    const operationSettings=pickSettingFields(window.S,OPERATION_SETTING_KEYS);
+    const costSettings=pickSettingFields(window.S,COST_SETTING_KEYS);
+    const batch=writeBatch(db);
+    batch.set(doc(db,'system','operationSettings'),{data:JSON.stringify(operationSettings)});
+    batch.set(doc(db,'system','costSettings'),{data:JSON.stringify(costSettings)});
+    await batch.commit();
+    const versions=await touchDataVersions(['operationSettings','costSettings']);
+    await Promise.all([
+      window.pcmsDataCache?.write('operationSettings',String(versions.operationSettings||'0'),operationSettings),
+      window.pcmsDataCache?.write('costSettings',String(versions.costSettings||'0'),costSettings)
+    ]);
+    setSyncState('success');
+    return true;
+  }catch(error){
+    console.error('儲存拆分設定失敗：',error);
+    setSyncState('failed');
+    showSyncError();
+    return false;
+  }
+}
+
+window.saveSettingsToFB  = saveSplitSettingsToFB;
 window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
 window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
 window.employeeUserHistory = {};
 
-function applySettings(savedSettings){
+function applySettings(savedSettings,allowedKeys){
   if(!savedSettings||typeof savedSettings!=='object') return;
-  if(typeof S!=='undefined') Object.assign(S,savedSettings);
-  window.S={...window.S,...savedSettings};
+  const safeSettings=pickSettingFields(savedSettings,allowedKeys);
+  if(typeof S!=='undefined') Object.assign(S,safeSettings);
+  window.S={...window.S,...safeSettings};
   const fields={
     'ss-sal':window.S.sal,'ss-ins':window.S.ins,'ss-meal':window.S.meal,
     'ss-usd':window.S.usd,'ss-twd':window.S.twd,'ss-ws':window.S.ws,'ss-eff':window.S.eff
@@ -618,9 +654,47 @@ function applySettings(savedSettings){
   if(window.S.mh){ const element=document.getElementById('ss-hr'); if(element) element.value=window.S.mh; }
 }
 
+let legacySettingsPromise=null;
+async function loadLegacySettingsForAdmin(){
+  if(!isAdm()) return null;
+  if(!legacySettingsPromise) legacySettingsPromise=fbLoad('settings');
+  return legacySettingsPromise;
+}
+
+async function ensureOperationSettingsLoaded(options={}){
+  let saved=null;
+  try{
+    saved=await loadSystemWithCache('operationSettings',options);
+  }catch(error){
+    // 新安全規則尚未發布時，暫時從 settings（舊合併設定）讀取一般運算欄位。
+    saved=await fbLoad('settings');
+  }
+  if(!saved&&isAdm()) saved=await loadLegacySettingsForAdmin();
+  applySettings(saved,OPERATION_SETTING_KEYS);
+  return pickSettingFields(window.S,OPERATION_SETTING_KEYS);
+}
+
+async function ensureCostSettingsLoaded(options={}){
+  if(!canViewCosts()){
+    window.S={...window.S,sal:0,ins:0,meal:0,mc:null,mh:null};
+    await window.pcmsDataCache?.remove('costSettings');
+    return pickSettingFields(window.S,COST_SETTING_KEYS);
+  }
+  let saved=null;
+  try{
+    saved=await loadSystemWithCache('costSettings',options);
+  }catch(error){
+    // 過渡期間只有原本已能查看工價的角色會嘗試讀取 settings（舊合併設定）。
+    saved=await fbLoad('settings');
+  }
+  if(!saved&&isAdm()) saved=await loadLegacySettingsForAdmin();
+  applySettings(saved,COST_SETTING_KEYS);
+  return pickSettingFields(window.S,COST_SETTING_KEYS);
+}
+
 async function ensureSettingsLoaded(options={}){
-  const saved=await loadSystemWithCache('settings',options);
-  applySettings(saved);
+  await ensureOperationSettingsLoaded(options);
+  if(canViewCosts()) await ensureCostSettingsLoaded(options);
   return window.S;
 }
 
@@ -632,9 +706,13 @@ async function ensureImportHistoryLoaded(options={}){
 }
 
 async function ensureCostLogLoaded(options={}){
+  if(!canViewCosts()||(!isAdm()&&window.permissionSettings?.[window.cu?.role]?.costlog!==true)){
+    window.cLog=[];
+    await window.pcmsDataCache?.remove('cLog');
+    return window.cLog;
+  }
   const saved=await loadSystemWithCache('cLog',options);
   window.cLog=Array.isArray(saved)?saved:[];
-  try{ localStorage.setItem('cLog',JSON.stringify(window.cLog)); }catch(e){}
   return window.cLog;
 }
 
@@ -652,6 +730,8 @@ async function ensureEmployeesLoaded(options={}){
 }
 
 window.ensureSettingsLoaded=ensureSettingsLoaded;
+window.ensureOperationSettingsLoaded=ensureOperationSettingsLoaded;
+window.ensureCostSettingsLoaded=ensureCostSettingsLoaded;
 window.ensureImportHistoryLoaded=ensureImportHistoryLoaded;
 window.ensureCostLogLoaded=ensureCostLogLoaded;
 window.ensureEmployeeUserHistoryLoaded=ensureEmployeeUserHistoryLoaded;
@@ -686,6 +766,7 @@ window._setDoc     = async (ref,data,opts) => {
   await touchDataVersions([cacheScopeForReference(ref)]);
 };
 window._increment  = (n)           => increment(n);
+window._deleteField = ()            => deleteField();
 window._runTransaction = async (fn) => {
   const scopes=new Set();
   const result=await runTransaction(db,rawTransaction=>{
@@ -749,6 +830,15 @@ async function fbInitForAuthorizedUser(){
   if(authorizedInitPromise) return authorizedInitPromise;
   authorizedInitPromise = (async()=>{
     await window.pcmsDataCache?.requestPersistentStorage();
+    // settings（舊合併設定）可能包含薪資，登入後一律清除舊快取。
+    await window.pcmsDataCache?.remove('settings');
+    if(!canViewCosts()){
+      window.cLog=[];
+      await Promise.all([
+        window.pcmsDataCache?.remove('costSettings'),
+        window.pcmsDataCache?.remove('cLog')
+      ]);
+    }
     return true;
   })();
   try{
@@ -762,6 +852,7 @@ async function fbInitForAuthorizedUser(){
 window.fbInitForAuthorizedUser = fbInitForAuthorizedUser;
 window.resetAuthorizedFirebaseInit = () => {
   authorizedInitPromise=null;
+  legacySettingsPromise=null;
   dataVersionsMemory=null;
   dataVersionsReadAt=0;
   dataVersionsPromise=null;

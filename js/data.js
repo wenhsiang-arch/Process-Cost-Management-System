@@ -327,10 +327,19 @@ function xImp(){
 function rExp(){
   const cf=(g('ex-cl')||{}).value||'';
   const tb=g('ex-tb'); if(!tb) return; tb.innerHTML='';
+  const showCosts=canViewCosts();
+  const currencyGroup=g('ex-cu-group');
+  if(currencyGroup) currencyGroup.style.display=showCosts?'':'none';
+  const head=g('ex-th');
+  if(head){
+    head.innerHTML='<th>Mã hàng<br><span class="tv">款號</span></th><th>Khách hàng<br><span class="tv">客人</span></th><th>Tên Trung<br><span class="tv">中文名稱</span></th><th>Kích thước<br><span class="tv">尺寸</span></th><th>Số công đoạn<br><span class="tv">工序數</span></th>'
+      +(showCosts?'<th>Tổng giá công (USD)<br><span class="tv">總工價（美元）</span></th><th>Tổng giá công (VND)<br><span class="tv">總工價（越盾）</span></th><th>Tổng giá công (TWD)<br><span class="tv">總工價（台幣）</span></th>':'');
+  }
   window.D.filter(d=>!cf||d.client===cf).forEach(d=>{
     let s=0; d.ops.forEach(op=>{ s+=calc(op.sec).vnd; });
     const r=document.createElement('tr');
-    r.innerHTML=`<td><b style="color:var(--navy)">${d.code}</b></td><td>${d.client}</td><td>${d.zh}</td><td>${d.sz}</td><td>${d.ops.length}</td><td style="color:var(--accent);font-weight:500">${fU(s)}</td><td>${fV(s)}</td><td>${fT(s)}</td>`;
+    r.innerHTML=`<td><b style="color:var(--navy)">${d.code}</b></td><td>${d.client}</td><td>${d.zh}</td><td>${d.sz}</td><td>${d.ops.length}</td>`
+      +(showCosts?`<td style="color:var(--accent);font-weight:500">${fU(s)}</td><td>${fV(s)}</td><td>${fT(s)}</td>`:'');
     tb.appendChild(r);
   });
 }
@@ -397,7 +406,8 @@ async function doExport(){
     const cf=g('ex-cl').value;
     const currencyType=g('ex-cu').value; // currencyType（幣別選項）。
     const reportType=g('ex-ty').value; // reportType（報表類型）。
-    const fname='工序成本_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+    const showCosts=canViewCosts();
+    const fname=(showCosts?'工序成本_':'工序資料_')+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
     const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
     if(!saveHandle) return;
     const fd=window.D.filter(d=>!cf||d.client===cf);
@@ -447,9 +457,9 @@ async function doExport(){
     const twdPerUsdLabel=twdPerUsd.toFixed(2); // twdPerUsdLabel（美台匯率表頭文字）。
     const vndPerTwdLabel=Number(vndPerTwd.toFixed(2)).toString(); // vndPerTwdLabel（台越匯率表頭文字）。
     const currencyColumns=[]; // currencyColumns（依匯出順序排列的幣別欄位）。
-    if(showUSD) currencyColumns.push({type:'usd',header:`總工價(USD)\n(美台匯率 ${twdPerUsdLabel})`,value:v=>v/vndPerUsd}); // usd（美元）。
-    if(showTWD) currencyColumns.push({type:'twd',header:`總工價(TWD)\n(台越匯率 ${vndPerTwdLabel})`,value:v=>v/vndPerTwd}); // twd（新臺幣）。
-    if(showVND) currencyColumns.push({type:'vnd',header:'總工價(VND)',value:v=>v}); // vnd（越南盾）。
+    if(showCosts&&showUSD) currencyColumns.push({type:'usd',header:`總工價(USD)\n(美台匯率 ${twdPerUsdLabel})`,value:v=>v/vndPerUsd}); // usd（美元）。
+    if(showCosts&&showTWD) currencyColumns.push({type:'twd',header:`總工價(TWD)\n(台越匯率 ${vndPerTwdLabel})`,value:v=>v/vndPerTwd}); // twd（新臺幣）。
+    if(showCosts&&showVND) currencyColumns.push({type:'vnd',header:'總工價(VND)',value:v=>v}); // vnd（越南盾）。
     const sumHeaders=['款號','客人','中文名稱','越文名稱','尺寸','工序數',...currencyColumns.map(column=>column.header)];
     const wsSum={'!ref':'A1'};
     sumHeaders.forEach((h,i)=>{ wsSum[String.fromCharCode(65+i)+'1']={v:h,s:hStyle()}; });
@@ -478,7 +488,7 @@ async function doExport(){
     wsSum['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft'};
     wsSum['!autofilter']={ref:'A1:'+String.fromCharCode(65+sumHeaders.length-1)+'1'};
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,wsSum,'款號總成本');
+    XLSX.utils.book_append_sheet(wb,wsSum,showCosts?'款號總成本':'款號總表');
 
     // 明細 sheet
     if(reportType==='detail'){
@@ -611,6 +621,10 @@ function openBackupModal(){
 
 function rClog(){
   const el=g('clog-list'); if(!el) return;
+  if(!canViewCosts()){
+    el.innerHTML='<p style="color:var(--mu);font-size:13px">Không có quyền xem giá công / 沒有查看工價權限</p>';
+    return;
+  }
   if(!window.cLog.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }
   el.innerHTML=window.cLog.slice().reverse().map(log=>`
     <div style="margin-bottom:14px;border:1px solid var(--bd);border-radius:10px;overflow:hidden">
