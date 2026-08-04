@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -17,6 +17,15 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+// dataVersions（資料版本）只保存版本代碼，不保存業務資料。
+const DATA_VERSIONS_KEY = 'dataVersions';
+const CACHEABLE_COLLECTIONS = new Set(['orders','orderProcesses','employees','reports','attendance']);
+const CACHEABLE_SYSTEM_KEYS = new Set(['settings','impHist','cLog','employeeUserHistory']);
+const DATA_VERSION_MEMORY_MS = 15000;
+let dataVersionsMemory = null;
+let dataVersionsReadAt = 0;
+let dataVersionsPromise = null;
 
 window.firebaseAuthUser = null;
 window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
@@ -167,6 +176,95 @@ const PRODUCT_SYNC_MESSAGES = {
   localDataMismatch: 'Dữ liệu mã hàng trên máy này không khớp dữ liệu phiên bản, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n本機款號資料與版本資料不一致，請按 F5（重新整理）或重新打開頁面後再操作。'
 };
 
+function dataVersionToken(){
+  const uid=window.firebaseAuthUser?.uid||'user';
+  return `${Date.now()}-${uid.slice(0,12)}-${Math.random().toString(36).slice(2,8)}`;
+}
+
+function cacheScopeForReference(reference){
+  const parts=String(reference?.path||'').split('/').filter(Boolean);
+  if(parts[0]==='system'&&CACHEABLE_SYSTEM_KEYS.has(parts[1])) return parts[1];
+  return CACHEABLE_COLLECTIONS.has(parts[0])?parts[0]:'';
+}
+
+async function readDataVersions(force=false){
+  const now=Date.now();
+  if(!force&&dataVersionsMemory&&now-dataVersionsReadAt<DATA_VERSION_MEMORY_MS){
+    return {online:true,data:dataVersionsMemory};
+  }
+  if(dataVersionsPromise) return dataVersionsPromise;
+  dataVersionsPromise=(async()=>{
+    try{
+      const snap=await getDocFromServer(doc(db,'system',DATA_VERSIONS_KEY));
+      dataVersionsMemory=snap.exists()?snap.data():{};
+      dataVersionsReadAt=Date.now();
+      return {online:true,data:dataVersionsMemory};
+    }catch(error){
+      console.warn('dataVersions（資料版本）無法從雲端讀取：',error);
+      return {
+        online:false,
+        allowOfflineCache:error?.code==='unavailable',
+        data:dataVersionsMemory||{}
+      };
+    }finally{
+      dataVersionsPromise=null;
+    }
+  })();
+  return dataVersionsPromise;
+}
+
+async function touchDataVersions(scopes){
+  const unique=[...new Set((scopes||[]).filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
+  if(!unique.length) return {};
+  const updates={updatedAt:Date.now(),updatedBy:window.firebaseAuthUser?.uid||''};
+  unique.forEach(scope=>{ updates[scope]=dataVersionToken(); });
+  try{
+    await setDoc(doc(db,'system',DATA_VERSIONS_KEY),updates,{merge:true});
+    dataVersionsMemory={...(dataVersionsMemory||{}),...updates};
+    dataVersionsReadAt=Date.now();
+  }catch(error){
+    dataVersionsMemory=null;
+    dataVersionsReadAt=0;
+    console.warn('更新 dataVersions（資料版本）失敗：',error);
+  }
+  await Promise.all(unique.map(scope=>window.pcmsDataCache?.remove(scope)));
+  return updates;
+}
+
+async function readCachedScope(scope){
+  const versionState=await readDataVersions();
+  const expectedVersion=versionState.online?String(versionState.data?.[scope]||'0'):undefined;
+  const mayUseCache=versionState.online||versionState.allowOfflineCache===true;
+  const data=mayUseCache?await window.pcmsDataCache?.read(scope,expectedVersion):null;
+  return {data,expectedVersion,online:versionState.online};
+}
+
+async function loadCollectionWithCache(scope,collectionName,options={}){
+  if(!CACHEABLE_COLLECTIONS.has(scope)||scope!==collectionName) throw new Error(`不允許的 data-cache（資料快取）集合：${scope}`);
+  if(options.force===true) await window.pcmsDataCache?.remove(scope);
+  const cached=await readCachedScope(scope);
+  if(cached.data!==null&&Array.isArray(cached.data)) return cached.data;
+  const snap=await getDocs(collection(db,collectionName));
+  const rows=snap.docs.map(item=>({id:item.id,...item.data()}));
+  const latest=await readDataVersions(true);
+  const version=String(latest.data?.[scope]||cached.expectedVersion||'0');
+  await window.pcmsDataCache?.write(scope,version,rows);
+  return rows;
+}
+
+async function loadSystemWithCache(key,options={}){
+  if(!CACHEABLE_SYSTEM_KEYS.has(key)) throw new Error(`不允許的 system data-cache（系統資料快取）：${key}`);
+  if(options.force===true) await window.pcmsDataCache?.remove(key);
+  const cached=await readCachedScope(key);
+  if(cached.data!==null&&cached.data!==undefined) return cached.data;
+  const snap=await getDoc(doc(db,'system',key));
+  const value=snap.exists()?JSON.parse(snap.data().data):null;
+  const latest=await readDataVersions(true);
+  const version=String(latest.data?.[key]||cached.expectedVersion||'0');
+  await window.pcmsDataCache?.write(key,version,value);
+  return value;
+}
+
 async function fbLoad(key){
   try{
     const snap = await window._getDoc(window._doc("system", key));
@@ -178,6 +276,10 @@ async function fbLoad(key){
 async function fbSave(key, data){
   try{
     await setDoc(window._doc("system", key), { data: JSON.stringify(data) });
+    const versions=await touchDataVersions([key]);
+    if(CACHEABLE_SYSTEM_KEYS.has(key)){
+      await window.pcmsDataCache?.write(key,String(versions[key]||'0'),data);
+    }
     return true;
   }catch(e){
     console.error("Firebase save error:", e);
@@ -500,21 +602,142 @@ window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
 window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
 window.employeeUserHistory = {};
 
+function applySettings(savedSettings){
+  if(!savedSettings||typeof savedSettings!=='object') return;
+  if(typeof S!=='undefined') Object.assign(S,savedSettings);
+  window.S={...window.S,...savedSettings};
+  const fields={
+    'ss-sal':window.S.sal,'ss-ins':window.S.ins,'ss-meal':window.S.meal,
+    'ss-usd':window.S.usd,'ss-twd':window.S.twd,'ss-ws':window.S.ws,'ss-eff':window.S.eff
+  };
+  Object.entries(fields).forEach(([id,value])=>{
+    const element=document.getElementById(id);
+    if(element) element.value=value;
+  });
+  if(window.S.mc){ const element=document.getElementById('ss-tc'); if(element) element.value=window.S.mc; }
+  if(window.S.mh){ const element=document.getElementById('ss-hr'); if(element) element.value=window.S.mh; }
+}
+
+async function ensureSettingsLoaded(options={}){
+  const saved=await loadSystemWithCache('settings',options);
+  applySettings(saved);
+  return window.S;
+}
+
+async function ensureImportHistoryLoaded(options={}){
+  const saved=await loadSystemWithCache('impHist',options);
+  window.impHist=Array.isArray(saved)?saved:[];
+  try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
+  return window.impHist;
+}
+
+async function ensureCostLogLoaded(options={}){
+  const saved=await loadSystemWithCache('cLog',options);
+  window.cLog=Array.isArray(saved)?saved:[];
+  try{ localStorage.setItem('cLog',JSON.stringify(window.cLog)); }catch(e){}
+  return window.cLog;
+}
+
+async function ensureEmployeeUserHistoryLoaded(options={}){
+  const saved=await loadSystemWithCache('employeeUserHistory',options);
+  window.employeeUserHistory=saved&&typeof saved==='object'&&!Array.isArray(saved)
+    ? saved
+    : Object.fromEntries((Array.isArray(saved)?saved:[]).map(user=>[user,true]));
+  return window.employeeUserHistory;
+}
+
+async function ensureEmployeesLoaded(options={}){
+  window.allEmployees=await loadCollectionWithCache('employees','employees',options);
+  return window.allEmployees;
+}
+
+window.ensureSettingsLoaded=ensureSettingsLoaded;
+window.ensureImportHistoryLoaded=ensureImportHistoryLoaded;
+window.ensureCostLogLoaded=ensureCostLogLoaded;
+window.ensureEmployeeUserHistoryLoaded=ensureEmployeeUserHistoryLoaded;
+window.ensureEmployeesLoaded=ensureEmployeesLoaded;
+window.firebaseLoadCachedCollection=loadCollectionWithCache;
+window.firebaseTouchDataVersions=touchDataVersions;
+window.firebaseShowLoading=showLoading;
+
 window._db         = db;
 window._getDocs    = (q)           => getDocs(q);
-window._addDoc     = (colRef,data) => addDoc(colRef, data);
-window._updateDoc  = (ref,data)    => updateDoc(ref, data);
-window._deleteDoc  = (ref)         => deleteDoc(ref);
+window._addDoc     = async (colRef,data) => {
+  const reference=await addDoc(colRef,data);
+  await touchDataVersions([cacheScopeForReference(reference)]);
+  return reference;
+};
+window._updateDoc  = async (ref,data) => {
+  await updateDoc(ref,data);
+  await touchDataVersions([cacheScopeForReference(ref)]);
+};
+window._deleteDoc  = async (ref) => {
+  await deleteDoc(ref);
+  await touchDataVersions([cacheScopeForReference(ref)]);
+};
 window._doc        = (colName,id)  => doc(db, colName, id);
 window._collection = (colName)     => collection(db, colName);
 window._query      = (...args)     => query(...args);
 window._where      = (...args)     => where(...args);
 window._orderBy    = (...args)     => orderBy(...args);
 window._getDoc     = (ref)         => getDoc(ref);
-window._setDoc     = (ref,data,opts) => setDoc(ref, data, opts||{});
+window._setDoc     = async (ref,data,opts) => {
+  await setDoc(ref,data,opts||{});
+  await touchDataVersions([cacheScopeForReference(ref)]);
+};
 window._increment  = (n)           => increment(n);
-window._runTransaction = (fn)      => runTransaction(db, fn);
-window._writeBatch     = ()        => writeBatch(db);
+window._runTransaction = async (fn) => {
+  const scopes=new Set();
+  const result=await runTransaction(db,rawTransaction=>{
+    const trackedTransaction={
+      get:(reference)=>rawTransaction.get(reference),
+      set:(reference,data,options)=>{
+        const scope=cacheScopeForReference(reference); if(scope) scopes.add(scope);
+        if(options) rawTransaction.set(reference,data,options); else rawTransaction.set(reference,data);
+        return trackedTransaction;
+      },
+      update:(reference,data)=>{
+        const scope=cacheScopeForReference(reference); if(scope) scopes.add(scope);
+        rawTransaction.update(reference,data);
+        return trackedTransaction;
+      },
+      delete:(reference)=>{
+        const scope=cacheScopeForReference(reference); if(scope) scopes.add(scope);
+        rawTransaction.delete(reference);
+        return trackedTransaction;
+      }
+    };
+    return fn(trackedTransaction);
+  });
+  await touchDataVersions([...scopes]);
+  return result;
+};
+window._writeBatch = () => {
+  const rawBatch=writeBatch(db);
+  const scopes=new Set();
+  const trackedBatch={
+    set:(reference,data,options)=>{
+      const scope=cacheScopeForReference(reference); if(scope) scopes.add(scope);
+      if(options) rawBatch.set(reference,data,options); else rawBatch.set(reference,data);
+      return trackedBatch;
+    },
+    update:(reference,data)=>{
+      const scope=cacheScopeForReference(reference); if(scope) scopes.add(scope);
+      rawBatch.update(reference,data);
+      return trackedBatch;
+    },
+    delete:(reference)=>{
+      const scope=cacheScopeForReference(reference); if(scope) scopes.add(scope);
+      rawBatch.delete(reference);
+      return trackedBatch;
+    },
+    commit:async()=>{
+      await rawBatch.commit();
+      await touchDataVersions([...scopes]);
+    }
+  };
+  return trackedBatch;
+};
 window._docRef     = (colName, id) => doc(db, colName, id);
 window._newDocRef  = (colName)     => doc(collection(db, colName));
 window._onSnapshot = (...args)     => onSnapshot(...args);
@@ -525,58 +748,8 @@ let authorizedInitPromise = null;
 async function fbInitForAuthorizedUser(){
   if(authorizedInitPromise) return authorizedInitPromise;
   authorizedInitPromise = (async()=>{
-  showLoading(true);
-  try{
-    const role=window.cu?.role||'';
-    const hasFeature=(feature)=>role==='admin'||window.permissionSettings?.[role]?.[feature]===true;
-    const canReadEmployees=['employees','attendance','stats','approval','replog','efficiency'].some(hasFeature);
-    const canReadImportHistory=hasFeature('summary')||hasFeature('export');
-    const canReadCostLog=hasFeature('costlog');
-    const [savedS,savedEmployeeUserHistory] = await Promise.all([
-      fbLoad("settings"),
-      hasFeature('employees')?fbLoad("employeeUserHistory"):Promise.resolve(null)
-    ]);
-    window.employeeUserHistory=savedEmployeeUserHistory&&typeof savedEmployeeUserHistory==='object'&&!Array.isArray(savedEmployeeUserHistory)
-      ? savedEmployeeUserHistory
-      : Object.fromEntries((Array.isArray(savedEmployeeUserHistory)?savedEmployeeUserHistory:[]).map(user=>[user,true]));
-    if(savedS){
-      if(typeof S !== 'undefined') Object.assign(S, savedS);
-      window.S = {...window.S, ...savedS};
-      const fields = {
-        'ss-sal':window.S.sal,'ss-ins':window.S.ins,'ss-meal':window.S.meal,
-        'ss-usd':window.S.usd,'ss-twd':window.S.twd,'ss-ws':window.S.ws,'ss-eff':window.S.eff
-      };
-      Object.entries(fields).forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
-      if(window.S.mc){ const el=document.getElementById('ss-tc'); if(el) el.value=window.S.mc; }
-      if(window.S.mh){ const el=document.getElementById('ss-hr'); if(el) el.value=window.S.mh; }
-    }
-
-    const [savedHist,savedClog] = await Promise.all([
-      canReadImportHistory?fbLoad("impHist"):Promise.resolve(null),
-      canReadCostLog?fbLoad("cLog"):Promise.resolve(null)
-    ]);
-    window.impHist=Array.isArray(savedHist)?savedHist:[];
-    window.cLog=Array.isArray(savedClog)?savedClog:[];
-    try{
-      if(canReadImportHistory) localStorage.setItem('impHist',JSON.stringify(window.impHist));
-      else localStorage.removeItem('impHist');
-      if(canReadCostLog) localStorage.setItem('cLog',JSON.stringify(window.cLog));
-      else localStorage.removeItem('cLog');
-    }catch(e){}
-
-    if(canReadEmployees){
-      const empSnap=await window._getDocs(window._collection('employees'));
-      window.allEmployees=empSnap.docs.map(d=>({id:d.id,...d.data()}));
-    }else{
-      window.allEmployees=[];
-    }
+    await window.pcmsDataCache?.requestPersistentStorage();
     return true;
-  }catch(e){
-    console.error('驗證後載入雲端資料失敗：', e);
-    throw e;
-  }finally{
-    showLoading(false);
-  }
   })();
   try{
     return await authorizedInitPromise;
@@ -587,7 +760,12 @@ async function fbInitForAuthorizedUser(){
 }
 
 window.fbInitForAuthorizedUser = fbInitForAuthorizedUser;
-window.resetAuthorizedFirebaseInit = () => { authorizedInitPromise = null; };
+window.resetAuthorizedFirebaseInit = () => {
+  authorizedInitPromise=null;
+  dataVersionsMemory=null;
+  dataVersionsReadAt=0;
+  dataVersionsPromise=null;
+};
 
 onAuthStateChanged(auth, async(user)=>{
   window.firebaseAuthUser = user || null;

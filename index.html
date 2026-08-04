@@ -222,7 +222,7 @@ tr:hover td{background:#f8fafc}
     <div class="lt">Đăng nhập hệ thống / 系統登入</div>
     <div class="ls">Xác minh danh tính an toàn bằng tài khoản Google<br>使用 Google 帳號進行安全身分驗證</div>
     <div id="lerr" class="nt nd" style="display:none;margin-bottom:12px"><i class="ti ti-alert-circle"></i><span id="lerr-text">Không thể đăng nhập / 無法登入</span></div>
-    <button id="google-login-btn" class="btn bp" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()"><i class="ti ti-brand-google"></i>Đăng nhập bằng Google / 使用 Google 登入</button>
+    <button id="google-login-btn" class="btn bp" style="width:100%;justify-content:center;height:42px;font-size:14px" onclick="doLogin()" disabled><i class="ti ti-loader-2"></i>Đang kiểm tra trạng thái đăng nhập... / 正在確認登入狀態…</button>
     <div class="nt ni2" style="margin-top:12px"><i class="ti ti-shield-lock"></i><span>Chỉ tài khoản đã được quản trị viên cấp quyền mới có thể sử dụng.<br>只有管理員已開通的帳號可以使用。</span></div>
   </div>
 </div>
@@ -1304,7 +1304,8 @@ tr:hover td{background:#f8fafc}
 
 <!-- 一般 JS 模組（依賴順序載入）-->
 <script src="js/utils.js"></script>
-<script src="js/auth.js?v=20260804-3"></script>
+<script src="js/data-cache.js?v=20260805-1"></script>
+<script src="js/auth.js?v=20260805-2"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
 <script src="js/settings.js?v=20260731-2"></script>
 <script src="js/summary.js"></script>
@@ -1313,7 +1314,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/cutting-store.js?v=20260804-4"></script>
 <script src="js/cutting.js?v=20260804-8"></script>
 <script src="js/accounts.js?v=20260804-3"></script>
-<script src="js/orders.js"></script>
+<script src="js/orders.js?v=20260805-1"></script>
 <script src="js/sync.js"></script>
 <script src="js/efficiency.js"></script>
 <script src="js/reports.js"></script>
@@ -1323,7 +1324,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/mobile.js"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260804-3"></script>
+<script type="module" src="js/firebase.js?v=20260805-1"></script>
 
 <script>
 // cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。

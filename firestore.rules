@@ -359,6 +359,31 @@ service cloud.firestore {
         || hasFeature('stats') || hasFeature('efficiency');
     }
 
+    // validDataVersions（資料版本文件檢查）
+    function validDataVersions() {
+      return request.resource.data.keys().hasAll(['updatedAt', 'updatedBy'])
+        && request.resource.data.keys().hasOnly([
+          'updatedAt', 'updatedBy', 'orders', 'orderProcesses', 'employees',
+          'reports', 'attendance', 'settings', 'impHist', 'cLog', 'employeeUserHistory'
+        ])
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > 0
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    // canTouchDataVersionKeys（可以更新指定資料版本欄位）
+    function canTouchDataVersionKeys(keys) {
+      return (!keys.hasAny(['orders', 'orderProcesses'])
+          || hasFeature('orderImport') || hasFeature('progress') || hasFeature('approval')
+          || hasFeature('replog') || hasFeature('sync'))
+        && (!keys.hasAny(['employees']) || hasFeature('employees'))
+        && (!keys.hasAny(['reports']) || hasFeature('approval') || hasFeature('replog'))
+        && (!keys.hasAny(['attendance']) || hasFeature('attendance'))
+        && (!keys.hasAny(['settings', 'cLog']) || isAdmin())
+        && (!keys.hasAny(['impHist']) || hasFeature('summary'))
+        && (!keys.hasAny(['employeeUserHistory']) || hasFeature('employees'));
+    }
+
     // userAccess（使用者存取權限）
     match /userAccess/{userId} {
       allow get: if isAdmin()
@@ -388,6 +413,18 @@ service cloud.firestore {
     // system/permissions（舊字串權限資料）：改由 rolePermissions（角色功能權限）取代。
     match /system/permissions {
       allow read, write: if false;
+    }
+
+    // system/dataVersions（各功能資料版本）
+    match /system/dataVersions {
+      allow read: if isDeskUser();
+      allow create: if isDeskUser()
+        && validDataVersions()
+        && canTouchDataVersionKeys(request.resource.data.keys());
+      allow update: if isDeskUser()
+        && validDataVersions()
+        && canTouchDataVersionKeys(request.resource.data.diff(resource.data).affectedKeys());
+      allow delete: if false;
     }
 
     // system/settings（系統設定）

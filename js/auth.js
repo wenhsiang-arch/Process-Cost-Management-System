@@ -92,14 +92,25 @@ function resetIdle(){ idleT=IDLE; }
 
 // ===== Firebase Authentication（Firebase 身分驗證）登入 =====
 let firebaseAuthStateBusy = false;
+let firebaseAuthInitialCheckComplete = false;
+let googleLoginRequestBusy = false;
 
-function setGoogleLoginBusy(busy){
+function refreshGoogleLoginButton(){
   const btn=g('google-login-btn');
   if(!btn) return;
-  btn.disabled=!!busy;
-  btn.innerHTML=busy
-    ? '<i class="ti ti-loader-2"></i> Đang xác minh / 驗證中...'
-    : '<i class="ti ti-brand-google"></i> Đăng nhập bằng Google / 使用 Google 登入';
+  const checking=!firebaseAuthInitialCheckComplete;
+  const busy=checking||firebaseAuthStateBusy||googleLoginRequestBusy;
+  btn.disabled=busy;
+  btn.innerHTML=checking
+    ? '<i class="ti ti-loader-2"></i> Đang kiểm tra trạng thái đăng nhập... / 正在確認登入狀態…'
+    : busy
+      ? '<i class="ti ti-loader-2"></i> Đang xác minh... / 驗證中…'
+      : '<i class="ti ti-brand-google"></i> Đăng nhập bằng Google / 使用 Google 登入';
+}
+
+function setGoogleLoginBusy(busy){
+  googleLoginRequestBusy=!!busy;
+  refreshGoogleLoginButton();
 }
 
 function showLoginMessage(message){
@@ -161,7 +172,6 @@ async function enterAuthorizedDeskSystem(user,access){
     throw error;
   }
   await window.fbInitForAuthorizedUser();
-  if(window.cu.role==='admin'&&typeof loadAccounts==='function') await loadAccounts();
   g('ls').style.display='none';
   g('ma').classList.remove('hidden');
   hideLoginMessage();
@@ -177,16 +187,12 @@ async function enterAuthorizedDeskSystem(user,access){
     if(allowed) sp(allowed);
   }
   setTimeout(()=>fetchRates(),1000);
-  const role=window.cu.role;
-  const hasFeature=(feature)=>role==='admin'||window.permissionSettings?.[role]?.[feature]===true;
-  if(['progress','orderImport','approval','replog','sync','efficiency'].some(hasFeature)) loadOrderData();
-  if(hasFeature('approval')&&typeof startDeskApvListener==='function') startDeskApvListener();
 }
 
 window.handleFirebaseAuthState=async function(user){
   if(firebaseAuthStateBusy) return;
   firebaseAuthStateBusy=true;
-  setGoogleLoginBusy(true);
+  refreshGoogleLoginButton();
   try{
     if(!user){
       clearSessionUi();
@@ -230,13 +236,18 @@ window.handleFirebaseAuthState=async function(user){
       ? 'Quyền vai trò chưa được quản trị viên thiết lập. / 管理員尚未設定此角色權限。'
       : 'Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。');
   }finally{
+    firebaseAuthInitialCheckComplete=true;
     firebaseAuthStateBusy=false;
-    setGoogleLoginBusy(false);
+    refreshGoogleLoginButton();
   }
 };
 
 async function doLogin(){
   hideLoginMessage();
+  if(!firebaseAuthInitialCheckComplete||firebaseAuthStateBusy||googleLoginRequestBusy){
+    refreshGoogleLoginButton();
+    return;
+  }
   if(typeof window.firebaseGoogleLogin!=='function'){
     showLoginMessage('Dịch vụ xác thực chưa sẵn sàng. / 身分驗證服務尚未就緒。');
     return;
@@ -287,9 +298,45 @@ function openDetailImport(){
   if(input) input.click();
 }
 
+async function ensurePageData(name){
+  const tasks=[];
+  const add=(task)=>{ if(task&&typeof task.then==='function') tasks.push(task); };
+
+  if(['summary','export'].includes(name)){
+    add(window.ensureSettingsLoaded?.());
+    add(window.ensureImportHistoryLoaded?.());
+  }
+  if(name==='settings'){
+    add(window.ensureSettingsLoaded?.());
+    add(window.ensureCostLogLoaded?.());
+  }
+  if(name==='costlog') add(window.ensureCostLogLoaded?.());
+  if(['stats','progress','sync','efficiency'].includes(name)) add(window.ensureSettingsLoaded?.());
+  if(['employees','stats','attendance','approval','replog','accounts'].includes(name)){
+    add(window.ensureEmployeesLoaded?.());
+  }
+  if(name==='employees') add(window.ensureEmployeeUserHistoryLoaded?.());
+  if(name==='progress') add(loadOrderData());
+  if(['replog','sync'].includes(name)) add(reloadOrders());
+  if(name==='efficiency') add(window.ensureSettingsLoaded?.());
+
+  if(!tasks.length) return;
+  window.firebaseShowLoading?.(true);
+  try{
+    await Promise.all(tasks);
+  }finally{
+    window.firebaseShowLoading?.(false);
+  }
+}
+
 // ===== 頁面切換 =====
 async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
+  if(name!=='approval'&&window.deskApvUnsub){
+    window.deskApvUnsub();
+    window.deskApvUnsub=null;
+    window.deskApvLoaded=false;
+  }
   const adminOnly=['settings','accounts','permissions'];
   if(adminOnly.includes(name)&&!isAdm()) return;
   if(!isAdm()){
@@ -305,15 +352,25 @@ async function sp(name){
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=g('pg-'+name); if(pg) pg.classList.add('active');
   const nav=g((name==='replog'||name==='sync')?'nv-approval':'nv-'+name); if(nav) nav.classList.add('active');
-  if(['summary','export'].includes(name) && window.ensureProductsLoaded) await ensureProductsLoaded();
+  try{
+    await ensurePageData(name);
+    if(['summary','export'].includes(name) && window.ensureProductsLoaded) await ensureProductsLoaded();
+  }catch(error){
+    console.error(`載入 ${name} 頁面資料失敗：`,error);
+    alert('Không thể tải dữ liệu chức năng, vui lòng thử lại. / 無法載入功能資料，請重試。');
+    return;
+  }
   if(name==='approval'||name==='replog'||name==='sync') updateReportHubTabs();
   if(name==='settings')  rAll();
   if(name==='export')    rExp();
   if(name==='accounts'&&typeof loadAccounts==='function') await loadAccounts();
   if(name==='permissions'&&typeof renderPermissions==='function') renderPermissions();
   if(name==='costlog')   rClog();
-  if(name==='approval')  renderApproval();
-  if(name==='progress'){ reloadProcesses().then(()=>{ renderProgress(); renderOrders(); }); }
+  if(name==='approval'){
+    if(typeof startDeskApvListener==='function') startDeskApvListener();
+    renderApproval();
+  }
+  if(name==='progress'){ renderProgress(); renderOrders(); }
   if(name==='stats')     renderStats();
   if(name==='employees') renderEmployees();
   if(name==='attendance') renderAttendance();

@@ -3,6 +3,8 @@ window.allOrders    = [];
 window.allEmployees = [];
 window.allProcesses = [];
 window._failedOrderCleanup = null;
+let ordersLoadPromise = null;
+let processesLoadPromise = null;
 
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 function setImportProgress(percent,vi,zh){
@@ -51,31 +53,30 @@ function renderCategoryProgress(procs){
 
 // ===== 載入訂單資料 =====
 async function loadOrderData(){
-  try{
-    const snap=await window._getDocs(window._collection(COL.orders));
-    window.allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
-    window.allOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  }catch(e){ console.error(e); }
-  try{
-    const snap=await window._getDocs(window._collection(COL.employees));
-    window.allEmployees=snap.docs.map(d=>({id:d.id,...d.data()}));
-  }catch(e){}
-  try{
-    const snap=await window._getDocs(window._collection(COL.processes));
-    window.allProcesses=snap.docs.map(d=>({id:d.id,...d.data()}));
-  }catch(e){ console.error('loadProcesses error:',e); }
-  try{
-    const snap=await window._getDocs(window._query(window._collection(COL.reports),window._where('status','==','pending')));
-    updateApvBadge(snap.docs.length);
-  }catch(e){}
+  await Promise.all([reloadOrders(),reloadProcesses()]);
   fillOrderSelects();
+  return {orders:window.allOrders,processes:window.allProcesses};
 }
 
-async function reloadProcesses(){
-  try{
-    const snap=await window._getDocs(window._collection(COL.processes));
-    window.allProcesses=snap.docs.map(d=>({id:d.id,...d.data()}));
-  }catch(e){ console.error('reloadProcesses error:',e); }
+async function reloadProcesses(options={}){
+  if(processesLoadPromise) return processesLoadPromise;
+  processesLoadPromise=(async()=>{
+    try{
+      if(typeof window.firebaseLoadCachedCollection==='function'){
+        window.allProcesses=await window.firebaseLoadCachedCollection(COL.processes,COL.processes,options);
+      }else{
+        const snap=await window._getDocs(window._collection(COL.processes));
+        window.allProcesses=snap.docs.map(d=>({id:d.id,...d.data()}));
+      }
+      return window.allProcesses;
+    }catch(e){
+      console.error('reloadProcesses（重新載入工序）失敗：',e);
+      throw e;
+    }finally{
+      processesLoadPromise=null;
+    }
+  })();
+  return processesLoadPromise;
 }
 
 function updateApvBadge(n){
@@ -119,11 +120,24 @@ async function openImportOrder(){
   om('m-import-order');
 }
 
-async function reloadOrders(){
-  const snap=await window._getDocs(window._collection(COL.orders));
-  window.allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
-  window.allOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  fillOrderSelects();
+async function reloadOrders(options={}){
+  if(ordersLoadPromise) return ordersLoadPromise;
+  ordersLoadPromise=(async()=>{
+    try{
+      if(typeof window.firebaseLoadCachedCollection==='function'){
+        window.allOrders=await window.firebaseLoadCachedCollection(COL.orders,COL.orders,options);
+      }else{
+        const snap=await window._getDocs(window._collection(COL.orders));
+        window.allOrders=snap.docs.map(d=>({id:d.id,...d.data()}));
+      }
+      window.allOrders.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+      fillOrderSelects();
+      return window.allOrders;
+    }finally{
+      ordersLoadPromise=null;
+    }
+  })();
+  return ordersLoadPromise;
 }
 
 function closeImportOrder(){
