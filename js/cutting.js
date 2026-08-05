@@ -17,7 +17,9 @@
   const TEMPLATE_SCHEMA_VERSION = 'fixed-2026-07'; // TEMPLATE_SCHEMA_VERSION（固定模板規格版本）
   const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
   const PDF_QUALITY_STORAGE_KEY = 'cuttingPdfQuality'; // PDF_QUALITY_STORAGE_KEY（PDF 品質記憶鍵）
+  const LOCAL_PDF_REQUEST_TIMEOUT_MS = 15 * 60 * 1000; // LOCAL_PDF_REQUEST_TIMEOUT_MS（本機 PDF 要求等待上限）：最多等待十五分鐘。
   let pdfToolStatusChecking = false;
+  let pdfToolKnownOnline = null; // pdfToolKnownOnline（已知的本機 PDF 工具狀態）：只用來避免使用者白選儲存位置，正式匯出前仍會再次確認。
   let orderLabelDialogResolve = null; // orderLabelDialogResolve（訂單文字視窗回傳函式）
 
   function text(id, value){
@@ -917,11 +919,11 @@
       fileName: template?.fileName || ''
     };
     if(!payload.templateId) throw new Error('Thiếu mã mẫu cần xóa.\n缺少要刪除的模板編號。');
-    const response = await fetch('http://127.0.0.1:8765/cutting/cache', {
+    const response = await fetchCuttingPdfTool('/cutting/cache', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload)
-    });
+    }, 10000);
     if(!response.ok){
       let message = 'Không thể xóa bộ nhớ đệm mẫu.\n無法刪除模板快取。';
       try{
@@ -1544,25 +1546,48 @@
     box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${detail}</span>` : ''}</div>`;
   }
 
-  async function cuttingCheckPdfToolStatus(options = {}){
-    if(pdfToolStatusChecking) return false;
-    pdfToolStatusChecking = true;
-    if(!options.silent) setPdfToolStatus('checking');
-    let timer = null;
+  // waitCuttingPdfToolDelay（等待本機 PDF 工具）：只供啟動後短暫輪詢使用。
+  function waitCuttingPdfToolDelay(milliseconds){
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+  }
+
+  // fetchCuttingPdfTool（呼叫本機 PDF 工具）：統一設定等待上限，避免本機服務異常時畫面永久等待。
+  async function fetchCuttingPdfTool(path, options = {}, timeoutMs = 10000){
+    const controller = new AbortController(); // controller（中止控制器）
+    const timer = setTimeout(() => controller.abort(), timeoutMs); // timer（逾時計時器）
     try{
-      const controller = new AbortController();
-      timer = setTimeout(() => controller.abort(), 1800);
-      const response = await fetch('http://127.0.0.1:8765/health', {
-        method: 'GET',
-        cache: 'no-store',
+      return await fetch(`http://127.0.0.1:8765${path}`, {
+        ...options,
         signal: controller.signal
       });
+    }catch(error){
+      if(error?.name === 'AbortError'){
+        throw new Error('Công cụ PDF phản hồi quá lâu, thao tác đã dừng. / PDF 工具回應逾時，本次操作已停止。');
+      }
+      throw error;
+    }finally{
       clearTimeout(timer);
+    }
+  }
+
+  async function cuttingCheckPdfToolStatus(options = {}){
+    if(pdfToolStatusChecking){
+      await waitCuttingPdfToolDelay(200);
+      return pdfToolKnownOnline === true;
+    }
+    pdfToolStatusChecking = true;
+    if(!options.silent) setPdfToolStatus('checking');
+    try{
+      const response = await fetchCuttingPdfTool('/health', {
+        method: 'GET',
+        cache: 'no-store'
+      }, 1800);
       let health = null; // health（本機工具健康狀態）
       if(response.ok){
         try{ health = await response.json(); }catch(_){}
       }
       const ready = !!(response.ok && health?.ok === true && health?.service === 'cutting-pdf-local'); // ready（是否為正確的裁帶 PDF 工具）
+      pdfToolKnownOnline = ready;
       if(ready){
         setPdfToolStatus('online');
       }else if(!options.silent){
@@ -1570,12 +1595,12 @@
       }
       return ready;
     }catch(_){
+      pdfToolKnownOnline = false;
       if(!options.silent){
         setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
       }
       return false;
     }finally{
-      if(timer) clearTimeout(timer);
       pdfToolStatusChecking = false;
     }
   }
@@ -1590,10 +1615,32 @@
     setTimeout(() => launcherFrame.remove(), 2500);
   }
 
-  // cuttingStartPdfTool（啟動 PDF 工具）：送出本機啟動要求後立即結束，不鎖定按鈕或等待工具回應。
-  function cuttingStartPdfTool(){
+  // waitForCuttingPdfTool（等待本機 PDF 工具就緒）：啟動後最多等待二十秒，不讓使用者先選擇無法使用的儲存位置。
+  async function waitForCuttingPdfTool(maxWaitMs = 20000){
+    const deadline = Date.now() + maxWaitMs; // deadline（等待截止時間）
+    while(Date.now() < deadline){
+      await waitCuttingPdfToolDelay(700);
+      if(await cuttingCheckPdfToolStatus({silent: true})) return true;
+    }
+    pdfToolKnownOnline = false;
+    setPdfToolStatus('offline', 'Không thể xác nhận công cụ đã khởi động. / 無法確認工具已啟動。');
+    return false;
+  }
+
+  // ensureCuttingPdfToolReady（確保本機 PDF 工具就緒）：只在已知未啟動時呼叫固定啟動連結。
+  async function ensureCuttingPdfToolReady(){
+    if(pdfToolKnownOnline === true) return true;
+    setPdfToolStatus('requested', 'Đang chờ công cụ khởi động... / 正在等待工具啟動...');
+    invokeCuttingLauncher('cuttingpdf://start');
+    return waitForCuttingPdfTool();
+  }
+
+  // cuttingStartPdfTool（啟動 PDF 工具）：送出本機啟動要求後等待工具回應，避免畫面長時間停在未知狀態。
+  async function cuttingStartPdfTool(){
+    pdfToolKnownOnline = false;
     setPdfToolStatus('requested', 'Nếu đã hủy, có thể nhấn lại. / 若已取消，可重新點擊。');
     invokeCuttingLauncher('cuttingpdf://start');
+    await waitForCuttingPdfTool();
   }
 
   // cuttingUnregisterPdfTool（取消啟動路徑）：確認後只要求本機啟動器移除目前使用者的路徑登記。
@@ -1602,6 +1649,7 @@
     const button = g('cut-unregister-pdf-tool-btn'); // button（取消路徑按鈕）
     if(button?.disabled) return;
     if(button) button.disabled = true;
+    pdfToolKnownOnline = false;
     setPdfToolStatus('checking', 'Đang gửi yêu cầu hủy đường dẫn... / 正在送出取消路徑要求...');
     invokeCuttingLauncher('cuttingpdf://unregister');
     setTimeout(() => {
@@ -1752,11 +1800,11 @@
   }
 
   async function getCuttingPdfCacheStatus(templates){
-    const response = await fetch('http://127.0.0.1:8765/cutting/cache/status', {
+    const response = await fetchCuttingPdfTool('/cutting/cache/status', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({templates})
-    });
+    }, 10000);
     if(!response.ok) return new Set();
     const data = await response.json();
     return new Set(Array.isArray(data.cachedTemplateIds) ? data.cachedTemplateIds : []);
@@ -1772,6 +1820,11 @@
     const resultProblems = validateExportResults(exportableResults);
     if(resultProblems.length){
       alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
+      return;
+    }
+    const toolReadyBeforeSave = await ensureCuttingPdfToolReady(); // toolReadyBeforeSave（選擇儲存位置前的工具狀態）
+    if(!toolReadyBeforeSave){
+      alert('Không thể khởi động công cụ PDF. Vui lòng thử lại.\n無法啟動 PDF 工具，請再試一次。');
       return;
     }
     const confirmedOrderLabel = await openCuttingOrderLabelDialog(state.orderLabel); // confirmedOrderLabel（使用者確認的 PDF 左上角內容）
@@ -1855,11 +1908,11 @@
       payload.pdfQuality = getSelectedPdfQuality(); // pdfQuality（PDF 品質）：standard（標準）或 high（高品質）。
       setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ tạo PDF theo thứ tự mẫu. / 系統會依模板順序產生 PDF。');
       startCuttingPdfProgressLoop();
-      const response = await fetch('http://127.0.0.1:8765/cutting/pdf', {
+      const response = await fetchCuttingPdfTool('/cutting/pdf', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
-      });
+      }, LOCAL_PDF_REQUEST_TIMEOUT_MS);
       stopCuttingPdfProgressLoop();
       if(!response.ok){
         let msg = '';
@@ -1886,6 +1939,7 @@
       const message = String(e && e.message ? e.message : '');
       const isLocalToolClosed = /Failed to fetch|NetworkError|Load failed/i.test(message);
       if(isLocalToolClosed){
+        pdfToolKnownOnline = false;
         setCuttingPdfError(
           'Chưa mở công cụ chuyển PDF trên máy này.<br>Bản PDF chưa được tạo.',
           '本機尚未啟動 PDF 轉檔工具。<br>PDF 尚未產生。'

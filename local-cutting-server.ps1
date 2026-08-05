@@ -10,6 +10,11 @@ $script:Detail = ''
 $script:Timer = $null
 $script:LastMs = 0
 $script:CurrentTempDir = ''
+$script:CurrentCorsOrigin = '' # CurrentCorsOrigin（目前允許的網站來源）：每次要求重新判斷。
+$script:MaxRequestBytes = 200 * 1024 * 1024 # MaxRequestBytes（單次要求容量上限）：包含轉為 Base64（文字編碼）的模板資料。
+$script:AllowedWebOrigins = @(
+  'https://wenhsiang-arch.github.io'
+) # AllowedWebOrigins（允許的正式網站來源）
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -34,13 +39,60 @@ function Add-Log([string]$name, [string]$detail = '') {
   Write-Host "[cutting-time] $line"
 }
 
+function Test-AllowedWebOrigin([string]$origin) {
+  if ([string]::IsNullOrWhiteSpace($origin)) { return $true }
+  if ($script:AllowedWebOrigins -contains $origin) { return $true }
+  return ($origin -match '^http://(localhost|127\.0\.0\.1)(:\d+)?$')
+}
+
+# Add-CorsHeaders（加入跨網站來源標頭）：不再允許所有網站呼叫本機轉檔工具。
+function Add-CorsHeaders($response) {
+  if ([string]::IsNullOrWhiteSpace($script:CurrentCorsOrigin)) { return }
+  $response.Headers.Add('Access-Control-Allow-Origin', $script:CurrentCorsOrigin)
+  $response.Headers.Add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+  $response.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')
+  $response.Headers.Add('Access-Control-Allow-Private-Network', 'true')
+  $response.Headers.Add('Vary', 'Origin')
+}
+
+# Read-JsonRequestBody（安全讀取資料要求）：限制內容類型與容量，超過上限時立即停止讀取。
+function Read-JsonRequestBody($request) {
+  if (-not ([string]$request.ContentType).StartsWith('application/json', [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw 'UNSUPPORTED_CONTENT_TYPE / 不支援的內容類型'
+  }
+  if ($request.ContentLength64 -gt $script:MaxRequestBytes) {
+    throw 'REQUEST_TOO_LARGE / 要求資料過大'
+  }
+
+  $memory = [System.IO.MemoryStream]::new() # memory（受容量限制的要求暫存）
+  $buffer = New-Object byte[] 8192 # buffer（分段讀取緩衝區）
+  $total = 0L # total（目前已讀取位元組數）
+  try {
+    while (($read = $request.InputStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+      $total += $read
+      if ($total -gt $script:MaxRequestBytes) {
+        throw 'REQUEST_TOO_LARGE / 要求資料過大'
+      }
+      $memory.Write($buffer, 0, $read)
+    }
+    if ($total -le 0) { throw 'BAD_REQUEST / 要求內容為空' }
+    $body = [System.Text.Encoding]::UTF8.GetString($memory.ToArray()) # body（JSON 資料內容）
+  } finally {
+    $memory.Dispose()
+  }
+
+  try {
+    return ($body | ConvertFrom-Json)
+  } catch {
+    throw 'BAD_JSON / JSON 格式錯誤'
+  }
+}
+
 function Send-Text($response, [int]$statusCode, [string]$text, [string]$contentType = 'application/json; charset=utf-8') {
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
   $response.StatusCode = $statusCode
   $response.ContentType = $contentType
-  $response.Headers.Add('Access-Control-Allow-Origin', '*')
-  $response.Headers.Add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-  $response.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')
+  Add-CorsHeaders $response
   $response.OutputStream.Write($bytes, 0, $bytes.Length)
   $response.Close()
 }
@@ -58,9 +110,7 @@ function Send-File($response, [string]$path, [string]$fileName) {
   $response.StatusCode = 200
   $response.ContentType = 'application/pdf'
   $response.ContentLength64 = $bytes.Length
-  $response.Headers.Add('Access-Control-Allow-Origin', '*')
-  $response.Headers.Add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-  $response.Headers.Add('Access-Control-Allow-Headers', 'Content-Type')
+  Add-CorsHeaders $response
   $response.Headers.Add('Content-Disposition', "attachment; filename=""$asciiName""; filename*=UTF-8''$encodedName")
   $response.OutputStream.Write($bytes, 0, $bytes.Length)
   $response.Close()
@@ -1084,7 +1134,7 @@ function Draw-ImageFit($graphics, [string]$path, [System.Drawing.RectangleF]$rec
   }
 }
 
-function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [float]$groupHeight, $bodyFontSizes = $null) {
+function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [float]$groupHeight, $bodyFontSizes = $null, [string]$orderLabel = '') {
   $columns = @($printGroup.module.columns)
   $headerColumns = @()
   if ($null -ne $printGroup.group -and $null -ne $printGroup.group.PSObject.Properties['columns']) {
@@ -1112,7 +1162,10 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
           break
         }
       }
-      Draw-CenteredText $graphics $headerText $headerRect 11 6 $true $white
+      # orderLabel（訂單顯示文字）：只覆蓋 PDF 左上角 Image（圖片）欄表頭，其餘表頭維持模板內容。
+      if ($key -eq 'Image' -and -not [string]::IsNullOrWhiteSpace($orderLabel)) { $headerText = $orderLabel.Trim() }
+      $headerLines = @((Normalize-PdfCellText $headerText) -split "`n") # headerLines（表頭文字行）：保留 Excel（表格檔）的手動換行。
+      Draw-CenteredTextLines $graphics $headerLines $headerRect 11 6 $true $white
       $bodyRect = [System.Drawing.RectangleF]::new($rect.X, $top + $headerHeight, $rect.Width, $groupHeight - $headerHeight)
       if ($key -eq 'Total') { $graphics.FillRectangle($cream, $bodyRect) }
       $graphics.DrawRectangle($linePen, $bodyRect.X, $bodyRect.Y, $bodyRect.Width, $bodyRect.Height)
@@ -1540,7 +1593,7 @@ function Split-PrintGroupsIntoPages($groups) {
   return $pages
 }
 
-function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions) {
+function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions, [string]$orderLabel = '') {
   $width = [int]$renderOptions.width
   $height = [int]$renderOptions.height
   $bitmap = New-Object System.Drawing.Bitmap $width, $height
@@ -1561,7 +1614,7 @@ function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions) {
       $top = 0.0
       foreach ($group in @($groups)) {
         $groupHeight = Get-PrintGroupHeight $group
-        Draw-Group $graphics $group 595.0 ([float]$top) ([float]$groupHeight) $bodyFontSizes
+        Draw-Group $graphics $group 595.0 ([float]$top) ([float]$groupHeight) $bodyFontSizes $orderLabel
         $top += $groupHeight
       }
     } finally {
@@ -1660,6 +1713,7 @@ function New-CuttingPdf($payload) {
   }
   if ($printGroups.Count -eq 0) { throw '沒有符合列印條件的款號資料。' }
   $bodyFontSizes = Get-BodyFontSizesForGroups $printGroups 595.0
+  $orderLabel = ([string]$payload.orderLabel).Trim() # orderLabel（PDF 左上角內容）：由匯出前輸入框確認。
   $fontSizeLog = @($bodyFontSizes.Keys | Sort-Object | ForEach-Object { "$_=$([Math]::Round([double]$bodyFontSizes[$_], 1))" }) -join ','
   Add-Log 'body_font_sizes' $fontSizeLog
   $renderOptions = Get-PdfRenderOptions $payload
@@ -1674,7 +1728,7 @@ function New-CuttingPdf($payload) {
   for ($i = 0; $i -lt $packedPages.Count; $i++) {
     $pageGroups = @($packedPages[$i].groups)
     $jpgPath = Join-Path $root ("page_{0}.jpg" -f ($i + 1))
-    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes $renderOptions
+    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes $renderOptions $orderLabel
     $pageImages += $jpgPath
     Add-Log 'render_page' "page=$($pageImages.Count) groups=$($pageGroups.Count)"
   }
@@ -1698,33 +1752,45 @@ while ($listener.IsListening) {
   $pdfPath = ''
   try {
     Set-Stage 'receive_request' $request.Url.AbsolutePath
+    $script:CurrentCorsOrigin = ''
+    $requestOrigin = [string]$request.Headers['Origin'] # requestOrigin（呼叫本機工具的網站來源）
+    if (-not (Test-AllowedWebOrigin $requestOrigin)) {
+      Send-Text $response 403 '{"ok":false,"error":"ORIGIN_NOT_ALLOWED / 不允許的網站來源"}'
+      continue
+    }
+    if (-not [string]::IsNullOrWhiteSpace($requestOrigin)) {
+      $script:CurrentCorsOrigin = $requestOrigin
+    }
     if ($request.HttpMethod -eq 'OPTIONS') { Send-Text $response 204 ''; continue }
     if ($request.Url.AbsolutePath -eq '/health') { Send-Text $response 200 '{"ok":true,"service":"cutting-pdf-local"}'; continue }
     if ($request.Url.AbsolutePath -eq '/cutting/cache/status' -and $request.HttpMethod -eq 'POST') {
-      $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
-      try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
-      $payload = $body | ConvertFrom-Json
+      $payload = Read-JsonRequestBody $request
       Send-Json $response 200 (Get-TemplateCacheStatus $payload)
       continue
     }
     if ($request.Url.AbsolutePath -eq '/cutting/cache' -and $request.HttpMethod -eq 'POST') {
-      $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
-      try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
-      $payload = $body | ConvertFrom-Json
+      $payload = Read-JsonRequestBody $request
       Send-Json $response 200 (Remove-TemplateCache $payload)
       continue
     }
     if ($request.Url.AbsolutePath -ne '/cutting/pdf' -or $request.HttpMethod -ne 'POST') { Send-Text $response 404 '{"ok":false,"error":"NOT_FOUND"}'; continue }
-    $reader = [System.IO.StreamReader]::new($request.InputStream, [System.Text.Encoding]::UTF8)
-    try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
-    $payload = $body | ConvertFrom-Json
+    $payload = Read-JsonRequestBody $request
     if ((-not $payload.templates) -and (-not $payload.templateId -or -not $payload.writes)) { Send-Text $response 400 '{"ok":false,"error":"BAD_REQUEST"}'; continue }
     $pdfPath = New-CuttingPdf $payload
     $name = if ($payload.outputName) { [string]$payload.outputName } else { 'cutting.pdf' }
     Send-File $response $pdfPath $name
   } catch {
     $message = ($_.Exception.Message -replace "`r?`n", ' ')
-    Send-Json $response 500 @{ ok = $false; error = $message; stage = $script:Stage; detail = $script:Detail }
+    $statusCode = if ($message -match '^REQUEST_TOO_LARGE') {
+      413
+    } elseif ($message -match '^UNSUPPORTED_CONTENT_TYPE') {
+      415
+    } elseif ($message -match '^(BAD_REQUEST|BAD_JSON)') {
+      400
+    } else {
+      500
+    } # statusCode（回應狀態碼）
+    Send-Json $response $statusCode @{ ok = $false; error = $message; stage = $script:Stage; detail = $script:Detail }
   } finally {
     Remove-CuttingTempDir $script:CurrentTempDir
     $script:CurrentTempDir = ''
