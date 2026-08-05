@@ -32,40 +32,92 @@ function isCurrentDeskAccount(){
     && window.firebaseAuthUser?.uid===window.cu.authUid
   );
 }
+
+// MODULE_PAGES（模組內頁設定）：合併畫面入口，但每個內頁仍使用原本的獨立權限。
+const MODULE_PAGES={
+  products:[
+    {page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表'},
+    {page:'export',feature:'export',icon:'ti-download',vi:'Xuất báo cáo',zh:'匯出報表'}
+  ],
+  cost:[
+    {page:'settings',adminOnly:true,icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定'},
+    {page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄'}
+  ],
+  accounts:[
+    {page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理'},
+    {page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理'}
+  ]
+};
+
+// PAGE_MODULE（頁面所屬模組）用於讓同一模組共用側邊欄入口與上方功能卡。
+const PAGE_MODULE=Object.fromEntries(
+  Object.entries(MODULE_PAGES).flatMap(([moduleName,pages])=>pages.map(item=>[item.page,moduleName]))
+);
+
+// PAGE_FEATURES（頁面功能權限對照）沿用現有 rolePermissions（角色功能權限）欄位。
+const PAGE_FEATURES={
+  progress:'progress',sync:'sync',cutting:'cutting'
+};
+
+// canOpenPage（檢查頁面權限）：功能卡隱藏與實際頁面切換共用同一項判斷。
+function canOpenPage(name){
+  if(!isCurrentDeskAccount()) return false;
+  if(isAdm()) return true;
+  const moduleName=PAGE_MODULE[name];
+  const pageConfig=moduleName?MODULE_PAGES[moduleName].find(item=>item.page===name):null;
+  if(pageConfig?.adminOnly) return false;
+  const feature=pageConfig?.feature||PAGE_FEATURES[name];
+  if(!feature) return false;
+  if(window.permissionSettings?.[window.cu.role]?.[feature]!==true) return false;
+  if(name==='costlog'&&!canViewCosts()) return false;
+  return true;
+}
+
+// openModule（開啟模組）：依目前角色選擇第一個有權限的內頁。
+function openModule(moduleName){
+  if(!isCurrentDeskAccount()){ doLogout(); return; }
+  const page=MODULE_PAGES[moduleName]?.find(item=>canOpenPage(item.page));
+  if(page) sp(page.page);
+}
+
+// renderModuleTabs（顯示模組功能卡）：只呈現目前角色可以使用的功能。
+function renderModuleTabs(name){
+  const host=g('module-tabs-host');
+  if(!host) return;
+  const moduleName=PAGE_MODULE[name];
+  const pages=moduleName?MODULE_PAGES[moduleName].filter(item=>canOpenPage(item.page)):[];
+  if(!pages.length){
+    host.hidden=true;
+    host.innerHTML='';
+    return;
+  }
+  host.innerHTML=pages.map(item=>`
+    <button type="button" class="module-tab${item.page===name?' active':''}" onclick="sp('${item.page}')">
+      <i class="ti ${item.icon}"></i>
+      <span class="module-tab-copy"><strong>${item.vi}</strong><span>${item.zh}</span></span>
+    </button>`).join('');
+  host.hidden=false;
+}
 // ===== 導覽權限 =====
 function uNav(){
   const r  = window.cu ? window.cu.role : '';
   const isA   = r==='admin';
   const isMgr = r==='manager';
-  const isClk = r==='clerk';
-  const perm  = window.permissionSettings || {};
-
-  // 成本設定：只有 admin
-  g('nv-settings').className = 'ni'+(isA?'':' locked');
-
-  // 權限管理：只有 admin
-  const nvPerm = g('nv-permissions');
-  if(nvPerm) nvPerm.className = 'ni'+(isA?'':' locked');
 
   // 幣別切換：只有 admin 顯示
   const cgEl = document.querySelector('.cg');
   if(cgEl) cgEl.style.display = isA ? '' : 'none';
 
-  // 所有可控制功能
-  const allFeatures = ['progress','accounts','export','costlog','summary','cutting','sync'];
-
-  allFeatures.forEach(n=>{
+  // 一般獨立功能入口。
+  ['progress','cutting','sync'].forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
-    let show = false;
-    if(isA){
-      show = true;
-    } else if(isMgr){
-      show = perm.manager ? (perm.manager[n]===true) : false;
-    } else if(isClk){
-      show = perm.clerk ? (perm.clerk[n]===true) : false;
-    }
-    if(n==='costlog'&&!canViewCosts()) show=false;
-    el.className = 'ni'+(show?'':' locked');
+    el.className='ni'+(canOpenPage(n)?'':' locked');
+  });
+
+  // 合併後的模組入口：模組內至少有一個可用功能才顯示。
+  Object.entries(MODULE_PAGES).forEach(([moduleName,pages])=>{
+    const el=g('nv-'+moduleName); if(!el) return;
+    el.className='ni'+(pages.some(item=>canOpenPage(item.page))?'':' locked');
   });
   document.querySelectorAll('[data-order-manage]').forEach(el=>{
     el.style.display=canManageOrders()?'':'none';
@@ -329,21 +381,12 @@ async function ensurePageData(name){
 // ===== 頁面切換 =====
 async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
-  const adminOnly=['settings','accounts','permissions'];
-  if(adminOnly.includes(name)&&!isAdm()) return;
-  if(!isAdm()){
-    const featureByPage={
-      progress:'progress',sync:'sync',export:'export',costlog:'costlog',
-      summary:'summary',cutting:'cutting'
-    };
-    const feature=featureByPage[name];
-    if(feature&&window.permissionSettings?.[window.cu.role]?.[feature]!==true) return;
-    if(name==='costlog'&&!canViewCosts()) return;
-  }
+  if(!canOpenPage(name)) return;
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=g('pg-'+name); if(pg) pg.classList.add('active');
-  const nav=g('nv-'+name); if(nav) nav.classList.add('active');
+  const nav=g('nv-'+(PAGE_MODULE[name]||name)); if(nav) nav.classList.add('active');
+  renderModuleTabs(name);
   try{
     await ensurePageData(name);
     if(['summary','export'].includes(name) && window.ensureProductsLoaded) await ensureProductsLoaded();

@@ -3,29 +3,6 @@ let nItms=null, dups=[];
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
 function processCategoryLabel(code){ return PROCESS_CATEGORIES[code]||code||'—'; }
 
-function validateProcessNumbers(ops,code){
-  const label=code||'未知款號';
-  if(!ops.length) return [`款號 ${label}：至少需要工序號 1`];
-  const errors=[];
-  const seen=new Set();
-  ops.forEach(op=>{
-    const no=String(op.no??'').trim();
-    if(!normalizeProcessNo(no)){
-      errors.push(`款號 ${label}：工序號「${no||'空白'}」格式錯誤，必須使用 1–99，且不可有前導零`);
-    } else if(seen.has(no)){
-      errors.push(`款號 ${label}：工序號 ${no} 重複`);
-    }
-    seen.add(no);
-  });
-  const valid=[...seen].filter(normalizeProcessNo).sort(compareProcessNo);
-  const max=valid.length?Math.max(...valid.map(Number)):0;
-  for(let i=1;i<=max;i++){
-    const expected=String(i);
-    if(!seen.has(expected)) errors.push(`款號 ${label}：缺少工序號 ${expected}`);
-  }
-  return [...new Set(errors)];
-}
-
 function validateImportProcessRows(rows){
   const byCode={};
   rows.forEach((r,i)=>{
@@ -325,6 +302,7 @@ function xImp(){
 
 // ===== 匯出報表 =====
 function rExp(){
+  if(typeof canOpenPage==='function'&&!canOpenPage('export')) return;
   const cf=(g('ex-cl')||{}).value||'';
   const tb=g('ex-tb'); if(!tb) return; tb.innerHTML='';
   const showCosts=canViewCosts();
@@ -402,6 +380,10 @@ async function writeSpreadsheetWorkbookToHandle(fileHandle,workbook){
 }
 
 async function doExport(){
+  if(typeof canOpenPage==='function'&&!canOpenPage('export')){
+    alert('Không có quyền xuất báo cáo / 沒有匯出報表權限');
+    return;
+  }
   try{
     const cf=g('ex-cl').value;
     const currencyType=g('ex-cu').value; // currencyType（幣別選項）。
@@ -609,16 +591,6 @@ function rHist(){
 }
 
 // ===== 成本變動記錄 =====
-function openHistoryModal(){
-  rHist();
-  om('m-history');
-}
-
-function openBackupModal(){
-  rBk();
-  om('m-backup');
-}
-
 function rClog(){
   const el=g('clog-list'); if(!el) return;
   if(!canViewCosts()){
