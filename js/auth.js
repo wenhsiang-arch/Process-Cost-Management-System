@@ -9,9 +9,8 @@ window.impHist = [];
 window.cLog    = [];
 window.sPage   = 1;
 window.dPage   = 1;
-// 從 localStorage 載入記錄
-try{ const h=localStorage.getItem('impHist'); if(h) window.impHist=JSON.parse(h); }catch(e){}
-// cLog（成本變動記錄）不得放在跨帳號共用的 localStorage（瀏覽器本機儲存空間）。
+// impHist（匯入紀錄）與 cLog（成本變動紀錄）改為依帳號即時查詢獨立操作紀錄，不使用跨帳號本機儲存。
+try{ localStorage.removeItem('impHist'); }catch(e){}
 try{ localStorage.removeItem('cLog'); }catch(e){}
 
 const IDLE = 30*60;
@@ -43,45 +42,17 @@ function isCurrentDeskAccount(){
   );
 }
 
-// MODULE_PAGES（模組內頁設定）：合併畫面入口，但每個內頁仍使用原本的獨立權限。
-const MODULE_PAGES={
-  products:[
-    {page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表'}
-  ],
-  cost:[
-    {page:'settings',adminOnly:true,icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定'},
-    {page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄'},
-    {page:'export',feature:'export',icon:'ti-download',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出'}
-  ],
-  accounts:[
-    {page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理'},
-    {page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理'}
-  ]
-};
-
-// PAGE_MODULE（頁面所屬模組）用於讓同一模組共用側邊欄入口與上方功能卡。
-const PAGE_MODULE=Object.fromEntries(
-  Object.entries(MODULE_PAGES).flatMap(([moduleName,pages])=>pages.map(item=>[item.page,moduleName]))
-);
-
-// PAGE_FEATURES（頁面功能權限對照）沿用現有 rolePermissions（角色功能權限）欄位。
-const PAGE_FEATURES={
-  progress:'progress',sync:'sync',cutting:'cutting'
-};
-
-// MODULE_FEATURES（主功能權限對照）：只有具備主功能與分頁權限時才允許進入。
-const MODULE_FEATURES={products:'productsMain',cost:'costMain'};
-
 // canOpenPage（檢查頁面權限）：功能卡隱藏與實際頁面切換共用同一項判斷。
 function canOpenPage(name){
   if(!isCurrentDeskAccount()) return false;
+  const pageConfig=window.PCMSFeatures?.getPage(name);
+  if(!pageConfig) return false;
   if(isAdm()) return true;
-  const moduleName=PAGE_MODULE[name];
-  const pageConfig=moduleName?MODULE_PAGES[moduleName].find(item=>item.page===name):null;
-  if(pageConfig?.adminOnly) return false;
-  const moduleFeature=MODULE_FEATURES[moduleName]; // moduleFeature（主功能權限）。
+  const moduleConfig=window.PCMSFeatures?.getModule(pageConfig.moduleId); // moduleConfig（頁面所屬主功能）
+  if(moduleConfig?.adminOnly||pageConfig.adminOnly) return false;
+  const moduleFeature=moduleConfig?.mainKey; // moduleFeature（主功能權限）
   if(moduleFeature&&window.permissionSettings?.[window.cu.role]?.[moduleFeature]!==true) return false;
-  const feature=pageConfig?.feature||PAGE_FEATURES[name];
+  const feature=pageConfig.feature;
   if(!feature) return false;
   if(window.permissionSettings?.[window.cu.role]?.[feature]!==true) return false;
   return true;
@@ -90,7 +61,8 @@ function canOpenPage(name){
 // openModule（開啟模組）：依目前角色選擇第一個有權限的內頁。
 function openModule(moduleName){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
-  const page=MODULE_PAGES[moduleName]?.find(item=>canOpenPage(item.page));
+  const moduleConfig=window.PCMSFeatures?.getModule(moduleName); // moduleConfig（要開啟的主功能）
+  const page=moduleConfig?.pages.find(item=>canOpenPage(item.page));
   if(page) sp(page.page);
 }
 
@@ -98,8 +70,9 @@ function openModule(moduleName){
 function renderModuleTabs(name){
   const host=g('module-tabs-host');
   if(!host) return;
-  const moduleName=PAGE_MODULE[name];
-  const pages=moduleName?MODULE_PAGES[moduleName].filter(item=>canOpenPage(item.page)):[];
+  const pageConfig=window.PCMSFeatures?.getPage(name); // pageConfig（目前頁面設定）
+  const moduleConfig=pageConfig?window.PCMSFeatures?.getModule(pageConfig.moduleId):null; // moduleConfig（目前主功能設定）
+  const pages=moduleConfig?moduleConfig.pages.filter(item=>canOpenPage(item.page)):[];
   if(pages.length<=1){
     host.hidden=true;
     host.innerHTML='';
@@ -112,6 +85,17 @@ function renderModuleTabs(name){
     </button>`).join('');
   host.hidden=false;
 }
+
+// showFeatureHome（顯示功能首頁）：登入後不自動載入任何業務功能程式或資料。
+function showFeatureHome(){
+  window.PCMSFeatures?.resetActivePage?.();
+  document.querySelectorAll('.pg').forEach(page=>page.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(item=>item.classList.remove('active'));
+  const home=g('pg-home');
+  if(home) home.classList.add('active');
+  const host=g('module-tabs-host');
+  if(host){ host.hidden=true; host.innerHTML=''; }
+}
 // ===== 導覽權限 =====
 function uNav(){
   const r  = window.cu ? window.cu.role : '';
@@ -122,19 +106,14 @@ function uNav(){
   const cgEl = g('summary-currency');
   if(cgEl) cgEl.style.display = canViewCosts() ? '' : 'none';
 
-  // 一般獨立功能入口。
-  ['progress','cutting','sync'].forEach(n=>{
-    const el=g('nv-'+n); if(!el) return;
-    el.className='ni'+(canOpenPage(n)?'':' locked');
+  // 所有導覽入口都使用中央功能清單判斷，避免新增功能時漏改選單。
+  const modules=window.PCMSFeatures?.getModules?.()||[]; // modules（中央主功能清單）
+  modules.forEach(module=>{
+    const el=g('nv-'+module.navId); if(!el) return;
+    el.className='ni'+(module.pages.some(item=>canOpenPage(item.page))?'':' locked');
   });
-
-  // 合併後的模組入口：模組內至少有一個可用功能才顯示。
-  Object.entries(MODULE_PAGES).forEach(([moduleName,pages])=>{
-    const el=g('nv-'+moduleName); if(!el) return;
-    el.className='ni'+(pages.some(item=>canOpenPage(item.page))?'':' locked');
-  });
-  const hasManagementAccess=['cost','accounts','sync'].some(name=>{ // hasManagementAccess（具有管理分類功能）。
-    const item=g('nv-'+name);
+  const hasManagementAccess=modules.filter(module=>module.navGroup==='management').some(module=>{ // hasManagementAccess（具有管理分類功能）
+    const item=g('nv-'+module.navId);
     return item&&!item.classList.contains('locked');
   });
   const managementToggle=g('management-toggle'); // managementToggle（管理分類開關）。
@@ -201,9 +180,11 @@ function hideLoginMessage(){
 function clearSessionUi(){
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
+  window.PCMSFeatures?.resetActivePage?.();
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   window.cu=null;
   window.accs=[];
+  if(typeof resetOrderRuntimeCache==='function') resetOrderRuntimeCache();
   window.allOrders=[];
   window.allProcesses=[];
   window.impHist=[];
@@ -245,8 +226,7 @@ async function enterAuthorizedDeskSystem(user,access){
     error.code='role-permissions-not-ready';
     throw error;
   }
-  // entryOrder（登入後首頁候選順序）：只從目前角色實際可用的頁面中選擇。
-  const entryOrder=['progress','summary','cutting','sync','costlog','export'];
+  const entryOrder=window.PCMSFeatures?.getEntryOrder?.()||[]; // entryOrder（登入後首頁候選順序）：由中央功能清單提供。
   const allowedPage=window.cu.role==='admin'?'summary':entryOrder.find(name=>canOpenPage(name));
   if(!allowedPage){
     const error=new Error('Role has no available functions');
@@ -258,10 +238,9 @@ async function enterAuthorizedDeskSystem(user,access){
   g('ma').classList.remove('hidden');
   hideLoginMessage();
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
-  uNav(); rAll(); rSum(); rAcc(); startIdle();
-
-  sp(allowedPage);
-  if(isAdm()) setTimeout(()=>fetchRates(),1000);
+  uNav();
+  startIdle();
+  showFeatureHome();
 }
 
 window.handleFirebaseAuthState=async function(user){
@@ -369,7 +348,9 @@ async function doLogout(){
 function setCur(c){
   window.cur=c;
   ['VND','USD','TWD'].forEach(x=>g('cur-'+x).className='cb'+(x===c?' active':''));
-  rSum(); rDet(); rExp();
+  if(typeof window.rSum==='function') window.rSum();
+  if(typeof window.rDet==='function') window.rDet();
+  if(typeof window.rExp==='function') window.rExp();
 }
 
 function openDetailImport(){
@@ -378,60 +359,42 @@ function openDetailImport(){
 }
 
 async function ensurePageData(name){
+  const pageConfig=window.PCMSFeatures?.getPage(name); // pageConfig（本次頁面的資料需求）
+  if(!pageConfig) throw new Error(`Trang không tồn tại: ${name} / 頁面不存在：${name}`);
   const tasks=[];
-  const add=(task)=>{ if(task&&typeof task.then==='function') tasks.push(task); };
-
-  if(name==='summary'){
-    add(window.ensureOperationSettingsLoaded?.());
-    if(canViewCosts()) add(window.ensureCostSettingsLoaded?.());
-    add(window.ensureImportHistoryLoaded?.());
+  for(const loaderConfig of pageConfig.dataLoaders||[]){
+    const item=typeof loaderConfig==='string'?{name:loaderConfig}:loaderConfig; // item（資料載入設定）
+    if(item.when==='costView'&&!canViewCosts()) continue;
+    const loader=window[item.name]; // loader（資料載入函式）
+    if(typeof loader!=='function'){
+      throw new Error(`Thiếu hàm tải dữ liệu: ${item.name} / 缺少資料載入函式：${item.name}`);
+    }
+    tasks.push(Promise.resolve(loader()));
   }
-  if(name==='export'){
-    add(window.ensureOperationSettingsLoaded?.());
-    add(window.ensureCostSettingsLoaded?.());
-  }
-  if(name==='settings'){
-    add(window.ensureOperationSettingsLoaded?.());
-    add(window.ensureCostSettingsLoaded?.());
-    add(window.ensureCostLogLoaded?.());
-  }
-  if(name==='costlog') add(window.ensureCostLogLoaded?.());
-  if(['progress','sync'].includes(name)) add(window.ensureOperationSettingsLoaded?.());
-  if(name==='progress') add(loadOrderData());
-  if(name==='sync') add(reloadOrders());
-
-  if(!tasks.length) return;
-  window.firebaseShowLoading?.(true);
-  try{
-    await Promise.all(tasks);
-  }finally{
-    window.firebaseShowLoading?.(false);
-  }
+  await Promise.all(tasks);
 }
 
 // ===== 頁面切換 =====
 async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
-  if(!canOpenPage(name)) return;
-  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
-  const pg=g('pg-'+name); if(pg) pg.classList.add('active');
-  const nav=g('nv-'+(PAGE_MODULE[name]||name)); if(nav) nav.classList.add('active');
-  renderModuleTabs(name);
+  if(!canOpenPage(name)) return false;
+  window.firebaseShowLoading?.(true);
   try{
+    const pageConfig=await window.PCMSFeatures.ensurePageScripts(name); // pageConfig（已載入程式的頁面設定）
     await ensurePageData(name);
-    if(['summary','export'].includes(name) && window.ensureProductsLoaded) await ensureProductsLoaded();
+    document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+    const pg=g('pg-'+name); if(pg) pg.classList.add('active');
+    const moduleConfig=window.PCMSFeatures.getModule(pageConfig.moduleId); // moduleConfig（頁面所屬主功能）
+    const nav=g('nv-'+(moduleConfig?.navId||name)); if(nav) nav.classList.add('active');
+    renderModuleTabs(name);
+    await window.PCMSFeatures.enterPage(name);
+    return true;
   }catch(error){
     console.error(`載入 ${name} 頁面資料失敗：`,error);
     alert('Không thể tải dữ liệu chức năng, vui lòng thử lại. / 無法載入功能資料，請重試。');
-    return;
+    return false;
+  }finally{
+    window.firebaseShowLoading?.(false);
   }
-  if(name==='settings')  rAll();
-  if(name==='export')    rExp();
-  if(name==='accounts'&&typeof loadAccounts==='function') await loadAccounts();
-  if(name==='permissions'&&typeof renderPermissions==='function') renderPermissions();
-  if(name==='costlog')   rClog();
-  if(name==='progress'){ renderProgress(); renderOrders(); }
-  if(name==='sync') syncInit();
-  if(name==='cutting' && typeof cuttingInit==='function') cuttingInit();
 }

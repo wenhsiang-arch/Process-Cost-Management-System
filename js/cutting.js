@@ -45,7 +45,11 @@
   }
 
   function esc(value){
-    return String(value ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    return window.PCMSSafe.text(value);
+  }
+
+  function inlineArg(value){
+    return window.PCMSSafe.inlineArgument(value);
   }
 
   function fmtNum(value){
@@ -361,8 +365,8 @@
     if(!wrap) return;
     wrap.style.display = 'block';
     if(bar) bar.style.width = `${Math.max(0, Math.min(100, Number(percent) || 0))}%`;
-    if(label) label.innerHTML = message || 'Đang xử lý... / 處理中...';
-    if(sub) sub.innerHTML = subMessage || 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。';
+    if(label) label.textContent = message || 'Đang xử lý... / 處理中...';
+    if(sub) sub.innerHTML = window.PCMSSafe.lines(subMessage || 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。');
     await waitForTemplateProgressPaint();
   }
 
@@ -605,11 +609,11 @@
             : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>'))}</td>
         <td style="text-align:center">
           <div class="cut-template-actions">
-            <button class="btn cut-template-action cut-template-download" onclick="cuttingDownloadTemplate('${esc(t.id)}', this)">
+            <button class="btn cut-template-action cut-template-download" onclick="cuttingDownloadTemplate(${inlineArg(t.id)}, this)">
               <i class="ti ti-file-download"></i>
               <span class="cut-template-action-text"><span class="cut-template-action-vi">Tải file gốc</span><span class="cut-template-action-zh">下載原始檔</span></span>
             </button>
-            <button class="btn cut-template-action bd2" onclick="cuttingDeleteTemplate('${esc(t.id)}')">
+            <button class="btn cut-template-action bd2" onclick="cuttingDeleteTemplate(${inlineArg(t.id)})">
               <i class="ti ti-trash"></i>
               <span class="cut-template-action-text"><span class="cut-template-action-vi">Xóa</span><span class="cut-template-action-zh">刪除</span></span>
             </button>
@@ -832,7 +836,7 @@
         const percent = Number(progress?.percent || 0);
         const remainingSeconds = Number(progress?.remainingSeconds || 0);
         const remainingText = remainingSeconds > 0
-          ? `<br>Ước tính còn khoảng ${remainingSeconds} giây. / 預估剩餘約 ${remainingSeconds} 秒。`
+          ? `\nƯớc tính còn khoảng ${remainingSeconds} giây. / 預估剩餘約 ${remainingSeconds} 秒。`
           : '';
         const label = progress?.stage === 'uploading'
           ? `Đang lưu phân đoạn ${current}/${total}... / 正在儲存分段 ${current}/${total}...`
@@ -848,6 +852,22 @@
       text('cut-template-file-name', '');
       renderTemplateAnalysis(null);
       await refreshTemplates();
+      if(window.saveOperationLogToFB){
+        try{
+          await saveOperationLogToFB({
+            permissionKey:'cutting',
+            feature:'cutting',
+            action:'cuttingTemplateImport',
+            status:'success',
+            itemCount:Number(book.itemCount)||0,
+            detailCount:Number(book.rowCount)||0,
+            fileName:book.fileName||''
+          });
+        }catch(logError){
+          console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
+          alert('Đã lưu mẫu, nhưng không thể lưu lịch sử thao tác.\n模板已儲存，但操作紀錄無法保存。');
+        }
+      }
       await setTemplateProgress(100, 'Đã lưu mẫu. / 已儲存模板。', 'Có thể tiếp tục thao tác. / 可以繼續操作。');
       hideTemplateProgress(800);
     }catch(e){
@@ -861,11 +881,6 @@
 
   async function cuttingAnalyzeTemplateFile(file){
     clearPendingTemplate();
-    if(!window.XLSX){
-      setTemplateBusy(false);
-      alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel，請重新整理頁面。');
-      return;
-    }
     if(!isXlsxTemplateFile(file)){
       setTemplateBusy(false);
       alertTemplateFileTypeError(file.name);
@@ -874,7 +889,8 @@
     text('cut-template-file-name', file.name);
     setTemplateBusy(true);
     try{
-      await setTemplateProgress(8, 'Đang đọc file mẫu... / 正在讀取模板檔案...', esc(file.name));
+      await window.PCMSFeatures.ensureSpreadsheetTool();
+      await setTemplateProgress(8, 'Đang đọc file mẫu... / 正在讀取模板檔案...', file.name);
       const data = await file.arrayBuffer();
       await setTemplateProgress(30, 'Đang mở Excel... / 正在開啟 Excel...', 'Hệ thống đang đọc nội dung bảng tính. / 系統正在讀取活頁簿內容。');
       const wb = XLSX.read(data, {type:'array', cellFormula:false, cellStyles:false});
@@ -883,7 +899,7 @@
       if(!book.itemCount || book.warningCount){
         const firstIssue = Array.isArray(book.issues) && book.issues.length ? book.issues[0] : null; // firstIssue（第一筆模板錯誤）
         const issueLocation = firstIssue
-          ? `Trang tính ${esc(firstIssue.sheetName || '-')} · Ô ${esc(firstIssue.cell || '-')} / 工作表 ${esc(firstIssue.sheetName || '-')} · 儲存格 ${esc(firstIssue.cell || '-')}`
+          ? `Trang tính ${firstIssue.sheetName || '-'} · Ô ${firstIssue.cell || '-'} / 工作表 ${firstIssue.sheetName || '-'} · 儲存格 ${firstIssue.cell || '-'}`
           : 'Vui lòng xem chi tiết lỗi bên dưới. / 請查看下方錯誤明細。';
         await setTemplateProgress(100, 'Mẫu có dữ liệu cần sửa. / 模板有資料需要修改。', issueLocation);
         renderTemplateAnalysis(book);
@@ -1190,10 +1206,10 @@
   async function cuttingHandleOrderFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
-    if(!window.XLSX){ alert('Không thể đọc Excel, vui lòng tải lại trang.\n無法讀取 Excel（表格檔），請重新整理頁面。'); return; }
     text('cut-order-file-name', file.name);
     state.orderLabel = '';
     try{
+      await window.PCMSFeatures.ensureSpreadsheetTool();
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, {type:'array'});
       const sheetCount = Array.isArray(wb.SheetNames) ? wb.SheetNames.length : 0; // sheetCount（訂單工作表數量）
@@ -1543,7 +1559,7 @@
     };
     const item = map[status] || map.offline;
     box.className = item.cls;
-    box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${detail}</span>` : ''}</div>`;
+    box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${esc(detail)}</span>` : ''}</div>`;
   }
 
   // waitCuttingPdfToolDelay（等待本機 PDF 工具）：只供啟動後短暫輪詢使用。
@@ -1931,6 +1947,23 @@
       setCuttingPdfProgress(96, 'Đang nhận file PDF... / 正在接收 PDF 檔...', 'PDF đã tạo xong, đang chuẩn bị lưu. / PDF 已產生，正在準備儲存。');
       const pdfBlob = await response.blob();
       await writeCuttingFileToHandle(saveHandle, pdfBlob);
+      if(window.saveOperationLogToFB){
+        try{
+          const exportedResults=state.results.filter(result=>result.status==='pass');
+          await saveOperationLogToFB({
+            permissionKey:'cutting',
+            feature:'cutting',
+            action:'cuttingPdfExport',
+            status:'success',
+            itemCount:exportedResults.length,
+            detailCount:exportedResults.reduce((sum,result)=>sum+(Number(result.totalPieces)||0),0),
+            fileName:saveHandle.name||''
+          });
+        }catch(logError){
+          console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
+          alert('Đã lưu PDF, nhưng không thể lưu lịch sử thao tác.\nPDF 已儲存，但操作紀錄無法保存。');
+        }
+      }
       setCuttingPdfProgress(100, 'Hoàn tất PDF. / PDF 完成。', 'Tệp đã được lưu vào vị trí đã chọn. / 檔案已儲存到選擇的位置。');
       hideCuttingPdfProgress(1600);
     }catch(e){
@@ -1987,6 +2020,4 @@
   window.cuttingCancelOrderLabel = cuttingCancelOrderLabel;
   window.cuttingClosePdfProgress = cuttingClosePdfProgress;
   window.cuttingInit = cuttingInit;
-
-  window.addEventListener('DOMContentLoaded', cuttingInit);
 })();

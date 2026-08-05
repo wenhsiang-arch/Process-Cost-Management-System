@@ -1,4 +1,6 @@
 // ===== 工序秒數同步工具 =====
+const syncSafeText=value=>window.PCMSSafe.text(value); // syncSafeText（工序同步安全文字）
+const syncSafeAttr=value=>window.PCMSSafe.attribute(value); // syncSafeAttr（工序同步安全屬性）
 
 function syncInit(){
   const sel = g('sync-order');
@@ -30,10 +32,7 @@ async function syncLoadProcs(){
   try{
     const orderSnap=await window._getDoc(window._doc(COL.orders,ordId));
     if(!orderSnap.exists()||!isOrderUsable(orderSnap.data())) throw new Error('Đơn hàng chưa sẵn sàng / 訂單尚未完成匯入');
-    const snap = await window._getDocs(
-      window._query(window._collection(COL.processes), window._where('orderId','==',ordId))
-    );
-    const procs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    const procs = await ensureOrderProcessesLoaded(ordId);
     const procNos = [...new Map(procs.map(p=>[String(p.processNo), p])).values()];
     procNos.sort((a,b)=>compareProcessNo(a.processNo,b.processNo));
     procNos.forEach(p=>{
@@ -55,14 +54,14 @@ function syncLoadTable(){
   if(!rows.length){ wrap.style.display='none'; return; }
   tb.innerHTML = rows.map((p,i)=>`
     <tr style="border-bottom:1px solid var(--bd)">
-      <td style="padding:8px 10px;font-size:13px"><b>${p.code}</b></td>
-      <td style="padding:8px 10px;font-size:13px">${p.color||'-'}</td>
-      <td style="padding:8px 10px;font-size:13px">${p.sz||'-'}</td>
+      <td style="padding:8px 10px;font-size:13px"><b>${syncSafeText(p.code)}</b></td>
+      <td style="padding:8px 10px;font-size:13px">${syncSafeText(p.color||'-')}</td>
+      <td style="padding:8px 10px;font-size:13px">${syncSafeText(p.sz||'-')}</td>
       <td style="padding:8px 10px;text-align:right;font-size:13px">${p.workStdSec||p.processSec||0} 秒</td>
       <td style="padding:8px 10px;text-align:right;font-size:13px">${p.slPerHour||0} 件/時</td>
       <td style="padding:8px 10px;text-align:center">
         <input type="number" min="1" max="999" placeholder="秒" id="sync-inp-${i}"
-          data-proc-id="${p.id}" data-code="${p.code}" data-old-sec="${p.workStdSec||p.processSec||0}"
+          data-proc-id="${syncSafeAttr(p.id)}" data-code="${syncSafeAttr(p.code)}" data-old-sec="${Number(p.workStdSec||p.processSec||0)}"
           style="width:80px;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;font-size:13px;text-align:center"
           oninput="syncUpdatePreview(${i})">
       </td>
@@ -106,7 +105,7 @@ function setSecondSyncProgress(percent,vi,zh,retry=false){
   g('sync-table-wrap').style.display='block';
   g('sync-progress-wrap').style.display='block';
   g('sync-progress-bar').style.width=Math.max(0,Math.min(100,percent))+'%';
-  g('sync-progress-text').innerHTML=`<div>${vi}</div><div style="margin-top:3px;color:var(--mu)">${zh}</div>`;
+  g('sync-progress-text').innerHTML=`<div>${syncSafeText(vi)}</div><div style="margin-top:3px;color:var(--mu)">${syncSafeText(zh)}</div>`;
   g('sync-retry-btn').style.display=retry?'':'none';
 }
 
@@ -152,13 +151,15 @@ async function runSecondSyncJob(jobId){
   const loaded=await loadSecondSyncWrites(job);
   if(loaded.processCount!==job.updates.length) throw new Error(`工序資料不一致：預期 ${job.updates.length} 筆，實際找到 ${loaded.processCount} 筆`);
   const writes=loaded.writes;
+  const completedAt=Date.now();
+  const processVersion=newOrderProcessVersion();
   await window._updateDoc(jobRef,{totalWrites:writes.length,processCount:loaded.processCount,status:'syncing',lastAttemptAt:Date.now()});
   if(writes.length<=398){
     setSecondSyncProgress(30,`Đang cập nhật ${loaded.processCount} công đoạn.`,`正在更新 ${loaded.processCount} 筆工序。`);
     const batch=window._writeBatch();
     writes.forEach(w=>batch.update(w.ref,w.data));
-    batch.update(jobRef,{status:'completed',completedWrites:writes.length,completedAt:Date.now()});
-    batch.update(orderRef,{lifecycleStatus:'active',secondSyncJobId:null,secondSyncCompletedAt:Date.now()});
+    batch.update(jobRef,{status:'completed',completedWrites:writes.length,completedAt});
+    batch.update(orderRef,{lifecycleStatus:'active',secondSyncJobId:null,secondSyncCompletedAt:completedAt,processVersion});
     await batch.commit();
   }else{
     const totalBatches=Math.ceil(writes.length/400);
@@ -171,22 +172,23 @@ async function runSecondSyncJob(jobId){
       await window._updateDoc(jobRef,{completedWrites:Math.min(i+400,writes.length),lastBatchCompletedAt:Date.now()});
     }
     const finalBatch=window._writeBatch();
-    finalBatch.update(jobRef,{status:'completed',completedWrites:writes.length,completedAt:Date.now()});
-    finalBatch.update(orderRef,{lifecycleStatus:'active',secondSyncJobId:null,secondSyncCompletedAt:Date.now()});
+    finalBatch.update(jobRef,{status:'completed',completedWrites:writes.length,completedAt});
+    finalBatch.update(orderRef,{lifecycleStatus:'active',secondSyncJobId:null,secondSyncCompletedAt:completedAt,processVersion});
     await finalBatch.commit();
   }
   const local=(window.allOrders||[]).find(o=>o.id===job.orderId);
-  if(local){ local.lifecycleStatus='active'; local.secondSyncJobId=null; }
+  if(local){ local.lifecycleStatus='active'; local.secondSyncJobId=null; local.processVersion=processVersion; }
   window._secondSyncRetryJobId=null;
   setSecondSyncProgress(100,`Đã cập nhật ${loaded.processCount} công đoạn.`,`已更新 ${loaded.processCount} 筆工序。`);
+  return {orderId:job.orderId,processVersion};
 }
 
 async function syncRetry(){
   if(!window._secondSyncRetryJobId) return;
   try{
     g('sync-retry-btn').style.display='none';
-    await runSecondSyncJob(window._secondSyncRetryJobId);
-    await reloadProcesses();
+    const result=await runSecondSyncJob(window._secondSyncRetryJobId);
+    await reloadProcesses({orderId:result.orderId,force:true});
     syncInit();
     alert('✅ Đồng bộ hoàn tất / 同步完成');
   }catch(e){
@@ -213,8 +215,8 @@ async function syncConfirm(){
     setSecondSyncProgress(5,'Đang khóa đơn hàng để đồng bộ.','正在鎖定訂單進行同步。');
     const jobId=await createSecondSyncJob(ordId,procNo,updates);
     window._secondSyncRetryJobId=jobId;
-    await runSecondSyncJob(jobId);
-    await reloadProcesses();
+    const result=await runSecondSyncJob(jobId);
+    await reloadProcesses({orderId:result.orderId,force:true});
     syncInit();
     alert('✅ Đồng bộ hoàn tất / 同步完成');
   }catch(e){

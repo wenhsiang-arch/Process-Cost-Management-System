@@ -53,7 +53,7 @@ function rAll(){
 
 async function saveSt(){
   const prevS={...window.S};
-  const prevClog=Array.isArray(window.cLog)?window.cLog.map(log=>({...log,ch:Array.isArray(log.ch)?log.ch.map(c=>({...c})):[]})):[];
+  const prevClog=Array.isArray(window.cLog)?window.cLog.map(log=>({...log})):[];
   const prev={sal:prevS.sal,ins:prevS.ins,meal:prevS.meal,usd:prevS.usd,twd:prevS.twd,ws:prevS.ws,eff:prevS.eff,hr:Math.round(getH())};
   rAll(); uEff();
   const next={sal:window.S.sal,ins:window.S.ins,meal:window.S.meal,usd:window.S.usd,twd:window.S.twd,ws:window.S.ws,eff:window.S.eff,hr:Math.round(getH())};
@@ -66,23 +66,29 @@ async function saveSt(){
       ch.push({f:lbs[k],b:prev[k],a:next[k],p});
     }
   });
-  const nextClog=ch.length>0?[...prevClog,{t:new Date().toLocaleString('zh-TW'),u:window.cu.user,ch}]:prevClog;
   try{
     window.S=nextS;
-    window.cLog=nextClog;
     if(window.saveSettingsToFB){
       const okSettings=await saveSettingsToFB();
       if(!okSettings) throw new Error('settings');
     }
+    let savedLog=null;
     if(ch.length>0&&window.saveCostLogToFB){
-      const okLog=await saveCostLogToFB();
-      if(!okLog) throw new Error('cLog');
+      try{
+        savedLog=await saveCostLogToFB({changes:ch});
+      }catch(logError){
+        console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
+      }
     }
+    window.cLog=savedLog?[savedLog,...prevClog].slice(0,50):prevClog;
     if(ch.length>0){
       rClog();
     }
     rAll(); uEff();
     const n=g('st-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
+    if(ch.length>0&&!savedLog){
+      alert('Đã lưu cài đặt, nhưng không thể lưu lịch sử thao tác.\n設定已儲存，但操作紀錄無法保存。');
+    }
   }catch(e){
     window.S=prevS;
     window.cLog=prevClog;

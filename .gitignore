@@ -4,3 +4,16 @@ firebase-diagnose.html
 cutting-cache/
 Khởi động công cụ PDF - 啟動PDF工具.bat
 Hủy đường dẫn khởi động PDF - 取消PDF啟動路徑.bat
+
+# Firebase Emulator（Firebase 本機模擬器）產生的暫存與記錄
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# Node.js（網頁程式測試環境）本機相依套件；正式工具固定安裝在 D 槽
+node_modules/
+npm-debug.log*
+
+# Security test（安全測試）臨時結果
+test-results/

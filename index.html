@@ -318,6 +318,17 @@ tr:hover td{background:#f8fafc}
       <!-- module-tabs-host（模組功能卡顯示位置）由 auth.js（登入與權限程式）依權限產生。 -->
       <div class="module-tabs" id="module-tabs-host" hidden></div>
 
+      <!-- 輕量功能首頁：登入後不讀取任何業務功能資料。 -->
+      <div class="pg" id="pg-home">
+        <div class="card" style="min-height:260px;display:flex;align-items:center;justify-content:center;text-align:center">
+          <div style="max-width:520px">
+            <i class="ti ti-layout-grid" style="font-size:48px;color:var(--accent)"></i>
+            <div style="font-size:22px;font-weight:600;color:var(--navy);margin-top:16px">Chọn chức năng để bắt đầu</div>
+            <div style="font-size:18px;color:var(--mu);margin-top:8px">請從左側選擇要使用的功能</div>
+          </div>
+        </div>
+      </div>
+
       <!-- 工序秒數同步 -->
       <div class="pg" id="pg-sync">
         <div class="card">
@@ -690,7 +701,7 @@ tr:hover td{background:#f8fafc}
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
-            <input id="prog-code-q" type="search" oninput="renderProgress()" placeholder="Tìm mã hàng / 搜尋款號..." style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px">
+            <input id="prog-code-q" type="search" oninput="scheduleProgressRender()" placeholder="Tìm mã hàng / 搜尋款號..." style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px">
           </div>
           <div id="prog-content"></div>
         </div>
@@ -800,7 +811,7 @@ tr:hover td{background:#f8fafc}
     <div class="nt ni2" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>Phê duyệt trước địa chỉ Google; người dùng có thể vào hệ thống ngay khi đăng nhập lần đầu.<br>先核准 Google（Google 帳號）電子信箱；使用者第一次登入時即可直接進入系統。</span></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Email Google / Google 電子信箱</label><input type="email" id="ac-email" maxlength="254" autocomplete="off" placeholder="name@example.com"></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ac-u" maxlength="100" autocomplete="off"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ac-r"><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển sản xuất / 開發</option><option value="productionControl">Quản lý sản xuất / 生管</option><option value="admin">Quản trị viên / 管理員</option></select></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ac-r"><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển / 開發</option><option value="productionControl">Quản lý sản xuất / 生管</option><option value="sales">Kinh doanh / 業務</option><option value="admin">Quản trị viên / 管理員</option></select></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px"><input type="checkbox" id="ac-active" checked style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
     <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>Thêm / 新增</button><button class="btn" onclick="cm('m-nacc')">Hủy / 取消</button></div>
   </div></div>
@@ -811,7 +822,7 @@ tr:hover td{background:#f8fafc}
     <div class="fgrp" style="margin-bottom:12px"><label>Email Google / Google 電子信箱</label><input type="text" id="ea-email-view" readonly></div>
     <div class="fgrp" style="margin-bottom:12px"><label>UID / 使用者識別碼</label><input type="text" id="ea-uid-view" readonly></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ea-u" maxlength="100" autocomplete="off"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ea-r"><option value="admin">Quản trị viên / 管理員</option><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển sản xuất / 開發</option><option value="productionControl">Quản lý sản xuất / 生管</option></select></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ea-r"><option value="admin">Quản trị viên / 管理員</option><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển / 開發</option><option value="productionControl">Quản lý sản xuất / 生管</option><option value="sales">Kinh doanh / 業務</option></select></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="ea-active" style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
     <div class="nt nw" id="ea-self-note" style="display:none;margin-bottom:12px"><i class="ti ti-shield-lock"></i><span>Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập.<br>目前登入帳號不可停用或降低權限。</span></div>
     <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>Lưu / 儲存</button><button class="btn" onclick="cm('m-eacc')">Hủy / 取消</button></div>
@@ -900,35 +911,17 @@ tr:hover td{background:#f8fafc}
 </div>
 </div>
 
-<!-- 外部 JS 函式庫 -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-
-<!-- 一般 JS 模組（依賴順序載入）-->
-<script src="js/utils.js?v=20260806-4"></script>
+<!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
+<script src="js/safe-dom.js?v=20260806-1"></script>
+<script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/auth.js?v=20260806-4"></script>
-<!-- js/settings.js（設定程式）快取版本 -->
-<script src="js/settings.js?v=20260805-1"></script>
-<script src="js/summary.js?v=20260805-1"></script>
-<!-- js/data.js（資料與匯出程式）快取版本 -->
-<script src="js/data.js?v=20260806-3"></script>
-<script src="js/cutting-store.js?v=20260804-4"></script>
-<script src="js/cutting.js?v=20260806-1"></script>
-<script src="js/accounts.js?v=20260806-3"></script>
-<script src="js/orders.js?v=20260805-3"></script>
-<script src="js/sync.js?v=20260805-1"></script>
-<script src="js/permissions.js?v=20260806-3"></script>
+<script src="js/features.js?v=20260806-2"></script>
+<script src="js/auth.js?v=20260806-6"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260806-3"></script>
+<script type="module" src="js/firebase.js?v=20260806-4"></script>
 
 <script>
-// cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。
-if(typeof window.cuttingInit==='function'){
-  window.removeEventListener('DOMContentLoaded',window.cuttingInit);
-}
-
 function setManagementNavOpen(open){
   const group=document.getElementById('management-nav');
   const toggle=document.getElementById('management-toggle');
@@ -944,7 +937,6 @@ function toggleManagementNav(){
 
 // 頁面載入後初始化
 window.addEventListener('DOMContentLoaded', () => {
-  rAll();
   setManagementNavOpen(false);
 });
 </script>

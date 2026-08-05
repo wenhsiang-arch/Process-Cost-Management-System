@@ -1,18 +1,19 @@
 // ===== 共用常數 =====
 const COL = {orders:'orders', processes:'orderProcesses', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks', secondSyncLogs:'secondSyncLogs'};
 // CONFIGURABLE_ROLES（可設定權限角色）、DESK_ROLES（桌機系統角色）。
-const CONFIGURABLE_ROLES = ['manager','clerk','productionDevelopment','productionControl'];
+const CONFIGURABLE_ROLES = ['manager','clerk','productionDevelopment','productionControl','sales'];
 const DESK_ROLES = ['admin',...CONFIGURABLE_ROLES];
 // ROLE_LABEL（角色雙語名稱）、ROLE_ORDER（角色顯示順序）、ROLE_TAG_CLASS（角色標籤樣式）。
 const ROLE_LABEL = {
   admin:'Quản trị viên / 管理員',
   manager:'Trưởng bộ phận / 課長',
   clerk:'Nhân viên văn phòng / 文員',
-  productionDevelopment:'Phát triển sản xuất / 開發',
-  productionControl:'Quản lý sản xuất / 生管'
+  productionDevelopment:'Phát triển / 開發',
+  productionControl:'Quản lý sản xuất / 生管',
+  sales:'Kinh doanh / 業務'
 };
-const ROLE_ORDER = {admin:0,manager:1,clerk:2,productionDevelopment:3,productionControl:4};
-const ROLE_TAG_CLASS = {admin:'tg2',manager:'tb2',clerk:'ta',productionDevelopment:'ta',productionControl:'tb2'};
+const ROLE_ORDER = {admin:0,manager:1,clerk:2,productionDevelopment:3,productionControl:4,sales:5};
+const ROLE_TAG_CLASS = {admin:'tg2',manager:'tb2',clerk:'ta',productionDevelopment:'ta',productionControl:'tb2',sales:'tg2'};
 window.CONFIGURABLE_ROLES=CONFIGURABLE_ROLES;
 window.DESK_ROLES=DESK_ROLES;
 
@@ -38,6 +39,11 @@ function canManageOrders(){
   return permissions?.progress===true&&permissions?.orderImport===true;
 }
 function orderLockId(orderNo){ return encodeURIComponent(String(orderNo||'').trim().toUpperCase()); }
+// newOrderProcessVersion（建立訂單工序版本）：只讓有變動的訂單工序快取失效。
+function newOrderProcessVersion(){
+  const uid=String(window.firebaseAuthUser?.uid||'user').slice(0,12);
+  return `${Date.now()}-${uid}-${Math.random().toString(36).slice(2,8)}`;
+}
 function normalizeProcessNo(value){
   const raw=String(value??'').trim();
   return /^[1-9]\d?$/.test(raw)?String(Number(raw)):'';
@@ -89,8 +95,7 @@ function fm(v){
 
 // ===== 搜尋高亮 =====
 function hl(t,q){
-  if(!q||!t) return String(t||'');
-  return String(t).replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<span class="hl">$1</span>');
+  return window.PCMSSafe.highlight(t,q);
 }
 
 // ===== 成本計算 =====

@@ -5,7 +5,7 @@
   1. 本檔是版本控制中的規則來源；每次修改後必須先測試，再由管理員部署。
   2. 系統已使用 Firebase Authentication（Firebase 身分驗證）與 Google（Google 帳號）登入。
   3. 保留第一位管理員以 UID（使用者識別碼）建立的 userAccess（使用者存取權限）文件作為安全退路。
-  4. manager（課長）、clerk（文員）、productionDevelopment（生產開發）與 productionControl（生管）
+  4. manager（課長）、clerk（文員）、productionDevelopment（開發）、productionControl（生管）與 sales（業務）
      都必須建立 rolePermissions（角色功能權限）文件後才能登入。
   5. admin（管理員）保留固定完整管理能力；其他角色依 rolePermissions（角色功能權限）開放。
 
@@ -71,7 +71,7 @@ service cloud.firestore {
       return hasAccessDocument() && accessDocument().active == true;
     }
 
-    // admin（管理員）、manager（課長）、clerk（文員）、productionDevelopment（生產開發）、productionControl（生管）
+    // admin（管理員）、manager（課長）、clerk（文員）、productionDevelopment（開發）、productionControl（生管）、sales（業務）
     // isAdmin（管理員判斷）
     function isAdmin() {
       return activeAccount() && accessDocument().role == 'admin';
@@ -81,7 +81,7 @@ service cloud.firestore {
     function isConfigurableRole() {
       return activeAccount()
         && accessDocument().role in [
-          'manager', 'clerk', 'productionDevelopment', 'productionControl'
+          'manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales'
         ];
     }
 
@@ -177,7 +177,7 @@ service cloud.firestore {
         ])
         && validShortString(request.resource.data.username, 100)
         && request.resource.data.role in [
-          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl'
+          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales'
         ]
         && request.resource.data.active is bool
         && request.resource.data.updatedAt is int
@@ -216,7 +216,7 @@ service cloud.firestore {
         && resource.data.email == userId
         && resource.data.active == true
         && resource.data.role in [
-          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl'
+          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales'
         ]
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'authUid', 'googleDisplayName', 'lastLoginAt'
@@ -237,7 +237,7 @@ service cloud.firestore {
 
     // validRolePermissions（角色功能權限資料檢查）
     function validRolePermissions(roleId) {
-      return roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl']
+      return roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales']
         && request.resource.data.keys().hasAll([
           'role', 'active', 'features', 'updatedAt', 'updatedBy'
         ])
@@ -258,6 +258,67 @@ service cloud.firestore {
         && request.resource.data.data.size() <= maximumLength;
     }
 
+    // validNonNegativeInteger（非負整數檢查）
+    function validNonNegativeInteger(value) {
+      return value is int && value >= 0;
+    }
+
+    // validOperationLogAction（操作紀錄功能與動作配對檢查）
+    function validOperationLogAction() {
+      let permissionKey = request.resource.data.permissionKey;
+      let feature = request.resource.data.feature;
+      let action = request.resource.data.action;
+      return (permissionKey == 'summary'
+          && feature == 'products'
+          && action in ['productImport', 'productBackupExport'])
+        || (permissionKey == 'export'
+          && feature == 'cost'
+          && action == 'productCostExport')
+        || (permissionKey == 'costlog'
+          && feature == 'cost'
+          && action == 'costSettingsUpdate')
+        || (permissionKey == 'orderImport'
+          && feature == 'orders'
+          && action == 'orderImport')
+        || (permissionKey == 'cutting'
+          && feature == 'cutting'
+          && action in ['cuttingTemplateImport', 'cuttingExcelExport', 'cuttingPdfExport']);
+    }
+
+    // validOperationLog（每次操作一筆且建立後不可變更的操作紀錄）
+    function validOperationLog() {
+      return request.resource.data.keys().hasAll([
+          'permissionKey', 'feature', 'action', 'status', 'createdAt',
+          'createdByUid', 'createdBy', 'itemCount', 'detailCount'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'permissionKey', 'feature', 'action', 'status', 'createdAt',
+          'createdByUid', 'createdBy', 'itemCount', 'detailCount',
+          'overwriteCount', 'skippedCount', 'fileName', 'changes', 'note'
+        ])
+        && validOperationLogAction()
+        && request.resource.data.status in ['success', 'partial', 'failed']
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdByUid == request.auth.uid
+        && validShortString(request.resource.data.createdBy, 200)
+        && validNonNegativeInteger(request.resource.data.itemCount)
+        && validNonNegativeInteger(request.resource.data.detailCount)
+        && (!('overwriteCount' in request.resource.data)
+          || validNonNegativeInteger(request.resource.data.overwriteCount))
+        && (!('skippedCount' in request.resource.data)
+          || validNonNegativeInteger(request.resource.data.skippedCount))
+        && (!('fileName' in request.resource.data)
+          || (request.resource.data.fileName is string
+            && request.resource.data.fileName.size() <= 300))
+        && (!('changes' in request.resource.data)
+          || (request.resource.data.changes is list
+            && request.resource.data.changes.size() <= 50))
+        && (!('note' in request.resource.data)
+          || (request.resource.data.note is string
+            && request.resource.data.note.size() <= 500));
+    }
+
     // validOrder（訂單資料檢查）
     function validOrder() {
       return validShortString(request.resource.data.orderId, 200)
@@ -265,7 +326,15 @@ service cloud.firestore {
         && request.resource.data.itemCount >= 0
         && request.resource.data.totalQty is int
         && request.resource.data.totalQty >= 0
-        && request.resource.data.importStatus in ['importing', 'ready', 'failed'];
+        && request.resource.data.importStatus in ['importing', 'ready', 'failed']
+        && (!('processCount' in request.resource.data)
+          || (request.resource.data.processCount is int
+            && request.resource.data.processCount >= 0))
+        && (!('productCodes' in request.resource.data)
+          || (request.resource.data.productCodes is list
+            && request.resource.data.productCodes.size() <= 498))
+        && (!('processVersion' in request.resource.data)
+          || validShortString(request.resource.data.processVersion, 150));
     }
 
     // validOrderProcess（訂單工序資料檢查）
@@ -303,6 +372,33 @@ service cloud.firestore {
         && request.resource.data.ops.size() <= 200;
     }
 
+    // validProductChange（款號增量變更資料檢查）
+    function validProductChange() {
+      return request.resource.data.keys().hasAll([
+          'sequence', 'fromVersion', 'toVersion', 'changedCodes', 'deletedCodes',
+          'createdAt', 'createdByUid', 'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'sequence', 'fromVersion', 'toVersion', 'changedCodes', 'deletedCodes',
+          'createdAt', 'createdByUid', 'createdBy'
+        ])
+        && request.resource.data.sequence is int
+        && request.resource.data.sequence > 0
+        && validShortString(request.resource.data.fromVersion, 100)
+        && validShortString(request.resource.data.toVersion, 100)
+        && request.resource.data.fromVersion != request.resource.data.toVersion
+        && request.resource.data.changedCodes is list
+        && request.resource.data.deletedCodes is list
+        && request.resource.data.changedCodes.size()
+          + request.resource.data.deletedCodes.size() > 0
+        && request.resource.data.changedCodes.size()
+          + request.resource.data.deletedCodes.size() <= 498
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdByUid == request.auth.uid
+        && validShortString(request.resource.data.createdBy, 200);
+    }
+
     // validCuttingChunk（裁帶模板分段資料檢查）
     function validCuttingChunk() {
       return request.resource.data.keys().hasAll(['templateId', 'index', 'data', 'updatedAt'])
@@ -316,15 +412,47 @@ service cloud.firestore {
         && request.resource.data.updatedAt.size() <= 100;
     }
 
+    // configuredRoleCanReadProducts（可設定角色可以讀取款號工序資料）
+    // 同一個請求只取得一次 features（功能權限），避免重複呼叫 hasFeature（功能權限判斷）
+    // 造成 Firestore Rules（雲端安全規則）運算式數量超過上限。
+    function configuredRoleCanReadProducts() {
+      let roleId = accessDocument().role;
+      let features = get(
+        /databases/$(database)/documents/rolePermissions/$(roleId)
+      ).data.features;
+      return ('cutting' in features && features.cutting == true)
+        || ('summary' in features && features.summary == true
+          && (!('productsMain' in features) || features.productsMain == true))
+        || ('orderImport' in features && features.orderImport == true
+          && 'progress' in features && features.progress == true)
+        || ('export' in features && features.export == true
+          && (!('costMain' in features) || features.costMain == true)
+          && (('costMain' in features)
+            || ('costView' in features && features.costView == true)));
+    }
+
     // canReadProducts（可以讀取款號工序資料）
     function canReadProducts() {
-      return hasFeature('summary') || hasFeature('export')
-        || hasFeature('orderImport') || hasFeature('cutting');
+      return isAdmin()
+        || (rolePermissionsReady() && configuredRoleCanReadProducts());
+    }
+
+    // configuredRoleCanReadOrders（可設定角色可以讀取訂單與工序資料）
+    function configuredRoleCanReadOrders() {
+      let roleId = accessDocument().role;
+      let features = get(
+        /databases/$(database)/documents/rolePermissions/$(roleId)
+      ).data.features;
+      return ('progress' in features && features.progress == true)
+        || ('orderImport' in features && features.orderImport == true
+          && 'progress' in features && features.progress == true)
+        || ('sync' in features && features.sync == true);
     }
 
     // canReadOrders（可以讀取訂單與工序資料）
     function canReadOrders() {
-      return hasFeature('progress') || hasFeature('orderImport') || hasFeature('sync');
+      return isAdmin()
+        || (rolePermissionsReady() && configuredRoleCanReadOrders());
     }
 
     // validDataVersions（資料版本文件檢查）
@@ -434,14 +562,22 @@ service cloud.firestore {
 
     // system/impHist（匯入記錄）
     match /system/impHist {
-      allow read: if hasFeature('summary');
-      allow write: if hasFeature('summary') && validSystemData(900000);
+      allow read: if isAdmin();
+      allow write: if false;
     }
 
     // system/cLog（成本變動記錄）
     match /system/cLog {
-      allow read: if hasFeature('costlog');
-      allow write: if isAdmin() && validSystemData(900000);
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // operationLogs（獨立操作紀錄）：依功能權限查詢，建立後禁止修改與刪除。
+    match /operationLogs/{logId} {
+      allow read: if isAdmin() || hasFeature(resource.data.permissionKey);
+      allow create: if hasFeature(request.resource.data.permissionKey)
+        && validOperationLog();
+      allow update, delete: if false;
     }
 
     // system/employeeUserHistory（已淘汰的員工帳號使用歷史）
@@ -456,6 +592,13 @@ service cloud.firestore {
       allow delete: if hasFeature('summary');
     }
 
+    // productChanges（款號增量變更）：供快取只補讀有變動的款號，建立後禁止修改與刪除。
+    match /productChanges/{changeId} {
+      allow read: if canReadProducts();
+      allow create: if hasFeature('summary') && validProductChange();
+      allow update, delete: if false;
+    }
+
     // employees（已淘汰的員工資料）
     match /employees/{employeeId} {
       allow read, write: if false;
@@ -467,8 +610,8 @@ service cloud.firestore {
       allow read: if canReadOrders()
         && (!('snapshotHr' in resource.data) || hasFeature('costView'));
       allow create: if hasFeature('orderImport') && validOrder();
-      allow update: if (hasFeature('orderImport') || hasFeature('progress')
-        || hasFeature('sync')) && validOrder();
+      // canReadOrders（訂單存取判斷）已涵蓋管理員、訂單資料及同步權限，避免重複讀取角色文件。
+      allow update: if canReadOrders() && validOrder();
       allow delete: if isAdmin()
         || (hasFeature('orderImport') && resource.data.importStatus == 'failed');
     }

@@ -1,6 +1,8 @@
 // ===== 匯入 =====
-let nItms=null, dups=[];
+let nItms=null, dups=[], detailImportFileName='';
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
+const dataSafeText=value=>window.PCMSSafe.text(value); // dataSafeText（資料畫面安全文字）
+const dataSafeError=error=>window.PCMSSafe.errorMessage(error); // dataSafeError（資料畫面安全錯誤訊息）
 function processCategoryLabel(code){ return PROCESS_CATEGORIES[code]||code||'—'; }
 
 function validateImportProcessRows(rows){
@@ -89,9 +91,9 @@ function renderImportErrors(errors){
   });
   Object.entries(grouped).forEach(([code,list])=>{
     const total=errors.filter(e=>(e.code||'Khác / 其他')===code).length;
-    html+=`<div style="margin-top:8px;font-weight:600">▼ ${code}　${total} lỗi / ${total} 筆錯誤</div>`;
+    html+=`<div style="margin-top:8px;font-weight:600">▼ ${dataSafeText(code)}　${total} lỗi / ${total} 筆錯誤</div>`;
     list.forEach(e=>{
-      html+=`<div style="margin:5px 0 0 18px">${e.vi}<br><span style="color:var(--err)">${e.zh}</span></div>`;
+      html+=`<div style="margin:5px 0 0 18px">${dataSafeText(e.vi)}<br><span style="color:var(--err)">${dataSafeText(e.zh)}</span></div>`;
     });
   });
   if(errors.length>10) html+=`<div style="margin-top:10px">Hiển thị 10/${errors.length} lỗi.<br>目前顯示 10/${errors.length} 筆錯誤。</div>`;
@@ -118,7 +120,7 @@ function openDetailImportModal(){
 
 function closeDetailImportModal(){
   resetDetailImportDisplay();
-  nItms=null; dups=[]; g('fi').value='';
+  nItms=null; dups=[]; detailImportFileName=''; g('fi').value='';
   cm('m-detail-import');
 }
 
@@ -153,15 +155,24 @@ function hImport(input){
   processDetailImportFile(file);
 }
 
-function processDetailImportFile(file){
+async function processDetailImportFile(file){
   g('imp-err').style.display='none';
+  detailImportFileName=String(file?.name||'').slice(0,300);
+  try{
+    await window.PCMSFeatures.ensureSpreadsheetTool();
+  }catch(error){
+    g('imp-err').style.display='flex';
+    g('imp-err-msg').textContent='Không thể tải công cụ Excel. / 無法載入 Excel（表格檔）工具。';
+    g('fi').value='';
+    return;
+  }
   setProg(10,'Đang đọc file... / 正在讀取檔案...','');
   setTimeout(()=>{
     const reader=new FileReader();
     reader.onerror=function(){
       hideProg();
       g('imp-err').style.display='flex';
-      g('imp-err-msg').innerHTML='無法讀取檔案，請確認格式是否正確 / Không thể đọc file.';
+      g('imp-err-msg').textContent='Không thể đọc file, vui lòng kiểm tra định dạng. / 無法讀取檔案，請確認格式是否正確。';
       g('fi').value='';
     };
     reader.onload=function(e){
@@ -206,17 +217,17 @@ function processDetailImportFile(file){
                   dr.slice(0,5).forEach(r=>{
                     const isDup=dups.includes(String(r[0]).trim());
                     const tr=document.createElement('tr');
-                    tr.innerHTML=`<td>${isDup?'<span class="tg tr2">Trùng/重複</span> ':''}<b>${r[0]}</b></td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td>${r[7]}</td><td>${r[8]}</td><td>${r[9]}</td>`;
+                    tr.innerHTML=`<td>${isDup?'<span class="tg tr2">Trùng/重複</span> ':''}<b>${dataSafeText(r[0])}</b></td><td>${dataSafeText(r[1])}</td><td>${dataSafeText(r[2])}</td><td>${dataSafeText(r[3])}</td><td>${dataSafeText(r[4])}</td><td>${dataSafeText(r[5])}</td><td>${dataSafeText(r[6])}</td><td>${dataSafeText(r[7])}</td><td>${dataSafeText(r[8])}</td><td>${dataSafeText(r[9])}</td>`;
                     tbody.appendChild(tr);
                   });
                 },500);
-              }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').innerHTML='處理資料失敗：'+err.message; }
+              }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').textContent='Xử lý dữ liệu thất bại / 處理資料失敗：'+String(err?.message||''); }
               finally{ g('fi').value=''; }
             },300);
-          }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').innerHTML='讀取工作表失敗：'+err.message; }
+          }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').textContent='Không thể đọc bảng tính / 讀取工作表失敗：'+String(err?.message||''); }
           finally{ g('fi').value=''; }
         },200);
-      }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').innerHTML='檔案格式錯誤：'+err.message; }
+      }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').textContent='Định dạng tệp không đúng / 檔案格式錯誤：'+String(err?.message||''); }
       finally{ g('fi').value=''; }
     };
     reader.readAsBinaryString(file);
@@ -230,7 +241,7 @@ function chkDup(){
     g('dup-warn').style.display='block';
     g('dup-list').innerHTML=dups.map(code=>{
       const ex=window.D.find(d=>d.code===code), inc=nItms[code];
-      return`<div class="di"><span><b>${code}</b> ${ex.zh}</span><span style="color:var(--mu)">${ex.ops.length} CĐ → ${inc.ops.length} CĐ</span></div>`;
+      return`<div class="di"><span><b>${dataSafeText(code)}</b> ${dataSafeText(ex.zh)}</span><span style="color:var(--mu)">${ex.ops.length} CĐ → ${inc.ops.length} CĐ</span></div>`;
     }).join('');
   } else cImp('al');
 }
@@ -250,7 +261,7 @@ async function cImp(mode){
   });
   const actualCount=added+ow;
   const to=nd.filter(x=>!dups.includes(x.code)||mode!=='sk').reduce((a,d)=>a+d.ops.length,0);
-  const hist={t:new Date().toLocaleString('zh-TW'),u:window.cu.user,c:actualCount,o:to,ow,sk};
+  const hist={c:actualCount,o:to,ow,sk,fileName:detailImportFileName};
   const changedItems=nd.filter(x=>!dups.includes(x.code)||mode!=='sk');
   let msgVi=`✓ Đã đồng bộ lên đám mây: ${actualCount} mã, ${to} công đoạn`;
   let msgZh=`雲端已同步：${actualCount} 款，${to} 工序`;
@@ -265,7 +276,7 @@ async function cImp(mode){
     if(!ok1){
       const failMsg=window.lastProductSyncError || '❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại file Excel / 匯入失敗，正式資料未更新。請確認網路後重新匯入 Excel（表格檔）';
       if(window.lastProductSyncError){
-        g('imp-ok-msg').innerHTML=String(failMsg).split('\n').map(s=>s.replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))).join('<br>');
+        g('imp-ok-msg').innerHTML=window.PCMSSafe.lines(failMsg);
       } else {
         g('imp-ok-msg').textContent=failMsg;
       }
@@ -278,19 +289,21 @@ async function cImp(mode){
       if(i>=0) window.D[i]=x;
       else window.D.push(x);
     });
-    const originalHist=Array.isArray(window.impHist)?window.impHist.map(item=>({...item})):[];
-    window.impHist=[...originalHist,hist];
-    const ok2=await saveHistoryToFB();
-    if(!ok2){
-      window.impHist=originalHist;
+    let savedHistory=null;
+    try{
+      savedHistory=await saveHistoryToFB(hist);
+    }catch(error){
+      console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',error);
+    }
+    if(!savedHistory){
       g('imp-ok-msg').innerHTML=msg+'<div>⚠️ Lịch sử nhập không lưu được lên đám mây, không lưu tạm trên máy này</div><div>匯入紀錄無法保存到雲端，未暫存在本機</div>';
     } else {
-      try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
+      window.impHist=[savedHistory,...(window.impHist||[])].slice(0,50);
     }
     ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
-    nItms=null; dups=[]; g('fi').value='';
+    nItms=null; dups=[]; detailImportFileName=''; g('fi').value='';
     rSum(); rDet(); rExp(); rBk(); rHist();
-    if(ok2) g('imp-ok-msg').innerHTML=msg;
+    if(savedHistory) g('imp-ok-msg').innerHTML=msg;
   } else {
     g('imp-ok-msg').textContent='❌ Không thể đồng bộ / 無法同步：Firebase 功能尚未載入，正式款號資料未更新';
   }
@@ -316,7 +329,7 @@ function rExp(){
   window.D.filter(d=>!cf||d.client===cf).forEach(d=>{
     let s=0; d.ops.forEach(op=>{ s+=calc(op.sec).vnd; });
     const r=document.createElement('tr');
-    r.innerHTML=`<td><b style="color:var(--navy)">${d.code}</b></td><td>${d.client}</td><td>${d.zh}</td><td>${d.sz}</td><td>${d.ops.length}</td>`
+    r.innerHTML=`<td><b style="color:var(--navy)">${dataSafeText(d.code)}</b></td><td>${dataSafeText(d.client)}</td><td>${dataSafeText(d.zh)}</td><td>${dataSafeText(d.sz)}</td><td>${d.ops.length}</td>`
       +(showCosts?`<td style="color:var(--accent);font-weight:500">${fU(s)}</td><td>${fV(s)}</td><td>${fT(s)}</td>`:'');
     tb.appendChild(r);
   });
@@ -392,6 +405,7 @@ async function doExport(){
     const fname='產品工價_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
     const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
     if(!saveHandle) return;
+    await window.PCMSFeatures.ensureSpreadsheetTool();
     const fd=window.D.filter(d=>!cf||d.client===cf);
     const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
     const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
@@ -505,6 +519,22 @@ async function doExport(){
     }
 
     await writeSpreadsheetWorkbookToHandle(saveHandle,wb);
+    if(window.saveOperationLogToFB){
+      try{
+        await saveOperationLogToFB({
+          permissionKey:'export',
+          feature:'cost',
+          action:'productCostExport',
+          status:'success',
+          itemCount:fd.length,
+          detailCount:fd.reduce((sum,item)=>sum+item.ops.length,0),
+          fileName:saveHandle.name||fname
+        });
+      }catch(logError){
+        console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
+        alert('Đã xuất tệp, nhưng không thể lưu lịch sử thao tác.\n檔案已匯出，但操作紀錄無法保存。');
+      }
+    }
     const n=g('ex-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
   }catch(err){ alert('Xuất thất bại / 匯出失敗：'+err.message); console.error(err); }
 }
@@ -535,6 +565,7 @@ async function doBackup(){
     const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
     const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
     if(!saveHandle) return;
+    await window.PCMSFeatures.ensureSpreadsheetTool();
     const fd=window.D.filter(d=>!cf||d.client===cf);
     const mkBd=()=>({top:{style:'thin',color:{rgb:'595959'}},bottom:{style:'thin',color:{rgb:'595959'}},left:{style:'thin',color:{rgb:'595959'}},right:{style:'thin',color:{rgb:'595959'}}});
     const mkBdH=()=>({top:{style:'thin',color:{rgb:'2D5F8E'}},bottom:{style:'thin',color:{rgb:'2D5F8E'}},left:{style:'thin',color:{rgb:'2D5F8E'}},right:{style:'thin',color:{rgb:'2D5F8E'}}});
@@ -577,6 +608,22 @@ async function doBackup(){
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'備份資料');
     await writeSpreadsheetWorkbookToHandle(saveHandle,wb);
+    if(window.saveOperationLogToFB){
+      try{
+        await saveOperationLogToFB({
+          permissionKey:'summary',
+          feature:'products',
+          action:'productBackupExport',
+          status:'success',
+          itemCount:fd.length,
+          detailCount:fd.reduce((sum,item)=>sum+item.ops.length,0),
+          fileName:saveHandle.name||fname
+        });
+      }catch(logError){
+        console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
+        alert('Đã xuất tệp, nhưng không thể lưu lịch sử thao tác.\n檔案已匯出，但操作紀錄無法保存。');
+      }
+    }
     const n=g('bk-ok');
     g('bk-ok-msg').textContent=`✓ 已匯出 ${fd.length} 個款號，${fd.reduce((a,d)=>a+d.ops.length,0)} 道工序 / Đã xuất ${fd.length} mã hàng.`;
     n.style.display='flex'; setTimeout(()=>n.style.display='none',4000);
@@ -587,7 +634,14 @@ async function doBackup(){
 function rHist(){
   const el=g('hist-list'); if(!el) return;
   if(!window.impHist.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }
-  el.innerHTML=window.impHist.slice().reverse().map(h=>`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${h.t}</span><span style="color:var(--mu)">${h.u}</span><span class="tg tb2">${h.c} mã/款號</span><span class="tg tg2">${h.o} CĐ/工序</span>${h.ow?`<span class="tg ta">Ghi đè/覆蓋 ${h.ow}</span>`:''}</div>`).join('');
+  el.innerHTML=window.impHist.map(h=>{
+    const time=h.createdAt?new Date(h.createdAt).toLocaleString('zh-TW'):h.t;
+    const user=h.createdBy||h.u||'';
+    const count=h.itemCount??h.c??0;
+    const details=h.detailCount??h.o??0;
+    const overwritten=h.overwriteCount??h.ow??0;
+    return`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${dataSafeText(time)}</span><span style="color:var(--mu)">${dataSafeText(user)}</span><span class="tg tb2">${Number(count)||0} mã/款號</span><span class="tg tg2">${Number(details)||0} CĐ/工序</span>${Number(overwritten)>0?`<span class="tg ta">Ghi đè/覆蓋 ${Number(overwritten)}</span>`:''}</div>`;
+  }).join('');
 }
 
 // ===== 成本變動記錄 =====
@@ -598,25 +652,34 @@ function rClog(){
     return;
   }
   if(!window.cLog.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }
-  el.innerHTML=window.cLog.slice().reverse().map(log=>`
+  el.innerHTML=window.cLog.map(log=>{
+    const changes=Array.isArray(log.changes)?log.changes:(Array.isArray(log.ch)?log.ch:[]);
+    const time=log.createdAt?new Date(log.createdAt).toLocaleString('zh-TW'):log.t;
+    const user=log.createdBy||log.u||'';
+    return`
     <div style="margin-bottom:14px;border:1px solid var(--bd);border-radius:10px;overflow:hidden">
       <div style="background:#f8fafc;padding:9px 14px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--bd)">
         <i class="ti ti-clock" style="color:var(--accent)"></i>
-        <span style="font-size:12px;color:var(--mu)">${log.t}</span>
-        <span class="tg tn">${log.u}</span>
-        <span class="tg tb2">${log.ch.length} thay đổi / 項變更</span>
+        <span style="font-size:12px;color:var(--mu)">${dataSafeText(time)}</span>
+        <span class="tg tn">${dataSafeText(user)}</span>
+        <span class="tg tb2">${changes.length} thay đổi / 項變更</span>
       </div>
       <div style="padding:4px 0">
-        ${log.ch.map(c=>{
-          const up=c.a>c.b;
+        ${changes.map(c=>{
+          const before=c.before??c.b??0;
+          const after=c.after??c.a??0;
+          const percent=c.percent??c.p??null;
+          const field=c.field??c.f??'';
+          const up=after>before;
           return`<div class="cc">
-            <span style="min-width:100px;font-weight:500;font-size:12px">${c.f}</span>
-            <span style="color:var(--mu);font-size:12px">${Number(c.b).toLocaleString()}</span>
+            <span style="min-width:100px;font-weight:500;font-size:12px">${dataSafeText(field)}</span>
+            <span style="color:var(--mu);font-size:12px">${Number(before).toLocaleString()}</span>
             <i class="ti ti-arrow-right" style="color:var(--hi);font-size:12px"></i>
-            <span style="font-weight:500;font-size:12px">${Number(c.a).toLocaleString()}</span>
-            ${c.p?`<span class="tg ${up?'tr2':'tg2'}">${up?'▲':'▼'} ${Math.abs(c.p)}%</span>`:''}
+            <span style="font-weight:500;font-size:12px">${Number(after).toLocaleString()}</span>
+            ${percent?`<span class="tg ${up?'tr2':'tg2'}">${up?'▲':'▼'} ${Math.abs(percent)}%</span>`:''}
           </div>`;
         }).join('')}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }

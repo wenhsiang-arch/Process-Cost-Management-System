@@ -1,6 +1,7 @@
 // ===== 款號排序 =====
 let _sumSortCol='', _sumSortDir=0;
 const _expandedSummaryCodes=new Set();
+const summarySafeText=value=>window.PCMSSafe.text(value); // summarySafeText（款號畫面安全文字）
 function sumSort(col){
   if(_sumSortCol===col){ _sumSortDir=(_sumSortDir+1)%3; }
   else{ _sumSortCol=col; _sumSortDir=1; }
@@ -39,12 +40,12 @@ function renderSummaryDetail(d){
   let total=0;
   const rows=[...d.ops].sort((a,b)=>compareProcessNo(a.no,b.no)).map(op=>{
     const result=calc(op.sec); total+=result.vnd;
-    return`<tr><td>${op.no}</td><td><span class="tg tn">${op.category||'—'} · ${processCategoryLabel(op.category)}</span></td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(result.vnd)}</td>`:'')+`</tr>`;
+    return`<tr><td>${summarySafeText(op.no)}</td><td><span class="tg tn">${summarySafeText(op.category||'—')} · ${summarySafeText(processCategoryLabel(op.category))}</span></td><td>${summarySafeText(op.zh)}</td><td style="color:var(--mu)">${summarySafeText(op.vi||'')}</td><td>${summarySafeText(op.sec)}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(result.vnd))}</td>`:'')+`</tr>`;
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
-      <span class="tg tn">Khách: ${d.client}</span><span class="tg tn">Size: ${d.sz}</span>
-      ${isA?`<span class="tg tg2">USD: ${fU(total)}</span><span class="tg tb2">VND: ${fV(total)}</span><span class="tg ta">TWD: ${fT(total)}</span>`:''}
+      <span class="tg tn">Khách: ${summarySafeText(d.client)}</span><span class="tg tn">Size: ${summarySafeText(d.sz)}</span>
+      ${isA?`<span class="tg tg2">USD: ${summarySafeText(fU(total))}</span><span class="tg tb2">VND: ${summarySafeText(fV(total))}</span><span class="tg ta">TWD: ${summarySafeText(fT(total))}</span>`:''}
     </div>
     <div style="overflow-x:auto"><table class="summary-detail-table">
       <thead><tr><th>工序號</th><th>Phân loại<span class="tv">加工分類</span></th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}</tr></thead>
@@ -72,7 +73,10 @@ function rSum(){
     const expanded=_expandedSummaryCodes.has(d.code);
     const colspan=isA?9:8;
     const r=document.createElement('tr');
-    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" onclick="toggleSummaryDetail('${d.code}')" title="展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)" onclick="toggleSummaryDetail('${d.code}')">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${d.sz}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(sv2)}</td>`:'')+`<td><button class="btn bsm bd2" onclick="askDel('${d.code}')"><i class="ti ti-trash"></i></button></td>`;
+    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${summarySafeText(d.sz)}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td><button class="btn bsm bd2 summary-delete"><i class="ti ti-trash"></i></button></td>`;
+    r.querySelector('.summary-toggle')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
+    r.querySelector('.summary-code')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
+    r.querySelector('.summary-delete')?.addEventListener('click',()=>askDel(d.code));
     tb.appendChild(r);
     if(expanded){
       const detailRow=document.createElement('tr');
@@ -113,7 +117,7 @@ function rDet(){
   pr.forEach((item,i)=>{
     const{d,op,r}=item;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${d.vi}</td><td>${d.sz}</td><td>${op.no}</td><td><span class="tg tn">${op.category||'—'} · ${processCategoryLabel(op.category)}</span></td><td>${op.zh}</td><td style="color:var(--mu)">${op.vi||''}</td><td>${op.sec}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${fm(r.vnd)}</td>`:'');
+    tr.innerHTML=`<td style="color:var(--hi)">${st+i+1}</td><td><b style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${summarySafeText(d.vi)}</td><td>${summarySafeText(d.sz)}</td><td>${summarySafeText(op.no)}</td><td><span class="tg tn">${summarySafeText(op.category||'—')} · ${summarySafeText(processCategoryLabel(op.category))}</span></td><td>${summarySafeText(op.zh)}</td><td style="color:var(--mu)">${summarySafeText(op.vi||'')}</td><td>${summarySafeText(op.sec)}</td><td>${r.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(r.vnd))}</td>`:'');
     tb.appendChild(tr);
   });
   mkPager('dp2',window.dPage,rows.length,pp,'goDP');

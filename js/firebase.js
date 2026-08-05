@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, limit, startAfter, documentId, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -21,7 +21,7 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
 const CACHEABLE_COLLECTIONS = new Set(['orders','orderProcesses']);
-const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','impHist','cLog']);
+const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings']);
 const DATA_VERSION_MEMORY_MS = 15000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
@@ -164,15 +164,35 @@ function showLoading(show){
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
 const PRODUCTS_META_KEY = 'productsMeta';
-const PRODUCTS_CACHE_KEY = 'pcmsProductsCache';
-const PRODUCTS_CACHE_VERSION_KEY = 'pcmsProductsCacheVersion';
-const PRODUCTS_SCHEMA_VERSION = 1;
-const PRODUCTS_MAX_BATCH_ITEMS = 499;
+const PRODUCT_CHANGES_COL = 'productChanges';
+const PRODUCTS_SCHEMA_VERSION = 2;
+const PRODUCTS_MAX_BATCH_ITEMS = 498;
+const PRODUCT_CHANGE_PAGE_SIZE = 100;
+const PRODUCT_QUERY_CHUNK_SIZE = 30;
+const PRODUCT_META_MEMORY_MS = 15000;
 let productsLoadPromise=null;
 let runtimeProductsVersion='';
+let runtimeProductsSequence=0;
+let productsMetaMemory=null;
+let productsMetaReadAt=0;
+
+function newProductReadMetrics(){
+  return {mode:'pending',metaReads:0,changeLogReads:0,productReads:0,totalReads:0,startedAt:Date.now()};
+}
+
+function publishProductReadMetrics(metrics,meta){
+  const result={
+    ...metrics,
+    totalReads:(metrics.metaReads||0)+(metrics.changeLogReads||0)+(metrics.productReads||0),
+    productCount:Number(meta?.productCount)||window.D?.length||0,
+    finishedAt:Date.now()
+  };
+  window.lastProductReadMetrics=Object.freeze(result); // lastProductReadMetrics（最近一次款號讀取量）
+  return result;
+}
 
 const PRODUCT_SYNC_MESSAGES = {
-  tooMany: 'Số mã hàng nhập một lần vượt quá giới hạn an toàn 499 mã. Vui lòng chia nhỏ file Excel để nhập.\n一次匯入款號數超過安全限制 499 款。請分批拆分 Excel（表格檔）後匯入。',
+  tooMany: 'Số mã hàng nhập một lần vượt quá giới hạn an toàn 498 mã. Vui lòng chia nhỏ file Excel để nhập.\n一次匯入款號數超過安全限制 498 款。請分批拆分 Excel（表格檔）後匯入。',
   versionChanged: 'Dữ liệu mã hàng đã được máy khác cập nhật, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n款號資料已被其他電腦更新，請按 F5（重新整理）或重新打開頁面後再操作。',
   missingMeta: 'Thiếu dữ liệu phiên bản mã hàng, vui lòng liên hệ quản trị viên khởi tạo.\n缺少款號版本資料，請聯絡管理員初始化後再操作。',
   localDataMismatch: 'Dữ liệu mã hàng trên máy này không khớp dữ liệu phiên bản, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n本機款號資料與版本資料不一致，請按 F5（重新整理）或重新打開頁面後再操作。'
@@ -245,12 +265,16 @@ async function loadCollectionWithCache(scope,collectionName,options={}){
   if(!CACHEABLE_COLLECTIONS.has(scope)||scope!==collectionName) throw new Error(`不允許的 data-cache（資料快取）集合：${scope}`);
   if(options.force===true) await window.pcmsDataCache?.remove(scope);
   const cached=await readCachedScope(scope);
-  if(cached.data!==null&&Array.isArray(cached.data)) return cached.data;
+  if(cached.data!==null&&Array.isArray(cached.data)){
+    window.lastCollectionReadMetrics=Object.freeze({scope,mode:'indexeddb',documentReads:0,finishedAt:Date.now()});
+    return cached.data;
+  }
   const snap=await getDocs(collection(db,collectionName));
   const rows=snap.docs.map(item=>({id:item.id,...item.data()}));
   const latest=await readDataVersions(true);
   const version=String(latest.data?.[scope]||cached.expectedVersion||'0');
   await window.pcmsDataCache?.write(scope,version,rows);
+  window.lastCollectionReadMetrics=Object.freeze({scope,mode:'full',documentReads:snap.size,finishedAt:Date.now()});
   return rows;
 }
 
@@ -328,37 +352,29 @@ function setProductSyncError(message){
   showSyncError(message);
 }
 
-async function loadProductsMeta(){
+async function loadProductsMeta(metrics=null,forceServer=false){
+  const now=Date.now();
+  if(!forceServer&&productsMetaMemory&&now-productsMetaReadAt<PRODUCT_META_MEMORY_MS){
+    return productsMetaMemory;
+  }
   try{
-    const snap=await window._getDoc(window._doc('system', PRODUCTS_META_KEY));
-    if(snap.exists()) return JSON.parse(snap.data().data||'{}');
+    const snap=await getDocFromServer(doc(db,'system',PRODUCTS_META_KEY));
+    if(metrics) metrics.metaReads++;
+    productsMetaMemory=snap.exists()?JSON.parse(snap.data().data||'{}'):null;
+    productsMetaReadAt=Date.now();
+    return productsMetaMemory;
   }catch(e){ console.error('讀取款號版本資料失敗：', e); }
   return null;
 }
 
-function loadProductsCache(){
-  try{
-    const raw=localStorage.getItem(PRODUCTS_CACHE_KEY);
-    const version=localStorage.getItem(PRODUCTS_CACHE_VERSION_KEY)||'';
-    if(!raw||!version) return null;
-    const data=JSON.parse(raw);
-    if(!Array.isArray(data)) return null;
-    return {data,version};
-  }catch(e){
-    console.error('讀取款號快取失敗：', e);
-    return null;
-  }
+async function loadProductsCache(){
+  if(!window.PCMSProductCache) return null;
+  return window.PCMSProductCache.read();
 }
 
-function saveProductsCache(items, version){
-  try{
-    localStorage.setItem(PRODUCTS_CACHE_KEY, JSON.stringify(items||[]));
-    localStorage.setItem(PRODUCTS_CACHE_VERSION_KEY, String(version||''));
-    return true;
-  }catch(e){
-    console.error('儲存款號快取失敗：', e);
-    return false;
-  }
+async function saveProductsCache(items, meta){
+  if(!window.PCMSProductCache) return false;
+  return window.PCMSProductCache.write(items,meta);
 }
 
 function normalizeProductsList(items){
@@ -369,10 +385,7 @@ function normalizeProductsList(items){
 }
 
 function getProductsBase(){
-  const runtime=Array.isArray(window.D)&&window.D.length>0?window.D:null;
-  if(runtime) return normalizeProductsList(runtime);
-  const cache=loadProductsCache();
-  return normalizeProductsList(cache?.data||[]);
+  return normalizeProductsList(Array.isArray(window.D)?window.D:[]);
 }
 
 function mergeProducts(base, rows){
@@ -394,7 +407,7 @@ function countProductOps(items){
   };
 }
 
-function buildProductsMeta(items,lastAction){
+function buildProductsMeta(items,lastAction,previousMeta={}){
   const counts=countProductOps(items);
   return {
     version:currentProductsVersion(),
@@ -403,12 +416,13 @@ function buildProductsMeta(items,lastAction){
     productCount:counts.productCount,
     opCount:counts.opCount,
     schemaVersion:PRODUCTS_SCHEMA_VERSION,
+    changeSequence:(Number(previousMeta?.changeSequence)||0)+1,
     lastAction
   };
 }
 
 function localProductsVersion(){
-  return String(runtimeProductsVersion || localStorage.getItem(PRODUCTS_CACHE_VERSION_KEY) || '');
+  return String(runtimeProductsVersion||'');
 }
 
 // verifyProductsMetaVersion（檢查款號版本號）：只檢查 productsMeta（款號版本資料）的 version（版本號）。
@@ -430,7 +444,7 @@ function verifyProductsMetaCounts(meta, base){
 
 // verifyProductsVersionForOrderImport（訂單匯入前版本重驗）：只讀 system/productsMeta（款號版本資料）一份文件。
 async function verifyProductsVersionForOrderImport(){
-  const meta=await loadProductsMeta();
+  const meta=await loadProductsMeta(null,true);
   verifyProductsMetaVersion(meta);
   verifyProductsMetaCounts(meta,getProductsBase());
   return true;
@@ -438,15 +452,16 @@ async function verifyProductsVersionForOrderImport(){
 
 // verifyProductsVersionBeforeWrite（寫入前版本重驗）：使用同一份 productsMeta（款號版本資料）檢查版本、款號數與工序數。
 async function verifyProductsVersionBeforeWrite(base){
-  const meta=await loadProductsMeta();
+  const meta=await loadProductsMeta(null,true);
   verifyProductsMetaVersion(meta);
   verifyProductsMetaCounts(meta,base);
   return meta;
 }
 
-async function loadProductsData(){
+async function loadProductsData(metrics=null){
   const items=[];
   const snap=await getDocs(collection(db, PRODUCTS_COL));
+  if(metrics) metrics.productReads+=snap.size;
   snap.docs.forEach(d=>{
     const data=d.data();
     const code=String(data.code||d.id||'').trim();
@@ -455,6 +470,62 @@ async function loadProductsData(){
     items.push(normalizeProductDoc(data,code));
   });
   return items.sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+async function loadProductChangesAfter(sequence,targetSequence,metrics){
+  const rows=[];
+  let cursor=null; // cursor（款號變更紀錄分頁游標）
+  while(rows.length<1000){
+    const conditions=[
+      where('sequence','>',sequence),
+      orderBy('sequence','asc')
+    ];
+    if(cursor) conditions.push(startAfter(cursor));
+    conditions.push(limit(PRODUCT_CHANGE_PAGE_SIZE));
+    const snapshot=await getDocs(query(collection(db,PRODUCT_CHANGES_COL),...conditions));
+    metrics.changeLogReads+=snapshot.size;
+    if(snapshot.empty) break;
+    snapshot.docs.forEach(item=>rows.push({id:item.id,...item.data()}));
+    cursor=snapshot.docs[snapshot.docs.length-1];
+    if(Number(rows[rows.length-1]?.sequence)>=targetSequence||snapshot.size<PRODUCT_CHANGE_PAGE_SIZE) break;
+  }
+  return rows.filter(row=>Number(row.sequence)<=targetSequence);
+}
+
+async function loadChangedProducts(codes,metrics){
+  const normalized=[...new Set((codes||[]).map(code=>String(code||'').trim()).filter(Boolean))];
+  const items=[];
+  for(let offset=0;offset<normalized.length;offset+=PRODUCT_QUERY_CHUNK_SIZE){
+    const ids=normalized.slice(offset,offset+PRODUCT_QUERY_CHUNK_SIZE).map(productDocId);
+    const snapshot=await getDocs(query(
+      collection(db,PRODUCTS_COL),
+      where(documentId(),'in',ids)
+    ));
+    metrics.productReads+=snapshot.size;
+    snapshot.docs.forEach(item=>items.push(normalizeProductDoc(item.data(),item.id)));
+  }
+  return items;
+}
+
+async function applyProductChanges(cache,meta,metrics){
+  if(!window.PCMSProductCache) return null;
+  const startSequence=Number(cache?.sequence)||0;
+  const targetSequence=Number(meta?.changeSequence)||0;
+  if(targetSequence<=startSequence) return null;
+  const logs=await loadProductChangesAfter(startSequence,targetSequence,metrics);
+  const plan=window.PCMSProductCache.planChanges(logs,startSequence); // plan（款號增量合併計畫）
+  if(!plan.valid||plan.sequence!==targetSequence) return null;
+  const changedItems=await loadChangedProducts(plan.changedCodes,metrics);
+  const returnedCodes=new Set(changedItems.map(item=>item.code));
+  const missingChangedCodes=plan.changedCodes.filter(code=>!returnedCodes.has(code));
+  const merged=window.PCMSProductCache.merge(
+    cache.items,
+    changedItems,
+    [...plan.deletedCodes,...missingChangedCodes]
+  );
+  verifyProductsMetaCounts(meta,merged);
+  await saveProductsCache(merged,meta);
+  return merged;
 }
 
 function replaceRuntimeProducts(items){
@@ -473,17 +544,8 @@ function renderProductViews(){
 }
 
 async function refreshProductsFromCloud(){
-  const saved=await loadProductsData();
-  const meta=await loadProductsMeta();
-  if(meta?.version){
-    saveProductsCache(saved, meta.version);
-    runtimeProductsVersion=String(meta.version);
-  } else {
-    runtimeProductsVersion='';
-  }
-  replaceRuntimeProducts(saved);
-  renderProductViews();
-  return saved;
+  await ensureProductsLoaded({force:true});
+  return window.D;
 }
 
 async function ensureProductsLoaded(options=false){
@@ -492,38 +554,74 @@ async function ensureProductsLoaded(options=false){
   const requireMeta=!!opts.requireMeta;
   if(productsLoadPromise) return productsLoadPromise;
   productsLoadPromise=(async()=>{
+    const metrics=newProductReadMetrics();
+    let activeMeta=null;
     try{
-      const cache=loadProductsCache();
-      const meta=await loadProductsMeta();
-      if(!force && meta?.version && runtimeProductsVersion===String(meta.version) && Array.isArray(window.D) && window.D.length>0){
+      if(!window.PCMSProductCache) throw new Error('Thiếu chương trình bộ nhớ đệm mã hàng / 缺少款號快取程式');
+      if(force) await window.PCMSProductCache.remove();
+      const [cache,meta]=await Promise.all([loadProductsCache(),loadProductsMeta(metrics,force)]);
+      activeMeta=meta;
+      if(!force && meta?.version && runtimeProductsVersion===String(meta.version) && Array.isArray(window.D)){
+        metrics.mode='runtime';
         renderProductViews();
+        publishProductReadMetrics(metrics,meta);
         return true;
       }
       if(!force && cache && meta?.version && cache.version===String(meta.version)){
         runtimeProductsVersion=String(meta.version);
-        replaceRuntimeProducts(cache.data);
+        runtimeProductsSequence=Number(meta.changeSequence)||Number(cache.sequence)||0;
+        replaceRuntimeProducts(cache.items);
+        metrics.mode='indexeddb';
         renderProductViews();
+        publishProductReadMetrics(metrics,meta);
         return true;
       }
-      const saved=await loadProductsData();
+      if(!force&&cache&&meta?.version&&Number(meta.changeSequence)>Number(cache.sequence||0)){
+        const changed=await applyProductChanges(cache,meta,metrics);
+        if(changed){
+          runtimeProductsVersion=String(meta.version);
+          runtimeProductsSequence=Number(meta.changeSequence)||0;
+          replaceRuntimeProducts(changed);
+          metrics.mode='delta';
+          renderProductViews();
+          publishProductReadMetrics(metrics,meta);
+          return true;
+        }
+      }
+      let saved=await loadProductsData(metrics);
+      let latestMeta=await loadProductsMeta(metrics,true);
+      if(meta?.version&&latestMeta?.version&&String(meta.version)!==String(latestMeta.version)){
+        saved=await loadProductsData(metrics);
+        latestMeta=await loadProductsMeta(metrics,true);
+      }
+      activeMeta=latestMeta||meta;
       replaceRuntimeProducts(saved);
-      if(meta?.version){
-        saveProductsCache(saved, meta.version);
-        runtimeProductsVersion=String(meta.version);
+      if(activeMeta?.version){
+        verifyProductsMetaCounts(activeMeta,saved);
+        await saveProductsCache(saved,activeMeta);
+        runtimeProductsVersion=String(activeMeta.version);
+        runtimeProductsSequence=Number(activeMeta.changeSequence)||0;
       } else {
         runtimeProductsVersion='';
+        runtimeProductsSequence=0;
         if(requireMeta){
           setProductSyncError(PRODUCT_SYNC_MESSAGES.missingMeta);
           renderProductViews();
+          metrics.mode='missing-meta';
+          publishProductReadMetrics(metrics,activeMeta);
           return false;
         }
       }
+      metrics.mode='full';
       renderProductViews();
+      publishProductReadMetrics(metrics,activeMeta);
       return true;
     }catch(e){
       console.error('載入款號資料失敗：', e);
       setSyncState('failed');
       showSyncError();
+      metrics.mode='failed';
+      publishProductReadMetrics(metrics,activeMeta);
       return false;
     }finally{
       productsLoadPromise=null;
@@ -533,31 +631,57 @@ async function ensureProductsLoaded(options=false){
 }
 
 async function saveProductItemsToCollection(items){
-  const rows=(Array.isArray(items)?items:[]).filter(x=>String(x?.code||'').trim());
+  const rows=[...new Map((Array.isArray(items)?items:[])
+    .filter(item=>String(item?.code||'').trim())
+    .map(item=>[String(item.code).trim(),item])).values()];
   if(!rows.length) return true;
   window.lastProductSyncError = '';
   setSyncState('syncing');
   try{
     if(rows.length>PRODUCTS_MAX_BATCH_ITEMS) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
+    const currentUserUid=String(auth.currentUser?.uid||'');
+    if(!currentUserUid) throw new Error('Vui lòng đăng nhập lại / 請重新登入');
     const base=getProductsBase();
-    await verifyProductsVersionBeforeWrite(base);
     const merged=mergeProducts(base,rows);
-    const meta=buildProductsMeta(merged,'import');
-    const batch=writeBatch(db);
-    rows.forEach(item=>{
-      const code=String(item.code).trim();
-      batch.set(doc(db, PRODUCTS_COL, productDocId(code)), {
-        ...item,
-        code,
-        ops:Array.isArray(item.ops)?item.ops:[],
-        updatedAt:Date.now(),
-        updatedBy:window.cu?.user||''
-      }, {merge:false});
+    const metaRef=doc(db,'system',PRODUCTS_META_KEY);
+    const changeRef=doc(collection(db,PRODUCT_CHANGES_COL));
+    let meta=null;
+    await runTransaction(db,async transaction=>{
+      const metaSnapshot=await transaction.get(metaRef);
+      const currentMeta=metaSnapshot.exists()
+        ? JSON.parse(metaSnapshot.data().data||'{}')
+        : null;
+      verifyProductsMetaVersion(currentMeta);
+      verifyProductsMetaCounts(currentMeta,base);
+      meta=buildProductsMeta(merged,'import',currentMeta);
+      const changedAt=Date.now();
+      rows.forEach(item=>{
+        const code=String(item.code).trim();
+        transaction.set(doc(db,PRODUCTS_COL,productDocId(code)),{
+          ...item,
+          code,
+          ops:Array.isArray(item.ops)?item.ops:[],
+          updatedAt:changedAt,
+          updatedBy:window.cu?.user||''
+        },{merge:false});
+      });
+      transaction.set(changeRef,{
+        sequence:meta.changeSequence,
+        fromVersion:String(currentMeta.version),
+        toVersion:String(meta.version),
+        changedCodes:rows.map(item=>String(item.code).trim()),
+        deletedCodes:[],
+        createdAt:changedAt,
+        createdByUid:currentUserUid,
+        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
+      });
+      transaction.set(metaRef,{data:JSON.stringify(meta)});
     });
-    batch.set(doc(db, 'system', PRODUCTS_META_KEY), {data:JSON.stringify(meta)});
-    await batch.commit();
-    saveProductsCache(merged, meta.version);
+    await saveProductsCache(merged,meta);
     runtimeProductsVersion=String(meta.version);
+    runtimeProductsSequence=Number(meta.changeSequence)||0;
+    productsMetaMemory=meta;
+    productsMetaReadAt=Date.now();
     replaceRuntimeProducts(merged);
     setSyncState('success');
     return true;
@@ -572,16 +696,42 @@ async function deleteProductDoc(code){
   window.lastProductSyncError = '';
   setSyncState('syncing');
   try{
+    const currentUserUid=String(auth.currentUser?.uid||'');
+    if(!currentUserUid) throw new Error('Vui lòng đăng nhập lại / 請重新登入');
+    const normalizedCode=String(code||'').trim();
+    if(!normalizedCode) throw new Error('Thiếu mã hàng / 缺少款號');
     const base=getProductsBase();
-    await verifyProductsVersionBeforeWrite(base);
-    const kept=removeProductFromList(base,code);
-    const meta=buildProductsMeta(kept,'delete');
-    const batch=writeBatch(db);
-    batch.delete(doc(db, PRODUCTS_COL, productDocId(code)));
-    batch.set(doc(db, 'system', PRODUCTS_META_KEY), {data:JSON.stringify(meta)});
-    await batch.commit();
-    saveProductsCache(kept, meta.version);
+    const kept=removeProductFromList(base,normalizedCode);
+    const metaRef=doc(db,'system',PRODUCTS_META_KEY);
+    const changeRef=doc(collection(db,PRODUCT_CHANGES_COL));
+    let meta=null;
+    await runTransaction(db,async transaction=>{
+      const metaSnapshot=await transaction.get(metaRef);
+      const currentMeta=metaSnapshot.exists()
+        ? JSON.parse(metaSnapshot.data().data||'{}')
+        : null;
+      verifyProductsMetaVersion(currentMeta);
+      verifyProductsMetaCounts(currentMeta,base);
+      meta=buildProductsMeta(kept,'delete',currentMeta);
+      const changedAt=Date.now();
+      transaction.delete(doc(db,PRODUCTS_COL,productDocId(normalizedCode)));
+      transaction.set(changeRef,{
+        sequence:meta.changeSequence,
+        fromVersion:String(currentMeta.version),
+        toVersion:String(meta.version),
+        changedCodes:[],
+        deletedCodes:[normalizedCode],
+        createdAt:changedAt,
+        createdByUid:currentUserUid,
+        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
+      });
+      transaction.set(metaRef,{data:JSON.stringify(meta)});
+    });
+    await saveProductsCache(kept,meta);
     runtimeProductsVersion=String(meta.version);
+    runtimeProductsSequence=Number(meta.changeSequence)||0;
+    productsMetaMemory=meta;
+    productsMetaReadAt=Date.now();
     replaceRuntimeProducts(kept);
     setSyncState('success');
     return true;
@@ -635,8 +785,81 @@ async function saveSplitSettingsToFB(){
 }
 
 window.saveSettingsToFB  = saveSplitSettingsToFB;
-window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
-window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
+const OPERATION_LOG_PAGE_SIZE = 50; // OPERATION_LOG_PAGE_SIZE（操作紀錄單次載入上限）
+
+function operationLogCount(value){
+  const count=Number(value);
+  return Number.isInteger(count)&&count>=0?count:0;
+}
+
+function buildOperationLog(input){
+  const currentUser=auth.currentUser; // currentUser（目前 Firebase 身分驗證使用者）
+  if(!currentUser?.uid) throw new Error('Chưa xác nhận danh tính / 尚未完成身分驗證');
+  const log={
+    permissionKey:String(input?.permissionKey||''),
+    feature:String(input?.feature||''),
+    action:String(input?.action||''),
+    status:['success','partial','failed'].includes(input?.status)?input.status:'success',
+    createdAt:Date.now(),
+    createdByUid:currentUser.uid,
+    createdBy:String(window.cu?.user||currentUser.displayName||currentUser.email||'').slice(0,200),
+    itemCount:operationLogCount(input?.itemCount),
+    detailCount:operationLogCount(input?.detailCount)
+  };
+  if(input?.overwriteCount!==undefined) log.overwriteCount=operationLogCount(input.overwriteCount);
+  if(input?.skippedCount!==undefined) log.skippedCount=operationLogCount(input.skippedCount);
+  if(input?.fileName!==undefined) log.fileName=String(input.fileName||'').slice(0,300);
+  if(input?.note!==undefined) log.note=String(input.note||'').slice(0,500);
+  if(Array.isArray(input?.changes)){
+    log.changes=input.changes.slice(0,50).map(change=>({
+      field:String(change?.field??change?.f??'').slice(0,100),
+      before:Number(change?.before??change?.b)||0,
+      after:Number(change?.after??change?.a)||0,
+      percent:change?.percent??change?.p??null
+    }));
+  }
+  return log;
+}
+
+async function createOperationLog(input){
+  const log=buildOperationLog(input);
+  const reference=await addDoc(collection(db,'operationLogs'),log); // reference（新操作紀錄文件）
+  return {id:reference.id,...log};
+}
+
+async function loadOperationLogs(permissionKey,maxItems=OPERATION_LOG_PAGE_SIZE){
+  const requestedLimit=Math.max(1,Math.min(OPERATION_LOG_PAGE_SIZE,Number(maxItems)||OPERATION_LOG_PAGE_SIZE));
+  const statement=query(
+    collection(db,'operationLogs'),
+    where('permissionKey','==',permissionKey),
+    orderBy('createdAt','desc'),
+    limit(requestedLimit)
+  ); // statement（依權限與日期查詢最近操作紀錄）
+  const snapshot=await getDocs(statement);
+  return snapshot.docs.map(item=>({id:item.id,...item.data()}));
+}
+
+window.saveOperationLogToFB=createOperationLog;
+window.saveHistoryToFB=(history)=>createOperationLog({
+  permissionKey:'summary',
+  feature:'products',
+  action:'productImport',
+  status:'success',
+  itemCount:history?.c,
+  detailCount:history?.o,
+  overwriteCount:history?.ow,
+  skippedCount:history?.sk,
+  fileName:history?.fileName
+});
+window.saveCostLogToFB=(costLog)=>createOperationLog({
+  permissionKey:'costlog',
+  feature:'cost',
+  action:'costSettingsUpdate',
+  status:'success',
+  itemCount:Array.isArray(costLog?.changes)?costLog.changes.length:0,
+  detailCount:0,
+  changes:costLog?.changes||[]
+});
 function applySettings(savedSettings,allowedKeys){
   if(!savedSettings||typeof savedSettings!=='object') return;
   const safeSettings=pickSettingFields(savedSettings,allowedKeys);
@@ -699,9 +922,7 @@ async function ensureSettingsLoaded(options={}){
 }
 
 async function ensureImportHistoryLoaded(options={}){
-  const saved=await loadSystemWithCache('impHist',options);
-  window.impHist=Array.isArray(saved)?saved:[];
-  try{ localStorage.setItem('impHist',JSON.stringify(window.impHist)); }catch(e){}
+  window.impHist=await loadOperationLogs('summary',options?.limit||OPERATION_LOG_PAGE_SIZE);
   return window.impHist;
 }
 
@@ -713,8 +934,7 @@ async function ensureCostLogLoaded(options={}){
     await window.pcmsDataCache?.remove('cLog');
     return window.cLog;
   }
-  const saved=await loadSystemWithCache('cLog',options);
-  window.cLog=Array.isArray(saved)?saved:[];
+  window.cLog=await loadOperationLogs('costlog',options?.limit||OPERATION_LOG_PAGE_SIZE);
   return window.cLog;
 }
 
@@ -822,8 +1042,14 @@ async function fbInitForAuthorizedUser(){
       window.pcmsDataCache?.remove('employees'),
       window.pcmsDataCache?.remove('reports'),
       window.pcmsDataCache?.remove('attendance'),
-      window.pcmsDataCache?.remove('employeeUserHistory')
+      window.pcmsDataCache?.remove('employeeUserHistory'),
+      window.pcmsDataCache?.remove('impHist'),
+      window.pcmsDataCache?.remove('cLog')
     ]);
+    try{
+      localStorage.removeItem('impHist');
+      localStorage.removeItem('cLog');
+    }catch(e){}
     try{ localStorage.removeItem('mob_rej_read'); }catch(e){}
     if(!canLoadCostSettings()) await window.pcmsDataCache?.remove('costSettings');
     const role=window.cu?.role;
@@ -849,6 +1075,12 @@ window.resetAuthorizedFirebaseInit = () => {
   dataVersionsMemory=null;
   dataVersionsReadAt=0;
   dataVersionsPromise=null;
+  productsLoadPromise=null;
+  runtimeProductsVersion='';
+  runtimeProductsSequence=0;
+  productsMetaMemory=null;
+  productsMetaReadAt=0;
+  window.lastProductReadMetrics=null;
 };
 
 onAuthStateChanged(auth, async(user)=>{
