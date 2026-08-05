@@ -1,14 +1,12 @@
 // ===== 共用常數 =====
-const COL = {orders:'orders', processes:'orderProcesses', employees:'employees', reports:'reports', attendance:'attendance', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks', secondSyncLogs:'secondSyncLogs'};
-const DEPTS = {'備料':'Bị liệu','普工':'Phổ thông','電腦針車':'May điện tử','平車':'May bằng','品檢':'QC','包裝':'Đóng gói'};
+const COL = {orders:'orders', processes:'orderProcesses', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks', secondSyncLogs:'secondSyncLogs'};
 const DESK_ROLES = ['admin','manager','clerk'];
-const ROLE_LABEL = {admin:'Quản trị viên / 管理員',manager:'Trưởng bộ phận / 課長',clerk:'Nhân viên văn phòng / 文員',leader:'班長',user:'員工'};
+const ROLE_LABEL = {admin:'Quản trị viên / 管理員',manager:'Trưởng bộ phận / 課長',clerk:'Nhân viên văn phòng / 文員'};
 
 // ===== DOM 工具 =====
 function g(id){ return document.getElementById(id); }
 function om(id){ g(id).classList.add('open'); }
 function cm(id){ g(id).classList.remove('open'); }
-function mG(id){ return document.getElementById(id); }
 function formatLocalDate(date=new Date()){
   const d=date instanceof Date?date:new Date(date);
   if(Number.isNaN(d.getTime())) return '';
@@ -20,31 +18,6 @@ function isOrderUsable(o){
     && (!o.lifecycleStatus||o.lifecycleStatus==='active');
 }
 function isOrderMutationLocked(o){ return !!o&&(o.lifecycleStatus==='syncingSeconds'||o.lifecycleStatus==='deleting'); }
-function reportProcessMatches(report,process){
-  return !!report&&!!process
-    && String(process.orderId)===String(report.orderId)
-    && String(process.code)===String(report.code)
-    && String(process.processNo)===String(report.processNo);
-}
-function reportProcessKey(report){
-  return report.processId?`id|${report.processId}`:`legacy|${report.orderId}|${report.code}|${report.processNo}`;
-}
-async function resolveReportProcess(report){
-  if(report.processId){
-    const snap=await window._getDoc(window._doc(COL.processes,report.processId));
-    if(!snap.exists()) throw new Error('報工對應工序不存在');
-    if(!reportProcessMatches(report,snap.data())) throw new Error('報工 processId 與工序資料不符合');
-    return {id:snap.id,ref:snap.ref,data:snap.data()};
-  }
-  const snap=await window._getDocs(window._query(
-    window._collection(COL.processes),
-    window._where('orderId','==',report.orderId),
-    window._where('code','==',report.code),
-    window._where('processNo','==',report.processNo)
-  ));
-  if(snap.docs.length!==1) throw new Error(`舊報工無法安全找到唯一工序，找到 ${snap.docs.length} 筆`);
-  return {id:snap.docs[0].id,ref:snap.docs[0].ref,data:snap.docs[0].data()};
-}
 function canManageOrders(){
   const role=window.cu?.role;
   return role==='admin'||window.permissionSettings?.[role]?.orderImport===true;
@@ -158,11 +131,4 @@ function rcf(){
     cl.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; el.appendChild(o); });
     if(cl.includes(cv)) el.value=cv;
   });
-}
-
-// ===== Toast（手機版）=====
-function mobToast(msg, dur=2500){
-  const t=mG('mob-toast');
-  t.textContent=msg; t.style.display='block';
-  clearTimeout(window._mt); window._mt=setTimeout(()=>t.style.display='none',dur);
 }

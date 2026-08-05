@@ -1,6 +1,5 @@
 // ===== 訂單系統資料 =====
 window.allOrders    = [];
-window.allEmployees = [];
 window.allProcesses = [];
 window._failedOrderCleanup = null;
 let ordersLoadPromise = null;
@@ -16,40 +15,7 @@ function setImportProgress(percent,vi,zh){
 function makeOrderProcess(orderId,orderNo,item,op,now){
   return {orderId,orderNo,code:item.code,desc:item.desc,color:item.color,zh:item.zh,sz:item.sz,orderQty:item.qty,
     processNo:op.no,processCategory:op.category||'',processZh:op.zh||'',processVi:op.vi||'',processSec:op.sec||0,quoteSnapshotSec:op.sec||0,
-    workStdSec:op.sec||0,slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),
-    approvedQty:0,pendingQty:0,createdAt:now};
-}
-
-const ORDER_PROCESS_CATEGORIES=[
-  {code:'BL',vi:'Bị liệu',zh:'備料'},
-  {code:'SX',vi:'Sản xuất',zh:'生產'},
-  {code:'QC',vi:'Kiểm phẩm',zh:'品檢'},
-  {code:'DG',vi:'Đóng gói',zh:'包裝'}
-];
-function weightedProcessProgress(procs){
-  let completed=0,total=0;
-  (procs||[]).forEach(p=>{
-    const qty=Math.max(0,Number(p.orderQty)||0);
-    const sec=Math.max(0,Number(p.workStdSec||p.processSec)||0);
-    const approved=Math.min(qty,Math.max(0,Number(p.approvedQty)||0));
-    total+=qty*sec;
-    completed+=approved*sec;
-  });
-  return total>0?Math.min(100,Math.round(completed/total*100)):0;
-}
-function renderCategoryProgress(procs){
-  return ORDER_PROCESS_CATEGORIES.map(category=>{
-    const matched=procs.filter(p=>p.processCategory===category.code);
-    const pct=weightedProcessProgress(matched);
-    const value=matched.length?`${pct}%`:'—';
-    return`<div style="width:86px;min-width:72px;flex:0 1 86px">
-      <div style="font-size:9px;color:var(--mu);margin-bottom:2px;white-space:nowrap">${category.code} ${category.zh}</div>
-      <div style="position:relative;height:11px;background:var(--bd);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${matched.length?pct:0}%;background:linear-gradient(90deg,#bfdbfe,#60a5fa)"></div>
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#1e3a5f">${value}</div>
-      </div>
-    </div>`;
-  }).join('');
+    workStdSec:op.sec||0,slPerHour:Math.round((window.S?.ws||3000)/Math.max(op.sec||1,1)),createdAt:now};
 }
 
 // ===== 載入訂單資料 =====
@@ -78,11 +44,6 @@ async function reloadProcesses(options={}){
     }
   })();
   return processesLoadPromise;
-}
-
-function updateApvBadge(n){
-  const el=g('badge-apv'); if(!el) return;
-  el.textContent=n; el.style.display=n>0?'inline':'none';
 }
 
 function fillOrderSelects(){
@@ -397,8 +358,7 @@ function renderOrders(){
       <td>${(o.totalQty||0).toLocaleString()}</td>
       <td>${fmtVN(o.dueDate)}</td>
       <td style="min-width:120px">
-        <div style="background:#e2e8f0;border-radius:99px;height:8px;overflow:hidden"><div style="height:100%;background:var(--accent);width:0%"></div></div>
-        <div style="font-size:11px;color:${o.importStatus==='failed'||o.lifecycleStatus==='deleting'?'var(--err)':'var(--mu)'};margin-top:3px">${o.lifecycleStatus==='archived'?'Đã xóa (lưu trữ) / 已刪除（封存）':o.lifecycleStatus==='deleting'?'Đang xóa vĩnh viễn / 永久刪除中':o.importStatus==='failed'?'Nhập thất bại / 匯入失敗':o.importStatus==='importing'?'Đang nhập / 匯入中':'統計中...'}</div>
+        <div style="font-size:11px;color:${o.importStatus==='failed'||o.lifecycleStatus==='deleting'?'var(--err)':'var(--mu)'}">${o.lifecycleStatus==='archived'?'Đã xóa (lưu trữ) / 已刪除（封存）':o.lifecycleStatus==='deleting'?'Đang xóa vĩnh viễn / 永久刪除中':o.importStatus==='failed'?'Nhập thất bại / 匯入失敗':o.importStatus==='importing'?'Đang nhập / 匯入中':'Đang sử dụng / 使用中'}</div>
       </td>
       <td><div style="display:flex;gap:4px">
         ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress('${o.id}')"><i class="ti ti-chart-bar"></i></button>`:''}
@@ -418,15 +378,11 @@ function viewOrderProgress(id){
 }
 
 async function getOrderDeleteData(id,name){
-  const [procSnap,repSnap,adjSnap]=await Promise.all([
+  const [procSnap,adjSnap]=await Promise.all([
     window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',id))),
-    window._getDocs(window._query(window._collection(COL.reports),window._where('orderId','==',id))),
     window._getDocs(window._query(window._collection(COL.orderAdjustments),window._where('orderId','==',id)))
   ]);
-  const reports=repSnap.docs.map(d=>({...d.data(),ref:d.ref}));
-  const counts={pending:0,approved:0,rejected:0,voided:0};
-  reports.forEach(r=>{ if(counts[r.status]!==undefined) counts[r.status]++; });
-  return {id,name,processes:procSnap.docs,reports,adjustments:adjSnap.docs,counts};
+  return {id,name,processes:procSnap.docs,adjustments:adjSnap.docs};
 }
 
 function openOrderDeleteWarning(mode,id,name){
@@ -435,8 +391,8 @@ function openOrderDeleteWarning(mode,id,name){
   const archive=mode==='archive';
   g('order-delete-warning-title').innerHTML=`<i class="ti ${archive?'ti-trash':'ti-database-off'}"></i> ${archive?'Xóa (Lưu trữ) / 刪除（封存）':'Xóa vĩnh viễn / 永久刪除'}`;
   g('order-delete-warning-text').innerHTML=archive
-    ?'<div>Xóa (Lưu trữ) sẽ ẩn đơn hàng và ngừng báo công, nhưng giữ toàn bộ dữ liệu lịch sử.</div><div style="margin-top:10px">刪除（封存）會隱藏訂單並停止報工，但保留全部歷史資料。</div>'
-    :'<div>Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn, toàn bộ báo công và lịch sử điều chỉnh. Không thể khôi phục.</div><div style="margin-top:10px">永久刪除會移除訂單、工序、全部報工及數量調整紀錄，無法復原。</div>';
+    ?'<div>Xóa (Lưu trữ) sẽ ẩn đơn hàng, nhưng giữ dữ liệu đơn hàng và công đoạn.</div><div style="margin-top:10px">刪除（封存）會隱藏訂單，但保留訂單與工序資料。</div>'
+    :'<div>Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn và lịch sử điều chỉnh. Không thể khôi phục.</div><div style="margin-top:10px">永久刪除會移除訂單、工序及數量調整紀錄，無法復原。</div>';
   om('m-order-delete-warning');
 }
 
@@ -465,12 +421,7 @@ async function openOrderDelete(mode,id,name){
     g('order-delete-title').innerHTML=`<i class="ti ${archive?'ti-trash':'ti-database-off'}"></i> ${archive?'Xóa (Lưu trữ) / 刪除（封存）':'Xóa vĩnh viễn / 永久刪除'}`;
     g('order-delete-summary').innerHTML=`<div><b>Đơn hàng / 訂單：</b>${name}</div>
       <div><b>Công đoạn / 工序：</b>${data.processes.length}</div>
-      <div><b>Báo công chờ duyệt / 待審報工：</b>${data.counts.pending}</div>
-      <div><b>Báo công đã duyệt / 已通過報工：</b>${data.counts.approved}</div>
-      <div><b>Báo công trả lại / 退回報工：</b>${data.counts.rejected}</div>
-      <div><b>Báo công đã hủy / 作廢報工：</b>${data.counts.voided}</div>
-      <div><b>Lịch sử điều chỉnh / 數量調整紀錄：</b>${data.adjustments.length}</div>
-      ${archive&&data.counts.pending?'<div style="color:var(--err);margin-top:10px">Còn báo công chờ duyệt, không thể xóa (lưu trữ).<br>仍有待審報工，無法刪除（封存）。</div>':''}`;
+      <div><b>Lịch sử điều chỉnh / 數量調整紀錄：</b>${data.adjustments.length}</div>`;
     g('order-archive-btn').style.display=archive?'':'none';
     g('order-purge-btn').style.display=archive?'none':'';
     updateOrderDeleteButtons();
@@ -486,13 +437,13 @@ function closeOrderDeleteModal(){
 function updateOrderDeleteButtons(){
   const data=window._orderDeleteData;
   const matched=!!data&&g('order-delete-confirm').value.trim()===data.name;
-  g('order-archive-btn').disabled=!matched||data?.mode!=='archive'||data?.counts.pending>0;
+  g('order-archive-btn').disabled=!matched||data?.mode!=='archive';
   g('order-purge-btn').disabled=!matched||data?.mode!=='purge'||window.cu?.role!=='admin';
 }
 
 async function confirmArchiveOrder(){
   const data=window._orderDeleteData;
-  if(!data||g('order-delete-confirm').value.trim()!==data.name||data.counts.pending>0) return;
+  if(!data||g('order-delete-confirm').value.trim()!==data.name) return;
   try{
     const ref=window._doc(COL.orders,data.id);
     await window._runTransaction(async t=>{
@@ -500,11 +451,6 @@ async function confirmArchiveOrder(){
       if(!snap.exists()||!isOrderUsable(snap.data())) throw new Error('Đơn hàng không thể xóa (lưu trữ) / 訂單目前無法刪除（封存）');
       t.update(ref,{lifecycleStatus:'archived',archivedAt:Date.now(),archivedBy:window.cu.user});
     });
-    const pending=await window._getDocs(window._query(window._collection(COL.reports),window._where('orderId','==',data.id),window._where('status','==','pending')));
-    if(!pending.empty){
-      await window._updateDoc(ref,{lifecycleStatus:'active',restoredAt:Date.now(),restoredBy:window.cu.user});
-      throw new Error('Có báo công chờ duyệt mới phát sinh. Đơn hàng đã được khôi phục. / 發現新待審報工，訂單已自動還原。');
-    }
     const o=window.allOrders.find(x=>x.id===data.id);
     if(o){ o.lifecycleStatus='archived'; o.archivedAt=Date.now(); o.archivedBy=window.cu.user; }
     closeOrderDeleteModal();
@@ -550,7 +496,7 @@ async function confirmPurgeOrder(){
       }
     });
     const fresh=await getOrderDeleteData(data.id,data.name);
-    const docs=[...fresh.processes,...fresh.reports,...fresh.adjustments];
+    const docs=[...fresh.processes,...fresh.adjustments];
     if(docs.length+2<=450){
       const batch=window._writeBatch();
       docs.forEach(d=>batch.delete(d.ref));
@@ -580,7 +526,6 @@ async function confirmPurgeOrder(){
 async function renderProgress(){
   const ordId=g('prog-sel')?.value;
   const codeQuery=(g('prog-code-q')?.value||'').trim().toLowerCase();
-  const filter=g('prog-filter')?.value||'active';
   const content=g('prog-content'); if(!content) return;
   content.innerHTML='<div style="padding:20px;text-align:center;color:var(--mu)">載入中...</div>';
   try{
@@ -604,17 +549,14 @@ async function renderProgress(){
     }
     let list=orders.map(o=>{
       const pm=progMap[o.id]||{procs:[]};
-      const pct=weightedProcessProgress(pm.procs);
       const actualShipDate=o.actualShipDate||(o.dueDate||null);
-      return{...o,pct,pm,actualShipDate};
+      return{...o,processCount:pm.procs.length,pm,actualShipDate};
     });
     list=list.filter(o=>{
       const asd=o.actualShipDate;
       if(!asd) return true;
       return (asd+twoMonths)>now;
     });
-    if(filter==='active') list=list.filter(o=>o.pct<100);
-    else if(filter==='done') list=list.filter(o=>o.pct>=100);
     list.sort((a,b)=>(a.actualShipDate||0)-(b.actualShipDate||0));
     if(!list.length){
       content.innerHTML='<div style="text-align:center;padding:40px;color:var(--mu)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Không có đơn hàng / 尚無訂單</div>';
@@ -626,7 +568,7 @@ async function renderProgress(){
     html+=`<th style="${thS};width:80px">Khách hàng<br><span style="font-size:10px;font-weight:400">客人</span></th>`;
     html+=`<th style="${thS};width:110px">Số đơn hàng<br><span style="font-size:10px;font-weight:400">訂單號碼</span></th>`;
     html+=`<th style="${thS};width:70px">Số lượng<br><span style="font-size:10px;font-weight:400">數量</span></th>`;
-    html+=`<th style="${thS};width:120px">Tiến độ<br><span style="font-size:10px;font-weight:400">生產進度%</span></th>`;
+    html+=`<th style="${thS};width:100px">Số công đoạn<br><span style="font-size:10px;font-weight:400">工序數</span></th>`;
     html+=`<th style="${thS};width:90px">Theo PO<br><span style="font-size:10px;font-weight:400">出貨日期PO</span></th>`;
     html+=`<th style="${thS};width:120px">Hoàn thành<br><span style="font-size:10px;font-weight:400">實際完成日</span></th>`;
     html+=`<th style="${thS};width:120px">Xuất hàng<br><span style="font-size:10px;font-weight:400">實際出貨日</span></th>`;
@@ -634,7 +576,6 @@ async function renderProgress(){
     html+=`<th style="${thS};width:60px"></th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
-      const pct=o.pct;
       const totalQty=o.totalQty||0;
       const actualCompleteDateVal=o.actualCompleteDate?formatLocalDate(o.actualCompleteDate):'';
       const actualShipDateVal=o.actualShipDate?formatLocalDate(o.actualShipDate):(o.dueDate?formatLocalDate(o.dueDate):'');
@@ -644,12 +585,7 @@ async function renderProgress(){
         <td style="padding:6px 8px;font-size:12px"><b>${o.client||'-'}</b></td>
         <td style="font-family:var(--font-mono,monospace);font-size:11px;padding:6px 8px">${o.orderId}</td>
         <td style="padding:6px 8px;font-size:12px">${totalQty.toLocaleString()}</td>
-        <td>
-          <div style="position:relative;height:20px;background:var(--bd);border-radius:4px;overflow:hidden">
-            <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div>
-            <div style="position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#1e3a5f">${pct}%</div>
-          </div>
-        </td>
+        <td style="padding:6px 8px;font-size:12px">${o.processCount.toLocaleString()}</td>
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input type="date" value="${actualCompleteDateVal}" onchange="saveProgField('${o.id}','actualCompleteDate',this.value)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
         <td onclick="event.stopPropagation()"><input type="date" value="${actualShipDateVal}" onchange="saveProgField('${o.id}','actualShipDate',this.value,true)" style="border:1px solid var(--bd);border-radius:6px;padding:4px 6px;font-size:12px;width:130px"></td>
@@ -714,7 +650,6 @@ function toggleProgDetail(ordId){
   });
   let html='';
   Object.entries(byCode).forEach(([code,cp])=>{
-    const cDone=cp.length?Math.min(...cp.map(p=>p.approvedQty||0)):0;
     const safeCode=String(code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     const detailId='prog-code-'+ordId+'-'+encodeURIComponent(code).replace(/%/g,'_');
     html+=`<div style="margin-bottom:10px">
@@ -722,8 +657,7 @@ function toggleProgDetail(ordId){
         <i id="${detailId}-icon" class="ti ti-chevron-right" style="color:var(--accent)"></i>
         <b>${code}</b><span style="font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:80px;max-width:240px">${cp[0].desc||''} ${cp[0].color||''}</span>
         <span style="margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--accent);min-width:0">
-          <span style="display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0">${renderCategoryProgress(cp)}</span>
-          <span>${cDone.toLocaleString()}/${(cp[0].orderQty||0).toLocaleString()}</span>
+          <span>${cp.length} công đoạn / ${cp.length} 道工序 · ${(cp[0].orderQty||0).toLocaleString()} sản phẩm / 件</span>
           ${canManageOrders()?`<button class="btn bsm" title="Điều chỉnh SL / 調整數量" aria-label="Điều chỉnh SL / 調整數量" onclick="event.stopPropagation();openOrderQtyAdjust('${ordId}','${code}')"><i class="ti ti-edit"></i></button>`:''}
         </span>
       </div>
@@ -743,17 +677,13 @@ function toggleProgCodeDetail(ordId,code,detailId){
   }
   const cp=(window.allProcesses||[]).filter(p=>p.orderId===ordId&&p.code===code);
   const procRows=cp.sort((a,b)=>compareProcessNo(a.processNo,b.processNo)).map(p=>{
-    const rem=Math.max(0,(p.orderQty||0)-(p.approvedQty||0)-(p.pendingQty||0));
-    const pg=p.orderQty>0?Math.round((p.approvedQty||0)/p.orderQty*100):0;
     return`<tr>
       <td style="padding:3px 6px;font-size:12px">${p.processNo}</td>
       <td style="padding:3px 6px;font-size:12px">${p.processCategory||'—'} · ${processCategoryLabel(p.processCategory)}</td>
       <td style="padding:3px 6px;font-size:12px">${p.processVi||p.processZh||''}</td>
       <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.orderQty||0).toLocaleString()}</td>
-      <td style="padding:3px 6px;text-align:right;color:var(--ok);font-weight:500;font-size:12px">${(p.approvedQty||0).toLocaleString()}</td>
-      <td style="padding:3px 6px;text-align:right;color:var(--warn);font-size:12px">${(p.pendingQty||0).toLocaleString()}</td>
-      <td style="padding:3px 6px;text-align:right;color:var(--accent);font-size:12px">${rem.toLocaleString()}</td>
-      <td style="padding:3px 6px;width:100px"><div style="position:relative;height:16px;background:var(--bd);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(pg,100)}%;background:linear-gradient(90deg,#93c5fd,#3b82f6)"></div><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#1e3a5f">${pg}%</div></div></td>
+      <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.workStdSec||p.processSec||0).toLocaleString()}</td>
+      <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.slPerHour||0).toLocaleString()}</td>
     </tr>`;
   }).join('');
   detail.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--sf)">
@@ -761,10 +691,8 @@ function toggleProgCodeDetail(ordId,code,detailId){
     <th style="padding:4px 6px;text-align:left;width:90px;font-size:11px">Phân loại<br><span style="font-weight:400;color:var(--mu)">加工分類</span></th>
     <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
     <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
-    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Đã duyệt<br><span style="font-weight:400;color:var(--mu)">已通過</span></th>
-    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Chờ duyệt<br><span style="font-weight:400;color:var(--mu)">待審批</span></th>
-    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">Còn lại<br><span style="font-weight:400;color:var(--mu)">剩餘</span></th>
-    <th style="padding:4px 6px;width:100px;font-size:11px">Tiến độ<br><span style="font-weight:400;color:var(--mu)">進度</span></th>
+    <th style="padding:4px 6px;text-align:right;width:80px;font-size:11px">Số giây<br><span style="font-weight:400;color:var(--mu)">工序秒數</span></th>
+    <th style="padding:4px 6px;text-align:right;width:90px;font-size:11px">SL tiêu chuẩn/giờ<br><span style="font-weight:400;color:var(--mu)">標準產量/時</span></th>
   </tr></thead><tbody>${procRows}</tbody></table>`;
   detail.style.display='';
   if(icon) icon.className='ti ti-chevron-down';
@@ -776,7 +704,7 @@ async function openOrderQtyAdjust(orderId,code){
   if(!procs.length) return;
   const order=window.allOrders.find(o=>o.id===orderId);
   const current=procs[0].orderQty||0;
-  const minimum=Math.max(...procs.map(p=>(p.approvedQty||0)+(p.pendingQty||0)));
+  const minimum=1;
   g('adj-order-id').value=orderId; g('adj-code').value=code;
   g('adj-new-qty').value=current; g('adj-reason').value='';
   g('adj-summary').innerHTML=`<div>Đơn hàng/訂單: <b>${order?.orderId||''}</b></div>
@@ -807,10 +735,6 @@ async function confirmOrderQtyAdjust(){
       const oldQty=procSnaps[0].data().orderQty||0;
       if(procSnaps.some(d=>(d.data().orderQty||0)!==oldQty)) throw new Error('Số lượng giữa các công đoạn không đồng nhất / 各工序訂單數量不一致');
       if(newQty===oldQty) throw new Error('Số lượng mới không thay đổi / 新數量沒有變更');
-      procSnaps.forEach(d=>{
-        const p=d.data(), minimum=(p.approvedQty||0)+(p.pendingQty||0);
-        if(newQty<minimum) throw new Error(`${p.processNo}: tối thiểu ${minimum} / 最低 ${minimum}`);
-      });
       procSnaps.forEach(d=>t.update(d.ref,{orderQty:newQty,qtyAdjustedAt:Date.now()}));
       const order=orderSnap.data();
       t.update(orderRef,{totalQty:(order.totalQty||0)-oldQty+newQty});

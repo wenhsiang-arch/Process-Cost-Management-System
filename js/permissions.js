@@ -1,29 +1,22 @@
 // ===== rolePermissions（角色功能權限）管理 =====
 const DEFAULT_PERMISSIONS = {
   manager: {
-    attendance:true, stats:true, employees:true,
-    progress:true, approval:true, replog:true, sync:true,
+    progress:true, sync:true,
     accounts:false, export:true, costView:false, costlog:false,
     summary:true, orderImport:true,
-    cutting:true, efficiency:false
+    cutting:true
   },
   clerk: {
-    attendance:true, stats:true, employees:true,
-    progress:true, approval:false, replog:true, sync:false,
+    progress:true, sync:false,
     accounts:false, export:true, costView:false, costlog:false,
     summary:true, orderImport:true,
-    cutting:true, efficiency:false
+    cutting:true
   }
 };
 
 const PERM_LABELS = {
-  attendance:'Chấm công / 考勤管理',
-  stats:'Thống kê sản lượng / 員工產量統計',
-  employees:'Quản lý nhân viên / 員工管理',
   sync:'Đồng bộ giây công đoạn / 工序秒數同步',
-  progress:'Tiến độ đơn hàng / 訂單進度',
-  approval:'Duyệt báo công / 報工審批',
-  replog:'Lịch sử báo công / 報工紀錄',
+  progress:'Dữ liệu đơn hàng / 訂單資料',
   summary:'Tổng hợp mã hàng / 款號總表',
   cutting:'Thống kê dây cắt / 裁帶統計',
   settings:'Cài đặt chi phí / 成本設定',
@@ -32,21 +25,18 @@ const PERM_LABELS = {
   costlog:'Lịch sử chi phí / 成本變動記錄',
   accounts:'Quản lý tài khoản / 帳號管理',
   permissions:'Phân quyền / 權限管理',
-  efficiency:'Báo cáo hiệu suất / 效率報表',
   orderImport:'Nhập và điều chỉnh đơn hàng / 訂單匯入與調整'
 };
 
 const PERM_GROUPS = [
-  { id:'personnel',label:'Nhân sự / 人員管理',keys:['attendance','stats','employees'] },
-  { id:'orders',label:'Đơn hàng / 訂單管理',keys:['progress','orderImport','approval','replog','sync'] },
+  { id:'orders',label:'Đơn hàng / 訂單管理',keys:['progress','orderImport','sync'] },
   { id:'process',label:'Công đoạn / 工序表',keys:['summary','cutting'] },
-  { id:'management',label:'Quản lý / 管理',keys:['settings','export','costView','costlog','accounts','permissions','efficiency'] }
+  { id:'management',label:'Quản lý / 管理',keys:['settings','export','costView','costlog','accounts','permissions'] }
 ];
 
 // PERMISSION_KEYS（可儲存權限欄位）必須與 Firestore Rules（雲端資料庫安全規則）一致。
 const PERMISSION_KEYS = [
-  'attendance','stats','employees','progress','approval','replog','accounts',
-  'export','costView','costlog','summary','orderImport','cutting','efficiency','sync'
+  'progress','accounts','export','costView','costlog','summary','orderImport','cutting','sync'
 ];
 const ADMIN_ONLY_KEYS = new Set(['settings','accounts','permissions']);
 window.permissionSettings = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
@@ -241,8 +231,6 @@ function renderPermissions(){
   html+=`<div style="margin-top:14px;padding:12px 14px;border:1px solid var(--bd);border-radius:10px;background:#f8fafc;font-size:12px;color:var(--mu)">
     <strong style="display:block;color:var(--navy);margin-bottom:6px">Quyền cố định của hệ thống / 系統固定權限</strong>
     <div>Quản trị viên: luôn có toàn bộ quyền, không thể tắt tại đây.<br>管理員：固定擁有全部權限，無法在此關閉。</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:9px;opacity:.6"><input type="checkbox" disabled style="width:16px;height:16px">Điện thoại tổ trưởng / 班長手機端（Tạm dừng / 暫停）</label>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:7px;opacity:.6"><input type="checkbox" disabled style="width:16px;height:16px">Điện thoại nhân viên / 員工手機端（Tạm dừng / 暫停）</label>
   </div>`;
   wrap.innerHTML=html;
   refreshPermissionGroupStates();

@@ -187,7 +187,7 @@ async function saveAcc(){
     alert('Email Google đã được phê duyệt / Google 電子信箱已經核准');
     return;
   }
-  if(window.accs.some(a=>a.user===username)||(window.allEmployees||[]).some(e=>e.user===username)){
+  if(window.accs.some(a=>a.user===username)){
     alert('Tài khoản đã tồn tại / 帳號已存在');
     return;
   }
@@ -234,7 +234,7 @@ async function saveEacc(){
     alert('Vui lòng nhập tên tài khoản hợp lệ / 請輸入正確的帳號名稱');
     return;
   }
-  if(window.accs.some(a=>a.accessId!==accessId&&a.user===username)||(window.allEmployees||[]).some(e=>e.user===username)){
+  if(window.accs.some(a=>a.accessId!==accessId&&a.user===username)){
     alert('Tài khoản đã tồn tại / 帳號已存在');
     return;
   }

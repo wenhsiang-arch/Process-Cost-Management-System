@@ -209,18 +209,12 @@ tr:hover td{background:#f8fafc}
 .mb{display:none;position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:50;align-items:flex-start;justify-content:center;padding-top:50px;min-height:640px}
 .mb.open{display:flex}
 #m-cutting-pdf-progress{align-items:center;padding:16px;min-height:100%}
-.report-hub-tabs{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px;margin-bottom:14px}
-.report-hub-tab{display:flex;align-items:center;gap:10px;padding:13px 16px;border:1px solid var(--bd);border-radius:12px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left}
-.report-hub-tab i{font-size:22px;color:var(--accent)}
-.report-hub-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
-.report-hub-tab.active strong{color:var(--accent)}
 .cutting-tabs{display:flex;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .cutting-tab{display:inline-flex;align-items:center;gap:9px;width:auto;min-width:0;padding:9px 16px;border:1px solid var(--bd);border-radius:10px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left;font-size:15px;font-weight:700;line-height:1.25}
 .cutting-tab i{font-size:22px;color:var(--accent)}
 .cutting-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
 .cutting-tab.active strong{color:var(--accent)}
 #pg-cutting .ts{max-height:none!important;overflow-y:visible}
-@media(max-width:900px){.report-hub-tabs{grid-template-columns:1fr}}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
 .mt2{font-size:15px;font-weight:500;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;color:var(--navy)}
@@ -257,13 +251,8 @@ tr:hover td{background:#f8fafc}
       <div class="sb-title">M9</div>
       <div class="sb-sub">Hệ thống quản lý sản xuất</div>
     </div>
-    <div class="sb-sec">Nhân sự / 人員管理</div>
-    <div class="ni locked" id="nv-attendance" onclick="sp('attendance')"><i class="ti ti-calendar-check"></i><div class="nl"><span class="nvi">Chấm công</span><span class="nzh">考勤管理</span></div></div>
-    <div class="ni locked" id="nv-stats" onclick="sp('stats')"><i class="ti ti-chart-pie"></i><div class="nl"><span class="nvi">Thống kê sản lượng</span><span class="nzh">員工產量統計</span></div></div>
-    <div class="ni locked" id="nv-employees" onclick="sp('employees')"><i class="ti ti-users-group"></i><div class="nl"><span class="nvi">Quản lý nhân viên</span><span class="nzh">員工管理</span></div></div>
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
-    <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Tiến độ đơn hàng</span><span class="nzh">訂單進度</span></div></div>
-    <div class="ni locked" id="nv-approval" onclick="openReportHub()"><i class="ti ti-clipboard-check"></i><div class="nl"><span class="nvi">Quản lý báo công</span><span class="nzh">報工管理 <span id="badge-apv" style="display:none;background:#ef4444;color:#fff;font-size:9px;padding:1px 5px;border-radius:8px">0</span></span></div></div>
+    <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Dữ liệu đơn hàng</span><span class="nzh">訂單資料</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="sp('summary')" id="nv-summary"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Tổng hợp mã hàng</span><span class="nzh">款號總表</span></div></div>
     <div class="ni" onclick="sp('cutting')" id="nv-cutting"><i class="ti ti-scissors"></i><div class="nl"><span class="nvi">Thống kê dây cắt</span><span class="nzh">裁帶統計</span></div></div>
@@ -276,7 +265,7 @@ tr:hover td{background:#f8fafc}
       <div class="ni" id="nv-costlog" onclick="sp('costlog')"><i class="ti ti-file-analytics"></i><div class="nl"><span class="nvi">Lịch sử chi phí</span><span class="nzh">成本變動記錄</span></div></div>
       <div class="ni" id="nv-accounts" onclick="sp('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
       <div class="ni" id="nv-permissions" onclick="sp('permissions')"><i class="ti ti-shield-check"></i><div class="nl"><span class="nvi">Phân quyền</span><span class="nzh">權限管理</span></div></div>
-      <div class="ni locked" id="nv-efficiency" onclick="sp('efficiency')"><i class="ti ti-chart-line"></i><div class="nl"><span class="nvi">Báo cáo hiệu suất</span><span class="nzh">效率報表</span></div></div>
+      <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây công đoạn</span><span class="nzh">工序秒數同步</span></div></div>
     </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
@@ -298,100 +287,19 @@ tr:hover td{background:#f8fafc}
 
     <div class="ct">
 
-      <!-- 效率報表 -->
-      <div class="pg" id="pg-efficiency">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-line"></i>Báo cáo hiệu suất / 效率報表</div>
-          <div class="fg cols2" style="margin-bottom:14px">
-            <div class="fgrp">
-              <label>Khoảng thời gian <span class="lvi">日期區間</span></label>
-              <select id="eff-range" onchange="effRangeChange()">
-                <option value="today">Hôm nay / 今日</option>
-                <option value="week">Tuần này / 本週</option>
-                <option value="month" selected>Tháng này / 本月</option>
-                <option value="custom">Tùy chỉnh / 自訂</option>
-              </select>
-            </div>
-            <div class="fgrp" id="eff-custom-wrap" style="display:none">
-              <label>Từ ngày <span class="lvi">起始日期</span></label>
-              <div style="display:flex;gap:8px;align-items:center">
-                <input type="date" id="eff-from" onchange="effCustomCheck()">
-                <span style="font-size:13px;color:var(--mu)">至</span>
-                <input type="date" id="eff-to" onchange="effCustomCheck()">
-              </div>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
-            <div class="mc">
-              <div style="font-size:22px;font-weight:600;color:var(--tx)" id="eff-work-h">-</div>
-              <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Tổng giờ làm việc<br>總上班工時</div>
-            </div>
-            <div class="mc">
-              <div style="font-size:22px;font-weight:600;color:var(--tx)" id="eff-prod-h">-</div>
-              <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Tổng giờ năng suất<br>總產能時數</div>
-            </div>
-            <div class="mc">
-              <div style="font-size:22px;font-weight:600;color:var(--tx)" id="eff-pct">-</div>
-              <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Hiệu suất tổng thể<br>整體效率</div>
-            </div>
-            <div class="mc">
-              <div style="font-size:22px;font-weight:600;color:var(--tx)" id="eff-coef">-</div>
-              <div style="font-size:11px;color:var(--mu);margin-top:6px;line-height:1.5">Hệ số chi phí<br>工價係數</div>
-            </div>
-          </div>
-          <div style="background:var(--sf);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div style="font-size:13px;color:var(--mu)">
-              基準係數（80%效率）：<b style="color:var(--tx)">125.0%</b>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:13px;color:var(--mu)">差異：</span>
-              <span id="eff-diff" style="font-size:13px;font-weight:600">-</span>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div class="ct-title" style="margin-bottom:0"><i class="ti ti-history"></i>Lịch sử / 歷史記錄</div>
-            <button class="btn bp" onclick="effSaveLog()"><i class="ti ti-bookmark"></i>Lưu lịch sử / 建立記錄</button>
-          </div>
-          <div class="to">
-            <table style="width:100%;border-collapse:collapse;font-size:13px">
-              <thead><tr style="background:var(--sf)">
-                <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Khoảng thời gian<br><span style="font-weight:400">日期區間</span></th>
-                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Giờ làm việc<br><span style="font-weight:400">上班工時</span></th>
-                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Giờ năng suất<br><span style="font-weight:400">產能時數</span></th>
-                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Hiệu suất<br><span style="font-weight:400">整體效率</span></th>
-                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Hệ số chi phí<br><span style="font-weight:400">工價係數</span></th>
-                <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Chuẩn<br><span style="font-weight:400">基準係數</span></th>
-                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Chênh lệch<br><span style="font-weight:400">差異</span></th>
-                <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Thao tác<br><span style="font-weight:400">操作</span></th>
-              </tr></thead>
-              <tbody id="eff-log-tb"><tr><td colspan="8" style="text-align:center;padding:20px;color:var(--mu);font-size:13px">尚無記錄 / Chưa có lịch sử</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
       <!-- 工序秒數同步 -->
       <div class="pg" id="pg-sync">
-        <div class="report-hub-tabs">
-          <button class="report-hub-tab" data-report-feature="approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><strong>Duyệt báo công / 報工審批</strong></button>
-          <button class="report-hub-tab" data-report-feature="replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><strong>Lịch sử báo công / 報工紀錄</strong></button>
-          <button class="report-hub-tab active" data-report-feature="sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><strong>Đồng bộ giây CĐ / 工序秒數同步</strong></button>
-        </div>
         <div class="card">
           <div class="ct-title"><i class="ti ti-refresh"></i>Đồng bộ giây công đoạn / 工序秒數同步工具</div>
           <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#92400e;line-height:1.8">
             <b>⚠️ Lưu ý</b><br>
             · Chỉ cập nhật đơn hàng đã chọn, không ảnh hưởng đơn hàng khác<br>
             · Cập nhật toàn bộ giây và SL/giờ của đơn hàng + công đoạn đã chọn<br>
-            · Tất cả báo công của phạm vi này cũng sẽ được cập nhật giây và SL/giờ<br>
             · Ô để trống sẽ không cập nhật<br>
             <br>
             <b>⚠️ 注意</b><br>
             · 只更新所選訂單，不影響其他訂單<br>
             · 更新所選「訂單＋工序號」的全部秒數與標準產量/時<br>
-            · 該範圍所有狀態報工的工序秒數與標準產量/時也會同步更新<br>
             · 空白欄位不會更新，只有填入新秒數的款號才會被同步
           </div>
           <div class="fg cols2" style="margin-bottom:14px">
@@ -711,70 +619,10 @@ tr:hover td{background:#f8fafc}
         </div>
       </div>
 
-      <!-- 報工審批 -->
-      <div class="pg" id="pg-approval">
-        <div class="report-hub-tabs">
-          <button class="report-hub-tab active" data-report-feature="approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><strong>Duyệt báo công / 報工審批</strong></button>
-          <button class="report-hub-tab" data-report-feature="replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><strong>Lịch sử báo công / 報工紀錄</strong></button>
-          <button class="report-hub-tab" data-report-feature="sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><strong>Đồng bộ giây CĐ / 工序秒數同步</strong></button>
-        </div>
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-check-circle"></i>Duyệt báo công / 報工審批</div>
-          <div class="br" style="margin-bottom:10px;gap:6px">
-            <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="approvalBatchPass()"><i class="ti ti-check"></i>Duyệt hàng loạt / 批量通過</button>
-            <button class="btn" style="background:var(--errl);color:var(--err);border:1px solid #fca5a5" onclick="approvalBatchReject()"><i class="ti ti-x"></i>Từ chối hàng loạt / 批量退回</button>
-            <select id="apv-dept" onchange="renderApproval()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
-            <input type="text" id="apv-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="renderApproval()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
-          </div>
-          <div class="to"><table>
-            <thead><tr><th><input type="checkbox" id="apv-chk-all" onchange="approvalToggleAll(this)"></th><th>Nhân viên<br><span style="font-size:10px;color:var(--mu);font-weight:400">員工</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Đơn hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款號</span></th><th>Công đoạn<br><span style="font-size:10px;color:var(--mu);font-weight:400">工序</span></th><th>SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">數量</span></th><th>Thời gian<br><span style="font-size:10px;color:var(--mu);font-weight:400">申報時間</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
-            <tbody id="apv-tb"></tbody>
-          </table></div>
-          <div id="apv-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)">Không có báo công chờ duyệt / 目前沒有待審批</div>
-        </div>
-      </div>
-
-      <!-- 報工紀錄 -->
-      <div class="pg" id="pg-replog">
-        <div class="report-hub-tabs">
-          <button class="report-hub-tab" data-report-feature="approval" onclick="sp('approval')"><i class="ti ti-clipboard-check"></i><strong>Duyệt báo công / 報工審批</strong></button>
-          <button class="report-hub-tab active" data-report-feature="replog" onclick="sp('replog')"><i class="ti ti-file-search"></i><strong>Lịch sử báo công / 報工紀錄</strong></button>
-          <button class="report-hub-tab" data-report-feature="sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><strong>Đồng bộ giây CĐ / 工序秒數同步</strong></button>
-        </div>
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-file-search"></i>Lịch sử báo công / 報工紀錄</div>
-          <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
-            <select id="replog-dept" onchange="renderReplog(window.replogRange)" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
-            <input type="text" id="replog-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="renderReplog(window.replogRange)" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
-            <button class="btn" onclick="setReplogRange('yesterday')">Hôm qua / 昨日</button>
-            <button class="btn" onclick="setReplogRange('custom')">Tùy chỉnh / 自訂範圍</button>
-            <div id="replog-custom-range" style="display:none;align-items:center;gap:6px">
-              <input type="date" id="replog-from" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <input type="date" id="replog-to" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <button class="btn bp" onclick="renderReplog('custom')"><i class="ti ti-search"></i>查詢</button>
-            </div>
-            <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="openManualEntry()"><i class="ti ti-plus"></i>Bổ sung / 補登報工</button>
-          </div>
-          <div class="to"><table>
-            <thead><tr>
-              <th>Nhân viên<br><span style="font-size:10px;color:var(--mu);font-weight:400">員工</span></th>
-              <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
-              <th>Đơn hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單</span></th>
-              <th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款號</span></th>
-              <th>Công đoạn<br><span style="font-size:10px;color:var(--mu);font-weight:400">工序</span></th>
-              <th>SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">數量</span></th>
-              <th>Thời gian<br><span style="font-size:10px;color:var(--mu);font-weight:400">建立時間</span></th>
-              <th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th>
-            </tr></thead>
-            <tbody id="replog-tb"></tbody>
-          </table></div>
-        </div>
-      </div>
-
       <!-- 訂單進度 -->
       <div class="pg" id="pg-progress">
         <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-bar"></i>Tiến độ đơn hàng / 訂單進度</div>
+          <div class="ct-title"><i class="ti ti-chart-bar"></i>Dữ liệu đơn hàng và công đoạn / 訂單與工序資料</div>
           <div class="order-manager-panel" id="order-manager-panel">
             <button type="button" class="order-manager-toggle" onclick="toggleOrderManager()" aria-expanded="false">
               <i class="ti ti-file-invoice"></i>
@@ -794,7 +642,7 @@ tr:hover td{background:#f8fafc}
                 </select>
               </div>
               <div class="to"><table>
-                <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Tiến độ<br><span style="font-size:10px;color:var(--mu);font-weight:400">整體進度</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
+                <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Trạng thái<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單狀態</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
                 <tbody id="ord-tb"></tbody>
               </table></div>
               <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
@@ -807,163 +655,15 @@ tr:hover td{background:#f8fafc}
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
             <input id="prog-code-q" type="search" oninput="renderProgress()" placeholder="Tìm mã hàng / 搜尋款號..." style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px">
-            <select id="prog-filter" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <option value="active">Chưa hoàn thành / 未完成訂單</option>
-              <option value="done">Đã hoàn thành / 已完成訂單</option>
-              <option value="all">Tất cả / 全部訂單</option>
-            </select>
           </div>
           <div id="prog-content"></div>
         </div>
       </div>
 
-      <!-- 員工產量統計 -->
-      <div class="pg" id="pg-stats">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-pie"></i>Thống kê sản lượng / 員工產量統計</div>
-          <div class="br" style="margin-bottom:10px;gap:6px;flex-wrap:wrap">
-            <select id="stats-range" onchange="statsRangeChange()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <option value="today" selected>Hôm nay / 今天</option>
-              <option value="yesterday">Hôm qua / 昨日</option>
-              <option value="month">Tháng này / 本月</option>
-              <option value="custom">Tùy chỉnh / 自訂</option>
-            </select>
-            <input type="date" id="stats-from" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-            <input type="date" id="stats-to" style="display:none;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-            <select id="stats-dept" onchange="renderStats()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">Tất cả bộ phận / 全部部門</option></select>
-            <select id="stats-scope" onchange="renderStats()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-              <option value="reported">Có báo công / 有報工記錄</option>
-              <option value="all">Tất cả nhân viên / 所有員工</option>
-            </select>
-            <input type="text" id="stats-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="statsSearchDebounce()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
-            <button class="btn bp" onclick="renderStats()"><i class="ti ti-search"></i>查詢</button>
-          </div>
-          <div class="to"><table>
-            <thead><tr>
-              <th style="width:32px"></th>
-              <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號/工號</span></th>
-              <th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th>
-              <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">職稱</span></th>
-              <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
-              <th>Giờ làm việc<br><span style="font-size:10px;color:var(--mu);font-weight:400">上班時數</span></th>
-              <th>Giờ năng suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">產能時數</span></th>
-              <th>Hiệu suất<br><span style="font-size:10px;color:var(--mu);font-weight:400">效率</span></th>
-            </tr></thead>
-            <tbody id="stats-tb"></tbody>
-          </table></div>
-        </div>
-      </div>
-
-      <!-- 員工管理 -->
-      <div class="pg" id="pg-employees">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-users-group"></i>Quản lý nhân viên / 員工管理</div>
-          <div class="br"><button class="btn bp" onclick="openAddEmployee()"><i class="ti ti-plus"></i>Thêm nhân viên / 新增員工</button></div>
-          <div class="to"><table>
-            <thead><tr><th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th><th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號</span></th><th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th><th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
-            <tbody id="emp-tb"></tbody>
-          </table></div>
-        </div>
-      </div>
-
-      <!-- 考勤管理 -->
-      <div class="pg" id="pg-attendance">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-calendar-check"></i>Chấm công / 考勤管理</div>
-          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding:12px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--bd)">
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:var(--mu)">Ca thường / 正常班</span>
-              <input type="number" id="att-batch-reg" min="0" max="24" step="0.5" value="8" oninput="attUpdateBatchTotal()"
-                style="width:68px;padding:5px 7px;border:1px solid var(--bd);border-radius:7px;font-size:13px;text-align:center">
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:var(--mu)">Tăng ca / 加班</span>
-              <input type="number" id="att-batch-ot" min="0" max="24" step="0.5" value="0" oninput="attUpdateBatchTotal()"
-                style="width:68px;padding:5px 7px;border:1px solid var(--bd);border-radius:7px;font-size:13px;text-align:center">
-            </div>
-            <div style="display:flex;align-items:center;gap:6px">
-              <span style="font-size:12px;color:var(--mu)">Tổng / 合計</span>
-              <span id="att-batch-total" style="font-size:15px;font-weight:700;color:var(--navy);min-width:32px">8</span>
-              <span style="font-size:12px;color:var(--mu)">giờ / 時</span>
-            </div>
-            <input type="text" id="att-emp-q" placeholder="Tìm nhân viên / 搜尋員工..." oninput="attFilterEmps()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:180px">
-            <button class="btn bp" onclick="attFillAll()" style="margin-left:4px"><i class="ti ti-copy"></i>Điền tất cả / 一鍵填入</button>
-            <button class="btn" style="background:var(--okl);color:var(--ok);border:1px solid #86efac" onclick="openAttApply()"><i class="ti ti-device-floppy"></i>Áp dụng / 套用考勤</button>
-          </div>
-          <div class="to"><table>
-            <thead><tr>
-              <th>Tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號/工號</span></th>
-              <th>Họ tên<br><span style="font-size:10px;color:var(--mu);font-weight:400">姓名</span></th>
-              <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">職稱</span></th>
-              <th>Bộ phận<br><span style="font-size:10px;color:var(--mu);font-weight:400">部門</span></th>
-              <th>Ca thường<br><span style="font-size:10px;color:var(--mu);font-weight:400">正常班(時)</span></th>
-              <th>Tăng ca<br><span style="font-size:10px;color:var(--mu);font-weight:400">加班(時)</span></th>
-              <th>Tổng giờ<br><span style="font-size:10px;color:var(--mu);font-weight:400">合計</span></th>
-              <th>Lịch sử<br><span style="font-size:10px;color:var(--mu);font-weight:400">歷史記錄</span></th>
-            </tr></thead>
-            <tbody id="att-tb"></tbody>
-          </table></div>
-        </div>
-      </div>
-
-      </div>
     </div>
   </div>
 
   <!-- Modals -->
-  <div class="mb" id="m-void-reason"><div class="md" style="width:420px">
-    <div class="mt2"><i class="ti ti-ban"></i> Lý do hủy / 作廢原因 <button class="btn bsm" onclick="cm('m-void-reason')"><i class="ti ti-x"></i></button></div>
-    <input type="hidden" id="void-target-id">
-    <div class="fgrp" style="margin-bottom:14px">
-      <label>Lý do / 原因 <span style="color:var(--err)">*</span></label>
-      <input type="text" id="void-reason-text" placeholder="請輸入作廢原因..." style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-    </div>
-    <div class="br"><button class="btn bp" style="background:var(--err)" onclick="confirmVoid()"><i class="ti ti-ban"></i>Xác nhận hủy / 確認作廢</button><button class="btn" onclick="cm('m-void-reason')">取消</button></div>
-  </div></div>
-  <div class="mb" id="m-manual-entry"><div class="md" style="width:500px">
-    <div class="mt2"><i class="ti ti-plus"></i> Bổ sung báo công / 補登報工 <button class="btn bsm" onclick="cm('m-manual-entry')"><i class="ti ti-x"></i></button></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div class="fgrp">
-        <label>Nhân viên / 員工 <span style="color:var(--err)">*</span></label>
-        <select id="me-emp" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇員工 --</option></select>
-      </div>
-      <div class="fgrp">
-        <label>Ngày sản xuất / 生產日期 <span style="color:var(--err)">*</span></label>
-        <input type="date" id="me-date" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-      </div>
-      <div class="fgrp">
-        <label>Đơn hàng / 訂單 <span style="color:var(--err)">*</span></label>
-        <select id="me-order" onchange="meLoadCodes()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇訂單 --</option></select>
-      </div>
-      <div class="fgrp">
-        <label>Mã hàng / 款號 <span style="color:var(--err)">*</span></label>
-        <select id="me-code" onchange="meLoadProcs()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇款號 --</option></select>
-      </div>
-      <div class="fgrp" style="grid-column:1/-1">
-        <label>Công đoạn / 工序 <span style="color:var(--err)">*</span></label>
-        <select id="me-proc" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- 選擇工序 --</option></select>
-      </div>
-      <div class="fgrp">
-        <label>Số lượng / 數量 <span style="color:var(--err)">*</span></label>
-        <input type="number" id="me-qty" min="1" placeholder="0" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-      </div>
-      <div class="fgrp">
-        <label>Lý do / 補登原因 <span style="color:var(--err)">*</span></label>
-        <input type="text" id="me-reason" placeholder="請填寫補登原因..." style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-      </div>
-    </div>
-    <div id="me-remain-info" style="display:none;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--mu);margin-bottom:12px"></div>
-    <div class="br"><button class="btn bp" onclick="confirmManualEntry()"><i class="ti ti-check"></i>確認補登</button><button class="btn" onclick="cm('m-manual-entry')">取消</button></div>
-  </div></div>
-  <div class="mb" id="m-attendance"><div class="md" style="width:420px">
-    <div class="mt2"><i class="ti ti-calendar-check"></i> Áp dụng chấm công / 套用考勤 <button class="btn bsm" onclick="cm('m-attendance')"><i class="ti ti-x"></i></button></div>
-    <div class="fgrp" style="margin-bottom:12px">
-      <label>Ngày áp dụng / 套用日期 <span style="color:var(--err)">*</span></label>
-      <input type="date" id="att-apply-date" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-    </div>
-    <div class="nt nw" style="margin-bottom:14px"><i class="ti ti-info-circle"></i>本次將套用 <b id="att-apply-count">0</b> 位員工的考勤記錄。若該日已有資料將提示覆蓋確認。<br><span style="font-size:11px;color:var(--mu)">Sẽ áp dụng chấm công cho <b id="att-apply-count2"></b> nhân viên. Nếu ngày đã có dữ liệu sẽ hỏi xác nhận.</span></div>
-    <div class="br"><button class="btn bp" onclick="confirmAttendance()"><i class="ti ti-check"></i>Xác nhận / 確認套用</button><button class="btn" onclick="cm('m-attendance')">取消</button></div>
-  </div></div>
   <div class="mb" id="m-detail-import"><div class="md wide">
     <div class="mt2"><span><i class="ti ti-file-spreadsheet"></i> Nhập dữ liệu Excel / 匯入資料確認</span><button class="btn bsm" onclick="xImp()"><i class="ti ti-x"></i></button></div>
     <div class="pw" id="pw-wrap">
@@ -1160,160 +860,6 @@ tr:hover td{background:#f8fafc}
     </div>
   </div></div>
 
-  <div class="mb" id="m-reject-reason"><div class="md">
-    <div class="mt2"><i class="ti ti-x"></i> 退回報工 <button class="btn bsm" onclick="cm('m-reject-reason')"><i class="ti ti-x"></i></button></div>
-    <input type="hidden" id="rej-target-ids">
-    <div class="fgrp" style="margin-bottom:16px">
-      <label>退回原因（選填）</label>
-      <textarea id="rej-reason-text" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font-size:13px;resize:none" placeholder="輸入退回原因..."></textarea>
-    </div>
-    <div class="br">
-      <button class="btn" style="background:var(--errl);color:var(--err);border:1px solid #fca5a5" onclick="doReject()"><i class="ti ti-x"></i>確認退回</button>
-      <button class="btn" onclick="cm('m-reject-reason')">取消</button>
-    </div>
-  </div></div>
-
-  <div class="mb" id="m-employee"><div class="md">
-    <div class="mt2" id="emp-modal-title">新增員工 <button class="btn bsm" onclick="cm('m-employee')"><i class="ti ti-x"></i></button></div>
-    <input type="hidden" id="emp-edit-id">
-    <div class="fg cols2" style="margin-bottom:12px">
-      <div class="fgrp"><label>Họ và tên / 姓名（越文）<span style="color:var(--err)">*</span></label><input type="text" id="emp-name" placeholder="Nguyễn Văn A"></div>
-      <div class="fgrp"><label>Bộ phận / 部門</label>
-        <select id="emp-dept">
-          <option value="">選擇部門...</option>
-          <option value="備料">備料 / Bị liệu</option>
-          <option value="普工">普工 / Phổ thông</option>
-          <option value="電腦針車">電腦針車 / May điện tử</option>
-          <option value="平車">平車 / May bằng</option>
-          <option value="品檢">品檢 / QC</option>
-          <option value="包裝">包裝 / Đóng gói</option>
-        </select>
-      </div>
-      <div class="fgrp"><label>帳號/工號 / Tài khoản・Mã NV <span style="color:var(--err)">*</span></label><input type="text" id="emp-user"></div>
-      <div class="fgrp"><label>Vai trò / 角色</label>
-        <select id="emp-role">
-          <option value="user">Nhân viên / 員工</option>
-          <option value="leader">Quản lý bộ phận / 部門管理</option>
-        </select>
-      </div>
-    </div>
-    <div class="br">
-      <button class="btn bp" onclick="saveEmployee()"><i class="ti ti-check"></i>儲存</button>
-      <button class="btn" onclick="cm('m-employee')">取消</button>
-    </div>
-  </div></div>
-
-  <div class="mb" id="m-purge-employee"><div class="md" style="width:480px">
-    <div class="mt2"><span><i class="ti ti-alert-triangle" style="color:var(--err)"></i> 管理員徹底刪除員工</span><button class="btn bsm" onclick="cm('m-purge-employee')"><i class="ti ti-x"></i></button></div>
-    <input type="hidden" id="purge-emp-id">
-    <div class="nt nd" style="margin-bottom:12px"><i class="ti ti-alert-triangle"></i>此操作將永久刪除員工帳號、全部報工與全部考勤，並回沖工序數量，無法復原。</div>
-    <p style="font-size:13px;margin-bottom:10px">員工：<b id="purge-emp-name" style="color:var(--navy)"></b></p>
-    <div id="purge-emp-summary" style="font-size:13px;line-height:1.8;padding:10px 12px;background:var(--bg);border-radius:8px;margin-bottom:12px"></div>
-    <div class="fgrp" style="margin-bottom:14px"><label>輸入完整員工工號確認</label><input type="text" id="purge-emp-input" autocomplete="off"></div>
-    <div class="br"><button class="btn bd2" onclick="confirmAdminPurgeEmployee()"><i class="ti ti-database-off"></i>徹底刪除所有相關資料</button><button class="btn" onclick="cm('m-purge-employee')">取消</button></div>
-  </div></div>
-
-  <!-- 手機版 -->
-  <div id="mob" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg);flex-direction:column;max-width:480px;margin:0 auto">
-    <div style="background:var(--navy);padding:12px 16px;flex-shrink:0">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div id="mob-av" style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff">?</div>
-          <div>
-            <div id="mob-name" style="color:#fff;font-size:15px;font-weight:600">-</div>
-            <div id="mob-info" style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px">-</div>
-          </div>
-        </div>
-        <div style="position:relative;cursor:pointer" onclick="mobBellClick()">
-          <i class="ti ti-bell" style="font-size:20px;color:rgba(255,255,255,.8)"></i>
-          <div id="mob-bell" style="display:none;position:absolute;top:-2px;right:-2px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;width:14px;height:14px;border-radius:50%;align-items:center;justify-content:center">0</div>
-        </div>
-        <div style="cursor:pointer;margin-left:8px" onclick="doLogout()">
-          <i class="ti ti-logout" style="font-size:20px;color:rgba(255,255,255,.8)"></i>
-        </div>
-      </div>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:10px;padding-bottom:70px">
-      <div id="mob-pg-report" style="display:block">
-        <div id="mob-reject-alert" style="display:none;background:#fff8e6;border:1px solid #f59e0b;border-radius:12px;padding:10px 12px;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer" onclick="mobPage('mob-pg-hist');mobFilterHist('rejected');this.style.display='none';localStorage.setItem('mob_rej_read','1')">
-          <i class="ti ti-alert-triangle" style="color:#d97706;font-size:16px"></i>
-          <b id="mob-reject-alert-text" style="font-size:12px;color:#92400e"></b>
-        </div>
-        <div style="background:var(--sf);border-radius:14px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--bd)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:11px;color:var(--mu)">Đơn hàng / 訂單</span>
-            <button onclick="mobLoadOrders()" style="border:none;background:none;color:var(--mu);cursor:pointer;font-size:11px;display:flex;align-items:center;gap:3px;padding:2px 4px"><i class="ti ti-refresh" style="font-size:13px"></i> Tải lại / 刷新</button>
-          </div>
-          <select id="mob-sel-order" onchange="mobSelectOrder()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇訂單 --</option></select>
-          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Mã hàng / 款號</div>
-          <select id="mob-sel-code" onchange="mobSelectCode()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇款號 --</option></select>
-          <div style="font-size:11px;color:var(--mu);margin-bottom:4px">Công đoạn / 工序</div>
-          <select id="mob-sel-proc" onchange="mobSelectProc()" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:9px;font-size:13px;margin-bottom:8px"><option value="">-- 選擇工序 --</option></select>
-          <div id="mob-proc-info" style="display:none">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-              <div style="background:#f8fafc;border-radius:10px;padding:10px 11px">
-                <div style="font-size:10px;color:var(--mu)">SL đơn / 訂單數量</div>
-                <div id="mob-info-qty" style="font-size:20px;font-weight:700;color:var(--navy);margin-top:2px">0</div>
-                <div style="background:#e2e8f0;border-radius:99px;height:5px;margin-top:6px"><div id="mob-info-prog" style="height:5px;border-radius:99px;background:var(--navy);width:0%"></div></div>
-                <div id="mob-info-prog-text" style="font-size:10px;color:var(--hi);margin-top:3px">-</div>
-              </div>
-              <div style="background:#f8fafc;border-radius:10px;padding:10px 11px">
-                <div style="font-size:10px;color:var(--mu)">Chờ duyệt / 待審批</div>
-                <div id="mob-info-pending" style="font-size:20px;font-weight:700;color:var(--accent);margin-top:2px">0</div>
-                <div style="height:5px;margin-top:6px"></div>
-                <div id="mob-info-approved" style="font-size:10px;color:var(--hi);margin-top:3px">已審批：0</div>
-              </div>
-            </div>
-            <div style="font-size:11px;color:var(--mu);font-weight:500;margin-bottom:6px">SL hoàn thành / 完成數量</div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input type="number" id="mob-qty" min="1" placeholder="0" style="flex:1;padding:10px;font-size:24px;font-weight:700;text-align:center;border:1px solid var(--bd);border-radius:10px;color:var(--navy)">
-              <span style="font-size:12px;color:var(--mu)">PCS</span>
-            </div>
-            <button id="mob-submit-btn" onclick="mobSubmitReport()" style="width:100%;margin-top:8px;background:var(--navy);color:#fff;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px"><i class="ti ti-send"></i> Gửi báo công / 送出報工</button>
-            <div id="mob-last-submit" style="display:none;text-align:center;font-size:11px;color:var(--hi);margin-top:6px"></div>
-          </div>
-        </div>
-      </div>
-      <div id="mob-pg-hist" style="display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:11px;color:#92400e;padding:6px 12px;background:#fef9c3;border:1px solid #fde68a;border-radius:8px;flex:1;text-align:center">Chỉ hiển thị 15 ngày gần nhất / 只顯示最近 15 天</div>
-          <button onclick="mobLoadMyReports()" style="margin-left:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
-        </div>
-        <div style="display:flex;background:var(--sf);border-radius:10px;padding:3px;margin-bottom:8px">
-          <button id="mob-flt-all" onclick="mobFilterHist('all')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:var(--navy);color:#fff;font-weight:600"><span style="display:block;font-size:10px">Tất cả</span><span style="display:block;font-size:9px">全部</span></button>
-          <button id="mob-flt-approved" onclick="mobFilterHist('approved')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Đã duyệt</span><span style="display:block;font-size:9px">已通過</span></button>
-          <button id="mob-flt-pending" onclick="mobFilterHist('pending')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Chờ duyệt</span><span style="display:block;font-size:9px">待審批</span></button>
-          <button id="mob-flt-rejected" onclick="mobFilterHist('rejected')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Từ chối</span><span style="display:block;font-size:9px">已退回</span></button>
-          <button id="mob-flt-voided" onclick="mobFilterHist('voided')" style="flex:1;text-align:center;padding:7px 4px;font-size:11px;cursor:pointer;border-radius:8px;border:none;background:transparent;color:var(--mu)"><span style="display:block;font-size:10px">Đã hủy</span><span style="display:block;font-size:9px">已作廢</span></button>
-        </div>
-        <div id="mob-hist-list"></div>
-      </div>
-      <div id="mob-pg-apv" style="display:none">
-        <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
-          <button onclick="mobBatchPass()" style="flex:1;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;cursor:pointer;background:#38bdf8;color:#fff;display:flex;align-items:center;justify-content:center;gap:5px"><i class="ti ti-checks"></i> Duyệt tất cả / 批量通過</button>
-          <button onclick="mobLoadPending()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;flex-shrink:0"><i class="ti ti-refresh"></i> Tải lại / 刷新</button>
-        </div>
-        <div id="mob-apv-list"></div>
-      </div>
-    </div>
-    <div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--sf);border-top:1px solid var(--bd);z-index:100">
-      <button id="mob-tab-report" onclick="mobPage('mob-pg-report')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-text" style="font-size:20px;color:var(--navy)"></i><span style="font-size:10px;color:var(--navy);font-weight:600">Báo công / 報工</span></button>
-      <button id="mob-tab-hist" onclick="mobPage('mob-pg-hist')" style="flex:1;padding:9px 4px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-history" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">Lịch sử / 記錄</span></button>
-      <button id="mob-tab-apv" onclick="mobPage('mob-pg-apv')" style="display:none;position:relative;flex:1;padding:9px 4px 7px;flex-direction:column;align-items:center;gap:3px;border:none;background:transparent;cursor:pointer"><i class="ti ti-clipboard-check" style="font-size:20px;color:var(--hi)"></i><span style="font-size:10px;color:var(--hi)">Duyệt / 審批</span><div id="mob-apv-badge" style="display:none;position:absolute;top:5px;right:16px;background:#ef4444;color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;align-items:center;justify-content:center;padding:0 3px">0</div></button>
-    </div>
-  </div>
-  <div id="mob-rej-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9100;align-items:center;justify-content:center">
-    <div style="background:var(--sf);border-radius:16px;padding:20px;width:90%;max-width:480px;margin:auto">
-      <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:14px">退回原因（選填）</div>
-      <input type="hidden" id="mob-rej-ids">
-      <textarea id="mob-rej-reason" rows="3" style="width:100%;padding:10px 12px;border:1px solid var(--bd);border-radius:10px;font-size:13px;resize:none" placeholder="輸入退回原因..."></textarea>
-      <div style="display:flex;gap:8px;margin-top:14px">
-        <button onclick="g('mob-rej-modal').style.display='none'" style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:#f1f5f9;color:var(--mu)">取消</button>
-        <button onclick="mobDoReject()" style="flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;background:var(--err);color:#fff">確認退回</button>
-      </div>
-    </div>
-  </div>
-  <div id="mob-toast" style="display:none;position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:9999;white-space:nowrap"></div>
 
 </div>
 </div>
@@ -1323,9 +869,9 @@ tr:hover td{background:#f8fafc}
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <!-- 一般 JS 模組（依賴順序載入）-->
-<script src="js/utils.js?v=20260805-1"></script>
+<script src="js/utils.js?v=20260805-2"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/auth.js?v=20260805-4"></script>
+<script src="js/auth.js?v=20260805-5"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
 <script src="js/settings.js?v=20260805-1"></script>
 <script src="js/summary.js?v=20260805-1"></script>
@@ -1333,18 +879,13 @@ tr:hover td{background:#f8fafc}
 <script src="js/data.js?v=20260805-1"></script>
 <script src="js/cutting-store.js?v=20260804-4"></script>
 <script src="js/cutting.js?v=20260804-8"></script>
-<script src="js/accounts.js?v=20260804-3"></script>
-<script src="js/orders.js?v=20260805-2"></script>
-<script src="js/sync.js"></script>
-<script src="js/efficiency.js"></script>
-<script src="js/reports.js"></script>
-<script src="js/stats.js"></script>
-<script src="js/attendance.js"></script>
-<script src="js/permissions.js?v=20260805-1"></script>
-<script src="js/mobile.js"></script>
+<script src="js/accounts.js?v=20260805-1"></script>
+<script src="js/orders.js?v=20260805-3"></script>
+<script src="js/sync.js?v=20260805-1"></script>
+<script src="js/permissions.js?v=20260805-2"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260805-2"></script>
+<script type="module" src="js/firebase.js?v=20260805-3"></script>
 
 <script>
 // cuttingInit（裁帶功能初始化）改為登入並進入功能後才執行，避免未驗證讀取雲端資料。

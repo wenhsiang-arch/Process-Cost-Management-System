@@ -32,10 +32,6 @@ function isCurrentDeskAccount(){
     && window.firebaseAuthUser?.uid===window.cu.authUid
   );
 }
-function isCurrentEmployee(){
-  return !!(window.cu&&window.cu.id&&(window.allEmployees||[]).some(e=>e.id===window.cu.id&&e.user===window.cu.user));
-}
-
 // ===== 導覽權限 =====
 function uNav(){
   const r  = window.cu ? window.cu.role : '';
@@ -56,7 +52,7 @@ function uNav(){
   if(cgEl) cgEl.style.display = isA ? '' : 'none';
 
   // 所有可控制功能
-  const allFeatures = ['attendance','stats','employees','progress','approval','replog','accounts','export','costlog','summary','cutting','sync','efficiency'];
+  const allFeatures = ['progress','accounts','export','costlog','summary','cutting','sync'];
 
   allFeatures.forEach(n=>{
     const el=g('nv-'+n); if(!el) return;
@@ -74,12 +70,6 @@ function uNav(){
   document.querySelectorAll('[data-order-manage]').forEach(el=>{
     el.style.display=canManageOrders()?'':'none';
   });
-  const reportNav=g('nv-approval');
-  if(reportNav&&!isA){
-    const rp=perm[r]||{};
-    reportNav.className='ni'+((rp.approval===true||rp.replog===true||rp.sync===true)?'':' locked');
-  }
-
   g('upill').className  = 'up'+(isA?' adm':isMgr?' mgr':'');
   g('ulabel').textContent = window.cu.user+' · '+(ROLE_LABEL[r]||r);
 }
@@ -139,10 +129,8 @@ function clearSessionUi(){
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   window.cu=null;
   window.accs=[];
-  window.allEmployees=[];
   window.allOrders=[];
   window.allProcesses=[];
-  window.employeeUserHistory={};
   window.impHist=[];
   window.cLog=[];
   // 登出時立即清除記憶體中的薪資與成本，避免同一分頁換帳號後殘留。
@@ -160,10 +148,6 @@ function clearSessionUi(){
   if(appEl) appEl.style.display='';
   g('ls').style.display='';
   g('ma').classList.add('hidden');
-  g('mob').style.display='none';
-  if(window.mobPendingUnsub){ window.mobPendingUnsub(); window.mobPendingUnsub=null; }
-  if(window.deskApvUnsub){ window.deskApvUnsub(); window.deskApvUnsub=null; }
-  if(window.mobHistUnsub){ window.mobHistUnsub(); window.mobHistUnsub=null; }
 }
 
 async function enterAuthorizedDeskSystem(user,access){
@@ -198,7 +182,7 @@ async function enterAuthorizedDeskSystem(user,access){
   }else{
     const perm=window.permissionSettings;
     const role=window.cu.role;
-    const order=['attendance','stats','employees','progress','approval','replog','sync','export','costlog','summary','cutting','efficiency'];
+    const order=['progress','sync','export','costlog','summary','cutting'];
     const allowed=order.find(name=>perm[role]&&perm[role][name]===true);
     if(allowed) sp(allowed);
   }
@@ -329,13 +313,9 @@ async function ensurePageData(name){
     add(window.ensureCostLogLoaded?.());
   }
   if(name==='costlog'&&canViewCosts()) add(window.ensureCostLogLoaded?.());
-  if(['stats','progress','sync','efficiency'].includes(name)) add(window.ensureOperationSettingsLoaded?.());
-  if(['employees','stats','attendance','approval','replog','accounts'].includes(name)){
-    add(window.ensureEmployeesLoaded?.());
-  }
-  if(name==='employees') add(window.ensureEmployeeUserHistoryLoaded?.());
+  if(['progress','sync'].includes(name)) add(window.ensureOperationSettingsLoaded?.());
   if(name==='progress') add(loadOrderData());
-  if(['replog','sync'].includes(name)) add(reloadOrders());
+  if(name==='sync') add(reloadOrders());
 
   if(!tasks.length) return;
   window.firebaseShowLoading?.(true);
@@ -349,18 +329,12 @@ async function ensurePageData(name){
 // ===== 頁面切換 =====
 async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
-  if(name!=='approval'&&window.deskApvUnsub){
-    window.deskApvUnsub();
-    window.deskApvUnsub=null;
-    window.deskApvLoaded=false;
-  }
   const adminOnly=['settings','accounts','permissions'];
   if(adminOnly.includes(name)&&!isAdm()) return;
   if(!isAdm()){
     const featureByPage={
-      attendance:'attendance',stats:'stats',employees:'employees',progress:'progress',
-      approval:'approval',replog:'replog',sync:'sync',export:'export',costlog:'costlog',
-      summary:'summary',cutting:'cutting',efficiency:'efficiency'
+      progress:'progress',sync:'sync',export:'export',costlog:'costlog',
+      summary:'summary',cutting:'cutting'
     };
     const feature=featureByPage[name];
     if(feature&&window.permissionSettings?.[window.cu.role]?.[feature]!==true) return;
@@ -369,7 +343,7 @@ async function sp(name){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
   const pg=g('pg-'+name); if(pg) pg.classList.add('active');
-  const nav=g((name==='replog'||name==='sync')?'nv-approval':'nv-'+name); if(nav) nav.classList.add('active');
+  const nav=g('nv-'+name); if(nav) nav.classList.add('active');
   try{
     await ensurePageData(name);
     if(['summary','export'].includes(name) && window.ensureProductsLoaded) await ensureProductsLoaded();
@@ -378,22 +352,12 @@ async function sp(name){
     alert('Không thể tải dữ liệu chức năng, vui lòng thử lại. / 無法載入功能資料，請重試。');
     return;
   }
-  if(name==='approval'||name==='replog'||name==='sync') updateReportHubTabs();
   if(name==='settings')  rAll();
   if(name==='export')    rExp();
   if(name==='accounts'&&typeof loadAccounts==='function') await loadAccounts();
   if(name==='permissions'&&typeof renderPermissions==='function') renderPermissions();
   if(name==='costlog')   rClog();
-  if(name==='approval'){
-    if(typeof startDeskApvListener==='function') startDeskApvListener();
-    renderApproval();
-  }
   if(name==='progress'){ renderProgress(); renderOrders(); }
-  if(name==='stats')     renderStats();
-  if(name==='employees') renderEmployees();
-  if(name==='attendance') renderAttendance();
-  if(name==='replog') renderReplog();
   if(name==='sync') syncInit();
-  if(name==='efficiency') effInit();
   if(name==='cutting' && typeof cuttingInit==='function') cuttingInit();
 }

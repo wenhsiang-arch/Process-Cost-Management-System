@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, onSnapshot, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -20,8 +20,8 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
-const CACHEABLE_COLLECTIONS = new Set(['orders','orderProcesses','employees','reports','attendance']);
-const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','impHist','cLog','employeeUserHistory']);
+const CACHEABLE_COLLECTIONS = new Set(['orders','orderProcesses']);
+const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','impHist','cLog']);
 const DATA_VERSION_MEMORY_MS = 15000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
@@ -635,8 +635,6 @@ async function saveSplitSettingsToFB(){
 window.saveSettingsToFB  = saveSplitSettingsToFB;
 window.saveHistoryToFB   = () => fbSaveWithStatus("impHist",   window.impHist);
 window.saveCostLogToFB   = () => fbSaveWithStatus("cLog",      window.cLog);
-window.employeeUserHistory = {};
-
 function applySettings(savedSettings,allowedKeys){
   if(!savedSettings||typeof savedSettings!=='object') return;
   const safeSettings=pickSettingFields(savedSettings,allowedKeys);
@@ -716,26 +714,11 @@ async function ensureCostLogLoaded(options={}){
   return window.cLog;
 }
 
-async function ensureEmployeeUserHistoryLoaded(options={}){
-  const saved=await loadSystemWithCache('employeeUserHistory',options);
-  window.employeeUserHistory=saved&&typeof saved==='object'&&!Array.isArray(saved)
-    ? saved
-    : Object.fromEntries((Array.isArray(saved)?saved:[]).map(user=>[user,true]));
-  return window.employeeUserHistory;
-}
-
-async function ensureEmployeesLoaded(options={}){
-  window.allEmployees=await loadCollectionWithCache('employees','employees',options);
-  return window.allEmployees;
-}
-
 window.ensureSettingsLoaded=ensureSettingsLoaded;
 window.ensureOperationSettingsLoaded=ensureOperationSettingsLoaded;
 window.ensureCostSettingsLoaded=ensureCostSettingsLoaded;
 window.ensureImportHistoryLoaded=ensureImportHistoryLoaded;
 window.ensureCostLogLoaded=ensureCostLogLoaded;
-window.ensureEmployeeUserHistoryLoaded=ensureEmployeeUserHistoryLoaded;
-window.ensureEmployeesLoaded=ensureEmployeesLoaded;
 window.firebaseLoadCachedCollection=loadCollectionWithCache;
 window.firebaseTouchDataVersions=touchDataVersions;
 window.firebaseShowLoading=showLoading;
@@ -821,8 +804,6 @@ window._writeBatch = () => {
 };
 window._docRef     = (colName, id) => doc(db, colName, id);
 window._newDocRef  = (colName)     => doc(collection(db, colName));
-window._onSnapshot = (...args)     => onSnapshot(...args);
-
 // ===== 驗證成功後初始化 =====
 let authorizedInitPromise = null;
 
@@ -832,6 +813,14 @@ async function fbInitForAuthorizedUser(){
     await window.pcmsDataCache?.requestPersistentStorage();
     // settings（舊合併設定）可能包含薪資，登入後一律清除舊快取。
     await window.pcmsDataCache?.remove('settings');
+    // 清除已淘汰的員工、報工、考勤與員工帳號歷史快取。
+    await Promise.all([
+      window.pcmsDataCache?.remove('employees'),
+      window.pcmsDataCache?.remove('reports'),
+      window.pcmsDataCache?.remove('attendance'),
+      window.pcmsDataCache?.remove('employeeUserHistory')
+    ]);
+    try{ localStorage.removeItem('mob_rej_read'); }catch(e){}
     if(!canViewCosts()){
       window.cLog=[];
       await Promise.all([

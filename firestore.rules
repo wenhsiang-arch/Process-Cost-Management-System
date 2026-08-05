@@ -6,7 +6,7 @@
   2. 系統已使用 Firebase Authentication（Firebase 身分驗證）與 Google（Google 帳號）登入。
   3. 保留第一位管理員以 UID（使用者識別碼）建立的 userAccess（使用者存取權限）文件作為安全退路。
   4. 必須建立 manager（課長）與 clerk（文員）的 rolePermissions（角色功能權限）文件。
-  5. leader（班長）與 user（員工）暫時不得使用手機端資料功能。
+  5. 系統只保留 admin（管理員）、manager（課長）與 clerk（文員）三種登入角色。
 
   規則技術字串：
   - rules_version（規則版本）
@@ -70,7 +70,7 @@ service cloud.firestore {
       return hasAccessDocument() && accessDocument().active == true;
     }
 
-    // admin（管理員）、manager（課長）、clerk（文員）、leader（班長）、user（員工）
+    // admin（管理員）、manager（課長）、clerk（文員）
     // isAdmin（管理員判斷）
     function isAdmin() {
       return activeAccount() && accessDocument().role == 'admin';
@@ -119,35 +119,21 @@ service cloud.firestore {
       return value is string && value.size() > 0 && value.size() <= maximumLength;
     }
 
-    // validNonNegativeNumber（非負數安全檢查）
-    function validNonNegativeNumber(value) {
-      return (value is int || value is float) && value >= 0;
-    }
-
-    // 功能識別：attendance（考勤）、stats（統計）、employees（員工管理）
-    // progress（訂單進度）、approval（報工審批）、replog（報工記錄）
+    // 功能識別：progress（訂單資料）、sync（工序秒數同步）
     // accounts（帳號管理）、export（匯出）、costView（查看工價）、costlog（成本記錄）
     // summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
-    // efficiency（效率報表）、sync（工序秒數同步）
     // validFeatureMap（功能權限欄位檢查）
     function validFeatureMap(features) {
       return features is map
         && features.keys().hasAll([
-          'attendance', 'stats', 'employees', 'progress', 'approval', 'replog',
-          'accounts', 'export', 'costView', 'costlog', 'summary', 'orderImport', 'cutting',
-          'efficiency', 'sync'
+          'progress', 'accounts', 'export', 'costView', 'costlog', 'summary',
+          'orderImport', 'cutting', 'sync'
         ])
         && features.keys().hasOnly([
-          'attendance', 'stats', 'employees', 'progress', 'approval', 'replog',
-          'accounts', 'export', 'costView', 'costlog', 'summary', 'orderImport', 'cutting',
-          'efficiency', 'sync'
+          'progress', 'accounts', 'export', 'costView', 'costlog', 'summary',
+          'orderImport', 'cutting', 'sync'
         ])
-        && features.attendance is bool
-        && features.stats is bool
-        && features.employees is bool
         && features.progress is bool
-        && features.approval is bool
-        && features.replog is bool
         && features.accounts is bool
         && features.export is bool
         && features.costView is bool
@@ -155,7 +141,6 @@ service cloud.firestore {
         && features.summary is bool
         && features.orderImport is bool
         && features.cutting is bool
-        && features.efficiency is bool
         && features.sync is bool
         && features.accounts == false
         && (features.costlog == false || features.costView == true);
@@ -171,7 +156,7 @@ service cloud.firestore {
           'email', 'authUid', 'googleDisplayName', 'createdAt', 'lastLoginAt'
         ])
         && validShortString(request.resource.data.username, 100)
-        && request.resource.data.role in ['admin', 'manager', 'clerk', 'leader', 'user']
+        && request.resource.data.role in ['admin', 'manager', 'clerk']
         && request.resource.data.active is bool
         && request.resource.data.updatedAt is int
         && validShortString(request.resource.data.updatedBy, 100)
@@ -249,40 +234,6 @@ service cloud.firestore {
         && request.resource.data.data.size() <= maximumLength;
     }
 
-    // validEmployee（員工資料檢查；正式規則不允許保存密碼）
-    function validEmployee() {
-      return request.resource.data.keys().hasAll(['name', 'user', 'dept', 'role', 'updatedAt'])
-        && request.resource.data.keys().hasOnly([
-          'name', 'user', 'dept', 'role', 'createdAt', 'updatedAt'
-        ])
-        && validShortString(request.resource.data.name, 200)
-        && validShortString(request.resource.data.user, 100)
-        && request.resource.data.dept is string
-        && request.resource.data.dept.size() <= 100
-        && request.resource.data.role in ['leader', 'user']
-        && request.resource.data.updatedAt is int;
-    }
-
-    // validAttendance（考勤資料檢查）
-    function validAttendance() {
-      return request.resource.data.keys().hasAll([
-          'empId', 'empName', 'empDept', 'user', 'regularHours', 'overtimeHours',
-          'totalHours', 'date'
-        ])
-        && validShortString(request.resource.data.empId, 200)
-        && request.resource.data.empName is string
-        && request.resource.data.empName.size() <= 200
-        && validShortString(request.resource.data.date, 20)
-        && validNonNegativeNumber(request.resource.data.regularHours)
-        && validNonNegativeNumber(request.resource.data.overtimeHours)
-        && validNonNegativeNumber(request.resource.data.totalHours)
-        && request.resource.data.regularHours <= 24
-        && request.resource.data.overtimeHours <= 24
-        && request.resource.data.totalHours <= 24
-        && request.resource.data.totalHours
-          == request.resource.data.regularHours + request.resource.data.overtimeHours;
-    }
-
     // validOrder（訂單資料檢查）
     function validOrder() {
       return validShortString(request.resource.data.orderId, 200)
@@ -300,22 +251,25 @@ service cloud.firestore {
         && validShortString(request.resource.data.code, 200)
         && request.resource.data.orderQty is int
         && request.resource.data.orderQty > 0
-        && request.resource.data.approvedQty is int
-        && request.resource.data.approvedQty >= 0
-        && request.resource.data.pendingQty is int
-        && request.resource.data.pendingQty >= 0
-        && request.resource.data.approvedQty + request.resource.data.pendingQty
-          <= request.resource.data.orderQty;
+        && (!('approvedQty' in request.resource.data)
+          || (request.resource.data.approvedQty is int
+            && request.resource.data.approvedQty >= 0))
+        && (!('pendingQty' in request.resource.data)
+          || (request.resource.data.pendingQty is int
+            && request.resource.data.pendingQty >= 0));
     }
 
-    // validReport（報工資料檢查）
-    function validReport() {
-      return validShortString(request.resource.data.empId, 200)
-        && validShortString(request.resource.data.orderId, 200)
-        && validShortString(request.resource.data.processId, 200)
-        && request.resource.data.qty is int
-        && request.resource.data.qty > 0
-        && request.resource.data.status in ['pending', 'approved', 'rejected', 'voided'];
+    // hasNoLegacyReportCounters（新訂單工序不得建立舊報工數量欄位）
+    function hasNoLegacyReportCounters() {
+      return !('approvedQty' in request.resource.data)
+        && !('pendingQty' in request.resource.data);
+    }
+
+    // preservesLegacyReportCounters（既有舊報工數量欄位只能原樣保留）
+    function preservesLegacyReportCounters() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'approvedQty', 'pendingQty'
+      ]);
     }
 
     // validProduct（款號工序資料檢查）
@@ -344,48 +298,44 @@ service cloud.firestore {
         || hasFeature('orderImport') || hasFeature('cutting');
     }
 
-    // canReadEmployees（可以讀取員工資料）
-    function canReadEmployees() {
-      return hasFeature('employees') || hasFeature('attendance') || hasFeature('stats')
-        || hasFeature('approval') || hasFeature('replog') || hasFeature('efficiency');
-    }
-
     // canReadOrders（可以讀取訂單與工序資料）
     function canReadOrders() {
-      return hasFeature('progress') || hasFeature('orderImport') || hasFeature('approval')
-        || hasFeature('replog') || hasFeature('sync') || hasFeature('efficiency');
-    }
-
-    // canReadReports（可以讀取報工資料）
-    function canReadReports() {
-      return hasFeature('approval') || hasFeature('replog')
-        || hasFeature('stats') || hasFeature('efficiency');
+      return hasFeature('progress') || hasFeature('orderImport') || hasFeature('sync');
     }
 
     // validDataVersions（資料版本文件檢查）
     function validDataVersions() {
       return request.resource.data.keys().hasAll(['updatedAt', 'updatedBy'])
         && request.resource.data.keys().hasOnly([
-          'updatedAt', 'updatedBy', 'orders', 'orderProcesses', 'employees',
-          'reports', 'attendance', 'settings', 'operationSettings', 'costSettings',
-          'impHist', 'cLog', 'employeeUserHistory'
+          'updatedAt', 'updatedBy', 'orders', 'orderProcesses', 'settings',
+          'operationSettings', 'costSettings', 'impHist', 'cLog',
+          'employees', 'reports', 'attendance', 'employeeUserHistory'
         ])
         && request.resource.data.updatedAt is int
         && request.resource.data.updatedAt > 0
         && request.resource.data.updatedBy == request.auth.uid;
     }
 
+    // hasNoLegacyDataVersionKeys（新資料版本文件不得建立舊流程版本欄位）
+    function hasNoLegacyDataVersionKeys() {
+      return !request.resource.data.keys().hasAny([
+        'employees', 'reports', 'attendance', 'employeeUserHistory'
+      ]);
+    }
+
+    // preservesLegacyDataVersionKeys（既有舊流程版本欄位只能原樣保留）
+    function preservesLegacyDataVersionKeys() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'employees', 'reports', 'attendance', 'employeeUserHistory'
+      ]);
+    }
+
     // canTouchDataVersionKeys（可以更新指定資料版本欄位）
     function canTouchDataVersionKeys(keys) {
       return (!keys.hasAny(['orders', 'orderProcesses'])
-          || hasFeature('orderImport') || hasFeature('progress') || hasFeature('approval')
-          || hasFeature('replog') || hasFeature('sync'))
-        && (!keys.hasAny(['employees']) || hasFeature('employees'))
-        && (!keys.hasAny(['reports']) || hasFeature('approval') || hasFeature('replog'))
-        && (!keys.hasAny(['attendance']) || hasFeature('attendance'))
+          || hasFeature('orderImport') || hasFeature('progress') || hasFeature('sync'))
         && (!keys.hasAny(['settings', 'operationSettings', 'costSettings', 'cLog']) || isAdmin())
-        && (!keys.hasAny(['impHist']) || hasFeature('summary'))
-        && (!keys.hasAny(['employeeUserHistory']) || hasFeature('employees'));
+        && (!keys.hasAny(['impHist']) || hasFeature('summary'));
     }
 
     // userAccess（使用者存取權限）
@@ -424,9 +374,11 @@ service cloud.firestore {
       allow read: if isDeskUser();
       allow create: if isDeskUser()
         && validDataVersions()
+        && hasNoLegacyDataVersionKeys()
         && canTouchDataVersionKeys(request.resource.data.keys());
       allow update: if isDeskUser()
         && validDataVersions()
+        && preservesLegacyDataVersionKeys()
         && canTouchDataVersionKeys(request.resource.data.diff(resource.data).affectedKeys());
       allow delete: if false;
     }
@@ -467,10 +419,9 @@ service cloud.firestore {
       allow write: if isAdmin() && validSystemData(900000);
     }
 
-    // system/employeeUserHistory（員工帳號使用歷史）
+    // system/employeeUserHistory（已淘汰的員工帳號使用歷史）
     match /system/employeeUserHistory {
-      allow read: if hasFeature('employees');
-      allow write: if hasFeature('employees') && validSystemData(900000);
+      allow read, write: if false;
     }
 
     // products（款號工序資料）
@@ -480,11 +431,9 @@ service cloud.firestore {
       allow delete: if hasFeature('summary');
     }
 
-    // employees（員工資料）
+    // employees（已淘汰的員工資料）
     match /employees/{employeeId} {
-      allow read: if canReadEmployees();
-      allow create, update: if hasFeature('employees') && validEmployee();
-      allow delete: if hasFeature('employees');
+      allow read, write: if false;
     }
 
     // orders（訂單資料）
@@ -494,7 +443,7 @@ service cloud.firestore {
         && (!('snapshotHr' in resource.data) || hasFeature('costView'));
       allow create: if hasFeature('orderImport') && validOrder();
       allow update: if (hasFeature('orderImport') || hasFeature('progress')
-        || hasFeature('approval') || hasFeature('sync')) && validOrder();
+        || hasFeature('sync')) && validOrder();
       allow delete: if isAdmin()
         || (hasFeature('orderImport') && resource.data.importStatus == 'failed');
     }
@@ -502,24 +451,23 @@ service cloud.firestore {
     // orderProcesses（訂單工序資料）
     match /orderProcesses/{processId} {
       allow read: if canReadOrders();
-      allow create: if hasFeature('orderImport') && validOrderProcess();
-      allow update: if (hasFeature('orderImport') || hasFeature('approval')
-        || hasFeature('replog') || hasFeature('sync')) && validOrderProcess();
+      allow create: if hasFeature('orderImport')
+        && validOrderProcess()
+        && hasNoLegacyReportCounters();
+      allow update: if (hasFeature('orderImport') || hasFeature('sync'))
+        && validOrderProcess()
+        && preservesLegacyReportCounters();
       allow delete: if isAdmin() || hasFeature('orderImport');
     }
 
-    // reports（報工資料）：手機端角色目前不會通過 hasFeature（功能權限）判斷。
+    // reports（已淘汰的報工資料）
     match /reports/{reportId} {
-      allow read: if canReadReports();
-      allow create, update: if hasFeature('approval') && validReport();
-      allow delete: if isAdmin();
+      allow read, write: if false;
     }
 
-    // attendance（考勤資料）
+    // attendance（已淘汰的考勤資料）
     match /attendance/{attendanceId} {
-      allow read: if hasFeature('attendance') || hasFeature('stats') || hasFeature('efficiency');
-      allow create, update: if hasFeature('attendance') && validAttendance();
-      allow delete: if hasFeature('attendance');
+      allow read, write: if false;
     }
 
     // orderAdjustments（訂單數量調整記錄）
@@ -540,10 +488,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // efficiencyLogs（效率報表記錄）
+    // efficiencyLogs（已淘汰的效率報表記錄）
     match /efficiencyLogs/{logId} {
-      allow read, create, delete: if hasFeature('efficiency');
-      allow update: if false;
+      allow read, write: if false;
     }
 
     // cuttingTemplates（裁帶模板清單）

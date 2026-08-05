@@ -127,10 +127,7 @@ async function createSecondSyncJob(ordId,procNo,updates){
 }
 
 async function loadSecondSyncWrites(job){
-  const [procSnap,repSnap]=await Promise.all([
-    window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',job.orderId))),
-    window._getDocs(window._query(window._collection(COL.reports),window._where('orderId','==',job.orderId)))
-  ]);
+  const procSnap=await window._getDocs(window._query(window._collection(COL.processes),window._where('orderId','==',job.orderId)));
   const updateMap=new Map(job.updates.map(u=>[String(u.code),u.newSec]));
   const matches=d=>String(d.processNo)===String(job.processNo)&&updateMap.has(String(d.code));
   const writes=[];
@@ -140,13 +137,7 @@ async function loadSecondSyncWrites(job){
     const sec=updateMap.get(String(data.code));
     writes.push({ref:d.ref,data:{workStdSec:sec,processSec:sec,quoteSnapshotSec:sec,slPerHour:Math.round((window.S?.ws||3000)/sec),secondSyncedAt:Date.now(),secondSyncedBy:window.cu.user}});
   });
-  repSnap.docs.forEach(d=>{
-    const data=d.data();
-    if(!matches(data)) return;
-    const sec=updateMap.get(String(data.code));
-    writes.push({ref:d.ref,data:{processSec:sec,slPerHour:Math.round((window.S?.ws||3000)/sec),secondSyncedAt:Date.now(),secondSyncedBy:window.cu.user}});
-  });
-  return {writes,processCount:procSnap.docs.filter(d=>matches(d.data())).length,reportCount:repSnap.docs.filter(d=>matches(d.data())).length};
+  return {writes,processCount:procSnap.docs.filter(d=>matches(d.data())).length};
 }
 
 async function runSecondSyncJob(jobId){
@@ -161,9 +152,9 @@ async function runSecondSyncJob(jobId){
   const loaded=await loadSecondSyncWrites(job);
   if(loaded.processCount!==job.updates.length) throw new Error(`工序資料不一致：預期 ${job.updates.length} 筆，實際找到 ${loaded.processCount} 筆`);
   const writes=loaded.writes;
-  await window._updateDoc(jobRef,{totalWrites:writes.length,processCount:loaded.processCount,reportCount:loaded.reportCount,status:'syncing',lastAttemptAt:Date.now()});
+  await window._updateDoc(jobRef,{totalWrites:writes.length,processCount:loaded.processCount,status:'syncing',lastAttemptAt:Date.now()});
   if(writes.length<=398){
-    setSecondSyncProgress(30,`Đang cập nhật ${loaded.processCount} công đoạn và ${loaded.reportCount} báo công.`,`正在更新 ${loaded.processCount} 筆工序與 ${loaded.reportCount} 筆報工。`);
+    setSecondSyncProgress(30,`Đang cập nhật ${loaded.processCount} công đoạn.`,`正在更新 ${loaded.processCount} 筆工序。`);
     const batch=window._writeBatch();
     writes.forEach(w=>batch.update(w.ref,w.data));
     batch.update(jobRef,{status:'completed',completedWrites:writes.length,completedAt:Date.now()});
@@ -187,7 +178,7 @@ async function runSecondSyncJob(jobId){
   const local=(window.allOrders||[]).find(o=>o.id===job.orderId);
   if(local){ local.lifecycleStatus='active'; local.secondSyncJobId=null; }
   window._secondSyncRetryJobId=null;
-  setSecondSyncProgress(100,`Đã cập nhật ${loaded.processCount} công đoạn và ${loaded.reportCount} báo công.`,`已更新 ${loaded.processCount} 筆工序與 ${loaded.reportCount} 筆報工。`);
+  setSecondSyncProgress(100,`Đã cập nhật ${loaded.processCount} công đoạn.`,`已更新 ${loaded.processCount} 筆工序。`);
 }
 
 async function syncRetry(){
@@ -214,19 +205,7 @@ async function syncConfirm(){
     if(newSec>0) updates.push({procId:inp.dataset.procId,code:inp.dataset.code,oldSec:parseInt(inp.dataset.oldSec)||0,newSec});
   });
   if(!updates.length){ alert('請至少輸入一筆新秒數 / Vui lòng nhập ít nhất 1 giây mới'); return; }
-  let reportCount=0;
-  try{
-    const reportSnap=await window._getDocs(window._query(window._collection(COL.reports),window._where('orderId','==',ordId)));
-    const codes=new Set(updates.map(u=>String(u.code)));
-    reportCount=reportSnap.docs.filter(d=>{
-      const r=d.data();
-      return String(r.processNo)===String(procNo)&&codes.has(String(r.code));
-    }).length;
-  }catch(e){
-    alert('無法確認同步影響範圍：'+e.message);
-    return;
-  }
-  if(!confirm(`Phạm vi ảnh hưởng: ${updates.length} công đoạn, ${reportCount} báo công.\nXác nhận đồng bộ đơn hàng + công đoạn này?\n\n影響範圍：${updates.length} 筆工序、${reportCount} 筆報工。\n確認同步此訂單＋工序號？`)) return;
+  if(!confirm(`Phạm vi ảnh hưởng: ${updates.length} công đoạn.\nXác nhận đồng bộ đơn hàng + công đoạn này?\n\n影響範圍：${updates.length} 筆工序。\n確認同步此訂單＋工序號？`)) return;
   const btn=document.querySelector('#pg-sync .btn.bp');
   if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> 同步中...'; }
   try{
