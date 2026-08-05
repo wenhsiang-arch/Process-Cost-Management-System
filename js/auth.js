@@ -362,6 +362,7 @@ async function ensurePageData(name){
   const pageConfig=window.PCMSFeatures?.getPage(name); // pageConfig（本次頁面的資料需求）
   if(!pageConfig) throw new Error(`Trang không tồn tại: ${name} / 頁面不存在：${name}`);
   const tasks=[];
+  const warnings=[]; // warnings（附屬資料載入警告）：不得阻止主功能開啟。
   for(const loaderConfig of pageConfig.dataLoaders||[]){
     const item=typeof loaderConfig==='string'?{name:loaderConfig}:loaderConfig; // item（資料載入設定）
     if(item.when==='costView'&&!canViewCosts()) continue;
@@ -369,9 +370,66 @@ async function ensurePageData(name){
     if(typeof loader!=='function'){
       throw new Error(`Thiếu hàm tải dữ liệu: ${item.name} / 缺少資料載入函式：${item.name}`);
     }
-    tasks.push(Promise.resolve(loader()));
+    const task=Promise.resolve()
+      .then(()=>loader())
+      .catch(error=>{
+        if(item.optional!==true) throw error;
+        if(item.fallbackTarget) window[item.fallbackTarget]=[];
+        warnings.push({
+          name:item.name,
+          vi:String(item.vi||'Dữ liệu phụ'),
+          zh:String(item.zh||'附屬資料'),
+          error
+        });
+        console.warn(`Không thể tải dữ liệu phụ ${item.name} / 無法載入附屬資料 ${item.name}：`,error);
+        return null;
+      }); // task（單項資料載入工作）：只有明確標記 optional（附屬）的失敗可以繼續。
+    tasks.push(task);
   }
   await Promise.all(tasks);
+  return warnings;
+}
+
+// showFeatureDataWarnings（顯示附屬資料警告）：使用非阻擋提示，主功能仍可繼續工作。
+function showFeatureDataWarnings(warnings){
+  const rows=Array.isArray(warnings)?warnings:[];
+  if(!rows.length) return;
+  let toast=g('feature-data-warning'); // toast（附屬資料警告框）
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='feature-data-warning';
+    toast.style.cssText='position:fixed;right:18px;bottom:18px;z-index:10020;max-width:390px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(15,23,42,.18);font-size:13px;line-height:1.55';
+    document.body.appendChild(toast);
+  }
+  const labels=[...new Map(rows.map(row=>[`${row.vi}|${row.zh}`,`${row.vi} / ${row.zh}`])).values()];
+  toast.replaceChildren();
+  const title=document.createElement('strong');
+  title.textContent='Một số dữ liệu phụ chưa tải được / 部分附屬資料暫時無法載入';
+  const detail=document.createElement('div');
+  detail.textContent=labels.join('、');
+  const note=document.createElement('div');
+  note.textContent='Chức năng chính vẫn có thể sử dụng. / 主功能仍可正常使用。';
+  note.style.marginTop='4px';
+  toast.append(title,detail,note);
+  toast.style.display='block';
+  clearTimeout(window._featureDataWarningTimer); // _featureDataWarningTimer（附屬資料警告計時器）
+  window._featureDataWarningTimer=setTimeout(()=>{ toast.style.display='none'; },8000);
+}
+
+// featureLoadErrorMessage（功能載入錯誤訊息）：依常見雲端錯誤提供可操作提示。
+function featureLoadErrorMessage(error){
+  const code=String(error?.code||'');
+  const message=String(error?.message||'');
+  if(code==='failed-precondition'&&/index/i.test(message)){
+    return 'Thiếu chỉ mục dữ liệu cần thiết, vui lòng liên hệ quản trị viên. / 缺少必要的資料索引，請聯絡管理員。';
+  }
+  if(code==='permission-denied'){
+    return 'Tài khoản không có quyền đọc dữ liệu chức năng này. / 此帳號沒有讀取這項功能資料的權限。';
+  }
+  if(code==='unavailable'){
+    return 'Không thể kết nối dữ liệu đám mây, vui lòng kiểm tra mạng rồi thử lại. / 無法連接雲端資料，請檢查網路後重試。';
+  }
+  return 'Không thể tải dữ liệu chức năng, vui lòng thử lại. / 無法載入功能資料，請重試。';
 }
 
 // ===== 頁面切換 =====
@@ -381,7 +439,7 @@ async function sp(name){
   window.firebaseShowLoading?.(true);
   try{
     const pageConfig=await window.PCMSFeatures.ensurePageScripts(name); // pageConfig（已載入程式的頁面設定）
-    await ensurePageData(name);
+    const dataWarnings=await ensurePageData(name); // dataWarnings（附屬資料警告）
     document.querySelectorAll('.pg').forEach(p=>p.classList.remove('active'));
     document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
     const pg=g('pg-'+name); if(pg) pg.classList.add('active');
@@ -389,10 +447,11 @@ async function sp(name){
     const nav=g('nv-'+(moduleConfig?.navId||name)); if(nav) nav.classList.add('active');
     renderModuleTabs(name);
     await window.PCMSFeatures.enterPage(name);
+    showFeatureDataWarnings(dataWarnings);
     return true;
   }catch(error){
     console.error(`載入 ${name} 頁面資料失敗：`,error);
-    alert('Không thể tải dữ liệu chức năng, vui lòng thử lại. / 無法載入功能資料，請重試。');
+    alert(featureLoadErrorMessage(error));
     return false;
   }finally{
     window.firebaseShowLoading?.(false);

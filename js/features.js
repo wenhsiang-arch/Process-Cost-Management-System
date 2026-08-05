@@ -41,7 +41,10 @@
           dataLoaders:[
             'ensureOperationSettingsLoaded',
             {name:'ensureCostSettingsLoaded',when:'costView'},
-            'ensureImportHistoryLoaded',
+            {
+              name:'ensureImportHistoryLoaded',optional:true,fallbackTarget:'impHist',
+              vi:'Lịch sử nhập mã hàng',zh:'款號匯入歷史'
+            }, // optional（附屬資料）：歷史讀取失敗時不阻止款號主功能開啟。
             'ensureProductsLoaded'
           ],
           onOpen:['rSum'],
@@ -80,7 +83,13 @@
         {
           page:'settings',adminOnly:true,icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定',
           scripts:['summary','data','settings'],
-          dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded','ensureCostLogLoaded'],
+          dataLoaders:[
+            'ensureOperationSettingsLoaded','ensureCostSettingsLoaded',
+            {
+              name:'ensureCostLogLoaded',optional:true,fallbackTarget:'cLog',
+              vi:'Lịch sử thay đổi chi phí',zh:'成本變動歷史'
+            } // fallbackTarget（失敗清空目標）：避免顯示上一次載入的舊歷史。
+          ],
           onOpen:['rAll']
         },
         {

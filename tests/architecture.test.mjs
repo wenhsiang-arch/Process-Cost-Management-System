@@ -41,6 +41,70 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   }
 });
 
+test('附屬歷史載入失敗不會阻止主功能開啟',()=>{
+  const source=read('js/features.js');
+  const context={
+    window:{},
+    CONFIGURABLE_ROLES:['manager','clerk','productionDevelopment','productionControl','sales']
+  };
+  vm.createContext(context);
+  vm.runInContext(source,context);
+  const feature=context.window.PCMSFeatures;
+  const summaryLoaders=feature.getPage('summary').dataLoaders;
+  const settingsLoaders=feature.getPage('settings').dataLoaders;
+  const costLogLoaders=feature.getPage('costlog').dataLoaders;
+  const importHistory=summaryLoaders.find(item=>item?.name==='ensureImportHistoryLoaded');
+  const settingsHistory=settingsLoaders.find(item=>item?.name==='ensureCostLogLoaded');
+  assert.equal(importHistory?.optional,true);
+  assert.equal(importHistory?.fallbackTarget,'impHist');
+  assert.equal(settingsHistory?.optional,true);
+  assert.equal(settingsHistory?.fallbackTarget,'cLog');
+  assert.equal(costLogLoaders.includes('ensureCostLogLoaded'),true);
+  const authSource=read('js/auth.js');
+  assert.match(authSource,/if\(item\.optional!==true\) throw error/);
+  assert.match(authSource,/showFeatureDataWarnings\(dataWarnings\)/);
+});
+
+test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
+  const source=read('js/features.js');
+  const context={
+    window:{},
+    CONFIGURABLE_ROLES:['manager','clerk','productionDevelopment','productionControl','sales']
+  };
+  vm.createContext(context);
+  vm.runInContext(source,context);
+  const scriptFiles={
+    settings:'js/settings.js',productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
+    summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
+    accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js'
+  }; // scriptFiles（中央清單程式來源）
+  const coreFiles=['js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js','js/safe-dom.js'];
+  const hasFunction=(combined,name)=>new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(|window\\.${name}\\s*=`).test(combined);
+  for(const module of context.window.PCMSFeatures.modules){
+    for(const page of module.pages){
+      const files=[...coreFiles,...(page.scripts||[]).map(name=>scriptFiles[name])];
+      files.forEach(file=>assert.equal(typeof file==='string'&&fs.existsSync(new URL(file,root)),true,`${page.page}: ${file}`));
+      const combined=files.map(read).join('\n');
+      for(const loaderConfig of page.dataLoaders||[]){
+        const name=typeof loaderConfig==='string'?loaderConfig:loaderConfig.name;
+        assert.equal(hasFunction(combined,name),true,`${page.page}: ${name}`);
+      }
+      for(const name of page.onOpen||[]){
+        assert.equal(hasFunction(combined,name),true,`${page.page}: ${name}`);
+      }
+    }
+  }
+});
+
+test('操作歷史查詢所需複合索引已登記',()=>{
+  const indexes=JSON.parse(read('firestore.indexes.json')); // indexes（資料庫索引設定）
+  const operationLogIndex=indexes.indexes.find(item=>item.collectionGroup==='operationLogs');
+  assert.deepEqual(operationLogIndex?.fields,[
+    {fieldPath:'permissionKey',order:'ASCENDING'},
+    {fieldPath:'createdAt',order:'DESCENDING'}
+  ]);
+});
+
 test('裁帶模板識別碼使用共用安全行內參數',()=>{
   const source=read('js/cutting.js');
   assert.match(source,/cuttingDownloadTemplate\(\$\{inlineArg\(t\.id\)\}, this\)/);
