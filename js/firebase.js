@@ -67,7 +67,7 @@ window.firebaseLoadUserAccess = async (user) => {
   const emailSnap=await getDoc(emailRef);
   if(!emailSnap.exists()) return null;
   const access=emailSnap.data();
-  const canBind=access.active===true&&['admin','manager','clerk'].includes(access.role);
+  const canBind=access.active===true&&window.DESK_ROLES?.includes(access.role);
   const binding={
     authUid:user.uid,
     googleDisplayName:String(user.displayName||'').slice(0,200),
@@ -95,8 +95,10 @@ window.firebaseSaveUserAccess = async (accessId,data) => {
 window.firebaseDeleteUserAccess = async (accessId) => {
   await deleteDoc(doc(db, 'userAccess', accessId));
 };
-window.firebaseLoadRolePermissions = async () => {
-  const roles=['manager','clerk'];
+// firebaseLoadRolePermissions（讀取角色功能權限）：一般使用者只讀自己的角色。
+window.firebaseLoadRolePermissions = async (requestedRoles=[]) => {
+  const allowedRoles=window.CONFIGURABLE_ROLES||[]; // allowedRoles（允許讀取的可設定角色）。
+  const roles=[...new Set(requestedRoles)].filter(role=>allowedRoles.includes(role));
   const snapshots=await Promise.all(roles.map(role=>getDoc(doc(db,'rolePermissions',role))));
   return Object.fromEntries(roles.map((role,index)=>[
     role,
@@ -105,7 +107,7 @@ window.firebaseLoadRolePermissions = async () => {
 };
 window.firebaseSaveRolePermissions = async (roleDocuments) => {
   const batch=writeBatch(db);
-  ['manager','clerk'].forEach(role=>{
+  (window.CONFIGURABLE_ROLES||[]).forEach(role=>{
     batch.set(doc(db,'rolePermissions',role),roleDocuments[role]);
   });
   await batch.commit();
@@ -673,7 +675,7 @@ async function ensureOperationSettingsLoaded(options={}){
 }
 
 async function ensureCostSettingsLoaded(options={}){
-  if(!canViewCosts()){
+  if(!canLoadCostSettings()){
     window.S={...window.S,sal:0,ins:0,meal:0,mc:null,mh:null};
     await window.pcmsDataCache?.remove('costSettings');
     return pickSettingFields(window.S,COST_SETTING_KEYS);
@@ -692,7 +694,7 @@ async function ensureCostSettingsLoaded(options={}){
 
 async function ensureSettingsLoaded(options={}){
   await ensureOperationSettingsLoaded(options);
-  if(canViewCosts()) await ensureCostSettingsLoaded(options);
+  if(canLoadCostSettings()) await ensureCostSettingsLoaded(options);
   return window.S;
 }
 
@@ -704,7 +706,9 @@ async function ensureImportHistoryLoaded(options={}){
 }
 
 async function ensureCostLogLoaded(options={}){
-  if(!canViewCosts()||(!isAdm()&&window.permissionSettings?.[window.cu?.role]?.costlog!==true)){
+  const role=window.cu?.role;
+  const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
+  if(!isAdm()&&(permissions?.costMain!==true||permissions?.costlog!==true)){
     window.cLog=[];
     await window.pcmsDataCache?.remove('cLog');
     return window.cLog;
@@ -821,12 +825,12 @@ async function fbInitForAuthorizedUser(){
       window.pcmsDataCache?.remove('employeeUserHistory')
     ]);
     try{ localStorage.removeItem('mob_rej_read'); }catch(e){}
-    if(!canViewCosts()){
+    if(!canLoadCostSettings()) await window.pcmsDataCache?.remove('costSettings');
+    const role=window.cu?.role;
+    const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
+    if(!isAdm()&&(permissions?.costMain!==true||permissions?.costlog!==true)){
       window.cLog=[];
-      await Promise.all([
-        window.pcmsDataCache?.remove('costSettings'),
-        window.pcmsDataCache?.remove('cLog')
-      ]);
+      await window.pcmsDataCache?.remove('cLog');
     }
     return true;
   })();

@@ -300,12 +300,12 @@ function xImp(){
   closeDetailImportModal();
 }
 
-// ===== 匯出報表 =====
+// ===== 產品工價匯出 =====
 function rExp(){
   if(typeof canOpenPage==='function'&&!canOpenPage('export')) return;
   const cf=(g('ex-cl')||{}).value||'';
   const tb=g('ex-tb'); if(!tb) return; tb.innerHTML='';
-  const showCosts=canViewCosts();
+  const showCosts=true; // showCosts（顯示產品工價）：進入本分頁已通過獨立權限檢查。
   const currencyGroup=g('ex-cu-group');
   if(currencyGroup) currencyGroup.style.display=showCosts?'':'none';
   const head=g('ex-th');
@@ -381,15 +381,15 @@ async function writeSpreadsheetWorkbookToHandle(fileHandle,workbook){
 
 async function doExport(){
   if(typeof canOpenPage==='function'&&!canOpenPage('export')){
-    alert('Không có quyền xuất báo cáo / 沒有匯出報表權限');
+    alert('Không có quyền xuất giá công sản phẩm / 沒有產品工價匯出權限');
     return;
   }
   try{
     const cf=g('ex-cl').value;
     const currencyType=g('ex-cu').value; // currencyType（幣別選項）。
     const reportType=g('ex-ty').value; // reportType（報表類型）。
-    const showCosts=canViewCosts();
-    const fname=(showCosts?'工序成本_':'工序資料_')+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
+    const showCosts=true; // showCosts（匯出產品工價）：分頁權限即代表允許匯出工價。
+    const fname='產品工價_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
     const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
     if(!saveHandle) return;
     const fd=window.D.filter(d=>!cf||d.client===cf);

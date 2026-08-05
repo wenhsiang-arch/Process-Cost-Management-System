@@ -1,62 +1,98 @@
 // ===== rolePermissions（角色功能權限）管理 =====
-const DEFAULT_PERMISSIONS = {
-  manager: {
-    progress:true, sync:true,
-    accounts:false, export:true, costView:false, costlog:false,
-    summary:true, orderImport:true,
-    cutting:true
-  },
-  clerk: {
-    progress:true, sync:false,
-    accounts:false, export:true, costView:false, costlog:false,
-    summary:true, orderImport:true,
-    cutting:true
-  }
-};
-
-const PERM_LABELS = {
-  sync:'Đồng bộ giây công đoạn / 工序秒數同步',
-  progress:'Dữ liệu đơn hàng / 訂單資料',
-  summary:'Tổng hợp mã hàng / 款號總表',
-  cutting:'Thống kê dây cắt / 裁帶統計',
-  settings:'Cài đặt chi phí / 成本設定',
-  export:'Xuất báo cáo / 匯出報表',
-  costView:'Xem giá công và tiền lương / 查看工價與工資',
-  costlog:'Lịch sử chi phí / 成本變動記錄',
-  accounts:'Quản lý tài khoản / 帳號管理',
-  permissions:'Phân quyền / 權限管理',
-  orderImport:'Nhập và điều chỉnh đơn hàng / 訂單匯入與調整'
-};
-
-const PERM_GROUPS = [
-  { id:'orders',label:'Đơn hàng / 訂單管理',keys:['progress','orderImport','sync'] },
-  { id:'process',label:'Công đoạn / 工序表',keys:['summary','cutting'] },
-  { id:'management',label:'Quản lý / 管理',keys:['settings','export','costView','costlog','accounts','permissions'] }
-];
 
 // PERMISSION_KEYS（可儲存權限欄位）必須與 Firestore Rules（雲端資料庫安全規則）一致。
 const PERMISSION_KEYS = [
-  'progress','accounts','export','costView','costlog','summary','orderImport','cutting','sync'
+  'progress','orderImport','productsMain','summary','costView','cutting','sync',
+  'costMain','costlog','export','accounts'
 ];
-const ADMIN_ONLY_KEYS = new Set(['settings','accounts','permissions']);
-window.permissionSettings = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
-window.rolePermissionsReady = {manager:false,clerk:false};
 
-function normalizeFeaturePermissions(features,defaults){
+// PERMISSION_STRUCTURE（階層式權限目錄）：主功能 > 功能分頁 > 限制項目。
+const PERMISSION_STRUCTURE = [
+  {
+    id:'orders',icon:'ti-chart-bar',mainKey:'progress',
+    vi:'Dữ liệu đơn hàng',zh:'訂單資料',
+    restrictions:[
+      {key:'orderImport',vi:'Nhập và điều chỉnh đơn hàng',zh:'訂單匯入與調整'}
+    ]
+  },
+  {
+    id:'products',icon:'ti-layout-list',mainKey:'productsMain',
+    vi:'Quản lý mã hàng',zh:'款號管理',
+    pages:[
+      {
+        key:'summary',vi:'Tổng hợp mã hàng',zh:'款號總表',
+        restrictions:[
+          {key:'costView',vi:'Hiển thị giá công sản phẩm',zh:'顯示產品工價'}
+        ]
+      }
+    ]
+  },
+  {
+    id:'cutting',icon:'ti-scissors',mainKey:'cutting',
+    vi:'Thống kê dây cắt',zh:'裁帶統計'
+  },
+  {
+    id:'sync',icon:'ti-refresh',mainKey:'sync',
+    vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步'
+  },
+  {
+    id:'cost',icon:'ti-currency-dollar',mainKey:'costMain',
+    vi:'Quản lý chi phí',zh:'成本管理',
+    pages:[
+      {key:'settings',adminOnly:true,vi:'Cài đặt chi phí',zh:'成本設定'},
+      {key:'costlog',vi:'Lịch sử chi phí',zh:'成本變動記錄'},
+      {key:'export',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出'}
+    ]
+  },
+  {
+    id:'accounts',icon:'ti-users',adminOnly:true,
+    vi:'Quản lý tài khoản',zh:'帳號管理',
+    pages:[
+      {key:'accounts',adminOnly:true,vi:'Quản lý tài khoản',zh:'帳號管理'},
+      {key:'permissions',adminOnly:true,vi:'Phân quyền',zh:'權限管理'}
+    ]
+  }
+];
+
+// createEmptyPermissionSet（建立全關閉權限）：未由管理員設定前不自動猜測角色權限。
+function createEmptyPermissionSet(){
+  return Object.fromEntries(PERMISSION_KEYS.map(key=>[key,false]));
+}
+
+// DEFAULT_PERMISSIONS（未設定角色權限）只作安全拒絕用途，不代表角色預設工作內容。
+const DEFAULT_PERMISSIONS = Object.fromEntries(
+  CONFIGURABLE_ROLES.map(role=>[role,createEmptyPermissionSet()])
+);
+
+window.permissionSettings = JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
+window.rolePermissionsReady = Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
+window.selectedPermissionRole = 'manager';
+
+// normalizeFeaturePermissions（正規化功能權限）同時相容尚未保存主功能開關的舊權限文件。
+function normalizeFeaturePermissions(features,defaults=createEmptyPermissionSet()){
   const normalized={};
   PERMISSION_KEYS.forEach(key=>{
-    normalized[key]=features&&typeof features[key]==='boolean'?features[key]:(defaults[key]===true);
+    normalized[key]=features&&typeof features[key]==='boolean'
+      ? features[key]
+      : defaults[key]===true;
   });
+  if(features&&typeof features.productsMain!=='boolean'){
+    normalized.productsMain=normalized.summary===true||normalized.costView===true;
+  }
+  if(features&&typeof features.costMain!=='boolean'){
+    const legacyCostAccess=normalized.costView===true; // legacyCostAccess（舊成本查看權限）。
+    normalized.costMain=normalized.costlog===true||(normalized.export===true&&legacyCostAccess);
+    if(normalized.export===true&&!legacyCostAccess)normalized.export=false;
+  }
   // accounts（帳號管理）固定只允許 admin（管理員）。
   normalized.accounts=false;
-  // costlog（成本變動記錄）必須同時具備 costView（查看工價）權限。
-  if(normalized.costView!==true) normalized.costlog=false;
   return normalized;
 }
 
 function resetPermissionsToDefaults(){
   window.permissionSettings=JSON.parse(JSON.stringify(DEFAULT_PERMISSIONS));
-  window.rolePermissionsReady={manager:false,clerk:false};
+  window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
+  window.selectedPermissionRole='manager';
 }
 
 async function loadPermissions(){
@@ -65,8 +101,11 @@ async function loadPermissions(){
     return window.rolePermissionsReady;
   }
   try{
-    const saved=await window.firebaseLoadRolePermissions();
-    ['manager','clerk'].forEach(role=>{
+    const requestedRoles=isAdm() // requestedRoles（本次需要讀取的角色）。
+      ? CONFIGURABLE_ROLES
+      : CONFIGURABLE_ROLES.filter(role=>role===window.cu?.role);
+    const saved=await window.firebaseLoadRolePermissions(requestedRoles);
+    CONFIGURABLE_ROLES.forEach(role=>{
       const doc=saved?.[role];
       window.rolePermissionsReady[role]=!!(doc&&doc.active===true&&doc.role===role);
       window.permissionSettings[role]=normalizeFeaturePermissions(doc?.features,DEFAULT_PERMISSIONS[role]);
@@ -91,7 +130,7 @@ async function savePermissions(){
   const now=Date.now();
   const updatedBy=String(window.cu?.user||window.firebaseAuthUser?.uid||'admin').slice(0,100);
   const payload={};
-  ['manager','clerk'].forEach(role=>{
+  CONFIGURABLE_ROLES.forEach(role=>{
     payload[role]={
       role,
       active:true,
@@ -102,7 +141,7 @@ async function savePermissions(){
   });
   try{
     await window.firebaseSaveRolePermissions(payload);
-    window.rolePermissionsReady={manager:true,clerk:true};
+    window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,true]));
     renderPermissions();
     alert('Đã lưu và áp dụng quyền / 權限設定已儲存套用');
     if(typeof uNav==='function') uNav();
@@ -114,138 +153,127 @@ async function savePermissions(){
   }
 }
 
-function assignableGroupKeys(group){
-  return group.keys.filter(key=>!ADMIN_ONLY_KEYS.has(key));
+// selectPermissionRole（選擇權限角色）。
+function selectPermissionRole(role){
+  if(role!=='admin'&&!CONFIGURABLE_ROLES.includes(role)) return;
+  window.selectedPermissionRole=role;
+  renderPermissions();
 }
 
-function updateGroupCheckbox(role,group){
-  const box=document.getElementById(`perm-group-${role}-${group.id}`);
-  if(!box) return;
-  const children=assignableGroupKeys(group)
-    .map(key=>document.getElementById(`perm-${role}-${key}`))
-    .filter(Boolean);
-  const checkedCount=children.filter(item=>item.checked).length;
-  box.checked=children.length>0&&checkedCount===children.length;
-  box.indeterminate=checkedCount>0&&checkedCount<children.length;
+// setPermissionValue（設定單項權限）：父層關閉只暫停下層，不清除既有設定。
+function setPermissionValue(role,key,checked){
+  if(!CONFIGURABLE_ROLES.includes(role)||!PERMISSION_KEYS.includes(key)) return;
+  window.permissionSettings[role][key]=checked===true;
+  renderPermissions();
 }
 
-function syncCostPermissionUi(role){
-  const costView=document.getElementById(`perm-${role}-costView`);
-  const costLog=document.getElementById(`perm-${role}-costlog`);
-  if(!costView||!costLog) return;
-  if(!costView.checked) costLog.checked=false;
-  costLog.disabled=!costView.checked;
-  costLog.style.cursor=costLog.disabled?'not-allowed':'pointer';
-  costLog.closest('td')?.classList.toggle('perm-disabled-cell',costLog.disabled);
+function permissionRoleLabel(role){
+  return ROLE_LABEL[role]||role;
 }
 
-function refreshPermissionGroupStates(){
-  ['manager','clerk'].forEach(role=>{
-    syncCostPermissionUi(role);
-    PERM_GROUPS.forEach(group=>updateGroupCheckbox(role,group));
-  });
+function permissionValue(role,key){
+  return role==='admin'||window.permissionSettings?.[role]?.[key]===true;
 }
 
-function togglePermissionGroup(role,groupId,checked){
-  const group=PERM_GROUPS.find(item=>item.id===groupId);
-  if(!group) return;
-  const costViewBox=document.getElementById(`perm-${role}-costView`);
-  if(group.keys.includes('costView')&&costViewBox) costViewBox.checked=checked;
-  syncCostPermissionUi(role);
-  assignableGroupKeys(group).forEach(key=>{
-    const box=document.getElementById(`perm-${role}-${key}`);
-    if(box&&!box.disabled) box.checked=checked;
-  });
-  // costView（查看工價）關閉時，costlog（成本變動記錄）必須同步關閉。
-  syncCostPermissionUi(role);
-  PERM_GROUPS.forEach(item=>updateGroupCheckbox(role,item));
+// permissionSwitchHtml（權限開關畫面）。
+function permissionSwitchHtml(role,key,options={}){
+  const isAdmin=role==='admin';
+  const fixed=options.fixed===true||isAdmin;
+  const disabled=fixed||options.disabled===true;
+  const checked=fixed?isAdmin||options.fixedChecked===true:permissionValue(role,key);
+  return `<label class="permission-switch${disabled?' is-disabled':''}">
+    <input type="checkbox" ${checked?'checked':''} ${disabled?'disabled':''}
+      ${disabled?'':`onchange="setPermissionValue('${role}','${key}',this.checked)"`}>
+    <span></span>
+  </label>`;
 }
 
-function onPermissionItemChanged(role,key){
-  if(key==='costView') syncCostPermissionUi(role);
-  PERM_GROUPS.forEach(group=>updateGroupCheckbox(role,group));
+function permissionFixedBadge(){
+  return '<span class="permission-fixed">Chỉ quản trị viên / 僅管理員</span>';
 }
 
-function fixedPermissionBadge(key){
-  return ADMIN_ONLY_KEYS.has(key)
-    ? ' <span class="tg tr2" style="margin-left:6px">Chỉ quản trị viên / 僅管理員</span>'
-    : '';
+// renderRestrictionRows（顯示有需要才存在的限制項目）。
+function renderRestrictionRows(role,restrictions,parentEnabled){
+  if(!restrictions?.length) return '';
+  return `<div class="permission-restrictions">
+    <div class="permission-level-label">Mục hạn chế / 限制項目</div>
+    ${restrictions.map(item=>`
+      <div class="permission-row permission-restriction${parentEnabled?'':' is-disabled'}">
+        <div class="permission-row-copy"><strong>${item.vi}</strong><span>${item.zh}</span></div>
+        ${permissionSwitchHtml(role,item.key,{disabled:!parentEnabled})}
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderPermissionModule(role,module){
+  const isAdmin=role==='admin';
+  const moduleFixed=module.adminOnly===true;
+  const moduleEnabled=isAdmin||(module.mainKey&&permissionValue(role,module.mainKey));
+  const fixedForRole=moduleFixed&&!isAdmin;
+  const moduleClass=moduleEnabled&&!fixedForRole?'':' is-off';
+  const mainSwitch=moduleFixed
+    ? permissionSwitchHtml(role,'accounts',{fixed:true,fixedChecked:isAdmin})
+    : permissionSwitchHtml(role,module.mainKey);
+
+  let body='';
+  if(module.pages?.length){
+    body=`<div class="permission-module-body">
+      <div class="permission-level-label">Trang chức năng / 功能分頁</div>
+      ${module.pages.map(page=>{
+        const pageFixed=page.adminOnly===true;
+        const pageEnabled=isAdmin||(!pageFixed&&moduleEnabled&&permissionValue(role,page.key));
+        const pageSwitch=pageFixed
+          ? permissionSwitchHtml(role,page.key,{fixed:true,fixedChecked:isAdmin})
+          : permissionSwitchHtml(role,page.key,{disabled:!moduleEnabled});
+        return `<div class="permission-page${pageEnabled?'':' is-off'}">
+          <div class="permission-row${moduleEnabled?'':' is-disabled'}">
+            <div class="permission-row-copy"><strong>${page.vi}</strong><span>${page.zh}</span></div>
+            ${pageFixed?permissionFixedBadge():''}${pageSwitch}
+          </div>
+          ${renderRestrictionRows(role,page.restrictions,pageEnabled)}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }else if(module.restrictions?.length){
+    body=`<div class="permission-module-body">${renderRestrictionRows(role,module.restrictions,moduleEnabled)}</div>`;
+  }
+
+  return `<section class="permission-module${moduleClass}">
+    <div class="permission-module-head">
+      <div class="permission-module-title"><i class="ti ${module.icon}"></i><div><strong>${module.vi}</strong><span>${module.zh}</span></div></div>
+      ${moduleFixed?permissionFixedBadge():''}${mainSwitch}
+    </div>
+    ${moduleEnabled&&!fixedForRole?body:`<div class="permission-paused">Chức năng chính đang tắt, các mục bên dưới tạm dừng. / 主功能已關閉，下層設定暫停。</div>`}
+  </section>`;
 }
 
 function renderPermissions(){
   const wrap=g('perm-table-wrap');
   if(!wrap) return;
-  const editableRoles=['manager','clerk'];
-  const columns=['admin',...editableRoles];
-  const roleLabels={
-    admin:'Quản trị viên<br><span style="font-size:10px;font-weight:400">管理員（固定）</span>',
-    manager:'Trưởng bộ phận<br><span style="font-size:10px;font-weight:400">課長</span>',
-    clerk:'Nhân viên văn phòng<br><span style="font-size:10px;font-weight:400">文員</span>'
-  };
+  const selected=window.selectedPermissionRole||'manager';
+  const roles=['admin',...CONFIGURABLE_ROLES];
+  const roleTabs=roles.map(role=>{
+    const active=role===selected;
+    const ready=role==='admin'||window.rolePermissionsReady?.[role]===true;
+    return `<button type="button" class="permission-role-card${active?' active':''}" onclick="selectPermissionRole('${role}')">
+      <i class="ti ${role==='admin'?'ti-shield-lock':'ti-user-cog'}"></i>
+      <span><strong>${permissionRoleLabel(role).split(' / ')[0]}</strong><small>${permissionRoleLabel(role).split(' / ')[1]||''}</small></span>
+      <em class="${ready?'ready':'pending'}">${role==='admin'?'Cố định / 固定':ready?'Đã thiết lập / 已設定':'Chưa thiết lập / 尚未設定'}</em>
+    </button>`;
+  }).join('');
 
-  let html='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">';
-  editableRoles.forEach(role=>{
-    const ready=window.rolePermissionsReady?.[role]===true;
-    html+=`<span class="tg ${ready?'tg2':'tr2'}">${role==='manager'?'Trưởng bộ phận / 課長':'Nhân viên văn phòng / 文員'}：${ready?'Đã thiết lập / 已設定':'Chưa lưu / 尚未儲存'}</span>`;
-  });
-  html+='</div>';
-  html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:650px">';
-  html+='<thead><tr>';
-  html+='<th style="position:sticky;top:0;background:var(--sf);padding:10px;text-align:left;border-bottom:2px solid var(--bd);color:var(--mu);font-weight:500;z-index:1">Chức năng<br><span style="font-size:10px;font-weight:400">功能</span></th>';
-  columns.forEach(role=>{
-    html+=`<th style="position:sticky;top:0;background:var(--sf);padding:10px;text-align:center;border-bottom:2px solid var(--bd);color:var(--mu);font-weight:500;min-width:130px;z-index:1">${roleLabels[role]}</th>`;
-  });
-  html+='</tr></thead><tbody>';
-
-  PERM_GROUPS.forEach(group=>{
-    html+=`<tr><td style="padding:9px 10px;background:var(--navy);color:rgba(255,255,255,.88);font-size:12px;font-weight:600;letter-spacing:.04em">${group.label}</td>`;
-    columns.forEach(role=>{
-      const disabled=role==='admin';
-      html+=`<td style="padding:9px 10px;text-align:center;background:var(--navy)">
-        <input type="checkbox" id="perm-group-${role}-${group.id}" ${disabled?'checked disabled':''}
-          ${disabled?'':'onchange="togglePermissionGroup(\''+role+'\',\''+group.id+'\',this.checked)"'}
-          title="Bật hoặc tắt toàn bộ nhóm / 開啟或關閉整個分類"
-          style="width:18px;height:18px;cursor:${disabled?'not-allowed':'pointer'};accent-color:var(--accent)">
-      </td>`;
-    });
-    html+='</tr>';
-    group.keys.forEach((key,index)=>{
-      const adminOnly=ADMIN_ONLY_KEYS.has(key);
-      html+=`<tr style="${index%2===0?'':'background:#f8fafc'}">`;
-      html+=`<td style="padding:10px 10px 10px 20px;border-bottom:1px solid var(--bd)">${PERM_LABELS[key]}${fixedPermissionBadge(key)}</td>`;
-      columns.forEach(role=>{
-        const isAdmin=role==='admin';
-        const disabled=isAdmin||adminOnly;
-        const checked=isAdmin||(window.permissionSettings?.[role]?.[key]===true&&!adminOnly);
-        html+=`<td style="padding:10px;text-align:center;border-bottom:1px solid var(--bd);opacity:${disabled&&!isAdmin?'.48':'1'}">
-          <input type="checkbox" id="perm-${role}-${key}" ${checked?'checked':''} ${disabled?'disabled':''}
-            ${disabled?'':'onchange="onPermissionItemChanged(\''+role+'\',\''+key+'\')"'}
-            style="width:17px;height:17px;cursor:${disabled?'not-allowed':'pointer'};accent-color:var(--accent)">
-        </td>`;
-      });
-      html+='</tr>';
-    });
-  });
-
-  html+='</tbody></table></div>';
-  html+=`<div style="margin-top:14px;padding:12px 14px;border:1px solid var(--bd);border-radius:10px;background:#f8fafc;font-size:12px;color:var(--mu)">
-    <strong style="display:block;color:var(--navy);margin-bottom:6px">Quyền cố định của hệ thống / 系統固定權限</strong>
-    <div>Quản trị viên: luôn có toàn bộ quyền, không thể tắt tại đây.<br>管理員：固定擁有全部權限，無法在此關閉。</div>
-  </div>`;
-  wrap.innerHTML=html;
-  refreshPermissionGroupStates();
+  wrap.innerHTML=`
+    <div class="permission-role-tabs">${roleTabs}</div>
+    <div class="permission-selected-title">
+      <div><strong>${permissionRoleLabel(selected)}</strong><span>${selected==='admin'?'Quyền hệ thống cố định / 系統固定權限':'Thiết lập đầy đủ theo chức năng / 依功能完整設定'}</span></div>
+    </div>
+    <div class="permission-tree">${PERMISSION_STRUCTURE.map(module=>renderPermissionModule(selected,module)).join('')}</div>`;
 }
 
 async function applyPermissions(){
   if(!isAdm()) return;
-  const newSettings={manager:{},clerk:{}};
-  ['manager','clerk'].forEach(role=>{
-    PERMISSION_KEYS.forEach(key=>{
-      const el=document.getElementById('perm-'+role+'-'+key);
-      newSettings[role][key]=key==='accounts'?false:(el?.checked===true);
-    });
-    if(newSettings[role].costView!==true) newSettings[role].costlog=false;
+  CONFIGURABLE_ROLES.forEach(role=>{
+    window.permissionSettings[role]=normalizeFeaturePermissions(window.permissionSettings[role],DEFAULT_PERMISSIONS[role]);
   });
-  window.permissionSettings=newSettings;
   await savePermissions();
 }

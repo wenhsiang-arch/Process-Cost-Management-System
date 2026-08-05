@@ -5,8 +5,9 @@
   1. 本檔是版本控制中的規則來源；每次修改後必須先測試，再由管理員部署。
   2. 系統已使用 Firebase Authentication（Firebase 身分驗證）與 Google（Google 帳號）登入。
   3. 保留第一位管理員以 UID（使用者識別碼）建立的 userAccess（使用者存取權限）文件作為安全退路。
-  4. 必須建立 manager（課長）與 clerk（文員）的 rolePermissions（角色功能權限）文件。
-  5. 系統只保留 admin（管理員）、manager（課長）與 clerk（文員）三種登入角色。
+  4. manager（課長）、clerk（文員）、productionDevelopment（生產開發）與 productionControl（生管）
+     都必須建立 rolePermissions（角色功能權限）文件後才能登入。
+  5. admin（管理員）保留固定完整管理能力；其他角色依 rolePermissions（角色功能權限）開放。
 
   規則技術字串：
   - rules_version（規則版本）
@@ -70,48 +71,65 @@ service cloud.firestore {
       return hasAccessDocument() && accessDocument().active == true;
     }
 
-    // admin（管理員）、manager（課長）、clerk（文員）
+    // admin（管理員）、manager（課長）、clerk（文員）、productionDevelopment（生產開發）、productionControl（生管）
     // isAdmin（管理員判斷）
     function isAdmin() {
       return activeAccount() && accessDocument().role == 'admin';
     }
 
-    // isManager（課長判斷）
-    function isManager() {
-      return activeAccount() && accessDocument().role == 'manager';
-    }
-
-    // isClerk（文員判斷）
-    function isClerk() {
-      return activeAccount() && accessDocument().role == 'clerk';
+    // isConfigurableRole（可設定權限角色判斷）
+    function isConfigurableRole() {
+      return activeAccount()
+        && accessDocument().role in [
+          'manager', 'clerk', 'productionDevelopment', 'productionControl'
+        ];
     }
 
     // isDeskUser（允許使用桌機系統的角色判斷）
     function isDeskUser() {
-      return isAdmin() || isManager() || isClerk();
+      return isAdmin() || isConfigurableRole();
     }
 
-    // managerPermissionsReady（課長權限資料可用）
-    function managerPermissionsReady() {
-      return exists(/databases/$(database)/documents/rolePermissions/manager)
-        && get(/databases/$(database)/documents/rolePermissions/manager).data.active == true;
+    // rolePermissionsReady（目前角色權限資料可用）
+    function rolePermissionsReady() {
+      let roleId = accessDocument().role;
+      return isConfigurableRole()
+        && exists(/databases/$(database)/documents/rolePermissions/$(roleId))
+        && get(/databases/$(database)/documents/rolePermissions/$(roleId)).data.active == true
+        && get(/databases/$(database)/documents/rolePermissions/$(roleId)).data.role == roleId;
     }
 
-    // clerkPermissionsReady（文員權限資料可用）
-    function clerkPermissionsReady() {
-      return exists(/databases/$(database)/documents/rolePermissions/clerk)
-        && get(/databases/$(database)/documents/rolePermissions/clerk).data.active == true;
+    // featureParentEnabled（主功能已開啟）：舊文件尚無主功能欄位時維持既有權限。
+    function featureParentEnabled(features, feature) {
+      return (!(feature in ['summary', 'costView'])
+          || !('productsMain' in features)
+          || features.productsMain == true)
+        && (!(feature in ['costlog', 'export'])
+          || !('costMain' in features)
+          || features.costMain == true)
+        && (feature != 'export'
+          || ('costMain' in features)
+          || features.costView == true)
+        && (feature != 'orderImport' || features.progress == true)
+        && (feature != 'costView' || features.summary == true);
+    }
+
+    // configuredRoleFeatureGranted（目前角色文件已授予功能權限）
+    function configuredRoleFeatureGranted(feature) {
+      let roleId = accessDocument().role;
+      let features = get(/databases/$(database)/documents/rolePermissions/$(roleId)).data.features;
+      return features[feature] == true
+        && featureParentEnabled(features, feature);
+    }
+
+    // configuredRoleHasFeature（可設定角色具有功能權限）
+    function configuredRoleHasFeature(feature) {
+      return rolePermissionsReady() && configuredRoleFeatureGranted(feature);
     }
 
     // hasFeature（具有功能權限）
     function hasFeature(feature) {
-      return isAdmin()
-        || (isManager()
-          && managerPermissionsReady()
-          && get(/databases/$(database)/documents/rolePermissions/manager).data.features[feature] == true)
-        || (isClerk()
-          && clerkPermissionsReady()
-          && get(/databases/$(database)/documents/rolePermissions/clerk).data.features[feature] == true);
+      return isAdmin() || configuredRoleHasFeature(feature);
     }
 
     // validShortString（短文字安全檢查）
@@ -121,29 +139,31 @@ service cloud.firestore {
 
     // 功能識別：progress（訂單資料）、sync（工序秒數同步）
     // accounts（帳號管理）、export（匯出）、costView（查看工價）、costlog（成本記錄）
-    // summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
+    // productsMain（款號管理主功能）、summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
+    // costMain（成本管理主功能）
     // validFeatureMap（功能權限欄位檢查）
     function validFeatureMap(features) {
       return features is map
         && features.keys().hasAll([
-          'progress', 'accounts', 'export', 'costView', 'costlog', 'summary',
-          'orderImport', 'cutting', 'sync'
+          'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
+          'summary', 'orderImport', 'cutting', 'sync', 'costMain'
         ])
         && features.keys().hasOnly([
-          'progress', 'accounts', 'export', 'costView', 'costlog', 'summary',
-          'orderImport', 'cutting', 'sync'
+          'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
+          'summary', 'orderImport', 'cutting', 'sync', 'costMain'
         ])
         && features.progress is bool
         && features.accounts is bool
         && features.export is bool
         && features.costView is bool
         && features.costlog is bool
+        && features.productsMain is bool
         && features.summary is bool
         && features.orderImport is bool
         && features.cutting is bool
         && features.sync is bool
-        && features.accounts == false
-        && (features.costlog == false || features.costView == true);
+        && features.costMain is bool
+        && features.accounts == false;
     }
 
     // validUserAccess（使用者存取權限資料檢查）
@@ -156,7 +176,9 @@ service cloud.firestore {
           'email', 'authUid', 'googleDisplayName', 'createdAt', 'lastLoginAt'
         ])
         && validShortString(request.resource.data.username, 100)
-        && request.resource.data.role in ['admin', 'manager', 'clerk']
+        && request.resource.data.role in [
+          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl'
+        ]
         && request.resource.data.active is bool
         && request.resource.data.updatedAt is int
         && validShortString(request.resource.data.updatedBy, 100)
@@ -193,7 +215,9 @@ service cloud.firestore {
         && request.auth.token.email == userId
         && resource.data.email == userId
         && resource.data.active == true
-        && resource.data.role in ['admin', 'manager', 'clerk']
+        && resource.data.role in [
+          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl'
+        ]
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'authUid', 'googleDisplayName', 'lastLoginAt'
         ])
@@ -213,7 +237,7 @@ service cloud.firestore {
 
     // validRolePermissions（角色功能權限資料檢查）
     function validRolePermissions(roleId) {
-      return roleId in ['manager', 'clerk']
+      return roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl']
         && request.resource.data.keys().hasAll([
           'role', 'active', 'features', 'updatedAt', 'updatedBy'
         ])
@@ -354,7 +378,8 @@ service cloud.firestore {
 
     // rolePermissions（角色功能權限）
     match /rolePermissions/{roleId} {
-      allow read: if isDeskUser();
+      allow read: if isAdmin()
+        || (isConfigurableRole() && roleId == accessDocument().role);
       allow create, update: if isAdmin() && validRolePermissions(roleId);
       allow delete: if false;
     }
@@ -395,9 +420,9 @@ service cloud.firestore {
       allow write: if isAdmin() && validSystemData(200000);
     }
 
-    // system/costSettings（成本設定）：管理員或具有 costView（查看工價）權限者可讀取。
+    // system/costSettings（成本設定）：管理員、顯示產品工價或產品工價匯出者可讀取。
     match /system/costSettings {
-      allow read: if hasFeature('costView');
+      allow read: if hasFeature('costView') || hasFeature('export');
       allow write: if isAdmin() && validSystemData(200000);
     }
 
@@ -409,13 +434,13 @@ service cloud.firestore {
 
     // system/impHist（匯入記錄）
     match /system/impHist {
-      allow read: if hasFeature('summary') || hasFeature('export');
+      allow read: if hasFeature('summary');
       allow write: if hasFeature('summary') && validSystemData(900000);
     }
 
     // system/cLog（成本變動記錄）
     match /system/cLog {
-      allow read: if hasFeature('costlog') && hasFeature('costView');
+      allow read: if hasFeature('costlog');
       allow write: if isAdmin() && validSystemData(900000);
     }
 

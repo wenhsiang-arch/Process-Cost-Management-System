@@ -22,8 +22,18 @@ function isAdm(){ return window.cu && window.cu.role==='admin'; }
 function canViewCosts(){
   if(isAdm()) return true;
   const role=window.cu?.role;
-  return (role==='manager'||role==='clerk')
-    && window.permissionSettings?.[role]?.costView===true;
+  const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
+  return CONFIGURABLE_ROLES.includes(role)
+    && permissions?.productsMain===true
+    && permissions?.summary===true
+    && permissions?.costView===true;
+}
+// canLoadCostSettings（可讀取成本設定）：款號顯示工價或產品工價匯出任一開放即可。
+function canLoadCostSettings(){
+  if(isAdm()) return true;
+  const role=window.cu?.role;
+  const permissions=window.permissionSettings?.[role];
+  return canViewCosts()||(permissions?.costMain===true&&permissions?.export===true);
 }
 function isCurrentDeskAccount(){
   return !!(
@@ -36,12 +46,12 @@ function isCurrentDeskAccount(){
 // MODULE_PAGES（模組內頁設定）：合併畫面入口，但每個內頁仍使用原本的獨立權限。
 const MODULE_PAGES={
   products:[
-    {page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表'},
-    {page:'export',feature:'export',icon:'ti-download',vi:'Xuất báo cáo',zh:'匯出報表'}
+    {page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表'}
   ],
   cost:[
     {page:'settings',adminOnly:true,icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定'},
-    {page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄'}
+    {page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄'},
+    {page:'export',feature:'export',icon:'ti-download',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出'}
   ],
   accounts:[
     {page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理'},
@@ -59,6 +69,9 @@ const PAGE_FEATURES={
   progress:'progress',sync:'sync',cutting:'cutting'
 };
 
+// MODULE_FEATURES（主功能權限對照）：只有具備主功能與分頁權限時才允許進入。
+const MODULE_FEATURES={products:'productsMain',cost:'costMain'};
+
 // canOpenPage（檢查頁面權限）：功能卡隱藏與實際頁面切換共用同一項判斷。
 function canOpenPage(name){
   if(!isCurrentDeskAccount()) return false;
@@ -66,10 +79,11 @@ function canOpenPage(name){
   const moduleName=PAGE_MODULE[name];
   const pageConfig=moduleName?MODULE_PAGES[moduleName].find(item=>item.page===name):null;
   if(pageConfig?.adminOnly) return false;
+  const moduleFeature=MODULE_FEATURES[moduleName]; // moduleFeature（主功能權限）。
+  if(moduleFeature&&window.permissionSettings?.[window.cu.role]?.[moduleFeature]!==true) return false;
   const feature=pageConfig?.feature||PAGE_FEATURES[name];
   if(!feature) return false;
   if(window.permissionSettings?.[window.cu.role]?.[feature]!==true) return false;
-  if(name==='costlog'&&!canViewCosts()) return false;
   return true;
 }
 
@@ -86,7 +100,7 @@ function renderModuleTabs(name){
   if(!host) return;
   const moduleName=PAGE_MODULE[name];
   const pages=moduleName?MODULE_PAGES[moduleName].filter(item=>canOpenPage(item.page)):[];
-  if(!pages.length){
+  if(pages.length<=1){
     host.hidden=true;
     host.innerHTML='';
     return;
@@ -119,6 +133,15 @@ function uNav(){
     const el=g('nv-'+moduleName); if(!el) return;
     el.className='ni'+(pages.some(item=>canOpenPage(item.page))?'':' locked');
   });
+  const hasManagementAccess=['cost','accounts','sync'].some(name=>{ // hasManagementAccess（具有管理分類功能）。
+    const item=g('nv-'+name);
+    return item&&!item.classList.contains('locked');
+  });
+  const managementToggle=g('management-toggle'); // managementToggle（管理分類開關）。
+  const managementNav=g('management-nav'); // managementNav（管理分類內容）。
+  if(managementToggle) managementToggle.style.display=hasManagementAccess?'':'none';
+  if(managementNav) managementNav.style.display=hasManagementAccess?'':'none';
+  if(!hasManagementAccess&&typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   document.querySelectorAll('[data-order-manage]').forEach(el=>{
     el.style.display=canManageOrders()?'':'none';
   });
@@ -216,10 +239,18 @@ async function enterAuthorizedDeskSystem(user,access){
   };
   const permissionState=typeof loadPermissions==='function'
     ? await loadPermissions()
-    : {manager:false,clerk:false};
+    : Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
   if(window.cu.role!=='admin'&&permissionState?.[window.cu.role]!==true){
     const error=new Error('Role permissions are not ready');
     error.code='role-permissions-not-ready';
+    throw error;
+  }
+  // entryOrder（登入後首頁候選順序）：只從目前角色實際可用的頁面中選擇。
+  const entryOrder=['progress','summary','cutting','sync','costlog','export'];
+  const allowedPage=window.cu.role==='admin'?'summary':entryOrder.find(name=>canOpenPage(name));
+  if(!allowedPage){
+    const error=new Error('Role has no available functions');
+    error.code='role-no-functions';
     throw error;
   }
   await window.fbInitForAuthorizedUser();
@@ -229,15 +260,7 @@ async function enterAuthorizedDeskSystem(user,access){
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   uNav(); rAll(); rSum(); rAcc(); startIdle();
 
-  if(window.cu.role==='admin'){
-    sp('summary');
-  }else{
-    const perm=window.permissionSettings;
-    const role=window.cu.role;
-    const order=['progress','sync','export','costlog','summary','cutting'];
-    const allowed=order.find(name=>perm[role]&&perm[role][name]===true);
-    if(allowed) sp(allowed);
-  }
+  sp(allowedPage);
   if(isAdm()) setTimeout(()=>fetchRates(),1000);
 }
 
@@ -280,13 +303,17 @@ window.handleFirebaseAuthState=async function(user){
     await enterAuthorizedDeskSystem(user,access);
   }catch(e){
     console.error('Firebase Authentication 登入流程失敗：',e);
-    if(e?.code==='role-permissions-not-ready'&&typeof window.firebaseAuthLogout==='function'){
+    if(['role-permissions-not-ready','role-no-functions'].includes(e?.code)&&typeof window.firebaseAuthLogout==='function'){
       try{ await window.firebaseAuthLogout(); }catch(logoutError){}
     }
     clearSessionUi();
-    showLoginMessage(e?.code==='role-permissions-not-ready'
-      ? 'Quyền vai trò chưa được quản trị viên thiết lập. / 管理員尚未設定此角色權限。'
-      : 'Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。');
+    showLoginMessage(
+      e?.code==='role-permissions-not-ready'
+        ? 'Quyền vai trò chưa được quản trị viên thiết lập. / 管理員尚未設定此角色權限。'
+        : e?.code==='role-no-functions'
+          ? 'Vai trò này chưa được mở chức năng nào. / 此角色尚未開放任何功能。'
+          : 'Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。'
+    );
   }finally{
     firebaseAuthInitialCheckComplete=true;
     firebaseAuthStateBusy=false;
@@ -354,17 +381,21 @@ async function ensurePageData(name){
   const tasks=[];
   const add=(task)=>{ if(task&&typeof task.then==='function') tasks.push(task); };
 
-  if(['summary','export'].includes(name)){
+  if(name==='summary'){
     add(window.ensureOperationSettingsLoaded?.());
     if(canViewCosts()) add(window.ensureCostSettingsLoaded?.());
     add(window.ensureImportHistoryLoaded?.());
+  }
+  if(name==='export'){
+    add(window.ensureOperationSettingsLoaded?.());
+    add(window.ensureCostSettingsLoaded?.());
   }
   if(name==='settings'){
     add(window.ensureOperationSettingsLoaded?.());
     add(window.ensureCostSettingsLoaded?.());
     add(window.ensureCostLogLoaded?.());
   }
-  if(name==='costlog'&&canViewCosts()) add(window.ensureCostLogLoaded?.());
+  if(name==='costlog') add(window.ensureCostLogLoaded?.());
   if(['progress','sync'].includes(name)) add(window.ensureOperationSettingsLoaded?.());
   if(name==='progress') add(loadOrderData());
   if(name==='sync') add(reloadOrders());

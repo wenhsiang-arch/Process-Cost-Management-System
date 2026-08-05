@@ -40,8 +40,7 @@ function isCurrentAccessAccount(account){
 }
 
 function sortUserAccessAccounts(list){
-  const roleOrder={admin:0,manager:1,clerk:2};
-  return [...list].sort((a,b)=>(roleOrder[a.role]??9)-(roleOrder[b.role]??9)||a.user.localeCompare(b.user));
+  return [...list].sort((a,b)=>(ROLE_ORDER[a.role]??9)-(ROLE_ORDER[b.role]??9)||a.user.localeCompare(b.user));
 }
 
 async function loadAccounts(){
@@ -105,7 +104,7 @@ function rAcc(){
 
     const roleCell=document.createElement('td');
     const roleTag=document.createElement('span');
-    roleTag.className='tg '+({admin:'tg2',manager:'tb2',clerk:'ta'}[a.role]||'ta');
+    roleTag.className='tg '+(ROLE_TAG_CLASS[a.role]||'ta');
     roleTag.textContent=ROLE_LABEL[a.role]||a.role||'-';
     roleCell.appendChild(roleTag);
     tr.appendChild(roleCell);
@@ -182,6 +181,10 @@ async function saveAcc(){
   const username=g('ac-u').value.trim();
   const role=g('ac-r').value;
   const active=g('ac-active').checked;
+  if(!DESK_ROLES.includes(role)){
+    alert('Vai trò không hợp lệ / 角色設定不正確');
+    return;
+  }
   if(!validEmailAccessInput(email,username)) return;
   if(window.accs.some(a=>a.accessId===email||a.email===email)){
     alert('Email Google đã được phê duyệt / Google 電子信箱已經核准');
@@ -230,6 +233,10 @@ async function saveEacc(){
   const username=g('ea-u').value.trim();
   const role=g('ea-r').value;
   const active=g('ea-active').checked;
+  if(!DESK_ROLES.includes(role)){
+    alert('Vai trò không hợp lệ / 角色設定不正確');
+    return;
+  }
   if(!username||username.length>100){
     alert('Vui lòng nhập tên tài khoản hợp lệ / 請輸入正確的帳號名稱');
     return;
