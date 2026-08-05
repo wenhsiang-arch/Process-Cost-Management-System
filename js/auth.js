@@ -118,9 +118,9 @@ function uNav(){
   const isA   = r==='admin';
   const isMgr = r==='manager';
 
-  // 幣別切換：只有 admin 顯示
-  const cgEl = document.querySelector('.cg');
-  if(cgEl) cgEl.style.display = isA ? '' : 'none';
+  // 款號總表幣別切換：跟隨「顯示產品工價」權限，避免與角色固定限制衝突。
+  const cgEl = g('summary-currency');
+  if(cgEl) cgEl.style.display = canViewCosts() ? '' : 'none';
 
   // 一般獨立功能入口。
   ['progress','cutting','sync'].forEach(n=>{

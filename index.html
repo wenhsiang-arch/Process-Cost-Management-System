@@ -45,12 +45,13 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .cg{display:flex;gap:2px;background:#f1f5f9;padding:3px;border-radius:8px}
 .cb{padding:4px 11px;border-radius:6px;border:none;font-size:12px;cursor:pointer;background:transparent;color:var(--mu);transition:all .15s}
 .cb.active{background:var(--accent);color:#fff;font-weight:500}
-.up{display:flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:12px;background:#f1f5f9;color:var(--mu)}
+.up{display:flex;align-items:center;gap:5px;margin-left:auto;padding:4px 11px;border-radius:20px;font-size:12px;background:#f1f5f9;color:var(--mu)}
 .up.adm{background:var(--okl);color:var(--ok)}
 .ib{width:32px;height:32px;border-radius:8px;border:1px solid var(--bd);font-size:13px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center}
 .ib:hover{background:#f1f5f9}
 .logout-btn{height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--bd);font-size:12px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 .logout-btn:hover{background:#f1f5f9;color:var(--navy)}
+@media(max-width:520px){.tb{padding:0 8px;gap:6px}.tb .up{display:none}.logout-btn{width:34px;flex:0 0 34px;margin-left:auto;padding:0}.logout-btn span{display:none}}
 .idle-bar{height:3px;background:var(--al)}
 .idle-prog{height:100%;background:var(--accent);transition:width 1s linear}
 .ct{flex:1;overflow-y:auto;padding:16px;background:var(--bg)}
@@ -307,11 +308,6 @@ tr:hover td{background:#f8fafc}
 
   <div class="mn">
     <div class="tb">
-      <div class="cg">
-        <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
-        <button class="cb" id="cur-USD" onclick="setCur('USD')">USD</button>
-        <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
-      </div>
       <div class="up" id="upill"><i class="ti ti-user"></i><span id="ulabel"></span></div>
       <button class="logout-btn" onclick="doLogout()" title="Đăng xuất / 登出"><i class="ti ti-logout"></i><span>Đăng xuất / 登出</span></button>
     </div>
@@ -538,6 +534,11 @@ tr:hover td{background:#f8fafc}
         <div class="sr">
           <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Tìm kiếm / 搜尋..." id="s-search" oninput="window.sPage=1;rSum()"></div>
           <select id="s-client" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
+          <div class="cg" id="summary-currency" title="Tiền tệ hiển thị / 顯示幣別">
+            <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
+            <button class="cb" id="cur-USD" onclick="setCur('USD')">USD</button>
+            <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
+          </div>
 
           <button class="btn" onclick="rHist();om('m-history')"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
           <button class="btn" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
@@ -799,7 +800,7 @@ tr:hover td{background:#f8fafc}
     <div class="nt ni2" style="margin-bottom:12px"><i class="ti ti-info-circle"></i><span>Phê duyệt trước địa chỉ Google; người dùng có thể vào hệ thống ngay khi đăng nhập lần đầu.<br>先核准 Google（Google 帳號）電子信箱；使用者第一次登入時即可直接進入系統。</span></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Email Google / Google 電子信箱</label><input type="email" id="ac-email" maxlength="254" autocomplete="off" placeholder="name@example.com"></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ac-u" maxlength="100" autocomplete="off"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ac-r"><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển sản xuất / 開發（生產開發）</option><option value="productionControl">Quản lý sản xuất / 生管</option><option value="admin">Quản trị viên / 管理員</option></select></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ac-r"><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển sản xuất / 開發</option><option value="productionControl">Quản lý sản xuất / 生管</option><option value="admin">Quản trị viên / 管理員</option></select></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:18px"><input type="checkbox" id="ac-active" checked style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
     <div class="br"><button class="btn bp" onclick="saveAcc()"><i class="ti ti-check"></i>Thêm / 新增</button><button class="btn" onclick="cm('m-nacc')">Hủy / 取消</button></div>
   </div></div>
@@ -810,7 +811,7 @@ tr:hover td{background:#f8fafc}
     <div class="fgrp" style="margin-bottom:12px"><label>Email Google / Google 電子信箱</label><input type="text" id="ea-email-view" readonly></div>
     <div class="fgrp" style="margin-bottom:12px"><label>UID / 使用者識別碼</label><input type="text" id="ea-uid-view" readonly></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Tên tài khoản / 帳號名稱</label><input type="text" id="ea-u" maxlength="100" autocomplete="off"></div>
-    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ea-r"><option value="admin">Quản trị viên / 管理員</option><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển sản xuất / 開發（生產開發）</option><option value="productionControl">Quản lý sản xuất / 生管</option></select></div>
+    <div class="fgrp" style="margin-bottom:12px"><label>Vai trò / 角色</label><select id="ea-r"><option value="admin">Quản trị viên / 管理員</option><option value="manager">Trưởng bộ phận / 課長</option><option value="clerk">Nhân viên văn phòng / 文員</option><option value="productionDevelopment">Phát triển sản xuất / 開發</option><option value="productionControl">Quản lý sản xuất / 生管</option></select></div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><input type="checkbox" id="ea-active" style="width:16px;height:16px">Kích hoạt / 啟用帳號</label>
     <div class="nt nw" id="ea-self-note" style="display:none;margin-bottom:12px"><i class="ti ti-shield-lock"></i><span>Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập.<br>目前登入帳號不可停用或降低權限。</span></div>
     <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>Lưu / 儲存</button><button class="btn" onclick="cm('m-eacc')">Hủy / 取消</button></div>
@@ -904,9 +905,9 @@ tr:hover td{background:#f8fafc}
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
 <!-- 一般 JS 模組（依賴順序載入）-->
-<script src="js/utils.js?v=20260806-3"></script>
+<script src="js/utils.js?v=20260806-4"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/auth.js?v=20260806-3"></script>
+<script src="js/auth.js?v=20260806-4"></script>
 <!-- js/settings.js（設定程式）快取版本 -->
 <script src="js/settings.js?v=20260805-1"></script>
 <script src="js/summary.js?v=20260805-1"></script>

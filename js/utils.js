@@ -8,7 +8,7 @@ const ROLE_LABEL = {
   admin:'Quản trị viên / 管理員',
   manager:'Trưởng bộ phận / 課長',
   clerk:'Nhân viên văn phòng / 文員',
-  productionDevelopment:'Phát triển sản xuất / 開發（生產開發）',
+  productionDevelopment:'Phát triển sản xuất / 開發',
   productionControl:'Quản lý sản xuất / 生管'
 };
 const ROLE_ORDER = {admin:0,manager:1,clerk:2,productionDevelopment:3,productionControl:4};
