@@ -80,11 +80,11 @@ function permissionFixedBadge(){
   return '<span class="permission-fixed">Chỉ quản trị viên / 僅管理員</span>';
 }
 
-// renderRestrictionRows（顯示有需要才存在的限制項目）。
+// renderRestrictionRows（顯示有需要才存在的敏感資料子開關）。
 function renderRestrictionRows(role,restrictions,parentEnabled){
   if(!restrictions?.length) return '';
   return `<div class="permission-restrictions">
-    <div class="permission-level-label">Mục hạn chế / 限制項目</div>
+    <div class="permission-level-label">Dữ liệu nhạy cảm / 敏感資料</div>
     ${restrictions.map(item=>`
       <div class="permission-row permission-restriction${parentEnabled?'':' is-disabled'}">
         <div class="permission-row-copy"><strong>${item.vi}</strong><span>${item.zh}</span></div>

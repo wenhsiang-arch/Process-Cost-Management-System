@@ -802,7 +802,7 @@ function buildOperationLog(input){
     status:['success','partial','failed'].includes(input?.status)?input.status:'success',
     createdAt:Date.now(),
     createdByUid:currentUser.uid,
-    createdBy:String(window.cu?.user||currentUser.displayName||currentUser.email||'').slice(0,200),
+    createdBy:String(window.cu?.user||currentUser.displayName||currentUser.email||currentUser.uid).slice(0,200),
     itemCount:operationLogCount(input?.itemCount),
     detailCount:operationLogCount(input?.detailCount)
   };

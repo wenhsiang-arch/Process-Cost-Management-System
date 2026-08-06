@@ -1,4 +1,8 @@
 // ===== 成本計算 =====
+// canEditCostSettings（可編輯成本設定）：管理員或已開放成本設定分頁的職務。
+function canEditCostSettings(){
+  return typeof canOpenPage==='function'&&canOpenPage('settings');
+}
 function readSettingNumber(id,fallback,min=0,max=null,writeBack=false){
   const el=g(id);
   let v=Number(el?.value);
@@ -37,8 +41,8 @@ function uEff(){
 }
 
 function rAll(){
-  // 非管理員不得從隱藏的設定欄位覆蓋已授權載入的 S（系統計算設定）。
-  if(!isAdm()){
+  // 沒有成本設定分頁權限時，不得從隱藏欄位覆蓋已授權載入的 S（系統計算設定）。
+  if(!canEditCostSettings()){
     rSum(); rDet(); rExp(); rBk();
     return;
   }
@@ -52,6 +56,10 @@ function rAll(){
 }
 
 async function saveSt(){
+  if(!canEditCostSettings()){
+    alert('Không có quyền cài đặt chi phí / 沒有成本設定權限');
+    return false;
+  }
   const prevS={...window.S};
   const prevClog=Array.isArray(window.cLog)?window.cLog.map(log=>({...log})):[];
   const prev={sal:prevS.sal,ins:prevS.ins,meal:prevS.meal,usd:prevS.usd,twd:prevS.twd,ws:prevS.ws,eff:prevS.eff,hr:Math.round(getH())};
@@ -99,6 +107,7 @@ async function saveSt(){
 
 // ===== 自動抓取匯率 =====
 async function fetchRates(){
+  if(!canEditCostSettings()) return;
   const btn=g('btn-fetchrate'), info=g('rate-updated');
   if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>'; }
   if(info){ info.textContent='抓取中... / Đang tải...'; info.style.color='var(--hi)'; }

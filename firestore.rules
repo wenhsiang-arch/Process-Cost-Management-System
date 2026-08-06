@@ -90,21 +90,12 @@ service cloud.firestore {
       return isAdmin() || isConfigurableRole();
     }
 
-    // rolePermissionsReady（目前角色權限資料可用）
-    function rolePermissionsReady() {
-      let roleId = accessDocument().role;
-      return isConfigurableRole()
-        && exists(/databases/$(database)/documents/rolePermissions/$(roleId))
-        && get(/databases/$(database)/documents/rolePermissions/$(roleId)).data.active == true
-        && get(/databases/$(database)/documents/rolePermissions/$(roleId)).data.role == roleId;
-    }
-
     // featureParentEnabled（主功能已開啟）：舊文件尚無主功能欄位時維持既有權限。
     function featureParentEnabled(features, feature) {
       return (!(feature in ['summary', 'costView'])
           || !('productsMain' in features)
           || features.productsMain == true)
-        && (!(feature in ['costlog', 'export'])
+        && (!(feature in ['settings', 'costlog', 'export'])
           || !('costMain' in features)
           || features.costMain == true)
         && (feature != 'export'
@@ -114,22 +105,20 @@ service cloud.firestore {
         && (feature != 'costView' || features.summary == true);
     }
 
-    // configuredRoleFeatureGranted（目前角色文件已授予功能權限）
-    function configuredRoleFeatureGranted(feature) {
-      let roleId = accessDocument().role;
-      let features = get(/databases/$(database)/documents/rolePermissions/$(roleId)).data.features;
-      return features[feature] == true
-        && featureParentEnabled(features, feature);
-    }
-
     // configuredRoleHasFeature（可設定角色具有功能權限）
     function configuredRoleHasFeature(feature) {
-      return rolePermissionsReady() && configuredRoleFeatureGranted(feature);
+      let roleId = accessDocument().role;
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      return exists(rolePath)
+        && get(rolePath).data.active == true
+        && get(rolePath).data.role == roleId
+        && get(rolePath).data.features[feature] == true
+        && featureParentEnabled(get(rolePath).data.features, feature);
     }
 
     // hasFeature（具有功能權限）
     function hasFeature(feature) {
-      return isAdmin() || configuredRoleHasFeature(feature);
+      return isAdmin() || (isConfigurableRole() && configuredRoleHasFeature(feature));
     }
 
     // validShortString（短文字安全檢查）
@@ -138,7 +127,7 @@ service cloud.firestore {
     }
 
     // 功能識別：progress（訂單資料）、sync（工序秒數同步）
-    // accounts（帳號管理）、export（匯出）、costView（查看工價）、costlog（成本記錄）
+    // accounts（帳號管理）、export（匯出）、costView（查看工價）、settings（成本設定）、costlog（成本記錄）
     // productsMain（款號管理主功能）、summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
     // costMain（成本管理主功能）
     // validFeatureMap（功能權限欄位檢查）
@@ -150,7 +139,7 @@ service cloud.firestore {
         ])
         && features.keys().hasOnly([
           'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-          'summary', 'orderImport', 'cutting', 'sync', 'costMain'
+          'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings'
         ])
         && features.progress is bool
         && features.accounts is bool
@@ -163,6 +152,7 @@ service cloud.firestore {
         && features.cutting is bool
         && features.sync is bool
         && features.costMain is bool
+        && (!('settings' in features) || features.settings is bool)
         && features.accounts == false;
     }
 
@@ -277,7 +267,7 @@ service cloud.firestore {
         || (permissionKey == 'costlog'
           && feature == 'cost'
           && action == 'costSettingsUpdate')
-        || (permissionKey == 'orderImport'
+        || (permissionKey in ['progress', 'orderImport']
           && feature == 'orders'
           && action == 'orderImport')
         || (permissionKey == 'cutting'
@@ -317,6 +307,28 @@ service cloud.firestore {
         && (!('note' in request.resource.data)
           || (request.resource.data.note is string
             && request.resource.data.note.size() <= 500));
+    }
+
+    // canReadOperationLog（可讀取操作紀錄）：依紀錄所屬功能分頁判斷，不使用只限管理員的預設。
+    function canReadOperationLog(permissionKey) {
+      return (permissionKey == 'summary' && hasFeature('summary'))
+        || (permissionKey == 'export' && hasFeature('export'))
+        || (permissionKey == 'costlog' && hasFeature('costlog'))
+        || (permissionKey in ['progress', 'orderImport'] && hasFeature('progress'))
+        || (permissionKey == 'cutting' && hasFeature('cutting'));
+    }
+
+    // canCreateOperationLog（可建立操作紀錄）：只要可以執行該頁動作就可留下紀錄。
+    function canCreateOperationLog() {
+      let permissionKey = request.resource.data.permissionKey;
+      let action = request.resource.data.action;
+      return (permissionKey == 'summary' && hasFeature('summary'))
+        || (permissionKey == 'export' && hasFeature('export'))
+        || (permissionKey == 'costlog'
+          && action == 'costSettingsUpdate'
+          && hasFeature('settings'))
+        || (permissionKey in ['progress', 'orderImport'] && hasFeature('progress'))
+        || (permissionKey == 'cutting' && hasFeature('cutting'));
     }
 
     // validOrder（訂單資料檢查）
@@ -363,6 +375,83 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'approvedQty', 'pendingQty'
       ]);
+    }
+
+    // validSecondSyncOrderUpdate（工序秒數同步的訂單狀態變更檢查）。
+    function validSecondSyncOrderUpdate() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return changedKeys.hasOnly([
+          'lifecycleStatus', 'secondSyncJobId', 'secondSyncStartedAt',
+          'secondSyncCompletedAt', 'secondSyncBy', 'processVersion'
+        ])
+        && request.resource.data.lifecycleStatus in ['active', 'syncingSeconds']
+        && (!('secondSyncJobId' in request.resource.data)
+          || request.resource.data.secondSyncJobId == null
+          || validShortString(request.resource.data.secondSyncJobId, 200))
+        && (!('secondSyncStartedAt' in request.resource.data)
+          || (request.resource.data.secondSyncStartedAt is int
+            && request.resource.data.secondSyncStartedAt > 0))
+        && (!('secondSyncCompletedAt' in request.resource.data)
+          || (request.resource.data.secondSyncCompletedAt is int
+            && request.resource.data.secondSyncCompletedAt > 0))
+        && (!('secondSyncBy' in request.resource.data)
+          || validShortString(request.resource.data.secondSyncBy, 200));
+    }
+
+    // validSecondSyncProcessUpdate（工序秒數同步只能改秒數與同步資訊）。
+    function validSecondSyncProcessUpdate() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return changedKeys.hasOnly([
+          'workStdSec', 'processSec', 'quoteSnapshotSec', 'slPerHour',
+          'secondSyncedAt', 'secondSyncedBy'
+        ])
+        && request.resource.data.workStdSec is number
+        && request.resource.data.workStdSec > 0
+        && request.resource.data.processSec is number
+        && request.resource.data.processSec > 0
+        && request.resource.data.quoteSnapshotSec is number
+        && request.resource.data.quoteSnapshotSec > 0
+        && request.resource.data.slPerHour is int
+        && request.resource.data.slPerHour >= 0
+        && request.resource.data.secondSyncedAt is int
+        && request.resource.data.secondSyncedAt > 0
+        && validShortString(request.resource.data.secondSyncedBy, 200);
+    }
+
+    // configuredRoleCanUpdateOrder（可設定角色可修改訂單的範圍）。
+    function configuredRoleCanUpdateOrder() {
+      let roleId = accessDocument().role;
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let features = get(rolePath).data.features;
+      return exists(rolePath)
+        && get(rolePath).data.active == true
+        && get(rolePath).data.role == roleId
+        && (features.progress == true
+          || (features.sync == true && validSecondSyncOrderUpdate()));
+    }
+
+    // canUpdateOrder（可修改訂單）：訂單分頁可完整修改，同步分頁只能改同步狀態。
+    function canUpdateOrder() {
+      return isAdmin()
+        || (isConfigurableRole() && configuredRoleCanUpdateOrder());
+    }
+
+    // configuredRoleCanUpdateOrderProcess（可設定角色可修改訂單工序的範圍）。
+    function configuredRoleCanUpdateOrderProcess() {
+      let roleId = accessDocument().role;
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let features = get(rolePath).data.features;
+      return exists(rolePath)
+        && get(rolePath).data.active == true
+        && get(rolePath).data.role == roleId
+        && (features.progress == true
+          || (features.sync == true && validSecondSyncProcessUpdate()));
+    }
+
+    // canUpdateOrderProcess（可修改訂單工序）。
+    function canUpdateOrderProcess() {
+      return isAdmin()
+        || (isConfigurableRole() && configuredRoleCanUpdateOrderProcess());
     }
 
     // validProduct（款號工序資料檢查）
@@ -417,42 +506,66 @@ service cloud.firestore {
     // 造成 Firestore Rules（雲端安全規則）運算式數量超過上限。
     function configuredRoleCanReadProducts() {
       let roleId = accessDocument().role;
-      let features = get(
-        /databases/$(database)/documents/rolePermissions/$(roleId)
-      ).data.features;
-      return ('cutting' in features && features.cutting == true)
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let features = get(rolePath).data.features;
+      return exists(rolePath)
+        && get(rolePath).data.active == true
+        && get(rolePath).data.role == roleId
+        && (('cutting' in features && features.cutting == true)
         || ('summary' in features && features.summary == true
           && (!('productsMain' in features) || features.productsMain == true))
-        || ('orderImport' in features && features.orderImport == true
-          && 'progress' in features && features.progress == true)
+        || ('progress' in features && features.progress == true)
         || ('export' in features && features.export == true
-          && (!('costMain' in features) || features.costMain == true)
-          && (('costMain' in features)
-            || ('costView' in features && features.costView == true)));
+          && (('costMain' in features && features.costMain == true)
+            || (!('costMain' in features)
+              && 'costView' in features && features.costView == true))));
     }
 
     // canReadProducts（可以讀取款號工序資料）
     function canReadProducts() {
       return isAdmin()
-        || (rolePermissionsReady() && configuredRoleCanReadProducts());
+        || (isConfigurableRole() && configuredRoleCanReadProducts());
     }
 
     // configuredRoleCanReadOrders（可設定角色可以讀取訂單與工序資料）
     function configuredRoleCanReadOrders() {
       let roleId = accessDocument().role;
-      let features = get(
-        /databases/$(database)/documents/rolePermissions/$(roleId)
-      ).data.features;
-      return ('progress' in features && features.progress == true)
-        || ('orderImport' in features && features.orderImport == true
-          && 'progress' in features && features.progress == true)
-        || ('sync' in features && features.sync == true);
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let features = get(rolePath).data.features;
+      return exists(rolePath)
+        && get(rolePath).data.active == true
+        && get(rolePath).data.role == roleId
+        && (('progress' in features && features.progress == true)
+          || ('sync' in features && features.sync == true));
     }
 
     // canReadOrders（可以讀取訂單與工序資料）
     function canReadOrders() {
       return isAdmin()
-        || (rolePermissionsReady() && configuredRoleCanReadOrders());
+        || (isConfigurableRole() && configuredRoleCanReadOrders());
+    }
+
+    // configuredRoleCanReadCostSettings（可設定角色可讀取成本設定）：單次取得權限文件，避免重複判斷超過規則上限。
+    function configuredRoleCanReadCostSettings() {
+      let roleId = accessDocument().role;
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let features = get(rolePath).data.features;
+      return exists(rolePath)
+        && get(rolePath).data.active == true
+        && get(rolePath).data.role == roleId
+        && ((features.costView == true
+            && features.summary == true
+            && (!('productsMain' in features) || features.productsMain == true))
+          || ('settings' in features && features.settings == true
+            && (!('costMain' in features) || features.costMain == true))
+          || (features.export == true
+            && (!('costMain' in features) || features.costMain == true)));
+    }
+
+    // canReadCostSettings（可讀取成本設定）。
+    function canReadCostSettings() {
+      return isAdmin()
+        || (isConfigurableRole() && configuredRoleCanReadCostSettings());
     }
 
     // validDataVersions（資料版本文件檢查）
@@ -485,8 +598,9 @@ service cloud.firestore {
     // canTouchDataVersionKeys（可以更新指定資料版本欄位）
     function canTouchDataVersionKeys(keys) {
       return (!keys.hasAny(['orders', 'orderProcesses'])
-          || hasFeature('orderImport') || hasFeature('progress') || hasFeature('sync'))
-        && (!keys.hasAny(['settings', 'operationSettings', 'costSettings', 'cLog']) || isAdmin())
+          || hasFeature('progress') || hasFeature('sync'))
+        && (!keys.hasAny(['operationSettings', 'costSettings']) || hasFeature('settings'))
+        && (!keys.hasAny(['settings', 'cLog']) || isAdmin())
         && (!keys.hasAny(['impHist']) || hasFeature('summary'));
     }
 
@@ -545,13 +659,13 @@ service cloud.firestore {
     // system/operationSettings（一般運算設定）：不含薪資、保險、餐費與時薪。
     match /system/operationSettings {
       allow read: if isDeskUser();
-      allow write: if isAdmin() && validSystemData(200000);
+      allow write: if hasFeature('settings') && validSystemData(200000);
     }
 
-    // system/costSettings（成本設定）：管理員、顯示產品工價或產品工價匯出者可讀取。
+    // system/costSettings（成本設定）：敏感工價、成本設定或產品工價匯出授權者才可讀取。
     match /system/costSettings {
-      allow read: if hasFeature('costView') || hasFeature('export');
-      allow write: if isAdmin() && validSystemData(200000);
+      allow read: if canReadCostSettings();
+      allow write: if hasFeature('settings') && validSystemData(200000);
     }
 
     // system/productsMeta（款號版本資料）
@@ -574,9 +688,8 @@ service cloud.firestore {
 
     // operationLogs（獨立操作紀錄）：依功能權限查詢，建立後禁止修改與刪除。
     match /operationLogs/{logId} {
-      allow read: if isAdmin() || hasFeature(resource.data.permissionKey);
-      allow create: if hasFeature(request.resource.data.permissionKey)
-        && validOperationLog();
+      allow read: if isAdmin() || canReadOperationLog(resource.data.permissionKey);
+      allow create: if canCreateOperationLog() && validOperationLog();
       allow update, delete: if false;
     }
 
@@ -609,23 +722,21 @@ service cloud.firestore {
       // 舊訂單若仍含 snapshotHr（平均時薪快照），只有可查看工價者能讀取；管理員載入後會自動清除該欄位。
       allow read: if canReadOrders()
         && (!('snapshotHr' in resource.data) || hasFeature('costView'));
-      allow create: if hasFeature('orderImport') && validOrder();
-      // canReadOrders（訂單存取判斷）已涵蓋管理員、訂單資料及同步權限，避免重複讀取角色文件。
-      allow update: if canReadOrders() && validOrder();
-      allow delete: if isAdmin()
-        || (hasFeature('orderImport') && resource.data.importStatus == 'failed');
+      allow create: if hasFeature('progress') && validOrder();
+      allow update: if validOrder() && canUpdateOrder();
+      allow delete: if hasFeature('progress');
     }
 
     // orderProcesses（訂單工序資料）
     match /orderProcesses/{processId} {
       allow read: if canReadOrders();
-      allow create: if hasFeature('orderImport')
+      allow create: if hasFeature('progress')
         && validOrderProcess()
         && hasNoLegacyReportCounters();
-      allow update: if (hasFeature('orderImport') || hasFeature('sync'))
-        && validOrderProcess()
-        && preservesLegacyReportCounters();
-      allow delete: if isAdmin() || hasFeature('orderImport');
+      allow update: if validOrderProcess()
+        && preservesLegacyReportCounters()
+        && canUpdateOrderProcess();
+      allow delete: if hasFeature('progress');
     }
 
     // reports（已淘汰的報工資料）
@@ -640,14 +751,13 @@ service cloud.firestore {
 
     // orderAdjustments（訂單數量調整記錄）
     match /orderAdjustments/{adjustmentId} {
-      allow read: if hasFeature('orderImport') || hasFeature('progress');
-      allow create: if hasFeature('orderImport');
-      allow update, delete: if isAdmin();
+      allow read, create: if hasFeature('progress');
+      allow update, delete: if false;
     }
 
     // orderLocks（訂單匯入鎖定資料）
     match /orderLocks/{lockId} {
-      allow read, create, update, delete: if hasFeature('orderImport');
+      allow read, create, update, delete: if hasFeature('progress');
     }
 
     // secondSyncLogs（工序秒數同步記錄）

@@ -1,26 +1,23 @@
 // features（功能中央清單）：統一管理導覽、頁面、權限、程式依賴、資料載入與進入頁面動作。
 (function(){
   const SCRIPT_URLS = Object.freeze({
-    settings:'js/settings.js?v=20260805-1',
+    settings:'js/settings.js?v=20260806-2',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260805-1',
-    data:'js/data.js?v=20260806-4',
+    data:'js/data.js?v=20260806-5',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260806-3',
     accounts:'js/accounts.js?v=20260806-3',
-    orders:'js/orders.js?v=20260806-2',
+    orders:'js/orders.js?v=20260806-3',
     sync:'js/sync.js?v=20260806-2',
-    permissions:'js/permissions.js?v=20260806-4'
+    permissions:'js/permissions.js?v=20260806-5'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const FEATURE_MODULES = Object.freeze([
     {
       id:'orders',navId:'progress',navGroup:'primary',icon:'ti-chart-bar',mainKey:'progress',
       vi:'Dữ liệu đơn hàng',zh:'訂單資料',
-      restrictions:[
-        {key:'orderImport',vi:'Nhập và điều chỉnh đơn hàng',zh:'訂單匯入與調整'}
-      ],
       pages:[
         {
           page:'progress',feature:'progress',icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
@@ -81,15 +78,9 @@
       vi:'Quản lý chi phí',zh:'成本管理',
       pages:[
         {
-          page:'settings',adminOnly:true,icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定',
+          page:'settings',feature:'settings',icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定',
           scripts:['summary','data','settings'],
-          dataLoaders:[
-            'ensureOperationSettingsLoaded','ensureCostSettingsLoaded',
-            {
-              name:'ensureCostLogLoaded',optional:true,fallbackTarget:'cLog',
-              vi:'Lịch sử thay đổi chi phí',zh:'成本變動歷史'
-            } // fallbackTarget（失敗清空目標）：避免顯示上一次載入的舊歷史。
-          ],
+          dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded'],
           onOpen:['rAll']
         },
         {
@@ -122,7 +113,7 @@
 
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','cutting','sync',
-    'costMain','costlog','export','accounts'
+    'costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
   const pageMap = new Map(); // pageMap（頁面設定索引）
@@ -169,7 +160,7 @@
     CONFIGURABLE_ROLES.map(role=>[role,Object.freeze(createEmptyPermissionSet())])
   )); // DEFAULT_PERMISSIONS（安全預設權限）：只作拒絕用途，不猜測角色工作內容。
 
-  // normalizeFeaturePermissions（正規化功能權限）：相容舊文件並維持主功能與分頁限制。
+  // normalizeFeaturePermissions（正規化功能權限）：功能分頁開啟就允許該頁內操作，只保留敏感資料子開關。
   function normalizeFeaturePermissions(features,defaults=createEmptyPermissionSet()){
     const normalized={};
     PERMISSION_KEYS.forEach(key=>{
@@ -180,10 +171,10 @@
     if(features&&typeof features.productsMain!=='boolean'){
       normalized.productsMain=normalized.summary===true||normalized.costView===true;
     }
+    // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
+    normalized.orderImport=normalized.progress===true;
     if(features&&typeof features.costMain!=='boolean'){
-      const legacyCostAccess=normalized.costView===true; // legacyCostAccess（舊成本查看權限）
-      normalized.costMain=normalized.costlog===true||(normalized.export===true&&legacyCostAccess);
-      if(normalized.export===true&&!legacyCostAccess) normalized.export=false;
+      normalized.costMain=normalized.settings===true||normalized.costlog===true||normalized.export===true;
     }
     normalized.accounts=false;
     return normalized;

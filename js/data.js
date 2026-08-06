@@ -647,8 +647,8 @@ function rHist(){
 // ===== 成本變動記錄 =====
 function rClog(){
   const el=g('clog-list'); if(!el) return;
-  if(!canViewCosts()){
-    el.innerHTML='<p style="color:var(--mu);font-size:13px">Không có quyền xem giá công / 沒有查看工價權限</p>';
+  if(typeof canOpenPage==='function'&&!canOpenPage('costlog')){
+    el.innerHTML='<p style="color:var(--mu);font-size:13px">Không có quyền xem lịch sử chi phí / 沒有查看成本歷史權限</p>';
     return;
   }
   if(!window.cLog.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }

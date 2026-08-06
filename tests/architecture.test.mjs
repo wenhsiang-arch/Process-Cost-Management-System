@@ -39,6 +39,16 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   for(const role of context.CONFIGURABLE_ROLES){
     assert.equal(Object.values(feature.defaultPermissions[role]).every(value=>value===false),true);
   }
+  const orders=feature.getModule('orders');
+  const products=feature.getModule('products');
+  const settings=feature.getPage('settings');
+  assert.equal(orders.restrictions?.length||0,0);
+  assert.deepEqual(Array.from(products.pages[0].restrictions||[]).map(item=>item.key),['costView']);
+  assert.equal(settings.feature,'settings');
+  assert.equal(settings.adminOnly===true,false);
+  const normalized=context.window.normalizeFeaturePermissions({progress:true});
+  assert.equal(normalized.progress,true);
+  assert.equal(normalized.orderImport,true);
 });
 
 test('附屬歷史載入失敗不會阻止主功能開啟',()=>{
@@ -54,11 +64,9 @@ test('附屬歷史載入失敗不會阻止主功能開啟',()=>{
   const settingsLoaders=feature.getPage('settings').dataLoaders;
   const costLogLoaders=feature.getPage('costlog').dataLoaders;
   const importHistory=summaryLoaders.find(item=>item?.name==='ensureImportHistoryLoaded');
-  const settingsHistory=settingsLoaders.find(item=>item?.name==='ensureCostLogLoaded');
   assert.equal(importHistory?.optional,true);
   assert.equal(importHistory?.fallbackTarget,'impHist');
-  assert.equal(settingsHistory?.optional,true);
-  assert.equal(settingsHistory?.fallbackTarget,'cLog');
+  assert.equal(settingsLoaders.includes('ensureCostLogLoaded'),false);
   assert.equal(costLogLoaders.includes('ensureCostLogLoaded'),true);
   const authSource=read('js/auth.js');
   assert.match(authSource,/if\(item\.optional!==true\) throw error/);

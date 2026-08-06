@@ -45,6 +45,8 @@ const {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -59,7 +61,7 @@ let testEnvironment;
 
 const allFeatureKeys = [
   'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-  'summary', 'orderImport', 'cutting', 'sync', 'costMain'
+  'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings'
 ];
 
 function featureMap(enabledKeys = []) {
@@ -116,13 +118,13 @@ async function seedBaseData() {
         'productsMain', 'summary'
       ])),
       setDoc(doc(database, 'rolePermissions', 'clerk'), rolePermissions('clerk', [
-        'progress', 'orderImport'
+        'progress'
       ])),
       setDoc(doc(database, 'rolePermissions', 'productionDevelopment'), rolePermissions(
         'productionDevelopment', ['cutting']
       )),
       setDoc(doc(database, 'rolePermissions', 'productionControl'), rolePermissions(
-        'productionControl', ['progress', 'sync']
+        'productionControl', ['sync']
       )),
       setDoc(doc(database, 'rolePermissions', 'sales'), rolePermissions(
         'sales', []
@@ -130,6 +132,12 @@ async function seedBaseData() {
       setDoc(doc(database, 'products', 'P-001'), {
         code: 'P-001',
         ops: []
+      }),
+      setDoc(doc(database, 'system', 'operationSettings'), {
+        data: JSON.stringify({ usd: 25400, twd: 780, ws: 3000, eff: 80 })
+      }),
+      setDoc(doc(database, 'system', 'costSettings'), {
+        data: JSON.stringify({ sal: 9000000, ins: 1500000, meal: 900000 })
       }),
       setDoc(doc(database, 'productChanges', 'change-001'), {
         sequence: 1,
@@ -180,6 +188,18 @@ async function seedBaseData() {
         itemCount: 1,
         detailCount: 0,
         changes: [{ field: '平均時薪', before: 0, after: 100 }]
+      }),
+      setDoc(doc(database, 'operationLogs', 'cutting-template-log'), {
+        permissionKey: 'cutting',
+        feature: 'cutting',
+        action: 'cuttingTemplateImport',
+        status: 'success',
+        createdAt: 1785945600002,
+        createdByUid: 'development-user',
+        createdBy: '開發測試',
+        itemCount: 5,
+        detailCount: 70,
+        fileName: 'cutting-template.xlsx'
       })
     ]);
   });
@@ -249,6 +269,36 @@ test('文員可讀取訂單及匯入所需款號但不能修改款號', async ()
   }));
 });
 
+test('訂單資料分頁開啟後可使用匯入、調整、鎖定與操作紀錄', async () => {
+  const database = context('clerk-user', 'clerk@example.com').firestore();
+
+  await assertSucceeds(setDoc(doc(database, 'orders', 'ORDER-CLERK'), {
+    orderId: 'ORDER-CLERK',
+    itemCount: 1,
+    totalQty: 80,
+    importStatus: 'ready'
+  }));
+  await assertSucceeds(setDoc(doc(database, 'orderAdjustments', 'ADJUST-CLERK'), {
+    orderId: 'ORDER-001',
+    createdAt: 1785945600200,
+    createdBy: '文員測試'
+  }));
+  await assertSucceeds(setDoc(doc(database, 'orderLocks', 'LOCK-CLERK'), {
+    status: 'ready'
+  }));
+  await assertSucceeds(setDoc(doc(database, 'operationLogs', 'order-import-log'), {
+    permissionKey: 'progress',
+    feature: 'orders',
+    action: 'orderImport',
+    status: 'success',
+    createdAt: 1785945600200,
+    createdByUid: 'clerk-user',
+    createdBy: '文員測試',
+    itemCount: 1,
+    detailCount: 3
+  }));
+});
+
 test('訂單工序只允許具有訂單權限的角色讀取', async () => {
   const clerkDatabase = context('clerk-user', 'clerk@example.com').firestore();
   const managerDatabase = context('manager-user', 'manager@example.com').firestore();
@@ -290,6 +340,31 @@ test('生管依設定權限存取訂單且不能讀取款號', async () => {
   await assertFails(getDoc(doc(controlDatabase, 'products', 'P-001')));
 });
 
+test('工序秒數同步只能修改同步欄位', async () => {
+  const database = context('control-user', 'control@example.com').firestore();
+
+  await assertSucceeds(updateDoc(doc(database, 'orders', 'ORDER-001'), {
+    lifecycleStatus: 'syncingSeconds',
+    secondSyncJobId: 'SYNC-001',
+    secondSyncStartedAt: 1785945600300,
+    secondSyncBy: '生管測試'
+  }));
+  await assertSucceeds(updateDoc(doc(database, 'orderProcesses', 'PROCESS-001'), {
+    workStdSec: 30,
+    processSec: 30,
+    quoteSnapshotSec: 30,
+    slPerHour: 100,
+    secondSyncedAt: 1785945600300,
+    secondSyncedBy: '生管測試'
+  }));
+  await assertFails(updateDoc(doc(database, 'orders', 'ORDER-001'), {
+    totalQty: 999
+  }));
+  await assertFails(updateDoc(doc(database, 'orderProcesses', 'PROCESS-001'), {
+    orderQty: 999
+  }));
+});
+
 test('開發與業務角色只依各自設定的功能權限存取資料', async () => {
   const developmentDatabase = context('development-user', 'development@example.com').firestore();
   const salesDatabase = context('sales-user', 'sales@example.com').firestore();
@@ -305,6 +380,56 @@ test('開發與業務角色只依各自設定的功能權限存取資料', async
     updatedBy: 'admin-user'
   }));
   await assertSucceeds(getDoc(doc(salesDatabase, 'products', 'P-001')));
+});
+
+test('款號工價只由敏感資料子開關開放', async () => {
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore();
+  const adminDatabase = context('admin-user', 'admin@example.com').firestore();
+
+  await assertFails(getDoc(doc(managerDatabase, 'system', 'costSettings')));
+  await assertSucceeds(updateDoc(doc(adminDatabase, 'rolePermissions', 'manager'), {
+    features: featureMap(['productsMain', 'summary', 'costView']),
+    updatedAt: 1785945600400,
+    updatedBy: 'admin-user'
+  }));
+  await assertSucceeds(getDoc(doc(managerDatabase, 'system', 'costSettings')));
+});
+
+test('成本設定與成本歷史使用各自的分頁權限', async () => {
+  const salesDatabase = context('sales-user', 'sales@example.com').firestore();
+  const adminDatabase = context('admin-user', 'admin@example.com').firestore();
+
+  await assertSucceeds(updateDoc(doc(adminDatabase, 'rolePermissions', 'sales'), {
+    features: featureMap(['costMain', 'settings']),
+    updatedAt: 1785945600500,
+    updatedBy: 'admin-user'
+  }));
+  await assertSucceeds(getDoc(doc(salesDatabase, 'system', 'costSettings')));
+  await assertSucceeds(setDoc(doc(salesDatabase, 'system', 'operationSettings'), {
+    data: JSON.stringify({ usd: 25500, twd: 790, ws: 3000, eff: 80 })
+  }));
+  await assertSucceeds(setDoc(doc(salesDatabase, 'system', 'costSettings'), {
+    data: JSON.stringify({ sal: 9100000, ins: 1500000, meal: 900000 })
+  }));
+  await assertSucceeds(setDoc(doc(salesDatabase, 'operationLogs', 'sales-cost-change'), {
+    permissionKey: 'costlog',
+    feature: 'cost',
+    action: 'costSettingsUpdate',
+    status: 'success',
+    createdAt: 1785945600500,
+    createdByUid: 'sales-user',
+    createdBy: '業務測試',
+    itemCount: 1,
+    detailCount: 0,
+    changes: [{ field: '平均薪資', before: 9000000, after: 9100000 }]
+  }));
+  await assertFails(getDoc(doc(salesDatabase, 'operationLogs', 'sales-cost-change')));
+  await assertSucceeds(updateDoc(doc(adminDatabase, 'rolePermissions', 'sales'), {
+    features: featureMap(['costMain', 'settings', 'costlog']),
+    updatedAt: 1785945600501,
+    updatedBy: 'admin-user'
+  }));
+  await assertSucceeds(getDoc(doc(salesDatabase, 'operationLogs', 'sales-cost-change')));
 });
 
 test('已淘汰班長與員工角色不能使用桌機資料', async () => {
@@ -393,7 +518,9 @@ test('操作紀錄只能依已授權功能查詢', async () => {
   await assertFails(getDoc(doc(database, 'operationLogs', 'cost-change-log')));
   await assertSucceeds(getDocs(query(
     collection(database, 'operationLogs'),
-    where('permissionKey', '==', 'summary')
+    where('permissionKey', '==', 'summary'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
   )));
   await assertFails(getDocs(collection(database, 'operationLogs')));
 });
@@ -421,6 +548,31 @@ test('操作紀錄只能由本人建立且建立後不可修改或刪除', async
     itemCount: 999
   }));
   await assertFails(deleteDoc(doc(database, 'operationLogs', 'product-import-log')));
+});
+
+test('裁帶分頁開啟後可建立並讀取模板操作紀錄', async () => {
+  const database = context('development-user', 'development@example.com').firestore();
+  const validLog = {
+    permissionKey: 'cutting',
+    feature: 'cutting',
+    action: 'cuttingTemplateImport',
+    status: 'success',
+    createdAt: 1785945600600,
+    createdByUid: 'development-user',
+    createdBy: '開發測試',
+    itemCount: 8,
+    detailCount: 120,
+    fileName: 'cutting-template.xlsx'
+  };
+
+  await assertSucceeds(setDoc(doc(database, 'operationLogs', 'new-cutting-log'), validLog));
+  await assertSucceeds(getDoc(doc(database, 'operationLogs', 'new-cutting-log')));
+  await assertSucceeds(getDocs(query(
+    collection(database, 'operationLogs'),
+    where('permissionKey', '==', 'cutting'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  )));
 });
 
 test('已淘汰資料路徑即使管理員也不能存取', async () => {

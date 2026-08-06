@@ -27,12 +27,15 @@ function canViewCosts(){
     && permissions?.summary===true
     && permissions?.costView===true;
 }
-// canLoadCostSettings（可讀取成本設定）：款號顯示工價或產品工價匯出任一開放即可。
+// canLoadCostSettings（可讀取成本設定）：敏感工價子開關或成本設定／匯出分頁任一開放即可。
 function canLoadCostSettings(){
   if(isAdm()) return true;
   const role=window.cu?.role;
   const permissions=window.permissionSettings?.[role];
-  return canViewCosts()||(permissions?.costMain===true&&permissions?.export===true);
+  return canViewCosts()||(
+    permissions?.costMain===true
+    && (permissions?.settings===true||permissions?.export===true)
+  );
 }
 function isCurrentDeskAccount(){
   return !!(

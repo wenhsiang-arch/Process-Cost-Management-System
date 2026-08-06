@@ -364,7 +364,7 @@ async function confirmImportOrder(){
     if(window.saveOperationLogToFB){
       try{
         await saveOperationLogToFB({
-          permissionKey:'orderImport',
+          permissionKey:'progress',
           feature:'orders',
           action:'orderImport',
           status:'success',
