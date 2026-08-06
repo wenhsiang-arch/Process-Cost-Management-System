@@ -42,33 +42,20 @@ service cloud.firestore {
         && request.auth.token.email.size() <= 254;
     }
 
-    // hasUidAccessDocument（具有舊 UID 使用者權限文件）
+    // hasUidAccessDocument（具有 UID 使用者權限文件）
     function hasUidAccessDocument() {
       return verifiedGoogleAccount()
         && exists(/databases/$(database)/documents/userAccess/$(request.auth.uid));
     }
 
-    // hasEmailAccessDocument（具有預先核准電子信箱權限文件）
-    function hasEmailAccessDocument() {
-      return verifiedGoogleAccount()
-        && exists(/databases/$(database)/documents/userAccess/$(request.auth.token.email));
-    }
-
-    // hasAccessDocument（具有使用者權限文件）
-    function hasAccessDocument() {
-      return hasUidAccessDocument() || hasEmailAccessDocument();
-    }
-
-    // accessDocument（目前使用者權限文件）
+    // accessDocument（目前使用者的 UID 權限文件）
     function accessDocument() {
-      return hasUidAccessDocument()
-        ? get(/databases/$(database)/documents/userAccess/$(request.auth.uid)).data
-        : get(/databases/$(database)/documents/userAccess/$(request.auth.token.email)).data;
+      return get(/databases/$(database)/documents/userAccess/$(request.auth.uid)).data;
     }
 
     // activeAccount（帳號已啟用）
     function activeAccount() {
-      return hasAccessDocument() && accessDocument().active == true;
+      return hasUidAccessDocument() && accessDocument().active == true;
     }
 
     // admin（管理員）、manager（課長）、clerk（文員）、productionDevelopment（開發）、productionControl（生管）、sales（業務）
@@ -184,12 +171,14 @@ service cloud.firestore {
             request.resource.data.keys().hasAll([
               'email', 'authUid', 'googleDisplayName', 'createdAt'
             ])
-            && request.resource.data.email == userId
             && validShortString(request.resource.data.email, 254)
             && request.resource.data.email.matches('^[^/]+@[^/]+$')
             && request.resource.data.authUid is string
             && request.resource.data.authUid.size() <= 128
             && request.resource.data.authUid.matches('^[^/]*$')
+            && (request.resource.data.email == userId
+              || (request.resource.data.authUid == userId
+                && request.resource.data.authUid.size() > 0))
             && request.resource.data.googleDisplayName is string
             && request.resource.data.googleDisplayName.size() <= 200
             && request.resource.data.createdAt is int
@@ -199,18 +188,25 @@ service cloud.firestore {
         );
     }
 
-    // selfEmailBinding（本人首次登入時只能綁定 UID 與 Google 顯示資料）
-    function selfEmailBinding(userId) {
+    // selfCreatesUidAccess（本人首次登入時由電子信箱核准資料建立 UID 權限文件）
+    function selfCreatesUidAccess(userId) {
+      let emailPath = /databases/$(database)/documents/userAccess/$(request.auth.token.email);
+      let invitation = get(emailPath).data;
       return verifiedGoogleAccount()
-        && request.auth.token.email == userId
-        && resource.data.email == userId
-        && resource.data.active == true
-        && resource.data.role in [
+        && userId == request.auth.uid
+        && exists(emailPath)
+        && !existsAfter(emailPath)
+        && invitation.email == request.auth.token.email
+        && invitation.active == true
+        && invitation.role in [
           'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales'
         ]
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        && invitation.authUid is string
+        && (invitation.authUid == '' || invitation.authUid == request.auth.uid)
+        && request.resource.data.diff(invitation).affectedKeys().hasOnly([
           'authUid', 'googleDisplayName', 'lastLoginAt'
         ])
+        && request.resource.data.email == request.auth.token.email
         && request.resource.data.authUid == request.auth.uid
         && request.resource.data.googleDisplayName is string
         && request.resource.data.googleDisplayName.size() <= 200
@@ -218,9 +214,30 @@ service cloud.firestore {
         && validUserAccess(userId);
     }
 
+    // selfDeletesMigratedEmailAccess（UID 權限建立完成後刪除本人電子信箱核准文件）
+    function selfDeletesMigratedEmailAccess(userId) {
+      let uidPath = /databases/$(database)/documents/userAccess/$(request.auth.uid);
+      let migrated = getAfter(uidPath).data;
+      return verifiedGoogleAccount()
+        && userId == request.auth.token.email
+        && resource.data.email == userId
+        && resource.data.active == true
+        && resource.data.role in [
+          'admin', 'manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales'
+        ]
+        && resource.data.authUid is string
+        && (resource.data.authUid == '' || resource.data.authUid == request.auth.uid)
+        && existsAfter(uidPath)
+        && migrated.email == userId
+        && migrated.authUid == request.auth.uid
+        && migrated.diff(resource.data).affectedKeys().hasOnly([
+          'authUid', 'googleDisplayName', 'lastLoginAt'
+        ]);
+    }
+
     // adminPreservesOwnAccess（管理員不可透過直接請求停用或降低自己的權限）
     function adminPreservesOwnAccess(userId) {
-      return (request.auth.uid != userId && request.auth.token.email != userId)
+      return request.auth.uid != userId
         || (request.resource.data.role == resource.data.role
           && request.resource.data.active == resource.data.active);
     }
@@ -614,12 +631,11 @@ service cloud.firestore {
         || (verifiedGoogleAccount()
           && (request.auth.uid == userId || request.auth.token.email == userId));
       allow list: if isAdmin();
-      allow create: if isAdmin() && validUserAccess(userId);
-      allow update: if (isAdmin() && validUserAccess(userId) && adminPreservesOwnAccess(userId))
-        || selfEmailBinding(userId);
-      allow delete: if isAdmin()
-        && request.auth.uid != userId
-        && request.auth.token.email != userId;
+      allow create: if (isAdmin() && validUserAccess(userId))
+        || selfCreatesUidAccess(userId);
+      allow update: if isAdmin() && validUserAccess(userId) && adminPreservesOwnAccess(userId);
+      allow delete: if (isAdmin() && request.auth.uid != userId)
+        || selfDeletesMigratedEmailAccess(userId);
     }
 
     // rolePermissions（角色功能權限）

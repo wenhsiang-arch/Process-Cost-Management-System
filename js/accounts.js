@@ -11,13 +11,15 @@ function normalizeAccessEmail(value){
 
 // normalizeUserAccessAccount（標準化使用者權限帳號）
 function normalizeUserAccessAccount(accessId,data){
+  const normalizedAccessId=String(accessId||'');
   const email=normalizeAccessEmail(data?.email);
-  const accessMode=email?'email':'uid';
+  const declaredUid=String(data?.authUid||'');
+  const accessMode=declaredUid===normalizedAccessId||!email?'uid':'email';
   return {
-    accessId:String(accessId||''),
+    accessId:normalizedAccessId,
     accessMode,
     email,
-    authUid:String(data?.authUid||(accessMode==='uid'?accessId:'')),
+    authUid:declaredUid||(accessMode==='uid'?normalizedAccessId:''),
     user:String(data?.username||''),
     role:String(data?.role||''),
     active:data?.active===true,

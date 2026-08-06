@@ -50,7 +50,8 @@ const {
   query,
   setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } = firestoreSdk;
 
 const projectId = 'demo-pcms-security-tests';
@@ -85,6 +86,35 @@ function userAccess(role, username) {
     updatedAt: 1785945600000,
     updatedBy: 'security-test'
   };
+}
+
+// emailUserAccess（電子信箱預先核准帳號資料）：模擬正式環境由電子信箱文件綁定 Firebase UID（使用者識別碼）。
+function emailUserAccess(email, role, username, options = {}) {
+  return {
+    ...userAccess(role, username),
+    email,
+    authUid: String(options.authUid || ''),
+    googleDisplayName: username,
+    createdAt: 1785945600000,
+    ...(options.active === false ? { active: false } : {}),
+    ...(options.lastLoginAt ? { lastLoginAt: options.lastLoginAt } : {})
+  };
+}
+
+// migrateEmailApproval（以同一批次把電子信箱核准資料轉成 UID 權限資料）
+async function migrateEmailApproval(database, item, changes = {}) {
+  const invitation = emailUserAccess(item.email, item.role, item.name, item.options);
+  const migrated = {
+    ...invitation,
+    authUid: item.uid,
+    googleDisplayName: item.name,
+    lastLoginAt: 1785945602000,
+    ...changes
+  }; // migrated（轉換後的 UID 權限資料）
+  const batch = writeBatch(database);
+  batch.set(doc(database, 'userAccess', item.uid), migrated);
+  batch.delete(doc(database, 'userAccess', item.email));
+  await batch.commit();
 }
 
 function rolePermissions(role, enabledKeys) {
@@ -448,6 +478,31 @@ test('一般角色只能讀取自己的使用者權限文件', async () => {
   await assertFails(getDocs(collection(database, 'userAccess')));
 });
 
+test('管理員可管理電子信箱邀請及已轉換的 UID 帳號', async () => {
+  const database = context('admin-user', 'admin@example.com').firestore();
+  const invitationEmail = 'new-manager@example.com';
+  const canonicalUid = 'canonical-manager-user';
+  const invitation = emailUserAccess(invitationEmail, 'manager', '新課長邀請');
+  const canonical = {
+    ...emailUserAccess(invitationEmail, 'manager', '已登入課長'),
+    authUid: canonicalUid,
+    lastLoginAt: 1785945602000
+  };
+
+  await assertSucceeds(setDoc(doc(database, 'userAccess', invitationEmail), invitation));
+  await assertSucceeds(updateDoc(doc(database, 'userAccess', invitationEmail), {
+    username: '新課長邀請更新',
+    updatedAt: 1785945603000
+  }));
+  await assertSucceeds(setDoc(doc(database, 'userAccess', canonicalUid), canonical));
+  await assertSucceeds(updateDoc(doc(database, 'userAccess', canonicalUid), {
+    username: '已登入課長更新',
+    updatedAt: 1785945604000
+  }));
+  await assertSucceeds(deleteDoc(doc(database, 'userAccess', invitationEmail)));
+  await assertSucceeds(deleteDoc(doc(database, 'userAccess', canonicalUid)));
+});
+
 test('管理員不能寫入錯誤角色權限格式', async () => {
   const database = context('admin-user', 'admin@example.com').firestore();
   const invalidFeatures = featureMap(['productsMain', 'summary', 'accounts']);
@@ -595,6 +650,122 @@ test('裁帶分頁開啟後可建立並讀取模板操作紀錄', async () => {
     orderBy('createdAt', 'desc'),
     limit(50)
   )));
+});
+
+test('全部非管理員角色首次登入自動轉成 UID 並依裁帶權限建立與讀取操作紀錄', async () => {
+  const roleCases = [
+    { role: 'manager', uid: 'manager-email-user', email: 'manager-email@example.com', name: '課長電子信箱測試' },
+    { role: 'clerk', uid: 'clerk-email-user', email: 'clerk-email@example.com', name: '文員電子信箱測試' },
+    { role: 'productionDevelopment', uid: 'development-email-user', email: 'development-email@example.com', name: '開發電子信箱測試' },
+    { role: 'productionControl', uid: 'control-email-user', email: 'control-email@example.com', name: '生管電子信箱測試' },
+    { role: 'sales', uid: 'sales-email-user', email: 'sales-email@example.com', name: '業務電子信箱測試' }
+  ]; // roleCases（全部可設定角色的電子信箱帳號案例）
+
+  await testEnvironment.withSecurityRulesDisabled(async (securityContext) => {
+    const database = securityContext.firestore();
+    await Promise.all(roleCases.flatMap((item) => [
+      setDoc(
+        doc(database, 'userAccess', item.email),
+        emailUserAccess(item.email, item.role, item.name)
+      ),
+      setDoc(doc(database, 'rolePermissions', item.role), rolePermissions(item.role, []))
+    ]));
+  });
+
+  for (const item of roleCases) {
+    const database = context(item.uid, item.email).firestore();
+    await assertSucceeds(migrateEmailApproval(database, item));
+    const uidSnapshot = await assertSucceeds(getDoc(doc(database, 'userAccess', item.uid)));
+    const emailSnapshot = await assertSucceeds(getDoc(doc(database, 'userAccess', item.email)));
+    assert.equal(uidSnapshot.exists(), true);
+    assert.equal(uidSnapshot.data().authUid, item.uid);
+    assert.equal(emailSnapshot.exists(), false);
+  }
+
+  for (const [index, item] of roleCases.entries()) {
+    const database = context(item.uid, item.email).firestore();
+    await assertFails(setDoc(doc(database, 'operationLogs', `email-denied-${index}`), {
+      permissionKey: 'cutting',
+      feature: 'cutting',
+      action: 'cuttingTemplateImport',
+      status: 'success',
+      createdAt: 1785945601000 + index,
+      createdByUid: item.uid,
+      createdBy: item.name,
+      itemCount: 1,
+      detailCount: 1,
+      fileName: `email-denied-${index}.xlsx`
+    }));
+  }
+
+  await testEnvironment.withSecurityRulesDisabled(async (securityContext) => {
+    const database = securityContext.firestore();
+    await Promise.all(roleCases.map((item) => setDoc(
+      doc(database, 'rolePermissions', item.role),
+      rolePermissions(item.role, ['cutting'])
+    )));
+  });
+
+  for (const [index, item] of roleCases.entries()) {
+    const database = context(item.uid, item.email).firestore();
+    const logId = `email-allowed-${index}`; // logId（本次操作紀錄識別碼）
+    await assertSucceeds(setDoc(doc(database, 'operationLogs', logId), {
+      permissionKey: 'cutting',
+      feature: 'cutting',
+      action: 'cuttingTemplateImport',
+      status: 'success',
+      createdAt: 1785945602000 + index,
+      createdByUid: item.uid,
+      createdBy: item.name,
+      itemCount: 8,
+      detailCount: 120,
+      fileName: `email-allowed-${index}.xlsx`
+    }));
+    await assertSucceeds(getDoc(doc(database, 'operationLogs', logId)));
+  }
+});
+
+test('電子信箱轉 UID 必須本人、啟用且不可提升角色或留下重複文件', async () => {
+  const approved = {
+    role: 'manager', uid: 'approved-migration-user',
+    email: 'approved-migration@example.com', name: '核准轉換測試'
+  };
+  const inactive = {
+    role: 'clerk', uid: 'inactive-migration-user',
+    email: 'inactive-migration@example.com', name: '停用轉換測試',
+    options: { active: false }
+  };
+
+  await testEnvironment.withSecurityRulesDisabled(async (securityContext) => {
+    const database = securityContext.firestore();
+    await Promise.all([
+      setDoc(doc(database, 'userAccess', approved.email), emailUserAccess(approved.email, approved.role, approved.name)),
+      setDoc(doc(database, 'userAccess', inactive.email), emailUserAccess(inactive.email, inactive.role, inactive.name, inactive.options))
+    ]);
+  });
+
+  const approvedDatabase = context(approved.uid, approved.email).firestore();
+  await assertFails(setDoc(doc(approvedDatabase, 'userAccess', approved.uid), {
+    ...emailUserAccess(approved.email, approved.role, approved.name),
+    authUid: approved.uid,
+    lastLoginAt: 1785945602000
+  }));
+  await assertFails(migrateEmailApproval(approvedDatabase, approved, { role: 'admin' }));
+
+  const wrongUserDatabase = context('wrong-migration-user', 'wrong-migration@example.com').firestore();
+  await assertFails(migrateEmailApproval(wrongUserDatabase, {
+    ...approved,
+    uid: 'wrong-migration-user'
+  }));
+
+  const inactiveDatabase = context(inactive.uid, inactive.email).firestore();
+  await assertFails(migrateEmailApproval(inactiveDatabase, inactive));
+  await assertSucceeds(migrateEmailApproval(approvedDatabase, approved));
+
+  const duplicateEmailSnapshot = await assertSucceeds(
+    getDoc(doc(approvedDatabase, 'userAccess', approved.email))
+  );
+  assert.equal(duplicateEmailSnapshot.exists(), false);
 });
 
 test('已淘汰資料路徑即使管理員也不能存取', async () => {

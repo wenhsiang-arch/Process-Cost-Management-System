@@ -8,7 +8,7 @@
     data:'js/data.js?v=20260806-5',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260806-5',
-    accounts:'js/accounts.js?v=20260806-3',
+    accounts:'js/accounts.js?v=20260806-4',
     orders:'js/orders.js?v=20260806-3',
     sync:'js/sync.js?v=20260806-2',
     permissions:'js/permissions.js?v=20260806-5'

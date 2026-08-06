@@ -16,6 +16,21 @@ test('登入首頁只預載核心程式且不包含大型表格工具',()=>{
   assert.doesNotMatch(html,/JSZip|jszip|xlsx\.bundle\.js/);
 });
 
+test('電子信箱只用於首次核准且業務權限固定使用 UID',()=>{
+  const firebaseSource=read('js/firebase.js');
+  const rulesSource=read('firestore.rules');
+  const accountsSource=read('js/accounts.js');
+  assert.match(firebaseSource,/migrateEmailApprovalToUid/);
+  assert.match(firebaseSource,/runTransaction\(db,async transaction=>/);
+  assert.match(firebaseSource,/transaction\.set\(uidRef,migratedAccess\)/);
+  assert.match(firebaseSource,/transaction\.delete\(emailRef\)/);
+  assert.match(rulesSource,/function selfCreatesUidAccess\(userId\)/);
+  assert.match(rulesSource,/function selfDeletesMigratedEmailAccess\(userId\)/);
+  assert.match(rulesSource,/function accessDocument\(\)[\s\S]*userAccess\/\$\(request\.auth\.uid\)/);
+  assert.doesNotMatch(rulesSource,/function hasEmailAccessDocument\(/);
+  assert.match(accountsSource,/declaredUid===normalizedAccessId\|\|!email\?'uid':'email'/);
+});
+
 test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const source=read('js/features.js');
   const context={

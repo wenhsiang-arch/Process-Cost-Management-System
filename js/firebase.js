@@ -49,41 +49,44 @@ function isVerifiedGoogleUser(user){
 
 window.firebaseLoadUserAccess = async (user) => {
   if(!isVerifiedGoogleUser(user)) return null;
-  const uidRef=doc(db,'userAccess',user.uid);
-  const uidSnap=await getDoc(uidRef);
-  if(uidSnap.exists()){
-    return {
-      accessId:user.uid,
-      accessMode:'uid',
-      authUid:user.uid,
-      email:normalizeGoogleEmail(user.email),
-      googleDisplayName:user.displayName||'',
-      ...uidSnap.data()
-    };
-  }
-
   const email=normalizeGoogleEmail(user.email);
+  const uidRef=doc(db,'userAccess',user.uid);
   const emailRef=doc(db,'userAccess',email);
-  const emailSnap=await getDoc(emailRef);
-  if(!emailSnap.exists()) return null;
-  const access=emailSnap.data();
-  const canBind=access.active===true&&window.DESK_ROLES?.includes(access.role);
-  const binding={
-    authUid:user.uid,
-    googleDisplayName:String(user.displayName||'').slice(0,200),
-    lastLoginAt:Date.now()
-  };
-  if(canBind){
-    await updateDoc(emailRef,binding);
-  }
-  return {
-    accessId:email,
-    accessMode:'email',
-    authUid: user.uid,
-    email,
-    ...access,
-    ...(canBind?binding:{})
-  };
+  // migrateEmailApprovalToUid（把電子信箱核准資料自動轉成 UID 權限資料）
+  return runTransaction(db,async transaction=>{
+    const uidSnap=await transaction.get(uidRef);
+    if(uidSnap.exists()){
+      return {
+        ...uidSnap.data(),
+        accessId:user.uid,
+        accessMode:'uid',
+        authUid:user.uid,
+        email
+      };
+    }
+
+    const emailSnap=await transaction.get(emailRef);
+    if(!emailSnap.exists()) return null;
+    const access=emailSnap.data();
+    const approvedRole=window.DESK_ROLES?.includes(access.role);
+    const existingUid=String(access.authUid||'');
+    if(access.active!==true||!approvedRole||(existingUid&&existingUid!==user.uid)) return null;
+
+    const migratedAccess={
+      ...access,
+      email,
+      authUid:user.uid,
+      googleDisplayName:String(user.displayName||'').slice(0,200),
+      lastLoginAt:Date.now()
+    }; // migratedAccess（完成轉換後的 UID 權限資料）
+    transaction.set(uidRef,migratedAccess);
+    transaction.delete(emailRef);
+    return {
+      ...migratedAccess,
+      accessId:user.uid,
+      accessMode:'uid'
+    };
+  });
 };
 window.firebaseLoadUserAccessList = async () => {
   const snap = await getDocs(collection(db, 'userAccess'));
