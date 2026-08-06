@@ -120,6 +120,9 @@ test('裁帶模板識別碼安全且歷史只在點開分頁後讀取',()=>{
   assert.match(source,/cuttingDownloadTemplate\(\$\{inlineArg\(t\.id\)\}, this\)/);
   assert.match(source,/cuttingDeleteTemplate\(\$\{inlineArg\(t\.id\)\}\)/);
   assert.doesNotMatch(source,/cuttingDownloadTemplate\('\$\{esc\(t\.id\)\}'/);
+  const deleteBody=source.match(/async function cuttingDeleteTemplate\(id\)\{([\s\S]*?)\n  \}\n\n  function cuttingPickOrder/)?.[1]||''; // deleteBody（裁帶模板刪除函式內容）
+  assert.match(deleteBody,/action:'cuttingTemplateDelete'/);
+  assert.match(deleteBody,/rememberCuttingHistoryLog\(savedLog\)/);
   assert.match(htmlSource,/id="cut-tab-history" onclick="cuttingSwitchTab\('history'\)"/);
   assert.match(htmlSource,/id="cut-history-tb"/);
   assert.match(source,/if\(selectedTab === 'history'\) void cuttingLoadHistory\(\)/);

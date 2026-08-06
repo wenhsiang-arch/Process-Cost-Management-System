@@ -61,6 +61,7 @@
 
   const CUTTING_HISTORY_ACTIONS = Object.freeze({
     cuttingTemplateImport: {vi:'Nhập mẫu', zh:'匯入模板'},
+    cuttingTemplateDelete: {vi:'Xóa mẫu', zh:'刪除模板'}, // cuttingTemplateDelete（刪除裁帶模板）
     cuttingExcelExport: {vi:'Xuất Excel', zh:'匯出 Excel'},
     cuttingPdfExport: {vi:'Xuất PDF', zh:'匯出 PDF'}
   }); // CUTTING_HISTORY_ACTIONS（裁帶歷史動作名稱）
@@ -1055,10 +1056,32 @@
       }
       renderTemplateAnalysis(null);
       await refreshTemplates();
+      let historySaved = false; // historySaved（刪除操作紀錄是否已保存）
+      if(window.saveOperationLogToFB){
+        try{
+          const savedLog = await saveOperationLogToFB({
+            permissionKey:'cutting',
+            feature:'cutting',
+            action:'cuttingTemplateDelete',
+            status:'success',
+            itemCount:Number(template?.itemCount)||0,
+            detailCount:Number(template?.rowCount)||0,
+            fileName:template?.fileName||'',
+            note:String(id||'')
+          });
+          rememberCuttingHistoryLog(savedLog);
+          historySaved = true;
+        }catch(logError){
+          console.error('Không thể lưu operationLogs khi xóa mẫu / 刪除模板時無法儲存操作紀錄：',logError);
+        }
+      }
+      const historyWarning = historySaved
+        ? ''
+        : '\n\nKhông thể lưu lịch sử thao tác.\n操作紀錄無法保存。';
       if(cacheCleared){
-        alert('Đã xóa mẫu và bộ nhớ đệm.\n已刪除模板與快取。');
+        alert('Đã xóa mẫu và bộ nhớ đệm.\n已刪除模板與快取。'+historyWarning);
       }else{
-        alert('Đã xóa mẫu trên đám mây. Bộ nhớ đệm trên máy này chưa xóa, nhưng sẽ không chặn thao tác.\n已刪除雲端模板。本機快取尚未清除，但不會阻止操作。');
+        alert('Đã xóa mẫu trên đám mây. Bộ nhớ đệm trên máy này chưa xóa, nhưng sẽ không chặn thao tác.\n已刪除雲端模板。本機快取尚未清除，但不會阻止操作。'+historyWarning);
       }
     }catch(e){
       console.error(e);

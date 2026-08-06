@@ -552,6 +552,7 @@ test('操作紀錄只能由本人建立且建立後不可修改或刪除', async
 
 test('裁帶分頁開啟後可建立並讀取模板操作紀錄', async () => {
   const database = context('development-user', 'development@example.com').firestore();
+  const unauthorizedDatabase = context('manager-user', 'manager@example.com').firestore(); // unauthorizedDatabase（未開啟裁帶權限的測試資料庫）
   const validLog = {
     permissionKey: 'cutting',
     feature: 'cutting',
@@ -566,7 +567,28 @@ test('裁帶分頁開啟後可建立並讀取模板操作紀錄', async () => {
   };
 
   await assertSucceeds(setDoc(doc(database, 'operationLogs', 'new-cutting-log'), validLog));
+  await assertSucceeds(setDoc(doc(database, 'operationLogs', 'new-cutting-delete-log'), {
+    ...validLog,
+    action: 'cuttingTemplateDelete', // cuttingTemplateDelete（刪除裁帶模板）
+    createdAt: 1785945600601,
+    itemCount: 8,
+    detailCount: 120,
+    note: 'cutting-template-id'
+  }));
+  await assertFails(setDoc(doc(database, 'operationLogs', 'invalid-cutting-delete-log'), {
+    ...validLog,
+    action: 'cuttingDeleteUnknown', // cuttingDeleteUnknown（未核准的裁帶刪除動作）
+    createdAt: 1785945600602
+  }));
+  await assertFails(setDoc(doc(unauthorizedDatabase, 'operationLogs', 'unauthorized-cutting-delete-log'), {
+    ...validLog,
+    action: 'cuttingTemplateDelete', // cuttingTemplateDelete（刪除裁帶模板）
+    createdAt: 1785945600603,
+    createdByUid: 'manager-user',
+    createdBy: '課長測試'
+  }));
   await assertSucceeds(getDoc(doc(database, 'operationLogs', 'new-cutting-log')));
+  await assertSucceeds(getDoc(doc(database, 'operationLogs', 'new-cutting-delete-log')));
   await assertSucceeds(getDocs(query(
     collection(database, 'operationLogs'),
     where('permissionKey', '==', 'cutting'),

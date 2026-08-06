@@ -272,7 +272,11 @@ service cloud.firestore {
           && action == 'orderImport')
         || (permissionKey == 'cutting'
           && feature == 'cutting'
-          && action in ['cuttingTemplateImport', 'cuttingExcelExport', 'cuttingPdfExport']);
+          // cuttingTemplateDelete（刪除裁帶模板）與既有裁帶操作使用同一功能權限。
+          && action in [
+            'cuttingTemplateImport', 'cuttingTemplateDelete',
+            'cuttingExcelExport', 'cuttingPdfExport'
+          ]);
     }
 
     // validOperationLog（每次操作一筆且建立後不可變更的操作紀錄）
