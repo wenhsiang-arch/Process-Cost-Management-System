@@ -215,6 +215,10 @@ tr:hover td{background:#f8fafc}
 .cutting-tab i{font-size:22px;color:var(--accent)}
 .cutting-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
 .cutting-tab.active strong{color:var(--accent)}
+.cutting-tab-copy,.cutting-refresh-copy{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
+.cutting-tab-copy>span,.cutting-refresh-copy>span{font-size:11px;font-weight:400;color:var(--mu);margin-top:2px}
+.cutting-history-title{flex:1;margin-bottom:0}
+#pg-cutting .ts.cutting-history-scroll{max-height:520px!important;overflow-y:auto}
 /* module-tabs（模組功能卡容器）、module-tab（模組功能卡）、module-tab-copy（功能卡雙語文字）。 */
 .module-tabs{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .module-tabs[hidden]{display:none}
@@ -396,8 +400,9 @@ tr:hover td{background:#f8fafc}
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
         <div class="cutting-tabs">
-          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><strong>Nhập đơn hàng / 匯入訂單</strong></button>
-          <button class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><strong>Nhập mẫu / 匯入模板</strong></button>
+          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><span class="cutting-tab-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
+          <button class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><span class="cutting-tab-copy"><strong>Nhập mẫu</strong><span>匯入模板</span></span></button>
+          <button class="cutting-tab" id="cut-tab-history" onclick="cuttingSwitchTab('history')"><i class="ti ti-history"></i><span class="cutting-tab-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄</span></span></button>
         </div>
 
         <div id="cut-panel-template" style="display:none">
@@ -525,6 +530,30 @@ tr:hover td{background:#f8fafc}
                 <tbody id="cut-result-tb"></tbody>
               </table>
             </div></div>
+          </div>
+        </div>
+
+        <div id="cut-panel-history" style="display:none">
+          <div class="card">
+            <div class="ct-title cutting-history-title">
+              <i class="ti ti-history"></i>
+              <span class="cutting-tab-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄（最近 50 筆）</span></span>
+              <button class="btn bsm" id="cut-history-refresh-btn" type="button" onclick="cuttingRefreshHistory()" style="margin-left:auto">
+                <i class="ti ti-refresh"></i><span class="cutting-refresh-copy"><strong>Làm mới</strong><span>重新整理</span></span>
+              </button>
+            </div>
+            <div class="to"><div class="ts cutting-history-scroll"><table>
+              <thead><tr>
+                <th>Thời gian<br><span class="tv">時間</span></th>
+                <th>Người thao tác<br><span class="tv">操作者</span></th>
+                <th>Thao tác<br><span class="tv">操作</span></th>
+                <th>Tên tệp<br><span class="tv">檔名</span></th>
+                <th style="text-align:right">Mã hàng<br><span class="tv">款號數</span></th>
+                <th style="text-align:right">Chi tiết<br><span class="tv">明細數</span></th>
+                <th>Trạng thái<br><span class="tv">狀態</span></th>
+              </tr></thead>
+              <tbody id="cut-history-tb"><tr><td colspan="7" style="text-align:center;color:var(--mu)">Chọn trang lịch sử để tải dữ liệu.<br><span class="tv">開啟歷史分頁後才會讀取資料。</span></td></tr></tbody>
+            </table></div></div>
           </div>
         </div>
       </div>
@@ -915,11 +944,11 @@ tr:hover td{background:#f8fafc}
 <script src="js/safe-dom.js?v=20260806-1"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260806-4"></script>
+<script src="js/features.js?v=20260806-5"></script>
 <script src="js/auth.js?v=20260806-8"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260806-5"></script>
+<script type="module" src="js/firebase.js?v=20260806-6"></script>
 
 <script>
 function setManagementNavOpen(open){

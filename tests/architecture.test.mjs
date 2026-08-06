@@ -113,11 +113,22 @@ test('操作歷史查詢所需複合索引已登記',()=>{
   ]);
 });
 
-test('裁帶模板識別碼使用共用安全行內參數',()=>{
+test('裁帶模板識別碼安全且歷史只在點開分頁後讀取',()=>{
   const source=read('js/cutting.js');
+  const firebaseSource=read('js/firebase.js');
+  const htmlSource=read('index.html');
   assert.match(source,/cuttingDownloadTemplate\(\$\{inlineArg\(t\.id\)\}, this\)/);
   assert.match(source,/cuttingDeleteTemplate\(\$\{inlineArg\(t\.id\)\}\)/);
   assert.doesNotMatch(source,/cuttingDownloadTemplate\('\$\{esc\(t\.id\)\}'/);
+  assert.match(htmlSource,/id="cut-tab-history" onclick="cuttingSwitchTab\('history'\)"/);
+  assert.match(htmlSource,/id="cut-history-tb"/);
+  assert.match(source,/if\(selectedTab === 'history'\) void cuttingLoadHistory\(\)/);
+  assert.match(firebaseSource,/ensureCuttingHistoryLoaded[\s\S]*loadOperationLogs\('cutting'/);
+  const featureSource=read('js/features.js');
+  const context={window:{},CONFIGURABLE_ROLES:['manager','clerk','productionDevelopment','productionControl','sales']};
+  vm.createContext(context);
+  vm.runInContext(featureSource,context);
+  assert.deepEqual(Array.from(context.window.PCMSFeatures.getPage('cutting').dataLoaders),[]);
 });
 
 test('訂單開頁不再完整讀取全部訂單工序',()=>{

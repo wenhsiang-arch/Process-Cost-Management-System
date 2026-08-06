@@ -6,7 +6,10 @@
     orderLabel: '', // orderLabel（PDF 左上角內容）：自動辨識後可由使用者修改。
     results: [],
     pendingTemplateFile: null,
-    pendingBook: null
+    pendingBook: null,
+    historyLogs: [], // historyLogs（裁帶操作歷史）：只在使用者開啟歷史分頁後載入。
+    historyLoaded: false,
+    historyLoading: false
   };
   const FIXED_TEMPLATE_COLUMNS = Object.freeze({
     codeCol: 1,
@@ -33,15 +36,14 @@
   }
 
   function cuttingSwitchTab(tab){
-    const isOrder = tab === 'order';
-    const templatePanel = g('cut-panel-template');
-    const orderPanel = g('cut-panel-order');
-    const templateTab = g('cut-tab-template');
-    const orderTab = g('cut-tab-order');
-    if(templatePanel) templatePanel.style.display = isOrder ? 'none' : '';
-    if(orderPanel) orderPanel.style.display = isOrder ? '' : 'none';
-    if(templateTab) templateTab.classList.toggle('active', !isOrder);
-    if(orderTab) orderTab.classList.toggle('active', isOrder);
+    const selectedTab = ['order', 'template', 'history'].includes(tab) ? tab : 'order'; // selectedTab（目前裁帶分頁）
+    ['order', 'template', 'history'].forEach(tabName => {
+      const panel = g(`cut-panel-${tabName}`); // panel（裁帶分頁內容）
+      const button = g(`cut-tab-${tabName}`); // button（裁帶分頁按鈕）
+      if(panel) panel.style.display = selectedTab === tabName ? '' : 'none';
+      if(button) button.classList.toggle('active', selectedTab === tabName);
+    });
+    if(selectedTab === 'history') void cuttingLoadHistory();
   }
 
   function esc(value){
@@ -55,6 +57,88 @@
   function fmtNum(value){
     const n = Number(value || 0);
     return Number.isFinite(n) ? n.toLocaleString('en-US') : '0';
+  }
+
+  const CUTTING_HISTORY_ACTIONS = Object.freeze({
+    cuttingTemplateImport: {vi:'Nhập mẫu', zh:'匯入模板'},
+    cuttingExcelExport: {vi:'Xuất Excel', zh:'匯出 Excel'},
+    cuttingPdfExport: {vi:'Xuất PDF', zh:'匯出 PDF'}
+  }); // CUTTING_HISTORY_ACTIONS（裁帶歷史動作名稱）
+
+  const CUTTING_HISTORY_STATUSES = Object.freeze({
+    success: {vi:'Thành công', zh:'成功', className:'tg2'},
+    partial: {vi:'Một phần', zh:'部分完成', className:'ta'},
+    failed: {vi:'Thất bại', zh:'失敗', className:'tr2'}
+  }); // CUTTING_HISTORY_STATUSES（裁帶歷史狀態名稱）
+
+  function cuttingHistoryTime(value){
+    const date = new Date(Number(value)); // date（操作時間）
+    return Number.isFinite(date.getTime()) ? date.toLocaleString('vi-VN', {hour12:false}) : '-';
+  }
+
+  function renderCuttingHistory(){
+    const body = g('cut-history-tb'); // body（裁帶歷史表格內容）
+    if(!body) return;
+    if(!state.historyLogs.length){
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mu)">Chưa có lịch sử thao tác.<br><span class="tv">尚無操作紀錄。</span></td></tr>';
+      return;
+    }
+    body.innerHTML = state.historyLogs.map(log => {
+      const action = CUTTING_HISTORY_ACTIONS[log?.action] || {
+        vi:'Thao tác khác',
+        zh:'其他操作'
+      }; // action（操作名稱）
+      const status = CUTTING_HISTORY_STATUSES[log?.status] || CUTTING_HISTORY_STATUSES.failed; // status（操作狀態）
+      const operator = String(log?.createdBy || log?.createdByUid || '-'); // operator（操作者）
+      const fileName = String(log?.fileName || '-'); // fileName（操作檔名）
+      return `<tr>
+        <td>${esc(cuttingHistoryTime(log?.createdAt))}</td>
+        <td>${esc(operator)}</td>
+        <td><strong>${esc(action.vi)}</strong><br><span class="tv">${esc(action.zh)}</span></td>
+        <td>${esc(fileName)}</td>
+        <td style="text-align:right">${fmtNum(log?.itemCount)}</td>
+        <td style="text-align:right">${fmtNum(log?.detailCount)}</td>
+        <td><span class="tg ${status.className}">${esc(status.vi)}<br>${esc(status.zh)}</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function cuttingLoadHistory(force = false){
+    if(state.historyLoading) return;
+    if(state.historyLoaded && !force){
+      renderCuttingHistory();
+      return;
+    }
+    const body = g('cut-history-tb'); // body（裁帶歷史表格內容）
+    const button = g('cut-history-refresh-btn'); // button（重新整理按鈕）
+    state.historyLoading = true;
+    if(button) button.disabled = true;
+    if(body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mu)">Đang tải lịch sử...<br><span class="tv">正在載入歷史紀錄...</span></td></tr>';
+    try{
+      if(typeof window.ensureCuttingHistoryLoaded !== 'function'){
+        throw new Error('Chức năng lịch sử chưa sẵn sàng / 歷史功能尚未就緒');
+      }
+      state.historyLogs = await window.ensureCuttingHistoryLoaded({limit:50});
+      state.historyLoaded = true;
+      renderCuttingHistory();
+    }catch(error){
+      state.historyLoaded = false;
+      console.error('Không thể tải operationLogs / 無法載入操作紀錄：', error);
+      if(body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--err)">Không thể tải lịch sử thao tác, vui lòng thử lại.<br><span class="tv">無法載入操作紀錄，請重試。</span></td></tr>';
+    }finally{
+      state.historyLoading = false;
+      if(button) button.disabled = false;
+    }
+  }
+
+  function cuttingRefreshHistory(){
+    void cuttingLoadHistory(true);
+  }
+
+  function rememberCuttingHistoryLog(log){
+    if(!log || !state.historyLoaded) return;
+    state.historyLogs = [log, ...state.historyLogs.filter(item => item?.id !== log.id)].slice(0, 50);
+    renderCuttingHistory();
   }
 
   // normalizePdfQuality（標準化 PDF 品質）：high（高品質）以外一律使用 standard（標準品質）。
@@ -854,7 +938,7 @@
       await refreshTemplates();
       if(window.saveOperationLogToFB){
         try{
-          await saveOperationLogToFB({
+          const savedLog = await saveOperationLogToFB({
             permissionKey:'cutting',
             feature:'cutting',
             action:'cuttingTemplateImport',
@@ -863,6 +947,7 @@
             detailCount:Number(book.rowCount)||0,
             fileName:book.fileName||''
           });
+          rememberCuttingHistoryLog(savedLog);
         }catch(logError){
           console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
           alert('Đã lưu mẫu, nhưng không thể lưu lịch sử thao tác.\n模板已儲存，但操作紀錄無法保存。');
@@ -1950,7 +2035,7 @@
       if(window.saveOperationLogToFB){
         try{
           const exportedResults=state.results.filter(result=>result.status==='pass');
-          await saveOperationLogToFB({
+          const savedLog = await saveOperationLogToFB({
             permissionKey:'cutting',
             feature:'cutting',
             action:'cuttingPdfExport',
@@ -1959,6 +2044,7 @@
             detailCount:exportedResults.reduce((sum,result)=>sum+(Number(result.totalPieces)||0),0),
             fileName:saveHandle.name||''
           });
+          rememberCuttingHistoryLog(savedLog);
         }catch(logError){
           console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
           alert('Đã lưu PDF, nhưng không thể lưu lịch sử thao tác.\nPDF 已儲存，但操作紀錄無法保存。');
@@ -2001,6 +2087,7 @@
   window.cuttingTemplateDrop = cuttingTemplateDrop;
   window.cuttingHandleTemplateFile = cuttingHandleTemplateFile;
   window.cuttingSwitchTab = cuttingSwitchTab;
+  window.cuttingRefreshHistory = cuttingRefreshHistory;
   window.cuttingConfirmTemplate = cuttingConfirmTemplate;
   window.cuttingClearTemplateCurrent = cuttingClearTemplateCurrent;
   window.cuttingDeleteTemplate = cuttingDeleteTemplate;

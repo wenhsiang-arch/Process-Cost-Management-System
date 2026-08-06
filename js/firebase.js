@@ -938,11 +938,17 @@ async function ensureCostLogLoaded(options={}){
   return window.cLog;
 }
 
+// ensureCuttingHistoryLoaded（載入裁帶操作歷史）：只由裁帶歷史分頁呼叫，不在登入或裁帶主頁預先讀取。
+async function ensureCuttingHistoryLoaded(options={}){
+  return loadOperationLogs('cutting',options?.limit||OPERATION_LOG_PAGE_SIZE);
+}
+
 window.ensureSettingsLoaded=ensureSettingsLoaded;
 window.ensureOperationSettingsLoaded=ensureOperationSettingsLoaded;
 window.ensureCostSettingsLoaded=ensureCostSettingsLoaded;
 window.ensureImportHistoryLoaded=ensureImportHistoryLoaded;
 window.ensureCostLogLoaded=ensureCostLogLoaded;
+window.ensureCuttingHistoryLoaded=ensureCuttingHistoryLoaded;
 window.firebaseLoadCachedCollection=loadCollectionWithCache;
 window.firebaseTouchDataVersions=touchDataVersions;
 window.firebaseShowLoading=showLoading;
