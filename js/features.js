@@ -7,7 +7,7 @@
     summary:'js/summary.js?v=20260805-1',
     data:'js/data.js?v=20260806-5',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260808-5',
+    cutting:'js/cutting.js?v=20260808-6',
     accounts:'js/accounts.js?v=20260806-4',
     orders:'js/orders.js?v=20260806-3',
     sync:'js/sync.js?v=20260806-2',
@@ -15,7 +15,7 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260808-6'
+    cutting:'styles/features/cutting.css?v=20260808-7'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([

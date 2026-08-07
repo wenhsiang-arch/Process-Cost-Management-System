@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260808-3">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260808-4">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -418,7 +418,8 @@ tr:hover td{background:#f8fafc}
                 </button>
               </div>
               <div class="cutting-command-actions">
-                <button type="button" class="cutting-command-action is-primary" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()">
+                <!-- is-condition-dependent（需前置資料的主要操作）：匯入有效模板後才切換為深藍色。 -->
+                <button type="button" class="cutting-command-action is-primary is-condition-dependent" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()" disabled>
                   <i class="ti ti-check"></i><span class="cutting-action-copy"><strong>Xác nhận mẫu</strong><span>確認模板</span></span>
                 </button>
                 <button type="button" class="cutting-command-action is-danger" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()">
@@ -498,7 +499,8 @@ tr:hover td{background:#f8fafc}
                 <button type="button" class="cutting-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
                   <i class="ti ti-player-play"></i><span class="cutting-action-copy"><strong>Mở PDF</strong><span>啟動 PDF 工具</span></span>
                 </button>
-                <button type="button" class="cutting-command-action is-primary" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
+                <!-- is-condition-dependent（需前置資料的主要操作）：訂單核對可匯出後才切換為深藍色。 -->
+                <button type="button" class="cutting-command-action is-primary is-condition-dependent" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
                   <i class="ti ti-file-export"></i><span class="cutting-action-copy"><strong>Xuất PDF</strong><span>匯出 PDF</span></span>
                 </button>
                 <button type="button" class="cutting-command-action is-danger" onclick="cuttingClearCurrent()">
@@ -540,7 +542,7 @@ tr:hover td{background:#f8fafc}
               <!-- cut-error-box（裁帶錯誤區）：只顯示使用者可處理的款號、原因與處理方式。 -->
               <div class="cutting-result-group" id="cut-error-box" style="display:none">
                 <div class="cutting-result-subheader"><i class="ti ti-alert-circle"></i><span class="cutting-section-copy"><strong>Lỗi đơn hàng</strong><span>訂單錯誤</span></span></div>
-                <table>
+                <table class="cutting-error-table">
                   <thead><tr>
                     <th>Mã hàng<br><span class="tv">款號</span></th>
                     <th>Nguyên nhân<br><span class="tv">原因</span></th>

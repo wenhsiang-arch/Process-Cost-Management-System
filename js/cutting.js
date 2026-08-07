@@ -551,7 +551,11 @@
       if(el) el.disabled = !!busy;
     });
     const confirmButton = g('cut-template-confirm-btn'); // confirmButton（確認模板按鈕）
-    if(confirmButton) confirmButton.disabled = !!busy || !state.pendingTemplateFile || !state.pendingBook;
+    const hasReadyTemplate = !!state.pendingTemplateFile && !!state.pendingBook; // hasReadyTemplate（模板已可確認狀態）
+    if(confirmButton){
+      confirmButton.disabled = !!busy || !hasReadyTemplate;
+      confirmButton.classList.toggle('is-ready', hasReadyTemplate);
+    }
     const drop = g('cut-template-drop');
     if(drop) drop.disabled = !!busy;
   }
@@ -1287,6 +1291,10 @@
       reverseQty:0,
       status:'error',
       source:'order',
+      locationVi:location.vi, // locationVi（越文位置文字）
+      locationZh:location.zh, // locationZh（中文位置文字）
+      detailReasonVi:reasonVi, // detailReasonVi（越文原因內容）
+      detailReasonZh:reasonZh, // detailReasonZh（中文原因內容）
       reasonVi:`${location.vi}. ${reasonVi}`,
       reasonZh:`${location.zh}。${reasonZh}`,
       solutionVi,
@@ -1613,7 +1621,10 @@
     text('cut-error', fmtNum(errors.length));
     const canPreview = passed > 0 && errors.length === 0;
     const previewBtn = g('cut-preview-btn');
-    if(previewBtn) previewBtn.disabled = !canPreview;
+    if(previewBtn){
+      previewBtn.disabled = !canPreview;
+      previewBtn.classList.toggle('is-ready', canPreview);
+    }
 
     const alertBox = g('cut-alert');
     if(alertBox){
@@ -1671,13 +1682,33 @@
     if(errorBox){
       if(errors.length){
         errorBox.style.display = 'block';
-        html('cut-error-list', errors.map(result => `
-          <tr>
-            <td><b>${esc(result.code || 'Trống / 空白')}</b></td>
-            <td>${esc(result.reasonVi || 'Dữ liệu đơn hàng không hợp lệ.')}<br><span class="tv">${esc(result.reasonZh || '訂單資料無效。')}</span></td>
-            <td>${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}<br><span class="tv">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span></td>
-          </tr>
-        `).join(''));
+        html('cut-error-list', errors.map(result => {
+          const locationVi = result.locationVi || ''; // locationVi（越文位置文字）
+          const locationZh = result.locationZh || ''; // locationZh（中文位置文字）
+          const reasonVi = result.detailReasonVi || result.reasonVi || 'Dữ liệu đơn hàng không hợp lệ.'; // reasonVi（越文原因文字）
+          const reasonZh = result.detailReasonZh || result.reasonZh || '訂單資料無效。'; // reasonZh（中文原因文字）
+          return `
+            <tr>
+              <td><b>${esc(result.code || 'Trống / 空白')}</b></td>
+              <td>
+                <span class="cutting-error-location">
+                  <span>${esc(locationVi)}</span>
+                  <span class="cutting-error-location-zh">${esc(locationZh)}</span>
+                </span>
+                <span class="cutting-error-copy">
+                  <span>${esc(reasonVi)}</span>
+                  <span class="cutting-error-copy-zh">${esc(reasonZh)}</span>
+                </span>
+              </td>
+              <td>
+                <span class="cutting-error-copy">
+                  <span>${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}</span>
+                  <span class="cutting-error-copy-zh">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span>
+                </span>
+              </td>
+            </tr>
+          `;
+        }).join(''));
       }else{
         errorBox.style.display = 'none';
         html('cut-error-list', '');

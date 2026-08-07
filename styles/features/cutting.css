@@ -344,6 +344,30 @@
   opacity: 1;
 }
 
+/* is-condition-dependent（需前置資料的主要操作）：匯入資料前使用白底，資料可用後才切換為深藍色。 */
+.cutting-command-action.is-primary.is-condition-dependent {
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text-muted);
+  box-shadow: none;
+  opacity: 1;
+}
+
+.cutting-command-action.is-primary.is-condition-dependent.is-ready {
+  background: var(--ui-color-primary);
+  color: var(--ui-color-on-primary);
+  box-shadow: none;
+}
+
+.cutting-command-action.is-primary.is-condition-dependent.is-ready:hover:not(:disabled) {
+  background: var(--ui-color-primary-hover);
+}
+
+.cutting-command-action.is-primary.is-condition-dependent.is-ready:disabled {
+  background: var(--ui-color-primary);
+  color: var(--ui-color-on-primary);
+  opacity: .72;
+}
+
 .cutting-command-action.is-danger,
 .cutting-command-action.is-danger > i,
 .cutting-command-action.is-danger .cutting-action-copy > span {
@@ -687,6 +711,62 @@
 
 #cut-error-box .cutting-result-subheader > i {
   color: var(--ui-color-danger-text);
+}
+
+/* cutting-error-table（裁帶錯誤表格）：保留完整雙語內容，以約六比四分配原因與處理方式並讓資料列自然增高。 */
+#cut-error-box .cutting-error-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+#cut-error-box .cutting-error-table th,
+#cut-error-box .cutting-error-table td {
+  height: auto;
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#cut-error-box .cutting-error-table th:nth-child(1) {
+  width: 14%;
+}
+
+#cut-error-box .cutting-error-table th:nth-child(2) {
+  width: 52%;
+}
+
+#cut-error-box .cutting-error-table th:nth-child(3) {
+  width: 34%;
+}
+
+.cutting-error-location,
+.cutting-error-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.cutting-error-location {
+  margin-bottom: 6px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.cutting-error-location-zh {
+  font-size: 10px;
+  opacity: .9;
+}
+
+.cutting-error-copy {
+  color: var(--ui-color-text);
+  line-height: 1.45;
+}
+
+.cutting-error-copy-zh {
+  color: var(--ui-color-text-muted);
 }
 
 #pg-cutting .cutting-history-scroll {
