@@ -14,6 +14,10 @@
     permissions:'js/permissions.js?v=20260806-5'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
+  const STYLE_URLS = Object.freeze({
+    cutting:'styles/features/cutting.css?v=20260807-1'
+  }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
+
   const FEATURE_MODULES = Object.freeze([
     {
       id:'orders',navId:'progress',navGroup:'primary',icon:'ti-chart-bar',mainKey:'progress',
@@ -57,7 +61,7 @@
       pages:[
         {
           page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Thống kê dây cắt',zh:'裁帶統計',
-          scripts:['cuttingStore','cutting'],dataLoaders:[],onOpen:['cuttingInit']
+          styles:['cutting'],scripts:['cuttingStore','cutting'],dataLoaders:[],onOpen:['cuttingInit']
         }
       ]
     },
@@ -143,6 +147,7 @@
   }))); // PERMISSION_STRUCTURE（權限頁階層）：由中央功能清單產生，不再另外維護。
 
   const loadedScriptPromises = new Map(); // loadedScriptPromises（已載入或載入中的程式）
+  const loadedStylePromises = new Map(); // loadedStylePromises（已載入或載入中的功能樣式）
   let spreadsheetToolPromise = null; // spreadsheetToolPromise（Excel 表格工具載入工作）
   let activePageName = ''; // activePageName（目前功能頁面）
 
@@ -234,10 +239,35 @@
     return promise;
   }
 
-  // ensurePageScripts（確保頁面程式）：依中央清單順序載入直接依賴。
+  // loadFeatureStyle（載入功能樣式）：只在使用者實際開啟對應功能頁時建立樣式連結。
+  function loadFeatureStyle(styleName){
+    if(loadedStylePromises.has(styleName)) return loadedStylePromises.get(styleName);
+    const href=STYLE_URLS[styleName]; // href（功能樣式網址）
+    if(!href) return Promise.reject(new Error(`Không tìm thấy kiểu giao diện: ${styleName} / 找不到功能樣式：${styleName}`));
+    const promise=new Promise((resolve,reject)=>{
+      const link=document.createElement('link'); // link（功能樣式連結）
+      link.rel='stylesheet';
+      link.href=href;
+      link.dataset.pcmsFeatureStyle=styleName;
+      link.onload=()=>resolve(true);
+      link.onerror=()=>{
+        link.remove();
+        loadedStylePromises.delete(styleName);
+        reject(new Error(`Không thể tải kiểu giao diện: ${styleName} / 無法載入功能樣式：${styleName}`));
+      };
+      document.head.appendChild(link);
+    });
+    loadedStylePromises.set(styleName,promise);
+    return promise;
+  }
+
+  // ensurePageScripts（確保頁面程式）：先載入功能樣式，再依中央清單順序載入程式依賴。
   async function ensurePageScripts(pageName){
     const page=getPage(pageName);
     if(!page) throw new Error(`Trang không tồn tại: ${pageName} / 頁面不存在：${pageName}`);
+    for(const styleName of page.styles||[]){
+      await loadFeatureStyle(styleName);
+    }
     for(const scriptName of page.scripts||[]){
       await loadFeatureScript(scriptName);
     }
@@ -285,20 +315,37 @@
   }
 
   async function leaveActivePage(){
-    if(!activePageName) return;
-    await runPageHooks(activePageName,'onLeave');
-    activePageName='';
+    if(!activePageName){
+      window.PCMSUIFileDrop?.deactivatePage?.();
+      return;
+    }
+    const leavingPageName=activePageName; // leavingPageName（正在離開的頁面名稱）
+    window.PCMSUIFileDrop?.deactivatePage?.(leavingPageName);
+    try{
+      await runPageHooks(leavingPageName,'onLeave');
+    }finally{
+      activePageName='';
+    }
   }
 
   async function enterPage(pageName){
     await leaveActivePage();
     activePageName=pageName;
+    window.PCMSUIFileDrop?.activatePage?.(pageName);
     try{
       await runPageHooks(pageName,'onOpen');
     }catch(error){
+      window.PCMSUIFileDrop?.deactivatePage?.(pageName);
       activePageName='';
       throw error;
     }
+  }
+
+  // resetActivePage（重設目前頁面）：返回首頁或登出時同步停止全域拖曳接收。
+  function resetActivePage(){
+    const previousPageName=activePageName; // previousPageName（重設前的頁面名稱）
+    activePageName='';
+    window.PCMSUIFileDrop?.deactivatePage?.(previousPageName);
   }
 
   resetPermissionsToDefaults();
@@ -316,7 +363,7 @@
     ensureSpreadsheetTool,
     enterPage,
     leaveActivePage,
-    resetActivePage:()=>{ activePageName=''; }
+    resetActivePage
   });
   window.normalizeFeaturePermissions=normalizeFeaturePermissions;
   window.resetPermissionsToDefaults=resetPermissionsToDefaults;

@@ -1,0 +1,50 @@
+/* default.css（預設藍白灰主題）：只定義語意色值，不得放入排版、尺寸、文字或功能規則。 */
+
+:root,
+[data-ui-theme="default"] {
+  --ui-theme-ready: 1; /* ui-theme-ready（主題定義就緒標記） */
+  --ui-theme-id: default; /* ui-theme-id（目前生效的主題識別碼） */
+  --ui-browser-theme-color: #1a3a5c; /* ui-browser-theme-color（瀏覽器外框主題色） */
+
+  --ui-color-navigation-background: #1a3a5c; /* ui-color-navigation-background（導覽背景色） */
+  --ui-color-navigation-text: #ffffff; /* ui-color-navigation-text（導覽主要文字色） */
+  --ui-color-navigation-text-muted: rgba(255, 255, 255, .62); /* ui-color-navigation-text-muted（導覽次要文字色） */
+  --ui-color-navigation-hover: rgba(255, 255, 255, .10); /* ui-color-navigation-hover（導覽滑鼠停留色） */
+  --ui-color-navigation-active: rgba(255, 255, 255, .18); /* ui-color-navigation-active（導覽選取色） */
+  --ui-color-topbar-background: #ffffff; /* ui-color-topbar-background（頂部列背景色） */
+
+  --ui-color-primary: #2563a8; /* ui-color-primary（主要互動色） */
+  --ui-color-primary-hover: #2d5f8e; /* ui-color-primary-hover（主要互動停留色） */
+  --ui-color-primary-soft: #dbeafe; /* ui-color-primary-soft（主要互動淡色背景） */
+  --ui-color-on-primary: #ffffff; /* ui-color-on-primary（主要互動色上的文字） */
+  --ui-color-focus-ring: rgba(37, 99, 168, .28); /* ui-color-focus-ring（鍵盤焦點外框色） */
+
+  --ui-color-page-background: #f8fafc; /* ui-color-page-background（頁面背景色） */
+  --ui-color-surface: #ffffff; /* ui-color-surface（內容表面色） */
+  --ui-color-surface-muted: #f8fafc; /* ui-color-surface-muted（次要內容表面色） */
+  --ui-color-border: #e2e8f0; /* ui-color-border（共用邊框色） */
+  --ui-color-text: #1e293b; /* ui-color-text（主要文字色） */
+  --ui-color-text-muted: #64748b; /* ui-color-text-muted（次要文字色） */
+  --ui-color-text-subtle: #94a3b8; /* ui-color-text-subtle（提示文字色） */
+
+  --ui-color-operation-background: #eff6ff; /* ui-color-operation-background（整合操作區背景色） */
+  --ui-color-operation-border: #bfdbfe; /* ui-color-operation-border（整合操作區邊框色） */
+  --ui-color-operation-divider: #dbeafe; /* ui-color-operation-divider（整合操作區分隔色） */
+  --ui-color-table-header: #eff6ff; /* ui-color-table-header（表格表頭背景色） */
+  --ui-color-row-hover: #f8fbff; /* ui-color-row-hover（資料列滑鼠停留色） */
+  --ui-color-drop-overlay: rgba(239, 246, 255, .94); /* ui-color-drop-overlay（拖曳匯入覆蓋色） */
+  --ui-color-overlay: rgba(15, 23, 42, .52); /* ui-color-overlay（視窗遮罩色） */
+
+  --ui-color-info-text: #1e4f82; /* ui-color-info-text（資訊文字色） */
+  --ui-color-info-background: #eff6ff; /* ui-color-info-background（資訊背景色） */
+  --ui-color-info-border: #bfdbfe; /* ui-color-info-border（資訊邊框色） */
+  --ui-color-success-text: #166534; /* ui-color-success-text（成功文字色） */
+  --ui-color-success-background: #dcfce7; /* ui-color-success-background（成功背景色） */
+  --ui-color-success-border: #86efac; /* ui-color-success-border（成功邊框色） */
+  --ui-color-warning-text: #92400e; /* ui-color-warning-text（警告文字色） */
+  --ui-color-warning-background: #fef3c7; /* ui-color-warning-background（警告背景色） */
+  --ui-color-warning-border: #fcd34d; /* ui-color-warning-border（警告邊框色） */
+  --ui-color-danger-text: #991b1b; /* ui-color-danger-text（錯誤與危險文字色） */
+  --ui-color-danger-background: #fee2e2; /* ui-color-danger-background（錯誤與危險背景色） */
+  --ui-color-danger-border: #fca5a5; /* ui-color-danger-border（錯誤與危險邊框色） */
+}

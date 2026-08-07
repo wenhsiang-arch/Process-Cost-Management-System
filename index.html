@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="vi" data-ui-theme="default" data-ui-font="default">
 <head>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a3558">
@@ -11,9 +11,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
+<link rel="stylesheet" href="styles/ui-core.css?v=20260807-1">
+<link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
+<link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--navy:#1a3a5c;--navy2:#2d5f8e;--accent:#2563a8;--al:#dbeafe;--ok:#166534;--okl:#dcfce7;--warn:#92400e;--warnl:#fef3c7;--err:#991b1b;--errl:#fee2e2;--bd:#e2e8f0;--bg:#f8fafc;--sf:#fff;--tx:#1e293b;--mu:#64748b;--hi:#94a3b8}
 body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(--bg)}
 .app{display:flex;height:100vh;min-height:640px}
 .sb{width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
@@ -86,16 +89,6 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .bs{background:#16a34a;color:#fff;border-color:#16a34a}.bs:hover{background:var(--ok)}
 .bd2{color:var(--err);border-color:#fca5a5}.bd2:hover{background:var(--errl)}
 .bsm{padding:3px 8px;font-size:11px;height:26px}
-/* cut-template-actions（模板操作區）：下載與刪除固定左右並排，越文在上、中文在下。 */
-.cut-template-actions{display:flex;justify-content:center;align-items:stretch;gap:6px;min-width:180px}
-.cut-template-action{width:87px;height:50px;padding:4px 6px;justify-content:center;flex-direction:column;gap:2px;white-space:normal;line-height:1.05}
-.cut-template-action i{font-size:15px;flex:0 0 auto}
-.cut-template-action-text{display:flex;flex-direction:column;align-items:center;gap:1px;text-align:center}
-.cut-template-action-vi{font-size:10px;font-weight:600}
-.cut-template-action-zh{font-size:9px;font-weight:400;color:var(--hi)}
-.cut-template-download{color:var(--accent);border-color:#bfdbfe}
-.cut-template-download:hover{background:var(--al)}
-.cut-template-action.bd2 .cut-template-action-zh{color:inherit;opacity:.82}
 .br{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
 .sr{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .sw{position:relative;flex:1;min-width:160px}
@@ -209,16 +202,6 @@ tr:hover td{background:#f8fafc}
 .pwe{position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--hi);font-size:15px}
 .mb{display:none;position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:50;align-items:flex-start;justify-content:center;padding-top:50px;min-height:640px}
 .mb.open{display:flex}
-#m-cutting-pdf-progress{align-items:center;padding:16px;min-height:100%}
-.cutting-tabs{display:flex;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-.cutting-tab{display:inline-flex;align-items:center;gap:9px;width:auto;min-width:0;padding:9px 16px;border:1px solid var(--bd);border-radius:10px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left;font-size:15px;font-weight:700;line-height:1.25}
-.cutting-tab i{font-size:22px;color:var(--accent)}
-.cutting-tab.active{background:#eaf2ff;border-color:#9bbcf0;box-shadow:0 2px 8px rgba(45,95,142,.12)}
-.cutting-tab.active strong{color:var(--accent)}
-.cutting-tab-copy,.cutting-refresh-copy{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}
-.cutting-tab-copy>span,.cutting-refresh-copy>span{font-size:11px;font-weight:400;color:var(--mu);margin-top:2px}
-.cutting-history-title{flex:1;margin-bottom:0}
-#pg-cutting .ts.cutting-history-scroll{max-height:520px!important;overflow-y:auto}
 /* module-tabs（模組功能卡容器）、module-tab（模組功能卡）、module-tab-copy（功能卡雙語文字）。 */
 .module-tabs{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;margin-bottom:14px}
 .module-tabs[hidden]{display:none}
@@ -254,7 +237,6 @@ tr:hover td{background:#f8fafc}
 .permission-switch{position:relative;display:inline-flex;flex:0 0 42px;width:42px;height:24px}.permission-switch input{position:absolute;opacity:0;pointer-events:none}.permission-switch>span{width:100%;height:100%;border-radius:99px;background:#cbd5e1;transition:.15s}.permission-switch>span:after{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:.15s}.permission-switch input:checked+span{background:var(--accent)}.permission-switch input:checked+span:after{transform:translateX(18px)}.permission-switch.is-disabled{opacity:.48}
 @media(max-width:520px){.permission-role-tabs{grid-template-columns:1fr 1fr}.permission-module-head{padding:11px}.permission-module-body{padding:5px 11px 10px}.permission-restrictions{margin-left:12px}}
 @media(max-width:380px){.permission-role-tabs{grid-template-columns:1fr}.permission-fixed{max-width:90px;text-align:center}}
-#pg-cutting .ts{max-height:none!important;overflow-y:visible}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
 .mt2{font-size:15px;font-weight:500;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;color:var(--navy)}
@@ -399,42 +381,67 @@ tr:hover td{background:#f8fafc}
       <!-- 款號總成本 -->
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
+        <div class="cutting-page ui-page">
+        <header class="ui-page-header cutting-page-header">
+          <h1 class="ui-page-title ui-bilingual">
+            <span class="ui-text-vi">Thống kê dây cắt</span>
+            <span class="ui-text-zh">裁帶統計</span>
+          </h1>
+        </header>
+
         <div class="cutting-tabs">
-          <button class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><i class="ti ti-clipboard-list"></i><span class="cutting-tab-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
-          <button class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><i class="ti ti-file-spreadsheet"></i><span class="cutting-tab-copy"><strong>Nhập mẫu</strong><span>匯入模板</span></span></button>
-          <button class="cutting-tab" id="cut-tab-history" onclick="cuttingSwitchTab('history')"><i class="ti ti-history"></i><span class="cutting-tab-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄</span></span></button>
+          <button type="button" class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><span class="cutting-tab-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
+          <button type="button" class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><span class="cutting-tab-copy"><strong>Nhập mẫu</strong><span>匯入模板</span></span></button>
+          <button type="button" class="cutting-tab" id="cut-tab-history" onclick="cuttingSwitchTab('history')"><span class="cutting-tab-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄</span></span></button>
         </div>
 
-        <div id="cut-panel-template" style="display:none">
-          <div class="card">
-            <div class="ct-title"><i class="ti ti-file-spreadsheet"></i>Nhập mẫu / 匯入模板</div>
-            <div class="detail-import-drop" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)" style="margin-bottom:12px">
+        <div class="cutting-panel" id="cut-panel-template" style="display:none">
+          <section class="cutting-operation-panel">
+            <div class="cutting-operation-heading">
               <i class="ti ti-file-spreadsheet"></i>
-              <div>
-                <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-                <span>Chỉ nhận mẫu mới .xlsx có cột A–K cố định / 僅接受 A–K 固定欄位的新版 .xlsx 模板</span>
+              <span class="cutting-section-copy"><strong>Nhập và xác nhận mẫu</strong><span>匯入並確認模板</span></span>
+            </div>
+            <div class="cutting-command-row">
+              <div class="cutting-context-grid cutting-template-context-grid">
+                <div class="cutting-context-item">
+                  <i class="ti ti-file-spreadsheet"></i>
+                  <div>
+                    <span class="cutting-context-copy"><strong>Tệp mẫu đang chọn</strong><span>目前選擇的模板檔案</span></span>
+                    <div class="cutting-file-name" id="cut-template-file-name"></div>
+                    <div class="cutting-context-note">Chỉ nhận tệp .xlsx mới với cột A–K cố định.<br>僅接受 A–K 固定欄位的新版 .xlsx 模板。</div>
+                  </div>
+                </div>
+              </div>
+              <div class="cutting-command-actions">
+                <button type="button" class="cutting-command-action" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)">
+                  <i class="ti ti-folder-open"></i><span class="cutting-action-copy"><strong>Chọn tệp</strong><span>選擇檔案</span></span>
+                </button>
+                <button type="button" class="cutting-command-action is-primary" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()">
+                  <i class="ti ti-check"></i><span class="cutting-action-copy"><strong>Xác nhận mẫu</strong><span>確認模板</span></span>
+                </button>
+                <details class="cutting-disclosure">
+                  <summary class="cutting-command-summary"><i class="ti ti-dots"></i><span class="cutting-action-copy"><strong>Thao tác khác</strong><span>其他操作</span></span></summary>
+                  <div class="cutting-more-menu">
+                    <button type="button" class="cutting-menu-action is-danger" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()"><i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span></button>
+                  </div>
+                </details>
               </div>
             </div>
             <input type="file" id="cut-template-file" accept=".xlsx" style="display:none" onchange="cuttingHandleTemplateFile(this)">
-            <div class="br" style="margin-bottom:12px">
-              <button class="btn bp" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()"><i class="ti ti-check"></i>Xác nhận mẫu / 確認模板</button>
-              <button class="btn bd2" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
-              <span id="cut-template-file-name" style="font-size:12px;color:var(--accent)"></span>
-            </div>
-            <div class="pw" id="cut-template-progress-wrap" style="display:none;margin:12px 0 0">
+            <div class="pw cutting-progress" id="cut-template-progress-wrap" style="display:none">
               <div class="pwl" id="cut-template-progress-text">Đang chuẩn bị... / 準備中...</div>
               <div class="pbb"><div class="pbar" id="cut-template-progress-bar" style="width:0%"></div></div>
               <div class="psb" id="cut-template-progress-sub">Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。</div>
             </div>
-          </div>
+          </section>
 
-          <div class="card" id="cut-template-analysis" style="display:none">
-            <div class="ct-title"><i class="ti ti-file-search"></i>Kết quả phân tích mẫu / 模板分析結果</div>
+          <section class="cutting-data-section" id="cut-template-analysis" style="display:none">
+            <div class="cutting-section-header"><i class="ti ti-file-search"></i><span class="cutting-section-copy"><strong>Kết quả phân tích mẫu</strong><span>模板分析結果</span></span></div>
             <div id="cut-template-analysis-body"></div>
-          </div>
+          </section>
 
-          <div class="card">
-            <div class="ct-title"><i class="ti ti-database"></i>Dữ liệu mẫu đã lưu / 已建檔模板</div>
+          <section class="cutting-data-section">
+            <div class="cutting-section-header"><i class="ti ti-database"></i><span class="cutting-section-copy"><strong>Dữ liệu mẫu đã lưu</strong><span>已建檔模板</span></span></div>
             <div class="to"><div class="ts" style="max-height:260px">
               <table>
                 <thead><tr>
@@ -448,61 +455,80 @@ tr:hover td{background:#f8fafc}
                 <tbody id="cut-template-tb"></tbody>
               </table>
             </div></div>
-          </div>
+          </section>
         </div>
 
-        <div id="cut-panel-order">
-          <div class="card">
-            <div class="ct-title"><i class="ti ti-clipboard-list"></i>Nhập đơn hàng / 匯入訂單</div>
-            <div class="nt nw" style="margin-bottom:12px">
-              <i class="ti ti-alert-triangle"></i>
-              <div>
-                <strong>Hướng dẫn công cụ PDF / PDF 轉檔工具說明</strong><br>
-                <strong>Thiết lập lần đầu:</strong><br>
-                1. Vào 「OneDrive\1MAY9\Cong cu chuyen doi PDF」, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.<br>
-                2. Nhấp đúp 「Khởi động công cụ PDF - 啟動PDF工具.bat」, sau đó nhấn nút 「Mở công cụ PDF / 啟動 PDF 工具」 bên dưới để hoàn tất thiết lập.<br>
-                3. Sau khi thiết lập, những lần sau chỉ cần nhấn 「Mở công cụ PDF / 啟動 PDF 工具」 để sử dụng.<br>
-                <br>
-                <strong>第一次設定：</strong><br>
-                1. 到「OneDrive\1MAY9\Cong cu chuyen doi PDF」，對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。<br>
-                2. 雙擊「Khởi động công cụ PDF - 啟動PDF工具.bat」，再點擊下方「Mở công cụ PDF / 啟動 PDF 工具」即可完成設定。<br>
-                3. 設定完成後，日後只需點擊「Mở công cụ PDF / 啟動 PDF 工具」即可呼叫工具。
+        <div class="cutting-panel" id="cut-panel-order">
+          <section class="cutting-operation-panel">
+            <div class="cutting-command-row">
+              <div class="cutting-context-grid">
+                <div class="cutting-context-item">
+                  <i class="ti ti-file-type-pdf"></i>
+                  <div>
+                    <span class="cutting-context-copy"><strong>Công cụ PDF</strong><span>PDF 工具狀態</span></span>
+                    <div class="nt nw" id="cut-pdf-tool-status"><i class="ti ti-loader"></i><div>Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...</div></div>
+                  </div>
+                </div>
+                <div class="cutting-context-item">
+                  <i class="ti ti-file-spreadsheet"></i>
+                  <div>
+                    <span class="cutting-context-copy"><strong>Tệp đơn hàng</strong><span>訂單檔案</span></span>
+                    <div class="cutting-file-name" id="cut-order-file-name"></div>
+                    <div class="cutting-context-note">Hỗ trợ .xlsx và .xls, chọn xong sẽ tự kiểm tra.<br>支援 .xlsx、.xls，選擇後會自動檢查。</div>
+                  </div>
+                </div>
+              </div>
+              <div class="cutting-command-actions">
+                <button type="button" class="cutting-command-action" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)">
+                  <i class="ti ti-folder-open"></i><span class="cutting-action-copy"><strong>Chọn tệp</strong><span>選擇檔案</span></span>
+                </button>
+                <button type="button" class="cutting-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
+                  <i class="ti ti-player-play"></i><span class="cutting-action-copy"><strong>Mở công cụ PDF</strong><span>啟動 PDF 工具</span></span>
+                </button>
+                <details class="cutting-disclosure">
+                  <summary class="cutting-command-summary"><i class="ti ti-book"></i><span class="cutting-action-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
+                  <div class="cutting-guide-panel">
+                    <h3>Thiết lập lần đầu:</h3>
+                    <ol>
+                      <li>Vào 「OneDrive\1MAY9\Cong cu chuyen doi PDF」, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.</li>
+                      <li>Nhấp đúp 「Khởi động công cụ PDF - 啟動PDF工具.bat」, sau đó nhấn 「Mở công cụ PDF / 啟動 PDF 工具」 để hoàn tất thiết lập.</li>
+                      <li>Những lần sau chỉ cần nhấn 「Mở công cụ PDF / 啟動 PDF 工具」 để sử dụng.</li>
+                    </ol>
+                    <h3>第一次設定：</h3>
+                    <ol>
+                      <li>到「OneDrive\1MAY9\Cong cu chuyen doi PDF」，對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。</li>
+                      <li>雙擊「Khởi động công cụ PDF - 啟動PDF工具.bat」，再點擊「Mở công cụ PDF / 啟動 PDF 工具」完成設定。</li>
+                      <li>設定完成後，日後只需點擊「Mở công cụ PDF / 啟動 PDF 工具」即可呼叫工具。</li>
+                    </ol>
+                  </div>
+                </details>
+                <button type="button" class="cutting-command-action is-primary" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
+                  <i class="ti ti-eye"></i><span class="cutting-action-copy"><strong>Xem trước</strong><span>預覽</span></span>
+                </button>
+                <details class="cutting-disclosure">
+                  <summary class="cutting-command-summary"><i class="ti ti-dots"></i><span class="cutting-action-copy"><strong>Thao tác khác</strong><span>其他操作</span></span></summary>
+                  <div class="cutting-more-menu">
+                    <button type="button" class="cutting-menu-action" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()"><i class="ti ti-refresh"></i><span class="cutting-action-copy"><strong>Kiểm tra trạng thái</strong><span>檢查狀態</span></span></button>
+                    <button type="button" class="cutting-menu-action" id="cut-unregister-pdf-tool-btn" onclick="cuttingUnregisterPdfTool()"><i class="ti ti-unlink"></i><span class="cutting-action-copy"><strong>Hủy đường dẫn</strong><span>取消啟動路徑</span></span></button>
+                    <button type="button" class="cutting-menu-action is-danger" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span></button>
+                  </div>
+                </details>
               </div>
             </div>
-            <div class="br" style="margin-bottom:0">
-              <button class="btn bp" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()"><i class="ti ti-player-play"></i>Mở công cụ PDF / 啟動 PDF 工具</button>
-              <button class="btn" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()"><i class="ti ti-refresh"></i>Kiểm tra trạng thái / 檢查狀態</button>
-              <button class="btn bd2" id="cut-unregister-pdf-tool-btn" onclick="cuttingUnregisterPdfTool()"><i class="ti ti-unlink"></i>Hủy đường dẫn / 取消啟動路徑</button>
-            </div>
-            <div class="nt nw" id="cut-pdf-tool-status" style="margin-bottom:12px">
-              <i class="ti ti-loader"></i><div>Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...</div>
-            </div>
-            <div class="detail-import-drop" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)" style="margin-bottom:12px">
-              <i class="ti ti-file-spreadsheet"></i>
-              <div>
-                <strong>Kéo thả hoặc chọn Excel / 拖曳或點擊選擇 Excel</strong>
-                <span>Hỗ trợ .xlsx, .xls, sau khi chọn sẽ kiểm tra đơn hàng / 支援 .xlsx、.xls，選擇後會檢查訂單</span>
-              </div>
-            </div>
-            <div class="br">
-              <button class="btn bs" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled><i class="ti ti-eye"></i>Xem trước / 預覽</button>
-              <button class="btn bd2" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i>Xóa hiện tại / 清除目前資料</button>
-              <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
-              <span id="cut-order-file-name" style="font-size:12px;color:var(--mu)"></span>
-            </div>
-          </div>
+            <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
+          </section>
 
-          <div class="mg">
-            <div class="mc"><div class="ml">Tổng mã hàng</div><div class="mvi">總款號</div><div class="mv" id="cut-total">0</div></div>
-            <div class="mc"><div class="ml">Đạt</div><div class="mvi">通過</div><div class="mv" id="cut-pass">0</div></div>
-            <div class="mc"><div class="ml">Thiếu mẫu</div><div class="mvi">缺少模板</div><div class="mv" id="cut-missing">0</div></div>
-            <div class="mc"><div class="ml">Lỗi</div><div class="mvi">錯誤</div><div class="mv" id="cut-error">0</div></div>
+          <div class="cutting-summary-row">
+            <div class="cutting-summary-item"><div class="cutting-summary-label">Tổng mã hàng<span>總款號</span></div><div class="cutting-summary-value" id="cut-total">0</div></div>
+            <div class="cutting-summary-item is-success"><div class="cutting-summary-label">Đạt<span>通過</span></div><div class="cutting-summary-value" id="cut-pass">0</div></div>
+            <div class="cutting-summary-item is-warning"><div class="cutting-summary-label">Thiếu mẫu<span>缺少模板</span></div><div class="cutting-summary-value" id="cut-missing">0</div></div>
+            <div class="cutting-summary-item is-danger"><div class="cutting-summary-label">Lỗi<span>錯誤</span></div><div class="cutting-summary-value" id="cut-error">0</div></div>
           </div>
 
           <div id="cut-alert" class="nt nw" style="margin-bottom:12px"></div>
 
-          <div class="card" id="cut-missing-box" style="display:none">
-            <div class="ct-title"><i class="ti ti-alert-triangle"></i>Mã hàng thiếu mẫu / 缺少模板款號</div>
+          <section class="cutting-data-section" id="cut-missing-box" style="display:none">
+            <div class="cutting-section-header"><i class="ti ti-alert-triangle"></i><span class="cutting-section-copy"><strong>Mã hàng thiếu mẫu</strong><span>缺少模板款號</span></span></div>
             <div class="to"><table>
               <thead><tr>
                 <th>Trạng thái<br><span class="tv">狀態</span></th>
@@ -512,10 +538,10 @@ tr:hover td{background:#f8fafc}
               </tr></thead>
               <tbody id="cut-missing-list"></tbody>
             </table></div>
-          </div>
+          </section>
 
-          <div class="card">
-            <div class="ct-title"><i class="ti ti-list-check"></i>Kết quả đối chiếu / 比對結果</div>
+          <section class="cutting-data-section">
+            <div class="cutting-section-header"><i class="ti ti-list-check"></i><span class="cutting-section-copy"><strong>Kết quả đối chiếu</strong><span>比對結果</span></span></div>
             <div class="to"><div class="ts">
               <table>
                 <thead><tr>
@@ -530,12 +556,12 @@ tr:hover td{background:#f8fafc}
                 <tbody id="cut-result-tb"></tbody>
               </table>
             </div></div>
-          </div>
+          </section>
         </div>
 
-        <div id="cut-panel-history" style="display:none">
-          <div class="card">
-            <div class="ct-title cutting-history-title">
+        <div class="cutting-panel" id="cut-panel-history" style="display:none">
+          <section class="cutting-data-section">
+            <div class="cutting-section-header cutting-history-title">
               <i class="ti ti-history"></i>
               <span class="cutting-tab-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄（最近 50 筆）</span></span>
               <button class="btn bsm" id="cut-history-refresh-btn" type="button" onclick="cuttingRefreshHistory()" style="margin-left:auto">
@@ -554,7 +580,8 @@ tr:hover td{background:#f8fafc}
               </tr></thead>
               <tbody id="cut-history-tb"><tr><td colspan="7" style="text-align:center;color:var(--mu)">Chọn trang lịch sử để tải dữ liệu.<br><span class="tv">開啟歷史分頁後才會讀取資料。</span></td></tr></tbody>
             </table></div></div>
-          </div>
+          </section>
+        </div>
         </div>
       </div>
 
@@ -942,9 +969,13 @@ tr:hover td{background:#f8fafc}
 
 <!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
 <script src="js/safe-dom.js?v=20260806-1"></script>
+<script src="js/ui-text.js?v=20260807-1"></script>
+<script src="js/ui-runtime.js?v=20260807-1"></script>
+<script src="js/ui-components.js?v=20260807-1"></script>
+<script src="js/ui-file-drop.js?v=20260807-1"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260806-6"></script>
+<script src="js/features.js?v=20260807-2"></script>
 <script src="js/auth.js?v=20260806-8"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

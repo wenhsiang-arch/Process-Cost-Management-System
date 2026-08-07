@@ -1,0 +1,9 @@
+/* default.css（預設字型設定）：只定義字型家族，不包含排版、字級、顏色或功能規則。 */
+
+:root,
+[data-ui-font="default"] {
+  --ui-font-ready: 1; /* ui-font-ready（字型定義就緒標記） */
+  --ui-font-id: default; /* ui-font-id（目前生效的字型識別碼） */
+  --font-sans: "Segoe UI", "Noto Sans", "Noto Sans TC", "Microsoft JhengHei", Arial, sans-serif; /* font-sans（一般介面字型） */
+  --font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace; /* font-mono（識別碼等寬字型） */
+}
