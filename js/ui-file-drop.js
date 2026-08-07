@@ -6,6 +6,8 @@
   let overlay = null; // overlay（全域拖曳提示層）
   let overlayCopy = null; // overlayCopy（提示層雙語文字區）
   let overlayTimer = null; // overlayTimer（提示層延遲關閉計時器）
+  const MIN_TEXT_OVERLAY_WIDTH = 420; // MIN_TEXT_OVERLAY_WIDTH（顯示雙語文字所需最小寬度）
+  const MIN_TEXT_OVERLAY_HEIGHT = 220; // MIN_TEXT_OVERLAY_HEIGHT（顯示雙語文字所需最小高度）
 
   if(textApi){
     textApi.register('fileDrop',{
@@ -108,21 +110,45 @@
     return overlay;
   }
 
+  // getVisibleContentRect（取得可視內容範圍）：只使用視窗中真正看得到的區域，避免長頁面讓提示偏離中央。
+  function getVisibleContentRect(host){
+    if(!host) return null;
+    const rect = host.getBoundingClientRect(); // rect（完整主內容範圍）
+    const viewportWidth = Math.max(Number(window.innerWidth) || 0,Number(document.documentElement?.clientWidth) || 0); // viewportWidth（視窗可視寬度）
+    const viewportHeight = Math.max(Number(window.innerHeight) || 0,Number(document.documentElement?.clientHeight) || 0); // viewportHeight（視窗可視高度）
+    const left = Math.max(0,rect.left); // left（可視內容左界）
+    const top = Math.max(0,rect.top); // top（可視內容上界）
+    const right = Math.min(viewportWidth,rect.right); // right（可視內容右界）
+    const bottom = Math.min(viewportHeight,rect.bottom); // bottom（可視內容下界）
+    const width = Math.max(0,right-left); // width（可視內容寬度）
+    const height = Math.max(0,bottom-top); // height（可視內容高度）
+    return {left,top,width,height};
+  }
+
+  // updateOverlayMode（更新提示模式）：空間不足時改顯示置中小圖示，不讓文字縮到可讀下限以下。
+  function updateOverlayMode(width,height){
+    if(!overlay) return;
+    const iconOnly = width < MIN_TEXT_OVERLAY_WIDTH || height < MIN_TEXT_OVERLAY_HEIGHT; // iconOnly（是否只顯示匯入圖示）
+    overlay.classList.toggle('is-icon-only',iconOnly); // is-icon-only（只顯示匯入圖示狀態）
+  }
+
   function positionOverlay(){
     const host = getContentHost(); // host（主內容區）
     if(!host || !overlay) return false;
-    const rect = host.getBoundingClientRect(); // rect（主內容區可見範圍）
+    const rect = getVisibleContentRect(host); // rect（與目前視窗相交的可視內容範圍）
+    if(!rect) return false;
     overlay.style.left = `${rect.left}px`;
     overlay.style.top = `${rect.top}px`;
     overlay.style.width = `${rect.width}px`;
     overlay.style.height = `${rect.height}px`;
+    updateOverlayMode(rect.width,rect.height);
     return rect.width > 0 && rect.height > 0;
   }
 
   function showOverlay(target){
     const element = ensureOverlay(); // element（拖曳提示層）
-    if(!positionOverlay()) return;
     if(textApi) textApi.set(overlayCopy,target?.text || 'fileDrop.dropAnywhere');
+    if(!positionOverlay()) return;
     element.classList.add('is-visible');
     clearTimeout(overlayTimer);
     overlayTimer = setTimeout(hideOverlay,160);

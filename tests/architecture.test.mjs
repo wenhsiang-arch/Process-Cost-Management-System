@@ -167,6 +167,22 @@ test('裁帶操作區使用頁面捲動、可辨識結果框與內嵌側欄開�
   assert.match(style,/\.cutting-command-action\.is-primary:disabled \{/);
 });
 
+test('停用主要操作與全域拖曳提示維持可辨識及可讀狀態',()=>{
+  const coreStyle=read('styles/ui-core.css'); // coreStyle（共用介面核心樣式）
+  const cuttingStyle=read('styles/features/cutting.css'); // cuttingStyle（裁帶專屬樣式）
+  const fileDropSource=read('js/ui-file-drop.js'); // fileDropSource（全域拖曳匯入程式）
+  assert.match(coreStyle,/\.ui-action-item\.is-primary:disabled,[\s\S]*?background: color-mix\(in srgb, var\(--ui-color-primary\) 12%, var\(--ui-color-surface-muted\)\)/);
+  assert.match(cuttingStyle,/\.cutting-command-action\.is-primary:disabled \{[\s\S]*?background: color-mix\(in srgb, var\(--ui-color-primary\) 12%, var\(--ui-color-surface-muted\)\)/);
+  assert.match(coreStyle,/\.ui-file-drop-copy \.ui-text-vi \{[\s\S]*?font-size: clamp\(18px,/);
+  assert.match(coreStyle,/\.ui-file-drop-copy \.ui-text-zh \{[\s\S]*?font-size: clamp\(15px,/);
+  assert.match(coreStyle,/\.ui-file-drop-overlay\.is-icon-only \.ui-file-drop-copy \{[\s\S]*?clip-path: inset\(50%\)/);
+  assert.match(fileDropSource,/MIN_TEXT_OVERLAY_WIDTH = 420/);
+  assert.match(fileDropSource,/MIN_TEXT_OVERLAY_HEIGHT = 220/);
+  assert.match(fileDropSource,/Math\.min\(viewportWidth,rect\.right\)/);
+  assert.match(fileDropSource,/Math\.min\(viewportHeight,rect\.bottom\)/);
+  assert.match(fileDropSource,/classList\.toggle\('is-icon-only',iconOnly\)/);
+});
+
 test('共用操作鎖可區分一秒按鈕冷卻與實際工作狀態',async()=>{
   const timers=[];
   const context={

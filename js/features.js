@@ -15,7 +15,7 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260808-5'
+    cutting:'styles/features/cutting.css?v=20260808-6'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
