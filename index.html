@@ -19,7 +19,14 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(--bg)}
 .app{display:flex;height:100vh;min-height:640px}
-.sb{width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sb{width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-x:hidden;overflow-y:auto;transition:width var(--ui-motion-fast)}
+.sb>*{min-width:220px}
+.app.sidebar-collapsed .sb{width:0}
+.sidebar-toggle{position:absolute;left:204px;top:50%;z-index:40;display:flex;width:32px;height:52px;align-items:center;justify-content:center;transform:translateY(-50%);border:1px solid rgba(255,255,255,.14);border-radius:0 9px 9px 0;background:var(--navy);color:rgba(255,255,255,.82);cursor:pointer;transition:left var(--ui-motion-fast),background var(--ui-motion-fast)}
+.sidebar-toggle:hover{background:var(--navy2);color:#fff}
+.sidebar-toggle:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
+.sidebar-toggle i{font-size:18px}
+.app.sidebar-collapsed .sidebar-toggle{left:0}
 .sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
 .sb-title{font-size:14px;font-weight:500;color:#fff}
 .sb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:3px}
@@ -269,9 +276,9 @@ tr:hover td{background:#f8fafc}
 
 <!-- 主介面 -->
 <div id="ma" class="hidden">
-<div class="app" style="position:relative">
+<div class="app" id="app-shell" style="position:relative">
   <!-- 側邊欄 -->
-  <div class="sb">
+  <div class="sb" id="primary-sidebar">
     <div class="sb-logo">
       <div class="sb-title">M9</div>
       <div class="sb-sub">Hệ thống quản lý sản xuất</div>
@@ -291,6 +298,9 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
+  <button class="sidebar-toggle" id="primary-sidebar-toggle" type="button" aria-controls="primary-sidebar" aria-expanded="true" aria-label="Thu gọn menu chính / 收合主功能選單" title="Thu gọn menu chính / 收合主功能選單" onclick="togglePrimarySidebar()">
+    <i class="ti ti-chevron-left" aria-hidden="true"></i>
+  </button>
 
   <!-- 同步狀態 -->
   <div id="sync-status" style="display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)"></div>
@@ -396,19 +406,16 @@ tr:hover td{background:#f8fafc}
           <section class="cutting-operation-panel">
             <div class="cutting-command-row cutting-command-row-template">
               <div class="cutting-context-grid cutting-template-context-grid">
-                <div class="cutting-context-item">
+                <button type="button" class="cutting-context-item cutting-file-picker" id="cut-template-drop" aria-describedby="cut-template-file-helper" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)">
                   <i class="ti ti-file-spreadsheet"></i>
                   <div>
                     <span class="cutting-context-copy"><strong>Tệp mẫu đang chọn</strong><span>目前選擇的模板檔案</span></span>
                     <div class="cutting-file-name" id="cut-template-file-name"></div>
-                    <div class="cutting-context-note">Chỉ nhận .xlsx với cột A–K.<br>僅接受 .xlsx、A–K 固定欄位。</div>
+                    <div class="cutting-context-note" id="cut-template-file-helper">Nhấp để chọn hoặc kéo tệp .xlsx.<br>點擊選擇或拖入 .xlsx 模板。</div>
                   </div>
-                </div>
+                </button>
               </div>
               <div class="cutting-command-actions">
-                <button type="button" class="cutting-command-action" id="cut-template-drop" onclick="cuttingPickTemplate()" ondragover="cuttingImportDragOver(event)" ondragleave="cuttingImportDragLeave(event)" ondrop="cuttingTemplateDrop(event)">
-                  <i class="ti ti-folder-open"></i><span class="cutting-action-copy"><strong>Chọn tệp</strong><span>選擇檔案</span></span>
-                </button>
                 <button type="button" class="cutting-command-action is-primary" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()">
                   <i class="ti ti-check"></i><span class="cutting-action-copy"><strong>Xác nhận mẫu</strong><span>確認模板</span></span>
                 </button>
@@ -426,7 +433,7 @@ tr:hover td{background:#f8fafc}
           </section>
 
           <section class="cutting-data-section" id="cut-template-analysis" style="display:none">
-            <div class="cutting-section-header"><i class="ti ti-file-search"></i><span class="cutting-section-copy"><strong>Kết quả phân tích mẫu</strong><span>模板分析結果</span></span></div>
+            <div class="cutting-section-header"><i class="ti ti-file-search"></i><span class="cutting-section-copy"><strong>Kiểm tra mẫu</strong><span>模板檢查</span></span></div>
             <div id="cut-template-analysis-body"></div>
           </section>
 
@@ -459,26 +466,17 @@ tr:hover td{background:#f8fafc}
                     <div class="nt nw" id="cut-pdf-tool-status"><i class="ti ti-loader"></i><div>Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...</div></div>
                   </div>
                 </div>
-                <div class="cutting-context-item">
+                <button type="button" class="cutting-context-item cutting-file-picker" id="cut-order-drop" aria-describedby="cut-order-file-helper" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)">
                   <i class="ti ti-file-spreadsheet"></i>
                   <div>
                     <span class="cutting-context-copy"><strong>Tệp đơn hàng</strong><span>訂單檔案</span></span>
                     <div class="cutting-file-name" id="cut-order-file-name"></div>
-                    <div class="cutting-context-note">Hỗ trợ .xlsx và .xls.<br>支援 .xlsx、.xls。</div>
+                    <div class="cutting-context-note" id="cut-order-file-helper">Nhấp để chọn hoặc kéo tệp .xlsx, .xls.<br>點擊選擇或拖入 .xlsx、.xls 訂單。</div>
                   </div>
-                </div>
+                </button>
               </div>
-              <div class="cutting-command-actions">
-                <button type="button" class="cutting-command-action" id="cut-order-drop" onclick="cuttingPickOrder()" ondragover="cuttingOrderDragOver(event)" ondragleave="cuttingOrderDragLeave(event)" ondrop="cuttingOrderDrop(event)">
-                  <i class="ti ti-folder-open"></i><span class="cutting-action-copy"><strong>Chọn tệp</strong><span>選擇檔案</span></span>
-                </button>
-                <button type="button" class="cutting-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
-                  <i class="ti ti-player-play"></i><span class="cutting-action-copy"><strong>Mở PDF</strong><span>啟動 PDF 工具</span></span>
-                </button>
-                <button type="button" class="cutting-command-action" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()">
-                  <i class="ti ti-refresh"></i><span class="cutting-action-copy"><strong>Kiểm tra PDF</strong><span>檢查狀態</span></span>
-                </button>
-                <details class="cutting-disclosure" data-ui-dismiss-outside>
+              <div class="cutting-command-actions" id="cut-order-actions">
+                <details class="cutting-disclosure" data-ui-dismiss-outside data-ui-dismiss-on-content>
                   <summary class="cutting-command-summary"><i class="ti ti-book"></i><span class="cutting-action-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
                   <div class="cutting-guide-panel">
                     <h3>Thiết lập lần đầu:</h3>
@@ -495,11 +493,11 @@ tr:hover td{background:#f8fafc}
                     </ol>
                   </div>
                 </details>
-                <button type="button" class="cutting-command-action is-primary" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
-                  <i class="ti ti-eye"></i><span class="cutting-action-copy"><strong>Xem trước</strong><span>預覽</span></span>
+                <button type="button" class="cutting-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
+                  <i class="ti ti-player-play"></i><span class="cutting-action-copy"><strong>Mở PDF</strong><span>啟動 PDF 工具</span></span>
                 </button>
-                <button type="button" class="cutting-command-action" id="cut-unregister-pdf-tool-btn" onclick="cuttingUnregisterPdfTool()">
-                  <i class="ti ti-unlink"></i><span class="cutting-action-copy"><strong>Hủy liên kết</strong><span>取消啟動路徑</span></span>
+                <button type="button" class="cutting-command-action is-primary" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
+                  <i class="ti ti-file-export"></i><span class="cutting-action-copy"><strong>Xuất PDF</strong><span>匯出 PDF</span></span>
                 </button>
                 <button type="button" class="cutting-command-action is-danger" onclick="cuttingClearCurrent()">
                   <i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span>
@@ -516,11 +514,11 @@ tr:hover td{background:#f8fafc}
             <div class="cutting-summary-item is-danger"><div class="cutting-summary-label">Lỗi<span>錯誤</span></div><div class="cutting-summary-value" id="cut-error">0</div></div>
           </div>
 
-          <div id="cut-alert" class="nt nw" style="margin-bottom:12px"></div>
+          <div id="cut-alert" class="nt" style="display:none"></div>
 
           <section class="cutting-data-section" id="cut-missing-box" style="display:none">
             <div class="cutting-section-header"><i class="ti ti-alert-triangle"></i><span class="cutting-section-copy"><strong>Mã hàng thiếu mẫu</strong><span>缺少模板款號</span></span></div>
-            <div class="to"><table>
+            <div class="to cutting-page-table"><table>
               <thead><tr>
                 <th>Trạng thái<br><span class="tv">狀態</span></th>
                 <th>Mã hàng<br><span class="tv">款號</span></th>
@@ -531,22 +529,17 @@ tr:hover td{background:#f8fafc}
             </table></div>
           </section>
 
-          <section class="cutting-data-section">
-            <div class="cutting-section-header"><i class="ti ti-list-check"></i><span class="cutting-section-copy"><strong>Kết quả đối chiếu</strong><span>比對結果</span></span></div>
-            <div class="to"><div class="ts">
-              <table>
-                <thead><tr>
-                  <th>Mã hàng<br><span class="tv">款號</span></th>
-                  <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
-                  <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
-                  <th style="text-align:right">Tổng dây<br><span class="tv">裁段總數</span></th>
-                  <th style="text-align:right">SL suy ngược<br><span class="tv">反推數量</span></th>
-                  <th>Ô sẽ điền<br><span class="tv">將填入儲存格</span></th>
-                  <th>Trạng thái<br><span class="tv">狀態</span></th>
-                </tr></thead>
-                <tbody id="cut-result-tb"></tbody>
-              </table>
-            </div></div>
+          <!-- cut-error-box（裁帶錯誤區）：只顯示使用者可處理的款號、原因與處理方式。 -->
+          <section class="cutting-data-section" id="cut-error-box" style="display:none">
+            <div class="cutting-section-header"><i class="ti ti-alert-circle"></i><span class="cutting-section-copy"><strong>Mã hàng cần sửa</strong><span>需要修正的款號</span></span></div>
+            <div class="to cutting-page-table"><table>
+              <thead><tr>
+                <th>Mã hàng<br><span class="tv">款號</span></th>
+                <th>Nguyên nhân<br><span class="tv">原因</span></th>
+                <th>Cách xử lý<br><span class="tv">處理方式</span></th>
+              </tr></thead>
+              <tbody id="cut-error-list"></tbody>
+            </table></div>
           </section>
         </div>
 
@@ -795,7 +788,7 @@ tr:hover td{background:#f8fafc}
   </div></div>
 
   <div class="mb" id="m-cutting-preview"><div class="md wide" style="width:880px">
-    <div class="mt2"><span><i class="ti ti-eye"></i> Xem trước thống kê dây cắt / 裁帶統計預覽</span><button class="btn bsm" onclick="cm('m-cutting-preview')"><i class="ti ti-x"></i></button></div>
+    <div class="mt2"><span><i class="ti ti-file-export"></i> Xác nhận xuất PDF / 確認匯出 PDF</span><button class="btn bsm" onclick="cm('m-cutting-preview')"><i class="ti ti-x"></i></button></div>
     <div id="cut-preview-body"></div>
     <!-- align-items:flex-end（下方控制項底部對齊） -->
     <div class="br" style="align-items:flex-end">
@@ -962,17 +955,37 @@ tr:hover td{background:#f8fafc}
 <script src="js/safe-dom.js?v=20260806-1"></script>
 <script src="js/ui-text.js?v=20260807-1"></script>
 <script src="js/ui-runtime.js?v=20260807-1"></script>
-<script src="js/ui-components.js?v=20260808-1"></script>
+<script src="js/ui-components.js?v=20260808-2"></script>
 <script src="js/ui-file-drop.js?v=20260808-1"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-1"></script>
+<script src="js/features.js?v=20260808-3"></script>
 <script src="js/auth.js?v=20260806-8"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
 <script type="module" src="js/firebase.js?v=20260806-7"></script>
 
 <script>
+// setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。
+function setSidebarCollapsed(collapsed){
+  const shell=document.getElementById('app-shell');
+  const toggle=document.getElementById('primary-sidebar-toggle');
+  if(!shell||!toggle) return;
+  const shouldCollapse=collapsed===true;
+  shell.classList.toggle('sidebar-collapsed',shouldCollapse);
+  toggle.setAttribute('aria-expanded',String(!shouldCollapse));
+  const label=shouldCollapse?'Mở menu chính / 展開主功能選單':'Thu gọn menu chính / 收合主功能選單';
+  toggle.setAttribute('aria-label',label);
+  toggle.title=label;
+  const icon=toggle.querySelector('i');
+  if(icon) icon.className=shouldCollapse?'ti ti-chevron-right':'ti ti-chevron-left';
+}
+
+function togglePrimarySidebar(){
+  const shell=document.getElementById('app-shell');
+  setSidebarCollapsed(!(shell&&shell.classList.contains('sidebar-collapsed')));
+}
+
 function setManagementNavOpen(open){
   const group=document.getElementById('management-nav');
   const toggle=document.getElementById('management-toggle');
@@ -989,6 +1002,13 @@ function toggleManagementNav(){
 // 頁面載入後初始化
 window.addEventListener('DOMContentLoaded', () => {
   setManagementNavOpen(false);
+  setSidebarCollapsed(false);
+  const main=document.getElementById('ma');
+  if(main){
+    new MutationObserver(()=>{
+      if(main.classList.contains('hidden')) setSidebarCollapsed(false);
+    }).observe(main,{attributes:true,attributeFilter:['class']});
+  }
 });
 </script>
 

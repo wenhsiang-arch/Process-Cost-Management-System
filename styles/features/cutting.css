@@ -101,6 +101,7 @@
 .cutting-command-row {
   display: grid;
   min-width: 0;
+  min-height: var(--ui-action-tile-height);
   grid-template-columns: minmax(340px, 1fr) auto;
   align-items: stretch;
 }
@@ -108,8 +109,10 @@
 .cutting-context-grid {
   display: grid;
   min-width: 0;
+  height: var(--ui-action-tile-height);
   grid-template-columns: repeat(2, minmax(160px, 1fr));
   align-items: stretch;
+  overflow: hidden;
 }
 
 .cutting-template-context-grid {
@@ -118,16 +121,64 @@
 
 .cutting-context-item {
   display: grid;
+  width: 100%;
   min-width: 0;
   grid-template-columns: auto minmax(0, 1fr);
   align-content: center;
   align-items: center;
   gap: 6px 10px;
-  padding: 10px 14px;
+  padding: 7px 14px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  overflow: hidden;
+  text-align: left;
 }
 
-.cutting-context-item + .cutting-context-item {
+.cutting-context-item > div {
+  min-width: 0;
+}
+
+.cutting-context-item + .cutting-context-item:not(.cutting-file-picker) {
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
+}
+
+.cutting-file-picker {
+  width: calc(100% - 10px);
+  height: calc(var(--ui-action-tile-height) - 10px);
+  margin: 5px;
+  padding: 7px 10px;
+  border: 1px dashed var(--ui-color-primary);
+  border-radius: var(--ui-radius-control);
+  background: color-mix(in srgb, var(--ui-color-primary-soft) 52%, transparent);
+  cursor: pointer;
+  transition: border-color var(--ui-motion-fast), background var(--ui-motion-fast), box-shadow var(--ui-motion-fast);
+}
+
+.cutting-file-picker:hover:not(:disabled),
+.cutting-file-picker.dragging {
+  border-color: var(--ui-color-primary-hover);
+  background: var(--ui-color-primary-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-color-focus-ring);
+}
+
+.cutting-file-picker:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: -3px;
+}
+
+.cutting-file-picker:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.cutting-file-picker.is-filled {
+  background: color-mix(in srgb, var(--ui-color-primary-soft) 72%, var(--ui-color-surface));
+}
+
+.cutting-file-picker.is-filled .cutting-context-note {
+  display: none;
 }
 
 .cutting-context-item > i {
@@ -137,33 +188,74 @@
 }
 
 .cutting-file-name {
-  min-height: 14px;
+  display: -webkit-box;
+  min-height: 0;
+  max-height: 26px;
   margin-top: 4px;
   color: var(--ui-color-text);
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .cutting-context-note {
+  display: -webkit-box;
+  max-height: 26px;
   margin-top: 3px;
   color: var(--ui-color-text-muted);
   font-size: 9px;
   line-height: 1.35;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 #pg-cutting #cut-pdf-tool-status {
   min-height: 0;
+  max-height: 44px;
   margin: 4px 0 0;
-  padding: 5px 7px;
+  padding: 4px 6px;
   border-radius: var(--ui-radius-control);
   font-size: 9px;
-  line-height: 1.3;
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+#pg-cutting #cut-pdf-tool-status > i {
+  font-size: 13px;
+}
+
+.cutting-status-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.cutting-status-vi,
+.cutting-status-zh {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+}
+
+.cutting-status-vi {
+  -webkit-line-clamp: 2;
+}
+
+.cutting-status-zh {
+  color: inherit;
+  opacity: .82;
+  -webkit-line-clamp: 1;
 }
 
 .cutting-command-actions {
   display: flex;
   min-width: 0;
+  height: var(--ui-action-tile-height);
   align-items: stretch;
   justify-content: flex-start;
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
@@ -193,6 +285,17 @@
 
 .cutting-command-action:first-child {
   border-left: 0;
+}
+
+.cutting-command-action[hidden],
+.cutting-disclosure[hidden],
+.cutting-menu-action[hidden] {
+  display: none;
+}
+
+.cutting-command-actions > :last-child,
+.cutting-command-actions > :last-child > summary {
+  border-radius: 0 calc(var(--ui-radius-panel) - 1px) calc(var(--ui-radius-panel) - 1px) 0;
 }
 
 .cutting-command-action > i,
@@ -239,12 +342,6 @@
 
 .cutting-command-action.is-danger:hover:not(:disabled) {
   background: var(--ui-color-danger-background);
-}
-
-.cutting-command-action.dragging {
-  outline: 3px solid var(--ui-color-focus-ring);
-  outline-offset: -5px;
-  background: var(--ui-color-primary-soft);
 }
 
 .cutting-disclosure {
@@ -305,10 +402,35 @@
   margin-bottom: 0;
 }
 
+.cutting-guide-dialog-content {
+  color: var(--ui-color-text);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.cutting-guide-dialog-content h3 {
+  margin-bottom: 8px;
+  color: var(--ui-color-text);
+  font-size: 13px;
+}
+
+.cutting-guide-dialog-content ol {
+  margin: 0 0 14px 20px;
+}
+
+.cutting-guide-dialog-content ol:last-child {
+  margin-bottom: 0;
+}
+
 .cutting-more-menu {
   display: grid;
   width: 230px;
   padding: 6px;
+}
+
+.cutting-overflow-disclosure .cutting-more-menu {
+  max-height: min(420px, 60vh);
+  overflow-y: auto;
 }
 
 .cutting-menu-action {
@@ -323,6 +445,11 @@
   color: var(--ui-color-text);
   cursor: pointer;
   font: inherit;
+  text-align: left;
+}
+
+.cutting-menu-action .cutting-action-copy {
+  align-items: flex-start;
   text-align: left;
 }
 
@@ -425,9 +552,22 @@
 }
 
 #pg-cutting #cut-alert {
+  width: auto;
+  max-width: 100%;
   min-height: 0;
   padding: 8px 11px;
   margin-bottom: var(--ui-space-3);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+#pg-cutting #cut-alert[style*="display: none"] {
+  margin-bottom: 0;
+}
+
+.cutting-inline-result {
+  margin: 0;
+  padding: 8px 11px;
   font-size: 11px;
   line-height: 1.35;
 }
@@ -463,6 +603,11 @@
   max-height: none;
   overflow-x: auto;
   overflow-y: visible;
+}
+
+/* cutting-page-table（裁帶頁面表格）：缺少模板與錯誤清單使用頁面捲動，不建立第二層左右捲軸。 */
+#pg-cutting .cutting-page-table {
+  overflow: visible;
 }
 
 #pg-cutting .cutting-history-scroll {
@@ -550,7 +695,7 @@
   }
 
   .cutting-command-row {
-    grid-template-columns: minmax(300px, 1fr) auto;
+    grid-template-columns: minmax(280px, 1fr) auto;
   }
 
   .cutting-context-grid {
@@ -559,10 +704,20 @@
 
   .cutting-context-item {
     gap: 5px 8px;
-    padding: 8px 10px;
+    padding: 7px 10px;
   }
 
   .cutting-context-item > i {
     font-size: 24px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .cutting-command-row {
+    grid-template-columns: minmax(230px, 1fr) auto;
+  }
+
+  .cutting-context-grid {
+    grid-template-columns: repeat(2, minmax(130px, 1fr));
   }
 }

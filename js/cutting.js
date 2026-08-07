@@ -37,6 +37,46 @@
     if(el) el.innerHTML = value;
   }
 
+  // setTemplateFileDisplay（設定模板檔案顯示）：檔案框同時提供選擇、拖入及更換檔案入口。
+  function setTemplateFileDisplay(value = ''){
+    const fileName = String(value || '').trim(); // fileName（模板檔案顯示名稱）
+    const target = g('cut-template-file-name'); // target（模板檔名元件）
+    const helper = g('cut-template-file-helper'); // helper（模板檔案操作提示）
+    const picker = g('cut-template-drop'); // picker（模板檔案框）
+    if(target){
+      target.textContent = fileName;
+      target.title = fileName;
+      target.hidden = !fileName;
+    }
+    if(helper){
+      helper.hidden = !!fileName;
+      helper.innerHTML = fileName
+        ? 'Nhấp để thay thế · Chỉ nhận cột A–K.<br>點擊可更換 · 僅接受 A–K 固定欄位。'
+        : 'Nhấp để chọn hoặc kéo tệp .xlsx.<br>點擊選擇或拖入 .xlsx 模板。';
+    }
+    picker?.classList.toggle('is-filled', !!fileName);
+  }
+
+  // setOrderFileDisplay（設定訂單檔案顯示）：檔案框同時提供選擇、拖入及更換檔案入口。
+  function setOrderFileDisplay(value = ''){
+    const fileName = String(value || '').trim(); // fileName（訂單檔案顯示名稱）
+    const target = g('cut-order-file-name'); // target（訂單檔名元件）
+    const helper = g('cut-order-file-helper'); // helper（訂單檔案操作提示）
+    const picker = g('cut-order-drop'); // picker（訂單檔案框）
+    if(target){
+      target.textContent = fileName;
+      target.title = fileName;
+      target.hidden = !fileName;
+    }
+    if(helper){
+      helper.hidden = !!fileName;
+      helper.innerHTML = fileName
+        ? 'Nhấp để thay thế tệp.<br>點擊可更換檔案。'
+        : 'Nhấp để chọn hoặc kéo tệp .xlsx, .xls.<br>點擊選擇或拖入 .xlsx、.xls 訂單。';
+    }
+    picker?.classList.toggle('is-filled', !!fileName);
+  }
+
   // showCuttingFileDropMessage（顯示裁帶拖曳結果）：格式或數量不符時提供雙語原因。
   function showCuttingFileDropMessage(detail){
     const message = detail?.message || {vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
@@ -514,7 +554,7 @@
     const confirmButton = g('cut-template-confirm-btn'); // confirmButton（確認模板按鈕）
     if(confirmButton) confirmButton.disabled = !!busy || !state.pendingTemplateFile || !state.pendingBook;
     const drop = g('cut-template-drop');
-    if(drop) drop.style.pointerEvents = busy ? 'none' : '';
+    if(drop) drop.disabled = !!busy;
   }
 
   // clearPendingTemplate（清除待確認模板）：新檔案分析失敗時不得沿用上一份已通過資料。
@@ -847,47 +887,19 @@
       return;
     }
     box.style.display = 'block';
+    const hasAttention = !!(book.warningCount || book.noticeCount); // hasAttention（模板是否有需注意內容）
+    const statusClass = book.warningCount ? 'nw' : (book.noticeCount ? 'nw' : 'ns'); // statusClass（模板檢查狀態樣式）
+    const statusIcon = hasAttention ? 'ti-alert-triangle' : 'ti-circle-check'; // statusIcon（模板檢查狀態圖示）
+    const statusText = book.warningCount
+      ? '<strong>Mẫu chưa đạt, vui lòng sửa theo thông báo.</strong><br><span class="tv">模板尚未通過，請依提示修正。</span>'
+      : (book.noticeCount
+        ? `<strong>Kiểm tra mẫu hoàn tất, có ${fmtNum(book.noticeCount)} mục cần xác nhận.</strong><br><span class="tv">模板檢查完成，有 ${fmtNum(book.noticeCount)} 項需要確認。</span>`
+        : '<strong>Kiểm tra mẫu đạt.</strong><br><span class="tv">模板檢查通過。</span>'); // statusText（模板檢查雙語結果）
     html('cut-template-analysis-body', `
-      <div class="mg">
-        <div class="mc"><div class="ml">Số sheet</div><div class="mvi">工作表</div><div class="mv">${fmtNum(book.sheetCount)}</div></div>
-        <div class="mc"><div class="ml">Mã hàng</div><div class="mvi">款號</div><div class="mv">${fmtNum(book.itemCount)}</div></div>
-        <div class="mc"><div class="ml">Dòng cần điền</div><div class="mvi">填寫列數</div><div class="mv">${fmtNum(book.rowCount)}</div></div>
-        <div class="mc"><div class="ml">Lỗi</div><div class="mvi">錯誤</div><div class="mv">${fmtNum(book.warningCount)}</div></div>
-        <div class="mc"><div class="ml">Cảnh báo</div><div class="mvi">提醒</div><div class="mv">${fmtNum(book.noticeCount)}</div></div>
+      <div class="nt ${statusClass} cutting-inline-result">
+        <i class="ti ${statusIcon}"></i>
+        <div>${statusText}</div>
       </div>
-      <div class="nt ${book.warningCount || book.noticeCount ? 'nw' : 'ns'}" style="margin-bottom:12px">
-        <i class="ti ${book.warningCount || book.noticeCount ? 'ti-alert-triangle' : 'ti-circle-check'}"></i>
-        <div>${book.warningCount
-          ? 'Một số sheet không đúng mẫu cố định A-K. / 部分工作表不符合 A-K 固定新規格。'
-          : (book.noticeCount
-            ? 'Có nhóm có số kiện khác nhau, nhưng vẫn có thể nhập mẫu. / 部分組別的每件條數不同，但仍可匯入模板。'
-            : 'Đã xác nhận cấu trúc cố định A-K. / 已確認 A-K 固定新規格。')}</div>
-      </div>
-      ${book.warningCount ? `
-        <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Chi tiết cần sửa / 需要修改的位置</div>
-        ${templateIssuesHtml(book, 50)}
-      ` : ''}
-      ${book.noticeCount ? `
-        <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Cảnh báo số kiện / 每件條數提醒</div>
-        ${templateNoticesHtml(book, 50)}
-      ` : ''}
-      <div style="font-weight:700;color:var(--navy);margin:10px 0 8px">Vị trí điền số lượng theo mã hàng / 款號數量填寫位置</div>
-      <div class="to"><div class="ts" style="max-height:240px"><table>
-        <thead><tr>
-          <th>Mã hàng<br><span class="tv">款號</span></th>
-          <th style="text-align:right">Số dây/SP<br><span class="tv">每件條數</span></th>
-          <th style="text-align:right">Số dòng<br><span class="tv">列數</span></th>
-          <th>Vị trí điền SL<br><span class="tv">數量填寫位置</span></th>
-        </tr></thead>
-        <tbody>
-          ${book.codes.slice(0, 80).map(item => `<tr>
-            <td><b>${esc(item.code)}</b></td>
-            <td style="text-align:right">${fmtNum(item.piecesPerItem)}</td>
-            <td style="text-align:right">${fmtNum(item.rows.length)}</td>
-            <td>${esc(item.rows.slice(0, 6).map(r => `${r.sheetName}!${r.qtyCell}`).join(', '))}${item.rows.length > 6 ? '...' : ''}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table></div></div>
     `);
   }
 
@@ -975,7 +987,7 @@
       await setTemplateProgress(92, 'Đang làm mới danh sách mẫu... / 正在更新模板清單...', 'Sắp hoàn tất. / 即將完成。');
       state.pendingTemplateFile = null;
       state.pendingBook = null;
-      text('cut-template-file-name', '');
+      setTemplateFileDisplay('');
       renderTemplateAnalysis(null);
       await refreshTemplates();
       if(window.saveOperationLogToFB){
@@ -1008,12 +1020,13 @@
 
   async function cuttingAnalyzeTemplateFile(file){
     clearPendingTemplate();
+    setTemplateFileDisplay('');
     if(!isXlsxTemplateFile(file)){
       setTemplateBusy(false);
       alertTemplateFileTypeError(file.name);
       return;
     }
-    text('cut-template-file-name', file.name);
+    setTemplateFileDisplay(file.name);
     setTemplateBusy(true);
     try{
       await window.PCMSFeatures.ensureSpreadsheetTool();
@@ -1161,8 +1174,8 @@
     state.orderLabel = '';
     state.results = [];
     clearPendingTemplate();
-    text('cut-template-file-name', '');
-    text('cut-order-file-name', '');
+    setTemplateFileDisplay('');
+    setOrderFileDisplay('');
     setTemplateBusy(false);
     renderTemplateAnalysis(null);
     renderResults();
@@ -1172,7 +1185,7 @@
     clearPendingTemplate();
     const input = g('cut-template-file');
     if(input) input.value = '';
-    text('cut-template-file-name', '');
+    setTemplateFileDisplay('');
     hideTemplateProgress();
     setTemplateBusy(false);
     renderTemplateAnalysis(null);
@@ -1356,7 +1369,7 @@
   async function cuttingHandleOrderFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
-    text('cut-order-file-name', file.name);
+    setOrderFileDisplay(file.name);
     state.orderLabel = '';
     try{
       await window.PCMSFeatures.ensureSpreadsheetTool();
@@ -1368,7 +1381,7 @@
         state.orderItems = [];
         state.orderLabel = '';
         state.results = [];
-        text('cut-order-file-name', `${file.name}（${sheetCount} trang tính, bị từ chối / 共 ${sheetCount} 個工作表，已禁止匯入）`);
+        setOrderFileDisplay(`${file.name}（${sheetCount} trang tính, bị từ chối / 共 ${sheetCount} 個工作表，已禁止匯入）`);
         recomputeResults();
         alert(
           `Tệp đơn hàng chỉ được có 1 trang tính.\n` +
@@ -1394,7 +1407,7 @@
       all.forEach(item => merged.set(item.code, (merged.get(item.code) || 0) + item.qty));
       state.orderItems = Array.from(merged.entries()).map(([code, qty]) => ({code, qty}));
       if(!state.orderItems.length){
-        text('cut-order-file-name', file.name + '（không đọc được mã hàng / 未讀到款號）');
+        setOrderFileDisplay(file.name + '（không đọc được mã hàng / 未讀到款號）');
         alert('Không đọc được mã hàng và số lượng trong đơn hàng.\n訂單內沒有讀到款號與數量。\n\n請確認訂單表裡有款號欄與數量欄。');
       }
       recomputeResults();
@@ -1427,7 +1440,17 @@
     const passed = Array.from(grouped.values()).map(template => {
       const pieces = Number(template.piecesPerItem || 0);
       if(pieces <= 0){
-        return {...template, piecesPerItem:pieces, totalPieces:0, reverseQty:0, status:'error'};
+        return {
+          ...template,
+          piecesPerItem:pieces,
+          totalPieces:0,
+          reverseQty:0,
+          status:'error',
+          reasonVi:'Số dây/SP trong mẫu đang trống hoặc bằng 0.',
+          reasonZh:'模板中的每件條數空白或為 0。',
+          solutionVi:'Sửa số dây/SP trong mẫu rồi nhập lại mẫu.',
+          solutionZh:'請修正模板的每件條數後重新匯入模板。'
+        };
       }
       const totalPieces = template.qty * pieces;
       const reverseQty = totalPieces / pieces;
@@ -1435,12 +1458,6 @@
     });
     state.results = [...passed, ...missing];
     renderResults();
-  }
-
-  function statusBadge(result){
-    if(result.status === 'pass') return '<span class="tg tg2">Đạt / 通過</span>';
-    if(result.status === 'missing') return '<span class="tg tr2">Thiếu mẫu / 缺少模板</span>';
-    return '<span class="tg tr2">Lỗi / 錯誤</span>';
   }
 
   function renderResults(){
@@ -1458,23 +1475,23 @@
 
     const alertBox = g('cut-alert');
     if(alertBox){
-      if(!state.templates.length){
-        alertBox.className = 'nt nw';
-        alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Vui lòng nhập mẫu Excel trước. Hệ thống sẽ giữ nguyên file mẫu, chỉ phân tích vị trí cần điền số lượng.<br>請先匯入 Excel 模板。系統會保留原始模板檔，只分析要填數量的位置。</div>';
-      } else if(!total){
-        alertBox.className = 'nt nw';
-        alertBox.innerHTML = '<i class="ti ti-info-circle"></i><div>Đã có mẫu, vui lòng nhập đơn hàng để kiểm tra.<br>已有模板，請匯入訂單進行比對。</div>';
-      } else if(canPreview && missing.length){
-        alertBox.className = 'nt nw';
-        alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Có thể xuất ${fmtNum(passed)} mã hàng có mẫu. ${fmtNum(missing.length)} mã hàng thiếu mẫu sẽ không vào PDF.<br>可匯出 ${fmtNum(passed)} 個有模板款號。${fmtNum(missing.length)} 個缺少模板款號不會進入 PDF。</div>`;
-      } else if(canPreview){
-        alertBox.className = 'nt ns';
-        alertBox.innerHTML = `<i class="ti ti-check"></i><div>Kiểm tra đạt: ${fmtNum(total)} mã hàng đều có mẫu. Có thể xuất Excel thành phẩm từ mẫu gốc để giữ nguyên màu sắc và hình ảnh.<br>檢查通過：${fmtNum(total)} 個款號都有模板。可用原始 Excel 模板匯出成品，保留配色與圖片。</div>`;
-      } else {
+      if(!total){
+        alertBox.className = 'nt';
+        alertBox.innerHTML = '';
+        alertBox.style.display = 'none';
+      } else if(errors.length){
         alertBox.className = 'nt nd';
-        alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div>Không thể xuất: chưa có mã hàng có mẫu hoặc còn ${fmtNum(errors.length)} lỗi.<br>不可匯出：沒有可匯出的有模板款號，或仍有 ${fmtNum(errors.length)} 筆錯誤。</div>`;
+        alertBox.innerHTML = `<i class="ti ti-alert-circle"></i><div><strong>Phát hiện ${fmtNum(errors.length)} mã hàng cần sửa.</strong><br><span class="tv">發現 ${fmtNum(errors.length)} 個款號需要修正。</span></div>`;
+        alertBox.style.display = 'inline-flex';
+      } else if(missing.length){
+        alertBox.className = 'nt nw';
+        alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div><strong>Thiếu mẫu cho ${fmtNum(missing.length)} mã hàng.</strong><br><span class="tv">${fmtNum(missing.length)} 個款號缺少模板。</span></div>`;
+        alertBox.style.display = 'inline-flex';
+      } else {
+        alertBox.className = 'nt';
+        alertBox.innerHTML = '';
+        alertBox.style.display = 'none';
       }
-      alertBox.style.display = 'flex';
     }
 
     const missingBox = g('cut-missing-box');
@@ -1483,10 +1500,10 @@
         missingBox.style.display = 'block';
         html('cut-missing-list', missing.map(r => `
           <tr>
-            <td><span class="tg tr2">Thiếu mẫu / 缺少模板</span></td>
+            <td><span class="tg tr2">Thiếu mẫu<br><span class="tv">缺少模板</span></span></td>
             <td><b>${esc(r.code)}</b></td>
             <td style="text-align:right">${fmtNum(r.qty)}</td>
-            <td>Không tìm thấy mã hàng này trong mẫu Excel đã nhập.<br>已匯入的 Excel 模板中找不到此款號。</td>
+            <td>Nhập mẫu có mã hàng này, sau đó chọn lại đơn hàng.<br><span class="tv">請先匯入包含此款號的模板，再重新選擇訂單。</span></td>
           </tr>
         `).join(''));
       } else {
@@ -1495,23 +1512,22 @@
       }
     }
 
-    const tb = g('cut-result-tb');
-    if(!tb) return;
-    if(!state.results.length){
-      tb.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mu);padding:22px">Chưa có dữ liệu / 尚無資料</td></tr>';
-      return;
+    const errorBox = g('cut-error-box'); // errorBox（裁帶錯誤區）
+    if(errorBox){
+      if(errors.length){
+        errorBox.style.display = 'block';
+        html('cut-error-list', errors.map(result => `
+          <tr>
+            <td><b>${esc(result.code)}</b></td>
+            <td>${esc(result.reasonVi || 'Dữ liệu mẫu không hợp lệ.')}<br><span class="tv">${esc(result.reasonZh || '模板資料無效。')}</span></td>
+            <td>${esc(result.solutionVi || 'Kiểm tra và nhập lại mẫu.')}<br><span class="tv">${esc(result.solutionZh || '請檢查並重新匯入模板。')}</span></td>
+          </tr>
+        `).join(''));
+      }else{
+        errorBox.style.display = 'none';
+        html('cut-error-list', '');
+      }
     }
-    tb.innerHTML = state.results.map(r => `
-      <tr>
-        <td><b>${esc(r.code)}</b>${r.fileName ? `<div style="font-size:10px;color:var(--mu);margin-top:2px">${esc(r.fileName)}</div>` : ''}</td>
-        <td style="text-align:right">${fmtNum(r.qty)}</td>
-        <td style="text-align:right">${r.piecesPerItem ? fmtNum(r.piecesPerItem) : '-'}</td>
-        <td style="text-align:right">${r.totalPieces ? fmtNum(r.totalPieces) : '-'}</td>
-        <td style="text-align:right">${r.reverseQty ? fmtNum(r.reverseQty) : '-'}</td>
-        <td>${r.rows ? esc(r.rows.slice(0, 4).map(x => `${x.sheetName}!${x.qtyCell}`).join(', ')) : '-'}</td>
-        <td>${statusBadge(r)}</td>
-      </tr>
-    `).join('');
   }
 
   function buildPreviewHtml(){
@@ -1682,34 +1698,39 @@
     ];
   }
 
-  function setPdfToolStatus(status, detail = ''){
+  function setPdfToolStatus(status){
     const box = g('cut-pdf-tool-status');
     if(!box) return;
     const map = {
       checking: {
         cls: 'nt nw',
         icon: 'ti-loader',
-        text: 'Đang kiểm tra công cụ PDF... / 正在檢查 PDF 工具...'
+        vi: 'Đang kiểm tra công cụ PDF...',
+        zh: '正在檢查 PDF 工具...'
       },
       requested: {
         cls: 'nt nw',
         icon: 'ti-send',
-        text: 'Đã gửi yêu cầu khởi động. / 已送出啟動要求。'
+        vi: 'Đang khởi động công cụ PDF...',
+        zh: '正在啟動 PDF 工具...'
       },
       online: {
         cls: 'nt ns',
         icon: 'ti-circle-check',
-        text: 'Đã mở công cụ PDF / PDF 工具已啟動'
+        vi: 'Đã mở công cụ PDF.',
+        zh: 'PDF 工具已啟動。'
       },
       offline: {
         cls: 'nt nw',
         icon: 'ti-alert-circle',
-        text: 'Chưa mở công cụ PDF trên máy này. / 本機尚未啟動 PDF 工具。'
+        vi: 'Chưa mở công cụ PDF trên máy này.',
+        zh: '本機尚未啟動 PDF 工具。'
       }
     };
     const item = map[status] || map.offline;
     box.className = item.cls;
-    box.innerHTML = `<i class="ti ${item.icon}"></i><div>${item.text}${detail ? `<br><span style="font-size:11px;color:var(--mu)">${esc(detail)}</span>` : ''}</div>`;
+    box.title = `${item.vi}\n${item.zh}`;
+    box.innerHTML = `<i class="ti ${item.icon}"></i><div class="cutting-status-copy"><span class="cutting-status-vi">${item.vi}</span><span class="cutting-status-zh">${item.zh}</span></div>`;
   }
 
   // waitCuttingPdfToolDelay（等待本機 PDF 工具）：只供啟動後短暫輪詢使用。
@@ -1757,13 +1778,13 @@
       if(ready){
         setPdfToolStatus('online');
       }else if(!options.silent){
-        setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
+        setPdfToolStatus('offline');
       }
       return ready;
     }catch(_){
       pdfToolKnownOnline = false;
       if(!options.silent){
-        setPdfToolStatus('offline', 'Vui lòng mở công cụ PDF trước khi tạo file. / 產生檔案前請先開啟 PDF 工具。');
+        setPdfToolStatus('offline');
       }
       return false;
     }finally{
@@ -1789,14 +1810,14 @@
       if(await cuttingCheckPdfToolStatus({silent: true})) return true;
     }
     pdfToolKnownOnline = false;
-    setPdfToolStatus('offline', 'Không thể xác nhận công cụ đã khởi động. / 無法確認工具已啟動。');
+    setPdfToolStatus('offline');
     return false;
   }
 
   // ensureCuttingPdfToolReady（確保本機 PDF 工具就緒）：只在已知未啟動時呼叫固定啟動連結。
   async function ensureCuttingPdfToolReady(){
     if(pdfToolKnownOnline === true) return true;
-    setPdfToolStatus('requested', 'Đang chờ công cụ khởi động... / 正在等待工具啟動...');
+    setPdfToolStatus('requested');
     invokeCuttingLauncher('cuttingpdf://start');
     return waitForCuttingPdfTool();
   }
@@ -1804,7 +1825,7 @@
   // cuttingStartPdfTool（啟動 PDF 工具）：送出本機啟動要求後等待工具回應，避免畫面長時間停在未知狀態。
   async function cuttingStartPdfTool(){
     pdfToolKnownOnline = false;
-    setPdfToolStatus('requested', 'Nếu đã hủy, có thể nhấn lại. / 若已取消，可重新點擊。');
+    setPdfToolStatus('requested');
     invokeCuttingLauncher('cuttingpdf://start');
     await waitForCuttingPdfTool();
   }
@@ -1812,18 +1833,15 @@
   // cuttingUnregisterPdfTool（取消啟動路徑）：確認後只要求本機啟動器移除目前使用者的路徑登記。
   function cuttingUnregisterPdfTool(){
     if(!confirm('Hủy đường dẫn khởi động PDF hiện tại?\n取消目前的 PDF 工具啟動路徑？')) return;
-    const button = g('cut-unregister-pdf-tool-btn'); // button（取消路徑按鈕）
-    if(button?.disabled) return;
-    if(button) button.disabled = true;
+    const buttons = Array.from(document.querySelectorAll('[data-cutting-action-key="unregister"]')); // buttons（取消路徑按鈕）
+    if(buttons.some(button => button.disabled)) return;
+    buttons.forEach(button => { button.disabled = true; });
     pdfToolKnownOnline = false;
-    setPdfToolStatus('checking', 'Đang gửi yêu cầu hủy đường dẫn... / 正在送出取消路徑要求...');
+    setPdfToolStatus('checking');
     invokeCuttingLauncher('cuttingpdf://unregister');
     setTimeout(() => {
-      if(button) button.disabled = false;
-      setPdfToolStatus(
-        'offline',
-        'Đã gửi yêu cầu hủy. Nếu không xuất hiện cửa sổ xác nhận, đường dẫn có thể chưa được đăng ký. / 已送出取消要求；若沒有出現確認視窗，目前可能尚未登記路徑。'
-      );
+      buttons.forEach(button => { button.disabled = false; });
+      setPdfToolStatus('offline');
     }, 2000);
   }
 
@@ -2143,6 +2161,8 @@
     registerCuttingFileDropTargets();
     await refreshTemplates();
     setTemplateBusy(false);
+    setTemplateFileDisplay('');
+    setOrderFileDisplay('');
     cuttingSwitchTab('order');
     cuttingCheckPdfToolStatus();
   }
