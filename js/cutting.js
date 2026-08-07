@@ -22,6 +22,9 @@
   const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
   const PDF_QUALITY_STORAGE_KEY = 'cuttingPdfQuality'; // PDF_QUALITY_STORAGE_KEY（PDF 品質記憶鍵）
   const LOCAL_PDF_REQUEST_TIMEOUT_MS = 15 * 60 * 1000; // LOCAL_PDF_REQUEST_TIMEOUT_MS（本機 PDF 要求等待上限）：最多等待十五分鐘。
+  const PDF_TOOL_START_ACTION_KEY = 'cutting.pdfToolStart'; // PDF_TOOL_START_ACTION_KEY（PDF 工具啟動操作鍵）
+  const PDF_EXPORT_OPEN_ACTION_KEY = 'cutting.openPdfExport'; // PDF_EXPORT_OPEN_ACTION_KEY（PDF 匯出入口操作鍵）
+  const PDF_TOOL_START_TIMEOUT_MS = 10000; // PDF_TOOL_START_TIMEOUT_MS（PDF 工具啟動檢查上限）：只限制背景檢查，不延長按鈕鎖定。
   let pdfToolStatusChecking = false;
   let pdfToolKnownOnline = null; // pdfToolKnownOnline（已知的本機 PDF 工具狀態）：只用來避免使用者白選儲存位置，正式匯出前仍會再次確認。
   let orderLabelDialogResolve = null; // orderLabelDialogResolve（訂單文字視窗回傳函式）
@@ -1494,6 +1497,19 @@
       }
     }
 
+    const resultsEmpty = g('cut-results-empty'); // resultsEmpty（核對結果空狀態）
+    if(resultsEmpty){
+      const hasIssues = missing.length > 0 || errors.length > 0; // hasIssues（是否有需處理的核對問題）
+      resultsEmpty.style.display = hasIssues ? 'none' : 'flex';
+      resultsEmpty.classList.toggle('is-success',total > 0 && !hasIssues);
+      if(!hasIssues){
+        const icon = total > 0 ? 'ti-circle-check' : 'ti-file-search'; // icon（空狀態圖示）
+        const vi = total > 0 ? 'Không có mã hàng thiếu mẫu hoặc lỗi.' : 'Chưa có kết quả kiểm tra.'; // vi（越文空狀態文字）
+        const zh = total > 0 ? '沒有缺少模板或錯誤。' : '尚無核對結果。'; // zh（中文空狀態文字）
+        resultsEmpty.innerHTML = `<i class="ti ${icon}" aria-hidden="true"></i><span class="cutting-results-empty-copy"><strong>${vi}</strong><span>${zh}</span></span>`;
+      }
+    }
+
     const missingBox = g('cut-missing-box');
     if(missingBox){
       if(missing.length){
@@ -1566,18 +1582,31 @@
   }
 
   function cuttingOpenPreview(){
-    const exportableResults = state.results.filter(r => r.status === 'pass');
-    const hasErrors = state.results.some(r => r.status === 'error');
-    if(!exportableResults.length || hasErrors){
-      alert('Không có mã hàng có mẫu để xuất, hoặc vẫn còn lỗi.\n沒有可匯出的有模板款號，或仍有錯誤。');
-      return;
-    }
-    const problems = validateExportResults(exportableResults);
-    const exportBtn = g('cut-export-filled-btn');
-    if(exportBtn) exportBtn.disabled = problems.length > 0;
-    html('cut-preview-body', buildPreviewHtml());
-    restorePdfQualitySelection();
-    om('m-cutting-preview');
+    const openPreview = ()=>{
+      if(isCuttingPdfToolStarting()){
+        showCuttingPdfToolStartingDialog();
+        return false;
+      }
+      const exportableResults = state.results.filter(r => r.status === 'pass');
+      const hasErrors = state.results.some(r => r.status === 'error');
+      if(!exportableResults.length || hasErrors){
+        alert('Không có mã hàng có mẫu để xuất, hoặc vẫn còn lỗi.\n沒有可匯出的有模板款號，或仍有錯誤。');
+        return false;
+      }
+      const problems = validateExportResults(exportableResults);
+      const exportBtn = g('cut-export-filled-btn');
+      if(exportBtn) exportBtn.disabled = problems.length > 0;
+      html('cut-preview-body', buildPreviewHtml());
+      restorePdfQualitySelection();
+      om('m-cutting-preview');
+      return true;
+    }; // openPreview（開啟裁帶 PDF 匯出視窗）
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.runActionOnce !== 'function') return openPreview();
+    return ui.runActionOnce(PDF_EXPORT_OPEN_ACTION_KEY,openPreview,{
+      controls:[g('cut-preview-btn')],
+      cooldownMs:1000
+    });
   }
 
   function templateQtyRows(template){
@@ -1768,7 +1797,7 @@
       const response = await fetchCuttingPdfTool('/health', {
         method: 'GET',
         cache: 'no-store'
-      }, 1800);
+      }, Math.max(1,Math.min(1800,Number(options.timeoutMs) || 1800)));
       let health = null; // health（本機工具健康狀態）
       if(response.ok){
         try{ health = await response.json(); }catch(_){}
@@ -1802,32 +1831,77 @@
     setTimeout(() => launcherFrame.remove(), 2500);
   }
 
-  // waitForCuttingPdfTool（等待本機 PDF 工具就緒）：啟動後最多等待二十秒，不讓使用者先選擇無法使用的儲存位置。
-  async function waitForCuttingPdfTool(maxWaitMs = 20000){
+  // waitForCuttingPdfTool（等待本機 PDF 工具就緒）：啟動後最多等待十秒，不讓使用者先選擇無法使用的儲存位置。
+  async function waitForCuttingPdfTool(maxWaitMs = PDF_TOOL_START_TIMEOUT_MS){
     const deadline = Date.now() + maxWaitMs; // deadline（等待截止時間）
     while(Date.now() < deadline){
-      await waitCuttingPdfToolDelay(700);
-      if(await cuttingCheckPdfToolStatus({silent: true})) return true;
+      await waitCuttingPdfToolDelay(Math.min(700,Math.max(0,deadline - Date.now())));
+      const remainingMs = deadline - Date.now(); // remainingMs（本次健康檢查可用時間）
+      if(remainingMs <= 0) break;
+      if(await cuttingCheckPdfToolStatus({silent:true,timeoutMs:remainingMs})) return true;
     }
     pdfToolKnownOnline = false;
     setPdfToolStatus('offline');
     return false;
   }
 
-  // ensureCuttingPdfToolReady（確保本機 PDF 工具就緒）：只在已知未啟動時呼叫固定啟動連結。
-  async function ensureCuttingPdfToolReady(){
-    if(pdfToolKnownOnline === true) return true;
-    setPdfToolStatus('requested');
-    invokeCuttingLauncher('cuttingpdf://start');
-    return waitForCuttingPdfTool();
+  // showCuttingPdfToolStartingDialog（顯示 PDF 工具啟動說明）：重複操作只顯示狀態，不再呼叫本機啟動器。
+  function showCuttingPdfToolStartingDialog(){
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.openDialog === 'function'){
+      ui.openDialog({
+        title:{vi:'Công cụ PDF đang khởi động',zh:'PDF 工具正在啟動'},
+        body:{vi:'Vui lòng chờ trong giây lát rồi thử lại.',zh:'請稍候片刻後再試。'},
+        actions:[{text:'common.close'}],
+        closeOnContent:true
+      });
+      return;
+    }
+    alert('Công cụ PDF đang khởi động. Vui lòng chờ.\nPDF 工具正在啟動，請稍候。');
   }
 
-  // cuttingStartPdfTool（啟動 PDF 工具）：送出本機啟動要求後等待工具回應，避免畫面長時間停在未知狀態。
+  // isCuttingPdfToolStarting（檢查 PDF 工具是否正在啟動）：啟動與匯出入口共用同一個狀態。
+  function isCuttingPdfToolStarting(){
+    return window.PCMSUIComponents?.isActionRunning?.(PDF_TOOL_START_ACTION_KEY) === true;
+  }
+
+  // startCuttingPdfToolOnce（只啟動一次 PDF 工具）：按鈕鎖定一秒，背景啟動狀態最多保留十秒。
+  function startCuttingPdfToolOnce(){
+    const startTask = async ()=>{
+      const deadline = Date.now() + PDF_TOOL_START_TIMEOUT_MS; // deadline（PDF 工具啟動截止時間）
+      if(await cuttingCheckPdfToolStatus({silent:true})) return true;
+      pdfToolKnownOnline = false;
+      setPdfToolStatus('requested');
+      invokeCuttingLauncher('cuttingpdf://start');
+      const remainingMs = Math.max(0,deadline - Date.now()); // remainingMs（啟動檢查剩餘時間）
+      if(!remainingMs){
+        setPdfToolStatus('offline');
+        return false;
+      }
+      return waitForCuttingPdfTool(remainingMs);
+    }; // startTask（PDF 工具啟動工作）
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.runActionOnce !== 'function') return startTask();
+    return ui.runActionOnce(PDF_TOOL_START_ACTION_KEY,startTask,{
+      controls:[g('cut-start-pdf-tool-btn')],
+      cooldownMs:1000,
+      onDuplicate:showCuttingPdfToolStartingDialog
+    });
+  }
+
+  // ensureCuttingPdfToolReady（確保本機 PDF 工具就緒）：啟動中不開啟儲存流程，也不等待後自動繼續匯出。
+  async function ensureCuttingPdfToolReady(){
+    if(pdfToolKnownOnline === true) return true;
+    if(isCuttingPdfToolStarting()){
+      showCuttingPdfToolStartingDialog();
+      return null;
+    }
+    return startCuttingPdfToolOnce();
+  }
+
+  // cuttingStartPdfTool（啟動 PDF 工具）：相同工作執行中時只顯示說明，不重複送出啟動要求。
   async function cuttingStartPdfTool(){
-    pdfToolKnownOnline = false;
-    setPdfToolStatus('requested');
-    invokeCuttingLauncher('cuttingpdf://start');
-    await waitForCuttingPdfTool();
+    return startCuttingPdfToolOnce();
   }
 
   // cuttingUnregisterPdfTool（取消啟動路徑）：確認後只要求本機啟動器移除目前使用者的路徑登記。
@@ -2007,6 +2081,7 @@
       return;
     }
     const toolReadyBeforeSave = await ensureCuttingPdfToolReady(); // toolReadyBeforeSave（選擇儲存位置前的工具狀態）
+    if(toolReadyBeforeSave === null) return;
     if(!toolReadyBeforeSave){
       alert('Không thể khởi động công cụ PDF. Vui lòng thử lại.\n無法啟動 PDF 工具，請再試一次。');
       return;

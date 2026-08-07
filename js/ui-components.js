@@ -10,6 +10,7 @@
   const NOTICE_KINDS = new Set(['info','success','warning','danger']); // NOTICE_KINDS（提示樣式種類）
   const DISMISSIBLE_DETAILS_SELECTOR = 'details[data-ui-dismiss-outside]'; // DISMISSIBLE_DETAILS_SELECTOR（可點擊外部關閉的展開元件選擇器）
   const CONTENT_DISMISSIBLE_DETAILS_SELECTOR = 'details[data-ui-dismiss-on-content]'; // CONTENT_DISMISSIBLE_DETAILS_SELECTOR（可點擊內容關閉的純閱讀元件選擇器）
+  const activeActions = new Map(); // activeActions（執行中的共用操作）：同一操作鍵只允許一個非同步工作。
   let activeDialog = null; // activeDialog（目前開啟的共用視窗）
   let dialogSequence = 0; // dialogSequence（共用視窗流水號）
 
@@ -237,12 +238,58 @@
     });
   }
 
+  // isActionRunning（檢查共用操作是否執行中）：功能頁可在開啟下一個流程前阻止重複入口。
+  function isActionRunning(key){
+    return activeActions.has(String(key || '').trim());
+  }
+
+  // runActionOnce（執行一次共用操作）：短暫鎖定按鈕，但操作鍵會保留到實際工作結束。
+  function runActionOnce(key, task, options = {}){
+    const actionKey = String(key || '').trim(); // actionKey（共用操作識別鍵）
+    if(!actionKey || typeof task !== 'function'){
+      return Promise.reject(new Error('Thiếu khóa hoặc tác vụ dùng chung. / 缺少共用操作鍵或工作。'));
+    }
+    const current = activeActions.get(actionKey); // current（目前執行中的相同工作）
+    if(current){
+      if(typeof options.onDuplicate === 'function'){
+        try{ options.onDuplicate(current); }
+        catch(error){ console.error('Không thể hiển thị trạng thái thao tác / 無法顯示操作狀態',error); }
+      }
+      return current;
+    }
+
+    const controls = Array.from(options.controls || []).filter(control=>control && 'disabled' in control); // controls（需要短暫鎖定的操作元件）
+    const controlStates = controls.map(control=>({control,disabled:control.disabled})); // controlStates（操作元件原始停用狀態）
+    controls.forEach(control=>{ control.disabled = true; });
+    const cooldownMs = Math.max(0,Number(options.cooldownMs) || 0); // cooldownMs（按鈕防連點時間）
+    let controlsRestored = false; // controlsRestored（操作元件是否已復原）
+    const restoreControls = ()=>{
+      if(controlsRestored) return;
+      controlsRestored = true;
+      controlStates.forEach(({control,disabled})=>{
+        if(control.isConnected !== false) control.disabled = disabled;
+      });
+    }; // restoreControls（復原操作元件）
+    if(cooldownMs > 0) setTimeout(restoreControls,cooldownMs);
+    else restoreControls();
+
+    const pending = Promise.resolve().then(task); // pending（本次共用非同步工作）
+    activeActions.set(actionKey,pending);
+    const release = ()=>{
+      if(activeActions.get(actionKey) === pending) activeActions.delete(actionKey);
+    }; // release（釋放共用操作鍵）
+    pending.then(release,release);
+    return pending;
+  }
+
   window.PCMSUIComponents = Object.freeze({ // PCMSUIComponents（共用介面元件介面）
     createButton,
     createNotice,
     openDialog,
     confirmDialog,
     createOtherActions,
+    isActionRunning,
+    runActionOnce,
     closeActiveDialog:()=>activeDialog?.close('program') || false // program（由程式關閉）
   });
 })();

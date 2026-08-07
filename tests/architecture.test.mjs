@@ -10,7 +10,8 @@ test('登入首頁只預載核心程式且不包含大型表格工具',()=>{
   const html=read('index.html');
   const coreScripts=[...html.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)].map(match=>match[1].split('?')[0]);
   assert.deepEqual(coreScripts,[
-    'js/safe-dom.js','js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js'
+    'js/safe-dom.js','js/ui-text.js','js/ui-runtime.js','js/ui-components.js','js/ui-file-drop.js',
+    'js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js'
   ]);
   assert.match(html,/id="pg-home"/);
   assert.doesNotMatch(html,/JSZip|jszip|xlsx\.bundle\.js/);
@@ -147,6 +148,75 @@ test('裁帶模板識別碼安全且歷史只在點開分頁後讀取',()=>{
   vm.createContext(context);
   vm.runInContext(featureSource,context);
   assert.deepEqual(Array.from(context.window.PCMSFeatures.getPage('cutting').dataLoaders),[]);
+});
+
+test('裁帶操作區使用頁面捲動、可辨識結果框與內嵌側欄開關',()=>{
+  const html=read('index.html');
+  const style=read('styles/features/cutting.css');
+  assert.match(html,/<div class="sb-logo">[\s\S]*?id="primary-sidebar-toggle"[\s\S]*?<div class="sb-sec">/);
+  assert.match(html,/\.app\.sidebar-collapsed \.sb\{width:44px\}/);
+  assert.match(html,/id="cut-results-box"/);
+  assert.match(html,/id="cut-results-empty"/);
+  assert.match(html,/class="cutting-result-group" id="cut-missing-box"/);
+  assert.match(html,/class="cutting-result-group" id="cut-error-box"/);
+  assert.match(html,/class="to cutting-page-table">\s*<table>[\s\S]*?id="cut-template-tb"/);
+  assert.doesNotMatch(html,/class="ts" style="max-height:260px">\s*<table>[\s\S]*?id="cut-template-tb"/);
+  assert.match(style,/\.cutting-guide-disclosure \{\s*position: static;/);
+  assert.match(style,/\.cutting-guide-panel \{[\s\S]*?left: 50%;[\s\S]*?transform: translateX\(-50%\)/);
+  assert.match(style,/\.cutting-command-row \{[\s\S]*?height: var\(--ui-action-tile-height\)/);
+  assert.match(style,/\.cutting-command-action\.is-primary:disabled \{/);
+});
+
+test('共用操作鎖可區分一秒按鈕冷卻與實際工作狀態',async()=>{
+  const timers=[];
+  const context={
+    window:{
+      PCMSUIText:{
+        assistiveLabel:()=>'',
+        create:()=>({}),
+        set:()=>null
+      }
+    },
+    document:{addEventListener:()=>{},querySelectorAll:()=>[]},
+    console,
+    setTimeout:callback=>{ timers.push(callback); return timers.length; }
+  };
+  vm.createContext(context);
+  vm.runInContext(read('js/ui-components.js'),context);
+  const ui=context.window.PCMSUIComponents;
+  const control={disabled:false,isConnected:true};
+  let finish;
+  let runs=0;
+  let duplicates=0;
+  const task=new Promise(resolve=>{ finish=resolve; });
+  const first=ui.runActionOnce('cutting.pdfToolStart',()=>{ runs+=1; return task; },{
+    controls:[control],cooldownMs:1000,onDuplicate:()=>{ duplicates+=1; }
+  });
+  await Promise.resolve();
+  assert.equal(control.disabled,true);
+  assert.equal(ui.isActionRunning('cutting.pdfToolStart'),true);
+  const second=ui.runActionOnce('cutting.pdfToolStart',()=>{ runs+=1; },{onDuplicate:()=>{ duplicates+=1; }});
+  assert.equal(first,second);
+  assert.equal(runs,1);
+  assert.equal(duplicates,1);
+  timers[0]();
+  assert.equal(control.disabled,false);
+  assert.equal(ui.isActionRunning('cutting.pdfToolStart'),true);
+  finish(true);
+  await first;
+  await Promise.resolve();
+  assert.equal(ui.isActionRunning('cutting.pdfToolStart'),false);
+});
+
+test('裁帶 PDF（可攜式文件）啟動與匯出共用啟動狀態且十秒後可重試',()=>{
+  const source=read('js/cutting.js');
+  assert.match(source,/PDF_TOOL_START_TIMEOUT_MS = 10000/);
+  assert.match(source,/isActionRunning\?\.\(PDF_TOOL_START_ACTION_KEY\)/);
+  assert.match(source,/runActionOnce\(PDF_TOOL_START_ACTION_KEY/);
+  assert.match(source,/runActionOnce\(PDF_EXPORT_OPEN_ACTION_KEY/);
+  assert.match(source,/controls:\[g\('cut-start-pdf-tool-btn'\)\],[\s\S]*?cooldownMs:1000/);
+  assert.match(source,/controls:\[g\('cut-preview-btn'\)\],[\s\S]*?cooldownMs:1000/);
+  assert.match(source,/if\(toolReadyBeforeSave === null\) return/);
 });
 
 test('訂單開頁不再完整讀取全部訂單工序',()=>{

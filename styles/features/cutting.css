@@ -101,15 +101,16 @@
 .cutting-command-row {
   display: grid;
   min-width: 0;
-  min-height: var(--ui-action-tile-height);
+  height: var(--ui-action-tile-height);
   grid-template-columns: minmax(340px, 1fr) auto;
   align-items: stretch;
+  border-radius: inherit;
 }
 
 .cutting-context-grid {
   display: grid;
   min-width: 0;
-  height: var(--ui-action-tile-height);
+  height: 100%;
   grid-template-columns: repeat(2, minmax(160px, 1fr));
   align-items: stretch;
   overflow: hidden;
@@ -255,10 +256,12 @@
 .cutting-command-actions {
   display: flex;
   min-width: 0;
-  height: var(--ui-action-tile-height);
+  height: 100%;
   align-items: stretch;
   justify-content: flex-start;
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
+  border-radius: 0 calc(var(--ui-radius-panel) - 1px) calc(var(--ui-radius-panel) - 1px) 0;
+  background: var(--ui-color-surface);
 }
 
 .cutting-command-action,
@@ -266,8 +269,8 @@
   display: inline-flex;
   width: var(--ui-action-tile-width);
   min-width: var(--ui-action-tile-width);
-  height: var(--ui-action-tile-height);
-  min-height: var(--ui-action-tile-height);
+  height: 100%;
+  min-height: 0;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -317,7 +320,7 @@
 
 .cutting-command-action:disabled {
   cursor: not-allowed;
-  opacity: .5;
+  opacity: .55;
 }
 
 .cutting-command-action.is-primary {
@@ -332,6 +335,12 @@
 
 .cutting-command-action.is-primary:hover:not(:disabled) {
   background: var(--ui-color-primary-hover);
+}
+
+.cutting-command-action.is-primary:disabled {
+  background: color-mix(in srgb, var(--ui-color-primary-soft) 72%, var(--ui-color-surface));
+  color: var(--ui-color-text-muted);
+  opacity: 1;
 }
 
 .cutting-command-action.is-danger,
@@ -349,8 +358,12 @@
   display: flex;
   width: var(--ui-action-tile-width);
   min-width: var(--ui-action-tile-width);
-  height: var(--ui-action-tile-height);
+  height: 100%;
   flex: 0 0 var(--ui-action-tile-width);
+}
+
+.cutting-guide-disclosure {
+  position: static;
 }
 
 .cutting-disclosure > summary {
@@ -378,7 +391,9 @@
 }
 
 .cutting-guide-panel {
-  width: min(620px, calc(100vw - 280px));
+  right: auto;
+  left: 50%;
+  width: min(620px, calc(100% - 32px));
   max-height: 58vh;
   padding: 18px 20px;
   color: var(--ui-color-text);
@@ -386,6 +401,7 @@
   line-height: 1.7;
   overflow-y: auto;
   text-align: left;
+  transform: translateX(-50%);
 }
 
 .cutting-guide-panel h3 {
@@ -608,6 +624,68 @@
 /* cutting-page-table（裁帶頁面表格）：缺少模板與錯誤清單使用頁面捲動，不建立第二層左右捲軸。 */
 #pg-cutting .cutting-page-table {
   overflow: visible;
+}
+
+.cutting-results-frame {
+  min-height: 58px;
+}
+
+.cutting-results-empty {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  color: var(--ui-color-text-muted);
+}
+
+.cutting-results-empty.is-success {
+  color: var(--ui-color-success-text);
+  background: var(--ui-color-success-background);
+}
+
+.cutting-results-empty > i {
+  flex: 0 0 auto;
+  color: var(--ui-color-primary);
+  font-size: 19px;
+}
+
+.cutting-results-empty.is-success > i {
+  color: var(--ui-color-success-text);
+}
+
+.cutting-results-empty-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.cutting-results-empty-copy > span {
+  color: inherit;
+  font-size: 10px;
+  opacity: .82;
+}
+
+.cutting-result-group + .cutting-result-group {
+  border-top: var(--ui-border-width) solid var(--ui-color-border);
+}
+
+.cutting-result-subheader {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 11px;
+  border-bottom: var(--ui-border-width) solid var(--ui-color-border);
+  background: var(--ui-color-surface-muted);
+}
+
+.cutting-result-subheader > i {
+  color: var(--ui-color-warning-text);
+  font-size: 18px;
+}
+
+#cut-error-box .cutting-result-subheader > i {
+  color: var(--ui-color-danger-text);
 }
 
 #pg-cutting .cutting-history-scroll {

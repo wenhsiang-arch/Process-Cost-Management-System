@@ -19,15 +19,18 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(--bg)}
 .app{display:flex;height:100vh;min-height:640px}
-.sb{width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-x:hidden;overflow-y:auto;transition:width var(--ui-motion-fast)}
+.sb{position:relative;width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-x:hidden;overflow-y:auto;transition:width var(--ui-motion-fast)}
 .sb>*{min-width:220px}
-.app.sidebar-collapsed .sb{width:0}
-.sidebar-toggle{position:absolute;left:204px;top:50%;z-index:40;display:flex;width:32px;height:52px;align-items:center;justify-content:center;transform:translateY(-50%);border:1px solid rgba(255,255,255,.14);border-radius:0 9px 9px 0;background:var(--navy);color:rgba(255,255,255,.82);cursor:pointer;transition:left var(--ui-motion-fast),background var(--ui-motion-fast)}
+.app.sidebar-collapsed .sb{width:44px}
+.sidebar-toggle{position:absolute;right:10px;top:14px;z-index:2;display:flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:var(--navy);color:rgba(255,255,255,.82);cursor:pointer;transition:background var(--ui-motion-fast)}
 .sidebar-toggle:hover{background:var(--navy2);color:#fff}
 .sidebar-toggle:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
 .sidebar-toggle i{font-size:18px}
-.app.sidebar-collapsed .sidebar-toggle{left:0}
-.sb-logo{padding:18px 16px 14px;border-bottom:1px solid rgba(255,255,255,.1)}
+.app.sidebar-collapsed .sb>*:not(.sb-logo){display:none}
+.app.sidebar-collapsed .sb .sb-logo{min-width:44px;min-height:58px;padding:0}
+.app.sidebar-collapsed .sb-title,.app.sidebar-collapsed .sb-sub{display:none}
+.app.sidebar-collapsed .sidebar-toggle{right:6px}
+.sb-logo{position:relative;min-height:58px;padding:18px 52px 14px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
 .sb-title{font-size:14px;font-weight:500;color:#fff}
 .sb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:3px}
 .sb-badge{display:inline-block;margin-top:6px;font-size:10px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:2px 8px;border-radius:10px}
@@ -282,6 +285,9 @@ tr:hover td{background:#f8fafc}
     <div class="sb-logo">
       <div class="sb-title">M9</div>
       <div class="sb-sub">Hệ thống quản lý sản xuất</div>
+      <button class="sidebar-toggle" id="primary-sidebar-toggle" type="button" aria-controls="primary-sidebar" aria-expanded="true" aria-label="Thu gọn menu chính / 收合主功能選單" title="Thu gọn menu chính / 收合主功能選單" onclick="togglePrimarySidebar()">
+        <i class="ti ti-chevron-left" aria-hidden="true"></i>
+      </button>
     </div>
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Dữ liệu đơn hàng</span><span class="nzh">訂單資料</span></div></div>
@@ -298,10 +304,6 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
-  <button class="sidebar-toggle" id="primary-sidebar-toggle" type="button" aria-controls="primary-sidebar" aria-expanded="true" aria-label="Thu gọn menu chính / 收合主功能選單" title="Thu gọn menu chính / 收合主功能選單" onclick="togglePrimarySidebar()">
-    <i class="ti ti-chevron-left" aria-hidden="true"></i>
-  </button>
-
   <!-- 同步狀態 -->
   <div id="sync-status" style="display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)"></div>
 
@@ -439,7 +441,7 @@ tr:hover td{background:#f8fafc}
 
           <section class="cutting-data-section">
             <div class="cutting-section-header"><i class="ti ti-database"></i><span class="cutting-section-copy"><strong>Dữ liệu mẫu đã lưu</strong><span>已建檔模板</span></span></div>
-            <div class="to"><div class="ts" style="max-height:260px">
+            <div class="to cutting-page-table">
               <table>
                 <thead><tr>
                   <th>File mẫu<br><span class="tv">模板檔案</span></th>
@@ -451,7 +453,7 @@ tr:hover td{background:#f8fafc}
                 </tr></thead>
                 <tbody id="cut-template-tb"></tbody>
               </table>
-            </div></div>
+            </div>
           </section>
         </div>
 
@@ -476,7 +478,7 @@ tr:hover td{background:#f8fafc}
                 </button>
               </div>
               <div class="cutting-command-actions" id="cut-order-actions">
-                <details class="cutting-disclosure" data-ui-dismiss-outside data-ui-dismiss-on-content>
+                <details class="cutting-disclosure cutting-guide-disclosure" data-ui-dismiss-outside data-ui-dismiss-on-content>
                   <summary class="cutting-command-summary"><i class="ti ti-book"></i><span class="cutting-action-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
                   <div class="cutting-guide-panel">
                     <h3>Thiết lập lần đầu:</h3>
@@ -516,30 +518,38 @@ tr:hover td{background:#f8fafc}
 
           <div id="cut-alert" class="nt" style="display:none"></div>
 
-          <section class="cutting-data-section" id="cut-missing-box" style="display:none">
-            <div class="cutting-section-header"><i class="ti ti-alert-triangle"></i><span class="cutting-section-copy"><strong>Mã hàng thiếu mẫu</strong><span>缺少模板款號</span></span></div>
-            <div class="to cutting-page-table"><table>
-              <thead><tr>
-                <th>Trạng thái<br><span class="tv">狀態</span></th>
-                <th>Mã hàng<br><span class="tv">款號</span></th>
-                <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
-                <th>Ghi chú<br><span class="tv">說明</span></th>
-              </tr></thead>
-              <tbody id="cut-missing-list"></tbody>
-            </table></div>
-          </section>
-
-          <!-- cut-error-box（裁帶錯誤區）：只顯示使用者可處理的款號、原因與處理方式。 -->
-          <section class="cutting-data-section" id="cut-error-box" style="display:none">
-            <div class="cutting-section-header"><i class="ti ti-alert-circle"></i><span class="cutting-section-copy"><strong>Mã hàng cần sửa</strong><span>需要修正的款號</span></span></div>
-            <div class="to cutting-page-table"><table>
-              <thead><tr>
-                <th>Mã hàng<br><span class="tv">款號</span></th>
-                <th>Nguyên nhân<br><span class="tv">原因</span></th>
-                <th>Cách xử lý<br><span class="tv">處理方式</span></th>
-              </tr></thead>
-              <tbody id="cut-error-list"></tbody>
-            </table></div>
+          <section class="cutting-data-section cutting-results-section" id="cut-results-box">
+            <div class="cutting-section-header"><i class="ti ti-list-check"></i><span class="cutting-section-copy"><strong>Kết quả kiểm tra</strong><span>核對結果</span></span></div>
+            <div class="to cutting-page-table cutting-results-frame">
+              <div class="cutting-results-empty" id="cut-results-empty" role="status">
+                <i class="ti ti-file-search" aria-hidden="true"></i>
+                <span class="cutting-results-empty-copy"><strong>Chưa có kết quả kiểm tra.</strong><span>尚無核對結果。</span></span>
+              </div>
+              <div class="cutting-result-group" id="cut-missing-box" style="display:none">
+                <div class="cutting-result-subheader"><i class="ti ti-alert-triangle"></i><span class="cutting-section-copy"><strong>Mã hàng thiếu mẫu</strong><span>缺少模板款號</span></span></div>
+                <table>
+                  <thead><tr>
+                    <th>Trạng thái<br><span class="tv">狀態</span></th>
+                    <th>Mã hàng<br><span class="tv">款號</span></th>
+                    <th style="text-align:right">SL đơn<br><span class="tv">訂單數量</span></th>
+                    <th>Ghi chú<br><span class="tv">說明</span></th>
+                  </tr></thead>
+                  <tbody id="cut-missing-list"></tbody>
+                </table>
+              </div>
+              <!-- cut-error-box（裁帶錯誤區）：只顯示使用者可處理的款號、原因與處理方式。 -->
+              <div class="cutting-result-group" id="cut-error-box" style="display:none">
+                <div class="cutting-result-subheader"><i class="ti ti-alert-circle"></i><span class="cutting-section-copy"><strong>Mã hàng cần sửa</strong><span>需要修正的款號</span></span></div>
+                <table>
+                  <thead><tr>
+                    <th>Mã hàng<br><span class="tv">款號</span></th>
+                    <th>Nguyên nhân<br><span class="tv">原因</span></th>
+                    <th>Cách xử lý<br><span class="tv">處理方式</span></th>
+                  </tr></thead>
+                  <tbody id="cut-error-list"></tbody>
+                </table>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -955,11 +965,11 @@ tr:hover td{background:#f8fafc}
 <script src="js/safe-dom.js?v=20260806-1"></script>
 <script src="js/ui-text.js?v=20260807-1"></script>
 <script src="js/ui-runtime.js?v=20260807-1"></script>
-<script src="js/ui-components.js?v=20260808-2"></script>
+<script src="js/ui-components.js?v=20260808-3"></script>
 <script src="js/ui-file-drop.js?v=20260808-1"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-3"></script>
+<script src="js/features.js?v=20260808-4"></script>
 <script src="js/auth.js?v=20260806-8"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
