@@ -8,8 +8,33 @@
 
   const BUTTON_KINDS = new Set(['primary','danger']); // BUTTON_KINDS（按鈕樣式種類）
   const NOTICE_KINDS = new Set(['info','success','warning','danger']); // NOTICE_KINDS（提示樣式種類）
+  const DISMISSIBLE_DETAILS_SELECTOR = 'details[data-ui-dismiss-outside]'; // DISMISSIBLE_DETAILS_SELECTOR（可點擊外部關閉的展開元件選擇器）
   let activeDialog = null; // activeDialog（目前開啟的共用視窗）
   let dialogSequence = 0; // dialogSequence（共用視窗流水號）
+
+  // closeDismissibleDetails（關閉展開元件）：保留使用者目前正在操作的內容，其餘開啟項目一律收回。
+  function closeDismissibleDetails(except = null){
+    let firstSummary = null; // firstSummary（第一個被關閉元件的原始按鈕）
+    document.querySelectorAll(`${DISMISSIBLE_DETAILS_SELECTOR}[open]`).forEach(details=>{
+      if(details === except) return;
+      if(!firstSummary) firstSummary = details.querySelector('summary');
+      details.removeAttribute('open');
+    });
+    return firstSummary;
+  }
+
+  document.addEventListener('pointerdown',event=>{
+    const current = event.target?.closest?.(DISMISSIBLE_DETAILS_SELECTOR); // current（本次點擊所在的展開元件）
+    closeDismissibleDetails(current || null);
+  });
+
+  document.addEventListener('keydown',event=>{
+    if(event.key !== 'Escape') return;
+    const summary = closeDismissibleDetails(); // summary（關閉後要恢復焦點的展開按鈕）
+    if(!summary) return;
+    event.preventDefault();
+    summary.focus();
+  });
 
   // createIcon（建立圖示）：只設定樣式名稱，不插入外部網頁標記。
   function createIcon(iconName){

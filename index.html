@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260808-1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260808-2">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -44,7 +44,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .sb-ft-t{font-size:10px;color:rgba(255,255,255,.25)}
 .mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .tb{padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
-.tb-title{font-weight:500;font-size:14px;flex:1;color:var(--navy)}
+.tb-title{display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start;justify-content:center;color:var(--navy);line-height:1.15;text-align:left}
+.tb-title[hidden]{display:none}
+.tb-title .ui-text-vi{overflow:hidden;font-size:14px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.tb-title .ui-text-zh{overflow:hidden;margin-top:1px;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
 .cg{display:flex;gap:2px;background:#f1f5f9;padding:3px;border-radius:8px}
 .cb{padding:4px 11px;border-radius:6px;border:none;font-size:12px;cursor:pointer;background:transparent;color:var(--mu);transition:all .15s}
 .cb.active{background:var(--accent);color:#fff;font-weight:500}
@@ -294,6 +297,7 @@ tr:hover td{background:#f8fafc}
 
   <div class="mn">
     <div class="tb">
+      <div class="tb-title ui-bilingual" id="active-page-title" aria-live="polite" hidden></div>
       <div class="up" id="upill"><i class="ti ti-user"></i><span id="ulabel"></span></div>
       <button class="logout-btn" onclick="doLogout()" title="Đăng xuất / 登出"><i class="ti ti-logout"></i><span>Đăng xuất / 登出</span></button>
     </div>
@@ -382,13 +386,6 @@ tr:hover td{background:#f8fafc}
       <!-- 裁帶統計 -->
       <div class="pg" id="pg-cutting">
         <div class="cutting-page ui-page">
-        <header class="ui-page-header cutting-page-header">
-          <h1 class="ui-page-title ui-bilingual">
-            <span class="ui-text-vi">Thống kê dây cắt</span>
-            <span class="ui-text-zh">裁帶統計</span>
-          </h1>
-        </header>
-
         <div class="cutting-tabs">
           <button type="button" class="cutting-tab active" id="cut-tab-order" onclick="cuttingSwitchTab('order')"><span class="cutting-tab-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
           <button type="button" class="cutting-tab" id="cut-tab-template" onclick="cuttingSwitchTab('template')"><span class="cutting-tab-copy"><strong>Nhập mẫu</strong><span>匯入模板</span></span></button>
@@ -481,7 +478,7 @@ tr:hover td{background:#f8fafc}
                 <button type="button" class="cutting-command-action" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()">
                   <i class="ti ti-refresh"></i><span class="cutting-action-copy"><strong>Kiểm tra PDF</strong><span>檢查狀態</span></span>
                 </button>
-                <details class="cutting-disclosure">
+                <details class="cutting-disclosure" data-ui-dismiss-outside>
                   <summary class="cutting-command-summary"><i class="ti ti-book"></i><span class="cutting-action-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
                   <div class="cutting-guide-panel">
                     <h3>Thiết lập lần đầu:</h3>
@@ -965,11 +962,11 @@ tr:hover td{background:#f8fafc}
 <script src="js/safe-dom.js?v=20260806-1"></script>
 <script src="js/ui-text.js?v=20260807-1"></script>
 <script src="js/ui-runtime.js?v=20260807-1"></script>
-<script src="js/ui-components.js?v=20260807-1"></script>
-<script src="js/ui-file-drop.js?v=20260807-1"></script>
+<script src="js/ui-components.js?v=20260808-1"></script>
+<script src="js/ui-file-drop.js?v=20260808-1"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260807-2"></script>
+<script src="js/features.js?v=20260808-1"></script>
 <script src="js/auth.js?v=20260806-8"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

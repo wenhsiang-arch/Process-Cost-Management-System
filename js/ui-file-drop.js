@@ -4,6 +4,7 @@
   const targets = new Map(); // targets（各功能頁登記的匯入用途）
   let activePage = ''; // activePage（目前啟用的功能頁）
   let overlay = null; // overlay（全域拖曳提示層）
+  let overlayCopy = null; // overlayCopy（提示層雙語文字區）
   let overlayTimer = null; // overlayTimer（提示層延遲關閉計時器）
 
   if(textApi){
@@ -74,7 +75,7 @@
   }
 
   function getContentHost(){
-    return document.querySelector('.ct'); // ct（主內容捲動區）
+    return document.getElementById('ma'); // ma（登入後整個應用程式可視區）
   }
 
   function isInside(host,event){
@@ -86,7 +87,7 @@
 
   function isInsideApplication(event){
     const application = document.getElementById('ma'); // application（登入後主介面）
-    return !!activePage && !!application && !!event?.target && document.body.contains(event.target);
+    return !!activePage && !!application && !!event?.target && application.contains(event.target);
   }
 
   // ensureOverlay（建立提示層）：固定覆蓋目前可見內容區，不要求使用者對準小型方框。
@@ -97,6 +98,12 @@
     overlay.setAttribute('role','status');
     overlay.setAttribute('aria-live','polite');
     overlay.style.position = 'fixed';
+    const icon = document.createElement('i'); // icon（全畫面匯入提示圖示）
+    icon.className = 'ti ti-file-upload';
+    icon.setAttribute('aria-hidden','true');
+    overlayCopy = document.createElement('div');
+    overlayCopy.className = 'ui-file-drop-copy';
+    overlay.append(icon,overlayCopy);
     document.body.appendChild(overlay);
     return overlay;
   }
@@ -115,7 +122,7 @@
   function showOverlay(target){
     const element = ensureOverlay(); // element（拖曳提示層）
     if(!positionOverlay()) return;
-    if(textApi) textApi.set(element,target?.text || 'fileDrop.dropAnywhere');
+    if(textApi) textApi.set(overlayCopy,target?.text || 'fileDrop.dropAnywhere');
     element.classList.add('is-visible');
     clearTimeout(overlayTimer);
     overlayTimer = setTimeout(hideOverlay,160);

@@ -7,7 +7,7 @@
     summary:'js/summary.js?v=20260805-1',
     data:'js/data.js?v=20260806-5',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260806-5',
+    cutting:'js/cutting.js?v=20260808-1',
     accounts:'js/accounts.js?v=20260806-4',
     orders:'js/orders.js?v=20260806-3',
     sync:'js/sync.js?v=20260806-2',
@@ -15,7 +15,7 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260808-1'
+    cutting:'styles/features/cutting.css?v=20260808-2'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -314,6 +314,19 @@
     }
   }
 
+  // updateActivePageTitle（更新目前功能抬頭）：標題固定顯示於共用頂部列，避免各頁重複占用內容高度。
+  function updateActivePageTitle(page){
+    const title=document.getElementById('active-page-title'); // title（共用功能抬頭）
+    if(!title) return;
+    if(!page){
+      title.replaceChildren();
+      title.hidden=true;
+      return;
+    }
+    window.PCMSUIText?.set?.(title,{vi:page.vi,zh:page.zh});
+    title.hidden=false;
+  }
+
   async function leaveActivePage(){
     if(!activePageName){
       window.PCMSUIFileDrop?.deactivatePage?.();
@@ -331,12 +344,14 @@
   async function enterPage(pageName){
     await leaveActivePage();
     activePageName=pageName;
+    updateActivePageTitle(getPage(pageName));
     window.PCMSUIFileDrop?.activatePage?.(pageName);
     try{
       await runPageHooks(pageName,'onOpen');
     }catch(error){
       window.PCMSUIFileDrop?.deactivatePage?.(pageName);
       activePageName='';
+      updateActivePageTitle(null);
       throw error;
     }
   }
@@ -345,6 +360,7 @@
   function resetActivePage(){
     const previousPageName=activePageName; // previousPageName（重設前的頁面名稱）
     activePageName='';
+    updateActivePageTitle(null);
     window.PCMSUIFileDrop?.deactivatePage?.(previousPageName);
   }
 

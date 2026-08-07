@@ -8,10 +8,6 @@
   min-width: 0;
 }
 
-.cutting-page-header {
-  margin-bottom: var(--ui-space-3);
-}
-
 .cutting-tabs {
   display: flex;
   min-width: 0;

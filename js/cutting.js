@@ -7,6 +7,7 @@
     results: [],
     pendingTemplateFile: null,
     pendingBook: null,
+    activeTab: 'order', // activeTab（目前裁帶功能分頁）：決定全畫面拖曳的唯一匯入用途。
     historyLogs: [], // historyLogs（裁帶操作歷史）：只在使用者開啟歷史分頁後載入。
     historyLoaded: false,
     historyLoading: false
@@ -24,6 +25,7 @@
   let pdfToolStatusChecking = false;
   let pdfToolKnownOnline = null; // pdfToolKnownOnline（已知的本機 PDF 工具狀態）：只用來避免使用者白選儲存位置，正式匯出前仍會再次確認。
   let orderLabelDialogResolve = null; // orderLabelDialogResolve（訂單文字視窗回傳函式）
+  let fileDropTargetsRegistered = false; // fileDropTargetsRegistered（裁帶全畫面匯入用途是否已登記）
 
   function text(id, value){
     const el = g(id);
@@ -35,8 +37,46 @@
     if(el) el.innerHTML = value;
   }
 
+  // showCuttingFileDropMessage（顯示裁帶拖曳結果）：格式或數量不符時提供雙語原因。
+  function showCuttingFileDropMessage(detail){
+    const message = detail?.message || {vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
+    const pair = window.PCMSUIText?.resolve?.(message) || {vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // pair（拒絕原因雙語文字）
+    alert(`${pair.vi}\n${pair.zh}`);
+  }
+
+  // registerCuttingFileDropTargets（登記裁帶全畫面匯入）：由目前分頁決定訂單或模板，不依副檔名猜測用途。
+  function registerCuttingFileDropTargets(){
+    const fileDrop = window.PCMSUIFileDrop; // fileDrop（全畫面拖曳共用介面）
+    if(!fileDrop || fileDropTargetsRegistered) return false;
+    fileDrop.register({
+      id:'cutting-order-import', // cutting-order-import（裁帶訂單匯入用途）
+      page:'cutting',
+      accept:['.xlsx','.xls'],
+      maxFiles:1,
+      enabled:()=>state.activeTab === 'order',
+      text:{vi:'Thả tệp để nhập đơn hàng',zh:'放開即可匯入訂單'},
+      onDrop:files=>cuttingHandleOrderFile({files}),
+      onReject:showCuttingFileDropMessage,
+      onError:()=>showCuttingFileDropMessage({message:{vi:'Không thể xử lý tệp đơn hàng',zh:'無法處理訂單檔案'}})
+    });
+    fileDrop.register({
+      id:'cutting-template-import', // cutting-template-import（裁帶模板匯入用途）
+      page:'cutting',
+      accept:['.xlsx'],
+      maxFiles:1,
+      enabled:()=>state.activeTab === 'template' && !g('cut-template-file')?.disabled,
+      text:{vi:'Thả tệp để nhập mẫu',zh:'放開即可匯入模板'},
+      onDrop:files=>cuttingHandleTemplateFile({files}),
+      onReject:showCuttingFileDropMessage,
+      onError:()=>showCuttingFileDropMessage({message:{vi:'Không thể xử lý tệp mẫu',zh:'無法處理模板檔案'}})
+    });
+    fileDropTargetsRegistered = true;
+    return true;
+  }
+
   function cuttingSwitchTab(tab){
     const selectedTab = ['order', 'template', 'history'].includes(tab) ? tab : 'order'; // selectedTab（目前裁帶分頁）
+    state.activeTab = selectedTab;
     ['order', 'template', 'history'].forEach(tabName => {
       const panel = g(`cut-panel-${tabName}`); // panel（裁帶分頁內容）
       const button = g(`cut-tab-${tabName}`); // button（裁帶分頁按鈕）
@@ -870,6 +910,7 @@
 
   function cuttingTemplateDrop(event){
     event.preventDefault();
+    event.stopPropagation();
     const drop = g('cut-template-drop');
     if(drop) drop.classList.remove('dragging');
     const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
@@ -1108,6 +1149,7 @@
 
   function cuttingOrderDrop(event){
     event.preventDefault();
+    event.stopPropagation();
     const drop = g('cut-order-drop');
     if(drop) drop.classList.remove('dragging');
     const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
@@ -2098,6 +2140,7 @@
   }
 
   async function cuttingInit(){
+    registerCuttingFileDropTargets();
     await refreshTemplates();
     setTemplateBusy(false);
     cuttingSwitchTab('order');
