@@ -9,6 +9,7 @@
   const BUTTON_KINDS = new Set(['primary','danger']); // BUTTON_KINDS（按鈕樣式種類）
   const NOTICE_KINDS = new Set(['info','success','warning','danger']); // NOTICE_KINDS（提示樣式種類）
   const DISMISSIBLE_DETAILS_SELECTOR = 'details[data-ui-dismiss-outside]'; // DISMISSIBLE_DETAILS_SELECTOR（可點擊外部關閉的展開元件選擇器）
+  const CONTENT_DISMISSIBLE_DETAILS_SELECTOR = 'details[data-ui-dismiss-on-content]'; // CONTENT_DISMISSIBLE_DETAILS_SELECTOR（可點擊內容關閉的純閱讀元件選擇器）
   let activeDialog = null; // activeDialog（目前開啟的共用視窗）
   let dialogSequence = 0; // dialogSequence（共用視窗流水號）
 
@@ -25,6 +26,12 @@
 
   document.addEventListener('pointerdown',event=>{
     const current = event.target?.closest?.(DISMISSIBLE_DETAILS_SELECTOR); // current（本次點擊所在的展開元件）
+    const clickedSummary = event.target?.closest?.('summary'); // clickedSummary（本次是否點擊展開按鈕）
+    if(current?.matches(CONTENT_DISMISSIBLE_DETAILS_SELECTOR) && !clickedSummary){
+      current.removeAttribute('open');
+      closeDismissibleDetails();
+      return;
+    }
     closeDismissibleDetails(current || null);
   });
 
@@ -186,6 +193,9 @@
     if(!(options.actions || []).length) actions.hidden = true;
     backdrop.addEventListener('mousedown',event=>{
       if(event.target === backdrop && options.closeOnBackdrop !== false) close('backdrop'); // backdrop（點擊遮罩）
+    });
+    dialog.addEventListener('mousedown',()=>{
+      if(options.closeOnContent === true) close('content'); // content（點擊純閱讀內容）
     });
     document.addEventListener('keydown',handleKeydown,true);
     (options.host || document.body).appendChild(backdrop);
