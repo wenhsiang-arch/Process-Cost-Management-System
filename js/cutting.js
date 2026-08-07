@@ -3,6 +3,8 @@
   const state = {
     templates: [],
     orderItems: [],
+    orderErrors: [], // orderErrors（訂單錯誤）：只保存訂單檔案本身的不完整或無效資料，不包含缺少模板。
+    orderCodeCount: 0, // orderCodeCount（訂單款號數）：只計算訂單內實際出現的非空白唯一款號。
     orderLabel: '', // orderLabel（PDF 左上角內容）：自動辨識後可由使用者修改。
     results: [],
     pendingTemplateFile: null,
@@ -281,12 +283,6 @@
 
   function isItemCode(value){
     return normalizeCode(value).length > 0;
-  }
-
-  // isLikelyItemCode（推測款號格式）：只用於沒有表頭時推測訂單欄位，不限制已確認欄位內的正式款號。
-  function isLikelyItemCode(value){
-    const code = normalizeCode(value);
-    return !!code && /[A-Z0-9]/.test(code);
   }
 
   function codeAliases(value){
@@ -1174,6 +1170,8 @@
 
   function cuttingClearCurrent(){
     state.orderItems = [];
+    state.orderErrors = [];
+    state.orderCodeCount = 0;
     state.orderLabel = '';
     state.results = [];
     clearPendingTemplate();
@@ -1194,84 +1192,207 @@
     renderTemplateAnalysis(null);
   }
 
+  const ORDER_CODE_HEADERS = new Set([
+    'ITEMNO','ITEMNUMBER','ITEM','SKU','STYLE','MODEL','MAHANG','款號','货号'
+  ]); // ORDER_CODE_HEADERS（款號表頭名稱）：只接受明確表頭，不依資料外觀猜測。
+  const ORDER_QTY_HEADERS = new Set([
+    'QTY','QUANTITY','ORDERQTY','PCS','SLPOPCS','SOLUONG','SOLUONGPCS','SL','數量','数量','訂單數量'
+  ]); // ORDER_QTY_HEADERS（訂單數量表頭名稱）：PCS 是表頭名稱，不是數量內容。
+
+  // orderHeaderParts（拆分訂單表頭）：允許同一格使用換行或斜線顯示雙語表頭。
+  function orderHeaderParts(value){
+    const rawParts = String(value ?? '').split(/[\r\n\/|｜]+/); // rawParts（原始表頭片段）
+    return rawParts.map(part => normalizeHeader(part)).filter(Boolean);
+  }
+
+  // matchesOrderHeader（比對訂單表頭）：必須完整符合已核准名稱，避免把說明或其他數字標題誤認成訂單資料。
+  function matchesOrderHeader(value, acceptedHeaders){
+    const parts = orderHeaderParts(value); // parts（標準化表頭片段）
+    return parts.some(part => acceptedHeaders.has(part));
+  }
+
+  // findOrderHeader（尋找訂單表頭）：同一列必須各有一個明確的款號與訂單數量表頭。
   function findOrderHeader(rows){
-    const codeWords = ['ITEMNO','ITEMNUMBER','ITEM','SKU','STYLE','MODEL','MAHANG','款號','货号'];
-    const qtyWords = ['QTY','QUANTITY','ORDERQTY','PCS','SOLUONG','SL','數量','数量','訂單數量'];
-    for(let r = 0; r < Math.min(rows.length, 35); r++){
-      const cells = (rows[r] || []).map(v => normalizeHeader(v));
-      let codeIdx = -1;
-      let qtyIdx = -1;
-      cells.forEach((v, i) => {
-        if(codeIdx < 0 && codeWords.some(w => v.includes(w))) codeIdx = i;
-        if(qtyIdx < 0 && qtyWords.some(w => v.includes(w))) qtyIdx = i;
+    for(let rowIndex = 0; rowIndex < Math.min(rows.length, 35); rowIndex++){
+      const row = rows[rowIndex] || []; // row（目前檢查列）
+      const codeIndexes = []; // codeIndexes（款號表頭位置）
+      const qtyIndexes = []; // qtyIndexes（訂單數量表頭位置）
+      row.forEach((value, cellIndex) => {
+        if(matchesOrderHeader(value, ORDER_CODE_HEADERS)) codeIndexes.push(cellIndex);
+        if(matchesOrderHeader(value, ORDER_QTY_HEADERS)) qtyIndexes.push(cellIndex);
       });
-      if(codeIdx >= 0 && qtyIdx >= 0 && codeIdx !== qtyIdx) return {row: r, codeIdx, qtyIdx};
+      if(codeIndexes.length && qtyIndexes.length){
+        if(codeIndexes.length === 1 && qtyIndexes.length === 1 && codeIndexes[0] !== qtyIndexes[0]){
+          return {ok:true, row:rowIndex, codeIdx:codeIndexes[0], qtyIdx:qtyIndexes[0]};
+        }
+        return {
+          ok:false,
+          reasonVi:'Không thể xác định duy nhất tiêu đề mã hàng và số lượng đơn hàng.',
+          reasonZh:'無法唯一確認款號與訂單數量表頭。',
+          solutionVi:'Chỉ giữ một tiêu đề mã hàng và một tiêu đề số lượng đơn hàng trong cùng một dòng.',
+          solutionZh:'請在同一列表頭中只保留一個款號表頭及一個訂單數量表頭。'
+        };
+      }
     }
-    return null;
+    return {
+      ok:false,
+      reasonVi:'Không tìm thấy tiêu đề mã hàng và số lượng đơn hàng.',
+      reasonZh:'找不到款號與訂單數量表頭。',
+      solutionVi:'Kiểm tra tiêu đề mã hàng và tiêu đề PCS hoặc số lượng đơn hàng rồi nhập lại.',
+      solutionZh:'請確認款號表頭，以及 PCS 或訂單數量表頭後重新匯入。'
+    };
   }
 
-  function inferOrderHeaderByShape(rows){
-    const codeScores = new Map();
-    for(let r = 0; r < Math.min(rows.length, 160); r++){
-      (rows[r] || []).forEach((cell, c) => {
-        if(isLikelyItemCode(cell)) codeScores.set(c, (codeScores.get(c) || 0) + 1);
-      });
+  // parseOrderQuantity（檢查訂單數量）：只接受大於零的安全整數，不移除文字、單位、小數點或其他符號後猜測數量。
+  function parseOrderQuantity(value){
+    const rawText = String(value ?? '').trim(); // rawText（原始訂單數量文字）
+    if(rawText === '') return {ok:false, kind:'blank', rawText};
+    if(typeof value === 'number'){
+      if(!Number.isFinite(value)) return {ok:false, kind:'invalid', rawText};
+      if(value === 0) return {ok:false, kind:'zero', rawText};
+      if(value < 0) return {ok:false, kind:'negative', rawText};
+      if(!Number.isInteger(value)) return {ok:false, kind:'decimal', rawText};
+      if(!Number.isSafeInteger(value)) return {ok:false, kind:'unsafe', rawText};
+      return {ok:true, value, rawText};
     }
-    let codeIdx = -1, bestCodeScore = 0;
-    codeScores.forEach((score, col) => {
-      if(score > bestCodeScore){
-        bestCodeScore = score;
-        codeIdx = col;
-      }
-    });
-    if(codeIdx < 0 || bestCodeScore < 2) return null;
-
-    const qtyScores = new Map();
-    for(let r = 0; r < Math.min(rows.length, 220); r++){
-      const row = rows[r] || [];
-      if(!isLikelyItemCode(row[codeIdx])) continue;
-      row.forEach((cell, c) => {
-        if(c === codeIdx) return;
-        const qty = parseNumber(cell);
-        if(qty <= 0) return;
-        let score = qty >= 10 ? 3 : 1;
-        if(c > codeIdx) score += 1;
-        qtyScores.set(c, (qtyScores.get(c) || 0) + score);
-      });
+    if(!/^\d+$/.test(rawText)){
+      const numericValue = Number(rawText); // numericValue（可直接轉換的數值）：只用來區分小數、負數與一般無效文字。
+      if(Number.isFinite(numericValue) && numericValue < 0) return {ok:false, kind:'negative', rawText};
+      if(Number.isFinite(numericValue) && !Number.isInteger(numericValue)) return {ok:false, kind:'decimal', rawText};
+      return {ok:false, kind:'invalid', rawText};
     }
-    let qtyIdx = -1, bestQtyScore = 0;
-    qtyScores.forEach((score, col) => {
-      if(score > bestQtyScore){
-        bestQtyScore = score;
-        qtyIdx = col;
-      }
-    });
-    return qtyIdx >= 0 ? {row:-1, codeIdx, qtyIdx, method:'shape'} : null;
+    const integerValue = Number(rawText); // integerValue（訂單整數數量）
+    if(integerValue === 0) return {ok:false, kind:'zero', rawText};
+    if(!Number.isSafeInteger(integerValue)) return {ok:false, kind:'unsafe', rawText};
+    return {ok:true, value:integerValue, rawText};
   }
 
-  function parseOrderRows(rows){
-    let header = findOrderHeader(rows);
-    const items = new Map();
-    if(header){
-      rows.slice(header.row + 1).forEach(row => {
-        const code = normalizeCode(row[header.codeIdx]);
-        const qty = parseNumber(row[header.qtyIdx]);
-        if(!isItemCode(code) || qty <= 0) return;
-        items.set(code, (items.get(code) || 0) + qty);
-      });
+  // orderIssueLocation（訂單問題位置）：用工作表名稱與資料列說明，不要求使用者記住英文字母欄位。
+  function orderIssueLocation(sheetName, rowNumber){
+    const safeSheetName = String(sheetName || '-'); // safeSheetName（顯示用工作表名稱）
+    return {
+      vi: rowNumber > 0 ? `Trang tính ${safeSheetName} · Dòng ${rowNumber}` : `Trang tính ${safeSheetName}`,
+      zh: rowNumber > 0 ? `工作表 ${safeSheetName} · 第 ${rowNumber} 列` : `工作表 ${safeSheetName}`
+    };
+  }
+
+  // createOrderError（建立訂單錯誤）：訂單不完整才使用錯誤，缺少模板不得使用此狀態。
+  function createOrderError({sheetName, rowNumber = 0, code = '', reasonVi, reasonZh, solutionVi, solutionZh}){
+    const location = orderIssueLocation(sheetName, rowNumber); // location（訂單錯誤位置）
+    return {
+      code,
+      qty:0,
+      piecesPerItem:0,
+      totalPieces:0,
+      reverseQty:0,
+      status:'error',
+      source:'order',
+      reasonVi:`${location.vi}. ${reasonVi}`,
+      reasonZh:`${location.zh}。${reasonZh}`,
+      solutionVi,
+      solutionZh
+    };
+  }
+
+  // quantityIssueText（訂單數量錯誤文字）：依空白、零、負數、小數或其他無效內容提供具體原因。
+  function quantityIssueText(quantityResult){
+    const rawText = quantityResult.rawText || ''; // rawText（錯誤數量原文）
+    const shownValue = rawText || '(trống / 空白)'; // shownValue（顯示用原始數量）
+    const reasonMap = {
+      blank:{vi:'Mã hàng có dữ liệu nhưng số lượng đơn hàng đang trống.',zh:'已有款號，但訂單數量空白。'},
+      zero:{vi:'Số lượng đơn hàng bằng 0.',zh:'訂單數量為 0。'},
+      negative:{vi:`Số lượng đơn hàng là số âm: ${shownValue}.`,zh:`訂單數量為負數：${shownValue}。`},
+      decimal:{vi:`Số lượng đơn hàng có số thập phân: ${shownValue}.`,zh:`訂單數量含有小數：${shownValue}。`},
+      unsafe:{vi:`Số lượng đơn hàng vượt quá phạm vi an toàn: ${shownValue}.`,zh:`訂單數量超出安全範圍：${shownValue}。`},
+      invalid:{vi:`Số lượng đơn hàng không hợp lệ: ${shownValue}.`,zh:`訂單數量內容無效：${shownValue}。`}
+    }; // reasonMap（訂單數量錯誤原因）
+    return reasonMap[quantityResult.kind] || reasonMap.invalid;
+  }
+
+  // parseOrderRows（檢查訂單資料列）：完整列才進入模板配對；錯誤列保留位置與原始原因並阻止匯出。
+  function parseOrderRows(rows, sheetName = '-'){
+    const header = findOrderHeader(rows); // header（已確認的訂單表頭）
+    if(!header.ok){
+      return {
+        items:[],
+        errors:[createOrderError({sheetName, reasonVi:header.reasonVi, reasonZh:header.reasonZh, solutionVi:header.solutionVi, solutionZh:header.solutionZh})],
+        codeCount:0
+      };
     }
-    if(!items.size){
-      header = inferOrderHeaderByShape(rows);
-      if(header){
-        rows.forEach(row => {
-          const code = normalizeCode(row[header.codeIdx]);
-          const qty = parseNumber(row[header.qtyIdx]);
-          if(!isItemCode(code) || qty <= 0) return;
-          items.set(code, (items.get(code) || 0) + qty);
-        });
+    const candidates = []; // candidates（逐列檢查通過的訂單資料）
+    const errors = []; // errors（訂單資料錯誤）
+    const codeRows = new Map(); // codeRows（同一款號出現的資料列）
+    for(let rowIndex = header.row + 1; rowIndex < rows.length; rowIndex++){
+      const row = rows[rowIndex] || []; // row（目前訂單資料列）
+      const rawCode = row[header.codeIdx]; // rawCode（原始款號內容）
+      const rawQty = row[header.qtyIdx]; // rawQty（原始訂單數量內容）
+      const code = normalizeCode(rawCode); // code（標準化款號）
+      const quantityText = String(rawQty ?? '').trim(); // quantityText（訂單數量原文）
+      if(!code && !quantityText) continue;
+      const rowNumber = rowIndex + 1; // rowNumber（Excel 資料列號碼）
+      if(
+        matchesOrderHeader(rawCode, ORDER_CODE_HEADERS) &&
+        matchesOrderHeader(rawQty, ORDER_QTY_HEADERS)
+      ) continue;
+      if(code){
+        if(!codeRows.has(code)) codeRows.set(code, []);
+        codeRows.get(code).push(rowNumber);
       }
+      if(!code){
+        errors.push(createOrderError({
+          sheetName,
+          rowNumber,
+          reasonVi:`Có số lượng đơn hàng "${quantityText}" nhưng mã hàng đang trống.`,
+          reasonZh:`有訂單數量「${quantityText}」，但款號空白。`,
+          solutionVi:'Điền mã hàng tương ứng rồi nhập lại đơn hàng.',
+          solutionZh:'請填入對應款號後重新匯入訂單。'
+        }));
+        continue;
+      }
+      const quantityResult = parseOrderQuantity(rawQty); // quantityResult（訂單數量檢查結果）
+      if(!quantityResult.ok){
+        const reason = quantityIssueText(quantityResult); // reason（訂單數量錯誤原因）
+        errors.push(createOrderError({
+          sheetName,
+          rowNumber,
+          code,
+          reasonVi:reason.vi,
+          reasonZh:reason.zh,
+          solutionVi:'Nhập số lượng đơn hàng là số nguyên lớn hơn 0 rồi nhập lại.',
+          solutionZh:'請將訂單數量改為大於 0 的整數後重新匯入。'
+        }));
+        continue;
+      }
+      candidates.push({code, qty:quantityResult.value, rowNumber});
     }
-    return Array.from(items.entries()).map(([code, qty]) => ({code, qty}));
+    const duplicateCodes = new Set(); // duplicateCodes（重複款號）
+    codeRows.forEach((rowNumbers, code) => {
+      if(rowNumbers.length <= 1) return;
+      duplicateCodes.add(code);
+      const rowText = rowNumbers.join(', '); // rowText（重複款號資料列）
+      errors.push(createOrderError({
+        sheetName,
+        rowNumber:rowNumbers[0],
+        code,
+        reasonVi:`Mã hàng bị trùng ở các dòng ${rowText}.`,
+        reasonZh:`款號重複出現在第 ${rowText} 列。`,
+        solutionVi:'Chỉ giữ một dòng duy nhất cho mã hàng này, không cộng gộp tự động.',
+        solutionZh:'請只保留此款號唯一一筆資料，系統不會自動合併數量。'
+      }));
+    });
+    const items = candidates
+      .filter(item => !duplicateCodes.has(item.code))
+      .map(({code, qty}) => ({code, qty})); // items（可進行模板配對的完整訂單資料）
+    if(!items.length && !errors.length){
+      errors.push(createOrderError({
+        sheetName,
+        reasonVi:'Không tìm thấy dữ liệu mã hàng và số lượng đơn hàng.',
+        reasonZh:'找不到款號與訂單數量資料。',
+        solutionVi:'Kiểm tra nội dung bên dưới tiêu đề mã hàng và số lượng đơn hàng rồi nhập lại.',
+        solutionZh:'請檢查款號與訂單數量表頭下方的資料後重新匯入。'
+      }));
+    }
+    return {items, errors, codeCount:codeRows.size};
   }
 
   // extractOrderHeadingValue（解析訂單標題儲存格）：支援 ORDER NO（訂單編號）與 ORDER NUMBER（訂單編號）。
@@ -1372,18 +1493,39 @@
   async function cuttingHandleOrderFile(input){
     const file = input && input.files ? input.files[0] : null;
     if(!file) return;
+    state.orderItems = [];
+    state.orderErrors = [];
+    state.orderCodeCount = 0;
+    state.results = [];
     setOrderFileDisplay(file.name);
     state.orderLabel = '';
+    renderResults();
     try{
+      if(!/\.(xlsx|xls)$/i.test(String(file.name || ''))){
+        state.orderErrors = [createOrderError({
+          sheetName:'-',
+          reasonVi:'Định dạng tệp đơn hàng không được hỗ trợ.',
+          reasonZh:'訂單檔案格式不受支援。',
+          solutionVi:'Chọn tệp đơn hàng .xlsx hoặc .xls rồi nhập lại.',
+          solutionZh:'請選擇 .xlsx 或 .xls 訂單檔案後重新匯入。'
+        })];
+        setOrderFileDisplay(`${file.name}（định dạng không hợp lệ / 格式不符）`);
+        recomputeResults();
+        return;
+      }
       await window.PCMSFeatures.ensureSpreadsheetTool();
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, {type:'array'});
       const sheetCount = Array.isArray(wb.SheetNames) ? wb.SheetNames.length : 0; // sheetCount（訂單工作表數量）
       if(sheetCount !== 1){
         const sheetNames = sheetCount ? wb.SheetNames.map(name => String(name || '')).join(', ') : '-'; // sheetNames（訂單工作表名稱）
-        state.orderItems = [];
-        state.orderLabel = '';
-        state.results = [];
+        state.orderErrors = [createOrderError({
+          sheetName:sheetNames,
+          reasonVi:`Tệp đơn hàng có ${sheetCount} trang tính.`,
+          reasonZh:`訂單檔案共有 ${sheetCount} 個工作表。`,
+          solutionVi:'Chỉ giữ một trang tính đơn hàng rồi nhập lại.',
+          solutionZh:'請只保留一個訂單工作表後重新匯入。'
+        })];
         setOrderFileDisplay(`${file.name}（${sheetCount} trang tính, bị từ chối / 共 ${sheetCount} 個工作表，已禁止匯入）`);
         recomputeResults();
         alert(
@@ -1401,21 +1543,31 @@
       wb.SheetNames.forEach(name => {
         const worksheet = wb.Sheets[name]; // worksheet（目前訂單工作表）
         const rows = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:''});
-        all.push(...parseOrderRows(rows));
+        all.push(parseOrderRows(rows, name));
         const displayRows = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:'', raw:false}); // displayRows（依 Excel 顯示文字讀取的資料列）
         detectedOrderNumbers.push(...findOrderNumbersInRows(displayRows));
       });
       state.orderLabel = buildDetectedOrderLabel(detectedOrderNumbers);
-      const merged = new Map();
-      all.forEach(item => merged.set(item.code, (merged.get(item.code) || 0) + item.qty));
-      state.orderItems = Array.from(merged.entries()).map(([code, qty]) => ({code, qty}));
-      if(!state.orderItems.length){
-        setOrderFileDisplay(file.name + '（không đọc được mã hàng / 未讀到款號）');
-        alert('Không đọc được mã hàng và số lượng trong đơn hàng.\n訂單內沒有讀到款號與數量。\n\n請確認訂單表裡有款號欄與數量欄。');
+      state.orderItems = all.flatMap(result => result.items || []);
+      state.orderErrors = all.flatMap(result => result.errors || []);
+      state.orderCodeCount = all.reduce((sum, result) => sum + Number(result.codeCount || 0), 0);
+      if(state.orderErrors.length){
+        setOrderFileDisplay(`${file.name}（${fmtNum(state.orderErrors.length)} lỗi / ${fmtNum(state.orderErrors.length)} 筆錯誤）`);
       }
       recomputeResults();
     }catch(e){
       console.error(e);
+      state.orderItems = [];
+      state.orderCodeCount = 0;
+      state.orderErrors = [createOrderError({
+        sheetName:'-',
+        reasonVi:'Không thể đọc nội dung tệp đơn hàng.',
+        reasonZh:'無法讀取訂單檔案內容。',
+        solutionVi:'Kiểm tra tệp có bị hỏng hay không, sau đó chọn lại tệp đơn hàng.',
+        solutionZh:'請檢查檔案是否損壞，再重新選擇訂單檔案。'
+      })];
+      setOrderFileDisplay(`${file.name}（đọc thất bại / 讀取失敗）`);
+      recomputeResults();
       alert('Đọc đơn hàng thất bại.\n讀取訂單失敗。\n\n' + e.message);
     }finally{
       input.value = '';
@@ -1442,29 +1594,16 @@
     });
     const passed = Array.from(grouped.values()).map(template => {
       const pieces = Number(template.piecesPerItem || 0);
-      if(pieces <= 0){
-        return {
-          ...template,
-          piecesPerItem:pieces,
-          totalPieces:0,
-          reverseQty:0,
-          status:'error',
-          reasonVi:'Số dây/SP trong mẫu đang trống hoặc bằng 0.',
-          reasonZh:'模板中的每件條數空白或為 0。',
-          solutionVi:'Sửa số dây/SP trong mẫu rồi nhập lại mẫu.',
-          solutionZh:'請修正模板的每件條數後重新匯入模板。'
-        };
-      }
       const totalPieces = template.qty * pieces;
       const reverseQty = totalPieces / pieces;
       return {...template, qty:template.qty, totalPieces, reverseQty, status:'pass'};
     });
-    state.results = [...passed, ...missing];
+    state.results = [...state.orderErrors, ...passed, ...missing];
     renderResults();
   }
 
   function renderResults(){
-    const total = state.results.length;
+    const total = state.orderCodeCount;
     const passed = state.results.filter(r => r.status === 'pass').length;
     const missing = state.results.filter(r => r.status === 'missing');
     const errors = state.results.filter(r => r.status === 'error');
@@ -1478,14 +1617,14 @@
 
     const alertBox = g('cut-alert');
     if(alertBox){
-      if(!total){
+      if(errors.length){
+        alertBox.className = 'nt nd';
+        alertBox.innerHTML = `<i class="ti ti-alert-circle"></i><div><strong>Phát hiện ${fmtNum(errors.length)} lỗi trong đơn hàng.</strong><br><span class="tv">發現 ${fmtNum(errors.length)} 筆訂單錯誤。</span></div>`;
+        alertBox.style.display = 'inline-flex';
+      } else if(!total){
         alertBox.className = 'nt';
         alertBox.innerHTML = '';
         alertBox.style.display = 'none';
-      } else if(errors.length){
-        alertBox.className = 'nt nd';
-        alertBox.innerHTML = `<i class="ti ti-alert-circle"></i><div><strong>Phát hiện ${fmtNum(errors.length)} mã hàng cần sửa.</strong><br><span class="tv">發現 ${fmtNum(errors.length)} 個款號需要修正。</span></div>`;
-        alertBox.style.display = 'inline-flex';
       } else if(missing.length){
         alertBox.className = 'nt nw';
         alertBox.innerHTML = `<i class="ti ti-alert-triangle"></i><div><strong>Thiếu mẫu cho ${fmtNum(missing.length)} mã hàng.</strong><br><span class="tv">${fmtNum(missing.length)} 個款號缺少模板。</span></div>`;
@@ -1534,9 +1673,9 @@
         errorBox.style.display = 'block';
         html('cut-error-list', errors.map(result => `
           <tr>
-            <td><b>${esc(result.code)}</b></td>
-            <td>${esc(result.reasonVi || 'Dữ liệu mẫu không hợp lệ.')}<br><span class="tv">${esc(result.reasonZh || '模板資料無效。')}</span></td>
-            <td>${esc(result.solutionVi || 'Kiểm tra và nhập lại mẫu.')}<br><span class="tv">${esc(result.solutionZh || '請檢查並重新匯入模板。')}</span></td>
+            <td><b>${esc(result.code || 'Trống / 空白')}</b></td>
+            <td>${esc(result.reasonVi || 'Dữ liệu đơn hàng không hợp lệ.')}<br><span class="tv">${esc(result.reasonZh || '訂單資料無效。')}</span></td>
+            <td>${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}<br><span class="tv">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span></td>
           </tr>
         `).join(''));
       }else{
@@ -2267,5 +2406,9 @@
   window.cuttingConfirmOrderLabel = cuttingConfirmOrderLabel;
   window.cuttingCancelOrderLabel = cuttingCancelOrderLabel;
   window.cuttingClosePdfProgress = cuttingClosePdfProgress;
+  window.PCMSCuttingOrderValidation = Object.freeze({
+    parseRows:parseOrderRows,
+    parseQuantity:parseOrderQuantity
+  }); // PCMSCuttingOrderValidation（裁帶訂單檢查介面）：提供相同正式規則給自動測試驗收。
   window.cuttingInit = cuttingInit;
 })();
