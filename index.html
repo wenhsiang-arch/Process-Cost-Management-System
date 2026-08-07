@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260807-1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260808-1">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -397,18 +397,14 @@ tr:hover td{background:#f8fafc}
 
         <div class="cutting-panel" id="cut-panel-template" style="display:none">
           <section class="cutting-operation-panel">
-            <div class="cutting-operation-heading">
-              <i class="ti ti-file-spreadsheet"></i>
-              <span class="cutting-section-copy"><strong>Nhập và xác nhận mẫu</strong><span>匯入並確認模板</span></span>
-            </div>
-            <div class="cutting-command-row">
+            <div class="cutting-command-row cutting-command-row-template">
               <div class="cutting-context-grid cutting-template-context-grid">
                 <div class="cutting-context-item">
                   <i class="ti ti-file-spreadsheet"></i>
                   <div>
                     <span class="cutting-context-copy"><strong>Tệp mẫu đang chọn</strong><span>目前選擇的模板檔案</span></span>
                     <div class="cutting-file-name" id="cut-template-file-name"></div>
-                    <div class="cutting-context-note">Chỉ nhận tệp .xlsx mới với cột A–K cố định.<br>僅接受 A–K 固定欄位的新版 .xlsx 模板。</div>
+                    <div class="cutting-context-note">Chỉ nhận .xlsx với cột A–K.<br>僅接受 .xlsx、A–K 固定欄位。</div>
                   </div>
                 </div>
               </div>
@@ -419,12 +415,9 @@ tr:hover td{background:#f8fafc}
                 <button type="button" class="cutting-command-action is-primary" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()">
                   <i class="ti ti-check"></i><span class="cutting-action-copy"><strong>Xác nhận mẫu</strong><span>確認模板</span></span>
                 </button>
-                <details class="cutting-disclosure">
-                  <summary class="cutting-command-summary"><i class="ti ti-dots"></i><span class="cutting-action-copy"><strong>Thao tác khác</strong><span>其他操作</span></span></summary>
-                  <div class="cutting-more-menu">
-                    <button type="button" class="cutting-menu-action is-danger" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()"><i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span></button>
-                  </div>
-                </details>
+                <button type="button" class="cutting-command-action is-danger" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()">
+                  <i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span>
+                </button>
               </div>
             </div>
             <input type="file" id="cut-template-file" accept=".xlsx" style="display:none" onchange="cuttingHandleTemplateFile(this)">
@@ -460,7 +453,7 @@ tr:hover td{background:#f8fafc}
 
         <div class="cutting-panel" id="cut-panel-order">
           <section class="cutting-operation-panel">
-            <div class="cutting-command-row">
+            <div class="cutting-command-row cutting-command-row-order">
               <div class="cutting-context-grid">
                 <div class="cutting-context-item">
                   <i class="ti ti-file-type-pdf"></i>
@@ -474,7 +467,7 @@ tr:hover td{background:#f8fafc}
                   <div>
                     <span class="cutting-context-copy"><strong>Tệp đơn hàng</strong><span>訂單檔案</span></span>
                     <div class="cutting-file-name" id="cut-order-file-name"></div>
-                    <div class="cutting-context-note">Hỗ trợ .xlsx và .xls, chọn xong sẽ tự kiểm tra.<br>支援 .xlsx、.xls，選擇後會自動檢查。</div>
+                    <div class="cutting-context-note">Hỗ trợ .xlsx và .xls.<br>支援 .xlsx、.xls。</div>
                   </div>
                 </div>
               </div>
@@ -483,7 +476,10 @@ tr:hover td{background:#f8fafc}
                   <i class="ti ti-folder-open"></i><span class="cutting-action-copy"><strong>Chọn tệp</strong><span>選擇檔案</span></span>
                 </button>
                 <button type="button" class="cutting-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
-                  <i class="ti ti-player-play"></i><span class="cutting-action-copy"><strong>Mở công cụ PDF</strong><span>啟動 PDF 工具</span></span>
+                  <i class="ti ti-player-play"></i><span class="cutting-action-copy"><strong>Mở PDF</strong><span>啟動 PDF 工具</span></span>
+                </button>
+                <button type="button" class="cutting-command-action" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()">
+                  <i class="ti ti-refresh"></i><span class="cutting-action-copy"><strong>Kiểm tra PDF</strong><span>檢查狀態</span></span>
                 </button>
                 <details class="cutting-disclosure">
                   <summary class="cutting-command-summary"><i class="ti ti-book"></i><span class="cutting-action-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
@@ -491,28 +487,26 @@ tr:hover td{background:#f8fafc}
                     <h3>Thiết lập lần đầu:</h3>
                     <ol>
                       <li>Vào 「OneDrive\1MAY9\Cong cu chuyen doi PDF」, nhấp chuột phải vào thư mục 「Cong cu chuyen doi PDF」, rồi chọn 「Luôn giữ trên thiết bị này」.</li>
-                      <li>Nhấp đúp 「Khởi động công cụ PDF - 啟動PDF工具.bat」, sau đó nhấn 「Mở công cụ PDF / 啟動 PDF 工具」 để hoàn tất thiết lập.</li>
-                      <li>Những lần sau chỉ cần nhấn 「Mở công cụ PDF / 啟動 PDF 工具」 để sử dụng.</li>
+                      <li>Nhấp đúp 「Khởi động công cụ PDF - 啟動PDF工具.bat」, sau đó nhấn 「Mở PDF / 啟動 PDF 工具」 để hoàn tất thiết lập.</li>
+                      <li>Những lần sau chỉ cần nhấn 「Mở PDF / 啟動 PDF 工具」 để sử dụng.</li>
                     </ol>
                     <h3>第一次設定：</h3>
                     <ol>
                       <li>到「OneDrive\1MAY9\Cong cu chuyen doi PDF」，對「Cong cu chuyen doi PDF」資料夾按右鍵，選擇「永遠保留在此裝置」。</li>
-                      <li>雙擊「Khởi động công cụ PDF - 啟動PDF工具.bat」，再點擊「Mở công cụ PDF / 啟動 PDF 工具」完成設定。</li>
-                      <li>設定完成後，日後只需點擊「Mở công cụ PDF / 啟動 PDF 工具」即可呼叫工具。</li>
+                      <li>雙擊「Khởi động công cụ PDF - 啟動PDF工具.bat」，再點擊「Mở PDF / 啟動 PDF 工具」完成設定。</li>
+                      <li>設定完成後，日後只需點擊「Mở PDF / 啟動 PDF 工具」即可呼叫工具。</li>
                     </ol>
                   </div>
                 </details>
                 <button type="button" class="cutting-command-action is-primary" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
                   <i class="ti ti-eye"></i><span class="cutting-action-copy"><strong>Xem trước</strong><span>預覽</span></span>
                 </button>
-                <details class="cutting-disclosure">
-                  <summary class="cutting-command-summary"><i class="ti ti-dots"></i><span class="cutting-action-copy"><strong>Thao tác khác</strong><span>其他操作</span></span></summary>
-                  <div class="cutting-more-menu">
-                    <button type="button" class="cutting-menu-action" id="cut-check-pdf-tool-btn" onclick="cuttingCheckPdfToolStatus()"><i class="ti ti-refresh"></i><span class="cutting-action-copy"><strong>Kiểm tra trạng thái</strong><span>檢查狀態</span></span></button>
-                    <button type="button" class="cutting-menu-action" id="cut-unregister-pdf-tool-btn" onclick="cuttingUnregisterPdfTool()"><i class="ti ti-unlink"></i><span class="cutting-action-copy"><strong>Hủy đường dẫn</strong><span>取消啟動路徑</span></span></button>
-                    <button type="button" class="cutting-menu-action is-danger" onclick="cuttingClearCurrent()"><i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span></button>
-                  </div>
-                </details>
+                <button type="button" class="cutting-command-action" id="cut-unregister-pdf-tool-btn" onclick="cuttingUnregisterPdfTool()">
+                  <i class="ti ti-unlink"></i><span class="cutting-action-copy"><strong>Hủy liên kết</strong><span>取消啟動路徑</span></span>
+                </button>
+                <button type="button" class="cutting-command-action is-danger" onclick="cuttingClearCurrent()">
+                  <i class="ti ti-eraser"></i><span class="cutting-action-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span>
+                </button>
               </div>
             </div>
             <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">

@@ -102,36 +102,22 @@
   background: var(--ui-color-operation-background);
 }
 
-.cutting-operation-heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 11px 16px;
-  border-bottom: var(--ui-border-width) solid var(--ui-color-operation-divider);
-  color: var(--ui-color-text);
-}
-
-.cutting-operation-heading > i {
-  color: var(--ui-color-primary);
-  font-size: 20px;
-}
-
 .cutting-command-row {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(420px, 1fr) auto;
+  grid-template-columns: minmax(340px, 1fr) auto;
   align-items: stretch;
 }
 
 .cutting-context-grid {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
   align-items: stretch;
 }
 
 .cutting-template-context-grid {
-  grid-template-columns: minmax(280px, 1fr);
+  grid-template-columns: minmax(260px, 1fr);
 }
 
 .cutting-context-item {
@@ -140,8 +126,8 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-content: center;
   align-items: center;
-  gap: 10px 12px;
-  padding: 16px 18px;
+  gap: 6px 10px;
+  padding: 10px 14px;
 }
 
 .cutting-context-item + .cutting-context-item {
@@ -151,51 +137,55 @@
 .cutting-context-item > i {
   grid-row: 1 / span 2;
   color: var(--ui-color-primary);
-  font-size: 31px;
+  font-size: 27px;
 }
 
 .cutting-file-name {
-  min-height: 17px;
-  margin-top: 7px;
+  min-height: 14px;
+  margin-top: 4px;
   color: var(--ui-color-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .cutting-context-note {
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--ui-color-text-muted);
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: 9px;
+  line-height: 1.35;
 }
 
 #pg-cutting #cut-pdf-tool-status {
   min-height: 0;
-  margin: 7px 0 0;
-  padding: 6px 8px;
+  margin: 4px 0 0;
+  padding: 5px 7px;
   border-radius: var(--ui-radius-control);
-  font-size: 10px;
-  line-height: 1.4;
+  font-size: 9px;
+  line-height: 1.3;
 }
 
 .cutting-command-actions {
   display: flex;
   min-width: 0;
   align-items: stretch;
+  justify-content: flex-start;
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
 }
 
 .cutting-command-action,
 .cutting-command-summary {
   display: inline-flex;
-  min-width: 96px;
-  min-height: 86px;
+  width: var(--ui-action-tile-width);
+  min-width: var(--ui-action-tile-width);
+  height: var(--ui-action-tile-height);
+  min-height: var(--ui-action-tile-height);
   align-items: center;
   justify-content: center;
   gap: 6px;
   flex-direction: column;
-  padding: 10px 13px;
+  flex: 0 0 var(--ui-action-tile-width);
+  padding: 8px 5px;
   border: 0;
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
   background: var(--ui-color-surface);
@@ -245,6 +235,16 @@
   background: var(--ui-color-primary-hover);
 }
 
+.cutting-command-action.is-danger,
+.cutting-command-action.is-danger > i,
+.cutting-command-action.is-danger .cutting-action-copy > span {
+  color: var(--ui-color-danger-text);
+}
+
+.cutting-command-action.is-danger:hover:not(:disabled) {
+  background: var(--ui-color-danger-background);
+}
+
 .cutting-command-action.dragging {
   outline: 3px solid var(--ui-color-focus-ring);
   outline-offset: -5px;
@@ -254,9 +254,14 @@
 .cutting-disclosure {
   position: relative;
   display: flex;
+  width: var(--ui-action-tile-width);
+  min-width: var(--ui-action-tile-width);
+  height: var(--ui-action-tile-height);
+  flex: 0 0 var(--ui-action-tile-width);
 }
 
 .cutting-disclosure > summary {
+  width: 100%;
   list-style: none;
 }
 
@@ -360,8 +365,8 @@
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px 12px 28px;
+  gap: 10px;
+  padding: 9px 18px 9px 26px;
 }
 
 .cutting-summary-item + .cutting-summary-item {
@@ -407,7 +412,7 @@
 
 .cutting-summary-value {
   color: var(--ui-color-primary);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -424,7 +429,11 @@
 }
 
 #pg-cutting #cut-alert {
+  min-height: 0;
+  padding: 8px 11px;
   margin-bottom: var(--ui-space-3);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .cutting-data-section {
@@ -437,8 +446,8 @@
   min-width: 0;
   align-items: center;
   gap: 9px;
-  min-height: 43px;
-  padding: 8px 12px;
+  min-height: 38px;
+  padding: 6px 11px;
   border: var(--ui-border-width) solid var(--ui-color-border);
   border-bottom: 0;
   border-radius: var(--ui-radius-panel) var(--ui-radius-panel) 0 0;
@@ -540,22 +549,24 @@
 }
 
 @media (max-width: 1365px) {
+  #pg-cutting {
+    --ui-action-tile-width: 100px;
+  }
+
   .cutting-command-row {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 1fr) auto;
   }
 
-  .cutting-command-actions {
-    width: 100%;
-    border-top: var(--ui-border-width) solid var(--ui-color-operation-divider);
-    border-left: 0;
+  .cutting-context-grid {
+    grid-template-columns: repeat(2, minmax(145px, 1fr));
   }
 
-  .cutting-command-action,
-  .cutting-disclosure {
-    flex: 1 1 0;
+  .cutting-context-item {
+    gap: 5px 8px;
+    padding: 8px 10px;
   }
 
-  .cutting-command-summary {
-    width: 100%;
+  .cutting-context-item > i {
+    font-size: 24px;
   }
 }
