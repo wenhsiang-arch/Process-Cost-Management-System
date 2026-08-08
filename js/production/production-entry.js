@@ -17,6 +17,7 @@
   }; // state（登記頁目前狀態）
 
   function element(id){ return document.getElementById(id); }
+  function isAdmin(){ return window.cu?.role === 'admin'; }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
 
@@ -219,6 +220,59 @@
     await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
   }
 
+  function ensureDeleteColumn(){
+    const table = element('production-entry-table-body')?.closest('table');
+    const headerRow = table?.querySelector('thead tr');
+    if(!headerRow) return;
+    let header = headerRow.querySelector('[data-production-delete-column]');
+    if(!isAdmin()){
+      header?.remove();
+      return;
+    }
+    if(header) return;
+    header = document.createElement('th');
+    header.className = 'production-center-cell';
+    header.dataset.productionDeleteColumn = 'true';
+    const copy = document.createElement('span');
+    copy.className = 'ui-dual-copy';
+    const vi = document.createElement('strong');
+    const zh = document.createElement('span');
+    vi.textContent = 'Thao tác';
+    zh.textContent = '操作';
+    copy.append(vi,zh);
+    header.appendChild(copy);
+    headerRow.appendChild(header);
+  }
+
+  function deleteButton(item){
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'production-row-button is-danger';
+    button.title = 'Xóa vĩnh viễn / 永久刪除';
+    button.setAttribute('aria-label','Xóa vĩnh viễn / 永久刪除');
+    const icon = document.createElement('i');
+    icon.className = 'ti ti-trash';
+    button.appendChild(icon);
+    button.addEventListener('click',()=>void deleteDailyRecord(item));
+    return button;
+  }
+
+  async function deleteDailyRecord(item){
+    const confirmed = await window.PCMSUIComponents.confirmDialog({
+      title:{vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
+      message:{
+        vi:`Xóa ${numberText(item.quantity)} sản phẩm của công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
+        zh:`確定永久刪除工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
+      }
+    });
+    if(!confirmed) return;
+    try{
+      await window.PCMSProductionEntryStore.deleteEntry(item.id);
+      await loadDailyRows();
+      setStatus('Đã xóa vĩnh viễn bản ghi sản xuất.','生產紀錄已永久刪除。','success');
+    }catch(error){ await showError(error); }
+  }
+
   async function saveEntry(){
     const button = element('production-save-button');
     return window.PCMSUIComponents.runActionOnce('production.entry.save',async()=>{
@@ -265,6 +319,7 @@
     const body = element('production-entry-table-body');
     const empty = element('production-entry-empty');
     if(!body) return;
+    ensureDeleteColumn();
     body.replaceChildren();
     rows.forEach(item=>{
       const row = document.createElement('tr');
@@ -275,6 +330,12 @@
       appendCell(row,numberText(item.quantity),'production-number-cell');
       appendCell(row,numberText(item.orderQtySnapshot),'production-number-cell');
       appendCell(row,numberText(item.processSecSnapshot),'production-number-cell');
+      if(isAdmin()){
+        const actionCell = document.createElement('td');
+        actionCell.className = 'production-row-actions';
+        actionCell.appendChild(deleteButton(item));
+        row.appendChild(actionCell);
+      }
       body.appendChild(row);
     });
     if(empty) empty.hidden = rows.length > 0;

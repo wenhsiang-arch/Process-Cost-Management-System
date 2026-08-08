@@ -4,6 +4,7 @@
 
   const state = {initialized:false,rows:[],filtered:[]}; // state（紀錄頁狀態）
   function element(id){ return document.getElementById(id); }
+  function isAdmin(){ return window.cu?.role === 'admin'; }
   function dateText(value){
     const parts = String(value || '').split('-');
     return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : String(value || '—');
@@ -80,6 +81,9 @@
           actionButton('ti-ban','Hủy bản ghi','作廢紀錄',()=>void voidRecord(item),'danger')
         );
       }
+      if(isAdmin()) actionCell.append(
+        actionButton('ti-trash','Xóa vĩnh viễn','永久刪除',()=>void deleteRecord(item),'danger')
+      );
       row.append(statusCell,actionCell);
       body.appendChild(row);
     });
@@ -141,6 +145,22 @@
     try{
       await window.PCMSProductionEntryStore.voidEntry(item.id,reason);
       await load();
+    }catch(error){ await showError(error); }
+  }
+
+  async function deleteRecord(item){
+    const confirmed = await window.PCMSUIComponents.confirmDialog({
+      title:{vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
+      message:{
+        vi:`Xóa ${numberText(item.quantity)} sản phẩm của ${item.employeeId}, công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
+        zh:`確定永久刪除員工 ${item.employeeId}、工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
+      }
+    });
+    if(!confirmed) return;
+    try{
+      await window.PCMSProductionEntryStore.deleteEntry(item.id);
+      await load();
+      window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã xóa vĩnh viễn bản ghi sản xuất.',zh:'生產紀錄已永久刪除。'}});
     }catch(error){ await showError(error); }
   }
 

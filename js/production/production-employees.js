@@ -4,6 +4,7 @@
 
   const state = {initialized:false,editingId:''}; // state（員工頁狀態）
   function element(id){ return document.getElementById(id); }
+  function isAdmin(){ return window.cu?.role === 'admin'; }
 
   function setMessage(vi,zh,kind='info'){
     const host = element('production-employee-status');
@@ -87,6 +88,26 @@
     }catch(error){ await showError(error); }
   }
 
+  async function deleteEmployee(employee){
+    const confirmed = await window.PCMSUIComponents.confirmDialog({
+      title:{vi:'Xóa vĩnh viễn nhân viên',zh:'永久刪除員工'},
+      message:{
+        vi:`Xóa vĩnh viễn ${employee.employeeId} · ${employee.name}? Nhân viên có bản ghi sản xuất sẽ không thể xóa.`,
+        zh:`確定永久刪除 ${employee.employeeId} · ${employee.name}？仍有生產紀錄的員工不能刪除。`
+      }
+    });
+    if(!confirmed) return;
+    try{
+      await window.PCMSProductionEmployees.deleteEmployee(employee.employeeId);
+      if(state.editingId === employee.employeeId) resetForm();
+      render();
+      setMessage('Đã xóa vĩnh viễn nhân viên.','員工已永久刪除。','success');
+    }catch(error){
+      render();
+      await showError(error);
+    }
+  }
+
   function actionButton(icon,vi,zh,handler,kind=''){
     const button = document.createElement('button');
     button.type = 'button';
@@ -126,6 +147,9 @@
       actionCell.append(
         actionButton('ti-edit','Chỉnh sửa','修改',()=>startEdit(employee)),
         actionButton(employee.active === true ? 'ti-user-off' : 'ti-user-check',employee.active === true ? 'Ngừng dùng' : 'Kích hoạt',employee.active === true ? '停用' : '啟用',()=>void toggleActive(employee),employee.active === true ? 'danger' : '')
+      );
+      if(isAdmin()) actionCell.append(
+        actionButton('ti-trash','Xóa vĩnh viễn','永久刪除',()=>void deleteEmployee(employee),'danger')
       );
       row.append(statusCell,actionCell);
       body.appendChild(row);

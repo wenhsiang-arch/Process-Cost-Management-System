@@ -3,6 +3,9 @@
   'use strict';
 
   const COLLECTION_NAME = 'productionEmployees'; // COLLECTION_NAME（產能員工集合名稱）
+  const ENTRY_COLLECTION_NAME = 'productionEntries'; // ENTRY_COLLECTION_NAME（產能登記集合名稱）
+  const LOG_COLLECTION_NAME = 'operationLogs'; // LOG_COLLECTION_NAME（操作紀錄集合名稱）
+  const EMPLOYEE_DELETE_ACTION = 'productionEmployeeDelete'; // productionEmployeeDelete（永久刪除產能員工）
   const EMPLOYEE_ID_PATTERN = /^[A-Z0-9_-]{1,30}$/; // EMPLOYEE_ID_PATTERN（工號允許格式）
   let rows = []; // rows（目前工作階段員工資料）
   let loaded = false; // loaded（是否已載入）
@@ -150,6 +153,51 @@
     return remember({id:reference.id,...saved});
   }
 
+  async function deleteEmployee(employeeId){
+    if(window.cu?.role !== 'admin'){
+      throw new Error('Chỉ quản trị viên mới được xóa vĩnh viễn nhân viên. / 只有管理員可以永久刪除員工。');
+    }
+    const normalized = normalizeEmployeeId(employeeId);
+    const current = find(normalized);
+    if(!current) throw new Error('Không tìm thấy nhân viên. / 找不到員工資料。');
+
+    // 先停用員工，避免檢查關聯資料期間又建立新的生產登記。
+    if(current.active === true) await setActive(normalized,false);
+    const relatedSnapshot = await window._getDocs(window._query(
+      window._collection(ENTRY_COLLECTION_NAME),
+      window._where('employeeId','==',normalized),
+      window._limit(1)
+    ));
+    if(relatedSnapshot.size > 0){
+      throw new Error('Nhân viên vẫn còn bản ghi sản xuất. Vui lòng xóa bản ghi sản xuất trước. / 員工仍有生產紀錄，請先刪除生產紀錄。');
+    }
+
+    const reference = window._docRef(COLLECTION_NAME,employeeDocumentId(normalized));
+    const logReference = window._newDocRef(LOG_COLLECTION_NAME);
+    const now = Date.now();
+    await window._runTransaction(async transaction=>{
+      const snapshot = await transaction.get(reference);
+      if(!snapshot.exists()) throw new Error('Không tìm thấy nhân viên. / 找不到員工資料。');
+      const employee = snapshot.data();
+      transaction.delete(reference);
+      transaction.set(logReference,{
+        permissionKey:'productionEmployees',
+        feature:'production',
+        action:EMPLOYEE_DELETE_ACTION,
+        status:'success',
+        createdAt:now,
+        createdByUid:currentUserId(),
+        createdBy:currentUserName(),
+        itemCount:1,
+        detailCount:1,
+        changes:[{field:'employeeId',before:employee.employeeId,after:null}],
+        note:`${employee.employeeId} · ${normalizeText(employee.name)}`.slice(0,500)
+      });
+    });
+    rows = rows.filter(item=>item.employeeId !== normalized);
+    return {employeeId:normalized};
+  }
+
   function reset(){
     rows = [];
     loaded = false;
@@ -157,6 +205,6 @@
   }
 
   window.PCMSProductionEmployees = Object.freeze({
-    load,list,find,search,save,setActive,reset,normalizeEmployeeId,validateEmployee
+    load,list,find,search,save,setActive,deleteEmployee,reset,normalizeEmployeeId,validateEmployee
   });
 })();

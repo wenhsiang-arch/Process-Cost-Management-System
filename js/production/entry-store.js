@@ -11,6 +11,7 @@
     logs:'operationLogs' // operationLogs（獨立操作紀錄集合）
   });
   const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/; // DATE_PATTERN（生產日期格式）
+  const ENTRY_DELETE_ACTION = 'productionEntryDelete'; // productionEntryDelete（永久刪除生產紀錄）
   let orders = []; // orders（目前可用訂單）
   let ordersPromise = null; // ordersPromise（訂單共用載入工作）
   const processRows = new Map(); // processRows（各訂單已載入工序）
@@ -341,6 +342,50 @@
     return {id:entryReference.id,...saved};
   }
 
+  async function deleteEntry(entryId){
+    if(window.cu?.role !== 'admin'){
+      throw new Error('Chỉ quản trị viên mới được xóa vĩnh viễn bản ghi sản xuất. / 只有管理員可以永久刪除生產紀錄。');
+    }
+    const normalizedEntryId = normalizedText(entryId);
+    if(!normalizedEntryId) throw new Error('Không tìm thấy bản ghi sản xuất. / 找不到生產紀錄。');
+    const entryReference = window._docRef(COLLECTIONS.entries,normalizedEntryId);
+    const logReference = window._newDocRef(COLLECTIONS.logs);
+    const now = Date.now();
+    let deleted;
+    await window._runTransaction(async transaction=>{
+      const entrySnapshot = await transaction.get(entryReference);
+      if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi sản xuất. / 找不到生產紀錄。');
+      const current = entrySnapshot.data();
+      if(!['active','voided'].includes(current.status)){
+        throw new Error('Trạng thái bản ghi sản xuất không hợp lệ. / 生產紀錄狀態不正確。');
+      }
+      if(current.status === 'active'){
+        const totalReference = window._docRef(COLLECTIONS.totals,current.orderProcessId);
+        const totalSnapshot = await transaction.get(totalReference);
+        if(!totalSnapshot.exists()) throw new Error('Thiếu dữ liệu tổng hợp công đoạn. / 缺少工序累計資料。');
+        const quantity = Number(current.quantity);
+        const nextRegistered = Number(totalSnapshot.data().registeredQty) - quantity;
+        if(!Number.isInteger(nextRegistered) || nextRegistered < 0){
+          throw new Error('Số lượng tổng hợp không hợp lệ. / 工序累計數量不正確。');
+        }
+        if(nextRegistered === 0) transaction.delete(totalReference);
+        else transaction.set(totalReference,{
+          ...totalSnapshot.data(),registeredQty:nextRegistered,updatedAt:now,updatedByUid:currentUserId(),
+          lastEntryId:entryReference.id,lastMutation:'delete',lastDelta:-quantity
+        });
+      }
+      transaction.delete(entryReference);
+      transaction.set(logReference,operationLogData(
+        ENTRY_DELETE_ACTION,
+        `${normalizedText(current.employeeId)} · ${normalizedText(current.orderNo)} · ${normalizedText(current.processNo)}`,
+        [{field:'status',before:current.status,after:'deleted'}],
+        now
+      ));
+      deleted = {id:entryReference.id,...current};
+    });
+    return deleted;
+  }
+
   function reset(){
     orders = [];
     ordersPromise = null;
@@ -350,6 +395,6 @@
 
   window.PCMSProductionEntryStore = Object.freeze({
     loadOrders,listOrders,searchOrders,findOrder,loadProcesses,getLoadedProcesses,
-    productsForOrder,searchProducts,findProcess,createEntry,updateQuantity,voidEntry,reset,validateEntryInput
+    productsForOrder,searchProducts,findProcess,createEntry,updateQuantity,voidEntry,deleteEntry,reset,validateEntryInput
   });
 })();

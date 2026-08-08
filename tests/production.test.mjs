@@ -71,3 +71,23 @@ test('生產數量只接受正整數且生產日期必須明確填寫',()=>{
   assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...valid,productionDate:''}),/生產日期/);
   assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...valid,productionDate:'2026-02-31'}),/生產日期/);
 });
+
+test('產能永久刪除只供管理員使用且同步處理員工關聯與工序累計',()=>{
+  const employeeStore=read('js/production/employee-store.js'); // employeeStore（員工資料存取程式內容）
+  const entryStore=read('js/production/entry-store.js'); // entryStore（生產資料存取程式內容）
+  const employeePage=read('js/production/production-employees.js'); // employeePage（員工資料頁程式內容）
+  const entryPage=read('js/production/production-entry.js'); // entryPage（生產登記頁程式內容）
+  const recordsPage=read('js/production/production-records.js'); // recordsPage（生產紀錄頁程式內容）
+
+  assert.match(employeeStore,/window\.cu\?\.role !== 'admin'/);
+  assert.match(employeeStore,/_where\('employeeId','==',normalized\)/);
+  assert.match(employeeStore,/transaction\.delete\(reference\)/);
+  assert.match(entryStore,/window\.cu\?\.role !== 'admin'/);
+  assert.match(entryStore,/nextRegistered === 0\) transaction\.delete\(totalReference\)/);
+  assert.match(entryStore,/transaction\.delete\(entryReference\)/);
+  assert.match(entryStore,/productionEntryDelete/);
+  [employeePage,entryPage,recordsPage].forEach(source=>{
+    assert.match(source,/window\.cu\?\.role === 'admin'/);
+    assert.match(source,/永久刪除/);
+  });
+});
