@@ -6,7 +6,7 @@
     settings:'js/settings.js?v=20260808-1',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
-    summary:'js/summary.js?v=20260808-1',
+    summary:'js/summary.js?v=20260808-2',
     data:'js/data.js?v=20260808-2',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260808-8',
@@ -17,8 +17,8 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260808-10',
-    orders:'styles/features/orders.css?v=20260808-3',
+    cutting:'styles/features/cutting.css?v=20260808-11',
+    orders:'styles/features/orders.css?v=20260808-4',
     products:'styles/features/products.css?v=20260808-3',
     sync:'styles/features/sync.css?v=20260808-2',
     cost:'styles/features/cost.css?v=20260808-5',

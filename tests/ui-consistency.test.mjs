@@ -227,3 +227,23 @@ test('功能專屬樣式維持桌機版面且內容可縮排',()=>{
     assert.doesNotMatch(source,/@media[^\{]*max-width:\s*(?:[1-9]\d{0,2})px/,`${style}.css（功能樣式）不應加入手機尺寸規則`);
   }
 });
+
+test('主要功能頁表格只使用主內容區捲軸且不改彈出視窗',()=>{
+  const html=read('index.html');
+  const core=read('styles/ui-core.css');
+  const cuttingStyle=read('styles/features/cutting.css');
+  const ordersStyle=read('styles/features/orders.css');
+  const summarySource=read('js/summary.js'); // summarySource（款號摘要程式內容）
+  const cuttingSource=read('js/cutting.js'); // cuttingSource（裁帶程式內容）
+  assert.match(html,/\.ct\{flex:1;overflow:auto;/);
+  assert.match(core,/\.ui-page \.ui-table-frame \{\s*overflow: visible;/);
+  assert.match(core,/\.ui-page \.ui-table-scroll \{[\s\S]*?max-height: none;[\s\S]*?overflow: visible;/);
+  assert.match(cuttingStyle,/#pg-cutting \.ts \{[\s\S]*?max-height: none;[\s\S]*?overflow: visible;/);
+  assert.match(cuttingStyle,/#pg-cutting \.cutting-history-scroll \{[\s\S]*?max-height: none;[\s\S]*?overflow: visible;/);
+  assert.match(ordersStyle,/#pg-progress \.orders-table-wrap \{[\s\S]*?overflow: visible;/);
+  assert.match(ordersStyle,/#pg-progress \.order-manager-panel \{[\s\S]*?overflow: visible;/);
+  assert.match(summarySource,/class="summary-detail-table-wrap"><table class="summary-detail-table">/);
+  assert.doesNotMatch(summarySource,/style="overflow-x:auto"><table class="summary-detail-table">/);
+  assert.match(html,/id="m-order-adjust-history"[\s\S]*?max-height:520px;overflow:auto/);
+  assert.match(cuttingSource,/class="ts" style="max-height:320px"/);
+});

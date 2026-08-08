@@ -239,8 +239,7 @@
 
 #pg-cutting .ts {
   max-height: none;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
 }
 
 /* cutting-page-table（裁帶頁面表格）：缺少模板與錯誤清單使用頁面捲動，不建立第二層左右捲軸。 */
@@ -350,8 +349,8 @@
 }
 
 #pg-cutting .cutting-history-scroll {
-  max-height: 520px;
-  overflow-y: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .cutting-history-title {

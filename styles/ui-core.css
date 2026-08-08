@@ -847,6 +847,17 @@
   overflow-y: visible;
 }
 
+/* 正式功能頁只使用主內容區捲動；表格框與表格內容不得建立第二層捲軸。 */
+.ui-page .ui-table-frame {
+  overflow: visible;
+}
+
+.ui-page .ui-table-scroll {
+  max-width: none;
+  max-height: none;
+  overflow: visible;
+}
+
 .ui-table {
   width: 100%;
   border-collapse: collapse;
