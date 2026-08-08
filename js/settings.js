@@ -196,6 +196,52 @@ function rAll(){
   rSum(); rDet(); rExp(); rBk();
 }
 
+const COST_SETTINGS_HISTORY_LABELS=Object.freeze({
+  sal:'平均薪資',ins:'平均保險',meal:'餐費',usd:'匯率USD',twd:'匯率TWD',
+  ws:'工作秒數/小時',eff:'生產效率(%)',hr:'平均時薪'
+}); // COST_SETTINGS_HISTORY_LABELS（成本設定歷史欄位名稱）。
+let savedCostSettingsHistoryBaseline=null; // savedCostSettingsHistoryBaseline（最後一次已載入或已儲存的成本比較基準）。
+
+function createCostSettingsHistorySnapshot(){
+  return {
+    sal:window.S.sal,
+    ins:window.S.ins,
+    meal:window.S.meal,
+    usd:window.S.usd,
+    twd:window.S.twd,
+    ws:window.S.ws,
+    eff:window.S.eff,
+    hr:Math.round(getH())
+  };
+}
+
+function setCostSettingsHistoryBaseline(snapshot=createCostSettingsHistorySnapshot()){
+  savedCostSettingsHistoryBaseline={...snapshot};
+  return {...savedCostSettingsHistoryBaseline};
+}
+
+function buildCostSettingsHistoryChanges(previous,next){
+  const changes=[]; // changes（準備寫入共用歷史紀錄的成本變動）。
+  Object.keys(COST_SETTINGS_HISTORY_LABELS).forEach(key=>{
+    if(previous[key]!==next[key]){
+      const percent=previous[key]?((next[key]-previous[key])/previous[key]*100).toFixed(1):null; // percent（變動百分比）。
+      changes.push({f:COST_SETTINGS_HISTORY_LABELS[key],b:previous[key],a:next[key],p:percent});
+    }
+  });
+  return changes;
+}
+
+async function loadCostSettingsPageData(options={}){
+  await Promise.all([
+    window.ensureOperationSettingsLoaded(options),
+    window.ensureCostSettingsLoaded(options)
+  ]);
+  setCostSettingsHistoryBaseline();
+  return window.S;
+}
+
+window.loadCostSettingsPageData=loadCostSettingsPageData;
+
 async function saveSt(){
   if(!canEditCostSettings()){
     await settingsMessage('Không có quyền cài đặt chi phí.','沒有成本設定權限。','warning');
@@ -204,24 +250,20 @@ async function saveSt(){
   if(!validateAllSettingNumbers()) return false;
   const prevS={...window.S};
   const prevClog=Array.isArray(window.cLog)?window.cLog.map(log=>({...log})):[];
-  const prev={sal:prevS.sal,ins:prevS.ins,meal:prevS.meal,usd:prevS.usd,twd:prevS.twd,ws:prevS.ws,eff:prevS.eff,hr:Math.round(getH())};
+  const prev=savedCostSettingsHistoryBaseline
+    ? {...savedCostSettingsHistoryBaseline}
+    : createCostSettingsHistorySnapshot();
   rAll();
-  const next={sal:window.S.sal,ins:window.S.ins,meal:window.S.meal,usd:window.S.usd,twd:window.S.twd,ws:window.S.ws,eff:window.S.eff,hr:Math.round(getH())};
+  const next=createCostSettingsHistorySnapshot();
   const nextS={...window.S};
-  const lbs={sal:'平均薪資',ins:'平均保險',meal:'餐費',usd:'匯率USD',twd:'匯率TWD',ws:'工作秒數/小時',eff:'生產效率(%)',hr:'平均時薪'};
-  const ch=[];
-  Object.keys(lbs).forEach(k=>{
-    if(prev[k]!==next[k]){
-      const p=prev[k]?((next[k]-prev[k])/prev[k]*100).toFixed(1):null;
-      ch.push({f:lbs[k],b:prev[k],a:next[k],p});
-    }
-  });
+  const ch=buildCostSettingsHistoryChanges(prev,next);
   try{
     window.S=nextS;
     if(window.saveSettingsToFB){
       const okSettings=await saveSettingsToFB();
       if(!okSettings) throw new Error('settings');
     }
+    setCostSettingsHistoryBaseline(next);
     let savedLog=null;
     if(ch.length>0&&window.saveCostLogToFB){
       try{

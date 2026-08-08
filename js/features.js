@@ -3,7 +3,7 @@
   const SCRIPT_URLS = Object.freeze({
     history:'js/history.js?v=20260808-1',
     fileIo:'js/file-io.js?v=20260808-1',
-    settings:'js/settings.js?v=20260809-1',
+    settings:'js/settings.js?v=20260809-2',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260808-2',
@@ -129,7 +129,7 @@
           styles:['cost'],
           scripts:['history','summary','data','settings'],
           dataScopes:['operationSettings','costSettings'],
-          dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded'],
+          dataLoaders:['loadCostSettingsPageData'],
           onOpen:['rAll']
         },
         {
