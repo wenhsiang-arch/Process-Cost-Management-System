@@ -13,7 +13,13 @@
     accounts:'js/accounts.js?v=20260808-1',
     orders:'js/orders.js?v=20260808-2',
     sync:'js/sync.js?v=20260808-1',
-    permissions:'js/permissions.js?v=20260808-1'
+    permissions:'js/permissions.js?v=20260808-1',
+    productionEmployeeStore:'js/production/employee-store.js?v=20260808-1',
+    productionEntryStore:'js/production/entry-store.js?v=20260808-1',
+    productionReportStore:'js/production/report-store.js?v=20260808-1',
+    productionEntry:'js/production/production-entry.js?v=20260808-1',
+    productionRecords:'js/production/production-records.js?v=20260808-1',
+    productionEmployees:'js/production/production-employees.js?v=20260808-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
@@ -22,7 +28,8 @@
     products:'styles/features/products.css?v=20260808-3',
     sync:'styles/features/sync.css?v=20260808-2',
     cost:'styles/features/cost.css?v=20260808-6',
-    accounts:'styles/features/accounts.css?v=20260808-3'
+    accounts:'styles/features/accounts.css?v=20260808-3',
+    production:'styles/features/production.css?v=20260808-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -70,6 +77,32 @@
         {
           page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Thống kê dây cắt',zh:'裁帶統計',
           styles:['cutting'],scripts:['history','fileIo','cuttingStore','cutting'],dataScopes:['cuttingTemplates'],dataLoaders:[],onOpen:['cuttingInit']
+        }
+      ]
+    },
+    {
+      id:'production',navId:'production',navGroup:'primary',icon:'ti-clipboard-data',mainKey:'productionMain',
+      vi:'Ghi nhận sản lượng',zh:'產能登記',
+      pages:[
+        {
+          page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
+          styles:['production'],
+          scripts:['orderProcessCache','productionEmployeeStore','productionEntryStore','productionReportStore','productionEntry'],
+          dataScopes:['productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals'],
+          dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit'],onLeave:['productionEntryLeave']
+        },
+        {
+          page:'production-records',feature:'productionRecords',icon:'ti-history',vi:'Lịch sử sản xuất',zh:'生產紀錄',
+          styles:['production'],
+          scripts:['productionEmployeeStore','productionEntryStore','productionReportStore','productionRecords'],
+          dataScopes:['productionEmployees','productionEntries','productionProcessTotals'],
+          dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
+        },
+        {
+          page:'production-employees',feature:'productionEmployees',icon:'ti-users',vi:'Dữ liệu nhân viên',zh:'員工資料',
+          styles:['production'],
+          scripts:['productionEmployeeStore','productionEmployees'],
+          dataScopes:['productionEmployees'],dataLoaders:['loadProductionEmployeesData'],onOpen:['productionEmployeesInit']
         }
       ]
     },
@@ -131,6 +164,7 @@
 
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','cutting','sync',
+    'productionMain','productionEntry','productionRecords','productionEmployees',
     'costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
@@ -170,7 +204,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','cutting','sync','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','production-entry','cutting','sync','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){
@@ -196,6 +230,11 @@
     normalized.orderImport=normalized.progress===true;
     if(features&&typeof features.costMain!=='boolean'){
       normalized.costMain=normalized.settings===true||normalized.costlog===true||normalized.export===true;
+    }
+    if(features&&typeof features.productionMain!=='boolean'){
+      normalized.productionMain=normalized.productionEntry===true
+        ||normalized.productionRecords===true
+        ||normalized.productionEmployees===true;
     }
     normalized.accounts=false;
     return normalized;

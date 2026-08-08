@@ -46,3 +46,16 @@ test('只有相關資料異動才讓對應功能在背景重新檢查',async()=>
   assert.equal(settingReads,2);
   assert.equal(orderReads,2);
 });
+
+test('產能登記只在開頁後載入且重複切換沿用同頁資料',async()=>{
+  const window=createFeatures();
+  let productionReads=0;
+  window.loadProductionEntryData=async()=>{ productionReads+=1; };
+  await window.PCMSFeatures.ensurePageData('production-entry');
+  await window.PCMSFeatures.ensurePageData('production-entry');
+  assert.equal(productionReads,1);
+  window.PCMSFeatures.invalidateDataScopes(['cuttingTemplates']);
+  assert.equal(window.PCMSFeatures.isPageDataFresh('production-entry'),true);
+  window.PCMSFeatures.invalidateDataScopes(['productionEntries']);
+  assert.equal(window.PCMSFeatures.isPageDataFresh('production-entry'),false);
+});

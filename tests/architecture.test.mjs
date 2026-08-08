@@ -44,7 +44,8 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','permissions','progress','settings','summary','sync'
+    'accounts','costlog','cutting','export','permissions','production-employees',
+    'production-entry','production-records','progress','settings','summary','sync'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
   assert.match(read('index.html'),/value="sales">Kinh doanh \/ 業務/);
@@ -65,6 +66,12 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const normalized=context.window.normalizeFeaturePermissions({progress:true});
   assert.equal(normalized.progress,true);
   assert.equal(normalized.orderImport,true);
+  const production=context.window.PCMSFeatures.getModule('production');
+  assert.deepEqual(Array.from(production.pages).map(page=>page.page),[
+    'production-entry','production-records','production-employees'
+  ]);
+  assert.equal(production.pages.every(page=>page.scripts.some(name=>name.startsWith('production'))),true);
+  assert.equal(context.window.normalizeFeaturePermissions({productionEntry:true}).productionMain,true);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
@@ -97,7 +104,13 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     history:'js/history.js',fileIo:'js/file-io.js',
     settings:'js/settings.js',productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
-    accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js'
+    accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js',
+    productionEmployeeStore:'js/production/employee-store.js',
+    productionEntryStore:'js/production/entry-store.js',
+    productionReportStore:'js/production/report-store.js',
+    productionEntry:'js/production/production-entry.js',
+    productionRecords:'js/production/production-records.js',
+    productionEmployees:'js/production/production-employees.js'
   }; // scriptFiles（中央清單程式來源）
   const coreFiles=['js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js','js/safe-dom.js'];
   const hasFunction=(combined,name)=>new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(|window\\.${name}\\s*=`).test(combined);
@@ -129,6 +142,11 @@ test('操作歷史查詢所需複合索引已登記',()=>{
     {fieldPath:'permissionKey',order:'ASCENDING'},
     {fieldPath:'action',order:'ASCENDING'},
     {fieldPath:'createdAt',order:'DESCENDING'}
+  ]);
+  const productionEntryIndex=indexes.indexes.find(item=>item.collectionGroup==='productionEntries');
+  assert.deepEqual(productionEntryIndex?.fields,[
+    {fieldPath:'employeeId',order:'ASCENDING'},
+    {fieldPath:'productionDate',order:'DESCENDING'}
   ]);
 });
 

@@ -281,6 +281,8 @@ tr:hover td{background:#f8fafc}
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="openModule('products')" id="nv-products"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Quản lý mã hàng</span><span class="nzh">款號管理</span></div></div>
     <div class="ni" onclick="sp('cutting')" id="nv-cutting"><i class="ti ti-scissors"></i><div class="nl"><span class="nvi">Thống kê dây cắt</span><span class="nzh">裁帶統計</span></div></div>
+    <div class="sb-sec">Sản lượng / 產能</div>
+    <div class="ni locked" onclick="openModule('production')" id="nv-production"><i class="ti ti-clipboard-data"></i><div class="nl"><span class="nvi">Ghi nhận sản lượng</span><span class="nzh">產能登記</span></div></div>
     <button class="sb-sec-toggle" id="management-toggle" type="button" onclick="toggleManagementNav()">
       <span>Quản lý / 管理</span><i class="ti ti-chevron-right"></i>
     </button>
@@ -315,6 +317,149 @@ tr:hover td{background:#f8fafc}
             <div style="font-size:22px;font-weight:600;color:var(--navy);margin-top:16px">Chọn chức năng để bắt đầu</div>
             <div style="font-size:18px;color:var(--mu);margin-top:8px">請從左側選擇要使用的功能</div>
           </div>
+        </div>
+      </div>
+
+      <!-- 產能登記：正式工序第一階段 -->
+      <div class="pg ui-page" id="pg-production-entry">
+        <div class="production-page ui-work-panel">
+          <section class="production-operation-panel ui-operation-panel">
+            <div class="production-entry-command ui-command-row">
+              <div class="production-entry-fields">
+                <div class="production-field">
+                  <label for="production-date-input"><strong>Ngày sản xuất</strong><span>生產日期</span></label>
+                  <div class="production-date-control">
+                    <input type="date" id="production-date-input">
+                    <button type="button" class="production-today-button" id="production-today-button"><span class="ui-dual-copy"><strong>Hôm nay</strong><span>今天</span></span></button>
+                  </div>
+                </div>
+                <div class="production-field production-combobox">
+                  <label for="production-employee-input"><strong>Mã nhân viên</strong><span>員工工號</span></label>
+                  <input type="text" id="production-employee-input" maxlength="30" autocomplete="off" placeholder="M91234 / 1234">
+                  <div class="production-employee-meta"><span id="production-employee-name">—</span><span id="production-employee-department">—</span></div>
+                  <div class="production-options" id="production-employee-options" hidden></div>
+                </div>
+                <div class="production-field production-combobox">
+                  <label for="production-order-input"><strong>Số đơn hàng</strong><span>訂單號碼</span></label>
+                  <input type="text" id="production-order-input" maxlength="200" autocomplete="off">
+                  <div class="production-options" id="production-order-options" hidden></div>
+                </div>
+                <div class="production-field production-combobox">
+                  <label for="production-product-input"><strong>Mã hàng</strong><span>款號</span></label>
+                  <input type="text" id="production-product-input" maxlength="200" autocomplete="off">
+                  <div class="production-options" id="production-product-options" hidden></div>
+                </div>
+                <div class="production-field production-combobox">
+                  <label for="production-process-input"><strong>Số công đoạn</strong><span>工序號</span></label>
+                  <input type="text" id="production-process-input" maxlength="20" inputmode="numeric" autocomplete="off">
+                  <div class="production-options" id="production-process-options" hidden></div>
+                </div>
+                <div class="production-field">
+                  <label for="production-quantity-input"><strong>Số lượng sản xuất</strong><span>生產數量</span></label>
+                  <input type="number" id="production-quantity-input" min="1" step="1" inputmode="numeric" autocomplete="off">
+                </div>
+              </div>
+              <div class="production-command-actions ui-command-actions">
+                <button type="button" class="production-command-action ui-command-action is-primary" id="production-save-button">
+                  <i class="ti ti-device-floppy"></i><span class="ui-dual-copy"><strong>Lưu sản lượng</strong><span>儲存產量</span></span>
+                </button>
+              </div>
+            </div>
+          </section>
+          <div class="production-entry-status ui-notice is-info" id="production-entry-status" hidden></div>
+          <section class="production-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-list-check"></i><span class="ui-dual-copy"><strong>Sản lượng của nhân viên trong ngày</strong><span>員工當日生產紀錄</span></span></div>
+            <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table">
+              <thead><tr>
+                <th><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>SL sản xuất</strong><span>生產數量</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>SL đơn hàng</strong><span>訂單數量</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Giây</strong><span>工序秒數</span></span></th>
+              </tr></thead>
+              <tbody id="production-entry-table-body"></tbody>
+            </table></div></div>
+            <div class="production-empty" id="production-entry-empty"><span class="ui-dual-copy"><strong>Chọn nhân viên để xem dữ liệu trong ngày</strong><span>選擇員工後顯示當日紀錄</span></span></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 生產紀錄 -->
+      <div class="pg ui-page" id="pg-production-records">
+        <div class="production-page ui-work-panel">
+          <section class="production-filter-panel ui-operation-panel">
+            <div class="production-filter-grid ui-command-row">
+              <div class="production-field"><label for="production-record-from"><strong>Từ ngày</strong><span>開始日期</span></label><input type="date" id="production-record-from"></div>
+              <div class="production-field"><label for="production-record-to"><strong>Đến ngày</strong><span>結束日期</span></label><input type="date" id="production-record-to"></div>
+              <div class="production-field"><label for="production-record-employee"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-record-employee" autocomplete="off"></div>
+              <div class="production-field"><label for="production-record-order"><strong>Đơn hàng</strong><span>訂單</span></label><input type="text" id="production-record-order" autocomplete="off"></div>
+              <div class="production-field"><label for="production-record-product"><strong>Mã hàng</strong><span>款號</span></label><input type="text" id="production-record-product" autocomplete="off"></div>
+              <div class="production-field"><label for="production-record-process"><strong>Công đoạn</strong><span>工序</span></label><input type="text" id="production-record-process" autocomplete="off"></div>
+              <div class="production-field"><label for="production-record-status-filter"><strong>Trạng thái</strong><span>狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="active">Hiệu lực / 有效</option><option value="voided">Đã hủy / 已作廢</option></select></div>
+              <div class="production-filter-actions">
+                <button type="button" class="ui-button is-primary production-filter-button" id="production-record-search-button"><span class="ui-dual-copy"><strong>Tìm kiếm</strong><span>搜尋</span></span></button>
+                <button type="button" class="ui-button production-filter-button" id="production-record-clear-button"><span class="ui-dual-copy"><strong>Xóa bộ lọc</strong><span>清除篩選</span></span></button>
+              </div>
+            </div>
+          </section>
+          <section class="production-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử sản xuất</strong><span>生產紀錄</span></span><span class="production-section-count"><span id="production-records-count">0</span> dòng / 筆</span></div>
+            <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table">
+              <thead><tr>
+                <th><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Nhân viên</strong><span>員工</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số lượng</strong><span>生產數量</span></span></th>
+                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
+                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+              </tr></thead>
+              <tbody id="production-records-table-body"></tbody>
+            </table></div></div>
+            <div class="production-empty" id="production-records-empty"><span class="ui-dual-copy"><strong>Chưa có dữ liệu trong phạm vi đã chọn</strong><span>所選範圍尚無資料</span></span></div>
+            <div class="production-record-actions"><button type="button" class="ui-button" id="production-record-load-more" hidden><span class="ui-dual-copy"><strong>Tải thêm 50 dòng</strong><span>再載入50筆</span></span></button></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- 產能員工資料 -->
+      <div class="pg ui-page" id="pg-production-employees">
+        <div class="production-page ui-work-panel">
+          <section class="production-operation-panel ui-operation-panel">
+            <div class="production-employee-command ui-command-row">
+              <div>
+                <div class="production-employee-fields">
+                  <div class="production-field"><label for="production-employee-id"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-employee-id" maxlength="30" autocomplete="off"></div>
+                  <div class="production-field"><label for="production-employee-name-input"><strong>Tên nhân viên</strong><span>員工姓名</span></label><input type="text" id="production-employee-name-input" maxlength="100" autocomplete="off"></div>
+                  <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><input type="text" id="production-employee-department-input" maxlength="100" autocomplete="off"></div>
+                  <div class="production-field"><span class="production-field-label"><strong>Trạng thái</strong><span>狀態</span></span><label class="production-checkbox-field"><input type="checkbox" id="production-employee-active" checked><span class="ui-dual-copy"><strong>Đang dùng</strong><span>啟用</span></span></label></div>
+                </div>
+                <div class="production-employee-form-actions"><button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button></div>
+              </div>
+              <div class="production-command-actions ui-command-actions">
+                <button type="button" class="production-command-action ui-command-action is-primary" id="production-employee-save-button"><i class="ti ti-user-plus"></i><span class="ui-dual-copy" id="production-employee-save-copy"><strong>Thêm nhân viên</strong><span>新增員工</span></span></button>
+              </div>
+            </div>
+          </section>
+          <div class="production-entry-status ui-notice is-info" id="production-employee-status" hidden></div>
+          <section class="production-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-users"></i><span class="ui-dual-copy"><strong>Danh sách nhân viên</strong><span>員工資料</span></span><div class="production-employee-table-tools"><input type="search" id="production-employee-search" placeholder="Tìm mã, tên, bộ phận / 搜尋工號、姓名、部門"><select id="production-employee-filter-status"><option value="">Tất cả / 全部</option><option value="active">Đang dùng / 啟用</option><option value="inactive">Ngừng dùng / 停用</option></select></div><span class="production-section-count"><span id="production-employees-count">0</span> người / 人</span></div>
+            <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table">
+              <thead><tr>
+                <th><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
+                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+              </tr></thead>
+              <tbody id="production-employees-table-body"></tbody>
+            </table></div></div>
+            <div class="production-empty" id="production-employees-empty"><span class="ui-dual-copy"><strong>Chưa có dữ liệu nhân viên</strong><span>尚無員工資料</span></span></div>
+          </section>
         </div>
       </div>
 
@@ -1092,7 +1237,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-14"></script>
+<script src="js/features.js?v=20260808-15"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

@@ -6,9 +6,12 @@ import vm from 'node:vm'; // vm（隔離執行環境）：驗證動態功能抬�
 const root=new URL('../',import.meta.url); // root（專案根目錄）
 const read=file=>fs.readFileSync(new URL(file,root),'utf8');
 
-const featurePages=['summary','cutting','sync','progress','settings','export','costlog','accounts','permissions']; // featurePages（正式功能頁）
+const featurePages=[
+  'summary','cutting','sync','progress','settings','export','costlog','accounts','permissions',
+  'production-entry','production-records','production-employees'
+]; // featurePages（正式功能頁）
 const featureScripts=['cutting','orders','sync','summary','data','settings','accounts','permissions']; // featureScripts（本輪介面功能程式）
-const featureStyles=['cutting','orders','products','sync','cost','accounts']; // featureStyles（功能專屬樣式）
+const featureStyles=['cutting','orders','products','sync','cost','accounts','production']; // featureStyles（功能專屬樣式）
 
 test('全部正式功能頁均接上共用頁面與功能樣式',()=>{
   const html=read('index.html');
@@ -106,7 +109,10 @@ test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
     export:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
     costlog:['ui-work-panel','ui-data-section','ui-table-frame'],
     accounts:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
-    permissions:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame']
+    permissions:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    'production-entry':['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    'production-records':['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    'production-employees':['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame']
   }; // requiredByPage（各舊功能頁必要的共用骨架）
   for(const [page,classes] of Object.entries(requiredByPage)){
     const start=html.indexOf(`id="pg-${page}"`);
@@ -120,6 +126,23 @@ test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
     }
     assert.doesNotMatch(markup,/<div class="card">/,`${page}（功能頁）仍使用舊卡片骨架`);
   }
+});
+
+test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',()=>{
+  const html=read('index.html');
+  const entrySource=read('js/production/production-entry.js');
+  const recordSource=read('js/production/production-records.js');
+  const pageStart=html.indexOf('id="pg-production-entry"');
+  const pageEnd=html.indexOf('<div class="pg',pageStart+1);
+  const markup=html.slice(pageStart,pageEnd);
+  assert.match(markup,/id="production-employee-input"[\s\S]*?placeholder="M91234 \/ 1234"/);
+  assert.match(markup,/id="production-order-input"[\s\S]*?id="production-product-input"[\s\S]*?id="production-process-input"/);
+  assert.match(markup,/Số CĐ[\s\S]*?工序號[\s\S]*?SL sản xuất[\s\S]*?生產數量[\s\S]*?SL đơn hàng[\s\S]*?訂單數量[\s\S]*?Giây[\s\S]*?工序秒數/);
+  assert.doesNotMatch(markup,/Hiệu suất|效率/);
+  assert.match(entrySource,/state\.employeeTimer = setTimeout\([\s\S]*?latest\.length === 1[\s\S]*?},250\)/);
+  assert.match(entrySource,/state\.processTimer = setTimeout\([\s\S]*?if\(exact\) selectProcess\(exact\)[\s\S]*?},400\)/);
+  assert.doesNotMatch(entrySource,/keydown[\s\S]*?Enter/);
+  assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{

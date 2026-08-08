@@ -62,7 +62,8 @@ let testEnvironment;
 
 const allFeatureKeys = [
   'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-  'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings'
+  'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings',
+  'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees'
 ];
 
 function featureMap(enabledKeys = []) {
@@ -131,6 +132,76 @@ function context(uid, email) {
   return testEnvironment.authenticatedContext(uid, googleToken(email));
 }
 
+function productionEntryData(options = {}) {
+  const quantity = Number(options.quantity ?? 40);
+  const now = Number(options.now ?? 1785945601000);
+  const uid = String(options.uid || 'clerk-user');
+  const username = String(options.username || '文員測試');
+  return {
+    recordType: 'standard',
+    productionDate: String(options.productionDate || '2026-08-08'),
+    employeeId: String(options.employeeId || 'M91234'),
+    employeeName: String(options.employeeName || 'Nguyễn An'),
+    department: 'May',
+    orderProcessId: 'PROCESS-001',
+    orderId: 'ORDER-001',
+    orderNo: 'ORDER-001',
+    productCode: 'P-001',
+    processNo: '1',
+    processNameVi: 'May thân',
+    processNameZh: '車身',
+    processSecSnapshot: 48,
+    hourlyCapacitySnapshot: 63,
+    orderQtySnapshot: 100,
+    quantity,
+    status: 'active',
+    revision: Number(options.revision || 1),
+    createdAt: Number(options.createdAt || now),
+    createdByUid: String(options.createdByUid || uid),
+    createdBy: String(options.createdBy || username),
+    updatedAt: now,
+    updatedByUid: uid,
+    updatedBy: username,
+    schemaVersion: 1,
+    calculationVersion: 'hourly-capacity-v1',
+    ...(options.extra || {})
+  };
+}
+
+function productionTotalData(entryId, registeredQty, mutation = 'create', delta = registeredQty, options = {}) {
+  return {
+    orderProcessId: 'PROCESS-001',
+    orderId: 'ORDER-001',
+    orderNo: 'ORDER-001',
+    productCode: 'P-001',
+    processNo: '1',
+    orderQty: 100,
+    registeredQty,
+    updatedAt: Number(options.now || 1785945601000),
+    updatedByUid: String(options.uid || 'clerk-user'),
+    lastEntryId: entryId,
+    lastMutation: mutation,
+    lastDelta: delta,
+    schemaVersion: 1
+  };
+}
+
+function productionOperationLog(action, uid, username, now, note) {
+  return {
+    permissionKey: 'productionRecords',
+    feature: 'production',
+    action,
+    status: 'success',
+    createdAt: now,
+    createdByUid: uid,
+    createdBy: username,
+    itemCount: 1,
+    detailCount: 1,
+    changes: [{ field: 'quantity', before: 40, after: 60 }],
+    note
+  };
+}
+
 async function seedBaseData() {
   await testEnvironment.withSecurityRulesDisabled(async (securityContext) => {
     const database = securityContext.firestore();
@@ -148,7 +219,7 @@ async function seedBaseData() {
         'productsMain', 'summary'
       ])),
       setDoc(doc(database, 'rolePermissions', 'clerk'), rolePermissions('clerk', [
-        'progress'
+        'progress', 'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees'
       ])),
       setDoc(doc(database, 'rolePermissions', 'productionDevelopment'), rolePermissions(
         'productionDevelopment', ['cutting']
@@ -186,13 +257,46 @@ async function seedBaseData() {
         processCount: 1,
         productCodes: ['P-001'],
         processVersion: 'process-version-001',
-        importStatus: 'ready'
+        importStatus: 'ready',
+        lifecycleStatus: 'active'
       }),
       setDoc(doc(database, 'orderProcesses', 'PROCESS-001'), {
         orderId: 'ORDER-001',
         orderNo: 'ORDER-001',
         code: 'P-001',
-        orderQty: 100
+        orderQty: 100,
+        processNo: '1',
+        processVi: 'May thân',
+        processZh: '車身',
+        processSec: 48,
+        workStdSec: 48,
+        slPerHour: 63
+      }),
+      setDoc(doc(database, 'productionEmployees', 'M91234'), {
+        employeeId: 'M91234',
+        name: 'Nguyễn An',
+        department: 'May',
+        active: true,
+        createdAt: 1785945600000,
+        createdByUid: 'admin-user',
+        createdBy: '管理員測試',
+        updatedAt: 1785945600000,
+        updatedByUid: 'admin-user',
+        updatedBy: '管理員測試',
+        schemaVersion: 1
+      }),
+      setDoc(doc(database, 'productionEmployees', 'M90001'), {
+        employeeId: 'M90001',
+        name: 'Trần Bình',
+        department: 'May',
+        active: true,
+        createdAt: 1785945600000,
+        createdByUid: 'admin-user',
+        createdBy: '管理員測試',
+        updatedAt: 1785945600000,
+        updatedByUid: 'admin-user',
+        updatedBy: '管理員測試',
+        schemaVersion: 1
       }),
       setDoc(doc(database, 'userAccess', 'other-user'), userAccess('clerk', '其他使用者')),
       setDoc(doc(database, 'reports', 'legacy-report'), { value: 'denied' }),
@@ -338,6 +442,133 @@ test('訂單工序只允許具有訂單權限的角色讀取', async () => {
     where('orderId', '==', 'ORDER-001')
   )));
   await assertFails(getDoc(doc(managerDatabase, 'orderProcesses', 'PROCESS-001')));
+});
+
+test('產能員工名冊依專屬權限讀寫且只能停用不能刪除', async () => {
+  const clerkDatabase = context('clerk-user', 'clerk@example.com').firestore();
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore();
+  await assertSucceeds(getDoc(doc(clerkDatabase, 'productionEmployees', 'M91234')));
+  await assertFails(getDoc(doc(managerDatabase, 'productionEmployees', 'M91234')));
+  const employee = {
+    employeeId: 'M95555',
+    name: 'Lê Hoa',
+    department: 'Đóng gói',
+    active: true,
+    createdAt: 1785945603000,
+    createdByUid: 'clerk-user',
+    createdBy: '文員測試',
+    updatedAt: 1785945603000,
+    updatedByUid: 'clerk-user',
+    updatedBy: '文員測試',
+    schemaVersion: 1
+  };
+  await assertSucceeds(setDoc(doc(clerkDatabase, 'productionEmployees', 'M95555'), employee));
+  await assertSucceeds(updateDoc(doc(clerkDatabase, 'productionEmployees', 'M95555'), {
+    active: false,
+    updatedAt: 1785945604000,
+    updatedByUid: 'clerk-user',
+    updatedBy: '文員測試'
+  }));
+  await assertFails(deleteDoc(doc(clerkDatabase, 'productionEmployees', 'M95555')));
+});
+
+test('生產登記與工序累計必須同一交易寫入且不能超過訂單數量', async () => {
+  const database = context('clerk-user', 'clerk@example.com').firestore();
+  const validBatch = writeBatch(database);
+  validBatch.set(doc(database, 'productionEntries', 'ENTRY-001'), productionEntryData({quantity:40}));
+  validBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-001',40));
+  await assertSucceeds(validBatch.commit());
+  const totalSnapshot = await getDoc(doc(database, 'productionProcessTotals', 'PROCESS-001'));
+  assert.equal(totalSnapshot.data().registeredQty,40);
+
+  await assertFails(setDoc(
+    doc(database, 'productionEntries', 'ENTRY-WITHOUT-TOTAL'),
+    productionEntryData({quantity:10,now:1785945602000})
+  ));
+
+  await testEnvironment.withSecurityRulesDisabled(async securityContext=>{
+    await deleteDoc(doc(securityContext.firestore(), 'productionProcessTotals', 'PROCESS-001'));
+  });
+  const overBatch = writeBatch(database);
+  overBatch.set(doc(database, 'productionEntries', 'ENTRY-OVER'), productionEntryData({quantity:101,now:1785945603000}));
+  overBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-OVER',101,'create',101,{now:1785945603000}));
+  await assertFails(overBatch.commit());
+});
+
+test('不同員工與不同時間的同工序登記共用訂單數量上限', async () => {
+  const database = context('clerk-user', 'clerk@example.com').firestore();
+  const firstBatch = writeBatch(database);
+  firstBatch.set(doc(database, 'productionEntries', 'ENTRY-A'), productionEntryData({quantity:60,now:1785945601000}));
+  firstBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-A',60));
+  await assertSucceeds(firstBatch.commit());
+
+  const secondBatch = writeBatch(database);
+  secondBatch.set(doc(database, 'productionEntries', 'ENTRY-B'), productionEntryData({
+    quantity:40,now:1785945602000,employeeId:'M90001',employeeName:'Trần Bình'
+  }));
+  secondBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-B',100,'create',40,{now:1785945602000}));
+  await assertSucceeds(secondBatch.commit());
+
+  const thirdBatch = writeBatch(database);
+  thirdBatch.set(doc(database, 'productionEntries', 'ENTRY-C'), productionEntryData({quantity:1,now:1785945603000}));
+  thirdBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-C',101,'create',1,{now:1785945603000}));
+  await assertFails(thirdBatch.commit());
+});
+
+test('生產紀錄修改與作廢會同步調整工序累計並禁止正式刪除', async () => {
+  const database = context('clerk-user', 'clerk@example.com').firestore();
+  const initial = productionEntryData({quantity:40,now:1785945601000});
+  const createBatch = writeBatch(database);
+  createBatch.set(doc(database, 'productionEntries', 'ENTRY-EDIT'), initial);
+  createBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-EDIT',40));
+  await assertSucceeds(createBatch.commit());
+
+  const edited = {
+    ...initial,
+    quantity: 60,
+    revision: 2,
+    updatedAt: 1785945602000,
+    updatedByUid: 'clerk-user',
+    updatedBy: '文員測試'
+  };
+  const editBatch = writeBatch(database);
+  editBatch.set(doc(database, 'productionEntries', 'ENTRY-EDIT'), edited);
+  editBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-EDIT',60,'update',20,{now:1785945602000}));
+  editBatch.set(doc(database, 'operationLogs', 'PRODUCTION-EDIT-LOG'), productionOperationLog(
+    'productionEntryUpdate','clerk-user','文員測試',1785945602000,'更正當日產量'
+  ));
+  await assertSucceeds(editBatch.commit());
+
+  await assertFails(updateDoc(doc(database, 'productionEntries', 'ENTRY-EDIT'), {
+    quantity: 70,
+    revision: 3,
+    updatedAt: 1785945602500,
+    updatedByUid: 'clerk-user',
+    updatedBy: '文員測試'
+  }));
+
+  const voided = {
+    ...edited,
+    status: 'voided',
+    revision: 3,
+    voidedAt: 1785945603000,
+    voidedByUid: 'clerk-user',
+    voidedBy: '文員測試',
+    voidReason: '重複登記',
+    updatedAt: 1785945603000,
+    updatedByUid: 'clerk-user',
+    updatedBy: '文員測試'
+  };
+  const voidBatch = writeBatch(database);
+  voidBatch.set(doc(database, 'productionEntries', 'ENTRY-EDIT'), voided);
+  voidBatch.set(doc(database, 'productionProcessTotals', 'PROCESS-001'), productionTotalData('ENTRY-EDIT',0,'void',-60,{now:1785945603000}));
+  voidBatch.set(doc(database, 'operationLogs', 'PRODUCTION-VOID-LOG'), productionOperationLog(
+    'productionEntryVoid','clerk-user','文員測試',1785945603000,'重複登記'
+  ));
+  await assertSucceeds(voidBatch.commit());
+  await assertFails(deleteDoc(doc(database, 'productionEntries', 'ENTRY-EDIT')));
+  const totalSnapshot = await getDoc(doc(database, 'productionProcessTotals', 'PROCESS-001'));
+  assert.equal(totalSnapshot.data().registeredQty,0);
 });
 
 test('訂單摘要的工序快取欄位必須符合格式', async () => {

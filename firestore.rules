@@ -85,6 +85,9 @@ service cloud.firestore {
         && (!(feature in ['settings', 'costlog', 'export'])
           || !('costMain' in features)
           || features.costMain == true)
+        && (!(feature in ['productionEntry', 'productionRecords', 'productionEmployees'])
+          || !('productionMain' in features)
+          || features.productionMain == true)
         && (feature != 'export'
           || ('costMain' in features)
           || features.costView == true)
@@ -116,17 +119,20 @@ service cloud.firestore {
     // 功能識別：progress（訂單資料）、sync（工序秒數同步）
     // accounts（帳號管理）、export（匯出）、costView（查看工價）、settings（成本設定）、costlog（成本記錄）
     // productsMain（款號管理主功能）、summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
-    // costMain（成本管理主功能）
+    // costMain（成本管理主功能）、productionMain（產能主功能）
+    // productionEntry（生產登記）、productionRecords（生產紀錄）、productionEmployees（產能員工資料）
     // validFeatureMap（功能權限欄位檢查）
     function validFeatureMap(features) {
       return features is map
         && features.keys().hasAll([
           'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-          'summary', 'orderImport', 'cutting', 'sync', 'costMain'
+          'summary', 'orderImport', 'cutting', 'sync', 'costMain',
+          'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees'
         ])
         && features.keys().hasOnly([
           'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-          'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings'
+          'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings',
+          'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees'
         ])
         && features.progress is bool
         && features.accounts is bool
@@ -139,6 +145,10 @@ service cloud.firestore {
         && features.cutting is bool
         && features.sync is bool
         && features.costMain is bool
+        && features.productionMain is bool
+        && features.productionEntry is bool
+        && features.productionRecords is bool
+        && features.productionEmployees is bool
         && (!('settings' in features) || features.settings is bool)
         && features.accounts == false;
     }
@@ -292,8 +302,11 @@ service cloud.firestore {
           // cuttingTemplateDelete（刪除裁帶模板）與既有裁帶操作使用同一功能權限。
           && action in [
             'cuttingTemplateImport', 'cuttingTemplateDelete',
-            'cuttingExcelExport', 'cuttingPdfExport'
-          ]);
+             'cuttingExcelExport', 'cuttingPdfExport'
+          ])
+        || (permissionKey == 'productionRecords'
+          && feature == 'production'
+          && action in ['productionEntryUpdate', 'productionEntryVoid']);
     }
 
     // validOperationLog（每次操作一筆且建立後不可變更的操作紀錄）
@@ -336,7 +349,8 @@ service cloud.firestore {
         || (permissionKey == 'export' && hasFeature('export'))
         || (permissionKey == 'costlog' && hasFeature('costlog'))
         || (permissionKey in ['progress', 'orderImport'] && hasFeature('progress'))
-        || (permissionKey == 'cutting' && hasFeature('cutting'));
+        || (permissionKey == 'cutting' && hasFeature('cutting'))
+        || (permissionKey == 'productionRecords' && hasFeature('productionRecords'));
     }
 
     // canCreateOperationLog（可建立操作紀錄）：只要可以執行該頁動作就可留下紀錄。
@@ -349,7 +363,8 @@ service cloud.firestore {
           && action == 'costSettingsUpdate'
           && hasFeature('settings'))
         || (permissionKey in ['progress', 'orderImport'] && hasFeature('progress'))
-        || (permissionKey == 'cutting' && hasFeature('cutting'));
+        || (permissionKey == 'cutting' && hasFeature('cutting'))
+        || (permissionKey == 'productionRecords' && hasFeature('productionRecords'));
     }
 
     // validOrder（訂單資料檢查）
@@ -396,6 +411,260 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
         'approvedQty', 'pendingQty'
       ]);
+    }
+
+    // canReadProductionEmployees（可讀取產能員工名冊）：登記、紀錄或名冊頁任一權限即可讀取。
+    function canReadProductionEmployees() {
+      return hasFeature('productionEntry')
+        || hasFeature('productionRecords')
+        || hasFeature('productionEmployees');
+    }
+
+    // validProductionEmployeeData（產能員工資料檢查）。
+    function validProductionEmployeeData(employeeId) {
+      return request.resource.data.keys().hasAll([
+          'employeeId', 'name', 'department', 'active',
+          'createdAt', 'createdByUid', 'createdBy',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'employeeId', 'name', 'department', 'active',
+          'createdAt', 'createdByUid', 'createdBy',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.employeeId == employeeId
+        && request.resource.data.employeeId.matches('^[A-Z0-9_-]{1,30}$')
+        && validShortString(request.resource.data.name, 100)
+        && validShortString(request.resource.data.department, 100)
+        && request.resource.data.active is bool
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && validShortString(request.resource.data.createdByUid, 128)
+        && request.resource.data.createdBy is string
+        && request.resource.data.createdBy.size() <= 200
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > 0
+        && validShortString(request.resource.data.updatedByUid, 128)
+        && request.resource.data.updatedBy is string
+        && request.resource.data.updatedBy.size() <= 200
+        && request.resource.data.schemaVersion == 1;
+    }
+
+    // validProductionEmployeeCreate（建立產能員工資料檢查）。
+    function validProductionEmployeeCreate(employeeId) {
+      return validProductionEmployeeData(employeeId)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.createdAt == request.resource.data.updatedAt;
+    }
+
+    // validProductionEmployeeUpdate（修改產能員工資料檢查）：工號及建立資訊不可變更。
+    function validProductionEmployeeUpdate(employeeId) {
+      return validProductionEmployeeData(employeeId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'department', 'active', 'updatedAt', 'updatedByUid', 'updatedBy'
+        ])
+        && request.resource.data.updatedAt >= resource.data.updatedAt
+        && request.resource.data.updatedByUid == request.auth.uid;
+    }
+
+    // validProductionEntryData（生產登記資料欄位與型別檢查）。
+    function validProductionEntryData() {
+      let data = request.resource.data;
+      return data.recordType == 'standard'
+        && data.productionDate is string
+        && data.productionDate.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+        && data.employeeId is string
+        && data.employeeId.matches('^[A-Z0-9_-]{1,30}$')
+        && validShortString(data.employeeName, 100)
+        && validShortString(data.department, 100)
+        && validShortString(data.orderProcessId, 200)
+        && validShortString(data.orderId, 200)
+        && data.processSecSnapshot is number
+        && data.processSecSnapshot > 0
+        && data.hourlyCapacitySnapshot is int
+        && data.hourlyCapacitySnapshot > 0
+        && data.orderQtySnapshot is int
+        && data.orderQtySnapshot > 0
+        && data.quantity is int
+        && data.quantity > 0
+        && data.status == 'active'
+        && data.revision == 1
+        && data.createdAt is int
+        && data.createdAt > 0
+        && data.updatedAt == data.createdAt
+        && data.createdBy is string
+        && data.createdBy.size() <= 200
+        && data.updatedByUid == request.auth.uid
+        && data.updatedBy is string
+        && data.updatedBy.size() <= 200
+        && data.schemaVersion == 1
+        && data.calculationVersion == 'hourly-capacity-v1'
+        && !('voidReason' in data);
+    }
+
+    // productionEntryMatchesSources（生產登記快照必須符合目前員工、訂單及工序來源）。
+    function productionEntryMatchesSources() {
+      let employeePath = /databases/$(database)/documents/productionEmployees/$(request.resource.data.employeeId);
+      let orderPath = /databases/$(database)/documents/orders/$(request.resource.data.orderId);
+      let processPath = /databases/$(database)/documents/orderProcesses/$(request.resource.data.orderProcessId);
+      let employee = get(employeePath).data;
+      let order = get(orderPath).data;
+      let process = get(processPath).data;
+      return exists(employeePath)
+        && employee.active == true
+        && employee.name == request.resource.data.employeeName
+        && employee.department == request.resource.data.department
+        && exists(orderPath)
+        && (!('importStatus' in order) || order.importStatus == 'ready')
+        && (!('lifecycleStatus' in order) || order.lifecycleStatus == 'active')
+        && exists(processPath)
+        && process.orderId == request.resource.data.orderId
+        && process.orderNo == request.resource.data.orderNo
+        && process.code == request.resource.data.productCode
+        && process.processNo == request.resource.data.processNo
+        && process.processVi == request.resource.data.processNameVi
+        && process.processZh == request.resource.data.processNameZh
+        && process.orderQty == request.resource.data.orderQtySnapshot
+        && process.slPerHour == request.resource.data.hourlyCapacitySnapshot
+        && process.slPerHour is int
+        && process.slPerHour > 0
+        && ((('workStdSec' in process)
+              && process.workStdSec is number
+              && process.workStdSec > 0
+              && process.workStdSec == request.resource.data.processSecSnapshot)
+          || (process.processSec is number
+              && process.processSec > 0
+              && process.processSec == request.resource.data.processSecSnapshot));
+    }
+
+    // productionEntryHasMatchingTotalCreate（新增登記時，工序累計必須在同一交易同步增加）。
+    function productionEntryHasMatchingTotalCreate(entryId) {
+      let totalPath = /databases/$(database)/documents/productionProcessTotals/$(request.resource.data.orderProcessId);
+      let totalAfter = getAfter(totalPath).data;
+      return existsAfter(totalPath)
+        && totalAfter.lastEntryId == entryId
+        && totalAfter.lastMutation == 'create'
+        && totalAfter.lastDelta == request.resource.data.quantity
+        && ((!exists(totalPath)
+            && totalAfter.registeredQty == request.resource.data.quantity)
+          || (exists(totalPath)
+            && totalAfter.registeredQty == get(totalPath).data.registeredQty
+              + request.resource.data.quantity));
+    }
+
+    // validProductionEntryCreate（新增生產登記檢查）。
+    function validProductionEntryCreate(entryId) {
+      return validProductionEntryData()
+        && request.resource.data.createdByUid == request.auth.uid
+        && productionEntryMatchesSources()
+        && productionEntryHasMatchingTotalCreate(entryId);
+    }
+
+    // productionEntryHasMatchingTotalUpdate（修改或作廢時，工序累計必須在同一交易同步調整）。
+    function productionEntryHasMatchingTotalUpdate(entryId, mutation, delta) {
+      let totalPath = /databases/$(database)/documents/productionProcessTotals/$(request.resource.data.orderProcessId);
+      let totalAfter = getAfter(totalPath).data;
+      return exists(totalPath)
+        && existsAfter(totalPath)
+        && totalAfter.lastEntryId == entryId
+        && totalAfter.lastMutation == mutation
+        && totalAfter.lastDelta == delta
+        && totalAfter.registeredQty == get(totalPath).data.registeredQty + delta;
+    }
+
+    // validProductionEntryUpdate（紀錄修改／作廢檢查）：來源快照與識別欄位不可變更。
+    function validProductionEntryUpdate(entryId) {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      let quantityDelta = request.resource.data.quantity - resource.data.quantity;
+      return resource.data.status == 'active'
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.updatedAt >= resource.data.updatedAt
+        && request.resource.data.updatedByUid == request.auth.uid
+        && ((request.resource.data.status == 'active'
+            && request.resource.data.quantity is int
+            && request.resource.data.quantity > 0
+            && changedKeys.hasOnly([
+              'quantity', 'revision', 'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && productionEntryHasMatchingTotalUpdate(entryId, 'update', quantityDelta))
+          || (request.resource.data.status == 'voided'
+            && request.resource.data.quantity == resource.data.quantity
+            && request.resource.data.voidedByUid == request.auth.uid
+            && request.resource.data.voidedAt is int
+            && validShortString(request.resource.data.voidReason, 500)
+            && changedKeys.hasOnly([
+              'status', 'revision', 'voidedAt', 'voidedByUid', 'voidedBy', 'voidReason',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && productionEntryHasMatchingTotalUpdate(
+              entryId, 'void', 0 - resource.data.quantity
+            )));
+    }
+
+    // validProductionTotalData（訂單工序累計資料檢查）。
+    function validProductionTotalData(processId) {
+      let processPath = /databases/$(database)/documents/orderProcesses/$(processId);
+      let process = get(processPath).data;
+      return exists(processPath)
+        && request.resource.data.orderProcessId == processId
+        && request.resource.data.orderId == process.orderId
+        && request.resource.data.orderNo == process.orderNo
+        && request.resource.data.productCode == process.code
+        && request.resource.data.processNo == process.processNo
+        && request.resource.data.orderQty == process.orderQty
+        && request.resource.data.orderQty is int
+        && request.resource.data.orderQty > 0
+        && request.resource.data.registeredQty is int
+        && request.resource.data.registeredQty >= 0
+        && request.resource.data.registeredQty <= request.resource.data.orderQty
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > 0
+        && request.resource.data.updatedByUid == request.auth.uid
+        && validShortString(request.resource.data.lastEntryId, 200)
+        && request.resource.data.lastMutation in ['create', 'update', 'void']
+        && request.resource.data.lastDelta is int
+        && request.resource.data.schemaVersion == 1;
+    }
+
+    // productionTotalMatchesEntryMutation（工序累計必須對應同一交易中的登記新增、修改或作廢）。
+    function productionTotalMatchesEntryMutation(processId) {
+      let entryPath = /databases/$(database)/documents/productionEntries/$(request.resource.data.lastEntryId);
+      let entryAfter = getAfter(entryPath).data;
+      return existsAfter(entryPath)
+        && entryAfter.orderProcessId == processId
+        && ((request.resource.data.lastMutation == 'create'
+            && !exists(entryPath)
+            && entryAfter.status == 'active'
+            && request.resource.data.lastDelta == entryAfter.quantity)
+          || (request.resource.data.lastMutation == 'update'
+            && exists(entryPath)
+            && get(entryPath).data.status == 'active'
+            && entryAfter.status == 'active'
+            && request.resource.data.lastDelta
+              == entryAfter.quantity - get(entryPath).data.quantity)
+          || (request.resource.data.lastMutation == 'void'
+            && exists(entryPath)
+            && get(entryPath).data.status == 'active'
+            && entryAfter.status == 'voided'
+            && request.resource.data.lastDelta == 0 - get(entryPath).data.quantity));
+    }
+
+    // validProductionTotalCreate（首次建立工序累計檢查）。
+    function validProductionTotalCreate(processId) {
+      return validProductionTotalData(processId)
+        && request.resource.data.lastMutation == 'create'
+        && request.resource.data.lastDelta > 0
+        && request.resource.data.registeredQty == request.resource.data.lastDelta
+        && productionTotalMatchesEntryMutation(processId);
+    }
+
+    // validProductionTotalUpdate（更新工序累計檢查）。
+    function validProductionTotalUpdate(processId) {
+      return validProductionTotalData(processId)
+        && request.resource.data.registeredQty
+          == resource.data.registeredQty + request.resource.data.lastDelta
+        && productionTotalMatchesEntryMutation(processId);
     }
 
     // validSecondSyncOrderUpdate（工序秒數同步的訂單狀態變更檢查）。
@@ -557,7 +826,9 @@ service cloud.firestore {
         && get(rolePath).data.active == true
         && get(rolePath).data.role == roleId
         && (('progress' in features && features.progress == true)
-          || ('sync' in features && features.sync == true));
+          || ('sync' in features && features.sync == true)
+          || ('productionEntry' in features && features.productionEntry == true
+            && (!('productionMain' in features) || features.productionMain == true)));
     }
 
     // canReadOrders（可以讀取訂單與工序資料）
@@ -735,6 +1006,39 @@ service cloud.firestore {
     // employees（已淘汰的員工資料）
     match /employees/{employeeId} {
       allow read, write: if false;
+    }
+
+    // productionEmployees（產能員工名冊）：可停用但禁止正式刪除。
+    match /productionEmployees/{employeeId} {
+      allow read: if canReadProductionEmployees();
+      allow create: if hasFeature('productionEmployees')
+        && validProductionEmployeeCreate(employeeId);
+      allow update: if hasFeature('productionEmployees')
+        && validProductionEmployeeUpdate(employeeId);
+      allow delete: if false;
+    }
+
+    // productionEntries（生產登記）：新增與工序累計必須在同一交易完成。
+    match /productionEntries/{entryId} {
+      allow read: if hasFeature('productionEntry') || hasFeature('productionRecords');
+      allow create: if hasFeature('productionEntry')
+        && validProductionEntryCreate(entryId);
+      allow update: if hasFeature('productionRecords')
+        && validProductionEntryUpdate(entryId);
+      allow delete: if false;
+    }
+
+    // productionProcessTotals（訂單工序累計）：只接受由生產登記同步產生的數量變動。
+    match /productionProcessTotals/{processId} {
+      allow read: if hasFeature('productionEntry') || hasFeature('productionRecords');
+      allow create: if hasFeature('productionEntry')
+        && validProductionTotalCreate(processId);
+      allow update: if ((request.resource.data.lastMutation == 'create'
+            && hasFeature('productionEntry'))
+          || (request.resource.data.lastMutation in ['update', 'void']
+            && hasFeature('productionRecords')))
+        && validProductionTotalUpdate(processId);
+      allow delete: if false;
     }
 
     // orders（訂單資料）

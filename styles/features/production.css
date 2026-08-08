@@ -1,0 +1,373 @@
+/* production.css（產能登記專用樣式）：只保留產能欄位、搜尋清單與表格差異。 */
+.production-page {
+  min-width: 0;
+}
+
+.production-entry-command,
+.production-employee-command {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--ui-action-tile-width);
+  gap: var(--ui-space-4);
+  align-items: stretch;
+  padding: var(--ui-space-4);
+}
+
+.production-entry-fields {
+  display: grid;
+  grid-template-columns: 150px minmax(190px, 1fr) minmax(190px, 1fr);
+  gap: 12px;
+  align-content: start;
+}
+
+.production-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.production-field > label,
+.production-field-label {
+  display: flex;
+  min-height: 28px;
+  flex-direction: column;
+  justify-content: flex-end;
+  color: var(--ui-color-text-muted);
+  line-height: 1.2;
+}
+
+.production-field > label strong,
+.production-field-label strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.production-field > label span,
+.production-field-label span {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.production-field input,
+.production-field select {
+  width: 100%;
+  height: 36px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font: inherit;
+  padding: 0 10px;
+}
+
+.production-field input:focus,
+.production-field select:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-field input[type="number"] {
+  appearance: textfield;
+}
+
+.production-field input[type="number"]::-webkit-inner-spin-button,
+.production-field input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.production-date-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.production-today-button {
+  min-width: 54px;
+  height: 36px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.production-today-button:hover {
+  background: var(--ui-color-primary-soft);
+}
+
+.production-combobox {
+  position: relative;
+  min-width: 0;
+}
+
+.production-options {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+}
+
+.production-options[hidden] {
+  display: none;
+}
+
+.production-option {
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 10px;
+  border: 0;
+  border-top: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.production-option:first-child {
+  border-top: 0;
+}
+
+.production-option:hover,
+.production-option:focus-visible {
+  background: var(--ui-color-primary-soft);
+  outline: none;
+}
+
+.production-option strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-option span {
+  overflow: hidden;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-employee-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.production-employee-meta span {
+  overflow: hidden;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-command-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+.production-command-action {
+  width: var(--ui-action-tile-width);
+  height: var(--ui-action-tile-height);
+}
+
+.production-command-action:disabled {
+  cursor: wait;
+}
+
+.production-entry-status {
+  margin: 12px 0;
+}
+
+.production-data-section {
+  margin-top: 12px;
+}
+
+.production-section-count {
+  margin-left: auto;
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+}
+
+.production-number-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.production-center-cell {
+  text-align: center;
+}
+
+.production-empty {
+  padding: 26px 16px;
+  border: 1px solid var(--ui-color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+.production-empty[hidden] {
+  display: none;
+}
+
+.production-filter-panel {
+  padding: var(--ui-space-4);
+}
+
+.production-filter-grid {
+  display: grid;
+  grid-template-columns: 145px 145px minmax(160px, 1fr) minmax(150px, 1fr) minmax(130px, .8fr) 100px 130px;
+  gap: 10px;
+  align-items: end;
+}
+
+.production-filter-actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.production-filter-button {
+  min-height: 48px;
+}
+
+.production-record-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+}
+
+.production-employee-fields {
+  display: grid;
+  grid-template-columns: 150px minmax(200px, 1fr) minmax(180px, 1fr) 120px;
+  gap: 12px;
+  align-items: end;
+}
+
+.production-checkbox-field {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+}
+
+.production-checkbox-field input {
+  width: 16px;
+  height: 16px;
+}
+
+.production-employee-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.production-employee-table-tools {
+  display: flex;
+  min-width: 360px;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.production-employee-table-tools input,
+.production-employee-table-tools select {
+  height: 36px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  padding: 0 10px;
+}
+
+.production-employee-table-tools input {
+  min-width: 220px;
+}
+
+.production-status {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.production-status.is-active {
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+}
+
+.production-status.is-voided {
+  background: var(--ui-color-danger-background);
+  color: var(--ui-color-danger-text);
+}
+
+.production-row-actions {
+  display: flex;
+  min-width: 86px;
+  justify-content: center;
+  gap: 6px;
+}
+
+.production-row-button {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+.production-row-button:hover {
+  background: var(--ui-color-primary-soft);
+}
+
+.production-row-button.is-danger {
+  border-color: var(--ui-color-danger-border);
+  color: var(--ui-color-danger-text);
+}
+
+.production-row-button.is-danger:hover {
+  background: var(--ui-color-danger-background);
+}
+
+@media (max-width: 1366px) {
+  .production-entry-fields {
+    grid-template-columns: 140px minmax(170px, 1fr) minmax(170px, 1fr);
+  }
+
+  .production-filter-grid {
+    grid-template-columns: 140px 140px minmax(150px, 1fr) minmax(140px, 1fr);
+  }
+
+  .production-filter-actions {
+    grid-column: span 2;
+  }
+}
