@@ -189,6 +189,8 @@ test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
   assert.match(style,/\.settings-matrix \{[\s\S]*?grid-template-columns: minmax\(520px, 1\.12fr\) minmax\(420px, \.88fr\);/);
   assert.match(style,/\.settings-matrix-row \{[\s\S]*?grid-template-columns:[^;]+;/);
   assert.match(style,/#pg-settings \.settings-summary-row[^\{]*\{[\s\S]*?grid-template-columns: repeat\(3/);
+  assert.match(style,/#pg-settings \.settings-summary-row \.ui-summary-item \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);[\s\S]*?grid-template-rows: auto auto;/);
+  assert.match(style,/#pg-settings \.settings-summary-row \.ui-summary-value \{[\s\S]*?justify-self: end;/);
   assert.match(style,/input\[type="number"\]::\-webkit-inner-spin-button/);
   assert.match(style,/\.settings-rate-status[\s\S]*?white-space: nowrap/);
   assert.doesNotMatch(settingsMarkup,/id="st-ok"/);
@@ -211,6 +213,31 @@ test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
   assert.match(specification,/計算、比對及儲存仍使用不含逗號的純數值/);
 });
 
+test('產品工價預覽一次顯示一種幣別且每頁固定五十筆',()=>{
+  const html=read('index.html');
+  const style=read('styles/features/cost.css');
+  const source=read('js/data.js');
+  const pageStart=html.indexOf('id="pg-export"'); // pageStart（產品工價匯出頁起點）
+  const pageEnd=html.indexOf('<div class="pg',pageStart+1); // pageEnd（產品工價匯出頁終點）
+  const markup=html.slice(pageStart,pageEnd); // markup（產品工價匯出頁標記）
+  const renderStart=source.indexOf('function rExp()'); // renderStart（產品工價預覽函式起點）
+  const renderEnd=source.indexOf('function showSpreadsheetSaveUnsupported',renderStart); // renderEnd（產品工價預覽函式終點）
+  const renderSource=source.slice(renderStart,renderEnd); // renderSource（產品工價預覽函式內容）
+  assert.match(markup,/id="ex-cl" onchange="setExportClientFilter\(\)"/);
+  assert.match(markup,/class="export-preview-currency"[\s\S]*?id="ex-preview-vnd"[\s\S]*?id="ex-preview-usd"[\s\S]*?id="ex-preview-twd"/);
+  assert.match(markup,/id="ex-pager"/);
+  assert.match(source,/const EXPORT_PREVIEW_PAGE_SIZE=50/);
+  assert.match(source,/function setExportPreviewCurrency\(/);
+  assert.match(source,/function setExportClientFilter\(/);
+  assert.match(source,/function goExportPreviewPage\(/);
+  assert.match(source,/classList\.contains\('active'\)/);
+  assert.match(renderSource,/filtered\.slice\(start,start\+EXPORT_PREVIEW_PAGE_SIZE\)/);
+  assert.match(renderSource,/mkPager\('ex-pager',[\s\S]*?EXPORT_PREVIEW_PAGE_SIZE,'goExportPreviewPage'\)/);
+  assert.doesNotMatch(renderSource,/Tổng giá công \(USD\)[\s\S]*?Tổng giá công \(VND\)[\s\S]*?Tổng giá công \(TWD\)/);
+  assert.match(style,/#pg-export \.export-data-section table \{[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/#pg-export \.export-preview-currency-button\.is-active/);
+});
+
 test('共用成功提示固定顯示且不改變頁面高度',()=>{
   const html=read('index.html');
   const core=read('styles/ui-core.css');
@@ -221,6 +248,8 @@ test('共用成功提示固定顯示且不改變頁面高度',()=>{
   const productionEmployees=read('js/production/production-employees.js');
   assert.doesNotMatch(html,/id="sync-status"/);
   assert.match(core,/\.ui-toast-stack \{[\s\S]*?position: fixed;[\s\S]*?top: 70px;[\s\S]*?right: 18px;/);
+  assert.match(core,/\.ui-toast-stack \{[\s\S]*?width: auto;[\s\S]*?max-width: min\(360px,[\s\S]*?align-items: flex-end;/);
+  assert.match(core,/\.ui-toast \{[\s\S]*?width: max-content;[\s\S]*?padding: 8px 11px;/);
   assert.match(components,/function showToast\(/);
   assert.match(components,/durationMs[\s\S]*?3200/);
   assert.match(components,/showToast,/);

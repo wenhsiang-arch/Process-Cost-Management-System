@@ -7,7 +7,7 @@
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260808-2',
-    data:'js/data.js?v=20260808-2',
+    data:'js/data.js?v=20260809-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260808-8',
     accounts:'js/accounts.js?v=20260809-1',
@@ -27,7 +27,7 @@
     orders:'styles/features/orders.css?v=20260808-4',
     products:'styles/features/products.css?v=20260808-3',
     sync:'styles/features/sync.css?v=20260808-2',
-    cost:'styles/features/cost.css?v=20260809-1',
+    cost:'styles/features/cost.css?v=20260809-2',
     accounts:'styles/features/accounts.css?v=20260809-1',
     production:'styles/features/production.css?v=20260809-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

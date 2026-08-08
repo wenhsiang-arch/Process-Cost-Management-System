@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260809-1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260809-2">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -882,7 +882,7 @@ tr:hover td{background:#f8fafc}
           <section class="export-operation-panel ui-operation-panel">
             <div class="export-command-row ui-command-row">
               <div class="export-context-grid ui-context-grid">
-                <label class="export-context-item ui-context-item" for="ex-cl"><i class="ti ti-building"></i><div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>選擇客人</span></span><select id="ex-cl"><option value="">Tất cả / 全部</option></select></div></label>
+                <label class="export-context-item ui-context-item" for="ex-cl"><i class="ti ti-building"></i><div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>選擇客人</span></span><select id="ex-cl" onchange="setExportClientFilter()"><option value="">Tất cả / 全部</option></select></div></label>
                 <label class="export-context-item ui-context-item" id="ex-cu-group" for="ex-cu"><i class="ti ti-currency-dollar"></i><div><span class="ui-dual-copy"><strong>Tiền tệ</strong><span>選擇幣別</span></span><select id="ex-cu"><option value="both">USD（美金）+ VND（越盾）</option><option value="all">USD（美金）+ TWD（台幣）+ VND（越盾）</option><option value="usd">USD（美金）</option><option value="vnd">VND（越盾）</option><option value="twd">TWD（台幣）</option></select></div></label>
                 <label class="export-context-item ui-context-item" for="ex-ty"><i class="ti ti-report"></i><div><span class="ui-dual-copy"><strong>Loại báo cáo</strong><span>選擇報表類型</span></span><select id="ex-ty"><option value="summary">Chỉ bảng tổng hợp / 僅總表</option><option value="detail">Kèm chi tiết công đoạn / 含工序明細</option></select></div></label>
               </div>
@@ -891,11 +891,20 @@ tr:hover td{background:#f8fafc}
             <div id="ex-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã xuất giá công sản phẩm</span><span class="ui-text-zh">產品工價已匯出</span></span></div>
           </section>
           <section class="export-data-section ui-data-section">
-            <div class="ui-section-header"><i class="ti ti-table"></i><span class="ui-dual-copy"><strong>Xem trước dữ liệu</strong><span>資料預覽</span></span></div>
+            <div class="export-preview-header ui-section-header">
+              <i class="ti ti-table"></i>
+              <span class="ui-dual-copy"><strong>Xem trước dữ liệu</strong><span>資料預覽</span></span>
+              <div class="export-preview-currency" role="group" aria-label="Chọn tiền tệ hiển thị / 選擇顯示幣別">
+                <button type="button" class="export-preview-currency-button is-active" id="ex-preview-vnd" aria-pressed="true" onclick="setExportPreviewCurrency('vnd')">VND</button>
+                <button type="button" class="export-preview-currency-button" id="ex-preview-usd" aria-pressed="false" onclick="setExportPreviewCurrency('usd')">USD</button>
+                <button type="button" class="export-preview-currency-button" id="ex-preview-twd" aria-pressed="false" onclick="setExportPreviewCurrency('twd')">TWD</button>
+              </div>
+            </div>
             <div class="to ui-table-frame"><div class="ts ui-table-scroll"><table class="ui-table">
               <thead><tr id="ex-th"></tr></thead>
               <tbody id="ex-tb"></tbody>
             </table></div></div>
+            <div class="export-preview-pager pgr" id="ex-pager"></div>
           </section>
         </div>
       </div>
@@ -1236,7 +1245,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260809-2"></script>
+<script src="js/features.js?v=20260809-3"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

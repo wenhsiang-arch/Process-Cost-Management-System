@@ -2,6 +2,14 @@
 let nItms=null, dups=[], detailImportFileName='';
 let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
+const EXPORT_PREVIEW_PAGE_SIZE=50; // EXPORT_PREVIEW_PAGE_SIZE（產品工價預覽每頁筆數）
+const EXPORT_PREVIEW_CURRENCIES=Object.freeze({
+  vnd:{vi:'Tổng giá công (VND)',zh:'總工價（越盾）',format:value=>fV(value)},
+  usd:{vi:'Tổng giá công (USD)',zh:'總工價（美元）',format:value=>fU(value)},
+  twd:{vi:'Tổng giá công (TWD)',zh:'總工價（台幣）',format:value=>fT(value)}
+}); // EXPORT_PREVIEW_CURRENCIES（產品工價預覽幣別設定）
+window.exportPreviewPage=1; // exportPreviewPage（產品工價預覽目前頁碼）
+window.exportPreviewCurrency='vnd'; // exportPreviewCurrency（產品工價預覽目前幣別）
 const dataSafeText=value=>window.PCMSSafe.text(value); // dataSafeText（資料畫面安全文字）
 const dataSafeError=error=>window.PCMSSafe.errorMessage(error); // dataSafeError（資料畫面安全錯誤訊息）
 function dataMessage(vi,zh,kind='info'){
@@ -356,25 +364,87 @@ function xImp(){
 }
 
 // ===== 產品工價匯出 =====
+function syncExportClientOptions(){
+  const select=g('ex-cl'); // select（產品工價預覽客人選單）
+  if(!select) return;
+  const clients=[...new Set((window.D||[]).map(item=>String(item?.client||'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b)); // clients（目前款號資料內的客人清單）
+  const signature=clients.join('\u001f'); // signature（客人選項內容識別字串）
+  if(select.dataset.optionsSignature===signature) return;
+  const currentValue=select.value; // currentValue（重新建立前的客人篩選值）
+  select.replaceChildren();
+  const allOption=document.createElement('option'); // allOption（全部客人選項）
+  allOption.value='';
+  allOption.textContent='Tất cả / 全部';
+  select.appendChild(allOption);
+  clients.forEach(client=>{
+    const option=document.createElement('option'); // option（單一客人選項）
+    option.value=client;
+    option.textContent=client;
+    select.appendChild(option);
+  });
+  select.dataset.optionsSignature=signature;
+  select.value=clients.includes(currentValue)?currentValue:'';
+}
+
+function updateExportPreviewCurrencyButtons(){
+  Object.keys(EXPORT_PREVIEW_CURRENCIES).forEach(currency=>{
+    const button=g(`ex-preview-${currency}`); // button（產品工價預覽幣別按鈕）
+    if(!button) return;
+    const active=currency===window.exportPreviewCurrency; // active（按鈕是否為目前幣別）
+    button.classList.toggle('is-active',active);
+    button.setAttribute('aria-pressed',String(active));
+  });
+}
+
+function setExportPreviewCurrency(currency){
+  if(!EXPORT_PREVIEW_CURRENCIES[currency]) return;
+  window.exportPreviewCurrency=currency;
+  window.exportPreviewPage=1;
+  rExp();
+}
+
+function setExportClientFilter(){
+  window.exportPreviewPage=1;
+  rExp();
+}
+
+function goExportPreviewPage(page){
+  window.exportPreviewPage=Math.max(1,Number(page)||1);
+  rExp();
+}
+
 function rExp(){
   if(typeof canOpenPage==='function'&&!canOpenPage('export')) return;
+  const page=g('pg-export'); // page（產品工價匯出頁面）
+  if(!page||!page.classList.contains('active')) return;
+  syncExportClientOptions();
   const cf=(g('ex-cl')||{}).value||'';
   const tb=g('ex-tb'); if(!tb) return; tb.innerHTML='';
-  const showCosts=true; // showCosts（顯示產品工價）：進入本分頁已通過獨立權限檢查。
   const currencyGroup=g('ex-cu-group');
-  if(currencyGroup) currencyGroup.style.display=showCosts?'':'none';
+  if(currencyGroup) currencyGroup.style.display='';
+  const currency=EXPORT_PREVIEW_CURRENCIES[window.exportPreviewCurrency]
+    ||EXPORT_PREVIEW_CURRENCIES.vnd; // currency（目前產品工價預覽幣別設定）
+  window.exportPreviewCurrency=Object.keys(EXPORT_PREVIEW_CURRENCIES)
+    .find(key=>EXPORT_PREVIEW_CURRENCIES[key]===currency)||'vnd';
+  updateExportPreviewCurrencyButtons();
   const head=g('ex-th');
   if(head){
     head.innerHTML='<th>Mã hàng<br><span class="tv">款號</span></th><th>Khách hàng<br><span class="tv">客人</span></th><th>Tên Trung<br><span class="tv">中文名稱</span></th><th>Kích thước<br><span class="tv">尺寸</span></th><th>Số công đoạn<br><span class="tv">工序數</span></th>'
-      +(showCosts?'<th>Tổng giá công (USD)<br><span class="tv">總工價（美元）</span></th><th>Tổng giá công (VND)<br><span class="tv">總工價（越盾）</span></th><th>Tổng giá công (TWD)<br><span class="tv">總工價（台幣）</span></th>':'');
+      +`<th>${currency.vi}<br><span class="tv">${currency.zh}</span></th>`;
   }
-  window.D.filter(d=>!cf||d.client===cf).forEach(d=>{
-    let s=0; d.ops.forEach(op=>{ s+=calc(op.sec).vnd; });
+  const filtered=(window.D||[]).filter(item=>!cf||item.client===cf); // filtered（符合客人條件的全部款號）
+  const totalPages=Math.max(1,Math.ceil(filtered.length/EXPORT_PREVIEW_PAGE_SIZE)); // totalPages（產品工價預覽總頁數）
+  window.exportPreviewPage=Math.min(Math.max(1,Number(window.exportPreviewPage)||1),totalPages);
+  const start=(window.exportPreviewPage-1)*EXPORT_PREVIEW_PAGE_SIZE; // start（目前頁面起始位置）
+  filtered.slice(start,start+EXPORT_PREVIEW_PAGE_SIZE).forEach(d=>{
+    const operations=Array.isArray(d.ops)?d.ops:[]; // operations（款號工序清單）
+    let totalVnd=0; operations.forEach(op=>{ totalVnd+=calc(op.sec).vnd; }); // totalVnd（款號越盾總工價）
     const r=document.createElement('tr');
-    r.innerHTML=`<td><b style="color:var(--navy)">${dataSafeText(d.code)}</b></td><td>${dataSafeText(d.client)}</td><td>${dataSafeText(d.zh)}</td><td>${dataSafeText(d.sz)}</td><td>${d.ops.length}</td>`
-      +(showCosts?`<td style="color:var(--accent);font-weight:500">${fU(s)}</td><td>${fV(s)}</td><td>${fT(s)}</td>`:'');
+    r.innerHTML=`<td><b style="color:var(--navy)">${dataSafeText(d.code)}</b></td><td>${dataSafeText(d.client)}</td><td>${dataSafeText(d.zh)}</td><td>${dataSafeText(d.sz)}</td><td>${operations.length}</td><td class="export-preview-amount">${currency.format(totalVnd)}</td>`;
     tb.appendChild(r);
   });
+  mkPager('ex-pager',window.exportPreviewPage,filtered.length,EXPORT_PREVIEW_PAGE_SIZE,'goExportPreviewPage');
 }
 
 // showSpreadsheetSaveUnsupported（顯示不支援選擇表格檔儲存位置的提示）。

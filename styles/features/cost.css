@@ -287,22 +287,31 @@
 }
 
 #pg-settings .settings-summary-row .ui-summary-item {
-  gap: 6px;
-  padding: 4px 10px 4px 22px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  align-items: start;
+  gap: 5px;
+  padding: 7px 10px 7px 22px;
 }
 
 #pg-settings .settings-summary-row .ui-summary-item::before {
+  top: 50%;
   left: 10px;
   width: 6px;
   height: 6px;
+  transform: translateY(-50%);
 }
 
 #pg-settings .settings-summary-row .ui-summary-label {
-  font-size: 10px;
+  width: 100%;
+  font-size: 11px;
 }
 
 #pg-settings .settings-summary-row .ui-summary-value {
-  font-size: 15px;
+  justify-self: end;
+  font-size: 18px;
+  line-height: 1.15;
 }
 
 #pg-settings .settings-summary-row .ui-summary-item:nth-child(3) {
@@ -317,6 +326,7 @@
   display: flex;
   min-width: 0;
   align-items: center;
+  justify-self: end;
   justify-content: flex-end;
   gap: 5px;
 }
@@ -325,7 +335,7 @@
   display: flex;
   flex-direction: column;
   color: var(--ui-color-text-muted);
-  font-size: 8px;
+  font-size: 9px;
   line-height: 1.25;
   white-space: nowrap;
 }
@@ -364,8 +374,90 @@
   margin: 0 12px 12px;
 }
 
+#pg-export .export-preview-header {
+  flex-wrap: nowrap;
+}
+
+#pg-export .export-preview-currency {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  margin-left: auto;
+  padding: 2px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+}
+
+#pg-export .export-preview-currency-button {
+  min-width: 50px;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+#pg-export .export-preview-currency-button:hover {
+  background: var(--ui-color-row-hover);
+  color: var(--ui-color-primary);
+}
+
+#pg-export .export-preview-currency-button.is-active {
+  background: var(--ui-color-primary);
+  color: var(--ui-color-on-primary);
+}
+
+#pg-export .export-preview-currency-button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+#pg-export .export-data-section table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+#pg-export .export-data-section th:nth-child(1) { width: 15%; }
+#pg-export .export-data-section th:nth-child(2) { width: 12%; }
+#pg-export .export-data-section th:nth-child(3) { width: 31%; }
+#pg-export .export-data-section th:nth-child(4) { width: 12%; }
+#pg-export .export-data-section th:nth-child(5) { width: 10%; }
+#pg-export .export-data-section th:nth-child(6) { width: 20%; }
+
+#pg-export .export-data-section th:nth-child(5),
+#pg-export .export-data-section td:nth-child(5) {
+  text-align: center;
+}
+
+#pg-export .export-data-section th:nth-child(6),
+#pg-export .export-preview-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+#pg-export .export-data-section td:nth-child(3) {
+  overflow-wrap: anywhere;
+}
+
 #pg-export .export-data-section > .ui-table-frame {
+  border-bottom: 0;
+  border-radius: 0;
+}
+
+#pg-export .export-preview-pager {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-color-border);
+  border-top: 0;
   border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+  background: var(--ui-color-surface);
 }
 
 /* 成本變動記錄 */
