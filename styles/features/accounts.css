@@ -78,36 +78,320 @@
 }
 
 #pg-permissions .permissions-table-frame {
-  padding: 12px;
+  padding: 0;
+  overflow: visible;
 }
 
-#pg-permissions .permission-role-tabs {
-  gap: 8px;
+#pg-permissions .permission-matrix-toolbar {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(260px, .8fr) minmax(420px, 1.2fr);
+  align-items: end;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface);
 }
 
-#pg-permissions .permission-role-card,
-#pg-permissions .permission-module {
-  border-color: var(--ui-color-border);
-  box-shadow: none;
+#pg-permissions .permission-matrix-search {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
 }
 
-#pg-permissions .permission-module-head {
-  background: var(--ui-color-table-header);
+#pg-permissions .permission-matrix-search-control {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
 }
 
-#pg-permissions .permission-selected-title {
-  background: var(--ui-color-navigation-background);
+#pg-permissions .permission-matrix-search-control > i {
+  position: absolute;
+  left: 10px;
+  color: var(--ui-color-text-muted);
+  font-size: 15px;
+  pointer-events: none;
 }
 
-#pg-permissions .permission-selected-title small {
-  color: rgba(255, 255, 255, .82);
+#pg-permissions .permission-matrix-search-control input {
+  width: 100%;
+  height: 36px;
+  padding: 7px 10px 7px 34px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font-size: 12px;
+}
+
+#pg-permissions .permission-matrix-search-control input:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+}
+
+#pg-permissions .permission-matrix-filters {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+  gap: 7px;
+}
+
+#pg-permissions .permission-matrix-filters button {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 9px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  cursor: pointer;
+}
+
+#pg-permissions .permission-matrix-filters button:hover {
+  border-color: var(--ui-color-operation-border);
+  background: var(--ui-color-row-hover);
+}
+
+#pg-permissions .permission-matrix-filters button.is-active {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+}
+
+#pg-permissions .permission-matrix-filters button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+#pg-permissions .permission-matrix-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+#pg-permissions .permission-matrix-copy strong {
+  color: inherit;
   font-size: 11px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
-#pg-permissions .permission-paused {
+#pg-permissions .permission-matrix-copy > span {
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+#pg-permissions .permission-matrix-shell {
+  width: 100%;
+  min-width: 0;
+  overflow: visible;
+}
+
+#pg-permissions .permission-matrix-table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+#pg-permissions .permission-matrix-col-module { width: 15%; }
+#pg-permissions .permission-matrix-col-page { width: 15%; }
+#pg-permissions .permission-matrix-col-item { width: 22%; }
+#pg-permissions .permission-matrix-col-role { width: 8%; }
+
+#pg-permissions .permission-matrix-table th,
+#pg-permissions .permission-matrix-table td {
+  min-width: 0;
+  border-right: 1px solid var(--ui-color-border);
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+#pg-permissions .permission-matrix-table th:last-child,
+#pg-permissions .permission-matrix-table td:last-child {
+  border-right: 0;
+}
+
+#pg-permissions .permission-matrix-table thead th {
+  padding: 8px 6px;
+  vertical-align: middle;
+  background: var(--ui-color-table-header);
+  color: var(--ui-color-text);
+  text-align: left;
+}
+
+#pg-permissions .permission-matrix-table thead .permission-matrix-role-head {
+  text-align: center;
+}
+
+#pg-permissions .permission-matrix-role-head .permission-matrix-copy {
+  align-items: center;
+  text-align: center;
+}
+
+#pg-permissions .permission-matrix-role-status {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 5px;
+  color: var(--ui-color-success-text);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+#pg-permissions .permission-matrix-role-head.is-pending .permission-matrix-role-status {
+  color: var(--ui-color-warning-text);
+}
+
+#pg-permissions .permission-matrix-table tbody td {
+  height: 44px;
+  padding: 7px 9px;
+  vertical-align: middle;
+  background: var(--ui-color-surface);
+}
+
+#pg-permissions .permission-matrix-row.is-module-start td {
+  border-top: 2px solid var(--ui-color-operation-border);
+  background: var(--ui-color-row-hover);
+}
+
+#pg-permissions .permission-matrix-row:first-child td {
+  border-top: 0;
+}
+
+#pg-permissions .permission-matrix-row.is-sensitive td {
+  background: var(--ui-color-warning-background);
+}
+
+#pg-permissions .permission-matrix-module-copy,
+#pg-permissions .permission-matrix-item-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+#pg-permissions .permission-matrix-module-copy > i {
+  flex: 0 0 auto;
+  color: var(--ui-color-primary);
+  font-size: 17px;
+}
+
+#pg-permissions .permission-matrix-sensitive-icon {
+  flex: 0 0 auto;
+  color: var(--ui-color-warning-text);
+  font-size: 15px;
+}
+
+#pg-permissions .permission-matrix-role-cell {
+  padding: 6px 3px !important;
+  text-align: center;
+}
+
+#pg-permissions .permission-matrix-check {
+  position: relative;
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  cursor: pointer;
+}
+
+#pg-permissions .permission-matrix-check input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+#pg-permissions .permission-matrix-checkmark {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--ui-color-text-subtle);
+  border-radius: 4px;
+  background: var(--ui-color-surface);
+}
+
+#pg-permissions .permission-matrix-checkmark::after {
+  position: absolute;
+  top: 3px;
+  left: 6px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--ui-color-on-primary);
+  border-width: 0 2px 2px 0;
+  content: '';
+  opacity: 0;
+  transform: rotate(45deg);
+}
+
+#pg-permissions .permission-matrix-check input:checked + .permission-matrix-checkmark {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary);
+}
+
+#pg-permissions .permission-matrix-check input:checked + .permission-matrix-checkmark::after {
+  opacity: 1;
+}
+
+#pg-permissions .permission-matrix-check input:focus-visible + .permission-matrix-checkmark {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
+}
+
+#pg-permissions .permission-matrix-check.is-disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+#pg-permissions .permission-matrix-check.is-disabled input:checked + .permission-matrix-checkmark {
+  border-color: var(--ui-color-text-muted);
+  background: var(--ui-color-text-muted);
+}
+
+#pg-permissions .permission-matrix-check.is-fixed {
+  opacity: .8;
+}
+
+#pg-permissions .permission-matrix-locked {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+  font-size: 14px;
+}
+
+#pg-permissions .permission-matrix-empty td {
+  padding: 24px !important;
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+#pg-permissions .permission-matrix-empty .permission-matrix-copy {
+  align-items: center;
+}
+
+#pg-permissions .permission-matrix-footer {
   display: grid;
   gap: 3px;
-  line-height: 1.45;
+  padding: 9px 14px;
+  background: var(--ui-color-surface-muted);
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 #m-nacc .md,
@@ -125,5 +409,29 @@
   #pg-accounts .accounts-context-item,
   #pg-permissions .permissions-context-item {
     padding-inline: 10px;
+  }
+
+  #pg-permissions .permission-matrix-toolbar {
+    grid-template-columns: minmax(220px, .75fr) minmax(360px, 1.25fr);
+    gap: 9px;
+    padding-inline: 10px;
+  }
+
+  #pg-permissions .permission-matrix-filters {
+    gap: 5px;
+  }
+
+  #pg-permissions .permission-matrix-filters button {
+    padding-inline: 5px;
+  }
+
+  #pg-permissions .permission-matrix-table thead th,
+  #pg-permissions .permission-matrix-table tbody td {
+    padding-inline: 5px;
+  }
+
+  #pg-permissions .permission-matrix-module-copy,
+  #pg-permissions .permission-matrix-item-copy {
+    gap: 4px;
   }
 }

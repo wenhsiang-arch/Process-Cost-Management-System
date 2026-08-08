@@ -44,13 +44,6 @@ async function savePermissions(){
   }
 }
 
-// selectPermissionRole（選擇權限角色）。
-function selectPermissionRole(role){
-  if(role!=='admin'&&!CONFIGURABLE_ROLES.includes(role)) return;
-  window.selectedPermissionRole=role;
-  renderPermissions();
-}
-
 // setPermissionValue（設定單項權限）：父層關閉只暫停下層，不清除既有設定。
 function setPermissionValue(role,key,checked){
   if(!CONFIGURABLE_ROLES.includes(role)||!PERMISSION_KEYS.includes(key)) return;
@@ -66,100 +59,223 @@ function permissionValue(role,key){
   return role==='admin'||window.permissionSettings?.[role]?.[key]===true;
 }
 
-// permissionSwitchHtml（權限開關畫面）。
-function permissionSwitchHtml(role,key,options={}){
+function permissionSafeText(value){
+  return window.PCMSSafe?.text?window.PCMSSafe.text(value):String(value??'');
+}
+
+function permissionSafeAttribute(value){
+  return window.PCMSSafe?.attribute?window.PCMSSafe.attribute(value):permissionSafeText(value);
+}
+
+function permissionInlineArgument(value){
+  return window.PCMSSafe?.inlineArgument?window.PCMSSafe.inlineArgument(value):JSON.stringify(String(value??''));
+}
+
+function permissionLabelParts(value){
+  const parts=String(value||'').split(' / '); // parts（越文與中文角色名稱）
+  return {vi:parts[0]||'',zh:parts.slice(1).join(' / ')||''};
+}
+
+// permissionMatrixRows（權限矩陣資料列）：固定拆成主功能、功能分頁與敏感資料三欄。
+function permissionMatrixRows(){
+  const rows=[]; // rows（權限矩陣資料列）
+  PERMISSION_STRUCTURE.forEach(module=>{
+    rows.push({
+      type:'main',module,key:module.mainKey,adminOnly:module.adminOnly===true,parentKeys:[],
+      pageVi:'Cổng chức năng',pageZh:'功能入口',
+      itemVi:'Sử dụng chức năng chính',itemZh:'使用主功能'
+    });
+    (module.pages||[]).forEach(page=>{
+      rows.push({
+        type:'page',module,page,key:page.key,
+        adminOnly:module.adminOnly===true||page.adminOnly===true,
+        parentKeys:[module.mainKey],
+        pageVi:page.vi,pageZh:page.zh,
+        itemVi:'Sử dụng trang',itemZh:'使用分頁'
+      });
+      (page.restrictions||[]).forEach(item=>rows.push({
+        type:'sensitive',module,page,item,key:item.key,sensitive:true,
+        adminOnly:module.adminOnly===true||page.adminOnly===true,
+        parentKeys:[module.mainKey,page.key],
+        pageVi:page.vi,pageZh:page.zh,itemVi:item.vi,itemZh:item.zh
+      }));
+    });
+    (module.restrictions||[]).forEach(item=>rows.push({
+      type:'sensitive',module,item,key:item.key,sensitive:true,
+      adminOnly:module.adminOnly===true,parentKeys:[module.mainKey],
+      pageVi:'Cổng chức năng',pageZh:'功能入口',itemVi:item.vi,itemZh:item.zh
+    }));
+  });
+  return rows;
+}
+
+function permissionParentEnabled(role,row){
+  if(role==='admin') return true;
+  if(row.adminOnly===true) return false;
+  return row.parentKeys.every(key=>permissionValue(role,key));
+}
+
+function permissionRowEnabled(role,row){
+  if(role==='admin') return true;
+  if(row.adminOnly===true||!permissionParentEnabled(role,row)) return false;
+  return permissionValue(role,row.key);
+}
+
+function permissionRowDiffers(row){
+  if(row.adminOnly===true) return false;
+  return new Set(CONFIGURABLE_ROLES.map(role=>permissionRowEnabled(role,row))).size>1;
+}
+
+// permissionMatrixCellHtml（權限矩陣勾選格）：管理員固定，下層只在父層開啟時可操作。
+function permissionMatrixCellHtml(role,row){
   const isAdmin=role==='admin';
-  const fixed=options.fixed===true||isAdmin;
-  const disabled=fixed||options.disabled===true;
-  const checked=fixed?isAdmin||options.fixedChecked===true:permissionValue(role,key);
-  return `<label class="permission-switch${disabled?' is-disabled':''}">
+  const roleLabel=permissionRoleLabel(role); // roleLabel（角色雙語名稱）
+  if(!isAdmin&&(row.adminOnly===true||!PERMISSION_KEYS.includes(row.key))){
+    return `<span class="permission-matrix-locked" title="Chỉ quản trị viên / 僅管理員" aria-label="${permissionSafeAttribute(roleLabel)}：Chỉ quản trị viên / 僅管理員"><i class="ti ti-lock"></i></span>`;
+  }
+  const parentEnabled=permissionParentEnabled(role,row); // parentEnabled（上層權限是否開啟）
+  const disabled=isAdmin||!parentEnabled;
+  const checked=isAdmin||permissionValue(role,row.key);
+  const label=disabled&&!isAdmin
+    ? `${roleLabel}：Tạm dừng do quyền cấp trên / 因上層權限而暫停`
+    : `${roleLabel}：${row.itemVi} / ${row.itemZh}`;
+  const roleArgument=permissionInlineArgument(role); // roleArgument（安全角色事件參數）
+  const keyArgument=permissionInlineArgument(row.key); // keyArgument（安全權限事件參數）
+  return `<label class="permission-matrix-check${disabled?' is-disabled':''}${isAdmin?' is-fixed':''}" title="${permissionSafeAttribute(label)}">
     <input type="checkbox" ${checked?'checked':''} ${disabled?'disabled':''}
-      ${disabled?'':`onchange="setPermissionValue('${role}','${key}',this.checked)"`}>
-    <span></span>
+      aria-label="${permissionSafeAttribute(label)}"
+      ${disabled?'':`onchange="setPermissionValue(${roleArgument},${keyArgument},this.checked)"`}>
+    <span class="permission-matrix-checkmark" aria-hidden="true"></span>
   </label>`;
 }
 
-function permissionFixedBadge(){
-  return '<span class="permission-fixed">Chỉ quản trị viên / 僅管理員</span>';
+function permissionMatrixCopy(vi,zh,extraClass=''){
+  return `<span class="permission-matrix-copy${extraClass?' '+extraClass:''}"><strong>${permissionSafeText(vi)}</strong><span>${permissionSafeText(zh)}</span></span>`;
 }
 
-// renderRestrictionRows（顯示有需要才存在的敏感資料子開關）。
-function renderRestrictionRows(role,restrictions,parentEnabled){
-  if(!restrictions?.length) return '';
-  return `<div class="permission-restrictions">
-    <div class="permission-level-label">Dữ liệu nhạy cảm / 敏感資料</div>
-    ${restrictions.map(item=>`
-      <div class="permission-row permission-restriction${parentEnabled?'':' is-disabled'}">
-        <div class="permission-row-copy"><strong>${item.vi}</strong><span>${item.zh}</span></div>
-        ${permissionSwitchHtml(role,item.key,{disabled:!parentEnabled})}
-      </div>`).join('')}
-  </div>`;
+function permissionMatrixRoleHeader(role){
+  const labels=permissionLabelParts(permissionRoleLabel(role)); // labels（角色雙語標題）
+  const ready=role==='admin'||window.rolePermissionsReady?.[role]===true;
+  const status=role==='admin'
+    ? {vi:'Cố định',zh:'固定'}
+    : ready?{vi:'Đã thiết lập',zh:'已設定'}:{vi:'Chưa thiết lập',zh:'尚未設定'};
+  return `<th scope="col" class="permission-matrix-role-head${ready?'':' is-pending'}">
+    ${permissionMatrixCopy(labels.vi,labels.zh)}
+    <span class="permission-matrix-role-status"><span>${status.vi}</span><span>${status.zh}</span></span>
+  </th>`;
 }
 
-function renderPermissionModule(role,module){
-  const isAdmin=role==='admin';
-  const moduleFixed=module.adminOnly===true;
-  const moduleEnabled=isAdmin||(module.mainKey&&permissionValue(role,module.mainKey));
-  const fixedForRole=moduleFixed&&!isAdmin;
-  const moduleClass=moduleEnabled&&!fixedForRole?'':' is-off';
-  const mainSwitch=moduleFixed
-    ? permissionSwitchHtml(role,'accounts',{fixed:true,fixedChecked:isAdmin})
-    : permissionSwitchHtml(role,module.mainKey);
+function permissionMatrixRowHtml(row,roles){
+  const differs=permissionRowDiffers(row);
+  const searchText=[row.module.vi,row.module.zh,row.pageVi,row.pageZh,row.itemVi,row.itemZh].join(' ').toLocaleLowerCase();
+  const rowClasses=[
+    'permission-matrix-row',
+    row.type==='main'?'is-module-start':'',
+    row.sensitive?'is-sensitive':''
+  ].filter(Boolean).join(' ');
+  const moduleIcon=row.type==='main'?`<i class="ti ${permissionSafeAttribute(row.module.icon)}"></i>`:'';
+  const itemIcon=row.sensitive?'<i class="ti ti-lock permission-matrix-sensitive-icon" aria-hidden="true"></i>':'';
+  return `<tr class="${rowClasses}" data-search="${permissionSafeAttribute(searchText)}" data-different="${differs?'true':'false'}" data-sensitive="${row.sensitive?'true':'false'}">
+    <td class="permission-matrix-module-cell"><div class="permission-matrix-module-copy">${moduleIcon}${permissionMatrixCopy(row.module.vi,row.module.zh)}</div></td>
+    <td>${permissionMatrixCopy(row.pageVi,row.pageZh)}</td>
+    <td><div class="permission-matrix-item-copy">${itemIcon}${permissionMatrixCopy(row.itemVi,row.itemZh)}</div></td>
+    ${roles.map(role=>`<td class="permission-matrix-role-cell">${permissionMatrixCellHtml(role,row)}</td>`).join('')}
+  </tr>`;
+}
 
-  let body='';
-  if(module.pages?.length){
-    body=`<div class="permission-module-body">
-      <div class="permission-level-label">Trang chức năng / 功能分頁</div>
-      ${module.pages.map(page=>{
-        const pageFixed=page.adminOnly===true;
-        const pageEnabled=isAdmin||(!pageFixed&&moduleEnabled&&permissionValue(role,page.key));
-        const pageSwitch=pageFixed
-          ? permissionSwitchHtml(role,page.key,{fixed:true,fixedChecked:isAdmin})
-          : permissionSwitchHtml(role,page.key,{disabled:!moduleEnabled});
-        return `<div class="permission-page${pageEnabled?'':' is-off'}">
-          <div class="permission-row${moduleEnabled?'':' is-disabled'}">
-            <div class="permission-row-copy"><strong>${page.vi}</strong><span>${page.zh}</span></div>
-            ${pageFixed?permissionFixedBadge():''}${pageSwitch}
-          </div>
-          ${renderRestrictionRows(role,page.restrictions,pageEnabled)}
-        </div>`;
-      }).join('')}
-    </div>`;
-  }else if(module.restrictions?.length){
-    body=`<div class="permission-module-body">${renderRestrictionRows(role,module.restrictions,moduleEnabled)}</div>`;
-  }
+function updatePermissionMatrixFilterButtons(){
+  const active=window.permissionMatrixFilter||'all';
+  document.querySelectorAll('#perm-table-wrap [data-permission-filter]').forEach(button=>{
+    const selected=button.dataset.permissionFilter===active;
+    button.classList.toggle('is-active',selected);
+    button.setAttribute('aria-pressed',String(selected));
+  });
+}
 
-  return `<section class="permission-module${moduleClass}">
-    <div class="permission-module-head">
-      <div class="permission-module-title"><i class="ti ${module.icon}"></i><div><strong>${module.vi}</strong><span>${module.zh}</span></div></div>
-      ${moduleFixed?permissionFixedBadge():''}${mainSwitch}
-    </div>
-    ${moduleEnabled&&!fixedForRole?body:`<div class="permission-paused"><div>Chức năng chính đang tắt, các mục bên dưới tạm dừng.</div><div>主功能已關閉，下層設定暫停。</div></div>`}
-  </section>`;
+function applyPermissionMatrixFilters(){
+  const wrap=g('perm-table-wrap');
+  if(!wrap) return;
+  const query=String(window.permissionMatrixQuery||'').trim().toLocaleLowerCase();
+  const mode=window.permissionMatrixFilter||'all';
+  let visibleCount=0;
+  wrap.querySelectorAll('.permission-matrix-row').forEach(row=>{
+    const matchesQuery=!query||String(row.dataset.search||'').includes(query);
+    const matchesMode=mode==='all'
+      ||(mode==='differences'&&row.dataset.different==='true')
+      ||(mode==='sensitive'&&row.dataset.sensitive==='true');
+    row.hidden=!(matchesQuery&&matchesMode);
+    if(!row.hidden) visibleCount++;
+  });
+  const empty=g('permission-matrix-empty');
+  if(empty) empty.hidden=visibleCount>0;
+  const visible=g('permission-matrix-visible-count');
+  if(visible) visible.textContent=String(visibleCount);
+  const visibleZh=g('permission-matrix-visible-count-zh');
+  if(visibleZh) visibleZh.textContent=String(visibleCount);
+  updatePermissionMatrixFilterButtons();
+}
+
+function setPermissionMatrixFilter(filter){
+  if(!['all','differences','sensitive'].includes(filter)) return;
+  window.permissionMatrixFilter=filter;
+  applyPermissionMatrixFilters();
+}
+
+function setPermissionMatrixQuery(value){
+  window.permissionMatrixQuery=String(value||'');
+  applyPermissionMatrixFilters();
 }
 
 function renderPermissions(){
   const wrap=g('perm-table-wrap');
   if(!wrap) return;
-  const selected=window.selectedPermissionRole||'manager';
   const roles=['admin',...CONFIGURABLE_ROLES];
-  const selectedLabels=permissionRoleLabel(selected).split(' / ');
-  const roleTabs=roles.map(role=>{
-    const active=role===selected;
-    const ready=role==='admin'||window.rolePermissionsReady?.[role]===true;
-    return `<button type="button" class="permission-role-card${active?' active':''}" onclick="selectPermissionRole('${role}')">
-      <i class="ti ${role==='admin'?'ti-shield-lock':'ti-user-cog'}"></i>
-      <span><strong>${permissionRoleLabel(role).split(' / ')[0]}</strong><small>${permissionRoleLabel(role).split(' / ')[1]||''}</small></span>
-      <em class="${ready?'ready':'pending'}">${role==='admin'?'Cố định / 固定':ready?'Đã thiết lập / 已設定':'Chưa thiết lập / 尚未設定'}</em>
-    </button>`;
-  }).join('');
+  const rows=permissionMatrixRows();
+  const configurableRows=rows.filter(row=>row.adminOnly!==true&&PERMISSION_KEYS.includes(row.key));
+  const availableCount=configurableRows.length*CONFIGURABLE_ROLES.length; // availableCount（可設定權限格總數）
+  const enabledCount=configurableRows.reduce((total,row)=>
+    total+CONFIGURABLE_ROLES.filter(role=>permissionRowEnabled(role,row)).length,0); // enabledCount（目前有效權限數）
+  const pendingCount=CONFIGURABLE_ROLES.filter(role=>window.rolePermissionsReady?.[role]!==true).length; // pendingCount（尚未建立權限文件的角色數）
+  const query=permissionSafeAttribute(window.permissionMatrixQuery||'');
+  window.permissionMatrixFilter=window.permissionMatrixFilter||'all';
 
   wrap.innerHTML=`
-    <div class="permission-role-tabs">${roleTabs}</div>
-    <div class="permission-selected-title">
-      <div><strong>${selectedLabels[0]||''}</strong><small>${selectedLabels[1]||''}</small><span>${selected==='admin'?'Quyền hệ thống cố định':'Thiết lập đầy đủ theo chức năng'}</span><span>${selected==='admin'?'系統固定權限':'依功能完整設定'}</span></div>
+    <div class="permission-matrix-toolbar">
+      <label class="permission-matrix-search">
+        ${permissionMatrixCopy('Tìm quyền','搜尋權限')}
+        <span class="permission-matrix-search-control"><i class="ti ti-search" aria-hidden="true"></i><input type="search" value="${query}" placeholder="Nhập chức năng / 輸入功能" oninput="setPermissionMatrixQuery(this.value)"></span>
+      </label>
+      <div class="permission-matrix-filters" role="group" aria-label="Bộ lọc quyền / 權限篩選">
+        <button type="button" data-permission-filter="all" onclick="setPermissionMatrixFilter('all')" aria-pressed="false">${permissionMatrixCopy('Tất cả','全部')}</button>
+        <button type="button" data-permission-filter="differences" onclick="setPermissionMatrixFilter('differences')" aria-pressed="false">${permissionMatrixCopy('Khác biệt','只看差異')}</button>
+        <button type="button" data-permission-filter="sensitive" onclick="setPermissionMatrixFilter('sensitive')" aria-pressed="false">${permissionMatrixCopy('Nhạy cảm','敏感資料')}</button>
+      </div>
     </div>
-    <div class="permission-tree">${PERMISSION_STRUCTURE.map(module=>renderPermissionModule(selected,module)).join('')}</div>`;
+    <div class="permission-matrix-shell">
+      <table class="permission-matrix-table">
+        <colgroup>
+          <col class="permission-matrix-col-module"><col class="permission-matrix-col-page"><col class="permission-matrix-col-item">
+          ${roles.map(()=>'<col class="permission-matrix-col-role">').join('')}
+        </colgroup>
+        <thead><tr>
+          <th scope="col">${permissionMatrixCopy('Chức năng chính','母功能')}</th>
+          <th scope="col">${permissionMatrixCopy('Trang con','子分頁')}</th>
+          <th scope="col">${permissionMatrixCopy('Mục quyền','權限項目')}</th>
+          ${roles.map(permissionMatrixRoleHeader).join('')}
+        </tr></thead>
+        <tbody>
+          ${rows.map(row=>permissionMatrixRowHtml(row,roles)).join('')}
+          <tr class="permission-matrix-empty" id="permission-matrix-empty" hidden><td colspan="${roles.length+3}">
+            ${permissionMatrixCopy('Không tìm thấy quyền phù hợp.','找不到符合條件的權限。')}
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="permission-matrix-footer">
+      <div>Đang hiển thị <strong id="permission-matrix-visible-count">${rows.length}</strong> mục · Đã bật ${enabledCount} / ${availableCount}</div>
+      <div>目前顯示 <strong id="permission-matrix-visible-count-zh">${rows.length}</strong> 項 · 已開啟 ${enabledCount}／${availableCount}${pendingCount?` · ${pendingCount} 個職務尚未設定`:''}</div>
+    </div>`;
+  applyPermissionMatrixFilters();
 }
 
 async function applyPermissions(){

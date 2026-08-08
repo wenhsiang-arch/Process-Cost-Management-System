@@ -365,3 +365,28 @@ test('主要功能頁表格只使用主內容區捲軸且不改彈出視窗',()=
   assert.match(html,/id="m-order-adjust-history"[\s\S]*?max-height:520px;overflow:auto/);
   assert.match(cuttingSource,/class="ts" style="max-height:320px"/);
 });
+
+test('權限管理使用固定職務矩陣並保留母子與敏感資料層級',()=>{
+  const html=read('index.html');
+  const source=read('js/permissions.js');
+  const features=read('js/features.js');
+  const style=read('styles/features/accounts.css');
+  const specification=read('UI設計規範與參照/介面設計規範.md');
+  assert.doesNotMatch(html,/permission-role-tabs|permission-role-card|permission-switch/);
+  assert.match(source,/function permissionMatrixRows\(\)/);
+  assert.match(source,/const roles=\['admin',\.\.\.CONFIGURABLE_ROLES\]/);
+  assert.match(source,/class="permission-matrix-table"/);
+  assert.match(source,/data-permission-filter="differences"/);
+  assert.match(source,/data-permission-filter="sensitive"/);
+  assert.match(source,/function permissionParentEnabled\(role,row\)/);
+  assert.match(source,/window\.permissionSettings\[role\]\[key\]=checked===true/);
+  assert.match(source,/firebaseSaveRolePermissions\(payload\)/);
+  assert.match(features,/permissions:'js\/permissions\.js\?v=20260809-2'/);
+  assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260809-2'/);
+  assert.match(style,/\.permission-matrix-table \{[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/\.permission-matrix-shell \{[\s\S]*?overflow: visible;/);
+  assert.doesNotMatch(style,/\.permission-matrix-shell \{[\s\S]*?overflow-x:\s*auto/);
+  assert.match(style,/\.permission-matrix-checkmark \{[\s\S]*?width: 20px;[\s\S]*?height: 20px;/);
+  assert.match(specification,/權限管理預設使用單一固定矩陣/);
+  assert.match(specification,/母功能關閉時，只暫停該職務下層權限/);
+});
