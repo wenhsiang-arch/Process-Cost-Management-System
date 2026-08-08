@@ -277,6 +277,17 @@
   align-items: end;
 }
 
+.production-department-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  gap: 6px;
+  align-items: center;
+}
+
+.production-department-control .production-row-button {
+  height: 36px;
+}
+
 .production-employee-command > :first-child {
   min-width: 0;
   padding: var(--ui-space-4);
@@ -384,6 +395,25 @@
 
 .production-row-button.is-danger:hover {
   background: var(--ui-color-danger-background);
+}
+
+.production-department-manager {
+  min-width: 680px;
+}
+
+.production-department-table th:first-child,
+.production-department-table td:first-child {
+  width: 55%;
+}
+
+.production-department-table th:nth-child(2),
+.production-department-table td:nth-child(2) {
+  width: 20%;
+  text-align: center;
+}
+
+.production-department-table .production-row-actions {
+  min-width: 126px;
 }
 
 @media (max-width: 1366px) {

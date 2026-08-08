@@ -410,7 +410,7 @@ tr:hover td{background:#f8fafc}
                 <div class="production-employee-fields">
                   <div class="production-field"><label for="production-employee-id"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-employee-id" maxlength="30" autocomplete="off"></div>
                   <div class="production-field"><label for="production-employee-name-input"><strong>Tên nhân viên</strong><span>員工姓名</span></label><input type="text" id="production-employee-name-input" maxlength="100" autocomplete="off"></div>
-                  <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><input type="text" id="production-employee-department-input" maxlength="100" autocomplete="off"></div>
+                  <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><div class="production-department-control"><select id="production-employee-department-input"><option value="">Chọn bộ phận / 選擇部門</option></select><button type="button" class="production-row-button" id="production-department-add-button" aria-label="Thêm bộ phận / 新增部門" title="Thêm bộ phận / 新增部門"><i class="ti ti-plus"></i></button><button type="button" class="production-row-button" id="production-department-manage-button" aria-label="Quản lý bộ phận / 管理部門" title="Quản lý bộ phận / 管理部門"><i class="ti ti-settings"></i></button></div></div>
                   <div class="production-field"><span class="production-field-label"><strong>Trạng thái</strong><span>狀態</span></span><label class="production-checkbox-field"><input type="checkbox" id="production-employee-active" checked><span class="ui-dual-copy"><strong>Đang dùng</strong><span>啟用</span></span></label></div>
                 </div>
                 <div class="production-employee-form-actions"><button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button></div>
@@ -1225,12 +1225,12 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-components.js?v=20260809-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
-<script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260809-5"></script>
+<script src="js/data-cache.js?v=20260809-1"></script>
+<script src="js/features.js?v=20260809-7"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260808-1"></script>
+<script type="module" src="js/firebase.js?v=20260809-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

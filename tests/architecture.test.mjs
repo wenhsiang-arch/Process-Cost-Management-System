@@ -302,6 +302,10 @@ test('功能頁重複切換使用工作階段資料並在背景檢查',()=>{
 
 test('資料與 dataVersions（資料版本）使用同一批次或交易寫入',()=>{
   const source=read('js/firebase.js');
+  assert.match(source,/CACHEABLE_COLLECTIONS = new Set\(\[[\s\S]*?'productionEmployees'[\s\S]*?'productionDepartments'/);
+  assert.match(source,/SENSITIVE_PRODUCTION_CACHE_SCOPES[\s\S]*?firebaseAuthLogout[\s\S]*?pcmsDataCache\?\.removeForUser/);
+  const cacheSource=read('js/data-cache.js'); // cacheSource（共用資料快取程式內容）
+  assert.match(cacheSource,/async function removeForUser\(userId,scope\)/);
   assert.match(source,/appendDataVersionWrite\(batch,\[scope\]\)[\s\S]*?await batch\.commit\(\)/);
   assert.match(source,/committedVersionChange=appendDataVersionWrite\(rawTransaction,\[\.\.\.scopes\]\)/);
   assert.match(source,/const versionChange=appendDataVersionWrite\(rawBatch,\[\.\.\.scopes\]\)[\s\S]*?await rawBatch\.commit\(\)/);

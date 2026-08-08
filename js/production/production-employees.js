@@ -1,4 +1,4 @@
-// production-employees（產能員工頁程式）：處理員工表單、搜尋與停用確認。
+// production-employees（產能員工頁程式）：處理員工表單、部門管理、搜尋與停用確認。
 (function(){
   'use strict';
 
@@ -18,12 +18,43 @@
     window.PCMSUIText?.set?.(host,{vi:String(vi || ''),zh:String(zh || '')});
   }
 
+  async function showError(error){
+    const message = String(error?.message || 'Không thể hoàn tất thao tác. / 無法完成操作。');
+    const parts = message.split(' / ');
+    await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
+  }
+
+  function renderDepartmentSelect(selected=''){
+    const select = element('production-employee-department-input');
+    const activeRows = window.PCMSProductionEmployees.listDepartments({activeOnly:true});
+    const selectedValue = String(selected || '').trim();
+    const options = activeRows.slice();
+    if(state.editingId && selectedValue && !options.some(item=>item.name === selectedValue)){
+      const existing = window.PCMSProductionEmployees.findDepartment(selectedValue);
+      options.push(existing || {departmentId:'legacy',name:selectedValue,active:false}); // legacy（既有舊部門暫時選項）
+    }
+    select.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Chọn bộ phận / 選擇部門';
+    select.appendChild(placeholder);
+    options.forEach(department=>{
+      const option = document.createElement('option');
+      option.value = department.name;
+      option.textContent = department.active === true
+        ? department.name
+        : `${department.name} · Ngừng dùng / 停用`;
+      select.appendChild(option);
+    });
+    select.value = selectedValue;
+  }
+
   function resetForm(){
     state.editingId = '';
     element('production-employee-id').value = '';
     element('production-employee-id').readOnly = false;
     element('production-employee-name-input').value = '';
-    element('production-employee-department-input').value = '';
+    renderDepartmentSelect('');
     element('production-employee-active').checked = true;
     window.PCMSUIText?.set?.(element('production-employee-save-copy'),{vi:'Thêm nhân viên',zh:'新增員工'});
   }
@@ -33,31 +64,28 @@
     element('production-employee-id').value = employee.employeeId;
     element('production-employee-id').readOnly = true;
     element('production-employee-name-input').value = employee.name || '';
-    element('production-employee-department-input').value = employee.department || '';
+    renderDepartmentSelect(employee.department || '');
     element('production-employee-active').checked = employee.active === true;
     window.PCMSUIText?.set?.(element('production-employee-save-copy'),{vi:'Lưu thay đổi',zh:'儲存修改'});
     element('production-employee-name-input').focus();
-  }
-
-  async function showError(error){
-    const message = String(error?.message || 'Không thể hoàn tất thao tác. / 無法完成操作。');
-    const parts = message.split(' / ');
-    await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
   }
 
   async function save(){
     const button = element('production-employee-save-button');
     return window.PCMSUIComponents.runActionOnce('production.employee.save',async()=>{
       try{
-        const saved = await window.PCMSProductionEmployees.save({
+        const input = {
           employeeId:element('production-employee-id').value,
           name:element('production-employee-name-input').value,
           department:element('production-employee-department-input').value,
           active:element('production-employee-active').checked
-        });
+        }; // input（員工表單資料）
+        const saved = state.editingId
+          ? await window.PCMSProductionEmployees.updateEmployee(state.editingId,input)
+          : await window.PCMSProductionEmployees.createEmployee(input);
         setMessage(
-          `Đã lưu nhân viên ${saved.employeeId}.`,
-          `已儲存員工 ${saved.employeeId}。`,
+          state.editingId ? `Đã cập nhật nhân viên ${saved.employeeId}.` : `Đã thêm nhân viên ${saved.employeeId}.`,
+          state.editingId ? `已更新員工 ${saved.employeeId}。` : `已新增員工 ${saved.employeeId}。`,
           'success'
         );
         resetForm();
@@ -121,6 +149,143 @@
     return button;
   }
 
+  async function addDepartment(reopenManager=false){
+    const value = await window.PCMSUIComponents.promptDialog({
+      title:{vi:'Thêm bộ phận',zh:'新增部門'},
+      label:{vi:'Tên bộ phận',zh:'部門名稱'},
+      maxLength:100
+    });
+    if(value === null){
+      if(reopenManager) openDepartmentManager();
+      return;
+    }
+    try{
+      const saved = await window.PCMSProductionEmployees.createDepartment(value);
+      renderDepartmentSelect(saved.name);
+      setMessage('Đã thêm bộ phận.','已新增部門。','success');
+    }catch(error){ await showError(error); }
+    if(reopenManager) openDepartmentManager();
+  }
+
+  async function renameDepartment(department){
+    const value = await window.PCMSUIComponents.promptDialog({
+      title:{vi:'Đổi tên bộ phận',zh:'修改部門名稱'},
+      label:{vi:'Tên bộ phận mới',zh:'新部門名稱'},
+      value:department.name,
+      maxLength:100
+    });
+    if(value !== null){
+      try{
+        const selected = element('production-employee-department-input').value;
+        const saved = await window.PCMSProductionEmployees.renameDepartment(department.departmentId,value);
+        renderDepartmentSelect(selected === department.name ? saved.name : selected);
+        setMessage('Đã đổi tên bộ phận.','已修改部門名稱。','success');
+      }catch(error){ await showError(error); }
+    }
+    openDepartmentManager();
+  }
+
+  async function toggleDepartment(department){
+    const next = department.active !== true;
+    const confirmed = await window.PCMSUIComponents.confirmDialog({
+      title:{vi:next ? 'Kích hoạt bộ phận' : 'Ngừng sử dụng bộ phận',zh:next ? '啟用部門' : '停用部門'},
+      message:{
+        vi:next ? `Kích hoạt lại bộ phận ${department.name}?` : `Ngừng sử dụng bộ phận ${department.name}? Bộ phận sẽ không xuất hiện khi thêm nhân viên mới.`,
+        zh:next ? `要重新啟用部門 ${department.name} 嗎？` : `要停用部門 ${department.name} 嗎？新增員工時將不再顯示此部門。`
+      }
+    });
+    if(confirmed){
+      try{
+        const selected = element('production-employee-department-input').value;
+        await window.PCMSProductionEmployees.setDepartmentActive(department.departmentId,next);
+        renderDepartmentSelect(selected);
+        setMessage(next ? 'Đã kích hoạt bộ phận.' : 'Đã ngừng sử dụng bộ phận.',next ? '部門已啟用。' : '部門已停用。','success');
+      }catch(error){ await showError(error); }
+    }
+    openDepartmentManager();
+  }
+
+  async function deleteDepartment(department){
+    const confirmed = await window.PCMSUIComponents.confirmDialog({
+      title:{vi:'Xóa bộ phận',zh:'刪除部門'},
+      message:{
+        vi:`Xóa bộ phận ${department.name}? Chỉ bộ phận chưa có nhân viên sử dụng mới có thể xóa.`,
+        zh:`確定刪除部門 ${department.name}？只有未被員工使用的部門才能刪除。`
+      }
+    });
+    if(confirmed){
+      try{
+        const selected = element('production-employee-department-input').value;
+        await window.PCMSProductionEmployees.deleteDepartment(department.departmentId);
+        renderDepartmentSelect(selected === department.name ? '' : selected);
+        setMessage('Đã xóa bộ phận.','已刪除部門。','success');
+      }catch(error){ await showError(error); }
+    }
+    openDepartmentManager();
+  }
+
+  function departmentManagerBody(){
+    const host = document.createElement('div');
+    host.className = 'production-department-manager';
+    const rows = window.PCMSProductionEmployees.listDepartments();
+    if(!rows.length){
+      const empty = document.createElement('div');
+      empty.className = 'production-empty';
+      window.PCMSUIText?.set?.(empty,{vi:'Chưa có bộ phận.',zh:'尚未建立部門。'});
+      host.appendChild(empty);
+      return host;
+    }
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'production-table-scroll';
+    const table = document.createElement('table');
+    table.className = 'production-table production-department-table';
+    const head = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    [['Bộ phận','部門'],['Trạng thái','狀態'],['Thao tác','操作']].forEach(([vi,zh])=>{
+      const cell = document.createElement('th');
+      cell.appendChild(window.PCMSUIText.create({vi,zh}));
+      headRow.appendChild(cell);
+    });
+    head.appendChild(headRow);
+    const body = document.createElement('tbody');
+    rows.forEach(department=>{
+      const row = document.createElement('tr');
+      const nameCell = document.createElement('td');
+      nameCell.textContent = department.name;
+      const statusCell = document.createElement('td');
+      statusCell.className = 'production-center-cell';
+      const badge = document.createElement('span');
+      badge.className = `production-status ${department.active === true ? 'is-active' : 'is-voided'}`;
+      badge.textContent = department.active === true ? 'Đang dùng / 啟用' : 'Ngừng dùng / 停用';
+      statusCell.appendChild(badge);
+      const actions = document.createElement('td');
+      actions.className = 'production-row-actions';
+      actions.append(
+        actionButton('ti-edit','Đổi tên','修改名稱',()=>void renameDepartment(department)),
+        actionButton(department.active === true ? 'ti-eye-off' : 'ti-eye','Đổi trạng thái','切換狀態',()=>void toggleDepartment(department),department.active === true ? 'danger' : ''),
+        actionButton('ti-trash','Xóa','刪除',()=>void deleteDepartment(department),'danger')
+      );
+      row.append(nameCell,statusCell,actions);
+      body.appendChild(row);
+    });
+    table.append(head,body);
+    tableWrap.appendChild(table);
+    host.appendChild(tableWrap);
+    return host;
+  }
+
+  function openDepartmentManager(){
+    window.PCMSUIComponents.openDialog({
+      title:{vi:'Quản lý bộ phận',zh:'部門管理'},
+      body:departmentManagerBody(),
+      size:'large',
+      actions:[
+        {text:{vi:'Thêm bộ phận',zh:'新增部門'},icon:'ti-plus',close:false,onClick:()=>void addDepartment(true)},
+        {text:'common.close'}
+      ]
+    });
+  }
+
   function render(){
     const body = element('production-employees-table-body');
     const needle = String(element('production-employee-search').value || '').trim().toLocaleLowerCase();
@@ -163,16 +328,25 @@
     state.initialized = true;
     element('production-employee-save-button').addEventListener('click',()=>void save());
     element('production-employee-cancel-button').addEventListener('click',resetForm);
+    element('production-department-add-button').addEventListener('click',()=>void addDepartment());
+    element('production-department-manage-button').addEventListener('click',openDepartmentManager);
     element('production-employee-search').addEventListener('input',render);
     element('production-employee-filter-status').addEventListener('change',render);
   }
 
-  async function loadProductionEmployeesData(){
-    await window.PCMSProductionEmployees.load();
+  async function loadProductionEmployeesData(options={}){
+    await Promise.all([
+      window.PCMSProductionEmployees.load({revalidate:options.background === true}),
+      window.PCMSProductionEmployees.loadDepartments({revalidate:options.background === true})
+    ]);
     return true;
   }
 
-  function productionEmployeesInit(){ init(); render(); }
+  function productionEmployeesInit(){
+    init();
+    renderDepartmentSelect(element('production-employee-department-input').value);
+    render();
+  }
 
   window.loadProductionEmployeesData = loadProductionEmployeesData;
   window.productionEmployeesInit = productionEmployeesInit;

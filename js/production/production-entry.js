@@ -384,9 +384,11 @@
     element('production-today-button').addEventListener('click',setTodayMode);
     element('production-employee-input').addEventListener('input',handleEmployeeInput);
     element('production-order-input').addEventListener('input',handleOrderInput);
-    element('production-order-input').addEventListener('focus',event=>event.target.select());
+    element('production-order-input').addEventListener('focus',event=>{ event.target.select(); handleOrderInput(); });
+    element('production-order-input').addEventListener('click',handleOrderInput);
     element('production-product-input').addEventListener('input',handleProductInput);
-    element('production-product-input').addEventListener('focus',event=>event.target.select());
+    element('production-product-input').addEventListener('focus',event=>{ event.target.select(); handleProductInput(); });
+    element('production-product-input').addEventListener('click',handleProductInput);
     element('production-process-input').addEventListener('input',handleProcessInput);
     element('production-save-button').addEventListener('click',()=>void saveEntry());
     document.addEventListener('click',event=>{
@@ -396,9 +398,9 @@
     });
   }
 
-  async function loadProductionEntryData(){
+  async function loadProductionEntryData(options={}){
     await Promise.all([
-      window.PCMSProductionEmployees.load(),
+      window.PCMSProductionEmployees.load({revalidate:options.background === true}),
       window.PCMSProductionEntryStore.loadOrders()
     ]);
     return true;

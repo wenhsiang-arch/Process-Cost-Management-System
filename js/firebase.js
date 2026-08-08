@@ -20,8 +20,13 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
-const CACHEABLE_COLLECTIONS = new Set(['orders','orderProcesses']);
+const CACHEABLE_COLLECTIONS = new Set([
+  'orders','orderProcesses','productionEmployees','productionDepartments'
+]); // CACHEABLE_COLLECTIONS（允許使用資料版本快取的集合）
 const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings']);
+const SENSITIVE_PRODUCTION_CACHE_SCOPES = Object.freeze([
+  'productionEmployees','productionDepartments'
+]); // SENSITIVE_PRODUCTION_CACHE_SCOPES（登出時清除的敏感產能快取）
 const DATA_VERSION_MEMORY_MS = 15000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
@@ -29,7 +34,13 @@ let dataVersionsPromise = null;
 
 window.firebaseAuthUser = null;
 window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
-window.firebaseAuthLogout = () => signOut(auth);
+window.firebaseAuthLogout = async () => {
+  const userId = String(window.firebaseAuthUser?.uid || ''); // userId（登出前的使用者識別碼）
+  await Promise.allSettled(SENSITIVE_PRODUCTION_CACHE_SCOPES.map(
+    scope=>window.pcmsDataCache?.removeForUser(userId,scope)
+  ));
+  return signOut(auth);
+};
 
 // normalizeGoogleEmail（標準化 Google 電子信箱）
 function normalizeGoogleEmail(value){
@@ -1023,6 +1034,12 @@ async function fbInitForAuthorizedUser(){
     if(!isAdm()&&(permissions?.costMain!==true||permissions?.costlog!==true)){
       window.cLog=[];
       await window.pcmsDataCache?.remove('cLog');
+    }
+    const canReadProductionEmployees = ['production-entry','production-records','production-employees']
+      .some(pageName=>window.canOpenPage?.(pageName) === true); // canReadProductionEmployees（目前帳號可讀取產能員工）
+    if(!canReadProductionEmployees) await window.pcmsDataCache?.remove('productionEmployees');
+    if(window.canOpenPage?.('production-employees') !== true){
+      await window.pcmsDataCache?.remove('productionDepartments');
     }
     return true;
   })();

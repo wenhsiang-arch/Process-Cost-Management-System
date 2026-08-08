@@ -21,10 +21,12 @@ function createProductionContext(){
     cu:{user:'文員測試'},
     _collection:name=>name,
     _getDocs:async()=>({docs:employeeDocuments}),
-    firebaseLoadCachedCollection:async()=>[
-      {id:'ORDER-ABC-2026',orderId:'ORDER-ABC-2026',client:'Khách A',importStatus:'ready',lifecycleStatus:'active',processVersion:'v1'},
-      {id:'ORDER-OLD',orderId:'ORDER-OLD',client:'Khách cũ',importStatus:'failed'}
-    ],
+    firebaseLoadCachedCollection:async scope=>scope === 'productionEmployees'
+      ? employeeDocuments.map(item=>({id:item.id,...item.data()}))
+      : [
+          {id:'ORDER-ABC-2026',orderId:'ORDER-ABC-2026',client:'Khách A',importStatus:'ready',lifecycleStatus:'active',processVersion:'v1'},
+          {id:'ORDER-OLD',orderId:'ORDER-OLD',client:'Khách cũ',importStatus:'failed'}
+        ], // firebaseLoadCachedCollection（快取集合載入測試介面）
     PCMSOrderProcessCache:{
       read:async()=>orderProcesses,
       write:async()=>{},
@@ -38,6 +40,32 @@ function createProductionContext(){
   return window;
 }
 
+function createEmployeeMutationContext(){
+  const documents=new Map([
+    ['productionEmployees/M91234',{employeeId:'M91234',name:'Nguyễn An',department:'May',active:true,createdAt:1,createdByUid:'admin-user',createdBy:'管理員',updatedAt:1,updatedByUid:'admin-user',updatedBy:'管理員',schemaVersion:1}],
+    ['productionDepartments/may',{departmentId:'may',name:'May',active:true}],
+    ['productionDepartments/%C4%91%C3%B3ng%20g%C3%B3i',{departmentId:'%C4%91%C3%B3ng%20g%C3%B3i',name:'Đóng gói',active:true}]
+  ]); // documents（員工異動測試資料）
+  const keyOf=reference=>`${reference.collection}/${reference.id}`; // keyOf（測試文件位置）
+  const window={
+    firebaseAuthUser:{uid:'clerk-user'},
+    cu:{user:'文員測試'},
+    _docRef:(collection,id)=>({collection,id}),
+    _runTransaction:async task=>task({
+      get:async reference=>({
+        exists:()=>documents.has(keyOf(reference)),
+        data:()=>({...documents.get(keyOf(reference))})
+      }),
+      set:(reference,data)=>documents.set(keyOf(reference),{...data}),
+      delete:reference=>documents.delete(keyOf(reference))
+    })
+  };
+  const context={window,console,Map,Object,Array,String,Number,Math,Date,Error,RegExp,encodeURIComponent};
+  vm.createContext(context);
+  vm.runInContext(read('js/production/employee-store.js'),context);
+  return {window,documents};
+}
+
 test('員工工號、姓名及部門可用整段任意文字搜尋',async()=>{
   const window=createProductionContext();
   await window.PCMSProductionEmployees.load();
@@ -47,13 +75,40 @@ test('員工工號、姓名及部門可用整段任意文字搜尋',async()=>{
   assert.equal(window.PCMSProductionEmployees.validateEmployee({employeeId:'m91234',name:'A',department:'B'}).employeeId,'M91234');
 });
 
+test('新增既有工號必須拒絕且只有編輯流程可以更新',async()=>{
+  const {window,documents}=createEmployeeMutationContext();
+  await assert.rejects(
+    window.PCMSProductionEmployees.createEmployee({employeeId:'m91234',name:'覆蓋名稱',department:'May'}),
+    /工號已存在/
+  );
+  assert.equal(documents.get('productionEmployees/M91234').name,'Nguyễn An');
+  const updated=await window.PCMSProductionEmployees.updateEmployee('M91234',{
+    employeeId:'M91234',name:'Nguyễn An mới',department:'Đóng gói',active:true
+  });
+  assert.equal(updated.name,'Nguyễn An mới');
+  assert.equal(documents.get('productionEmployees/M91234').department,'Đóng gói');
+  await assert.rejects(
+    window.PCMSProductionEmployees.updateEmployee('M91234',{employeeId:'M90000',name:'A',department:'B'}),
+    /工號不可變更/
+  );
+  await assert.rejects(
+    window.PCMSProductionEmployees.createEmployee({employeeId:'M93333',name:'A',department:'Không tồn tại'}),
+    /請先新增並啟用部門/
+  );
+});
+
 test('訂單、款號及工序只在目前訂單範圍內搜尋',async()=>{
   const window=createProductionContext();
   await window.PCMSProductionEntryStore.loadOrders();
+  assert.equal(window.PCMSProductionEntryStore.searchOrders('')[0].id,'ORDER-ABC-2026');
   assert.equal(window.PCMSProductionEntryStore.searchOrders('ABC')[0].id,'ORDER-ABC-2026');
   assert.equal(window.PCMSProductionEntryStore.searchOrders('Khách A')[0].id,'ORDER-ABC-2026');
   assert.equal(window.PCMSProductionEntryStore.searchOrders('OLD').length,0);
   await window.PCMSProductionEntryStore.loadProcesses('ORDER-ABC-2026');
+  assert.deepEqual(
+    Array.from(window.PCMSProductionEntryStore.searchProducts('ORDER-ABC-2026','')).map(item=>item.code),
+    ['STYLE-500','STYLE-900']
+  );
   assert.deepEqual(
     Array.from(window.PCMSProductionEntryStore.searchProducts('ORDER-ABC-2026','500')).map(item=>item.code),
     ['STYLE-500']
@@ -90,4 +145,37 @@ test('產能永久刪除只供管理員使用且同步處理員工關聯與工�
     assert.match(source,/window\.cu\?\.role === 'admin'/);
     assert.match(source,/永久刪除/);
   });
+});
+
+test('重複工號拒絕覆蓋、部門使用下拉管理且訂單款號點入即展開',()=>{
+  const employeeStore=read('js/production/employee-store.js'); // employeeStore（員工資料存取程式內容）
+  const employeePage=read('js/production/production-employees.js'); // employeePage（員工資料頁程式內容）
+  const entryPage=read('js/production/production-entry.js'); // entryPage（生產登記頁程式內容）
+  const recordsPage=read('js/production/production-records.js'); // recordsPage（生產紀錄頁程式內容）
+  const html=read('index.html'); // html（主畫面內容）
+
+  assert.match(employeeStore,/async function createEmployee/);
+  assert.match(employeeStore,/if\(snapshot\.exists\(\)\)\{\s*throw new Error\('Mã nhân viên đã tồn tại/);
+  assert.match(employeeStore,/async function updateEmployee/);
+  assert.match(employeePage,/updateEmployee\(state\.editingId,input\)/);
+  assert.match(employeePage,/createEmployee\(input\)/);
+  assert.match(html,/<select id="production-employee-department-input">/);
+  assert.match(html,/id="production-department-add-button"/);
+  assert.match(html,/id="production-department-manage-button"/);
+  assert.match(employeeStore,/async function departmentInUse/);
+  assert.match(employeeStore,/_where\('department','==',normalized\)/);
+  assert.match(employeeStore,/productionDepartmentCreate/);
+  assert.match(employeeStore,/productionDepartmentRename/);
+  assert.match(employeeStore,/productionDepartmentStatus/);
+  assert.match(employeeStore,/productionDepartmentDelete/);
+  assert.match(employeeStore,/firebaseLoadCachedCollection\(COLLECTION_NAME,COLLECTION_NAME,options\)/);
+  assert.match(employeeStore,/firebaseLoadCachedCollection\(DEPARTMENT_COLLECTION_NAME,DEPARTMENT_COLLECTION_NAME,options\)/);
+  assert.match(employeeStore,/options\.revalidate !== true/);
+  [employeePage,entryPage,recordsPage].forEach(source=>{
+    assert.match(source,/revalidate:options\.background === true/);
+  });
+  assert.match(entryPage,/production-order-input'\)\.addEventListener\('focus',event=>\{ event\.target\.select\(\); handleOrderInput\(\); \}\)/);
+  assert.match(entryPage,/production-order-input'\)\.addEventListener\('click',handleOrderInput\)/);
+  assert.match(entryPage,/production-product-input'\)\.addEventListener\('focus',event=>\{ event\.target\.select\(\); handleProductInput\(\); \}\)/);
+  assert.match(entryPage,/production-product-input'\)\.addEventListener\('click',handleProductInput\)/);
 });

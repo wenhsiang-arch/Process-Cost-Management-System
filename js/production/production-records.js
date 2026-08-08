@@ -187,8 +187,8 @@
     element('production-record-status-filter').addEventListener('change',render);
   }
 
-  async function loadProductionRecordsData(){
-    await window.PCMSProductionEmployees.load();
+  async function loadProductionRecordsData(options={}){
+    await window.PCMSProductionEmployees.load({revalidate:options.background === true});
     return true;
   }
 

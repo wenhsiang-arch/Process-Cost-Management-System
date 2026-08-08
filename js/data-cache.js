@@ -173,13 +173,19 @@
     }
   }
 
+  async function removeForUser(userId,scope){
+    const normalizedUserId=String(userId||'').trim(); // normalizedUserId（指定的使用者識別碼）
+    if(!normalizedUserId||!scope) return;
+    const database=await openDatabase();
+    if(!database) return;
+    try{ await removeKeys(database,[cacheKey(normalizedUserId,scope)]); }
+    catch(error){ console.warn(`清除 ${scope} data-cache（資料快取）失敗：`,error); }
+  }
+
   async function remove(scope){
     const userId=currentUserId();
     if(!userId||!scope) return;
-    const database=await openDatabase();
-    if(!database) return;
-    try{ await removeKeys(database,[cacheKey(userId,scope)]); }
-    catch(error){ console.warn(`清除 ${scope} data-cache（資料快取）失敗：`,error); }
+    return removeForUser(userId,scope);
   }
 
   async function usage(){
@@ -198,7 +204,7 @@
   }
 
   window.pcmsDataCache={
-    read,write,remove,usage,requestPersistentStorage,
+    read,write,remove,removeForUser,usage,requestPersistentStorage,
     maxBytes:MAX_CACHE_BYTES
   };
 })();
