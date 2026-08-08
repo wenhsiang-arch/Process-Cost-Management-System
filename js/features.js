@@ -1,15 +1,17 @@
 // features（功能中央清單）：統一管理導覽、頁面、權限、程式依賴、資料載入與進入頁面動作。
 (function(){
   const SCRIPT_URLS = Object.freeze({
+    history:'js/history.js?v=20260808-1',
+    fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260808-1',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260808-1',
-    data:'js/data.js?v=20260808-1',
+    data:'js/data.js?v=20260808-2',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260808-7',
+    cutting:'js/cutting.js?v=20260808-8',
     accounts:'js/accounts.js?v=20260808-1',
-    orders:'js/orders.js?v=20260808-1',
+    orders:'js/orders.js?v=20260808-2',
     sync:'js/sync.js?v=20260808-1',
     permissions:'js/permissions.js?v=20260808-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
@@ -32,7 +34,8 @@
           page:'progress',feature:'progress',icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
           styles:['orders'],
           // data（資料與報表程式）目前仍提供訂單明細共用的工序分類文字；待後續拆出共用工具。
-          scripts:['productCache','orderProcessCache','data','orders'],
+          scripts:['history','productCache','orderProcessCache','data','orders'],
+          dataScopes:['operationSettings','orders','orderProcesses'],
           dataLoaders:['ensureOperationSettingsLoaded','loadOrderData'],
           onOpen:['renderProgress','renderOrders']
         }
@@ -45,14 +48,11 @@
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
           styles:['products'],
-          scripts:['productCache','summary','data'],
+          scripts:['history','fileIo','productCache','summary','data'],
+          dataScopes:['operationSettings','costSettings','products'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
             {name:'ensureCostSettingsLoaded',when:'costView'},
-            {
-              name:'ensureImportHistoryLoaded',optional:true,fallbackTarget:'impHist',
-              vi:'Lịch sử nhập mã hàng',zh:'款號匯入歷史'
-            }, // optional（附屬資料）：歷史讀取失敗時不阻止款號主功能開啟。
             'ensureProductsLoaded'
           ],
           onOpen:['rSum'],
@@ -69,7 +69,7 @@
       pages:[
         {
           page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Thống kê dây cắt',zh:'裁帶統計',
-          styles:['cutting'],scripts:['cuttingStore','cutting'],dataLoaders:[],onOpen:['cuttingInit']
+          styles:['cutting'],scripts:['history','fileIo','cuttingStore','cutting'],dataScopes:['cuttingTemplates'],dataLoaders:[],onOpen:['cuttingInit']
         }
       ]
     },
@@ -81,6 +81,7 @@
           page:'sync',feature:'sync',icon:'ti-refresh',vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步',
           styles:['sync'],
           scripts:['orderProcessCache','orders','sync'],
+          dataScopes:['operationSettings','orders','orderProcesses'],
           dataLoaders:['ensureOperationSettingsLoaded','reloadOrders'],
           onOpen:['syncInit']
         }
@@ -93,18 +94,20 @@
         {
           page:'settings',feature:'settings',icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定',
           styles:['cost'],
-          scripts:['summary','data','settings'],
+          scripts:['history','summary','data','settings'],
+          dataScopes:['operationSettings','costSettings'],
           dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded'],
           onOpen:['rAll']
         },
         {
           page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄',
-          styles:['cost'],scripts:['data'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
+          styles:['cost'],scripts:['history','data'],dataScopes:['operationLogs:costlog'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
         },
         {
           page:'export',feature:'export',icon:'ti-download',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出',
           styles:['cost'],
-          scripts:['productCache','data'],
+          scripts:['history','fileIo','productCache','data'],
+          dataScopes:['operationSettings','costSettings','products'],
           dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded','ensureProductsLoaded'],
           onOpen:['rExp']
         }
@@ -116,11 +119,11 @@
       pages:[
         {
           page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理',
-          styles:['accounts'],scripts:['accounts'],dataLoaders:[],onOpen:['loadAccounts']
+          styles:['accounts'],scripts:['accounts'],dataScopes:['userAccess'],dataLoaders:['loadAccounts'],onOpen:['rAcc']
         },
         {
           page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理',
-          styles:['accounts'],scripts:['permissions'],dataLoaders:[],onOpen:['renderPermissions']
+          styles:['accounts'],scripts:['permissions'],dataScopes:['rolePermissions'],dataLoaders:[],onOpen:['renderPermissions']
         }
       ]
     }
@@ -159,6 +162,8 @@
 
   const loadedScriptPromises = new Map(); // loadedScriptPromises（已載入或載入中的程式）
   const loadedStylePromises = new Map(); // loadedStylePromises（已載入或載入中的功能樣式）
+  const pageDataStates = new Map(); // pageDataStates（功能頁資料狀態）：同一登入工作階段重複切換時共用。
+  const PAGE_DATA_FRESH_MS = 60000; // PAGE_DATA_FRESH_MS（功能頁背景檢查間隔）：一分鐘內不重複檢查。
   let spreadsheetToolPromise = null; // spreadsheetToolPromise（Excel 表格工具載入工作）
   let activePageName = ''; // activePageName（目前功能頁面）
 
@@ -285,6 +290,97 @@
     return page;
   }
 
+  function getPageDataState(pageName){
+    if(!pageDataStates.has(pageName)){
+      pageDataStates.set(pageName,{
+        loadedAt:0,
+        dirty:false,
+        warnings:[],
+        promise:null
+      });
+    }
+    return pageDataStates.get(pageName);
+  }
+
+  function isPageDataReady(pageName){
+    return getPageDataState(pageName).loadedAt>0;
+  }
+
+  function isPageDataFresh(pageName){
+    const page=getPage(pageName);
+    const state=getPageDataState(pageName); // state（功能頁資料狀態）
+    if(!state.loadedAt||state.dirty) return false;
+    if(!(page?.dataLoaders||[]).length) return true;
+    return Date.now()-state.loadedAt<PAGE_DATA_FRESH_MS;
+  }
+
+  async function runPageDataLoaders(pageName,{background=false}={}){
+    const page=getPage(pageName);
+    if(!page) throw new Error(`Trang không tồn tại: ${pageName} / 頁面不存在：${pageName}`);
+    const warnings=[]; // warnings（附屬資料警告）：不阻止主功能開啟。
+    const tasks=[];
+    for(const loaderConfig of page.dataLoaders||[]){
+      const item=typeof loaderConfig==='string'?{name:loaderConfig}:loaderConfig; // item（資料載入設定）
+      if(item.when==='costView'&&typeof window.canViewCosts==='function'&&!window.canViewCosts()) continue;
+      const loader=window[item.name]; // loader（資料載入函式）
+      if(typeof loader!=='function'){
+        throw new Error(`Thiếu hàm tải dữ liệu: ${item.name} / 缺少資料載入函式：${item.name}`);
+      }
+      const task=Promise.resolve()
+        .then(()=>loader({background,pageName}))
+        .catch(error=>{
+          if(item.optional!==true) throw error;
+          if(item.fallbackTarget) window[item.fallbackTarget]=[];
+          warnings.push({
+            name:item.name,
+            vi:String(item.vi||'Dữ liệu phụ'),
+            zh:String(item.zh||'附屬資料'),
+            error
+          });
+          console.warn(`Không thể tải dữ liệu phụ ${item.name} / 無法載入附屬資料 ${item.name}：`,error);
+          return null;
+        });
+      tasks.push(task);
+    }
+    await Promise.all(tasks);
+    return warnings;
+  }
+
+  async function ensurePageData(pageName,options={}){
+    const state=getPageDataState(pageName); // state（功能頁資料狀態）
+    if(state.promise) return state.promise;
+    if(state.loadedAt&&options.reload!==true) return state.warnings.slice();
+    state.promise=(async()=>{
+      const warnings=await runPageDataLoaders(pageName,{background:options.background===true});
+      state.loadedAt=Date.now();
+      state.dirty=false;
+      state.warnings=warnings;
+      return warnings.slice();
+    })().finally(()=>{ state.promise=null; });
+    return state.promise;
+  }
+
+  async function refreshPageDataInBackground(pageName){
+    if(isPageDataFresh(pageName)) return {refreshed:false,warnings:getPageDataState(pageName).warnings.slice()};
+    const warnings=await ensurePageData(pageName,{reload:true,background:true});
+    if(activePageName===pageName) await runPageHooks(pageName,'onOpen');
+    return {refreshed:true,warnings};
+  }
+
+  function invalidateDataScopes(scopes){
+    const changed=new Set((Array.isArray(scopes)?scopes:[]).map(value=>String(value||'')).filter(Boolean));
+    if(!changed.size) return;
+    pageMap.forEach((page,pageName)=>{
+      if(!(page.dataScopes||[]).some(scope=>changed.has(scope))) return;
+      const state=getPageDataState(pageName); // state（受影響功能頁狀態）
+      if(state.loadedAt) state.dirty=true;
+    });
+  }
+
+  function resetPageDataStates(){
+    pageDataStates.clear();
+  }
+
   // ensureSpreadsheetTool（載入 Excel 表格工具）：只有實際匯入或匯出時才呼叫。
   function ensureSpreadsheetTool(){
     if(window.XLSX) return Promise.resolve(window.XLSX);
@@ -387,6 +483,12 @@
     getModules,
     getEntryOrder,
     ensurePageScripts,
+    ensurePageData,
+    isPageDataReady,
+    isPageDataFresh,
+    refreshPageDataInBackground,
+    invalidateDataScopes,
+    resetPageDataStates,
     ensureSpreadsheetTool,
     enterPage,
     leaveActivePage,

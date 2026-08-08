@@ -67,7 +67,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.equal(normalized.orderImport,true);
 });
 
-test('附屬歷史載入失敗不會阻止主功能開啟',()=>{
+test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
   const source=read('js/features.js');
   const context={
     window:{},
@@ -77,16 +77,12 @@ test('附屬歷史載入失敗不會阻止主功能開啟',()=>{
   vm.runInContext(source,context);
   const feature=context.window.PCMSFeatures;
   const summaryLoaders=feature.getPage('summary').dataLoaders;
-  const settingsLoaders=feature.getPage('settings').dataLoaders;
   const costLogLoaders=feature.getPage('costlog').dataLoaders;
-  const importHistory=summaryLoaders.find(item=>item?.name==='ensureImportHistoryLoaded');
-  assert.equal(importHistory?.optional,true);
-  assert.equal(importHistory?.fallbackTarget,'impHist');
-  assert.equal(settingsLoaders.includes('ensureCostLogLoaded'),false);
+  assert.equal(summaryLoaders.some(item=>(typeof item==='string'?item:item?.name)==='ensureImportHistoryLoaded'),false);
+  assert.equal(feature.getPage('summary').scripts.includes('history'),true);
   assert.equal(costLogLoaders.includes('ensureCostLogLoaded'),true);
-  const authSource=read('js/auth.js');
-  assert.match(authSource,/if\(item\.optional!==true\) throw error/);
-  assert.match(authSource,/showFeatureDataWarnings\(dataWarnings\)/);
+  assert.match(read('index.html'),/onclick="openImportHistory\(\)"/);
+  assert.match(read('js/data.js'),/async function openImportHistory\(force=false\)/);
 });
 
 test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
@@ -98,6 +94,7 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
   vm.createContext(context);
   vm.runInContext(source,context);
   const scriptFiles={
+    history:'js/history.js',fileIo:'js/file-io.js',
     settings:'js/settings.js',productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js'
@@ -122,16 +119,22 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
 
 test('操作歷史查詢所需複合索引已登記',()=>{
   const indexes=JSON.parse(read('firestore.indexes.json')); // indexes（資料庫索引設定）
-  const operationLogIndex=indexes.indexes.find(item=>item.collectionGroup==='operationLogs');
+  const operationLogIndex=indexes.indexes.find(item=>item.collectionGroup==='operationLogs'&&item.fields.length===2);
   assert.deepEqual(operationLogIndex?.fields,[
     {fieldPath:'permissionKey',order:'ASCENDING'},
+    {fieldPath:'createdAt',order:'DESCENDING'}
+  ]);
+  const actionIndex=indexes.indexes.find(item=>item.collectionGroup==='operationLogs'&&item.fields.length===3);
+  assert.deepEqual(actionIndex?.fields,[
+    {fieldPath:'permissionKey',order:'ASCENDING'},
+    {fieldPath:'action',order:'ASCENDING'},
     {fieldPath:'createdAt',order:'DESCENDING'}
   ]);
 });
 
 test('裁帶模板識別碼安全且歷史只在點開分頁後讀取',()=>{
   const source=read('js/cutting.js');
-  const firebaseSource=read('js/firebase.js');
+  const historySource=read('js/history.js');
   const htmlSource=read('index.html');
   assert.match(source,/cuttingDownloadTemplate\(\$\{inlineArg\(t\.id\)\}, this\)/);
   assert.match(source,/cuttingDeleteTemplate\(\$\{inlineArg\(t\.id\)\}\)/);
@@ -142,7 +145,8 @@ test('裁帶模板識別碼安全且歷史只在點開分頁後讀取',()=>{
   assert.match(htmlSource,/id="cut-tab-history" onclick="cuttingSwitchTab\('history'\)"/);
   assert.match(htmlSource,/id="cut-history-tb"/);
   assert.match(source,/if\(selectedTab === 'history'\) void cuttingLoadHistory\(\)/);
-  assert.match(firebaseSource,/ensureCuttingHistoryLoaded[\s\S]*loadOperationLogs\('cutting'/);
+  assert.match(historySource,/ensureCuttingHistoryLoaded[\s\S]*permissionKey:'cutting'/);
+  assert.match(historySource,/cuttingTemplateImport[\s\S]*cuttingTemplateDelete[\s\S]*cuttingPdfExport/);
   const featureSource=read('js/features.js');
   const context={window:{},CONFIGURABLE_ROLES:['manager','clerk','productionDevelopment','productionControl','sales']};
   vm.createContext(context);
@@ -250,4 +254,48 @@ test('款號寫入使用交易並建立增量變更',()=>{
   assert.match(source,/PRODUCT_CHANGES_COL/);
   assert.match(source,/changedCodes/);
   assert.match(source,/deletedCodes/);
+});
+
+test('檔案儲存只由共用程式選擇位置與安全寫入',()=>{
+  const fileIoSource=read('js/file-io.js');
+  const dataSource=read('js/data.js');
+  const cuttingSource=read('js/cutting.js');
+  assert.match(fileIoSource,/async function chooseSaveHandle/);
+  assert.match(fileIoSource,/async function writeToHandle/);
+  assert.match(fileIoSource,/writable\.abort\(\)/);
+  assert.doesNotMatch(dataSource,/function chooseSpreadsheetSaveHandle/);
+  assert.doesNotMatch(cuttingSource,/function chooseCuttingSaveHandle/);
+  assert.match(dataSource,/PCMSFileIO\.writeWorkbookToHandle/);
+  assert.match(cuttingSource,/PCMSFileIO\.writeToHandle/);
+});
+
+test('功能頁重複切換使用工作階段資料並在背景檢查',()=>{
+  const featureSource=read('js/features.js');
+  const authSource=read('js/auth.js');
+  const cuttingSource=read('js/cutting.js');
+  assert.match(featureSource,/PAGE_DATA_FRESH_MS = 60000/);
+  assert.match(featureSource,/async function refreshPageDataInBackground/);
+  assert.match(featureSource,/function invalidateDataScopes/);
+  assert.match(authSource,/const pageDataReady=/);
+  assert.match(authSource,/refreshPageDataInBackground\(name\)/);
+  assert.match(cuttingSource,/CUTTING_BACKGROUND_CHECK_MS = 60000/);
+  assert.match(cuttingSource,/if\(!state\.initialized\)/);
+});
+
+test('資料與 dataVersions（資料版本）使用同一批次或交易寫入',()=>{
+  const source=read('js/firebase.js');
+  assert.match(source,/appendDataVersionWrite\(batch,\[scope\]\)[\s\S]*?await batch\.commit\(\)/);
+  assert.match(source,/committedVersionChange=appendDataVersionWrite\(rawTransaction,\[\.\.\.scopes\]\)/);
+  assert.match(source,/const versionChange=appendDataVersionWrite\(rawBatch,\[\.\.\.scopes\]\)[\s\S]*?await rawBatch\.commit\(\)/);
+  assert.doesNotMatch(source,/await rawBatch\.commit\(\);\s*await touchDataVersions/);
+});
+
+test('訂單調整歷史使用五十筆游標分頁',()=>{
+  const historySource=read('js/history.js');
+  const ordersSource=read('js/orders.js');
+  assert.match(historySource,/const DEFAULT_PAGE_SIZE = 50/);
+  assert.match(historySource,/window\._startAfter\(state\.cursor\)/);
+  assert.match(historySource,/async function loadOrderAdjustments/);
+  assert.doesNotMatch(ordersSource,/_getDocs\(window\._collection\(COL\.orderAdjustments\)\)/);
+  assert.match(ordersSource,/loadOrderAdjustments\(\{limit:50,loadMore:true\}\)/);
 });

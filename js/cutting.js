@@ -12,7 +12,9 @@
     activeTab: 'order', // activeTab（目前裁帶功能分頁）：決定全畫面拖曳的唯一匯入用途。
     historyLogs: [], // historyLogs（裁帶操作歷史）：只在使用者開啟歷史分頁後載入。
     historyLoaded: false,
-    historyLoading: false
+    historyLoading: false,
+    initialized: false,
+    templatesLoadedAt: 0
   };
   const FIXED_TEMPLATE_COLUMNS = Object.freeze({
     codeCol: 1,
@@ -31,6 +33,9 @@
   let pdfToolKnownOnline = null; // pdfToolKnownOnline（已知的本機 PDF 工具狀態）：只用來避免使用者白選儲存位置，正式匯出前仍會再次確認。
   let orderLabelDialogResolve = null; // orderLabelDialogResolve（訂單文字視窗回傳函式）
   let fileDropTargetsRegistered = false; // fileDropTargetsRegistered（裁帶全畫面匯入用途是否已登記）
+  let templateRefreshPromise = null; // templateRefreshPromise（模板清單載入工作）：避免快速切換時重複查詢。
+  let cuttingPageToolCheckedAt = 0; // cuttingPageToolCheckedAt（裁帶頁本機工具最近檢查時間）
+  const CUTTING_BACKGROUND_CHECK_MS = 60000; // CUTTING_BACKGROUND_CHECK_MS（裁帶頁背景檢查間隔）
 
   function text(id, value){
     const el = g(id);
@@ -525,10 +530,23 @@
     return map;
   }
 
-  async function refreshTemplates(){
-    state.templates = window.cuttingStore ? await window.cuttingStore.listTemplates() : [];
-    renderTemplateList();
-    recomputeResults();
+  async function refreshTemplates(force=false){
+    if(templateRefreshPromise){
+      await templateRefreshPromise;
+      if(!force) return state.templates;
+    }
+    templateRefreshPromise=(async()=>{
+      state.templates = window.cuttingStore ? await window.cuttingStore.listTemplates() : [];
+      state.templatesLoadedAt=Date.now();
+      renderTemplateList();
+      recomputeResults();
+      return state.templates;
+    })();
+    try{
+      return await templateRefreshPromise;
+    }finally{
+      templateRefreshPromise=null;
+    }
   }
 
   function waitForTemplateProgressPaint(){
@@ -834,43 +852,6 @@
     );
   }
 
-  // chooseCuttingSaveHandle（選擇儲存位置）：由模板與 PDF 下載共用，必須由使用者點擊後直接呼叫。
-  async function chooseCuttingSaveHandle(suggestedName, fileType){
-    if(typeof window.showSaveFilePicker !== 'function'){
-      await showCuttingSaveUnsupported();
-      return null;
-    }
-    try{
-      return await window.showSaveFilePicker({
-        suggestedName,
-        types: [fileType],
-        excludeAcceptAllOption: true
-      });
-    }catch(error){
-      if(error?.name === 'AbortError') return null;
-      if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
-        await showCuttingSaveUnsupported();
-        return null;
-      }
-      throw error;
-    }
-  }
-
-  // writeCuttingFileToHandle（寫入所選檔案）：模板與 PDF 共用，失敗時中止未完成的寫入。
-  async function writeCuttingFileToHandle(fileHandle, fileData){
-    const writable = await fileHandle.createWritable(); // writable（可寫入檔案串流）
-    let completed = false; // completed（是否寫入完成）
-    try{
-      await writable.write(fileData);
-      await writable.close();
-      completed = true;
-    }finally{
-      if(!completed){
-        try{ await writable.abort(); }catch(_){}
-      }
-    }
-  }
-
   // cuttingDownloadTemplate（下載原始模板）：先選擇儲存位置，再優先使用瀏覽器快取，必要時才從雲端還原原始檔。
   async function cuttingDownloadTemplate(templateId, button){
     if(!templateId || button?.disabled) return;
@@ -878,9 +859,13 @@
     const fileName = template?.fileName || 'mau-cat-day.xlsx'; // fileName（檔案名稱）
     let saveHandle = null; // saveHandle（儲存檔案控制物件）
     try{
-      saveHandle = await chooseCuttingSaveHandle(fileName, {
-        description: 'Tệp Excel / Excel 表格檔',
-        accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']}
+      saveHandle = await window.PCMSFileIO.chooseSaveHandle({
+        suggestedName:fileName,
+        types:[{
+          description: 'Tệp Excel / Excel 表格檔',
+          accept: {'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']}
+        }],
+        onUnsupported:showCuttingSaveUnsupported
       });
     }catch(error){
       console.error('Mở cửa sổ lưu file thất bại / 開啟儲存視窗失敗', error);
@@ -898,7 +883,7 @@
       if(!sourceFile){
         throw new Error('Không tìm thấy file mẫu gốc. / 找不到原始模板檔。');
       }
-      await writeCuttingFileToHandle(saveHandle, sourceFile);
+      await window.PCMSFileIO.writeToHandle(saveHandle, sourceFile);
     }catch(error){
       console.error('Tải file mẫu thất bại / 下載模板檔失敗', error);
       await cuttingMessage(
@@ -1024,7 +1009,7 @@
       state.pendingBook = null;
       setTemplateFileDisplay('');
       renderTemplateAnalysis(null);
-      await refreshTemplates();
+      await refreshTemplates(true);
       if(window.saveOperationLogToFB){
         try{
           const savedLog = await saveOperationLogToFB({
@@ -1148,7 +1133,7 @@
         console.warn('清除裁帶模板快取失敗', cacheError);
       }
       renderTemplateAnalysis(null);
-      await refreshTemplates();
+      await refreshTemplates(true);
       let historySaved = false; // historySaved（刪除操作紀錄是否已保存）
       if(window.saveOperationLogToFB){
         try{
@@ -2326,9 +2311,13 @@
     const suggestedOutputName = templateEntries.length === 1
       ? localPdfName(firstTemplate?.fileName || firstTemplateResults[0]?.fileName || '')
       : localMergedPdfName(); // suggestedOutputName（建議輸出檔名）
-    const saveHandle = await chooseCuttingSaveHandle(suggestedOutputName, {
-      description: 'Tệp PDF / PDF 檔案',
-      accept: {'application/pdf': ['.pdf']}
+    const saveHandle = await window.PCMSFileIO.chooseSaveHandle({
+      suggestedName:suggestedOutputName,
+      types:[{
+        description: 'Tệp PDF / PDF 檔案',
+        accept: {'application/pdf': ['.pdf']}
+      }],
+      onUnsupported:showCuttingSaveUnsupported
     }); // saveHandle（使用者選擇的儲存位置）
     if(!saveHandle) return;
     const pdfToolReady = await cuttingCheckPdfToolStatus();
@@ -2421,7 +2410,7 @@
       }
       setCuttingPdfProgress(96,'Đang nhận tệp PDF…','正在接收 PDF 檔…','PDF đã tạo xong, đang chuẩn bị lưu.','PDF 已產生，正在準備儲存。');
       const pdfBlob = await response.blob();
-      await writeCuttingFileToHandle(saveHandle, pdfBlob);
+      await window.PCMSFileIO.writeToHandle(saveHandle, pdfBlob);
       if(window.saveOperationLogToFB){
         try{
           const exportedResults=state.results.filter(result=>result.status==='pass');
@@ -2470,12 +2459,27 @@
 
   async function cuttingInit(){
     registerCuttingFileDropTargets();
-    await refreshTemplates();
-    setTemplateBusy(false);
-    setTemplateFileDisplay('');
-    setOrderFileDisplay('');
-    cuttingSwitchTab('order');
-    cuttingCheckPdfToolStatus();
+    if(!state.initialized){
+      await refreshTemplates();
+      setTemplateBusy(false);
+      setTemplateFileDisplay('');
+      setOrderFileDisplay('');
+      cuttingSwitchTab('order');
+      state.initialized=true;
+    }else{
+      renderTemplateList();
+      recomputeResults();
+      cuttingSwitchTab(state.activeTab);
+      if(Date.now()-state.templatesLoadedAt>=CUTTING_BACKGROUND_CHECK_MS){
+        void refreshTemplates().catch(error=>{
+          console.warn('Không thể làm mới mẫu ở nền / 無法背景更新裁帶模板：',error);
+        });
+      }
+    }
+    if(Date.now()-cuttingPageToolCheckedAt>=CUTTING_BACKGROUND_CHECK_MS){
+      cuttingPageToolCheckedAt=Date.now();
+      void cuttingCheckPdfToolStatus();
+    }
   }
 
   window.cuttingPickTemplate = cuttingPickTemplate;

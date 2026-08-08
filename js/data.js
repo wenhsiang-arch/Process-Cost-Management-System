@@ -386,53 +386,6 @@ function showSpreadsheetSaveUnsupported(){
   );
 }
 
-// chooseSpreadsheetSaveHandle（選擇表格檔儲存位置）：必須由使用者點擊匯出後直接呼叫。
-async function chooseSpreadsheetSaveHandle(suggestedName){
-  if(typeof window.showSaveFilePicker !== 'function'){
-    await showSpreadsheetSaveUnsupported();
-    return null;
-  }
-  try{
-    return await window.showSaveFilePicker({
-      suggestedName,
-      types:[{
-        description:'Tệp Excel / Excel 表格檔',
-        // application/vnd.openxmlformats-officedocument.spreadsheetml.sheet（Excel 表格檔內容類型）。
-        accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}
-      }],
-      excludeAcceptAllOption:true
-    });
-  }catch(error){
-    if(error?.name==='AbortError') return null;
-    if(error?.name==='SecurityError'||error?.name==='NotAllowedError'){
-      showSpreadsheetSaveUnsupported();
-      return null;
-    }
-    throw error;
-  }
-}
-
-// writeSpreadsheetWorkbookToHandle（將表格活頁簿寫入使用者選擇的位置）。
-async function writeSpreadsheetWorkbookToHandle(fileHandle,workbook){
-  const workbookBytes=XLSX.write(workbook,{bookType:'xlsx',type:'array'}); // workbookBytes（活頁簿位元資料）。
-  const spreadsheetBlob=new Blob(
-    [workbookBytes],
-    // spreadsheetBlob（表格檔資料）；type（內容類型）使用 Excel 表格檔標準值。
-    {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
-  );
-  const writable=await fileHandle.createWritable(); // writable（可寫入檔案串流）。
-  let completed=false; // completed（是否寫入完成）。
-  try{
-    await writable.write(spreadsheetBlob);
-    await writable.close();
-    completed=true;
-  }finally{
-    if(!completed){
-      try{ await writable.abort(); }catch(_){}
-    }
-  }
-}
-
 async function doExport(){
   if(typeof canOpenPage==='function'&&!canOpenPage('export')){
     await dataMessage('Không có quyền xuất giá công sản phẩm.','沒有產品工價匯出權限。','warning');
@@ -444,7 +397,11 @@ async function doExport(){
     const reportType=g('ex-ty').value; // reportType（報表類型）。
     const showCosts=true; // showCosts（匯出產品工價）：分頁權限即代表允許匯出工價。
     const fname='產品工價_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
-    const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
+    const saveHandle=await window.PCMSFileIO.chooseSaveHandle({
+      suggestedName:fname,
+      types:[window.PCMSFileIO.spreadsheetFileType],
+      onUnsupported:showSpreadsheetSaveUnsupported
+    }); // saveHandle（使用者選擇的儲存位置）
     if(!saveHandle) return;
     await window.PCMSFeatures.ensureSpreadsheetTool();
     const fd=window.D.filter(d=>!cf||d.client===cf);
@@ -559,7 +516,7 @@ async function doExport(){
       XLSX.utils.book_append_sheet(wb,wsDet,'工序明細');
     }
 
-    await writeSpreadsheetWorkbookToHandle(saveHandle,wb);
+    await window.PCMSFileIO.writeWorkbookToHandle(saveHandle,wb,window.XLSX);
     if(window.saveOperationLogToFB){
       try{
         await saveOperationLogToFB({
@@ -607,7 +564,11 @@ async function doBackup(){
   try{
     const cf=g('bk-client').value;
     const fname='備份_'+new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')+'.xlsx';
-    const saveHandle=await chooseSpreadsheetSaveHandle(fname); // saveHandle（使用者選擇的儲存位置）。
+    const saveHandle=await window.PCMSFileIO.chooseSaveHandle({
+      suggestedName:fname,
+      types:[window.PCMSFileIO.spreadsheetFileType],
+      onUnsupported:showSpreadsheetSaveUnsupported
+    }); // saveHandle（使用者選擇的儲存位置）
     if(!saveHandle) return;
     await window.PCMSFeatures.ensureSpreadsheetTool();
     const fd=window.D.filter(d=>!cf||d.client===cf);
@@ -651,7 +612,7 @@ async function doBackup(){
     ws['!autofilter']={ref:'A1:J1'};
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,'備份資料');
-    await writeSpreadsheetWorkbookToHandle(saveHandle,wb);
+    await window.PCMSFileIO.writeWorkbookToHandle(saveHandle,wb,window.XLSX);
     if(window.saveOperationLogToFB){
       try{
         await saveOperationLogToFB({
@@ -689,6 +650,21 @@ function rHist(){
     const overwritten=h.overwriteCount??h.ow??0;
     return`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${dataSafeText(time)}</span><span style="color:var(--mu)">${dataSafeText(user)}</span><span class="tg tb2">${Number(count)||0} mã/款號</span><span class="tg tg2">${Number(details)||0} CĐ/工序</span>${Number(overwritten)>0?`<span class="tg ta">Ghi đè/覆蓋 ${Number(overwritten)}</span>`:''}</div>`;
   }).join('');
+}
+
+// openImportHistory（開啟款號匯入歷史）：使用者實際點擊後才讀取，切換頁面不預先呼叫。
+async function openImportHistory(force=false){
+  try{
+    if(typeof window.ensureImportHistoryLoaded!=='function'){
+      throw new Error('Chức năng lịch sử chưa sẵn sàng / 歷史功能尚未就緒');
+    }
+    await window.ensureImportHistoryLoaded({limit:50,force});
+    rHist();
+    om('m-history');
+  }catch(error){
+    console.error('Không thể tải lịch sử nhập mã hàng / 無法載入款號匯入歷史：',error);
+    await dataMessage('Không thể tải lịch sử nhập.','無法載入匯入歷史。','danger');
+  }
 }
 
 // ===== 成本變動記錄 =====

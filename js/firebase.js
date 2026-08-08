@@ -1,6 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, addDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, limit, startAfter, documentId, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, limit, startAfter, documentId, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -238,22 +238,45 @@ async function readDataVersions(force=false){
   return dataVersionsPromise;
 }
 
-async function touchDataVersions(scopes){
+function createDataVersionChange(scopes){
   const unique=[...new Set((scopes||[]).filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
-  if(!unique.length) return {};
   const updates={updatedAt:Date.now(),updatedBy:window.firebaseAuthUser?.uid||''};
   unique.forEach(scope=>{ updates[scope]=dataVersionToken(); });
+  return {scopes:unique,updates};
+}
+
+function appendDataVersionWrite(writer,scopes){
+  const change=createDataVersionChange(scopes); // change（本次資料版本異動）
+  if(change.scopes.length){
+    writer.set(doc(db,'system',DATA_VERSIONS_KEY),change.updates,{merge:true});
+  }
+  return change;
+}
+
+async function finishDataVersionChange(change){
+  if(!change?.scopes?.length) return change?.updates||{};
+  dataVersionsMemory={...(dataVersionsMemory||{}),...change.updates};
+  dataVersionsReadAt=Date.now();
+  window.PCMSFeatures?.invalidateDataScopes?.(change.scopes);
+  const results=await Promise.allSettled(change.scopes.map(scope=>window.pcmsDataCache?.remove(scope)));
+  results.forEach(result=>{
+    if(result.status==='rejected') console.warn('清除 data-cache（資料快取）失敗：',result.reason);
+  });
+  return change.updates;
+}
+
+async function touchDataVersions(scopes){
+  const change=createDataVersionChange(scopes); // change（獨立資料版本異動）
+  if(!change.scopes.length) return {};
   try{
-    await setDoc(doc(db,'system',DATA_VERSIONS_KEY),updates,{merge:true});
-    dataVersionsMemory={...(dataVersionsMemory||{}),...updates};
-    dataVersionsReadAt=Date.now();
+    await setDoc(doc(db,'system',DATA_VERSIONS_KEY),change.updates,{merge:true});
   }catch(error){
     dataVersionsMemory=null;
     dataVersionsReadAt=0;
-    console.warn('更新 dataVersions（資料版本）失敗：',error);
+    console.error('更新 dataVersions（資料版本）失敗：',error);
+    throw error;
   }
-  await Promise.all(unique.map(scope=>window.pcmsDataCache?.remove(scope)));
-  return updates;
+  return finishDataVersionChange(change);
 }
 
 async function readCachedScope(scope){
@@ -304,8 +327,11 @@ async function fbLoad(key){
 
 async function fbSave(key, data){
   try{
-    await setDoc(window._doc("system", key), { data: JSON.stringify(data) });
-    const versions=await touchDataVersions([key]);
+    const batch=writeBatch(db); // batch（資料與版本的同一批次寫入）
+    batch.set(doc(db,'system',key),{data:JSON.stringify(data)});
+    const versionChange=appendDataVersionWrite(batch,[key]); // versionChange（同批資料版本異動）
+    await batch.commit();
+    const versions=await finishDataVersionChange(versionChange);
     if(CACHEABLE_SYSTEM_KEYS.has(key)){
       await window.pcmsDataCache?.write(key,String(versions[key]||'0'),data);
     }
@@ -771,8 +797,9 @@ async function saveSplitSettingsToFB(){
     const batch=writeBatch(db);
     batch.set(doc(db,'system','operationSettings'),{data:JSON.stringify(operationSettings)});
     batch.set(doc(db,'system','costSettings'),{data:JSON.stringify(costSettings)});
+    const versionChange=appendDataVersionWrite(batch,['operationSettings','costSettings']); // versionChange（設定資料版本異動）
     await batch.commit();
-    const versions=await touchDataVersions(['operationSettings','costSettings']);
+    const versions=await finishDataVersionChange(versionChange);
     await Promise.all([
       window.pcmsDataCache?.write('operationSettings',String(versions.operationSettings||'0'),operationSettings),
       window.pcmsDataCache?.write('costSettings',String(versions.costSettings||'0'),costSettings)
@@ -788,81 +815,6 @@ async function saveSplitSettingsToFB(){
 }
 
 window.saveSettingsToFB  = saveSplitSettingsToFB;
-const OPERATION_LOG_PAGE_SIZE = 50; // OPERATION_LOG_PAGE_SIZE（操作紀錄單次載入上限）
-
-function operationLogCount(value){
-  const count=Number(value);
-  return Number.isInteger(count)&&count>=0?count:0;
-}
-
-function buildOperationLog(input){
-  const currentUser=auth.currentUser; // currentUser（目前 Firebase 身分驗證使用者）
-  if(!currentUser?.uid) throw new Error('Chưa xác nhận danh tính / 尚未完成身分驗證');
-  const log={
-    permissionKey:String(input?.permissionKey||''),
-    feature:String(input?.feature||''),
-    action:String(input?.action||''),
-    status:['success','partial','failed'].includes(input?.status)?input.status:'success',
-    createdAt:Date.now(),
-    createdByUid:currentUser.uid,
-    createdBy:String(window.cu?.user||currentUser.displayName||currentUser.email||currentUser.uid).slice(0,200),
-    itemCount:operationLogCount(input?.itemCount),
-    detailCount:operationLogCount(input?.detailCount)
-  };
-  if(input?.overwriteCount!==undefined) log.overwriteCount=operationLogCount(input.overwriteCount);
-  if(input?.skippedCount!==undefined) log.skippedCount=operationLogCount(input.skippedCount);
-  if(input?.fileName!==undefined) log.fileName=String(input.fileName||'').slice(0,300);
-  if(input?.note!==undefined) log.note=String(input.note||'').slice(0,500);
-  if(Array.isArray(input?.changes)){
-    log.changes=input.changes.slice(0,50).map(change=>({
-      field:String(change?.field??change?.f??'').slice(0,100),
-      before:Number(change?.before??change?.b)||0,
-      after:Number(change?.after??change?.a)||0,
-      percent:change?.percent??change?.p??null
-    }));
-  }
-  return log;
-}
-
-async function createOperationLog(input){
-  const log=buildOperationLog(input);
-  const reference=await addDoc(collection(db,'operationLogs'),log); // reference（新操作紀錄文件）
-  return {id:reference.id,...log};
-}
-
-async function loadOperationLogs(permissionKey,maxItems=OPERATION_LOG_PAGE_SIZE){
-  const requestedLimit=Math.max(1,Math.min(OPERATION_LOG_PAGE_SIZE,Number(maxItems)||OPERATION_LOG_PAGE_SIZE));
-  const statement=query(
-    collection(db,'operationLogs'),
-    where('permissionKey','==',permissionKey),
-    orderBy('createdAt','desc'),
-    limit(requestedLimit)
-  ); // statement（依權限與日期查詢最近操作紀錄）
-  const snapshot=await getDocs(statement);
-  return snapshot.docs.map(item=>({id:item.id,...item.data()}));
-}
-
-window.saveOperationLogToFB=createOperationLog;
-window.saveHistoryToFB=(history)=>createOperationLog({
-  permissionKey:'summary',
-  feature:'products',
-  action:'productImport',
-  status:'success',
-  itemCount:history?.c,
-  detailCount:history?.o,
-  overwriteCount:history?.ow,
-  skippedCount:history?.sk,
-  fileName:history?.fileName
-});
-window.saveCostLogToFB=(costLog)=>createOperationLog({
-  permissionKey:'costlog',
-  feature:'cost',
-  action:'costSettingsUpdate',
-  status:'success',
-  itemCount:Array.isArray(costLog?.changes)?costLog.changes.length:0,
-  detailCount:0,
-  changes:costLog?.changes||[]
-});
 function applySettings(savedSettings,allowedKeys){
   if(!savedSettings||typeof savedSettings!=='object') return;
   const safeSettings=pickSettingFields(savedSettings,allowedKeys);
@@ -924,34 +876,9 @@ async function ensureSettingsLoaded(options={}){
   return window.S;
 }
 
-async function ensureImportHistoryLoaded(options={}){
-  window.impHist=await loadOperationLogs('summary',options?.limit||OPERATION_LOG_PAGE_SIZE);
-  return window.impHist;
-}
-
-async function ensureCostLogLoaded(options={}){
-  const role=window.cu?.role;
-  const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
-  if(!isAdm()&&(permissions?.costMain!==true||permissions?.costlog!==true)){
-    window.cLog=[];
-    await window.pcmsDataCache?.remove('cLog');
-    return window.cLog;
-  }
-  window.cLog=await loadOperationLogs('costlog',options?.limit||OPERATION_LOG_PAGE_SIZE);
-  return window.cLog;
-}
-
-// ensureCuttingHistoryLoaded（載入裁帶操作歷史）：只由裁帶歷史分頁呼叫，不在登入或裁帶主頁預先讀取。
-async function ensureCuttingHistoryLoaded(options={}){
-  return loadOperationLogs('cutting',options?.limit||OPERATION_LOG_PAGE_SIZE);
-}
-
 window.ensureSettingsLoaded=ensureSettingsLoaded;
 window.ensureOperationSettingsLoaded=ensureOperationSettingsLoaded;
 window.ensureCostSettingsLoaded=ensureCostSettingsLoaded;
-window.ensureImportHistoryLoaded=ensureImportHistoryLoaded;
-window.ensureCostLogLoaded=ensureCostLogLoaded;
-window.ensureCuttingHistoryLoaded=ensureCuttingHistoryLoaded;
 window.firebaseLoadCachedCollection=loadCollectionWithCache;
 window.firebaseTouchDataVersions=touchDataVersions;
 window.firebaseShowLoading=showLoading;
@@ -959,33 +886,60 @@ window.firebaseShowLoading=showLoading;
 window._db         = db;
 window._getDocs    = (q)           => getDocs(q);
 window._addDoc     = async (colRef,data) => {
-  const reference=await addDoc(colRef,data);
-  await touchDataVersions([cacheScopeForReference(reference)]);
+  const reference=doc(colRef); // reference（預先建立的新文件位置）
+  const scope=cacheScopeForReference(reference); // scope（對應資料快取範圍）
+  if(!scope){
+    await setDoc(reference,data);
+    return reference;
+  }
+  const batch=writeBatch(db); // batch（資料與版本的同一批次寫入）
+  batch.set(reference,data);
+  const versionChange=appendDataVersionWrite(batch,[scope]);
+  await batch.commit();
+  await finishDataVersionChange(versionChange);
   return reference;
 };
 window._updateDoc  = async (ref,data) => {
-  await updateDoc(ref,data);
-  await touchDataVersions([cacheScopeForReference(ref)]);
+  const scope=cacheScopeForReference(ref); // scope（對應資料快取範圍）
+  if(!scope) return updateDoc(ref,data);
+  const batch=writeBatch(db);
+  batch.update(ref,data);
+  const versionChange=appendDataVersionWrite(batch,[scope]);
+  await batch.commit();
+  await finishDataVersionChange(versionChange);
 };
 window._deleteDoc  = async (ref) => {
-  await deleteDoc(ref);
-  await touchDataVersions([cacheScopeForReference(ref)]);
+  const scope=cacheScopeForReference(ref); // scope（對應資料快取範圍）
+  if(!scope) return deleteDoc(ref);
+  const batch=writeBatch(db);
+  batch.delete(ref);
+  const versionChange=appendDataVersionWrite(batch,[scope]);
+  await batch.commit();
+  await finishDataVersionChange(versionChange);
 };
 window._doc        = (colName,id)  => doc(db, colName, id);
 window._collection = (colName)     => collection(db, colName);
 window._query      = (...args)     => query(...args);
 window._where      = (...args)     => where(...args);
 window._orderBy    = (...args)     => orderBy(...args);
+window._limit      = (count)       => limit(count);
+window._startAfter = (snapshot)    => startAfter(snapshot);
 window._getDoc     = (ref)         => getDoc(ref);
 window._setDoc     = async (ref,data,opts) => {
-  await setDoc(ref,data,opts||{});
-  await touchDataVersions([cacheScopeForReference(ref)]);
+  const scope=cacheScopeForReference(ref); // scope（對應資料快取範圍）
+  if(!scope) return setDoc(ref,data,opts||{});
+  const batch=writeBatch(db);
+  if(opts) batch.set(ref,data,opts); else batch.set(ref,data);
+  const versionChange=appendDataVersionWrite(batch,[scope]);
+  await batch.commit();
+  await finishDataVersionChange(versionChange);
 };
 window._increment  = (n)           => increment(n);
 window._deleteField = ()            => deleteField();
 window._runTransaction = async (fn) => {
-  const scopes=new Set();
-  const result=await runTransaction(db,rawTransaction=>{
+  let committedVersionChange=createDataVersionChange([]); // committedVersionChange（最後成功交易的資料版本異動）
+  const result=await runTransaction(db,async rawTransaction=>{
+    const scopes=new Set();
     const trackedTransaction={
       get:(reference)=>rawTransaction.get(reference),
       set:(reference,data,options)=>{
@@ -1004,9 +958,11 @@ window._runTransaction = async (fn) => {
         return trackedTransaction;
       }
     };
-    return fn(trackedTransaction);
+    const transactionResult=await fn(trackedTransaction); // transactionResult（功能交易回傳結果）
+    committedVersionChange=appendDataVersionWrite(rawTransaction,[...scopes]);
+    return transactionResult;
   });
-  await touchDataVersions([...scopes]);
+  await finishDataVersionChange(committedVersionChange);
   return result;
 };
 window._writeBatch = () => {
@@ -1029,8 +985,9 @@ window._writeBatch = () => {
       return trackedBatch;
     },
     commit:async()=>{
+      const versionChange=appendDataVersionWrite(rawBatch,[...scopes]); // versionChange（同批資料版本異動）
       await rawBatch.commit();
-      await touchDataVersions([...scopes]);
+      await finishDataVersionChange(versionChange);
     }
   };
   return trackedBatch;

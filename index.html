@@ -598,7 +598,7 @@ tr:hover td{background:#f8fafc}
                 </button>
               </div>
               <div class="products-command-actions ui-command-actions">
-                <button type="button" class="products-command-action ui-command-action" onclick="rHist();om('m-history')"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử nhập</strong><span>匯入記錄</span></span></button>
+                <button type="button" class="products-command-action ui-command-action" onclick="openImportHistory()"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử nhập</strong><span>匯入記錄</span></span></button>
                 <button type="button" class="products-command-action ui-command-action" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i><span class="ui-dual-copy"><strong>Xuất dự phòng</strong><span>備份匯出</span></span></button>
               </div>
             </div>
@@ -1015,6 +1015,7 @@ tr:hover td{background:#f8fafc}
       <th>SL cũ<br><span style="font-size:10px;color:var(--mu)">原數量</span></th><th>SL mới<br><span style="font-size:10px;color:var(--mu)">新數量</span></th>
       <th>Lý do<br><span style="font-size:10px;color:var(--mu)">原因</span></th><th>Người thao tác<br><span style="font-size:10px;color:var(--mu)">操作者</span></th>
     </tr></thead><tbody id="order-adjust-history"></tbody></table></div>
+    <div class="ma"><button id="order-adjust-history-more" class="btn" onclick="loadMoreOrderAdjustmentHistory()" hidden><i class="ti ti-chevrons-down"></i><span class="ui-dual-copy"><strong>Tải thêm</strong><span>載入更多</span></span></button></div>
   </div></div>
 
   <div class="mb" id="m-order-delete-warning"><div class="md" style="width:560px">
@@ -1053,11 +1054,11 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-10"></script>
-<script src="js/auth.js?v=20260808-9"></script>
+<script src="js/features.js?v=20260808-11"></script>
+<script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260806-7"></script>
+<script type="module" src="js/firebase.js?v=20260808-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

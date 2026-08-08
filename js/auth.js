@@ -183,6 +183,8 @@ function clearSessionUi(){
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
   window.PCMSFeatures?.resetActivePage?.();
+  window.PCMSFeatures?.resetPageDataStates?.();
+  window.PCMSHistory?.clearSession?.();
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   window.cu=null;
   window.accs=[];
@@ -360,36 +362,11 @@ function openDetailImport(){
   if(input) input.click();
 }
 
-async function ensurePageData(name){
-  const pageConfig=window.PCMSFeatures?.getPage(name); // pageConfig（本次頁面的資料需求）
-  if(!pageConfig) throw new Error(`Trang không tồn tại: ${name} / 頁面不存在：${name}`);
-  const tasks=[];
-  const warnings=[]; // warnings（附屬資料載入警告）：不得阻止主功能開啟。
-  for(const loaderConfig of pageConfig.dataLoaders||[]){
-    const item=typeof loaderConfig==='string'?{name:loaderConfig}:loaderConfig; // item（資料載入設定）
-    if(item.when==='costView'&&!canViewCosts()) continue;
-    const loader=window[item.name]; // loader（資料載入函式）
-    if(typeof loader!=='function'){
-      throw new Error(`Thiếu hàm tải dữ liệu: ${item.name} / 缺少資料載入函式：${item.name}`);
-    }
-    const task=Promise.resolve()
-      .then(()=>loader())
-      .catch(error=>{
-        if(item.optional!==true) throw error;
-        if(item.fallbackTarget) window[item.fallbackTarget]=[];
-        warnings.push({
-          name:item.name,
-          vi:String(item.vi||'Dữ liệu phụ'),
-          zh:String(item.zh||'附屬資料'),
-          error
-        });
-        console.warn(`Không thể tải dữ liệu phụ ${item.name} / 無法載入附屬資料 ${item.name}：`,error);
-        return null;
-      }); // task（單項資料載入工作）：只有明確標記 optional（附屬）的失敗可以繼續。
-    tasks.push(task);
+async function ensurePageData(name,options={}){
+  if(!window.PCMSFeatures?.ensurePageData){
+    throw new Error('Chức năng tải dữ liệu chưa sẵn sàng / 資料載入功能尚未就緒');
   }
-  await Promise.all(tasks);
-  return warnings;
+  return window.PCMSFeatures.ensurePageData(name,options);
 }
 
 // showFeatureDataWarnings（顯示附屬資料警告）：使用非阻擋提示，主功能仍可繼續工作。
@@ -438,7 +415,9 @@ function featureLoadErrorMessage(error){
 async function sp(name){
   if(!isCurrentDeskAccount()){ doLogout(); return; }
   if(!canOpenPage(name)) return false;
-  window.firebaseShowLoading?.(true);
+  const pageDataReady=window.PCMSFeatures?.isPageDataReady?.(name)===true; // pageDataReady（此頁是否已有工作階段資料）
+  const blockingLoad=!pageDataReady; // blockingLoad（是否需要第一次阻擋載入）
+  if(blockingLoad) window.firebaseShowLoading?.(true);
   try{
     const pageConfig=await window.PCMSFeatures.ensurePageScripts(name); // pageConfig（已載入程式的頁面設定）
     const dataWarnings=await ensurePageData(name); // dataWarnings（附屬資料警告）
@@ -450,12 +429,24 @@ async function sp(name){
     renderModuleTabs(name);
     await window.PCMSFeatures.enterPage(name);
     showFeatureDataWarnings(dataWarnings);
+    if(pageDataReady){
+      void window.PCMSFeatures.refreshPageDataInBackground(name)
+        .then(result=>showFeatureDataWarnings(result?.warnings||[]))
+        .catch(error=>{
+          console.warn(`Không thể làm mới dữ liệu nền ${name} / 無法背景更新 ${name} 頁面資料：`,error);
+          showFeatureDataWarnings([{
+            vi:pageConfig.vi||'Dữ liệu chức năng',
+            zh:pageConfig.zh||'功能資料',
+            error
+          }]);
+        });
+    }
     return true;
   }catch(error){
     console.error(`載入 ${name} 頁面資料失敗：`,error);
     alert(featureLoadErrorMessage(error));
     return false;
   }finally{
-    window.firebaseShowLoading?.(false);
+    if(blockingLoad) window.firebaseShowLoading?.(false);
   }
 }

@@ -577,6 +577,13 @@ test('操作紀錄只能依已授權功能查詢', async () => {
     orderBy('createdAt', 'desc'),
     limit(50)
   )));
+  await assertSucceeds(getDocs(query(
+    collection(database, 'operationLogs'),
+    where('permissionKey', '==', 'summary'),
+    where('action', '==', 'productImport'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  )));
   await assertFails(getDocs(collection(database, 'operationLogs')));
 });
 
@@ -773,6 +780,186 @@ test('已淘汰資料路徑即使管理員也不能存取', async () => {
 
   await assertFails(getDoc(doc(database, 'reports', 'legacy-report')));
   await assertFails(deleteDoc(doc(database, 'reports', 'legacy-report')));
+});
+
+test('資料版本只能由對應功能更新且不能刪除', async () => {
+  const clerkDatabase = context('clerk-user', 'clerk@example.com').firestore(); // clerkDatabase（文員測試資料庫）
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore(); // managerDatabase（課長測試資料庫）
+  const guestDatabase = testEnvironment.unauthenticatedContext().firestore(); // guestDatabase（未登入測試資料庫）
+  const versionsRef = doc(clerkDatabase, 'system', 'dataVersions'); // versionsRef（資料版本文件位置）
+
+  await assertSucceeds(setDoc(versionsRef, {
+    updatedAt: 1785945603000,
+    updatedBy: 'clerk-user',
+    orders: 'orders-version-001',
+    orderProcesses: 'process-version-001'
+  }));
+  await assertSucceeds(getDoc(doc(managerDatabase, 'system', 'dataVersions')));
+  await assertFails(getDoc(doc(guestDatabase, 'system', 'dataVersions')));
+  await assertSucceeds(updateDoc(versionsRef, {
+    updatedAt: 1785945603001,
+    updatedBy: 'clerk-user',
+    orders: 'orders-version-002'
+  }));
+  await assertFails(updateDoc(doc(managerDatabase, 'system', 'dataVersions'), {
+    updatedAt: 1785945603002,
+    updatedBy: 'manager-user',
+    orders: 'orders-version-003'
+  }));
+  await assertFails(updateDoc(versionsRef, {
+    updatedAt: 1785945603003,
+    updatedBy: 'clerk-user',
+    unknownVersion: 'unknown-version-001'
+  }));
+  await assertFails(deleteDoc(versionsRef));
+});
+
+test('訂單資料與資料版本可以同批成功且任一拒絕時整批取消', async () => {
+  const database = context('clerk-user', 'clerk@example.com').firestore(); // database（文員測試資料庫）
+  const successOrderRef = doc(database, 'orders', 'ORDER-ATOMIC-SUCCESS'); // successOrderRef（原子成功訂單）
+  const versionsRef = doc(database, 'system', 'dataVersions'); // versionsRef（資料版本文件）
+  const successBatch = writeBatch(database); // successBatch（資料與版本成功批次）
+  successBatch.set(successOrderRef, {
+    orderId: 'ORDER-ATOMIC-SUCCESS',
+    itemCount: 1,
+    totalQty: 20,
+    importStatus: 'ready'
+  });
+  successBatch.set(versionsRef, {
+    updatedAt: 1785945603100,
+    updatedBy: 'clerk-user',
+    orders: 'orders-atomic-success'
+  }, { merge: true });
+  await assertSucceeds(successBatch.commit());
+
+  const rejectedOrderRef = doc(database, 'orders', 'ORDER-ATOMIC-REJECTED'); // rejectedOrderRef（應整批取消的訂單）
+  const rejectedBatch = writeBatch(database); // rejectedBatch（包含非法版本欄位的批次）
+  rejectedBatch.set(rejectedOrderRef, {
+    orderId: 'ORDER-ATOMIC-REJECTED',
+    itemCount: 1,
+    totalQty: 30,
+    importStatus: 'ready'
+  });
+  rejectedBatch.set(versionsRef, {
+    updatedAt: 1785945603200,
+    updatedBy: 'clerk-user',
+    unknownVersion: 'must-be-rejected'
+  }, { merge: true });
+  await assertFails(rejectedBatch.commit());
+
+  await testEnvironment.withSecurityRulesDisabled(async securityContext => {
+    const snapshot = await getDoc(doc(securityContext.firestore(), 'orders', 'ORDER-ATOMIC-REJECTED'));
+    assert.equal(snapshot.exists(), false);
+  });
+});
+
+test('款號版本資料依款號權限讀寫', async () => {
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore(); // managerDatabase（課長測試資料庫）
+  const clerkDatabase = context('clerk-user', 'clerk@example.com').firestore(); // clerkDatabase（文員測試資料庫）
+  const salesDatabase = context('sales-user', 'sales@example.com').firestore(); // salesDatabase（業務測試資料庫）
+  const metaRef = doc(managerDatabase, 'system', 'productsMeta'); // metaRef（款號版本文件位置）
+
+  await assertSucceeds(setDoc(metaRef, {
+    data: JSON.stringify({ version: 'products-version-001', sequence: 1 })
+  }));
+  await assertSucceeds(getDoc(doc(clerkDatabase, 'system', 'productsMeta')));
+  await assertFails(getDoc(doc(salesDatabase, 'system', 'productsMeta')));
+  await assertFails(setDoc(doc(clerkDatabase, 'system', 'productsMeta'), {
+    data: JSON.stringify({ version: 'forged-version-001', sequence: 2 })
+  }));
+});
+
+test('裁帶權限可管理共用模板且模板分段必須符合格式', async () => {
+  const developmentDatabase = context('development-user', 'development@example.com').firestore(); // developmentDatabase（開發測試資料庫）
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore(); // managerDatabase（課長測試資料庫）
+  const guestDatabase = testEnvironment.unauthenticatedContext().firestore(); // guestDatabase（未登入測試資料庫）
+  const templateRef = doc(developmentDatabase, 'cuttingTemplates', 'TEMPLATE-TEST-001'); // templateRef（裁帶模板文件位置）
+  const chunkRef = doc(developmentDatabase, 'cuttingTemplateChunks', 'TEMPLATE-TEST-001-0'); // chunkRef（裁帶模板分段位置）
+
+  await assertSucceeds(setDoc(templateRef, {
+    name: 'Mẫu thử / 測試模板',
+    fileName: 'cutting-template-test.xlsx',
+    fileSize: 100,
+    chunkCount: 1,
+    updatedAt: '2026-08-07T00:00:00.000Z'
+  }));
+  await assertSucceeds(getDoc(templateRef));
+  await assertFails(getDoc(doc(managerDatabase, 'cuttingTemplates', 'TEMPLATE-TEST-001')));
+  await assertFails(getDoc(doc(guestDatabase, 'cuttingTemplates', 'TEMPLATE-TEST-001')));
+  await assertSucceeds(setDoc(chunkRef, {
+    templateId: 'TEMPLATE-TEST-001',
+    index: 0,
+    data: 'base64-test-data',
+    updatedAt: '2026-08-07T00:00:00.000Z'
+  }));
+  await assertFails(setDoc(doc(developmentDatabase, 'cuttingTemplateChunks', 'INVALID-CHUNK'), {
+    templateId: 'TEMPLATE-TEST-001',
+    index: 0,
+    data: 'base64-test-data',
+    updatedAt: '2026-08-07T00:00:00.000Z',
+    extraField: true
+  }));
+  await assertFails(getDoc(doc(managerDatabase, 'cuttingTemplateChunks', 'TEMPLATE-TEST-001-0')));
+  await assertSucceeds(deleteDoc(chunkRef));
+  await assertSucceeds(deleteDoc(templateRef));
+});
+
+test('工序秒數同步紀錄只由同步功能使用且只有管理員可刪除', async () => {
+  const controlDatabase = context('control-user', 'control@example.com').firestore(); // controlDatabase（生管測試資料庫）
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore(); // managerDatabase（課長測試資料庫）
+  const adminDatabase = context('admin-user', 'admin@example.com').firestore(); // adminDatabase（管理員測試資料庫）
+  const syncRef = doc(controlDatabase, 'secondSyncLogs', 'SYNC-TEST-001'); // syncRef（同步紀錄文件位置）
+
+  await assertSucceeds(setDoc(syncRef, {
+    jobId: 'SYNC-TEST-001',
+    status: 'running',
+    updatedAt: 1785945604000
+  }));
+  await assertSucceeds(getDoc(syncRef));
+  await assertSucceeds(updateDoc(syncRef, {
+    status: 'completed',
+    updatedAt: 1785945604001
+  }));
+  await assertFails(getDoc(doc(managerDatabase, 'secondSyncLogs', 'SYNC-TEST-001')));
+  await assertFails(setDoc(doc(managerDatabase, 'secondSyncLogs', 'SYNC-FORGED-001'), {
+    status: 'running'
+  }));
+  await assertFails(deleteDoc(syncRef));
+  await assertSucceeds(deleteDoc(doc(adminDatabase, 'secondSyncLogs', 'SYNC-TEST-001')));
+});
+
+test('訂單調整紀錄不可改寫且匯入鎖定只供訂單功能使用', async () => {
+  const clerkDatabase = context('clerk-user', 'clerk@example.com').firestore(); // clerkDatabase（文員測試資料庫）
+  const managerDatabase = context('manager-user', 'manager@example.com').firestore(); // managerDatabase（課長測試資料庫）
+  const adjustmentRef = doc(clerkDatabase, 'orderAdjustments', 'ADJUST-TEST-001'); // adjustmentRef（訂單調整紀錄位置）
+  const lockRef = doc(clerkDatabase, 'orderLocks', 'LOCK-TEST-001'); // lockRef（訂單匯入鎖定位置）
+
+  await assertSucceeds(setDoc(adjustmentRef, {
+    orderId: 'ORDER-001',
+    beforeQty: 100,
+    afterQty: 80,
+    createdAt: 1785945605000,
+    createdBy: '文員測試'
+  }));
+  await assertSucceeds(getDoc(adjustmentRef));
+  await assertFails(getDoc(doc(managerDatabase, 'orderAdjustments', 'ADJUST-TEST-001')));
+  await assertFails(updateDoc(adjustmentRef, { afterQty: 60 }));
+  await assertFails(deleteDoc(adjustmentRef));
+
+  await assertSucceeds(setDoc(lockRef, {
+    orderId: 'ORDER-001',
+    status: 'locked',
+    updatedAt: 1785945605001
+  }));
+  await assertSucceeds(updateDoc(lockRef, {
+    status: 'ready',
+    updatedAt: 1785945605002
+  }));
+  await assertFails(getDoc(doc(managerDatabase, 'orderLocks', 'LOCK-TEST-001')));
+  await assertFails(updateDoc(doc(managerDatabase, 'orderLocks', 'LOCK-TEST-001'), {
+    status: 'forged'
+  }));
+  await assertSucceeds(deleteDoc(lockRef));
 });
 
 test('測試資料建立正確且沒有使用正式專案', () => {

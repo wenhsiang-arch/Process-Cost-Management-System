@@ -996,6 +996,7 @@ async function confirmOrderQtyAdjust(){
       t.update(orderRef,{totalQty:(order.totalQty||0)-oldQty+newQty,processVersion});
       t.set(logRef,{orderId,orderNo:order.orderId||'',code,oldQty,newQty,reason,processCount:procSnaps.length,createdAt:Date.now(),createdBy:window.cu.user});
     });
+    window.PCMSHistory?.invalidateCollection?.(COL.orderAdjustments);
     cm('m-order-qty-adjust');
     await reloadOrders();
     await reloadProcesses({orderId,force:true});
@@ -1009,8 +1010,39 @@ async function confirmOrderQtyAdjust(){
 
 async function openOrderAdjustmentHistory(){
   if(!canManageOrders()) return;
-  const snap=await window._getDocs(window._collection(COL.orderAdjustments));
-  const rows=snap.docs.map(d=>d.data()).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  g('order-adjust-history').innerHTML=rows.length?rows.map(r=>`<tr><td>${ordersSafeText(r.orderNo)}</td><td>${ordersSafeText(r.code)}</td><td>${r.oldQty?.toLocaleString()}</td><td>${r.newQty?.toLocaleString()}</td><td>${ordersSafeText(r.reason||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span style="font-size:10px;color:var(--mu)">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`).join(''):'<tr><td colspan="6"><div>Chưa có dữ liệu</div><div>尚無資料</div></td></tr>';
-  om('m-order-adjust-history');
+  try{
+    if(!window.PCMSHistory?.loadOrderAdjustments){
+      throw new Error('Chức năng lịch sử chưa sẵn sàng / 歷史功能尚未就緒');
+    }
+    const rows=await window.PCMSHistory.loadOrderAdjustments({limit:50});
+    renderOrderAdjustmentHistory(rows);
+    om('m-order-adjust-history');
+  }catch(error){
+    console.error('Không thể tải lịch sử điều chỉnh / 無法載入訂單調整歷史：',error);
+    await ordersMessage('Không thể tải lịch sử điều chỉnh.','無法載入訂單調整歷史。','danger');
+  }
+}
+
+function renderOrderAdjustmentHistory(rows){
+  const body=g('order-adjust-history'); // body（訂單調整歷史表格內容）
+  if(body){
+    body.innerHTML=rows.length?rows.map(r=>`<tr><td>${ordersSafeText(r.orderNo)}</td><td>${ordersSafeText(r.code)}</td><td>${r.oldQty?.toLocaleString()}</td><td>${r.newQty?.toLocaleString()}</td><td>${ordersSafeText(r.reason||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span style="font-size:10px;color:var(--mu)">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`).join(''):'<tr><td colspan="6"><div>Chưa có dữ liệu</div><div>尚無資料</div></td></tr>';
+  }
+  const moreButton=g('order-adjust-history-more'); // moreButton（載入更多按鈕）
+  if(moreButton) moreButton.hidden=!window.PCMSHistory?.hasMore?.(COL.orderAdjustments,{limit:50});
+}
+
+async function loadMoreOrderAdjustmentHistory(){
+  if(!canManageOrders()||!window.PCMSHistory?.loadOrderAdjustments) return;
+  const button=g('order-adjust-history-more'); // button（載入更多按鈕）
+  if(button) button.disabled=true;
+  try{
+    const rows=await window.PCMSHistory.loadOrderAdjustments({limit:50,loadMore:true});
+    renderOrderAdjustmentHistory(rows);
+  }catch(error){
+    console.error('Không thể tải thêm lịch sử điều chỉnh / 無法載入更多訂單調整歷史：',error);
+    await ordersMessage('Không thể tải thêm lịch sử.','無法載入更多歷史紀錄。','danger');
+  }finally{
+    if(button) button.disabled=false;
+  }
 }
