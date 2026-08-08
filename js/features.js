@@ -3,7 +3,7 @@
   const SCRIPT_URLS = Object.freeze({
     history:'js/history.js?v=20260808-1',
     fileIo:'js/file-io.js?v=20260808-1',
-    settings:'js/settings.js?v=20260808-1',
+    settings:'js/settings.js?v=20260808-2',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260808-2',
@@ -21,7 +21,7 @@
     orders:'styles/features/orders.css?v=20260808-4',
     products:'styles/features/products.css?v=20260808-3',
     sync:'styles/features/sync.css?v=20260808-2',
-    cost:'styles/features/cost.css?v=20260808-5',
+    cost:'styles/features/cost.css?v=20260808-6',
     accounts:'styles/features/accounts.css?v=20260808-3'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 

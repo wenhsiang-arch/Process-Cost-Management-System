@@ -11,29 +11,93 @@ function setSettingsStatus(element,vi,zh,color){
   element.replaceChildren(window.PCMSUIText.create({vi,zh}));
   if(color) element.style.color=color;
 }
+
+function setRateUpdatedStatus(element,timestamp,color){
+  if(!element) return;
+  const label=window.PCMSUIText.create({vi:'Cập nhật',zh:'更新'}); // label（雙語更新標籤）
+  const time=document.createElement('span'); // time（共用更新時間）
+  time.className='settings-rate-time';
+  time.textContent=`：${String(timestamp||'')}`;
+  element.replaceChildren(label,time);
+  if(color) element.style.color=color;
+}
+
+const SETTINGS_GROUPED_NUMBER_IDS=Object.freeze([
+  'ss-sal','ss-ins','ss-meal','ss-tc','ss-hr','ss-usd','ss-twd'
+]); // SETTINGS_GROUPED_NUMBER_IDS（使用千分位顯示的設定欄位識別碼）
+
+function parseSettingNumberValue(value){
+  const normalized=String(value??'').replace(/,/g,'').trim(); // normalized（移除千分位後的純數字文字）
+  if(!normalized) return Number.NaN;
+  return Number(normalized);
+}
+
+function sanitizeSettingNumberInput(element){
+  if(!element) return;
+  element.value=String(element.value||'').replace(/[^0-9]/g,'');
+}
+
+function formatSettingNumberValue(value){
+  const number=parseSettingNumberValue(value); // number（準備顯示的數值）
+  if(!Number.isFinite(number)) return '';
+  return Math.round(number).toLocaleString('en-US'); // en-US（使用逗號作為千分位的數字格式）
+}
+
+function writeSettingNumberValue(id,value){
+  const element=g(id); // element（設定欄位）
+  if(!element) return;
+  if(SETTINGS_GROUPED_NUMBER_IDS.includes(id)&&document.activeElement!==element){
+    element.value=formatSettingNumberValue(value);
+    return;
+  }
+  element.value=String(value??'');
+}
+
+function formatSettingGroupedField(element){
+  if(!element) return;
+  const formatted=formatSettingNumberValue(element.value); // formatted（含千分位的顯示文字）
+  if(formatted) element.value=formatted;
+}
+
+function formatSettingGroupedFields(){
+  SETTINGS_GROUPED_NUMBER_IDS.forEach(id=>{
+    const element=g(id); // element（本次要格式化的欄位）
+    if(element&&document.activeElement!==element) formatSettingGroupedField(element);
+  });
+}
+
+function beginSettingNumberEdit(element){
+  if(!element) return;
+  element.value=String(element.value||'').replace(/,/g,'');
+}
+
+function finishSettingNumberEdit(element){
+  formatSettingGroupedField(element);
+}
+
 function readSettingNumber(id,fallback,min=0,max=null,writeBack=false){
   const el=g(id);
-  let v=Number(el?.value);
+  let v=parseSettingNumberValue(el?.value);
   if(!Number.isFinite(v)||v<min) v=fallback;
   if(max!==null&&v>max) v=max;
-  if(writeBack&&el) el.value=v;
+  if(writeBack&&el) writeSettingNumberValue(id,v);
   return v;
 }
 function aCC(){  if(window.S.mc) return;
-  const t=((+g('ss-sal').value)||0)+((+g('ss-ins').value)||0)+((+g('ss-meal').value)||0);
-  g('ss-tc').value=Math.round(t);
-  if(!window.S.mh) g('ss-hr').value=Math.round(t/208);
+  const t=(parseSettingNumberValue(g('ss-sal').value)||0)+(parseSettingNumberValue(g('ss-ins').value)||0)+(parseSettingNumberValue(g('ss-meal').value)||0);
+  writeSettingNumberValue('ss-tc',Math.round(t));
+  if(!window.S.mh) writeSettingNumberValue('ss-hr',Math.round(t/208));
 }
 
 function onMC(){
-  const v=+g('ss-tc').value; window.S.mc=v||null;
+  const v=parseSettingNumberValue(g('ss-tc').value); window.S.mc=v||null;
   const tg=g('ct-tag'); tg.className=v?'mt':'at'; tg.innerHTML=v?'Thủ công<br>手動':'Tự động<br>自動';
-  if(!window.S.mh&&v) g('ss-hr').value=Math.round(v/208);
+  if(!window.S.mh&&v) writeSettingNumberValue('ss-hr',Math.round(v/208));
   rAll();
 }
 
 function onMH(){
-  const v=+g('ss-hr').value; window.S.mh=v||null;
+  const v=parseSettingNumberValue(g('ss-hr').value); window.S.mh=v||null;
   const tg=g('ht-tag'); tg.className=v?'mt':'at'; tg.innerHTML=v?'Thủ công<br>手動':'Tự động<br>自動';
   rAll();
 }
@@ -60,7 +124,7 @@ function rAll(){
   window.S.usd  = readSettingNumber('ss-usd',window.S.usd||25400,1,null,true);
   window.S.twd  = readSettingNumber('ss-twd',window.S.twd||780,1,null,true);
   window.S.ws   = readSettingNumber('ss-ws',window.S.ws||3000,1,null,true);
-  aCC(); rSum(); rDet(); rExp(); rBk();
+  aCC(); formatSettingGroupedFields(); rSum(); rDet(); rExp(); rBk();
 }
 
 async function saveSt(){
@@ -127,16 +191,13 @@ async function fetchRates(){
     const vndPerUsd=Math.round(data.rates.VND);
     const twdPerUsd=data.rates.TWD;
     const vndPerTwd=Math.round(vndPerUsd/twdPerUsd);
-    const usdEl=g('ss-usd'), twdEl=g('ss-twd');
-    if(usdEl) usdEl.value=vndPerUsd;
-    if(twdEl) twdEl.value=vndPerTwd;
+    writeSettingNumberValue('ss-usd',vndPerUsd);
+    writeSettingNumberValue('ss-twd',vndPerTwd);
     rAll();
-    const now=new Date().toLocaleString('zh-TW');
-    setSettingsStatus(info,`✓ Cập nhật lúc ${now}`,`✓ 更新於 ${now}`,'var(--ok)');
-    const infoTwd=g('rate-updated-twd');
-    setSettingsStatus(infoTwd,`✓ Cập nhật lúc ${now}`,`✓ 更新於 ${now}`,'var(--ok)');
+    const now=new Date().toLocaleString('zh-TW',{hour12:false});
+    setRateUpdatedStatus(info,now,'var(--ok)');
   }catch(e){
-    setSettingsStatus(info,'⚠ Lấy tỷ giá thất bại, dùng giá trị thủ công.','⚠ 抓取失敗，使用手動值。','var(--warn)');
+    setSettingsStatus(info,'Lỗi cập nhật; giữ giá trị hiện tại.','更新失敗，保留目前數值。','var(--warn)');
     console.error('fetchRates error:', e);
   }finally{
     if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i>'; }

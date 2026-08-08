@@ -13,6 +13,18 @@
   cursor: default;
 }
 
+#pg-settings .settings-command-content {
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  grid-template-columns: minmax(230px, .7fr) minmax(440px, 1.3fr);
+  align-items: stretch;
+}
+
+#pg-settings .settings-context-grid {
+  border-right: 1px solid var(--ui-color-operation-border);
+}
+
 #pg-settings .settings-command-action {
   min-width: 128px;
 }
@@ -47,7 +59,7 @@
   display: grid;
   min-width: 0;
   min-height: 60px;
-  grid-template-columns: minmax(0, 1.3fr) minmax(88px, .54fr) minmax(150px, .9fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(84px, .46fr) minmax(190px, 1.12fr);
   align-items: stretch;
 }
 
@@ -110,6 +122,20 @@
   color: var(--ui-color-text);
   font: inherit;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 設定頁的數字欄位以鍵盤輸入為主，不顯示瀏覽器原生上下調整箭頭。 */
+#pg-settings .settings-matrix-value input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+#pg-settings .settings-matrix-value input[type="number"]::-webkit-inner-spin-button,
+#pg-settings .settings-matrix-value input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 #pg-settings .settings-matrix-value input:focus {
@@ -133,34 +159,90 @@
   min-width: 32px;
   height: 32px;
   justify-content: center;
-  margin-left: auto;
+  margin-left: 8px;
   padding: 0;
 }
 
 #pg-settings .settings-rate-value {
+  grid-template-columns: minmax(0, 1fr);
   align-content: center;
 }
 
 #pg-settings .settings-rate-status {
-  display: block;
-  grid-column: 1 / -1;
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  margin-left: auto;
   color: var(--hi);
   font-size: 10px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+#pg-settings .settings-rate-status .ui-bilingual {
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+#pg-settings .settings-rate-status .ui-text-vi::after {
+  margin-left: 5px;
+  color: var(--ui-color-text-muted);
+  content: '/';
+}
+
+#pg-settings .settings-rate-status .ui-text-zh {
+  margin-top: 0;
+  font-size: inherit;
 }
 
 #pg-settings .settings-rate-status:empty {
   display: none;
 }
 
+#pg-settings .settings-rate-status:empty + .settings-rate-refresh {
+  margin-left: auto;
+}
+
 #pg-settings .settings-summary-row {
-  margin-top: 12px;
+  height: 100%;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+
+#pg-settings .settings-summary-row .ui-summary-item {
+  gap: 6px;
+  padding: 4px 10px 4px 22px;
+}
+
+#pg-settings .settings-summary-row .ui-summary-item::before {
+  left: 10px;
+  width: 6px;
+  height: 6px;
+}
+
+#pg-settings .settings-summary-row .ui-summary-item:nth-child(3) {
+  border-left: 0;
+}
+
+#pg-settings .settings-summary-row .ui-summary-item:nth-child(n + 3) {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+#pg-settings .settings-summary-row .ui-summary-label {
+  font-size: 10px;
+}
+
+#pg-settings .settings-summary-row .ui-summary-value {
+  font-size: 15px;
 }
 
 #pg-settings .settings-formula-value {
   color: var(--ui-color-primary);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -248,8 +330,12 @@
     grid-template-columns: minmax(480px, 1.08fr) minmax(390px, .92fr);
   }
 
+  #pg-settings .settings-command-content {
+    grid-template-columns: minmax(200px, .62fr) minmax(390px, 1.38fr);
+  }
+
   #pg-settings .settings-matrix-row {
-    grid-template-columns: minmax(0, 1.25fr) minmax(82px, .52fr) minmax(140px, .88fr);
+    grid-template-columns: minmax(0, 1.02fr) minmax(78px, .44fr) minmax(175px, 1.08fr);
   }
 
   #pg-settings .settings-matrix-label,

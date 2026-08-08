@@ -130,7 +130,7 @@ test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
   const settingsMarkup=html.slice(pageStart,pageEnd); // settingsMarkup（設定頁標記）
   assert.match(settingsMarkup,/class="settings-matrix"/);
   assert.match(settingsMarkup,/settings-personnel-section[\s\S]*?settings-rate-section[\s\S]*?settings-efficiency-section/);
-  assert.match(settingsMarkup,/class="settings-summary-row ui-summary-row"/);
+  assert.match(settingsMarkup,/settings-command-content[\s\S]*?settings-context-grid[\s\S]*?settings-summary-row ui-summary-row[\s\S]*?settings-command-actions/);
   assert.doesNotMatch(settingsMarkup,/settings-section-body|ui-form-grid/);
   const fieldEvents={
     'ss-sal':'aCC()','ss-ins':'aCC()','ss-meal':'aCC()',
@@ -141,13 +141,35 @@ test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
     assert.equal((settingsMarkup.match(new RegExp(`id="${id}"`,'g'))||[]).length,1,`${id}（設定欄位）必須唯一`);
     const fieldTag=settingsMarkup.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`))?.[0]||''; // fieldTag（設定欄位標記）
     assert.ok(fieldTag,`${id}（設定欄位）不存在`);
-    assert.ok(fieldTag.includes(`oninput="${event}"`),`${id}（設定欄位）原事件不可變更`);
+    assert.ok(fieldTag.includes(event),`${id}（設定欄位）原事件不可移除`);
   }
+  const groupedNumberIds=['ss-sal','ss-ins','ss-meal','ss-tc','ss-hr','ss-usd','ss-twd']; // groupedNumberIds（千分位欄位識別碼）
+  for(const id of groupedNumberIds){
+    const fieldTag=settingsMarkup.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`))?.[0]||'';
+    assert.match(fieldTag,/type="text"/);
+    assert.match(fieldTag,/inputmode="numeric"/);
+    assert.match(fieldTag,/settings-grouped-number/);
+    assert.match(fieldTag,/beginSettingNumberEdit\(this\)/);
+    assert.match(fieldTag,/finishSettingNumberEdit\(this\)/);
+  }
+  assert.equal((settingsMarkup.match(/id="rate-updated"/g)||[]).length,1);
+  assert.doesNotMatch(settingsMarkup,/rate-updated-twd/);
+  assert.match(settingsMarkup,/id="rate-updated"[\s\S]*?id="btn-fetchrate"/);
   const rateButtonTag=settingsMarkup.match(/<button[^>]*id="btn-fetchrate"[^>]*>/)?.[0]||''; // rateButtonTag（匯率按鈕標記）
   assert.ok(rateButtonTag.includes('onclick="fetchRates()"'));
   assert.match(style,/\.settings-matrix \{[\s\S]*?grid-template-columns: minmax\(520px, 1\.12fr\) minmax\(420px, \.88fr\);/);
   assert.match(style,/\.settings-matrix-row \{[\s\S]*?grid-template-columns:[^;]+;/);
-  assert.doesNotMatch(style,/#pg-settings \.settings-summary-row[^\{]*\{[^\}]*grid-template-columns: repeat\(2/);
+  assert.match(style,/#pg-settings \.settings-summary-row[^\{]*\{[\s\S]*?grid-template-columns: repeat\(2/);
+  assert.match(style,/input\[type="number"\]::\-webkit-inner-spin-button/);
+  assert.match(style,/\.settings-rate-status[\s\S]*?white-space: nowrap/);
+  const settingsSource=read('js/settings.js'); // settingsSource（設定功能程式內容）
+  assert.match(settingsSource,/replace\(\/,\/g,''\)/);
+  assert.match(settingsSource,/toLocaleString\('en-US'\)/);
+  assert.match(settingsSource,/setRateUpdatedStatus\(info,now/);
+  assert.doesNotMatch(settingsSource,/rate-updated-twd/);
+  const specification=read('UI設計規範與參照/介面設計規範.md');
+  assert.match(specification,/所有金額及匯率顯示值必須使用逗號千分位/);
+  assert.match(specification,/計算、比對及儲存仍使用不含逗號的純數值/);
 });
 
 test('每個功能頁保留裁帶式平面抬頭且單頁不得省略',()=>{
