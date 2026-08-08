@@ -179,6 +179,7 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
   assert.doesNotMatch(html,/id="production-employee-active"/);
   ['employee','order','product','process'].forEach(name=>{
     assert.match(html,new RegExp(`id="production-${name}-input"[\\s\\S]*?id="production-${name}-toggle"`));
+    assert.match(html,new RegExp(`<div class="ui-search-dropdown-control">[\\s\\S]*?id="production-${name}-input"[\\s\\S]*?id="production-${name}-toggle"[\\s\\S]*?id="production-${name}-options"[\\s\\S]*?</div>`));
   });
   assert.match(entryPage,/production-employee-toggle'\)\.addEventListener\('click',toggleEmployeeDropdown\)/);
   assert.match(entryPage,/production-order-toggle'\)\.addEventListener\('click',toggleOrderDropdown\)/);
@@ -191,4 +192,13 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
   assert.match(entryPage,/addEventListener\('mouseleave'/);
   assert.doesNotMatch(entryPage,/latest\.length === 1|if\(exact\) selectProcess\(exact\)/);
   assert.doesNotMatch(entryPage,/production-(?:order|product)-input'\)\.addEventListener\('(?:focus|click)'/);
+});
+
+test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
+  const style=read('styles/features/production.css'); // style（產能介面樣式）
+  const features=read('js/features.js'); // features（中央功能載入設定）
+  assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
+  assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
+  assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-4'/);
 });

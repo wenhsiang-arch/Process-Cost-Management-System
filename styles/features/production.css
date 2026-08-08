@@ -108,15 +108,19 @@
 .production-options {
   position: absolute;
   z-index: 20;
-  top: calc(100% + 4px);
+  top: calc(100% - 1px);
   right: 0;
   left: 0;
   max-height: 260px;
   overflow-y: auto;
   border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control);
+  border-radius: 0 0 var(--ui-radius-control) var(--ui-radius-control);
   background: var(--ui-color-surface);
   box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+}
+
+.production-combobox .ui-search-dropdown-input[aria-expanded="true"] {
+  border-radius: var(--ui-radius-control) var(--ui-radius-control) 0 0;
 }
 
 .production-options[hidden] {

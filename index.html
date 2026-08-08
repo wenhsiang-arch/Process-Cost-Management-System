@@ -313,33 +313,33 @@ tr:hover td{background:#f8fafc}
                   <div class="ui-search-dropdown-control">
                     <input class="ui-search-dropdown-input" type="text" id="production-employee-input" maxlength="30" autocomplete="off" placeholder="M91234 / 1234" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-employee-options" aria-expanded="false">
                     <button type="button" class="ui-search-dropdown-toggle" id="production-employee-toggle" aria-label="Mở danh sách nhân viên / 展開員工清單" aria-controls="production-employee-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
+                    <div class="production-options" id="production-employee-options" role="listbox" hidden></div>
                   </div>
                   <div class="production-employee-meta"><span id="production-employee-name">—</span><span id="production-employee-department">—</span></div>
-                  <div class="production-options" id="production-employee-options" role="listbox" hidden></div>
                 </div>
                 <div class="production-field production-combobox">
                   <label for="production-order-input"><strong>Số đơn hàng</strong><span>訂單號碼</span></label>
                   <div class="ui-search-dropdown-control">
                     <input class="ui-search-dropdown-input" type="text" id="production-order-input" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-order-options" aria-expanded="false">
                     <button type="button" class="ui-search-dropdown-toggle" id="production-order-toggle" aria-label="Mở danh sách đơn hàng / 展開訂單清單" aria-controls="production-order-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
+                    <div class="production-options" id="production-order-options" role="listbox" hidden></div>
                   </div>
-                  <div class="production-options" id="production-order-options" role="listbox" hidden></div>
                 </div>
                 <div class="production-field production-combobox">
                   <label for="production-product-input"><strong>Mã hàng</strong><span>款號</span></label>
                   <div class="ui-search-dropdown-control">
                     <input class="ui-search-dropdown-input" type="text" id="production-product-input" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-product-options" aria-expanded="false">
                     <button type="button" class="ui-search-dropdown-toggle" id="production-product-toggle" aria-label="Mở danh sách mã hàng / 展開款號清單" aria-controls="production-product-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
+                    <div class="production-options" id="production-product-options" role="listbox" hidden></div>
                   </div>
-                  <div class="production-options" id="production-product-options" role="listbox" hidden></div>
                 </div>
                 <div class="production-field production-combobox">
                   <label for="production-process-input"><strong>Số công đoạn</strong><span>工序號</span></label>
                   <div class="ui-search-dropdown-control">
                     <input class="ui-search-dropdown-input" type="text" id="production-process-input" maxlength="20" inputmode="numeric" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-process-options" aria-expanded="false">
                     <button type="button" class="ui-search-dropdown-toggle" id="production-process-toggle" aria-label="Mở danh sách công đoạn / 展開工序清單" aria-controls="production-process-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
+                    <div class="production-options" id="production-process-options" role="listbox" hidden></div>
                   </div>
-                  <div class="production-options" id="production-process-options" role="listbox" hidden></div>
                 </div>
                 <div class="production-field">
                   <label for="production-quantity-input"><strong>Số lượng sản xuất</strong><span>生產數量</span></label>
@@ -1237,7 +1237,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260809-7"></script>
+<script src="js/features.js?v=20260809-8"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

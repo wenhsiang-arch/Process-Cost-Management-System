@@ -375,7 +375,7 @@ test('主要功能頁表格只使用主內容區捲軸且不改彈出視窗',()=
   assert.match(cuttingSource,/class="ts" style="max-height:320px"/);
 });
 
-test('權限管理使用固定職務矩陣並保留母子與敏感資料層級',()=>{
+test('權限管理使用固定職務矩陣、合併母子欄並只標示敏感權限',()=>{
   const html=read('index.html');
   const source=read('js/permissions.js');
   const features=read('js/features.js');
@@ -388,14 +388,25 @@ test('權限管理使用固定職務矩陣並保留母子與敏感資料層級',
   assert.match(source,/data-permission-filter="differences"/);
   assert.match(source,/data-permission-filter="sensitive"/);
   assert.match(source,/function permissionParentEnabled\(role,row\)/);
+  assert.match(source,/function permissionMatrixVisibleRows\(rows\)/);
+  assert.match(source,/function permissionMatrixBodyHtml\(rows,roles\)/);
+  assert.match(source,/rowspan="\$\{moduleSpan\}"/);
+  assert.match(source,/rowspan="\$\{pageSpan\}"/);
+  assert.match(source,/permissionMatrixCopy\('Quyền nhạy cảm','敏感權限'\)/);
+  assert.match(source,/itemVi:'',itemZh:''/);
+  assert.doesNotMatch(source,/Sử dụng chức năng chính|使用主功能|Sử dụng trang|使用分頁/);
   assert.match(source,/window\.permissionSettings\[role\]\[key\]=checked===true/);
   assert.match(source,/firebaseSaveRolePermissions\(payload\)/);
-  assert.match(features,/permissions:'js\/permissions\.js\?v=20260809-2'/);
-  assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260809-2'/);
+  assert.match(features,/permissions:'js\/permissions\.js\?v=20260809-3'/);
+  assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260809-3'/);
   assert.match(style,/\.permission-matrix-table \{[\s\S]*?table-layout: fixed;/);
   assert.match(style,/\.permission-matrix-shell \{[\s\S]*?overflow: visible;/);
   assert.doesNotMatch(style,/\.permission-matrix-shell \{[\s\S]*?overflow-x:\s*auto/);
+  assert.match(style,/\.permission-matrix-col-module \{ width: 18%; \}/);
+  assert.match(style,/\.permission-matrix-col-page \{ width: 20%; \}/);
+  assert.match(style,/\.permission-matrix-col-item \{ width: 14%; \}/);
   assert.match(style,/\.permission-matrix-checkmark \{[\s\S]*?width: 20px;[\s\S]*?height: 20px;/);
   assert.match(specification,/權限管理預設使用單一固定矩陣/);
+  assert.match(specification,/合併儲存格/);
   assert.match(specification,/母功能關閉時，只暫停該職務下層權限/);
 });

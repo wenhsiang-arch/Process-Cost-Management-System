@@ -76,35 +76,40 @@ function permissionLabelParts(value){
   return {vi:parts[0]||'',zh:parts.slice(1).join(' / ')||''};
 }
 
-// permissionMatrixRows（權限矩陣資料列）：固定拆成主功能、功能分頁與敏感資料三欄。
+// permissionMatrixRows（權限矩陣資料列）：一般權限只顯示母功能與分頁，第三欄只顯示敏感權限。
 function permissionMatrixRows(){
   const rows=[]; // rows（權限矩陣資料列）
   PERMISSION_STRUCTURE.forEach(module=>{
+    const moduleGroup=String(module.id||module.mainKey||module.vi);
+    const mainPageGroup=`${moduleGroup}:main`;
     rows.push({
       type:'main',module,key:module.mainKey,adminOnly:module.adminOnly===true,parentKeys:[],
-      pageVi:'Cổng chức năng',pageZh:'功能入口',
-      itemVi:'Sử dụng chức năng chính',itemZh:'使用主功能'
+      moduleGroup,pageGroup:mainPageGroup,
+      pageVi:'Toàn bộ',pageZh:'全部',itemVi:'',itemZh:''
     });
+    (module.restrictions||[]).forEach(item=>rows.push({
+      type:'sensitive',module,item,key:item.key,sensitive:true,
+      adminOnly:module.adminOnly===true,parentKeys:[module.mainKey],
+      moduleGroup,pageGroup:mainPageGroup,
+      pageVi:'Toàn bộ',pageZh:'全部',itemVi:item.vi,itemZh:item.zh
+    }));
     (module.pages||[]).forEach(page=>{
+      const pageGroup=`${moduleGroup}:page:${page.key}`;
       rows.push({
         type:'page',module,page,key:page.key,
         adminOnly:module.adminOnly===true||page.adminOnly===true,
         parentKeys:[module.mainKey],
-        pageVi:page.vi,pageZh:page.zh,
-        itemVi:'Sử dụng trang',itemZh:'使用分頁'
+        moduleGroup,pageGroup,
+        pageVi:page.vi,pageZh:page.zh,itemVi:'',itemZh:''
       });
       (page.restrictions||[]).forEach(item=>rows.push({
         type:'sensitive',module,page,item,key:item.key,sensitive:true,
         adminOnly:module.adminOnly===true||page.adminOnly===true,
         parentKeys:[module.mainKey,page.key],
+        moduleGroup,pageGroup,
         pageVi:page.vi,pageZh:page.zh,itemVi:item.vi,itemZh:item.zh
       }));
     });
-    (module.restrictions||[]).forEach(item=>rows.push({
-      type:'sensitive',module,item,key:item.key,sensitive:true,
-      adminOnly:module.adminOnly===true,parentKeys:[module.mainKey],
-      pageVi:'Cổng chức năng',pageZh:'功能入口',itemVi:item.vi,itemZh:item.zh
-    }));
   });
   return rows;
 }
@@ -136,9 +141,14 @@ function permissionMatrixCellHtml(role,row){
   const parentEnabled=permissionParentEnabled(role,row); // parentEnabled（上層權限是否開啟）
   const disabled=isAdmin||!parentEnabled;
   const checked=isAdmin||permissionValue(role,row.key);
+  const rowLabel=row.sensitive
+    ? `${row.itemVi} / ${row.itemZh}`
+    : row.type==='main'
+      ? `${row.module.vi} / ${row.module.zh}`
+      : `${row.pageVi} / ${row.pageZh}`;
   const label=disabled&&!isAdmin
     ? `${roleLabel}：Tạm dừng do quyền cấp trên / 因上層權限而暫停`
-    : `${roleLabel}：${row.itemVi} / ${row.itemZh}`;
+    : `${roleLabel}：${rowLabel}`;
   const roleArgument=permissionInlineArgument(role); // roleArgument（安全角色事件參數）
   const keyArgument=permissionInlineArgument(row.key); // keyArgument（安全權限事件參數）
   return `<label class="permission-matrix-check${disabled?' is-disabled':''}${isAdmin?' is-fixed':''}" title="${permissionSafeAttribute(label)}">
@@ -165,7 +175,7 @@ function permissionMatrixRoleHeader(role){
   </th>`;
 }
 
-function permissionMatrixRowHtml(row,roles){
+function permissionMatrixRowHtml(row,roles,layout={}){
   const differs=permissionRowDiffers(row);
   const searchText=[row.module.vi,row.module.zh,row.pageVi,row.pageZh,row.itemVi,row.itemZh].join(' ').toLocaleLowerCase();
   const rowClasses=[
@@ -173,14 +183,61 @@ function permissionMatrixRowHtml(row,roles){
     row.type==='main'?'is-module-start':'',
     row.sensitive?'is-sensitive':''
   ].filter(Boolean).join(' ');
-  const moduleIcon=row.type==='main'?`<i class="ti ${permissionSafeAttribute(row.module.icon)}"></i>`:'';
+  const moduleSpan=Number(layout.moduleSpan||0);
+  const pageSpan=Number(layout.pageSpan||0);
+  const moduleIcon=moduleSpan?`<i class="ti ${permissionSafeAttribute(row.module.icon)}"></i>`:'';
   const itemIcon=row.sensitive?'<i class="ti ti-lock permission-matrix-sensitive-icon" aria-hidden="true"></i>':'';
+  const moduleCell=moduleSpan
+    ? `<td class="permission-matrix-module-cell" rowspan="${moduleSpan}"><div class="permission-matrix-module-copy">${moduleIcon}${permissionMatrixCopy(row.module.vi,row.module.zh)}</div></td>`
+    : '';
+  const pageCell=pageSpan
+    ? `<td class="permission-matrix-page-cell" rowspan="${pageSpan}">${permissionMatrixCopy(row.pageVi,row.pageZh)}</td>`
+    : '';
+  const itemCell=row.sensitive
+    ? `<td class="permission-matrix-item-cell"><div class="permission-matrix-item-copy">${itemIcon}${permissionMatrixCopy(row.itemVi,row.itemZh)}</div></td>`
+    : '<td class="permission-matrix-item-cell is-empty" aria-label="Không có quyền nhạy cảm / 無敏感權限"></td>';
   return `<tr class="${rowClasses}" data-search="${permissionSafeAttribute(searchText)}" data-different="${differs?'true':'false'}" data-sensitive="${row.sensitive?'true':'false'}">
-    <td class="permission-matrix-module-cell"><div class="permission-matrix-module-copy">${moduleIcon}${permissionMatrixCopy(row.module.vi,row.module.zh)}</div></td>
-    <td>${permissionMatrixCopy(row.pageVi,row.pageZh)}</td>
-    <td><div class="permission-matrix-item-copy">${itemIcon}${permissionMatrixCopy(row.itemVi,row.itemZh)}</div></td>
+    ${moduleCell}
+    ${pageCell}
+    ${itemCell}
     ${roles.map(role=>`<td class="permission-matrix-role-cell">${permissionMatrixCellHtml(role,row)}</td>`).join('')}
   </tr>`;
+}
+
+function permissionMatrixVisibleRows(rows){
+  const query=String(window.permissionMatrixQuery||'').trim().toLocaleLowerCase();
+  const mode=window.permissionMatrixFilter||'all';
+  return rows.filter(row=>{
+    const searchText=[row.module.vi,row.module.zh,row.pageVi,row.pageZh,row.itemVi,row.itemZh].join(' ').toLocaleLowerCase();
+    const matchesQuery=!query||searchText.includes(query);
+    const matchesMode=mode==='all'
+      ||(mode==='differences'&&permissionRowDiffers(row))
+      ||(mode==='sensitive'&&row.sensitive===true);
+    return matchesQuery&&matchesMode;
+  });
+}
+
+function permissionMatrixBodyHtml(rows,roles){
+  const moduleSpans=new Map();
+  const pageSpans=new Map();
+  rows.forEach(row=>{
+    moduleSpans.set(row.moduleGroup,(moduleSpans.get(row.moduleGroup)||0)+1);
+    pageSpans.set(row.pageGroup,(pageSpans.get(row.pageGroup)||0)+1);
+  });
+  const renderedModules=new Set();
+  const renderedPages=new Set();
+  return rows.map(row=>{
+    const layout={moduleSpan:0,pageSpan:0};
+    if(!renderedModules.has(row.moduleGroup)){
+      layout.moduleSpan=moduleSpans.get(row.moduleGroup)||1;
+      renderedModules.add(row.moduleGroup);
+    }
+    if(!renderedPages.has(row.pageGroup)){
+      layout.pageSpan=pageSpans.get(row.pageGroup)||1;
+      renderedPages.add(row.pageGroup);
+    }
+    return permissionMatrixRowHtml(row,roles,layout);
+  }).join('');
 }
 
 function updatePermissionMatrixFilterButtons(){
@@ -195,17 +252,11 @@ function updatePermissionMatrixFilterButtons(){
 function applyPermissionMatrixFilters(){
   const wrap=g('perm-table-wrap');
   if(!wrap) return;
-  const query=String(window.permissionMatrixQuery||'').trim().toLocaleLowerCase();
-  const mode=window.permissionMatrixFilter||'all';
-  let visibleCount=0;
-  wrap.querySelectorAll('.permission-matrix-row').forEach(row=>{
-    const matchesQuery=!query||String(row.dataset.search||'').includes(query);
-    const matchesMode=mode==='all'
-      ||(mode==='differences'&&row.dataset.different==='true')
-      ||(mode==='sensitive'&&row.dataset.sensitive==='true');
-    row.hidden=!(matchesQuery&&matchesMode);
-    if(!row.hidden) visibleCount++;
-  });
+  const roles=['admin',...CONFIGURABLE_ROLES];
+  const visibleRows=permissionMatrixVisibleRows(permissionMatrixRows());
+  const body=g('permission-matrix-body');
+  if(body) body.innerHTML=permissionMatrixBodyHtml(visibleRows,roles);
+  const visibleCount=visibleRows.length;
   const empty=g('permission-matrix-empty');
   if(empty) empty.hidden=visibleCount>0;
   const visible=g('permission-matrix-visible-count');
@@ -260,11 +311,11 @@ function renderPermissions(){
         <thead><tr>
           <th scope="col">${permissionMatrixCopy('Chức năng chính','母功能')}</th>
           <th scope="col">${permissionMatrixCopy('Trang con','子分頁')}</th>
-          <th scope="col">${permissionMatrixCopy('Mục quyền','權限項目')}</th>
+          <th scope="col">${permissionMatrixCopy('Quyền nhạy cảm','敏感權限')}</th>
           ${roles.map(permissionMatrixRoleHeader).join('')}
         </tr></thead>
+        <tbody id="permission-matrix-body"></tbody>
         <tbody>
-          ${rows.map(row=>permissionMatrixRowHtml(row,roles)).join('')}
           <tr class="permission-matrix-empty" id="permission-matrix-empty" hidden><td colspan="${roles.length+3}">
             ${permissionMatrixCopy('Không tìm thấy quyền phù hợp.','找不到符合條件的權限。')}
           </td></tr>
