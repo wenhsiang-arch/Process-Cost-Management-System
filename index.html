@@ -333,8 +333,32 @@ tr:hover td{background:#f8fafc}
 
       <!-- 工序秒數同步 -->
       <div class="pg ui-page" id="pg-sync">
-        <div class="card">
-          <div class="ct-title ui-section-title"><i class="ti ti-refresh"></i><span class="ui-bilingual"><span class="ui-text-vi">Đồng bộ giây công đoạn</span><span class="ui-text-zh">工序秒數同步工具</span></span></div>
+        <div class="sync-page ui-work-panel">
+          <section class="sync-operation-panel ui-operation-panel">
+            <div class="sync-command-row ui-command-row">
+              <div class="sync-context-grid ui-context-grid">
+                <label class="sync-context-item ui-context-item" for="sync-order">
+                  <i class="ti ti-file-invoice"></i>
+                  <div>
+                    <span class="ui-dual-copy"><strong>Số đơn hàng</strong><span>訂單號碼</span></span>
+                    <select id="sync-order" onchange="syncLoadProcs()">
+                      <option value="">-- Chọn đơn hàng / 選擇訂單 --</option>
+                    </select>
+                  </div>
+                </label>
+                <label class="sync-context-item ui-context-item" for="sync-proc">
+                  <i class="ti ti-list-numbers"></i>
+                  <div>
+                    <span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span>
+                    <select id="sync-proc" onchange="syncLoadTable()">
+                      <option value="">-- Chọn công đoạn / 選擇工序 --</option>
+                    </select>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </section>
+
           <div class="ui-notice is-warning sync-guide">
             <i class="ti ti-alert-triangle" aria-hidden="true"></i>
             <div class="ui-language-sections">
@@ -348,51 +372,41 @@ tr:hover td{background:#f8fafc}
 · 空白欄位不會更新，只有填入新秒數的款號才會被同步</div>
             </div>
           </div>
-          <div class="fg cols2 ui-form-grid is-two-column sync-select-grid">
-            <div class="fgrp ui-form-field">
-              <label>Số đơn hàng <span class="lvi">訂單號碼</span></label>
-              <select id="sync-order" onchange="syncLoadProcs()">
-                <option value="">-- Chọn đơn hàng / 選擇訂單 --</option>
-              </select>
+
+          <section id="sync-table-wrap" class="sync-data-section ui-data-section" style="display:none">
+            <div class="sync-section-header ui-section-header">
+              <i class="ti ti-table"></i>
+              <span class="ui-dual-copy"><strong>Danh sách mã hàng</strong><span>款號列表</span></span>
+              <div id="sync-count" class="ui-bilingual"><span class="ui-text-vi">Chưa nhập giây mới</span><span class="ui-text-zh">尚未輸入新秒數</span></div>
+              <div class="sync-actions ui-command-actions">
+                <button type="button" class="sync-command-action ui-command-action" onclick="syncClear()"><i class="ti ti-x"></i><span class="ui-dual-copy"><strong>Xóa</strong><span>清除</span></span></button>
+                <button type="button" class="sync-command-action ui-command-action is-primary" onclick="syncConfirm()"><i class="ti ti-refresh"></i><span class="ui-dual-copy"><strong>Xác nhận đồng bộ</strong><span>確認同步</span></span></button>
+              </div>
             </div>
-            <div class="fgrp ui-form-field">
-              <label>Số công đoạn <span class="lvi">工序號</span></label>
-              <select id="sync-proc" onchange="syncLoadTable()">
-                <option value="">-- Chọn công đoạn / 選擇工序 --</option>
-              </select>
-            </div>
-          </div>
-          <div id="sync-table-wrap" class="sync-table-frame" style="display:none">
             <div id="sync-progress-wrap" class="nt ns" style="display:none;margin-bottom:12px;line-height:1.7">
               <div id="sync-progress-text"></div>
               <div style="height:8px;background:var(--bd);border-radius:99px;overflow:hidden;margin-top:8px"><div id="sync-progress-bar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div></div>
               <button class="btn bd2" id="sync-retry-btn" style="display:none;margin-top:10px" onclick="syncRetry()"><i class="ti ti-refresh"></i>Tiếp tục đồng bộ / 繼續同步</button>
             </div>
-            <div class="ct-title" style="margin-bottom:10px"><i class="ti ti-table"></i><span class="ui-bilingual"><span class="ui-text-vi">Danh sách mã hàng</span><span class="ui-text-zh">款號列表</span></span></div>
-            <div>
-              <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <div class="sync-table-frame ui-table-frame">
+              <div class="sync-table-scroll ui-table-scroll">
+              <table class="ui-table">
                 <thead>
-                  <tr style="background:var(--bg)">
-                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Mã hàng<br><span style="font-weight:400">款號</span></th>
-                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Màu sắc<br><span style="font-weight:400">顏色</span></th>
-                    <th style="padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Kích thước<br><span style="font-weight:400">尺寸</span></th>
-                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Giây hiện tại<br><span style="font-weight:400">現有秒數</span></th>
-                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">SL/giờ hiện tại<br><span style="font-weight:400">現有產量/時</span></th>
-                    <th style="padding:8px 10px;text-align:center;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">Nhập giây mới<br><span style="font-weight:400">輸入新秒數</span></th>
-                    <th style="padding:8px 10px;text-align:right;border-bottom:1px solid var(--bd);font-size:11px;font-weight:500;color:var(--mu)">SL/giờ mới<br><span style="font-weight:400">預覽新產量/時</span></th>
+                  <tr>
+                    <th>Mã hàng<br><span class="tv">款號</span></th>
+                    <th>Màu sắc<br><span class="tv">顏色</span></th>
+                    <th>Kích thước<br><span class="tv">尺寸</span></th>
+                    <th style="text-align:right">Giây hiện tại<br><span class="tv">現有秒數</span></th>
+                    <th style="text-align:right">SL/giờ hiện tại<br><span class="tv">現有產量/時</span></th>
+                    <th style="text-align:center">Nhập giây mới<br><span class="tv">輸入新秒數</span></th>
+                    <th style="text-align:right">SL/giờ mới<br><span class="tv">預覽新產量/時</span></th>
                   </tr>
                 </thead>
                 <tbody id="sync-tb"></tbody>
               </table>
-            </div>
-            <div class="sync-actions">
-              <div id="sync-count" class="ui-bilingual" style="font-size:12px;color:var(--mu)"><span class="ui-text-vi">Chưa nhập giây mới</span><span class="ui-text-zh">尚未輸入新秒數</span></div>
-              <div style="display:flex;gap:8px">
-                <button class="btn" onclick="syncClear()"><i class="ti ti-x"></i>Xóa / 清除</button>
-                <button class="btn bp" onclick="syncConfirm()"><i class="ti ti-refresh"></i>Xác nhận đồng bộ / 確認同步</button>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </div>
 
@@ -584,180 +598,269 @@ tr:hover td{background:#f8fafc}
       </div>
 
       <div class="pg ui-page" id="pg-summary">
-        <div class="detail-import-drop" id="detail-import-drop" onclick="openDetailImport()" ondragover="handleDetailImportDragOver(event)" ondragleave="handleDetailImportDragLeave(event)" ondrop="handleDetailImportDrop(event)">
-          <i class="ti ti-file-spreadsheet"></i>
-          <div>
-            <strong class="ui-bilingual"><span class="ui-text-vi">Kéo thả hoặc chọn tệp Excel</span><span class="ui-text-zh">拖曳或點擊選擇 Excel 檔案</span></strong>
-            <span class="ui-bilingual"><span class="ui-text-vi">Hỗ trợ .xlsx và .xls; sau khi chọn sẽ mở cửa sổ xác nhận nhập.</span><span class="ui-text-zh">支援 .xlsx、.xls，選擇後將開啟匯入確認視窗。</span></span>
-          </div>
-        </div>
-        <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
-        <div class="mg">
-          <div class="mc"><div class="ml">Tổng số mã hàng</div><div class="mvi">款號總數</div><div class="mv" id="m-total">0</div></div>
-          <div class="mc"><div class="ml">Tổng số công đoạn</div><div class="mvi">工序總筆數</div><div class="mv" id="m-rows">0</div></div>
-        </div>
-        <div class="sr">
-          <div class="sw"><i class="ti ti-search"></i><input type="text" placeholder="Tìm kiếm / 搜尋..." id="s-search" oninput="window.sPage=1;rSum()"></div>
-          <select id="s-client" onchange="window.sPage=1;rSum()" style="height:36px;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;background:var(--sf)"><option value="">Tất cả KH / 全部客人</option></select>
-          <div class="cg" id="summary-currency" title="Tiền tệ hiển thị / 顯示幣別">
-            <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
-            <button class="cb" id="cur-USD" onclick="setCur('USD')">USD</button>
-            <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
+        <div class="products-page ui-work-panel">
+          <section class="products-operation-panel ui-operation-panel">
+            <div class="products-command-row ui-command-row">
+              <div class="products-context-grid ui-context-grid is-single">
+                <button type="button" class="detail-import-drop ui-context-item ui-file-picker" id="detail-import-drop" onclick="openDetailImport()" ondragover="handleDetailImportDragOver(event)" ondragleave="handleDetailImportDragLeave(event)" ondrop="handleDetailImportDrop(event)">
+                  <i class="ti ti-file-spreadsheet"></i>
+                  <div>
+                    <span class="ui-dual-copy"><strong>Tệp dữ liệu mã hàng</strong><span>款號資料檔案</span></span>
+                    <span class="ui-context-note">Nhấp để chọn hoặc kéo tệp .xlsx, .xls.<br>點擊選擇或拖入 .xlsx、.xls 檔案。</span>
+                  </div>
+                </button>
+              </div>
+              <div class="products-command-actions ui-command-actions">
+                <button type="button" class="products-command-action ui-command-action" onclick="rHist();om('m-history')"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử nhập</strong><span>匯入記錄</span></span></button>
+                <button type="button" class="products-command-action ui-command-action" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i><span class="ui-dual-copy"><strong>Xuất dự phòng</strong><span>備份匯出</span></span></button>
+              </div>
+            </div>
+            <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
+          </section>
+
+          <div class="products-summary-row ui-summary-row">
+            <div class="products-summary-item ui-summary-item"><div class="ui-summary-label">Tổng số mã hàng<span>款號總數</span></div><div class="ui-summary-value" id="m-total">0</div></div>
+            <div class="products-summary-item ui-summary-item"><div class="ui-summary-label">Tổng số công đoạn<span>工序總筆數</span></div><div class="ui-summary-value" id="m-rows">0</div></div>
           </div>
 
-          <button class="btn" onclick="rHist();om('m-history')"><i class="ti ti-history"></i>Lịch sử nhập / 匯入記錄</button>
-          <button class="btn" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i>Xuất dự phòng / 備份匯出</button>
+          <section class="products-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-list-details"></i><span class="ui-dual-copy"><strong>Danh sách mã hàng</strong><span>款號列表</span></span></div>
+            <div class="products-filter-row ui-toolbar">
+              <label class="products-filter-field products-search-field" for="s-search"><span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span><span class="products-search-control"><i class="ti ti-search"></i><input type="text" placeholder="Nhập từ khóa / 輸入關鍵字..." id="s-search" oninput="window.sPage=1;rSum()"></span></label>
+              <label class="products-filter-field" for="s-client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><select id="s-client" onchange="window.sPage=1;rSum()"><option value="">Tất cả KH / 全部客人</option></select></label>
+              <div class="products-filter-field"><span class="ui-dual-copy"><strong>Tiền tệ hiển thị</strong><span>顯示幣別</span></span><div class="cg" id="summary-currency">
+                <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
+                <button class="cb" id="cur-USD" onclick="setCur('USD')">USD</button>
+                <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
+              </div></div>
+            </div>
+            <div class="to ui-table-frame"><div class="ts ui-table-scroll summary-table-scroll"><table class="ui-table"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
+            <div class="pgr" id="sp2"></div>
+          </section>
         </div>
-        <div class="to"><div class="ts summary-table-scroll"><table><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
-        <div class="pgr" id="sp2"></div>
       </div>
 
       <!-- 備份匯出 -->
       <!-- 成本設定 -->
       <div class="pg ui-page" id="pg-settings">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-currency-dollar"></i><span class="ui-bilingual"><span class="ui-text-vi">Cài đặt giá công trực tiếp</span><span class="ui-text-zh">直接工價設定</span></span></div>
-          <div class="fg cols3">
-            <div class="fgrp"><label>Lương trung bình (VND/tháng)<span class="lvi">平均薪資（VND／月）</span></label><input type="number" id="ss-sal" value="0" oninput="aCC()"></div>
-            <div class="fgrp"><label>Bảo hiểm trung bình (VND/tháng)<span class="lvi">平均保險（VND／月）</span></label><input type="number" id="ss-ins" value="0" oninput="aCC()"></div>
-            <div class="fgrp"><label>Phí ăn uống (VND/tháng)<span class="lvi">餐費（VND／月）</span></label><input type="number" id="ss-meal" value="0" oninput="aCC()"></div>
-          </div>
-          <div class="fg cols3">
-            <div class="fgrp"><label>Tổng chi phí trung bình/tháng <span id="ct-tag" class="at">Tự động<br>自動</span><span class="lvi">平均總成本／月</span></label><input type="number" id="ss-tc" oninput="onMC()"></div>
-            <div class="fgrp"><label>Lương giờ trung bình <span id="ht-tag" class="at">Tự động<br>自動</span><span class="lvi">平均時薪（VND）</span></label><input type="number" id="ss-hr" oninput="onMH()"></div>
-            <div class="fgrp"><label>Tỷ giá USD (VND/USD)<span class="lvi">USD 匯率</span></label>
-              <div style="display:flex;gap:6px;align-items:center">
-                <input type="number" id="ss-usd" value="25400" oninput="rAll()" style="flex:1">
-                <button class="btn bsm" onclick="fetchRates()" id="btn-fetchrate" title="Tự động lấy tỷ giá / 自動抓取匯率"><i class="ti ti-refresh"></i></button>
+        <div class="settings-page ui-work-panel">
+          <section class="settings-operation-panel ui-operation-panel">
+            <div class="settings-command-row ui-command-row">
+              <div class="settings-context-grid ui-context-grid is-single">
+                <div class="settings-context-item ui-context-item">
+                  <i class="ti ti-adjustments"></i>
+                  <div>
+                    <span class="ui-dual-copy"><strong>Điều chỉnh tham số tính toán</strong><span>調整計算參數</span></span>
+                    <span class="ui-context-note">Lưu sau khi hoàn thành thay đổi.<br>完成調整後請儲存。</span>
+                  </div>
+                </div>
               </div>
-              <span id="rate-updated" style="font-size:10px;color:var(--hi);margin-top:2px;display:block"></span>
+              <div class="settings-command-actions ui-command-actions">
+                <button type="button" class="settings-command-action ui-command-action is-primary" onclick="saveSt()"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Lưu và tính lại</strong><span>儲存並重新計算</span></span></button>
+              </div>
             </div>
-          </div>
-          <div class="fg cols3">
-            <div class="fgrp"><label>Tỷ giá TWD (VND/TWD)<span class="lvi">TWD 匯率</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()">
-              <span id="rate-updated-twd" style="font-size:10px;color:var(--hi);margin-top:2px;display:block"></span>
+            <div id="st-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã lưu cài đặt.</span><span class="ui-text-zh">設定已儲存。</span></span></div>
+          </section>
+
+          <section class="settings-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-currency-dollar"></i><span class="ui-dual-copy"><strong>Cài đặt giá công trực tiếp</strong><span>直接工價設定</span></span></div>
+            <div class="settings-section-body ui-table-frame">
+              <div class="fg cols3 ui-form-grid is-three-column">
+                <div class="fgrp ui-form-field"><label>Lương trung bình (VND/tháng)<span class="lvi">平均薪資（VND／月）</span></label><input type="number" id="ss-sal" value="0" oninput="aCC()"></div>
+                <div class="fgrp ui-form-field"><label>Bảo hiểm trung bình (VND/tháng)<span class="lvi">平均保險（VND／月）</span></label><input type="number" id="ss-ins" value="0" oninput="aCC()"></div>
+                <div class="fgrp ui-form-field"><label>Phí ăn uống (VND/tháng)<span class="lvi">餐費（VND／月）</span></label><input type="number" id="ss-meal" value="0" oninput="aCC()"></div>
+              </div>
+              <div class="fg cols3 ui-form-grid is-three-column">
+                <div class="fgrp ui-form-field"><label>Tổng chi phí trung bình/tháng <span id="ct-tag" class="at">Tự động<br>自動</span><span class="lvi">平均總成本／月</span></label><input type="number" id="ss-tc" oninput="onMC()"></div>
+                <div class="fgrp ui-form-field"><label>Lương giờ trung bình <span id="ht-tag" class="at">Tự động<br>自動</span><span class="lvi">平均時薪（VND）</span></label><input type="number" id="ss-hr" oninput="onMH()"></div>
+                <div class="fgrp ui-form-field"><label>Tỷ giá USD (VND/USD)<span class="lvi">USD 匯率</span></label>
+                  <div class="settings-rate-control">
+                    <input type="number" id="ss-usd" value="25400" oninput="rAll()">
+                    <button class="btn bsm" onclick="fetchRates()" id="btn-fetchrate" title="Tự động lấy tỷ giá / 自動抓取匯率"><i class="ti ti-refresh"></i></button>
+                  </div>
+                  <span id="rate-updated" class="settings-rate-status"></span>
+                </div>
+              </div>
+              <div class="fg cols3 ui-form-grid is-three-column">
+                <div class="fgrp ui-form-field"><label>Tỷ giá TWD (VND/TWD)<span class="lvi">TWD 匯率</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()">
+                  <span id="rate-updated-twd" class="settings-rate-status"></span>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
+
+          <section class="settings-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-clock"></i><span class="ui-dual-copy"><strong>Cài đặt hiệu suất sản xuất</strong><span>生產效率設定</span></span></div>
+            <div class="settings-section-body ui-table-frame">
+              <div class="fg cols2 ui-form-grid is-two-column">
+                <div class="fgrp ui-form-field"><label>Giây làm việc thực tế/giờ<span class="lvi">實際工作秒數／小時</span></label><input type="number" id="ss-ws" value="3000" oninput="rAll()"></div>
+                <div class="fgrp ui-form-field"><label>Hiệu suất sản xuất (%)<span class="lvi">生產效率（%）</span></label><input type="number" id="ss-eff" value="80" min="1" max="100" oninput="uEff()"></div>
+              </div>
+              <div class="settings-summary-row ui-summary-row">
+                <div class="ui-summary-item"><div class="ui-summary-label">Hiệu suất<span>效率</span></div><div class="ui-summary-value" id="e-in">80%</div></div>
+                <div class="ui-summary-item"><div class="ui-summary-label">Hệ số chi phí<span>成本倍數</span></div><div class="ui-summary-value" id="e-mu">125.00%</div></div>
+                <div class="ui-summary-item"><div class="ui-summary-label">Chi phí tăng<span>成本增加</span></div><div class="ui-summary-value" id="e-ic">+25.00%</div></div>
+                <div class="ui-summary-item"><div class="ui-summary-label">Công thức<span>公式</span></div><div class="settings-formula-value" id="e-fo">1 ÷ 80% = 125%</div></div>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-clock"></i><span class="ui-bilingual"><span class="ui-text-vi">Cài đặt hiệu suất sản xuất</span><span class="ui-text-zh">生產效率設定</span></span></div>
-          <div class="fg cols2">
-            <div class="fgrp"><label>Giây làm việc thực tế/giờ<span class="lvi">實際工作秒數／小時</span></label><input type="number" id="ss-ws" value="3000" oninput="rAll()"></div>
-            <div class="fgrp"><label>Hiệu suất sản xuất (%)<span class="lvi">生產效率（%）</span></label><input type="number" id="ss-eff" value="80" min="1" max="100" oninput="uEff()"></div>
-          </div>
-          <div class="eb">
-            <div class="ei"><div class="el">Hiệu suất / 效率</div><div class="ev" id="e-in">80%</div></div>
-            <div class="ei"><div class="el">Hệ số chi phí / 成本倍數</div><div class="ev" id="e-mu">125.00%</div></div>
-            <div class="ei"><div class="el">Chi phí tăng / 成本增加</div><div class="ev" id="e-ic">+25.00%</div></div>
-            <div class="ei"><div class="el">Công thức / 公式</div><div class="ef" id="e-fo">1 ÷ 80% = 125%</div></div>
-          </div>
-        </div>
-        <div class="br"><button class="btn bp" onclick="saveSt()"><i class="ti ti-check"></i>Lưu và tính lại / 儲存並重新計算</button></div>
-        <div id="st-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã lưu cài đặt.</span><span class="ui-text-zh">設定已儲存。</span></span></div>
       </div>
 
       <!-- 產品工價匯出 -->
       <div class="pg ui-page" id="pg-export">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-download"></i><span class="ui-bilingual"><span class="ui-text-vi">Xuất giá công sản phẩm</span><span class="ui-text-zh">產品工價匯出</span></span></div>
-          <div class="fg cols3">
-            <div class="fgrp"><label>Khách hàng<span class="lvi">選擇客人</span></label><select id="ex-cl"><option value="">Tất cả / 全部</option></select></div>
-            <div class="fgrp" id="ex-cu-group"><label>Tiền tệ<span class="lvi">選擇幣別</span></label><select id="ex-cu"><option value="both">USD（美金）+ VND（越盾）</option><option value="all">USD（美金）+ TWD（台幣）+ VND（越盾）</option><option value="usd">USD（美金）</option><option value="vnd">VND（越盾）</option><option value="twd">TWD（台幣）</option></select></div>
-            <div class="fgrp"><label>Loại báo cáo<span class="lvi">選擇報表類型</span></label><select id="ex-ty"><option value="summary">Chỉ bảng tổng hợp / 僅總表</option><option value="detail">Kèm chi tiết công đoạn / 含工序明細</option></select></div>
-          </div>
-          <div class="br"><button class="btn bs" onclick="doExport()"><i class="ti ti-file-spreadsheet"></i>Xuất Excel / 匯出 Excel</button></div>
-          <div id="ex-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã xuất giá công sản phẩm</span><span class="ui-text-zh">產品工價已匯出</span></span></div>
-        </div>
-        <div class="card">
-          <div class="ct-title"><span class="ui-bilingual"><span class="ui-text-vi">Xem trước dữ liệu</span><span class="ui-text-zh">資料預覽</span></span></div>
-          <div class="to"><div class="ts"><table>
-            <thead><tr id="ex-th"></tr></thead>
-            <tbody id="ex-tb"></tbody>
-          </table></div></div>
+        <div class="export-page ui-work-panel">
+          <section class="export-operation-panel ui-operation-panel">
+            <div class="export-command-row ui-command-row">
+              <div class="export-context-grid ui-context-grid">
+                <label class="export-context-item ui-context-item" for="ex-cl"><i class="ti ti-building"></i><div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>選擇客人</span></span><select id="ex-cl"><option value="">Tất cả / 全部</option></select></div></label>
+                <label class="export-context-item ui-context-item" id="ex-cu-group" for="ex-cu"><i class="ti ti-currency-dollar"></i><div><span class="ui-dual-copy"><strong>Tiền tệ</strong><span>選擇幣別</span></span><select id="ex-cu"><option value="both">USD（美金）+ VND（越盾）</option><option value="all">USD（美金）+ TWD（台幣）+ VND（越盾）</option><option value="usd">USD（美金）</option><option value="vnd">VND（越盾）</option><option value="twd">TWD（台幣）</option></select></div></label>
+                <label class="export-context-item ui-context-item" for="ex-ty"><i class="ti ti-report"></i><div><span class="ui-dual-copy"><strong>Loại báo cáo</strong><span>選擇報表類型</span></span><select id="ex-ty"><option value="summary">Chỉ bảng tổng hợp / 僅總表</option><option value="detail">Kèm chi tiết công đoạn / 含工序明細</option></select></div></label>
+              </div>
+              <div class="export-command-actions ui-command-actions"><button type="button" class="export-command-action ui-command-action is-primary" onclick="doExport()"><i class="ti ti-file-spreadsheet"></i><span class="ui-dual-copy"><strong>Xuất Excel</strong><span>匯出 Excel</span></span></button></div>
+            </div>
+            <div id="ex-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã xuất giá công sản phẩm</span><span class="ui-text-zh">產品工價已匯出</span></span></div>
+          </section>
+          <section class="export-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-table"></i><span class="ui-dual-copy"><strong>Xem trước dữ liệu</strong><span>資料預覽</span></span></div>
+            <div class="to ui-table-frame"><div class="ts ui-table-scroll"><table class="ui-table">
+              <thead><tr id="ex-th"></tr></thead>
+              <tbody id="ex-tb"></tbody>
+            </table></div></div>
+          </section>
         </div>
       </div>
 
       <!-- 匯入記錄 -->
       <!-- 成本變動 -->
       <div class="pg ui-page" id="pg-costlog">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-file-analytics"></i><span class="ui-bilingual"><span class="ui-text-vi">Lịch sử thay đổi chi phí</span><span class="ui-text-zh">成本變動記錄</span></span></div>
-          <div id="clog-list"><div class="cost-log-empty"><div>Chưa có lịch sử</div><div>尚無記錄</div></div></div>
+        <div class="costlog-page ui-work-panel">
+          <section class="costlog-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-file-analytics"></i><span class="ui-dual-copy"><strong>Lịch sử thay đổi chi phí</strong><span>成本變動記錄</span></span></div>
+            <div id="clog-list" class="costlog-list ui-table-frame"><div class="cost-log-empty"><div>Chưa có lịch sử</div><div>尚無記錄</div></div></div>
+          </section>
         </div>
       </div>
 
       <!-- 帳號管理 -->
       <div class="pg ui-page" id="pg-accounts">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-users"></i><span class="ui-bilingual"><span class="ui-text-vi">Quản lý tài khoản</span><span class="ui-text-zh">帳號管理</span></span></div>
-          <div class="ui-language-sections accounts-description"><div class="ui-language-section">Quản trị viên phê duyệt trước địa chỉ thư điện tử đăng nhập; mã người dùng sẽ tự động liên kết khi đăng nhập lần đầu.</div><div class="ui-language-section">管理員預先核准登入電子信箱；使用者第一次登入時會自動綁定使用者識別碼。</div></div>
-          <div class="br"><button class="btn bp" onclick="om('m-nacc')"><i class="ti ti-plus"></i>Thêm tài khoản / 新增帳號</button></div>
-          <div class="to"><table>
+        <div class="accounts-page ui-work-panel">
+          <section class="accounts-operation-panel ui-operation-panel">
+            <div class="accounts-command-row ui-command-row">
+              <div class="accounts-context-grid ui-context-grid is-single">
+                <div class="accounts-context-item ui-context-item">
+                  <i class="ti ti-user-check"></i>
+                  <div class="accounts-description">
+                    <div>Quản trị viên phê duyệt trước địa chỉ thư điện tử đăng nhập; mã người dùng sẽ tự động liên kết khi đăng nhập lần đầu.</div>
+                    <div>管理員預先核准登入電子信箱；使用者第一次登入時會自動綁定使用者識別碼。</div>
+                  </div>
+                </div>
+              </div>
+              <div class="accounts-command-actions ui-command-actions">
+                <button type="button" class="accounts-command-action ui-command-action is-primary" onclick="om('m-nacc')"><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm tài khoản</strong><span>新增帳號</span></span></button>
+              </div>
+            </div>
+          </section>
+
+          <section class="accounts-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-users"></i><span class="ui-dual-copy"><strong>Quản lý tài khoản</strong><span>帳號管理</span></span></div>
+            <div class="accounts-table-frame ui-table-frame"><div class="ui-table-scroll"><table class="ui-table">
             <thead><tr>
-              <th>Thư điện tử đăng nhập<br><span style="font-size:10px;color:var(--mu);font-weight:400">登入電子信箱</span></th>
-              <th>Tên tài khoản<br><span style="font-size:10px;color:var(--mu);font-weight:400">帳號名稱</span></th>
-              <th>Vai trò<br><span style="font-size:10px;color:var(--mu);font-weight:400">角色</span></th>
-              <th>Trạng thái<br><span style="font-size:10px;color:var(--mu);font-weight:400">狀態</span></th>
-              <th>Mã người dùng<br><span style="font-size:10px;color:var(--mu);font-weight:400">使用者識別碼</span></th>
-              <th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th>
+              <th>Thư điện tử đăng nhập<br><span class="tv">登入電子信箱</span></th>
+              <th>Tên tài khoản<br><span class="tv">帳號名稱</span></th>
+              <th>Vai trò<br><span class="tv">角色</span></th>
+              <th>Trạng thái<br><span class="tv">狀態</span></th>
+              <th>Mã người dùng<br><span class="tv">使用者識別碼</span></th>
+              <th>Thao tác<br><span class="tv">操作</span></th>
             </tr></thead>
             <tbody id="acc-tb"></tbody>
-          </table></div>
+            </table></div></div>
+          </section>
         </div>
-
       </div>
 
       <!-- 權限管理 -->
       <div class="pg ui-page" id="pg-permissions">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-shield-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Phân quyền</span><span class="ui-text-zh">權限管理</span></span></div>
-          <div class="ui-language-sections permissions-description"><div class="ui-language-section">Chọn vai trò, sau đó thiết lập theo chức năng chính, trang chức năng và mục hạn chế. Tắt chức năng chính sẽ tạm dừng toàn bộ mục bên dưới.</div><div class="ui-language-section">先選擇角色，再依主功能、功能分頁及限制項目設定。關閉主功能後，下層設定全部暫停。</div></div>
-          <div id="perm-table-wrap" style="margin-bottom:16px"></div>
-          <div class="br">
-            <button class="btn bp" onclick="applyPermissions()"><i class="ti ti-device-floppy"></i>Lưu & Áp dụng / 儲存套用</button>
-            <button class="btn" onclick="renderPermissions()"><i class="ti ti-refresh"></i>Hiển thị lại / 重新顯示</button>
-          </div>
+        <div class="permissions-page ui-work-panel">
+          <section class="permissions-operation-panel ui-operation-panel">
+            <div class="permissions-command-row ui-command-row">
+              <div class="permissions-context-grid ui-context-grid is-single">
+                <div class="permissions-context-item ui-context-item">
+                  <i class="ti ti-shield-check"></i>
+                  <div class="permissions-description">
+                    <div>Chọn vai trò, sau đó thiết lập theo chức năng chính, trang chức năng và mục hạn chế. Tắt chức năng chính sẽ tạm dừng toàn bộ mục bên dưới.</div>
+                    <div>先選擇角色，再依主功能、功能分頁及限制項目設定。關閉主功能後，下層設定全部暫停。</div>
+                  </div>
+                </div>
+              </div>
+              <div class="permissions-command-actions ui-command-actions">
+                <button type="button" class="permissions-command-action ui-command-action" onclick="renderPermissions()"><i class="ti ti-refresh"></i><span class="ui-dual-copy"><strong>Hiển thị lại</strong><span>重新顯示</span></span></button>
+                <button type="button" class="permissions-command-action ui-command-action is-primary" onclick="applyPermissions()"><i class="ti ti-device-floppy"></i><span class="ui-dual-copy"><strong>Lưu và áp dụng</strong><span>儲存套用</span></span></button>
+              </div>
+            </div>
+          </section>
+
+          <section class="permissions-data-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-lock-access"></i><span class="ui-dual-copy"><strong>Phân quyền theo vai trò</strong><span>依角色設定權限</span></span></div>
+            <div id="perm-table-wrap" class="permissions-table-frame ui-table-frame"></div>
+          </section>
         </div>
       </div>
 
       <!-- 訂單進度 -->
       <div class="pg ui-page" id="pg-progress">
-        <div class="card">
-          <div class="ct-title"><i class="ti ti-chart-bar"></i><span class="ui-bilingual"><span class="ui-text-vi">Dữ liệu đơn hàng và công đoạn</span><span class="ui-text-zh">訂單與工序資料</span></span></div>
-          <div class="order-manager-panel" id="order-manager-panel">
-            <button type="button" class="order-manager-toggle" onclick="toggleOrderManager()" aria-expanded="false">
-              <i class="ti ti-file-invoice"></i>
-              <div class="ui-language-sections orders-manager-copy">
-                <div class="ui-language-section"><strong>Quản lý đơn hàng</strong><span>Nhấp để mở tìm kiếm, xem và xóa đơn hàng.</span></div>
-                <div class="ui-language-section"><strong>訂單管理</strong><span>點擊展開搜尋、查看與刪除訂單。</span></div>
+        <div class="orders-page ui-work-panel">
+          <section class="orders-operation-panel ui-operation-panel">
+            <div class="orders-command-row ui-command-row">
+              <div class="orders-context-grid ui-context-grid">
+                <label class="orders-context-item ui-context-item" for="prog-sel">
+                  <i class="ti ti-file-invoice"></i>
+                  <div>
+                    <span class="ui-dual-copy"><strong>Đơn hàng đang xem</strong><span>目前查看的訂單</span></span>
+                    <select id="prog-sel" onchange="renderProgress()"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
+                  </div>
+                </label>
+                <label class="orders-context-item ui-context-item" for="prog-code-q">
+                  <i class="ti ti-search"></i>
+                  <div>
+                    <span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span>
+                    <input id="prog-code-q" type="search" oninput="scheduleProgressRender()" placeholder="Nhập mã hàng / 輸入款號...">
+                  </div>
+                </label>
+              </div>
+              <div class="orders-command-actions ui-command-actions" data-order-manage>
+                <button type="button" class="orders-command-action ui-command-action" onclick="openImportOrder()"><i class="ti ti-file-upload"></i><span class="ui-dual-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
+                <button type="button" class="orders-command-action ui-command-action" onclick="openOrderAdjustmentHistory()"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử điều chỉnh</strong><span>數量調整紀錄</span></span></button>
+              </div>
+            </div>
+          </section>
+
+          <section class="orders-progress-section ui-data-section">
+            <div class="ui-section-header"><i class="ti ti-chart-bar"></i><span class="ui-dual-copy"><strong>Dữ liệu đơn hàng và công đoạn</strong><span>訂單與工序資料</span></span></div>
+            <div id="prog-content" class="orders-progress-frame ui-table-frame"></div>
+          </section>
+
+          <section class="order-manager-panel ui-data-section" id="order-manager-panel">
+            <button type="button" class="order-manager-toggle ui-section-header" onclick="toggleOrderManager()" aria-expanded="false">
+              <i class="ti ti-list-details"></i>
+              <div class="orders-manager-copy">
+                <span class="ui-dual-copy"><strong>Quản lý đơn hàng</strong><span>訂單管理</span></span>
+                <span class="orders-manager-note">Nhấp để mở tìm kiếm và thao tác đơn hàng.<br>點擊展開搜尋與操作訂單。</span>
               </div>
               <i class="ti ti-chevron-down order-manager-chevron"></i>
             </button>
-            <div class="order-manager-body" id="order-manager-body">
-              <div class="orders-filter-row">
-                <input type="text" id="ord-q" placeholder="Tìm số đơn hàng / 搜尋訂單編號..." oninput="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;width:220px">
-                <select id="ord-status-filter" onchange="renderOrders()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px">
-                  <option value="active">Đơn đang sử dụng / 使用中訂單</option>
-                  <option value="archived">Đã xóa (lưu trữ) / 已刪除（封存）</option>
-                  <option value="all">Tất cả / 全部</option>
-                </select>
+            <div class="order-manager-body ui-table-frame" id="order-manager-body">
+              <div class="orders-filter-row ui-toolbar">
+                <label class="orders-filter-field" for="ord-q"><span class="ui-dual-copy"><strong>Tìm đơn hàng</strong><span>搜尋訂單</span></span><input type="text" id="ord-q" placeholder="Nhập số đơn hàng / 輸入訂單編號..." oninput="renderOrders()"></label>
+                <label class="orders-filter-field" for="ord-status-filter"><span class="ui-dual-copy"><strong>Trạng thái đơn hàng</strong><span>訂單狀態</span></span><select id="ord-status-filter" onchange="renderOrders()"><option value="active">Đơn đang sử dụng / 使用中訂單</option><option value="archived">Đã xóa (lưu trữ) / 已刪除（封存）</option><option value="all">Tất cả / 全部</option></select></label>
               </div>
-              <div class="to"><table>
-                <thead><tr><th>Số đơn<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單編號</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu);font-weight:400">款數</span></th><th>Tổng SL<br><span style="font-size:10px;color:var(--mu);font-weight:400">總數量</span></th><th>Ngày giao<br><span style="font-size:10px;color:var(--mu);font-weight:400">出貨日期</span></th><th>Trạng thái<br><span style="font-size:10px;color:var(--mu);font-weight:400">訂單狀態</span></th><th>Thao tác<br><span style="font-size:10px;color:var(--mu);font-weight:400">操作</span></th></tr></thead>
+              <div class="orders-table-wrap ui-table-scroll"><table class="ui-table">
+                <thead><tr><th>Số đơn<br><span class="tv">訂單編號</span></th><th>Mã hàng<br><span class="tv">款數</span></th><th>Tổng SL<br><span class="tv">總數量</span></th><th>Ngày giao<br><span class="tv">出貨日期</span></th><th>Trạng thái<br><span class="tv">訂單狀態</span></th><th>Thao tác<br><span class="tv">操作</span></th></tr></thead>
                 <tbody id="ord-tb"></tbody>
               </table></div>
-              <div id="ord-empty" style="display:none;text-align:center;padding:30px;color:var(--hi)"><i class="ti ti-inbox" style="font-size:32px;display:block;margin-bottom:8px"></i>Chưa có đơn hàng / 尚無訂單</div>
+              <div id="ord-empty" class="ui-empty-state" style="display:none"><i class="ti ti-inbox"></i><span class="ui-dual-copy"><strong>Chưa có đơn hàng</strong><span>尚無訂單</span></span></div>
             </div>
-          </div>
-          <div class="order-import-action" data-order-manage>
-            <button type="button" class="btn" onclick="openImportOrder()"><i class="ti ti-file-upload"></i>Nhập đơn hàng Excel / 匯入訂單 Excel</button>
-            <button type="button" class="btn" onclick="openOrderAdjustmentHistory()"><i class="ti ti-history"></i>Lịch sử điều chỉnh / 數量調整紀錄</button>
-          </div>
-          <div class="orders-filter-row">
-            <select id="prog-sel" onchange="renderProgress()" style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
-            <input id="prog-code-q" type="search" oninput="scheduleProgressRender()" placeholder="Tìm mã hàng / 搜尋款號..." style="padding:7px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px;min-width:220px">
-          </div>
-          <div id="prog-content"></div>
+          </section>
         </div>
       </div>
 
@@ -963,7 +1066,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-8"></script>
+<script src="js/features.js?v=20260808-9"></script>
 <script src="js/auth.js?v=20260806-8"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

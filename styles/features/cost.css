@@ -1,59 +1,114 @@
-/* cost.css（成本功能樣式）：整理設定、匯出與成本紀錄頁。 */
+/* cost.css（成本功能樣式）：沿用裁帶頁共用骨架，整理設定、匯出與成本紀錄頁。 */
 #pg-settings,
 #pg-export,
-#pg-costlog {
+#pg-costlog,
+#pg-settings .settings-page,
+#pg-export .export-page,
+#pg-costlog .costlog-page {
   min-width: 0;
 }
 
-#pg-settings .card,
-#pg-export .card,
-#pg-costlog .card {
-  padding: 16px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
-  background: var(--ui-color-surface);
-  box-shadow: none;
+/* 系統設定 */
+#pg-settings .settings-context-item {
+  cursor: default;
 }
 
-#pg-settings .ct-title,
-#pg-export .ct-title,
-#pg-costlog .ct-title {
-  color: var(--ui-color-text);
-  font-size: 14px;
-  font-weight: 600;
+#pg-settings .settings-command-action {
+  min-width: 128px;
 }
 
-#pg-settings .fg,
-#pg-export .fg {
-  gap: 12px;
+#pg-settings #st-ok {
+  margin: 0 10px 10px;
 }
 
-#pg-settings .eb {
-  border-color: var(--ui-color-border);
-  background: var(--ui-color-surface-muted);
+#pg-settings .settings-section-body {
+  padding: 14px;
 }
 
-#pg-settings .br,
-#pg-export .br {
+#pg-settings .settings-section-body > .ui-form-grid + .ui-form-grid {
   margin-top: 12px;
 }
 
-#pg-export .to {
-  border-color: var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
+#pg-settings .settings-rate-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-#pg-export th {
-  background: var(--ui-color-table-header);
+#pg-settings .settings-rate-control input {
+  min-width: 0;
+  flex: 1;
+}
+
+#pg-settings .settings-rate-status {
+  display: block;
+  min-height: 14px;
+  margin-top: 2px;
+  color: var(--hi);
+  font-size: 10px;
+}
+
+#pg-settings .settings-summary-row {
+  margin: 14px -14px -14px;
+  border-bottom: 0;
+}
+
+#pg-settings .settings-formula-value {
+  color: var(--ui-color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 產品工價匯出 */
+#pg-export .export-context-grid {
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+}
+
+#pg-export .export-context-item > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+#pg-export .export-context-item select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
   color: var(--ui-color-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+#pg-export .export-context-item select:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+#pg-export #ex-ok {
+  margin: 0 12px 12px;
+}
+
+#pg-export .export-data-section > .ui-table-frame {
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+}
+
+/* 成本變動記錄 */
+#pg-costlog .costlog-list {
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
 }
 
 #pg-costlog .cost-log-card {
-  margin-bottom: 12px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
   background: var(--ui-color-surface);
-  overflow: hidden;
+}
+
+#pg-costlog .cost-log-card + .cost-log-card {
+  border-top: 1px solid var(--ui-color-border);
 }
 
 #pg-costlog .cost-log-head {
@@ -74,12 +129,35 @@
   min-height: 180px;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 4px;
   color: var(--ui-color-text-muted);
 }
 
 @media (max-width: 1365px) {
   #pg-settings .cols3,
   #pg-export .cols3 {
-    grid-template-columns: repeat(2,minmax(0,1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #pg-settings .settings-summary-row {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  #pg-settings .settings-summary-row .ui-summary-item:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--ui-color-border);
+  }
+
+  #pg-settings .settings-summary-row .ui-summary-item:nth-child(4) {
+    border-top: 1px solid var(--ui-color-border);
+  }
+
+  #pg-export .export-command-row {
+    grid-template-columns: minmax(520px, 1fr) auto;
+  }
+
+  #pg-export .export-context-item {
+    padding-inline: 8px;
   }
 }

@@ -95,6 +95,32 @@ test('裁帶已使用正式共用版面骨架且專屬樣式不再重複骨架',
   }
 });
 
+test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
+  const html=read('index.html');
+  const requiredByPage={
+    progress:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    summary:['ui-work-panel','ui-operation-panel','ui-command-row','ui-summary-row','ui-data-section','ui-table-frame'],
+    sync:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    settings:['ui-work-panel','ui-operation-panel','ui-command-row','ui-summary-row','ui-data-section','ui-table-frame'],
+    export:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    costlog:['ui-work-panel','ui-data-section','ui-table-frame'],
+    accounts:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame'],
+    permissions:['ui-work-panel','ui-operation-panel','ui-command-row','ui-data-section','ui-table-frame']
+  }; // requiredByPage（各舊功能頁必要的共用骨架）
+  for(const [page,classes] of Object.entries(requiredByPage)){
+    const start=html.indexOf(`id="pg-${page}"`);
+    assert.notEqual(start,-1,`${page}（功能頁）不存在`);
+    const nextPage=html.indexOf('<div class="pg',start+1);
+    const modalStart=html.indexOf('<!-- Modals -->',start); // modalStart（彈出視窗區起點）
+    const candidates=[nextPage,modalStart,html.length].filter(position=>position>start);
+    const markup=html.slice(start,Math.min(...candidates));
+    for(const className of classes){
+      assert.match(markup,new RegExp(`class="[^"]*\\b${className}\\b`),`${page}（功能頁）缺少 ${className}（共用骨架）`);
+    }
+    assert.doesNotMatch(markup,/<div class="card">/,`${page}（功能頁）仍使用舊卡片骨架`);
+  }
+});
+
 test('裁帶錯誤表維持六比四資訊比例、自動增高及分語言順序',()=>{
   const style=read('styles/features/cutting.css');
   const source=read('js/cutting.js');

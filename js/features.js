@@ -16,11 +16,11 @@
 
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260808-10',
-    orders:'styles/features/orders.css?v=20260808-2',
-    products:'styles/features/products.css?v=20260808-2',
-    sync:'styles/features/sync.css?v=20260808-1',
-    cost:'styles/features/cost.css?v=20260808-2',
-    accounts:'styles/features/accounts.css?v=20260808-2'
+    orders:'styles/features/orders.css?v=20260808-3',
+    products:'styles/features/products.css?v=20260808-3',
+    sync:'styles/features/sync.css?v=20260808-2',
+    cost:'styles/features/cost.css?v=20260808-4',
+    accounts:'styles/features/accounts.css?v=20260808-3'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([

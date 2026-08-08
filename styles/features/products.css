@@ -1,69 +1,97 @@
-/* products.css（款號功能樣式）：整理款號總表、匯入與備份視窗。 */
-#pg-summary {
+/* products.css（款號功能樣式）：裁帶共用骨架的款號總表差異。 */
+#pg-summary,
+#pg-summary .products-page {
   min-width: 0;
 }
 
 #pg-summary .detail-import-drop {
-  min-height: 70px;
-  border-color: var(--ui-color-primary);
-  background: var(--ui-color-surface);
+  text-align: left;
 }
 
-#pg-summary .detail-import-drop:hover,
-#pg-summary .detail-import-drop.dragging {
-  background: var(--ui-color-primary-soft);
-}
-
-#pg-summary .mg {
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  margin: 12px 0;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
-  background: var(--ui-color-surface);
-  overflow: hidden;
-}
-
-#pg-summary .mc {
+#pg-summary .detail-import-drop > div {
   min-width: 0;
-  padding: 12px 18px;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
 }
 
-#pg-summary .mc + .mc {
-  border-left: 1px solid var(--ui-color-border);
+#pg-summary .products-command-action {
+  width: 112px;
+  min-width: 112px;
+  flex-basis: 112px;
 }
 
-#pg-summary .ml,
-#pg-summary .mvi {
-  color: var(--ui-color-text-muted);
+#pg-summary .products-summary-row {
+  grid-template-columns: repeat(2,minmax(180px,1fr));
 }
 
-#pg-summary .mv {
-  color: var(--ui-color-text);
-}
-
-#pg-summary .sr {
+#pg-summary .products-filter-row {
   align-items: flex-end;
-  gap: 8px;
-  padding: 12px 0;
-}
-
-#pg-summary .sw {
-  flex: 1 1 280px;
-}
-
-#pg-summary #s-client {
-  min-width: 180px;
-  min-height: 36px;
-}
-
-#pg-summary .to {
-  border-color: var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
+  margin: 0;
+  padding: 10px 12px;
+  border-right: 1px solid var(--ui-color-border);
+  border-left: 1px solid var(--ui-color-border);
   background: var(--ui-color-surface);
+}
+
+#pg-summary .products-filter-field {
+  display: grid;
+  min-width: 180px;
+  gap: 5px;
+}
+
+#pg-summary .products-search-field {
+  min-width: 280px;
+  flex: 1 1 320px;
+}
+
+#pg-summary .products-search-control {
+  position: relative;
+  display: block;
+}
+
+#pg-summary .products-search-control > i {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  color: var(--ui-color-text-subtle);
+  font-size: 14px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+#pg-summary .products-filter-field input,
+#pg-summary .products-filter-field select {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+#pg-summary .products-search-control input {
+  padding-left: 32px;
+}
+
+#pg-summary .products-filter-field input:focus,
+#pg-summary .products-filter-field select:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+#pg-summary #summary-currency {
+  min-height: 36px;
+  align-items: stretch;
+}
+
+#pg-summary #summary-currency .cb {
+  min-width: 54px;
+}
+
+#pg-summary .products-data-section > .ui-table-frame {
+  border-radius: 0;
 }
 
 #pg-summary th {
@@ -77,6 +105,15 @@
   background: var(--ui-color-primary-soft);
 }
 
+#pg-summary .pgr {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+}
+
 #m-import .md,
 #m-history .md,
 #m-backup .md,
@@ -86,7 +123,15 @@
 }
 
 @media (max-width: 1365px) {
-  #pg-summary .sr .btn {
-    flex: 0 0 auto;
+  #pg-summary .products-command-row {
+    grid-template-columns: minmax(300px,1fr) auto;
+  }
+
+  #pg-summary .products-filter-field {
+    flex: 1 1 180px;
+  }
+
+  #pg-summary .products-search-field {
+    flex-basis: 260px;
   }
 }

@@ -1,95 +1,56 @@
-/* orders.css（訂單功能樣式）：只整理訂單頁與其視窗，不改資料或計算。 */
-#pg-progress {
+/* orders.css（訂單功能樣式）：裁帶共用骨架的訂單頁差異，不改資料或計算。 */
+#pg-progress,
+#pg-progress .orders-page {
   min-width: 0;
 }
 
-#pg-progress > .card {
-  padding: 16px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
-  background: var(--ui-color-surface);
-}
-
-#pg-progress .ct-title {
-  min-height: 40px;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  color: var(--ui-color-text);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-#pg-progress .order-manager-panel {
-  border-color: var(--ui-color-operation-border);
-  background: var(--ui-color-operation-background);
-  box-shadow: none;
-}
-
-#pg-progress .order-manager-toggle {
-  min-height: 58px;
-  background: var(--ui-color-surface);
-}
-
-#pg-progress .order-manager-toggle:hover,
-#pg-progress .order-manager-panel.open .order-manager-toggle {
-  background: var(--ui-color-primary-soft);
-}
-
-#pg-progress .orders-manager-copy {
-  gap: 4px;
-}
-
-#pg-progress .orders-manager-copy .ui-language-section {
+#pg-progress .orders-context-item > div {
   display: grid;
-  gap: 2px;
-}
-
-#pg-progress .order-manager-body {
-  padding: 14px;
-  background: var(--ui-color-surface);
-}
-
-#pg-progress .order-import-action,
-#pg-progress .orders-filter-row {
-  display: flex;
   min-width: 0;
-  align-items: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+  gap: 5px;
 }
 
-#pg-progress .orders-filter-row input,
-#pg-progress .orders-filter-row select,
-#pg-progress #ord-q,
-#pg-progress #ord-status-filter,
-#pg-progress #prog-sel,
-#pg-progress #prog-code-q {
-  min-height: 36px;
-  padding: 7px 10px;
+#pg-progress .orders-context-item select,
+#pg-progress .orders-context-item input,
+#pg-progress .orders-filter-field input,
+#pg-progress .orders-filter-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 9px;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
-  font-size: 13px;
+  font: inherit;
+  font-size: 12px;
 }
 
-#pg-progress .to,
-#pg-progress #prog-content > div {
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-panel);
-  background: var(--ui-color-surface);
-  overflow-x: auto;
+#pg-progress .orders-context-item select:focus,
+#pg-progress .orders-context-item input:focus,
+#pg-progress .orders-filter-field input:focus,
+#pg-progress .orders-filter-field select:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
 }
 
-#pg-progress table {
-  width: 100%;
-  border-collapse: collapse;
+#pg-progress .orders-command-action:nth-child(2) {
+  width: 122px;
+  min-width: 122px;
+  flex-basis: 122px;
+}
+
+#pg-progress .orders-progress-frame {
+  min-height: 120px;
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
 }
 
 #pg-progress .orders-table-wrap {
   width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overflow-y: visible;
 }
 
 #pg-progress .orders-progress-table {
@@ -142,12 +103,72 @@
   text-align: center;
 }
 
-#pg-progress .orders-error {
+#pg-progress .orders-error,
+#pg-progress .ui-empty-state.is-danger {
   color: var(--ui-color-danger-text);
 }
 
-#pg-progress .ui-empty-state.is-danger {
-  color: var(--ui-color-danger-text);
+#pg-progress .order-manager-panel {
+  margin-bottom: 0;
+}
+
+#pg-progress .order-manager-toggle {
+  width: 100%;
+  border-bottom: 1px solid var(--ui-color-border);
+  cursor: pointer;
+  text-align: left;
+}
+
+#pg-progress .order-manager-toggle:hover,
+#pg-progress .order-manager-panel.open .order-manager-toggle {
+  background: var(--ui-color-primary-soft);
+}
+
+#pg-progress .orders-manager-copy {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+#pg-progress .orders-manager-note {
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+#pg-progress .order-manager-chevron {
+  margin-left: auto;
+  color: var(--ui-color-primary);
+  transition: transform var(--ui-motion-fast);
+}
+
+#pg-progress .order-manager-panel.open .order-manager-chevron {
+  transform: rotate(180deg);
+}
+
+#pg-progress .order-manager-body {
+  display: none;
+  border-top: 0;
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+}
+
+#pg-progress .order-manager-panel.open .order-manager-body {
+  display: block;
+}
+
+#pg-progress .orders-filter-row {
+  align-items: flex-end;
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-surface);
+}
+
+#pg-progress .orders-filter-field {
+  display: grid;
+  min-width: 220px;
+  gap: 5px;
 }
 
 #pg-progress .orders-row-actions {
@@ -182,8 +203,11 @@
 }
 
 @media (max-width: 1365px) {
-  #pg-progress #prog-sel,
-  #pg-progress #prog-code-q {
-    flex: 1 1 220px;
+  #pg-progress .orders-command-row {
+    grid-template-columns: minmax(360px,1fr) auto;
+  }
+
+  #pg-progress .orders-manager-note {
+    display: none;
   }
 }
