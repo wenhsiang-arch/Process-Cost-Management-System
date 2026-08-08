@@ -233,6 +233,15 @@
   overflow: visible;
 }
 
+.ui-tabs[hidden] {
+  display: none;
+}
+
+/* ui-page-tabs（共用功能抬頭列）：單頁與多頁功能都保留，外觀與裁帶分頁一致。 */
+.ui-page-tabs {
+  flex-wrap: nowrap;
+}
+
 .ui-tab {
   display: inline-flex;
   min-width: 170px;

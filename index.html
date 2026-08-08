@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260808-7">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260808-8">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -215,19 +215,6 @@ tr:hover td{background:#f8fafc}
 .pwe{position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--hi);font-size:15px}
 .mb{display:none;position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:50;align-items:flex-start;justify-content:center;padding-top:50px;min-height:640px}
 .mb.open{display:flex}
-/* module-tabs（模組功能卡容器）、module-tab（模組功能卡）、module-tab-copy（功能卡雙語文字）。 */
-.module-tabs{display:flex;align-items:stretch;flex-wrap:wrap;gap:10px;margin-bottom:14px}
-.module-tabs[hidden]{display:none}
-.module-tab{display:flex;align-items:center;gap:10px;min-width:190px;padding:11px 16px;border:1px solid var(--bd);border-radius:11px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left;box-shadow:0 1px 3px rgba(15,23,42,.04)}
-.module-tab i{font-size:23px;color:var(--accent);flex:0 0 auto}
-.module-tab-copy{display:flex;min-width:0;flex-direction:column;gap:2px;line-height:1.25}
-.module-tab-copy strong{font-size:14px;font-weight:700;color:var(--navy)}
-.module-tab-copy span{font-size:11px;color:var(--mu)}
-.module-tab:hover{border-color:#9bbcf0;background:#f7faff}
-.module-tab.active{background:#eaf2ff;border-color:#82aae7;box-shadow:0 2px 8px rgba(45,95,142,.12)}
-.module-tab.active .module-tab-copy strong{color:var(--accent)}
-@media(max-width:520px){.module-tabs{display:grid;grid-template-columns:1fr 1fr}.module-tab{min-width:0;width:100%;padding:10px 12px}.module-tab-copy strong{font-size:13px}}
-@media(max-width:420px){.module-tabs{grid-template-columns:1fr}}
 /* permission-role（權限角色卡）、permission-tree（階層式權限目錄）、permission-switch（權限開關）。 */
 .permission-role-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:9px;margin-bottom:16px}
 .permission-role-card{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;gap:2px 9px;align-items:center;padding:11px 12px;border:1px solid var(--bd);border-radius:11px;background:var(--sf);color:var(--navy);cursor:pointer;text-align:left}
@@ -317,8 +304,8 @@ tr:hover td{background:#f8fafc}
 
     <div class="ct">
 
-      <!-- module-tabs-host（模組功能卡顯示位置）由 auth.js（登入與權限程式）依權限產生。 -->
-      <div class="module-tabs" id="module-tabs-host" hidden></div>
+      <!-- module-tabs-host（功能抬頭顯示位置）由 auth.js（登入與權限程式）依權限產生。 -->
+      <div class="module-tabs ui-tabs ui-page-tabs" id="module-tabs-host" hidden></div>
 
       <!-- 輕量功能首頁：登入後不讀取任何業務功能資料。 -->
       <div class="pg" id="pg-home">
@@ -1066,8 +1053,8 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-9"></script>
-<script src="js/auth.js?v=20260806-8"></script>
+<script src="js/features.js?v=20260808-10"></script>
+<script src="js/auth.js?v=20260808-9"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
 <script type="module" src="js/firebase.js?v=20260806-7"></script>

@@ -69,22 +69,21 @@ function openModule(moduleName){
   if(page) sp(page.page);
 }
 
-// renderModuleTabs（顯示模組功能卡）：只呈現目前角色可以使用的功能。
+// renderModuleTabs（顯示功能抬頭）：只呈現目前角色可以使用的頁面；單頁功能也保留一格。
 function renderModuleTabs(name){
   const host=g('module-tabs-host');
   if(!host) return;
   const pageConfig=window.PCMSFeatures?.getPage(name); // pageConfig（目前頁面設定）
   const moduleConfig=pageConfig?window.PCMSFeatures?.getModule(pageConfig.moduleId):null; // moduleConfig（目前主功能設定）
   const pages=moduleConfig?moduleConfig.pages.filter(item=>canOpenPage(item.page)):[];
-  if(pages.length<=1){
+  if(!pages.length||moduleConfig?.usesInternalTabs===true){
     host.hidden=true;
     host.innerHTML='';
     return;
   }
   host.innerHTML=pages.map(item=>`
-    <button type="button" class="module-tab${item.page===name?' active':''}" onclick="sp('${item.page}')">
-      <i class="ti ${item.icon}"></i>
-      <span class="module-tab-copy"><strong>${item.vi}</strong><span>${item.zh}</span></span>
+    <button type="button" class="module-tab ui-tab${item.page===name?' active':''}" onclick="sp('${item.page}')">
+      <span class="module-tab-copy ui-dual-copy"><strong>${item.vi}</strong><span>${item.zh}</span></span>
     </button>`).join('');
   host.hidden=false;
 }

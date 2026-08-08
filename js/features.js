@@ -64,6 +64,7 @@
     },
     {
       id:'cutting',navId:'cutting',navGroup:'primary',icon:'ti-scissors',mainKey:'cutting',
+      usesInternalTabs:true, // usesInternalTabs（使用內部分頁）：裁帶已有三格正式抬頭，不重複產生外層單格。
       vi:'Thống kê dây cắt',zh:'裁帶統計',
       pages:[
         {

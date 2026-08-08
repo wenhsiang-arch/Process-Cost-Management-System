@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm'; // vm（隔離執行環境）：驗證動態功能抬頭的實際輸出。
 
 const root=new URL('../',import.meta.url); // root（專案根目錄）
 const read=file=>fs.readFileSync(new URL(file,root),'utf8');
@@ -119,6 +120,57 @@ test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
     }
     assert.doesNotMatch(markup,/<div class="card">/,`${page}（功能頁）仍使用舊卡片骨架`);
   }
+});
+
+test('每個功能頁保留裁帶式平面抬頭且單頁不得省略',()=>{
+  const html=read('index.html');
+  const core=read('styles/ui-core.css');
+  const features=read('js/features.js');
+  const auth=read('js/auth.js');
+  const specification=read('UI設計規範與參照/介面設計規範.md');
+  assert.match(html,/class="module-tabs ui-tabs ui-page-tabs" id="module-tabs-host"/);
+  assert.doesNotMatch(html,/\.module-tab\s*\{/);
+  assert.match(core,/\.ui-page-tabs \{[\s\S]*?flex-wrap: nowrap;/);
+  assert.match(auth,/if\(!pages\.length\|\|moduleConfig\?\.usesInternalTabs===true\)/);
+  assert.doesNotMatch(auth,/pages\.length\s*<=\s*1/);
+  assert.match(auth,/class="module-tab ui-tab\$\{item\.page===name\?' active':''\}"/);
+  assert.match(auth,/class="module-tab-copy ui-dual-copy"/);
+  assert.doesNotMatch(auth,/<i class="ti \$\{item\.icon\}"><\/i>/);
+  assert.match(features,/id:'cutting'[\s\S]*?usesInternalTabs:true/);
+  assert.match(specification,/只有一個頁面時仍顯示一格/);
+});
+
+test('動態功能抬頭正確處理單頁、多頁權限與內部分頁',()=>{
+  const auth=read('js/auth.js');
+  const renderer=auth.match(/function renderModuleTabs\(name\)\{[\s\S]*?^\}/m)?.[0]; // renderer（功能抬頭產生函式）
+  assert.ok(renderer,'找不到功能抬頭產生函式');
+  const pages=[
+    {page:'first',vi:'Trang một',zh:'頁面一'},
+    {page:'second',vi:'Trang hai',zh:'頁面二'}
+  ]; // pages（測試頁面）
+  const render=(name,moduleConfig,allowedPages)=>{
+    const host={hidden:true,innerHTML:''}; // host（功能抬頭容器）
+    const context={
+      window:{PCMSFeatures:{getPage:()=>({moduleId:'demo'}),getModule:()=>moduleConfig}},
+      g:()=>host,
+      canOpenPage:page=>allowedPages.includes(page)
+    }; // context（隔離測試環境）
+    vm.runInNewContext(`${renderer}\nrenderModuleTabs(${JSON.stringify(name)});`,context);
+    return host;
+  };
+  const single=render('first',{pages:[pages[0]]},['first']);
+  assert.equal(single.hidden,false);
+  assert.equal((single.innerHTML.match(/<button/g)||[]).length,1);
+  assert.match(single.innerHTML,/module-tab ui-tab active/);
+  const permissionFiltered=render('first',{pages},['first']);
+  assert.equal(permissionFiltered.hidden,false);
+  assert.equal((permissionFiltered.innerHTML.match(/<button/g)||[]).length,1);
+  const multiple=render('second',{pages},['first','second']);
+  assert.equal((multiple.innerHTML.match(/<button/g)||[]).length,2);
+  assert.match(multiple.innerHTML,/Trang hai[\s\S]*?頁面二/);
+  const internal=render('first',{pages:[pages[0]],usesInternalTabs:true},['first']);
+  assert.equal(internal.hidden,true);
+  assert.equal(internal.innerHTML,'');
 });
 
 test('裁帶錯誤表維持六比四資訊比例、自動增高及分語言順序',()=>{
