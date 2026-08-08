@@ -55,7 +55,6 @@
     element('production-employee-id').readOnly = false;
     element('production-employee-name-input').value = '';
     renderDepartmentSelect('');
-    element('production-employee-active').checked = true;
     window.PCMSUIText?.set?.(element('production-employee-save-copy'),{vi:'Thêm nhân viên',zh:'新增員工'});
   }
 
@@ -65,7 +64,6 @@
     element('production-employee-id').readOnly = true;
     element('production-employee-name-input').value = employee.name || '';
     renderDepartmentSelect(employee.department || '');
-    element('production-employee-active').checked = employee.active === true;
     window.PCMSUIText?.set?.(element('production-employee-save-copy'),{vi:'Lưu thay đổi',zh:'儲存修改'});
     element('production-employee-name-input').focus();
   }
@@ -74,11 +72,12 @@
     const button = element('production-employee-save-button');
     return window.PCMSUIComponents.runActionOnce('production.employee.save',async()=>{
       try{
+        const existing = state.editingId ? window.PCMSProductionEmployees.find(state.editingId) : null; // existing（編輯中的既有員工）
         const input = {
           employeeId:element('production-employee-id').value,
           name:element('production-employee-name-input').value,
           department:element('production-employee-department-input').value,
-          active:element('production-employee-active').checked
+          active:state.editingId ? existing?.active === true : true
         }; // input（員工表單資料）
         const saved = state.editingId
           ? await window.PCMSProductionEmployees.updateEmployee(state.editingId,input)

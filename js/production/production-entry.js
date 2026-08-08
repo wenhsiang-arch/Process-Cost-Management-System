@@ -1,4 +1,4 @@
-// production-entry（生產登記頁程式）：處理快速輸入、唯一結果自動選取與當日表格。
+// production-entry（生產登記頁程式）：處理搜尋下拉輸入、手動選取與當日表格。
 (function(){
   'use strict';
 
@@ -8,13 +8,19 @@
     dateTimer:null,
     employee:null,
     order:null,
+    orderReady:false,
     product:null,
-    process:null,
-    employeeTimer:null,
-    orderTimer:null,
-    productTimer:null,
-    processTimer:null
+    process:null
   }; // state（登記頁目前狀態）
+
+  const DROPDOWN_BINDINGS = Object.freeze({
+    'production-employee-options':{inputId:'production-employee-input',toggleId:'production-employee-toggle'},
+    'production-order-options':{inputId:'production-order-input',toggleId:'production-order-toggle'},
+    'production-product-options':{inputId:'production-product-input',toggleId:'production-product-toggle'},
+    'production-process-options':{inputId:'production-process-input',toggleId:'production-process-toggle'}
+  }); // DROPDOWN_BINDINGS（搜尋下拉欄位對應關係）
+
+  const DROPDOWN_OPTION_IDS = Object.freeze(Object.keys(DROPDOWN_BINDINGS)); // DROPDOWN_OPTION_IDS（全部搜尋下拉選單識別碼）
 
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
@@ -36,17 +42,31 @@
 
   function closeDropdown(id){
     const host = element(id);
-    if(host){ host.hidden = true; host.replaceChildren(); }
+    if(host){ host.hidden = true; host.replaceChildren(); delete host.dataset.dropdownMode; }
+    const binding = DROPDOWN_BINDINGS[id]; // binding（目前搜尋下拉欄位對應）
+    element(binding?.inputId)?.setAttribute('aria-expanded','false');
+    element(binding?.toggleId)?.setAttribute('aria-expanded','false');
   }
 
-  function renderDropdown(id,items,render,onSelect){
+  function closeOtherDropdowns(activeId){
+    DROPDOWN_OPTION_IDS.filter(id=>id !== activeId).forEach(closeDropdown);
+  }
+
+  function isDropdownOpen(id){
+    const host = element(id);
+    return Boolean(host && host.hidden === false);
+  }
+
+  function renderDropdown(id,items,render,onSelect,mode='search'){
     const host = element(id);
     if(!host) return;
+    closeOtherDropdowns(id);
     host.replaceChildren();
     items.forEach(item=>{
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'production-option';
+      button.setAttribute('role','option');
       const copy = render(item);
       const primary = document.createElement('strong');
       const secondary = document.createElement('span');
@@ -57,7 +77,50 @@
       button.addEventListener('click',()=>onSelect(item));
       host.appendChild(button);
     });
-    host.hidden = !items.length;
+    const expanded = items.length > 0; // expanded（選單是否展開）
+    host.hidden = !expanded;
+    if(expanded) host.dataset.dropdownMode = mode; // dropdownMode（搜尋結果或完整清單模式）
+    else delete host.dataset.dropdownMode;
+    const binding = DROPDOWN_BINDINGS[id];
+    element(binding?.inputId)?.setAttribute('aria-expanded',String(expanded));
+    element(binding?.toggleId)?.setAttribute('aria-expanded',String(expanded));
+  }
+
+  function toggleDropdown(id,items,render,onSelect){
+    const host = element(id);
+    if(isDropdownOpen(id) && host?.dataset.dropdownMode === 'all'){ closeDropdown(id); return; }
+    renderDropdown(id,items,render,onSelect,'all');
+    const binding = DROPDOWN_BINDINGS[id];
+    element(binding?.inputId)?.focus({preventScroll:true});
+  }
+
+  function syncDropdownAvailability(){
+    const productToggle = element('production-product-toggle');
+    const processToggle = element('production-process-toggle');
+    if(productToggle) productToggle.disabled = !state.order || !state.orderReady;
+    if(processToggle) processToggle.disabled = !state.orderReady || !state.product;
+  }
+
+  function employeeOptionCopy(item){
+    return {primary:`${item.employeeId} · ${item.name}`,secondary:item.department || ''};
+  }
+
+  function orderOptionCopy(item){
+    return {
+      primary:item.orderId || item.id,
+      secondary:[item.client,item.dueDate && typeof fmtVN === 'function' ? fmtVN(item.dueDate) : ''].filter(Boolean).join(' · ')
+    };
+  }
+
+  function productOptionCopy(item){
+    return {primary:item.code,secondary:[item.desc,item.color,item.size].filter(Boolean).join(' · ')};
+  }
+
+  function processOptionCopy(item){
+    return {
+      primary:`${item.processNo} · ${item.processVi || item.processZh || ''}`,
+      secondary:item.processZh && item.processVi ? item.processZh : ''
+    };
   }
 
   function clearEmployee(){
@@ -79,23 +142,26 @@
   }
 
   function handleEmployeeInput(){
-    clearTimeout(state.employeeTimer);
     const input = element('production-employee-input');
     const value = input.value.trim();
     if(state.employee && value.toUpperCase() !== state.employee.employeeId) clearEmployee();
+    if(!value){ closeDropdown('production-employee-options'); return; }
     const matches = window.PCMSProductionEmployees.search(value,{activeOnly:true,limit:20});
-    renderDropdown('production-employee-options',matches,item=>({
-      primary:`${item.employeeId} · ${item.name}`,
-      secondary:item.department || ''
-    }),selectEmployee);
-    state.employeeTimer = setTimeout(()=>{
-      const latest = window.PCMSProductionEmployees.search(input.value,{activeOnly:true,limit:20});
-      if(latest.length === 1) selectEmployee(latest[0]);
-    },250);
+    renderDropdown('production-employee-options',matches,employeeOptionCopy,selectEmployee);
+  }
+
+  function toggleEmployeeDropdown(){
+    toggleDropdown(
+      'production-employee-options',
+      window.PCMSProductionEmployees.list({activeOnly:true}),
+      employeeOptionCopy,
+      selectEmployee
+    );
   }
 
   function clearOrder(){
     state.order = null;
+    state.orderReady = false;
     state.product = null;
     state.process = null;
     element('production-product-input').value = '';
@@ -103,10 +169,12 @@
     element('production-quantity-input').value = '';
     closeDropdown('production-product-options');
     closeDropdown('production-process-options');
+    syncDropdownAvailability();
   }
 
   async function selectOrder(order){
     state.order = order;
+    state.orderReady = false;
     state.product = null;
     state.process = null;
     element('production-order-input').value = order.orderId || order.id;
@@ -114,12 +182,18 @@
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
     closeDropdown('production-order-options');
+    closeDropdown('production-product-options');
+    closeDropdown('production-process-options');
+    syncDropdownAvailability();
     setStatus('Đang tải công đoạn của đơn hàng…','正在載入訂單工序…','info');
     try{
       await window.PCMSProductionEntryStore.loadProcesses(order.id);
+      if(state.order?.id !== order.id) return;
+      state.orderReady = true;
+      syncDropdownAvailability();
       setStatus('Đã tải công đoạn. Có thể nhập mã hàng.','工序已載入，可以輸入款號。','success');
-      element('production-product-input').focus();
     }catch(error){
+      if(state.order?.id !== order.id) return;
       clearOrder();
       setStatus('Không thể tải công đoạn của đơn hàng.','無法載入訂單工序。','danger');
       await showError(error);
@@ -127,19 +201,21 @@
   }
 
   function handleOrderInput(){
-    clearTimeout(state.orderTimer);
     const input = element('production-order-input');
     const value = input.value.trim();
     if(state.order && value !== (state.order.orderId || state.order.id)) clearOrder();
+    if(!value){ closeDropdown('production-order-options'); return; }
     const matches = window.PCMSProductionEntryStore.searchOrders(value,20);
-    renderDropdown('production-order-options',matches,item=>({
-      primary:item.orderId || item.id,
-      secondary:[item.client,item.dueDate && typeof fmtVN === 'function' ? fmtVN(item.dueDate) : ''].filter(Boolean).join(' · ')
-    }),item=>void selectOrder(item));
-    state.orderTimer = setTimeout(()=>{
-      const latest = window.PCMSProductionEntryStore.searchOrders(input.value,20);
-      if(latest.length === 1) void selectOrder(latest[0]);
-    },250);
+    renderDropdown('production-order-options',matches,orderOptionCopy,item=>void selectOrder(item));
+  }
+
+  function toggleOrderDropdown(){
+    toggleDropdown(
+      'production-order-options',
+      window.PCMSProductionEntryStore.listOrders(),
+      orderOptionCopy,
+      item=>void selectOrder(item)
+    );
   }
 
   function clearProduct(){
@@ -148,6 +224,7 @@
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
     closeDropdown('production-process-options');
+    syncDropdownAvailability();
   }
 
   function selectProduct(product){
@@ -157,50 +234,52 @@
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
     closeDropdown('production-product-options');
-    element('production-process-input').focus();
+    syncDropdownAvailability();
   }
 
   function handleProductInput(){
-    clearTimeout(state.productTimer);
-    if(!state.order){ closeDropdown('production-product-options'); return; }
+    if(!state.order || !state.orderReady){ closeDropdown('production-product-options'); return; }
     const input = element('production-product-input');
     const value = input.value.trim();
     if(state.product && value !== state.product.code) clearProduct();
+    if(!value){ closeDropdown('production-product-options'); return; }
     const matches = window.PCMSProductionEntryStore.searchProducts(state.order.id,value,20);
-    renderDropdown('production-product-options',matches,item=>({
-      primary:item.code,
-      secondary:[item.desc,item.color,item.size].filter(Boolean).join(' · ')
-    }),selectProduct);
-    state.productTimer = setTimeout(()=>{
-      const latest = window.PCMSProductionEntryStore.searchProducts(state.order.id,input.value,20);
-      if(latest.length === 1) selectProduct(latest[0]);
-    },250);
+    renderDropdown('production-product-options',matches,productOptionCopy,selectProduct);
+  }
+
+  function toggleProductDropdown(){
+    if(!state.order || !state.orderReady) return;
+    toggleDropdown(
+      'production-product-options',
+      window.PCMSProductionEntryStore.productsForOrder(state.order.id),
+      productOptionCopy,
+      selectProduct
+    );
   }
 
   function selectProcess(process){
     state.process = process;
     element('production-process-input').value = String(process.processNo || '');
     closeDropdown('production-process-options');
-    element('production-quantity-input').focus();
   }
 
   function handleProcessInput(){
-    clearTimeout(state.processTimer);
     state.process = null;
-    if(!state.order || !state.product){ closeDropdown('production-process-options'); return; }
+    if(!state.orderReady || !state.product){ closeDropdown('production-process-options'); return; }
     const value = element('production-process-input').value.trim();
+    if(!value){ closeDropdown('production-process-options'); return; }
     const possible = window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
       .filter(item=>String(item.code || '') === state.product.code)
       .filter(item=>!value || String(item.processNo || '').includes(value))
       .slice(0,20);
-    renderDropdown('production-process-options',possible,item=>({
-      primary:`${item.processNo} · ${item.processVi || item.processZh || ''}`,
-      secondary:item.processZh && item.processVi ? item.processZh : ''
-    }),selectProcess);
-    state.processTimer = setTimeout(()=>{
-      const exact = window.PCMSProductionEntryStore.findProcess(state.order.id,state.product.code,element('production-process-input').value);
-      if(exact) selectProcess(exact);
-    },400);
+    renderDropdown('production-process-options',possible,processOptionCopy,selectProcess);
+  }
+
+  function toggleProcessDropdown(){
+    if(!state.orderReady || !state.product) return;
+    const processes = window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
+      .filter(item=>String(item.code || '') === state.product.code);
+    toggleDropdown('production-process-options',processes,processOptionCopy,selectProcess);
   }
 
   async function showError(error){
@@ -384,18 +463,25 @@
     element('production-today-button').addEventListener('click',setTodayMode);
     element('production-employee-input').addEventListener('input',handleEmployeeInput);
     element('production-order-input').addEventListener('input',handleOrderInput);
-    element('production-order-input').addEventListener('focus',event=>{ event.target.select(); handleOrderInput(); });
-    element('production-order-input').addEventListener('click',handleOrderInput);
     element('production-product-input').addEventListener('input',handleProductInput);
-    element('production-product-input').addEventListener('focus',event=>{ event.target.select(); handleProductInput(); });
-    element('production-product-input').addEventListener('click',handleProductInput);
     element('production-process-input').addEventListener('input',handleProcessInput);
+    element('production-employee-toggle').addEventListener('click',toggleEmployeeDropdown);
+    element('production-order-toggle').addEventListener('click',toggleOrderDropdown);
+    element('production-product-toggle').addEventListener('click',toggleProductDropdown);
+    element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
     element('production-save-button').addEventListener('click',()=>void saveEntry());
+    document.querySelectorAll('#pg-production-entry .production-combobox').forEach(host=>{
+      host.addEventListener('mouseleave',()=>{
+        const options = host.querySelector('.production-options'); // options（目前欄位的搜尋選單）
+        if(options?.id) closeDropdown(options.id);
+      });
+    });
     document.addEventListener('click',event=>{
       if(!event.target.closest('.production-combobox')){
-        ['production-employee-options','production-order-options','production-product-options','production-process-options'].forEach(closeDropdown);
+        DROPDOWN_OPTION_IDS.forEach(closeDropdown);
       }
     });
+    syncDropdownAvailability();
   }
 
   async function loadProductionEntryData(options={}){
@@ -415,7 +501,7 @@
 
   function productionEntryLeave(){
     stopDateTimer();
-    ['production-employee-options','production-order-options','production-product-options','production-process-options'].forEach(closeDropdown);
+    DROPDOWN_OPTION_IDS.forEach(closeDropdown);
   }
 
   window.loadProductionEntryData = loadProductionEntryData;

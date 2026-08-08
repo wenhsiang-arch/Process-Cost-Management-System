@@ -130,6 +130,7 @@ test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
 
 test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',()=>{
   const html=read('index.html');
+  const core=read('styles/ui-core.css');
   const style=read('styles/features/production.css');
   const entrySource=read('js/production/production-entry.js');
   const recordSource=read('js/production/production-records.js');
@@ -138,10 +139,18 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   const markup=html.slice(pageStart,pageEnd);
   assert.match(markup,/id="production-employee-input"[\s\S]*?placeholder="M91234 \/ 1234"/);
   assert.match(markup,/id="production-order-input"[\s\S]*?id="production-product-input"[\s\S]*?id="production-process-input"/);
+  ['employee','order','product','process'].forEach(name=>{
+    assert.match(markup,new RegExp(`class="ui-search-dropdown-input"[^>]*id="production-${name}-input"[\\s\\S]*?class="ui-search-dropdown-toggle"[^>]*id="production-${name}-toggle"`));
+  });
   assert.match(markup,/Số CĐ[\s\S]*?工序號[\s\S]*?SL sản xuất[\s\S]*?生產數量[\s\S]*?SL đơn hàng[\s\S]*?訂單數量[\s\S]*?Giây[\s\S]*?工序秒數/);
   assert.doesNotMatch(markup,/Hiệu suất|效率/);
-  assert.match(entrySource,/state\.employeeTimer = setTimeout\([\s\S]*?latest\.length === 1[\s\S]*?},250\)/);
-  assert.match(entrySource,/state\.processTimer = setTimeout\([\s\S]*?if\(exact\) selectProcess\(exact\)[\s\S]*?},400\)/);
+  assert.match(core,/\.ui-search-dropdown-control \{[\s\S]*?position: relative;/);
+  assert.match(core,/\.ui-search-dropdown-toggle \{[\s\S]*?position: absolute;[\s\S]*?right: 1px;/);
+  assert.match(style,/\.production-options \{[\s\S]*?max-height: 260px;[\s\S]*?overflow-y: auto;/);
+  assert.match(entrySource,/function toggleDropdown\([\s\S]*?focus\(\{preventScroll:true\}\)/);
+  assert.match(entrySource,/addEventListener\('mouseleave'/);
+  assert.doesNotMatch(entrySource,/latest\.length === 1|if\(exact\) selectProcess\(exact\)/);
+  assert.doesNotMatch(entrySource,/production-(?:order|product)-input'\)\.addEventListener\('(?:focus|click)'/);
   assert.doesNotMatch(entrySource,/keydown[\s\S]*?Enter/);
   assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);

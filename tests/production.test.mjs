@@ -147,7 +147,7 @@ test('產能永久刪除只供管理員使用且同步處理員工關聯與工�
   });
 });
 
-test('重複工號拒絕覆蓋、部門使用下拉管理且訂單款號點入即展開',()=>{
+test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由輸入或箭頭展開',()=>{
   const employeeStore=read('js/production/employee-store.js'); // employeeStore（員工資料存取程式內容）
   const employeePage=read('js/production/production-employees.js'); // employeePage（員工資料頁程式內容）
   const entryPage=read('js/production/production-entry.js'); // entryPage（生產登記頁程式內容）
@@ -159,6 +159,8 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且訂單款號點入�
   assert.match(employeeStore,/async function updateEmployee/);
   assert.match(employeePage,/updateEmployee\(state\.editingId,input\)/);
   assert.match(employeePage,/createEmployee\(input\)/);
+  assert.match(employeePage,/active:state\.editingId \? existing\?\.active === true : true/);
+  assert.doesNotMatch(employeePage,/production-employee-active/);
   assert.match(html,/<select id="production-employee-department-input">/);
   assert.match(html,/id="production-department-add-button"/);
   assert.match(html,/id="production-department-manage-button"/);
@@ -174,8 +176,19 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且訂單款號點入�
   [employeePage,entryPage,recordsPage].forEach(source=>{
     assert.match(source,/revalidate:options\.background === true/);
   });
-  assert.match(entryPage,/production-order-input'\)\.addEventListener\('focus',event=>\{ event\.target\.select\(\); handleOrderInput\(\); \}\)/);
-  assert.match(entryPage,/production-order-input'\)\.addEventListener\('click',handleOrderInput\)/);
-  assert.match(entryPage,/production-product-input'\)\.addEventListener\('focus',event=>\{ event\.target\.select\(\); handleProductInput\(\); \}\)/);
-  assert.match(entryPage,/production-product-input'\)\.addEventListener\('click',handleProductInput\)/);
+  assert.doesNotMatch(html,/id="production-employee-active"/);
+  ['employee','order','product','process'].forEach(name=>{
+    assert.match(html,new RegExp(`id="production-${name}-input"[\\s\\S]*?id="production-${name}-toggle"`));
+  });
+  assert.match(entryPage,/production-employee-toggle'\)\.addEventListener\('click',toggleEmployeeDropdown\)/);
+  assert.match(entryPage,/production-order-toggle'\)\.addEventListener\('click',toggleOrderDropdown\)/);
+  assert.match(entryPage,/production-product-toggle'\)\.addEventListener\('click',toggleProductDropdown\)/);
+  assert.match(entryPage,/production-process-toggle'\)\.addEventListener\('click',toggleProcessDropdown\)/);
+  assert.match(entryPage,/PCMSProductionEmployees\.list\(\{activeOnly:true\}\)/);
+  assert.match(entryPage,/PCMSProductionEntryStore\.listOrders\(\)/);
+  assert.match(entryPage,/PCMSProductionEntryStore\.productsForOrder\(state\.order\.id\)/);
+  assert.match(entryPage,/dataset\.dropdownMode === 'all'[\s\S]*?renderDropdown\(id,items,render,onSelect,'all'\)/);
+  assert.match(entryPage,/addEventListener\('mouseleave'/);
+  assert.doesNotMatch(entryPage,/latest\.length === 1|if\(exact\) selectProcess\(exact\)/);
+  assert.doesNotMatch(entryPage,/production-(?:order|product)-input'\)\.addEventListener\('(?:focus|click)'/);
 });

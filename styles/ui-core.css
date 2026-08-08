@@ -207,6 +207,60 @@
   outline-offset: 1px;
 }
 
+/* ui-search-dropdown-control（共用搜尋下拉輸入框）：箭頭固定放在輸入框內側。 */
+.ui-search-dropdown-control {
+  position: relative;
+  min-width: 0;
+}
+
+.ui-search-dropdown-control > .ui-search-dropdown-input {
+  padding-right: 38px;
+}
+
+.ui-search-dropdown-toggle {
+  position: absolute;
+  z-index: 1;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  display: inline-flex;
+  width: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0 calc(var(--ui-radius-control) - 1px) calc(var(--ui-radius-control) - 1px) 0;
+  background: transparent;
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+}
+
+.ui-search-dropdown-toggle:hover,
+.ui-search-dropdown-toggle:focus-visible {
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+  outline: none;
+}
+
+.ui-search-dropdown-toggle:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
+}
+
+.ui-search-dropdown-toggle > i {
+  transition: transform var(--ui-motion-fast);
+}
+
+.ui-search-dropdown-toggle[aria-expanded="true"] > i {
+  transform: rotate(180deg);
+}
+
+.ui-search-dropdown-toggle:disabled {
+  background: transparent;
+  color: var(--ui-color-text-muted);
+  cursor: not-allowed;
+  opacity: .45;
+}
+
 .ui-empty-state {
   display: flex;
   min-height: 180px;

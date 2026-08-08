@@ -272,7 +272,7 @@
 
 .production-employee-fields {
   display: grid;
-  grid-template-columns: 150px minmax(200px, 1fr) minmax(180px, 1fr) 120px;
+  grid-template-columns: 150px minmax(220px, 1fr) minmax(220px, 1fr);
   gap: 12px;
   align-items: end;
 }
@@ -291,22 +291,6 @@
 .production-employee-command > :first-child {
   min-width: 0;
   padding: var(--ui-space-4);
-}
-
-.production-checkbox-field {
-  display: flex;
-  height: 36px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface);
-}
-
-.production-checkbox-field input {
-  width: 16px;
-  height: 16px;
 }
 
 .production-employee-form-actions {
@@ -430,7 +414,7 @@
   }
 
   .production-employee-fields {
-    grid-template-columns: 140px minmax(170px, 1fr) minmax(160px, 1fr) 110px;
+    grid-template-columns: 140px minmax(190px, 1fr) minmax(180px, 1fr);
   }
 
   .production-employee-table-tools {
