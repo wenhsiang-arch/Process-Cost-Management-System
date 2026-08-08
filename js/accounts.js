@@ -1,5 +1,15 @@
 // ===== userAccess（使用者權限）帳號管理 =====
 
+function accountsMessage(vi,zh,kind='info'){
+  return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
+}
+function accountsConfirm(titleVi,titleZh,vi,zh){
+  return window.PCMSUIComponents.confirmDialog({
+    title:{vi:titleVi,zh:titleZh},
+    body:window.PCMSUIComponents.createLanguageSections({vi:String(vi||''),zh:String(zh||'')})
+  });
+}
+
 function accountUpdatedBy(){
   return String(window.cu?.user||window.firebaseAuthUser?.uid||'system').slice(0,100);
 }
@@ -81,8 +91,8 @@ function rAcc(){
     const tr=document.createElement('tr');
     const td=document.createElement('td');
     td.colSpan=6;
-    td.style.cssText='text-align:center;padding:24px;color:var(--mu)';
-    td.textContent='Chưa có tài khoản được cấp quyền / 尚無已授權帳號';
+    td.className='accounts-empty';
+    td.appendChild(window.PCMSUIComponents.createLanguageSections({vi:'Chưa có tài khoản được cấp quyền',zh:'尚無已授權帳號'}));
     tr.appendChild(td);
     tb.appendChild(tr);
     return;
@@ -119,11 +129,11 @@ function rAcc(){
     tr.appendChild(statusCell);
 
     const uidCell=appendAccountCell(tr,a.authUid||'Chưa đăng nhập / 尚未登入');
-    uidCell.style.cssText='font-family:monospace;font-size:11px;word-break:break-all;max-width:260px';
+    uidCell.className='accounts-uid';
 
     const actionCell=document.createElement('td');
     const actions=document.createElement('div');
-    actions.style.cssText='display:flex;gap:4px';
+    actions.className='account-row-actions';
     const editButton=document.createElement('button');
     editButton.className='btn bsm';
     editButton.title='Chỉnh sửa / 編輯';
@@ -147,11 +157,11 @@ function rAcc(){
 // validEmailAccessInput（檢查電子信箱核准資料）
 function validEmailAccessInput(email,username){
   if(!email||email.length>254||email.includes('/')||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-    alert('Email Google không hợp lệ / Google 電子信箱格式不正確');
+    accountsMessage('Địa chỉ thư điện tử đăng nhập không hợp lệ.','登入電子信箱格式不正確。','warning');
     return false;
   }
   if(!username||username.length>100){
-    alert('Vui lòng nhập tên tài khoản hợp lệ / 請輸入正確的帳號名稱');
+    accountsMessage('Vui lòng nhập tên tài khoản hợp lệ.','請輸入正確的帳號名稱。','warning');
     return false;
   }
   return true;
@@ -184,16 +194,16 @@ async function saveAcc(){
   const role=g('ac-r').value;
   const active=g('ac-active').checked;
   if(!DESK_ROLES.includes(role)){
-    alert('Vai trò không hợp lệ / 角色設定不正確');
+    await accountsMessage('Vai trò không hợp lệ.','角色設定不正確。','warning');
     return;
   }
   if(!validEmailAccessInput(email,username)) return;
   if(window.accs.some(a=>a.accessId===email||a.email===email)){
-    alert('Email Google đã được phê duyệt / Google 電子信箱已經核准');
+    await accountsMessage('Địa chỉ thư điện tử đăng nhập đã được phê duyệt.','登入電子信箱已經核准。','warning');
     return;
   }
   if(window.accs.some(a=>a.user===username)){
-    alert('Tài khoản đã tồn tại / 帳號已存在');
+    await accountsMessage('Tài khoản đã tồn tại.','帳號已存在。','warning');
     return;
   }
   const payload=buildUserAccessPayload(null,email,username,role,active);
@@ -208,7 +218,7 @@ async function saveAcc(){
     rAcc();
   }catch(e){
     console.error('Không thể tạo userAccess / 無法新增使用者權限：',e);
-    alert('Tạo tài khoản thất bại / 新增帳號失敗\n\n'+(e?.message||''));
+    await accountsMessage('Tạo tài khoản thất bại.','新增帳號失敗。','danger');
   }
 }
 
@@ -236,25 +246,25 @@ async function saveEacc(){
   const role=g('ea-r').value;
   const active=g('ea-active').checked;
   if(!DESK_ROLES.includes(role)){
-    alert('Vai trò không hợp lệ / 角色設定不正確');
+    await accountsMessage('Vai trò không hợp lệ.','角色設定不正確。','warning');
     return;
   }
   if(!username||username.length>100){
-    alert('Vui lòng nhập tên tài khoản hợp lệ / 請輸入正確的帳號名稱');
+    await accountsMessage('Vui lòng nhập tên tài khoản hợp lệ.','請輸入正確的帳號名稱。','warning');
     return;
   }
   if(window.accs.some(a=>a.accessId!==accessId&&a.user===username)){
-    alert('Tài khoản đã tồn tại / 帳號已存在');
+    await accountsMessage('Tài khoản đã tồn tại.','帳號已存在。','warning');
     return;
   }
   const isMe=isCurrentAccessAccount(account);
   if(isMe&&(role!=='admin'||active!==true)){
-    alert('Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập / 不可停用或降低目前登入帳號的權限');
+    await accountsMessage('Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập.','不可停用或降低目前登入帳號的權限。','warning');
     return;
   }
   const activeAdminCount=window.accs.filter(a=>a.role==='admin'&&a.active).length;
   if(account.role==='admin'&&account.active&&(role!=='admin'||!active)&&activeAdminCount<=1){
-    alert('Phải giữ lại ít nhất một quản trị viên đang hoạt động / 至少必須保留一位啟用中的管理員');
+    await accountsMessage('Phải giữ lại ít nhất một quản trị viên đang hoạt động.','至少必須保留一位啟用中的管理員。','warning');
     return;
   }
 
@@ -272,7 +282,7 @@ async function saveEacc(){
     rAcc();
   }catch(e){
     console.error('Không thể cập nhật userAccess / 無法更新使用者權限：',e);
-    alert('Lưu tài khoản thất bại / 儲存帳號失敗\n\n'+(e?.message||''));
+    await accountsMessage('Lưu tài khoản thất bại.','儲存帳號失敗。','danger');
   }
 }
 
@@ -280,21 +290,25 @@ async function delAcc(accessId){
   const account=window.accs.find(a=>a.accessId===accessId);
   if(!account) return;
   if(isCurrentAccessAccount(account)){
-    alert('Không thể xóa tài khoản đang đăng nhập / 不可刪除目前登入的帳號');
+    await accountsMessage('Không thể xóa tài khoản đang đăng nhập.','不可刪除目前登入的帳號。','warning');
     return;
   }
   const activeAdminCount=window.accs.filter(a=>a.role==='admin'&&a.active).length;
   if(account.role==='admin'&&account.active&&activeAdminCount<=1){
-    alert('Không thể xóa quản trị viên cuối cùng / 不可刪除最後一位管理員');
+    await accountsMessage('Không thể xóa quản trị viên cuối cùng.','不可刪除最後一位管理員。','warning');
     return;
   }
-  if(!confirm('Xóa quyền truy cập của tài khoản này? / 確定刪除此帳號的使用權限？\n\n'+(account.email||account.user))) return;
+  if(!(await accountsConfirm(
+    'Xóa quyền truy cập','刪除使用權限',
+    `Xóa quyền truy cập của tài khoản này?\n${account.email||account.user}`,
+    `確定刪除此帳號的使用權限？\n${account.email||account.user}`
+  ))) return;
   try{
     await window.firebaseDeleteUserAccess(accessId);
     window.accs=window.accs.filter(a=>a.accessId!==accessId);
     rAcc();
   }catch(e){
     console.error('Không thể xóa userAccess / 無法刪除使用者權限：',e);
-    alert('Xóa tài khoản thất bại / 刪除帳號失敗\n\n'+(e?.message||''));
+    await accountsMessage('Xóa tài khoản thất bại.','刪除帳號失敗。','danger');
   }
 }

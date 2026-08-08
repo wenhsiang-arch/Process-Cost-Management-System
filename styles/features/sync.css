@@ -1,0 +1,66 @@
+/* sync.css（工序同步頁樣式）：統一表單、提示、表格與進度區。 */
+#pg-sync > .card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+}
+
+#pg-sync .sync-guide {
+  margin-bottom: 14px;
+}
+
+#pg-sync .sync-select-grid {
+  margin-bottom: 14px;
+}
+
+#pg-sync .sync-table-frame {
+  min-width: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  overflow: hidden;
+}
+
+#pg-sync .sync-table-frame > div {
+  overflow-x: auto;
+}
+
+#pg-sync table {
+  min-width: 880px;
+}
+
+#pg-sync th {
+  background: var(--ui-color-table-header) !important;
+  color: var(--ui-color-text) !important;
+}
+
+#pg-sync td {
+  min-height: 40px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+#pg-sync .sync-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+#pg-sync .sync-actions > div:last-child {
+  display: flex;
+  gap: 8px;
+}
+
+#pg-sync #sync-count {
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 1365px) {
+  #pg-sync .sync-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

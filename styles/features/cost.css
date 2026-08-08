@@ -1,0 +1,85 @@
+/* cost.css（成本功能樣式）：整理設定、匯出與成本紀錄頁。 */
+#pg-settings,
+#pg-export,
+#pg-costlog {
+  min-width: 0;
+}
+
+#pg-settings .card,
+#pg-export .card,
+#pg-costlog .card {
+  padding: 16px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  box-shadow: none;
+}
+
+#pg-settings .ct-title,
+#pg-export .ct-title,
+#pg-costlog .ct-title {
+  color: var(--ui-color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#pg-settings .fg,
+#pg-export .fg {
+  gap: 12px;
+}
+
+#pg-settings .eb {
+  border-color: var(--ui-color-border);
+  background: var(--ui-color-surface-muted);
+}
+
+#pg-settings .br,
+#pg-export .br {
+  margin-top: 12px;
+}
+
+#pg-export .to {
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+}
+
+#pg-export th {
+  background: var(--ui-color-table-header);
+  color: var(--ui-color-text);
+}
+
+#pg-costlog .cost-log-card {
+  margin-bottom: 12px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  overflow: hidden;
+}
+
+#pg-costlog .cost-log-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ui-color-border);
+  background: var(--ui-color-table-header);
+}
+
+#pg-costlog .cost-log-body {
+  padding: 4px 0;
+}
+
+#pg-costlog .cost-log-empty {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-color-text-muted);
+}
+
+@media (max-width: 1365px) {
+  #pg-settings .cols3,
+  #pg-export .cols3 {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+}

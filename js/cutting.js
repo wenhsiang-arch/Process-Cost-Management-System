@@ -42,6 +42,20 @@
     if(el) el.innerHTML = value;
   }
 
+  // cuttingMessage（裁帶共用訊息）：所有長文字先完整顯示越文，再完整顯示中文。
+  function cuttingMessage(vi, zh, kind = 'info'){
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.alertDialog !== 'function') return Promise.resolve(false);
+    return ui.alertDialog({message:{vi:String(vi || ''),zh:String(zh || '')},kind});
+  }
+
+  // cuttingConfirm（裁帶共用確認）：不使用瀏覽器原生確認框。
+  function cuttingConfirm(title, vi, zh){
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.confirmDialog !== 'function') return Promise.resolve(false);
+    return ui.confirmDialog({title,body:ui.createLanguageSections({vi,zh})});
+  }
+
   // setTemplateFileDisplay（設定模板檔案顯示）：檔案框同時提供選擇、拖入及更換檔案入口。
   function setTemplateFileDisplay(value = ''){
     const fileName = String(value || '').trim(); // fileName（模板檔案顯示名稱）
@@ -86,7 +100,7 @@
   function showCuttingFileDropMessage(detail){
     const message = detail?.message || {vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
     const pair = window.PCMSUIText?.resolve?.(message) || {vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // pair（拒絕原因雙語文字）
-    alert(`${pair.vi}\n${pair.zh}`);
+    void cuttingMessage(pair.vi,pair.zh,'warning');
   }
 
   // registerCuttingFileDropTargets（登記裁帶全畫面匯入）：由目前分頁決定訂單或模板，不依副檔名猜測用途。
@@ -521,16 +535,41 @@
     return new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
   }
 
+  let cuttingTemplateProgressController = null; // cuttingTemplateProgressController（裁帶模板共用進度視窗控制介面）
+
+  function splitTemplateProgressText(value){
+    return String(value || '').split('\n').reduce((result,line) => {
+      const separator = line.lastIndexOf(' / '); // separator（越文與中文分隔位置）
+      if(separator < 0){
+        if(line){ result.vi.push(line); result.zh.push(line); }
+      }else{
+        result.vi.push(line.slice(0,separator));
+        result.zh.push(line.slice(separator+3));
+      }
+      return result;
+    },{vi:[],zh:[]});
+  } // splitTemplateProgressText（拆分模板進度雙語文字）
+
   async function setTemplateProgress(percent, message, subMessage){
     const wrap = g('cut-template-progress-wrap');
-    const bar = g('cut-template-progress-bar');
-    const label = g('cut-template-progress-text');
-    const sub = g('cut-template-progress-sub');
-    if(!wrap) return;
-    wrap.style.display = 'block';
-    if(bar) bar.style.width = `${Math.max(0, Math.min(100, Number(percent) || 0))}%`;
-    if(label) label.textContent = message || 'Đang xử lý... / 處理中...';
-    if(sub) sub.innerHTML = window.PCMSSafe.lines(subMessage || 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。');
+    if(wrap) wrap.style.display = 'none';
+    const value = Math.max(0, Math.min(100, Number(percent) || 0)); // value（裁帶模板百分比進度）
+    const messagePair = splitTemplateProgressText(message || 'Đang xử lý... / 處理中...'); // messagePair（模板雙語進度文字）
+    const subPair = splitTemplateProgressText(subMessage || 'Vui lòng chờ, không đóng trang này. / 請稍候，不要關閉此頁面。'); // subPair（模板雙語補充文字）
+    const textPair = {vi:messagePair.vi.join('\n'),zh:messagePair.zh.join('\n')}; // textPair（模板進度顯示文字）
+    const detailPair = {vi:subPair.vi.join('\n'),zh:subPair.zh.join('\n')}; // detailPair（模板進度補充顯示文字）
+    if(!cuttingTemplateProgressController){
+      cuttingTemplateProgressController = window.PCMSUIComponents.progressDialog({
+        title:{vi:'Tiến độ xử lý mẫu',zh:'模板處理進度'},
+        value,
+        text:textPair,
+        detail:detailPair,
+        onClose:()=>{ cuttingTemplateProgressController=null; }
+      });
+    }else{
+      cuttingTemplateProgressController.update({value,text:textPair,detail:detailPair});
+    }
+    if(value >= 100) cuttingTemplateProgressController.complete(textPair,detailPair);
     await waitForTemplateProgressPaint();
   }
 
@@ -540,6 +579,8 @@
       const bar = g('cut-template-progress-bar');
       if(wrap) wrap.style.display = 'none';
       if(bar) bar.style.width = '0%';
+      cuttingTemplateProgressController?.close('program');
+      cuttingTemplateProgressController = null;
     };
     if(delay > 0) setTimeout(run, delay);
     else run();
@@ -568,31 +609,24 @@
 
   function cuttingTemplateModal(options){
     return new Promise(resolve => {
-      let modal = g('cut-template-conflict-modal');
-      if(!modal){
-        modal = document.createElement('div');
-        modal.id = 'cut-template-conflict-modal';
-        modal.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.52);z-index:9999;display:none;align-items:center;justify-content:center;padding:18px';
-        modal.innerHTML = '<div style="background:var(--sf);border:1px solid var(--bd);border-radius:12px;width:520px;max-width:96vw;box-shadow:0 18px 50px rgba(15,23,42,.22);padding:22px"><div id="cut-template-conflict-title" style="font-size:18px;font-weight:800;color:var(--navy);margin-bottom:12px"></div><div id="cut-template-conflict-body" style="font-size:14px;line-height:1.8;color:var(--ink);margin-bottom:18px"></div><div id="cut-template-conflict-actions" class="br"></div></div>';
-        document.body.appendChild(modal);
-      }
-      const title = g('cut-template-conflict-title');
-      const body = g('cut-template-conflict-body');
-      const actions = g('cut-template-conflict-actions');
-      title.innerHTML = options.title || '';
+      const ui = window.PCMSUIComponents; // ui（共用介面元件）
+      const body = document.createElement('div'); // body（模板訊息內容）
+      let settled = false; // settled（模板訊息是否已選擇操作）
+      body.className = 'cutting-template-dialog-content';
       body.innerHTML = options.body || '';
-      actions.innerHTML = '';
-      (options.buttons || []).forEach(btn => {
-        const el = document.createElement('button');
-        el.className = btn.className || 'btn';
-        el.innerHTML = btn.text;
-        el.onclick = () => {
-          modal.style.display = 'none';
-          resolve(btn.value);
-        };
-        actions.appendChild(el);
+      ui.openDialog({
+        title:options.title || {vi:'Thông báo mẫu',zh:'模板訊息'},
+        body,
+        size:'large',
+        closeOnBackdrop:false,
+        actions:(options.buttons || []).map(button => ({
+          text:button.text,
+          kind:String(button.className||'').includes('bp')?'primary':'',
+          value:button.value,
+          onClick:()=>{ settled = true; resolve(button.value); }
+        })),
+        onClose:()=>{ if(!settled) resolve(null); }
       });
-      modal.style.display = 'flex';
     });
   }
 
@@ -731,7 +765,7 @@
       const lines = codeConflicts.slice(0, 8).map(item => `<div><b>${esc(item.code)}</b> - ${esc(item.fileName)}</div>`).join('');
       await cuttingTemplateModal({
         title: 'Mã hàng đã tồn tại / 已有相同款號',
-        body: `Không thể nhập mẫu này vì mã hàng đã có trong mẫu khác.<br>此模板有款號已存在於其他模板，禁止匯入。<div style="margin-top:10px">${lines}${codeConflicts.length > 8 ? '<div>...</div>' : ''}</div>`,
+        body: `<div class="ui-language-sections"><div class="ui-language-section">Không thể nhập mẫu này vì mã hàng đã có trong mẫu khác.</div><div class="ui-language-section">此模板有款號已存在於其他模板，禁止匯入。</div></div><div class="cutting-template-conflict-list">${lines}${codeConflicts.length > 8 ? '<div>...</div>' : ''}</div>`,
         buttons: [{text:'OK / 確定', value:'ok', className:'btn bp'}]
       });
       return false;
@@ -739,8 +773,8 @@
     const sameFile = state.templates.find(item => item.fileName === book.fileName);
     if(sameFile){
       const action = await cuttingTemplateModal({
-        title: 'Tên file mẫu đã tồn tại / 已有相同模板檔名',
-        body: `Đã có mẫu cùng tên file.<br>已存在相同檔名的模板。<br><br><b>${esc(book.fileName)}</b><br><br>Bạn muốn ghi đè mẫu cũ không?<br>是否要覆蓋原本的模板？`,
+        title: 'Tên tệp mẫu đã tồn tại / 已有相同模板檔名',
+        body: `<div class="ui-language-sections"><div class="ui-language-section">Đã có mẫu cùng tên tệp.<br>Bạn muốn ghi đè mẫu cũ không?</div><div class="ui-language-section">已存在相同檔名的模板。<br>是否要覆蓋原本的模板？</div></div><div class="cutting-template-conflict-list"><b>${esc(book.fileName)}</b></div>`,
         buttons: [
           {text:'Ghi đè / 覆蓋', value:'overwrite', className:'btn bp'},
           {text:'Hủy / 取消', value:'cancel', className:'btn'}
@@ -793,18 +827,17 @@
 
   // showCuttingSaveUnsupported（顯示不支援另存新檔提示）：所有裁帶下載都禁止改用瀏覽器預設位置。
   function showCuttingSaveUnsupported(){
-    alert(
-      'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
-      'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
-      '此瀏覽器不支援選擇檔案儲存位置。\n' +
-      '請使用最新版 Microsoft Edge 或 Google Chrome。'
+    return cuttingMessage(
+      'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\nVui lòng sử dụng trình duyệt mới nhất có hỗ trợ chức năng này.',
+      '此瀏覽器不支援選擇檔案儲存位置。\n請使用支援此功能的最新版瀏覽器。',
+      'warning'
     );
   }
 
   // chooseCuttingSaveHandle（選擇儲存位置）：由模板與 PDF 下載共用，必須由使用者點擊後直接呼叫。
   async function chooseCuttingSaveHandle(suggestedName, fileType){
     if(typeof window.showSaveFilePicker !== 'function'){
-      showCuttingSaveUnsupported();
+      await showCuttingSaveUnsupported();
       return null;
     }
     try{
@@ -816,7 +849,7 @@
     }catch(error){
       if(error?.name === 'AbortError') return null;
       if(error?.name === 'SecurityError' || error?.name === 'NotAllowedError'){
-        showCuttingSaveUnsupported();
+        await showCuttingSaveUnsupported();
         return null;
       }
       throw error;
@@ -851,7 +884,7 @@
       });
     }catch(error){
       console.error('Mở cửa sổ lưu file thất bại / 開啟儲存視窗失敗', error);
-      alert('Không thể mở cửa sổ chọn vị trí lưu.\n無法開啟儲存位置選擇視窗。');
+      await cuttingMessage('Không thể mở cửa sổ chọn vị trí lưu.','無法開啟儲存位置選擇視窗。','danger');
       return;
     }
     if(!saveHandle) return;
@@ -868,10 +901,10 @@
       await writeCuttingFileToHandle(saveHandle, sourceFile);
     }catch(error){
       console.error('Tải file mẫu thất bại / 下載模板檔失敗', error);
-      alert(
-        'Không thể tải file mẫu gốc. Vui lòng thử lại.\n' +
-        '無法下載原始模板檔，請稍後再試。\n\n' +
-        String(error?.message || '')
+      await cuttingMessage(
+        `Không thể tải tệp mẫu gốc. Vui lòng thử lại.\n\n${String(error?.message || '')}`,
+        `無法下載原始模板檔，請稍後再試。\n\n${String(error?.message || '')}`,
+        'danger'
       );
     }finally{
       if(button){
@@ -937,11 +970,10 @@
   }
 
   function alertTemplateFileTypeError(fileName){
-    alert(
-      `Chỉ hỗ trợ tệp mẫu .xlsx.\n僅支援 .xlsx 模板檔。\n\n` +
-      `Tệp hiện tại: ${fileName || '-'}\n目前檔案：${fileName || '-'}\n\n` +
-      `Cách xử lý: Mở tệp bằng Excel, chọn lưu dưới dạng .xlsx, rồi nhập lại.\n解決方式：請用 Excel 開啟檔案，選「另存新檔」，存成 .xlsx 後再匯入。\n\n` +
-      `Không chỉ đổi tên đuôi tệp.\n不要只修改副檔名。`
+    void cuttingMessage(
+      `Chỉ hỗ trợ tệp mẫu .xlsx.\nTệp hiện tại: ${fileName || '-'}\nCách xử lý: Mở tệp bằng Excel, chọn lưu dưới dạng .xlsx, rồi nhập lại.\nKhông chỉ đổi tên đuôi tệp.`,
+      `僅支援 .xlsx 模板檔。\n目前檔案：${fileName || '-'}\n解決方式：請用 Excel 開啟檔案，選「另存新檔」，存成 .xlsx 後再匯入。\n不要只修改副檔名。`,
+      'warning'
     );
   }
 
@@ -953,7 +985,7 @@
   }
   async function cuttingConfirmTemplate(){
     if(!state.pendingTemplateFile || !state.pendingBook){
-      alert('Chưa có mẫu cần xác nhận.\n尚無需要確認的模板。');
+      await cuttingMessage('Chưa có mẫu cần xác nhận.','尚無需要確認的模板。','warning');
       return;
     }
     setTemplateBusy(true);
@@ -1007,7 +1039,7 @@
           rememberCuttingHistoryLog(savedLog);
         }catch(logError){
           console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
-          alert('Đã lưu mẫu, nhưng không thể lưu lịch sử thao tác.\n模板已儲存，但操作紀錄無法保存。');
+          await cuttingMessage('Đã lưu mẫu, nhưng không thể lưu lịch sử thao tác.','模板已儲存，但操作紀錄無法保存。','warning');
         }
       }
       await setTemplateProgress(100, 'Đã lưu mẫu. / 已儲存模板。', 'Có thể tiếp tục thao tác. / 可以繼續操作。');
@@ -1015,7 +1047,7 @@
     }catch(e){
       console.error(e);
       hideTemplateProgress();
-      alert('Lưu mẫu thất bại.\n儲存模板失敗。\n' + (e.message || e));
+      await cuttingMessage(`Lưu mẫu thất bại.\n\n${e.message || e}`,`儲存模板失敗。\n\n${e.message || e}`,'danger');
     }finally{
       setTemplateBusy(false);
     }
@@ -1064,7 +1096,7 @@
     }catch(e){
       console.error(e);
       hideTemplateProgress();
-      alert('Phân tích mẫu Excel thất bại.\n分析 Excel 模板失敗。\n' + (e.message || e));
+      await cuttingMessage(`Phân tích mẫu Excel thất bại.\n\n${e.message || e}`,`分析 Excel 模板失敗。\n\n${e.message || e}`,'danger');
     }finally{
       setTemplateBusy(false);
     }
@@ -1095,11 +1127,15 @@
   }
 
   async function cuttingDeleteTemplate(id){
-    if(!confirm('Xóa mẫu này?\n確定刪除此模板？')) return;
+    if(!await cuttingConfirm(
+      {vi:'Xóa mẫu',zh:'刪除模板'},
+      'Xóa mẫu này?',
+      '確定刪除此模板？'
+    )) return;
     try{
       const pdfToolReady = await cuttingCheckPdfToolStatus();
       if(!pdfToolReady){
-        alert('Vui lòng mở công cụ PDF trước khi xóa mẫu.\n刪除模板前請先啟動 PDF 工具。');
+        await cuttingMessage('Vui lòng mở công cụ PDF trước khi xóa mẫu.','刪除模板前請先啟動 PDF 工具。','warning');
         return;
       }
       const template = window.cuttingStore.getTemplate ? await window.cuttingStore.getTemplate(id) : null;
@@ -1132,17 +1168,22 @@
           console.error('Không thể lưu operationLogs khi xóa mẫu / 刪除模板時無法儲存操作紀錄：',logError);
         }
       }
-      const historyWarning = historySaved
-        ? ''
-        : '\n\nKhông thể lưu lịch sử thao tác.\n操作紀錄無法保存。';
       if(cacheCleared){
-        alert('Đã xóa mẫu và bộ nhớ đệm.\n已刪除模板與快取。'+historyWarning);
+        await cuttingMessage(
+          `Đã xóa mẫu và bộ nhớ đệm.${historySaved ? '' : '\nKhông thể lưu lịch sử thao tác.'}`,
+          `已刪除模板與快取。${historySaved ? '' : '\n操作紀錄無法保存。'}`,
+          historySaved ? 'success' : 'warning'
+        );
       }else{
-        alert('Đã xóa mẫu trên đám mây. Bộ nhớ đệm trên máy này chưa xóa, nhưng sẽ không chặn thao tác.\n已刪除雲端模板。本機快取尚未清除，但不會阻止操作。'+historyWarning);
+        await cuttingMessage(
+          `Đã xóa mẫu trên đám mây. Bộ nhớ đệm trên máy này chưa xóa, nhưng sẽ không chặn thao tác.${historySaved ? '' : '\nKhông thể lưu lịch sử thao tác.'}`,
+          `已刪除雲端模板。本機快取尚未清除，但不會阻止操作。${historySaved ? '' : '\n操作紀錄無法保存。'}`,
+          'warning'
+        );
       }
     }catch(e){
       console.error(e);
-      alert('Xóa mẫu thất bại.\n刪除模板失敗。\n\n' + (e.message || e));
+      await cuttingMessage(`Xóa mẫu thất bại.\n\n${e.message || e}`,`刪除模板失敗。\n\n${e.message || e}`,'danger');
     }
   }
 
@@ -1536,13 +1577,10 @@
         })];
         setOrderFileDisplay(`${file.name}（${sheetCount} trang tính, bị từ chối / 共 ${sheetCount} 個工作表，已禁止匯入）`);
         recomputeResults();
-        alert(
-          `Tệp đơn hàng chỉ được có 1 trang tính.\n` +
-          `Tệp hiện tại có ${sheetCount} trang tính: ${sheetNames}.\n` +
-          `Vui lòng xóa các trang tính khác hoặc lưu riêng trang cần nhập rồi thử lại.\n\n` +
-          `訂單檔案只允許 1 個工作表。\n` +
-          `此檔案共有 ${sheetCount} 個工作表：${sheetNames}。\n` +
-          `請刪除其他工作表，或將需要匯入的工作表另存成單獨檔案後再試。`
+        await cuttingMessage(
+          `Tệp đơn hàng chỉ được có 1 trang tính.\nTệp hiện tại có ${sheetCount} trang tính: ${sheetNames}.\nVui lòng xóa các trang tính khác hoặc lưu riêng trang cần nhập rồi thử lại.`,
+          `訂單檔案只允許 1 個工作表。\n此檔案共有 ${sheetCount} 個工作表：${sheetNames}。\n請刪除其他工作表，或將需要匯入的工作表另存成單獨檔案後再試。`,
+          'warning'
         );
         return;
       }
@@ -1576,7 +1614,7 @@
       })];
       setOrderFileDisplay(`${file.name}（đọc thất bại / 讀取失敗）`);
       recomputeResults();
-      alert('Đọc đơn hàng thất bại.\n讀取訂單失敗。\n\n' + e.message);
+      await cuttingMessage(`Đọc đơn hàng thất bại.\n\n${e.message}`,`讀取訂單失敗。\n\n${e.message}`,'danger');
     }finally{
       input.value = '';
     }
@@ -1691,19 +1729,15 @@
             <tr>
               <td><b>${esc(result.code || 'Trống / 空白')}</b></td>
               <td>
-                <span class="cutting-error-location">
-                  <span>${esc(locationVi)}</span>
-                  <span class="cutting-error-location-zh">${esc(locationZh)}</span>
-                </span>
-                <span class="cutting-error-copy">
-                  <span>${esc(reasonVi)}</span>
-                  <span class="cutting-error-copy-zh">${esc(reasonZh)}</span>
+                <span class="ui-language-sections cutting-error-language-sections">
+                  <span class="ui-language-section cutting-error-language-section"><span>${esc(locationVi)}</span><span>${esc(reasonVi)}</span></span>
+                  <span class="ui-language-section cutting-error-language-section"><span>${esc(locationZh)}</span><span>${esc(reasonZh)}</span></span>
                 </span>
               </td>
               <td>
-                <span class="cutting-error-copy">
-                  <span>${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}</span>
-                  <span class="cutting-error-copy-zh">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span>
+                <span class="ui-language-sections cutting-error-language-sections">
+                  <span class="ui-language-section">${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}</span>
+                  <span class="ui-language-section">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span>
                 </span>
               </td>
             </tr>
@@ -1760,7 +1794,7 @@
       const exportableResults = state.results.filter(r => r.status === 'pass');
       const hasErrors = state.results.some(r => r.status === 'error');
       if(!exportableResults.length || hasErrors){
-        alert('Không có mã hàng có mẫu để xuất, hoặc vẫn còn lỗi.\n沒有可匯出的有模板款號，或仍有錯誤。');
+        void cuttingMessage('Không có mã hàng có mẫu để xuất, hoặc vẫn còn lỗi.','沒有可匯出的有模板款號，或仍有錯誤。','warning');
         return false;
       }
       const problems = validateExportResults(exportableResults);
@@ -2027,7 +2061,7 @@
       });
       return;
     }
-    alert('Công cụ PDF đang khởi động. Vui lòng chờ.\nPDF 工具正在啟動，請稍候。');
+    void cuttingMessage('Công cụ PDF đang khởi động. Vui lòng chờ.','PDF 工具正在啟動，請稍候。','warning');
   }
 
   // isCuttingPdfToolStarting（檢查 PDF 工具是否正在啟動）：啟動與匯出入口共用同一個狀態。
@@ -2075,8 +2109,17 @@
   }
 
   // cuttingUnregisterPdfTool（取消啟動路徑）：確認後只要求本機啟動器移除目前使用者的路徑登記。
-  function cuttingUnregisterPdfTool(){
-    if(!confirm('Hủy đường dẫn khởi động PDF hiện tại?\n取消目前的 PDF 工具啟動路徑？')) return;
+  async function cuttingUnregisterPdfTool(){
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.confirmDialog !== 'function') return;
+    const confirmed = await ui.confirmDialog({
+      title:{vi:'Hủy đường dẫn khởi động PDF',zh:'取消 PDF 工具啟動路徑'},
+      body:ui.createLanguageSections({
+        vi:'Hủy đường dẫn khởi động PDF hiện tại?',
+        zh:'確定取消目前的 PDF 工具啟動路徑？'
+      })
+    }); // confirmed（使用者是否確認取消啟動路徑）
+    if(!confirmed) return;
     const buttons = Array.from(document.querySelectorAll('[data-cutting-action-key="unregister"]')); // buttons（取消路徑按鈕）
     if(buttons.some(button => button.disabled)) return;
     buttons.forEach(button => { button.disabled = true; });
@@ -2109,43 +2152,44 @@
   }
 
   let cuttingPdfProgressTimer = null;
+  let cuttingPdfProgressController = null; // cuttingPdfProgressController（共用 PDF 進度視窗控制介面）
 
-  function setCuttingPdfProgress(percent, message, subText = ''){
-    const wrap = g('cut-pdf-progress');
-    const bar = g('cut-pdf-progress-bar');
-    const label = g('cut-pdf-progress-text');
-    const sub = g('cut-pdf-progress-sub');
-    const closeBtn = g('cut-pdf-progress-close');
-    if(wrap) wrap.style.display = 'block';
-    if(closeBtn) closeBtn.style.display = 'flex';
-    if(bar) bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-    if(label) label.innerHTML = message;
-    if(sub) sub.innerHTML = subText || 'Vui lòng chờ, không đóng cửa sổ này. / 請稍候，不要關閉此視窗。';
+  function setCuttingPdfProgress(percent, messageVi, messageZh, detailVi = '', detailZh = '', kind = ''){
+    if(!cuttingPdfProgressController) openCuttingPdfProgress();
+    cuttingPdfProgressController?.update({
+      value:percent,
+      text:{vi:messageVi,zh:messageZh},
+      detail:{
+        vi:detailVi || 'Vui lòng chờ, không đóng cửa sổ này.',
+        zh:detailZh || '請稍候，不要關閉此視窗。'
+      },
+      detailLong:true,
+      kind
+    });
   }
 
-  function setCuttingPdfError(message, subText){
-    const closeBtn = g('cut-pdf-progress-close');
-    setCuttingPdfProgress(
-      100,
-      message,
-      subText
-    );
-    if(closeBtn) closeBtn.style.display = 'flex';
+  function setCuttingPdfError(messageVi, messageZh, detailVi, detailZh){
+    setCuttingPdfProgress(100,messageVi,messageZh,detailVi,detailZh,'danger');
   }
 
   function openCuttingPdfProgress(){
-    om('m-cutting-pdf-progress');
+    if(cuttingPdfProgressController) return cuttingPdfProgressController;
+    const ui = window.PCMSUIComponents; // ui（共用介面元件）
+    if(typeof ui?.progressDialog !== 'function') return null;
+    cuttingPdfProgressController = ui.progressDialog({
+      title:{vi:'Tiến độ tạo PDF',zh:'PDF 產生進度'},
+      text:{vi:'Đang chuẩn bị',zh:'準備中'},
+      detail:{vi:'Vui lòng chờ, không đóng cửa sổ này.',zh:'請稍候，不要關閉此視窗。'},
+      allowClose:true,
+      onClose:()=>{ cuttingPdfProgressController=null; }
+    });
+    return cuttingPdfProgressController;
   }
 
   function hideCuttingPdfProgress(delay = 0){
     const run = () => {
-      const wrap = g('cut-pdf-progress');
-      if(wrap) wrap.style.display = 'none';
-      const closeBtn = g('cut-pdf-progress-close');
-      if(closeBtn) closeBtn.style.display = 'none';
-      const bar = g('cut-pdf-progress-bar');
-      if(bar) bar.style.width = '0%';
-      cm('m-cutting-pdf-progress');
+      cuttingPdfProgressController?.close('program');
+      cuttingPdfProgressController = null;
     };
     if(delay) setTimeout(run, delay);
     else run();
@@ -2165,8 +2209,10 @@
       const remainingSeconds = Math.max(5, Math.round(seconds * (96 - visualPercent) / Math.max(1, visualPercent - 35)));
       setCuttingPdfProgress(
         visualPercent,
-        'Đang tạo PDF trên máy này... / 本機正在產生 PDF...',
-        `Đã xử lý khoảng ${seconds} giây. Ước tính còn khoảng ${remainingSeconds} giây. Lần đầu tạo cache sẽ lâu hơn.<br>已處理約 ${seconds} 秒，預估剩餘約 ${remainingSeconds} 秒，第一次建立快取會比較久。`
+        'Đang tạo PDF trên máy này...',
+        '本機正在產生 PDF…',
+        `Đã xử lý khoảng ${seconds} giây. Ước tính còn khoảng ${remainingSeconds} giây. Lần đầu tạo bộ nhớ đệm sẽ lâu hơn.`,
+        `已處理約 ${seconds} 秒，預估剩餘約 ${remainingSeconds} 秒，第一次建立快取會比較久。`
       );
     }, 1200);
   }
@@ -2242,18 +2288,28 @@
     const exportableResults = orderExportableResultsByTemplate(state.results.filter(r => r.status === 'pass'));
     const hasErrors = state.results.some(r => r.status === 'error');
     if(!exportableResults.length || hasErrors){
-      alert('Không có mã hàng có mẫu để tạo PDF, hoặc vẫn còn lỗi.\n沒有可產生 PDF 的有模板款號，或仍有錯誤。');
+      await cuttingMessage('Không có mã hàng có mẫu để tạo PDF, hoặc vẫn còn lỗi.','沒有可產生 PDF 的有模板款號，或仍有錯誤。','warning');
       return;
     }
     const resultProblems = validateExportResults(exportableResults);
     if(resultProblems.length){
-      alert('Kiểm tra số lượng không đạt, không thể tạo PDF.\n數量驗算未通過，不能產生 PDF。\n\n' + resultProblems.slice(0, 8).join('\n'));
+      const problemPairs = resultProblems.slice(0,8).map(problem=>{
+        const separator = problem.lastIndexOf(' / '); // separator（雙語問題分隔位置）
+        return separator > -1
+          ? {vi:problem.slice(0,separator),zh:problem.slice(separator + 3)}
+          : {vi:problem,zh:problem};
+      }); // problemPairs（分語言整理的驗算問題）
+      await cuttingMessage(
+        `Kiểm tra số lượng không đạt, không thể tạo PDF.\n\n${problemPairs.map(item=>item.vi).join('\n')}`,
+        `數量驗算未通過，不能產生 PDF。\n\n${problemPairs.map(item=>item.zh).join('\n')}`,
+        'danger'
+      );
       return;
     }
     const toolReadyBeforeSave = await ensureCuttingPdfToolReady(); // toolReadyBeforeSave（選擇儲存位置前的工具狀態）
     if(toolReadyBeforeSave === null) return;
     if(!toolReadyBeforeSave){
-      alert('Không thể khởi động công cụ PDF. Vui lòng thử lại.\n無法啟動 PDF 工具，請再試一次。');
+      await cuttingMessage('Không thể khởi động công cụ PDF. Vui lòng thử lại.','無法啟動 PDF 工具，請再試一次。','danger');
       return;
     }
     const confirmedOrderLabel = await openCuttingOrderLabelDialog(state.orderLabel); // confirmedOrderLabel（使用者確認的 PDF 左上角內容）
@@ -2277,14 +2333,14 @@
     if(!saveHandle) return;
     const pdfToolReady = await cuttingCheckPdfToolStatus();
     if(!pdfToolReady){
-      alert('Chưa mở công cụ PDF trên máy này.\n本機尚未啟動 PDF 工具。');
+      await cuttingMessage('Chưa mở công cụ PDF trên máy này.','本機尚未啟動 PDF 工具。','warning');
       return;
     }
     const exportBtn = g('cut-export-filled-btn');
     try{
       if(exportBtn) exportBtn.disabled = true;
       openCuttingPdfProgress();
-      setCuttingPdfProgress(8, 'Đang chuẩn bị dữ liệu... / 正在準備資料...', 'Hệ thống đang kiểm tra mẫu và đơn hàng. / 系統正在確認模板與訂單。');
+      setCuttingPdfProgress(8,'Đang chuẩn bị dữ liệu…','正在準備資料…','Hệ thống đang kiểm tra mẫu và đơn hàng.','系統正在確認模板與訂單。');
       const cacheChecks = templateEntries.map(([templateId, results]) => {
         const template = state.templates.find(item => item.id === templateId);
         return {
@@ -2303,7 +2359,11 @@
         if(!/\.xlsx$/i.test(fileName)){
           hideCuttingPdfProgress();
           if(exportBtn) exportBtn.disabled = false;
-          alert(`Mẫu này không phải .xlsx: ${fileName}\n此模板不是 .xlsx：${fileName}\n\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`);
+          await cuttingMessage(
+            `Mẫu này không phải .xlsx: ${fileName}\nVui lòng dùng Excel lưu mẫu thành .xlsx rồi nhập lại.`,
+            `此模板不是 .xlsx：${fileName}\n請先用 Excel 將模板另存為 .xlsx 後重新匯入。`,
+            'warning'
+          );
           return;
         }
         const packageData = {
@@ -2316,8 +2376,10 @@
         if(!cachedTemplateIds.has(templateId)){
           setCuttingPdfProgress(
             Math.min(28, 12 + i * 4),
-            'Đang đọc file mẫu... / 正在讀取模板檔...',
-            `Đang chuẩn bị mẫu ${i + 1}/${templateEntries.length}.<br>正在準備第 ${i + 1}/${templateEntries.length} 個模板。`
+            'Đang đọc tệp mẫu…',
+            '正在讀取模板檔…',
+            `Đang chuẩn bị mẫu ${i + 1}/${templateEntries.length}.`,
+            `正在準備第 ${i + 1}/${templateEntries.length} 個模板。`
           );
           const sourceFile = await cuttingStore.getTemplateFile(templateId);
           if(!sourceFile) throw new Error(`Không tìm thấy file mẫu gốc: ${fileName}\n找不到原始模板檔：${fileName}`);
@@ -2327,7 +2389,7 @@
         }
         packages.push(packageData);
       }
-      setCuttingPdfProgress(28, 'Đang đóng gói dữ liệu... / 正在整理資料...', 'Đang chuẩn bị số lượng cần điền và vị trí ô. / 正在準備填寫數量與儲存格位置。');
+      setCuttingPdfProgress(28,'Đang đóng gói dữ liệu…','正在整理資料…','Đang chuẩn bị số lượng cần điền và vị trí ô.','正在準備填寫數量與儲存格位置。');
       const report = buildLocalPdfReport(exportableResults, state.results);
       const payload = packages.length === 1
         ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
@@ -2335,7 +2397,7 @@
       payload.report = report;
       payload.orderLabel = confirmedOrderLabel; // orderLabel（PDF 左上角內容）：完全依照匯出前輸入框的確認值。
       payload.pdfQuality = getSelectedPdfQuality(); // pdfQuality（PDF 品質）：standard（標準）或 high（高品質）。
-      setCuttingPdfProgress(35, 'Đang gửi sang máy này... / 正在傳送到本機後台...', 'Hệ thống sẽ tạo PDF theo thứ tự mẫu. / 系統會依模板順序產生 PDF。');
+      setCuttingPdfProgress(35,'Đang gửi sang máy này…','正在傳送到本機後台…','Hệ thống sẽ tạo PDF theo thứ tự mẫu.','系統會依模板順序產生 PDF。');
       startCuttingPdfProgressLoop();
       const response = await fetchCuttingPdfTool('/cutting/pdf', {
         method: 'POST',
@@ -2357,7 +2419,7 @@
         }
         throw new Error(msg || 'Lỗi máy tạo PDF / 本機 PDF 後台錯誤');
       }
-      setCuttingPdfProgress(96, 'Đang nhận file PDF... / 正在接收 PDF 檔...', 'PDF đã tạo xong, đang chuẩn bị lưu. / PDF 已產生，正在準備儲存。');
+      setCuttingPdfProgress(96,'Đang nhận tệp PDF…','正在接收 PDF 檔…','PDF đã tạo xong, đang chuẩn bị lưu.','PDF 已產生，正在準備儲存。');
       const pdfBlob = await response.blob();
       await writeCuttingFileToHandle(saveHandle, pdfBlob);
       if(window.saveOperationLogToFB){
@@ -2375,10 +2437,10 @@
           rememberCuttingHistoryLog(savedLog);
         }catch(logError){
           console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
-          alert('Đã lưu PDF, nhưng không thể lưu lịch sử thao tác.\nPDF 已儲存，但操作紀錄無法保存。');
+          await cuttingMessage('Đã lưu PDF, nhưng không thể lưu lịch sử thao tác.','PDF 已儲存，但操作紀錄無法保存。','warning');
         }
       }
-      setCuttingPdfProgress(100, 'Hoàn tất PDF. / PDF 完成。', 'Tệp đã được lưu vào vị trí đã chọn. / 檔案已儲存到選擇的位置。');
+      setCuttingPdfProgress(100,'Hoàn tất PDF.','PDF 完成。','Tệp đã được lưu vào vị trí đã chọn.','檔案已儲存到選擇的位置。','success');
       hideCuttingPdfProgress(1600);
     }catch(e){
       stopCuttingPdfProgressLoop();
@@ -2388,13 +2450,17 @@
       if(isLocalToolClosed){
         pdfToolKnownOnline = false;
         setCuttingPdfError(
-          'Chưa mở công cụ chuyển PDF trên máy này.<br>Bản PDF chưa được tạo.',
-          '本機尚未啟動 PDF 轉檔工具。<br>PDF 尚未產生。'
+          'Chưa mở công cụ chuyển PDF trên máy này.',
+          '本機尚未啟動 PDF 轉檔工具。',
+          'Bản PDF chưa được tạo.',
+          'PDF 尚未產生。'
         );
       }else{
         setCuttingPdfError(
-          'Tạo PDF thất bại.<br>產生 PDF 失敗。',
-          `Vui lòng chụp thông báo lỗi để kiểm tra.<br>請截圖錯誤訊息方便排查。<br><br><pre style="white-space:pre-wrap;margin:0">${esc(message)}</pre>`
+          'Tạo PDF thất bại.',
+          '產生 PDF 失敗。',
+          `Vui lòng chụp thông báo lỗi để kiểm tra.\n\n${message}`,
+          `請截圖錯誤訊息方便排查。\n\n${message}`
         );
       }
     }finally{

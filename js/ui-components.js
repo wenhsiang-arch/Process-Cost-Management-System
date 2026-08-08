@@ -80,8 +80,27 @@
     const iconNames = {info:'ti-info-circle',success:'ti-circle-check',warning:'ti-alert-triangle',danger:'ti-alert-circle'}; // iconNames（提示圖示表）
     const icon = createIcon(options.icon || iconNames[kind]); // icon（提示圖示）
     if(icon) notice.appendChild(icon);
-    if(options.text) notice.appendChild(textApi.create(options.text,{tagName:'div'}));
+    if(options.text){
+      notice.appendChild(options.long === true
+        ? createLanguageSections(options.text)
+        : textApi.create(options.text,{tagName:'div'}));
+    }
     return notice;
+  }
+
+  // createLanguageSections（建立長篇雙語區塊）：完整越文在前、完整中文在後，外觀不以字級或顏色區分。
+  function createLanguageSections(value){
+    const pair = textApi.resolve(value); // pair（長篇雙語內容）
+    const host = document.createElement('div'); // host（長篇雙語容器）
+    const vi = document.createElement('div'); // vi（完整越文區塊）
+    const zh = document.createElement('div'); // zh（完整中文區塊）
+    host.className = 'ui-language-sections';
+    vi.className = 'ui-language-section is-vi';
+    zh.className = 'ui-language-section is-zh';
+    vi.textContent = pair.vi;
+    zh.textContent = pair.zh;
+    host.append(vi,zh);
+    return host;
   }
 
   // appendDialogContent（加入視窗內容）：接受網頁節點或雙語文字，不接受網頁字串。
@@ -223,6 +242,107 @@
     });
   }
 
+  // alertDialog（共用訊息視窗）：取代瀏覽器原生提示，長內容使用先越文後中文的完整區塊。
+  function alertDialog(options = {}){
+    const config = typeof options === 'object' && options !== null ? options : {message:options}; // config（訊息視窗設定）
+    const kind = NOTICE_KINDS.has(config.kind) ? config.kind : 'info'; // kind（訊息種類）
+    const titleKeys = {info:'common.warning',success:'common.success',warning:'common.warning',danger:'common.error'}; // titleKeys（訊息標題文字鍵）
+    return new Promise(resolve=>{
+      let settled = false; // settled（訊息視窗是否已關閉）
+      const message = config.body && typeof config.body.nodeType === 'number'
+        ? config.body
+        : createLanguageSections(config.message || config.text || {vi:'',zh:''}); // message（訊息內容）
+      openDialog({
+        title:config.title || titleKeys[kind],
+        body:message,
+        size:config.size,
+        actions:[{text:'common.close',kind:kind === 'danger' ? 'danger' : '' ,onClick:()=>{ settled = true; resolve(true); }}],
+        onClose:()=>{ if(!settled) resolve(true); }
+      });
+    });
+  }
+
+  // promptDialog（共用輸入視窗）：以非阻塞視窗取代瀏覽器原生輸入框。
+  function promptDialog(options = {}){
+    return new Promise(resolve=>{
+      let settled = false; // settled（輸入結果是否已決定）
+      const field = document.createElement('div'); // field（輸入欄位容器）
+      const input = document.createElement(options.multiline === true ? 'textarea' : 'input'); // input（輸入元件）
+      field.className = 'ui-dialog-field';
+      if(options.label) field.appendChild(textApi.create(options.label,{tagName:'label'}));
+      if(input.tagName === 'INPUT') input.type = String(options.type || 'text');
+      input.value = String(options.value ?? '');
+      if(options.placeholder) input.placeholder = textApi.assistiveLabel(options.placeholder);
+      if(Number.isFinite(Number(options.maxLength))) input.maxLength = Number(options.maxLength);
+      field.appendChild(input);
+      openDialog({
+        title:options.title || 'common.confirm',
+        body:field,
+        actions:[
+          {text:'common.cancel',onClick:()=>{ settled = true; resolve(null); }},
+          {text:'common.confirm',kind:'primary',onClick:()=>{
+            const value = input.value; // value（使用者輸入內容）
+            if(typeof options.validate === 'function' && options.validate(value,input) === false) return false;
+            settled = true;
+            resolve(value);
+            return true;
+          }}
+        ],
+        onClose:()=>{ if(!settled) resolve(null); }
+      });
+      setTimeout(()=>input.focus(),0);
+    });
+  }
+
+  // progressDialog（共用長時間工作進度視窗）：功能程式只提供進度與文字，元件負責一致顯示。
+  function progressDialog(options = {}){
+    const body = document.createElement('div'); // body（進度內容容器）
+    const messageHost = document.createElement('div'); // messageHost（目前工作文字）
+    const track = document.createElement('div'); // track（進度軌道）
+    const bar = document.createElement('div'); // bar（進度色條）
+    const detailHost = document.createElement('div'); // detailHost（進度補充文字）
+    body.className = 'ui-progress';
+    track.className = 'ui-progress-track';
+    bar.className = 'ui-progress-bar';
+    detailHost.className = 'ui-progress-status';
+    track.appendChild(bar);
+    body.append(messageHost,track,detailHost);
+    const dialog = openDialog({
+      title:options.title || 'common.processing',
+      body,
+      closeOnEscape:options.allowClose === true,
+      closeOnBackdrop:false,
+      actions:options.allowClose === true ? [{text:'common.close'}] : [],
+      onClose:options.onClose
+    }); // dialog（進度視窗控制介面）
+
+    function setPair(host,value,long=false){
+      if(!value){ host.replaceChildren(); return; }
+      host.replaceChildren(long ? createLanguageSections(value) : textApi.create(value));
+    }
+
+    function update(state = {}){
+      const value = Math.max(0,Math.min(100,Number(state.value) || 0)); // value（百分比進度）
+      body.classList.toggle('is-indeterminate',state.indeterminate === true);
+      body.classList.toggle('is-success',state.kind === 'success');
+      body.classList.toggle('is-danger',state.kind === 'danger');
+      if(state.indeterminate !== true) bar.style.width = `${value}%`;
+      if(state.text) setPair(messageHost,state.text,state.long === true);
+      if(state.detail !== undefined) setPair(detailHost,state.detail,state.detailLong === true);
+      return controller;
+    }
+
+    const controller = Object.freeze({ // controller（共用進度控制介面）
+      element:dialog.element,
+      update,
+      close:dialog.close,
+      complete:(text,detail)=>update({value:100,text,detail,kind:'success'}),
+      fail:(text,detail)=>update({value:100,text,detail,kind:'danger'})
+    });
+    update({value:options.value,text:options.text,detail:options.detail,indeterminate:options.indeterminate === true});
+    return controller;
+  }
+
   // createOtherActions（建立其他操作入口）：把低頻操作收進共用視窗，避免主操作區過度擁擠。
   function createOtherActions(options = {}){
     return createButton({
@@ -285,8 +405,12 @@
   window.PCMSUIComponents = Object.freeze({ // PCMSUIComponents（共用介面元件介面）
     createButton,
     createNotice,
+    createLanguageSections,
     openDialog,
     confirmDialog,
+    alertDialog,
+    promptDialog,
+    progressDialog,
     createOtherActions,
     isActionRunning,
     runActionOnce,

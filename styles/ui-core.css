@@ -62,6 +62,27 @@
   font-weight: 400;
 }
 
+/* ui-language-sections（長篇雙語內容）：先完整越文、再完整中文，兩區使用相同字級與顏色。 */
+.ui-language-sections {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: 1.65;
+}
+
+.ui-language-section {
+  min-width: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
 .ui-page {
   position: relative;
   min-width: 0;
@@ -95,6 +116,112 @@
   color: var(--ui-color-text-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.ui-page-card {
+  min-width: 0;
+  padding: var(--ui-space-4);
+  border: var(--ui-border-width) solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+}
+
+.ui-page-card + .ui-page-card {
+  margin-top: var(--ui-space-3);
+}
+
+.ui-section-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--ui-space-2);
+  margin-bottom: var(--ui-space-3);
+  padding-bottom: var(--ui-space-3);
+  border-bottom: var(--ui-border-width) solid var(--ui-color-border);
+  color: var(--ui-color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ui-section-title > i {
+  flex: 0 0 auto;
+  color: var(--ui-color-primary);
+  font-size: 18px;
+}
+
+.ui-form-grid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui-space-3);
+}
+
+.ui-form-grid.is-two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ui-form-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ui-form-field > label {
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ui-form-field input,
+.ui-form-field select,
+.ui-form-field textarea,
+.ui-dialog-field input,
+.ui-dialog-field select,
+.ui-dialog-field textarea {
+  width: 100%;
+  min-height: var(--ui-control-height-single);
+  padding: 7px 10px;
+  border: var(--ui-border-width) solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.ui-form-field textarea,
+.ui-dialog-field textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+.ui-form-field input:focus,
+.ui-form-field select:focus,
+.ui-form-field textarea:focus,
+.ui-dialog-field input:focus,
+.ui-dialog-field select:focus,
+.ui-dialog-field textarea:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.ui-empty-state {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  padding: var(--ui-space-5);
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+.ui-empty-state > i {
+  color: var(--ui-color-text-subtle);
+  font-size: 34px;
 }
 
 .ui-tabs {
@@ -407,6 +534,64 @@
   color: var(--ui-color-danger-text);
 }
 
+.ui-dialog-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+}
+
+.ui-dialog-field > label {
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ui-progress {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.ui-progress-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--ui-color-border);
+  overflow: hidden;
+}
+
+.ui-progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui-color-primary);
+  transition: width var(--ui-motion-fast);
+}
+
+.ui-progress.is-indeterminate .ui-progress-bar {
+  width: 42%;
+  animation: ui-progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+.ui-progress-status {
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+}
+
+.ui-progress.is-success .ui-progress-bar {
+  background: var(--ui-color-success-text);
+}
+
+.ui-progress.is-danger .ui-progress-bar {
+  background: var(--ui-color-danger-text);
+}
+
+@keyframes ui-progress-indeterminate {
+  0% { transform: translateX(-105%); }
+  100% { transform: translateX(245%); }
+}
+
 .ui-dialog-backdrop {
   position: fixed;
   inset: 0;
@@ -536,6 +721,10 @@
 }
 
 @media (max-width: 1365px) {
+  .ui-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .ui-action-bar {
     flex-wrap: wrap;
   }

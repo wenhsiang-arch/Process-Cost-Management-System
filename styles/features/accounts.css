@@ -1,0 +1,82 @@
+/* accounts.css（帳號與權限頁樣式）：只調整外觀，不改帳號或權限判斷。 */
+#pg-accounts .card,
+#pg-permissions .card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  box-shadow: none;
+}
+
+#pg-accounts .accounts-description,
+#pg-permissions .permissions-description {
+  margin-bottom: 14px;
+  color: var(--ui-color-text);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+#pg-accounts .to {
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+}
+
+#pg-accounts th {
+  background: var(--ui-color-table-header);
+  color: var(--ui-color-text);
+}
+
+#pg-accounts .account-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#pg-accounts .accounts-empty {
+  padding: 24px;
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+#pg-accounts .accounts-uid {
+  max-width: 260px;
+  font-family: var(--font-mono,monospace);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+#pg-permissions .permission-role-tabs {
+  gap: 8px;
+}
+
+#pg-permissions .permission-role-card,
+#pg-permissions .permission-module {
+  border-color: var(--ui-color-border);
+  box-shadow: none;
+}
+
+#pg-permissions .permission-module-head {
+  background: var(--ui-color-table-header);
+}
+
+#pg-permissions .permission-selected-title {
+  background: var(--ui-color-navigation-background);
+}
+
+#pg-permissions .permission-selected-title small {
+  color: rgba(255,255,255,.82);
+  font-size: 11px;
+}
+
+#pg-permissions .permission-paused {
+  display: grid;
+  gap: 3px;
+  line-height: 1.45;
+}
+
+#m-nacc .md,
+#m-eacc .md {
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-dialog);
+}

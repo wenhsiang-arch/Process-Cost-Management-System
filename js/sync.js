@@ -1,10 +1,26 @@
 // ===== 工序秒數同步工具 =====
 const syncSafeText=value=>window.PCMSSafe.text(value); // syncSafeText（工序同步安全文字）
 const syncSafeAttr=value=>window.PCMSSafe.attribute(value); // syncSafeAttr（工序同步安全屬性）
+let secondSyncProgressController=null; // secondSyncProgressController（工序秒數同步共用進度視窗控制介面）
+
+function syncMessage(vi,zh,kind='info'){
+  return window.PCMSUIComponents?.alertDialog?.({message:{vi,zh},kind})||Promise.resolve(false);
+}
+
+function syncConfirmDialog(vi,zh){
+  const ui=window.PCMSUIComponents; // ui（共用介面元件）
+  if(typeof ui?.confirmDialog!=='function') return Promise.resolve(false);
+  return ui.confirmDialog({
+    title:{vi:'Xác nhận đồng bộ',zh:'確認同步'},
+    body:ui.createLanguageSections({vi,zh})
+  });
+}
 
 function syncInit(){
   const sel = g('sync-order');
   if(!sel) return;
+  secondSyncProgressController?.close('program');
+  secondSyncProgressController=null;
   sel.innerHTML = '<option value="">-- Chọn đơn hàng / 選擇訂單 --</option>';
   (window.allOrders||[]).filter(isOrderUsable).forEach(o=>{
     const opt = document.createElement('option');
@@ -42,7 +58,10 @@ async function syncLoadProcs(){
       procSel.appendChild(opt);
     });
     window._syncProcs = procs;
-  }catch(e){ alert('載入失敗：'+e.message); }
+  }catch(e){
+    console.error('Không thể tải dữ liệu đồng bộ / 同步資料載入失敗',e);
+    await syncMessage('Không thể tải dữ liệu đồng bộ.','同步資料載入失敗。','danger');
+  }
 }
 
 function syncLoadTable(){
@@ -57,10 +76,10 @@ function syncLoadTable(){
       <td style="padding:8px 10px;font-size:13px"><b>${syncSafeText(p.code)}</b></td>
       <td style="padding:8px 10px;font-size:13px">${syncSafeText(p.color||'-')}</td>
       <td style="padding:8px 10px;font-size:13px">${syncSafeText(p.sz||'-')}</td>
-      <td style="padding:8px 10px;text-align:right;font-size:13px">${p.workStdSec||p.processSec||0} 秒</td>
-      <td style="padding:8px 10px;text-align:right;font-size:13px">${p.slPerHour||0} 件/時</td>
+      <td style="padding:8px 10px;text-align:right;font-size:13px">${p.workStdSec||p.processSec||0} giây / 秒</td>
+      <td style="padding:8px 10px;text-align:right;font-size:13px">${p.slPerHour||0} sản phẩm/giờ / 件/時</td>
       <td style="padding:8px 10px;text-align:center">
-        <input type="number" min="1" max="999" placeholder="秒" id="sync-inp-${i}"
+        <input type="number" min="1" max="999" placeholder="Giây / 秒" id="sync-inp-${i}"
           data-proc-id="${syncSafeAttr(p.id)}" data-code="${syncSafeAttr(p.code)}" data-old-sec="${Number(p.workStdSec||p.processSec||0)}"
           style="width:80px;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;font-size:13px;text-align:center"
           oninput="syncUpdatePreview(${i})">
@@ -78,7 +97,7 @@ function syncUpdatePreview(i){
   const oldSec = parseInt(inp.dataset.oldSec)||0;
   if(val>0){
     const newSlph = Math.round((window.S?.ws||3000)/val);
-    prev.textContent = newSlph + ' 件/時';
+    prev.textContent = newSlph + ' sản phẩm/giờ / 件/時';
     prev.style.color = val<oldSec?'var(--ok)':val>oldSec?'var(--err)':'var(--accent)';
   } else {
     prev.textContent = '-';
@@ -92,7 +111,9 @@ function syncUpdateCount(){
   let n = 0;
   inputs.forEach(inp=>{ if(parseInt(inp.value)>0) n++; });
   const el = g('sync-count');
-  if(el) el.textContent = n>0 ? '將更新 '+n+' 筆 / Sẽ cập nhật '+n+' mục' : '尚未輸入新秒數 / Chưa nhập giây mới';
+  if(el) el.replaceChildren(window.PCMSUIText.create(n>0
+    ? {vi:`Sẽ cập nhật ${n} mục`,zh:`將更新 ${n} 筆`}
+    : {vi:'Chưa nhập giây mới',zh:'尚未輸入新秒數'}));
 }
 
 function syncClear(){
@@ -103,10 +124,35 @@ function syncClear(){
 
 function setSecondSyncProgress(percent,vi,zh,retry=false){
   g('sync-table-wrap').style.display='block';
-  g('sync-progress-wrap').style.display='block';
-  g('sync-progress-bar').style.width=Math.max(0,Math.min(100,percent))+'%';
-  g('sync-progress-text').innerHTML=`<div>${syncSafeText(vi)}</div><div style="margin-top:3px;color:var(--mu)">${syncSafeText(zh)}</div>`;
-  g('sync-retry-btn').style.display=retry?'':'none';
+  const wrap=g('sync-progress-wrap');
+  const retryButton=g('sync-retry-btn'); // retryButton（未完成同步的繼續按鈕）
+  if(retry){
+    secondSyncProgressController?.fail({vi,zh},{vi:'Có thể tiếp tục đồng bộ từ trạng thái hiện tại.',zh:'可從目前狀態繼續同步。'});
+    secondSyncProgressController?.close('program');
+    secondSyncProgressController=null;
+    if(wrap) wrap.style.display='block';
+    g('sync-progress-bar').style.width='0%';
+    g('sync-progress-text').replaceChildren(window.PCMSUIComponents.createLanguageSections({vi,zh}));
+    if(retryButton) retryButton.style.display='';
+    return;
+  }
+  if(wrap) wrap.style.display='none';
+  if(retryButton) retryButton.style.display='none';
+  const value=Math.max(0,Math.min(100,Number(percent)||0)); // value（工序秒數同步百分比進度）
+  const textPair={vi:String(vi||''),zh:String(zh||'')}; // textPair（工序秒數同步雙語進度文字）
+  const detailPair={vi:'Vui lòng chờ, không đóng cửa sổ này.',zh:'請稍候，不要關閉此視窗。'}; // detailPair（工序秒數同步雙語補充文字）
+  if(!secondSyncProgressController){
+    secondSyncProgressController=window.PCMSUIComponents.progressDialog({
+      title:{vi:'Tiến độ đồng bộ số giây',zh:'工序秒數同步進度'},
+      value,
+      text:textPair,
+      detail:detailPair,
+      onClose:()=>{ secondSyncProgressController=null; }
+    });
+  }else{
+    secondSyncProgressController.update({value,text:textPair,detail:detailPair});
+  }
+  if(value>=100) secondSyncProgressController.complete(textPair,detailPair);
 }
 
 async function createSecondSyncJob(ordId,procNo,updates){
@@ -190,26 +236,30 @@ async function syncRetry(){
     const result=await runSecondSyncJob(window._secondSyncRetryJobId);
     await reloadProcesses({orderId:result.orderId,force:true});
     syncInit();
-    alert('✅ Đồng bộ hoàn tất / 同步完成');
+    await syncMessage('Đồng bộ hoàn tất.','同步完成。','success');
   }catch(e){
     try{ await window._updateDoc(window._doc(COL.secondSyncLogs,window._secondSyncRetryJobId),{status:'failed',lastError:e.message,failedAt:Date.now()}); }catch(_){}
     setSecondSyncProgress(0,'Đồng bộ chưa hoàn tất. Vui lòng tiếp tục.','同步尚未完成，請繼續同步。',true);
-    alert('同步失敗：'+e.message);
+    console.error('Đồng bộ thất bại / 同步失敗',e);
+    await syncMessage('Đồng bộ thất bại. Vui lòng tiếp tục để thử lại.','同步失敗，請按繼續重新嘗試。','danger');
   }
 }
 
 async function syncConfirm(){
   const ordId=g('sync-order').value, procNo=g('sync-proc').value;
-  if(!ordId||!procNo){ alert('請先選擇訂單與工序'); return; }
+  if(!ordId||!procNo){ await syncMessage('Vui lòng chọn đơn hàng và công đoạn trước.','請先選擇訂單與工序。','warning'); return; }
   const updates=[];
   document.querySelectorAll('[id^=sync-inp-]').forEach(inp=>{
     const newSec=parseInt(inp.value);
     if(newSec>0) updates.push({procId:inp.dataset.procId,code:inp.dataset.code,oldSec:parseInt(inp.dataset.oldSec)||0,newSec});
   });
-  if(!updates.length){ alert('請至少輸入一筆新秒數 / Vui lòng nhập ít nhất 1 giây mới'); return; }
-  if(!confirm(`Phạm vi ảnh hưởng: ${updates.length} công đoạn.\nXác nhận đồng bộ đơn hàng + công đoạn này?\n\n影響範圍：${updates.length} 筆工序。\n確認同步此訂單＋工序號？`)) return;
+  if(!updates.length){ await syncMessage('Vui lòng nhập ít nhất một giá trị giây mới.','請至少輸入一筆新秒數。','warning'); return; }
+  if(!await syncConfirmDialog(
+    `Phạm vi ảnh hưởng: ${updates.length} công đoạn.\nXác nhận đồng bộ đơn hàng và công đoạn này?`,
+    `影響範圍：${updates.length} 筆工序。\n確認同步此訂單與工序號？`
+  )) return;
   const btn=document.querySelector('#pg-sync .btn.bp');
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> 同步中...'; }
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i><span class="ui-bilingual"><span class="ui-text-vi">Đang đồng bộ</span><span class="ui-text-zh">同步中</span></span>'; }
   try{
     window._secondSyncRetryJobId=null;
     setSecondSyncProgress(5,'Đang khóa đơn hàng để đồng bộ.','正在鎖定訂單進行同步。');
@@ -218,14 +268,15 @@ async function syncConfirm(){
     const result=await runSecondSyncJob(jobId);
     await reloadProcesses({orderId:result.orderId,force:true});
     syncInit();
-    alert('✅ Đồng bộ hoàn tất / 同步完成');
+    await syncMessage('Đồng bộ hoàn tất.','同步完成。','success');
   }catch(e){
     if(window._secondSyncRetryJobId){
       try{ await window._updateDoc(window._doc(COL.secondSyncLogs,window._secondSyncRetryJobId),{status:'failed',lastError:e.message,failedAt:Date.now()}); }catch(_){}
     }
     setSecondSyncProgress(0,'Đồng bộ chưa hoàn tất. Vui lòng tiếp tục.','同步尚未完成，請繼續同步。',!!window._secondSyncRetryJobId);
-    alert('同步失敗：'+e.message);
+    console.error('Đồng bộ thất bại / 同步失敗',e);
+    await syncMessage('Đồng bộ thất bại. Vui lòng tiếp tục để thử lại.','同步失敗，請按繼續重新嘗試。','danger');
   }finally{
-    if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i>Xác nhận đồng bộ / 確認同步'; }
+    if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận đồng bộ</span><span class="ui-text-zh">確認同步</span></span>'; }
   }
 }

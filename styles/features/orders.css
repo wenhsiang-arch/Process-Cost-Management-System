@@ -1,0 +1,189 @@
+/* orders.css（訂單功能樣式）：只整理訂單頁與其視窗，不改資料或計算。 */
+#pg-progress {
+  min-width: 0;
+}
+
+#pg-progress > .card {
+  padding: 16px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+}
+
+#pg-progress .ct-title {
+  min-height: 40px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  color: var(--ui-color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#pg-progress .order-manager-panel {
+  border-color: var(--ui-color-operation-border);
+  background: var(--ui-color-operation-background);
+  box-shadow: none;
+}
+
+#pg-progress .order-manager-toggle {
+  min-height: 58px;
+  background: var(--ui-color-surface);
+}
+
+#pg-progress .order-manager-toggle:hover,
+#pg-progress .order-manager-panel.open .order-manager-toggle {
+  background: var(--ui-color-primary-soft);
+}
+
+#pg-progress .orders-manager-copy {
+  gap: 4px;
+}
+
+#pg-progress .orders-manager-copy .ui-language-section {
+  display: grid;
+  gap: 2px;
+}
+
+#pg-progress .order-manager-body {
+  padding: 14px;
+  background: var(--ui-color-surface);
+}
+
+#pg-progress .order-import-action,
+#pg-progress .orders-filter-row {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+#pg-progress .orders-filter-row input,
+#pg-progress .orders-filter-row select,
+#pg-progress #ord-q,
+#pg-progress #ord-status-filter,
+#pg-progress #prog-sel,
+#pg-progress #prog-code-q {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font-size: 13px;
+}
+
+#pg-progress .to,
+#pg-progress #prog-content > div {
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  overflow-x: auto;
+}
+
+#pg-progress table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#pg-progress .orders-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+#pg-progress .orders-progress-table {
+  min-width: 1080px;
+}
+
+#pg-progress .orders-progress-row {
+  cursor: pointer;
+}
+
+#pg-progress .orders-date-input {
+  width: 130px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font-size: 12px;
+}
+
+#pg-progress th {
+  background: var(--ui-color-table-header) !important;
+  color: var(--ui-color-text) !important;
+  line-height: 1.25;
+  vertical-align: middle;
+}
+
+#pg-progress td {
+  min-height: 40px;
+  border-bottom: 1px solid var(--ui-color-border);
+  vertical-align: middle;
+}
+
+#pg-progress tbody tr:hover > td {
+  background: var(--ui-color-row-hover);
+}
+
+#pg-progress .orders-empty,
+#pg-progress .orders-loading,
+#pg-progress .orders-error {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+#pg-progress .orders-error {
+  color: var(--ui-color-danger-text);
+}
+
+#pg-progress .ui-empty-state.is-danger {
+  color: var(--ui-color-danger-text);
+}
+
+#pg-progress .orders-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#pg-progress .orders-state {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--ui-color-surface-muted);
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+}
+
+#pg-progress .orders-state.is-danger {
+  background: var(--ui-color-danger-background);
+  color: var(--ui-color-danger-text);
+}
+
+#m-import-order .md,
+#m-order-qty-adjust .md,
+#m-order-adjust-history .md,
+#m-order-delete-warning .md,
+#m-order-delete .md {
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-dialog);
+}
+
+@media (max-width: 1365px) {
+  #pg-progress #prog-sel,
+  #pg-progress #prog-code-q {
+    flex: 1 1 220px;
+  }
+}

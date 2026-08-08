@@ -1,21 +1,26 @@
 // features（功能中央清單）：統一管理導覽、頁面、權限、程式依賴、資料載入與進入頁面動作。
 (function(){
   const SCRIPT_URLS = Object.freeze({
-    settings:'js/settings.js?v=20260806-2',
+    settings:'js/settings.js?v=20260808-1',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
-    summary:'js/summary.js?v=20260805-1',
-    data:'js/data.js?v=20260806-5',
+    summary:'js/summary.js?v=20260808-1',
+    data:'js/data.js?v=20260808-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260808-6',
-    accounts:'js/accounts.js?v=20260806-4',
-    orders:'js/orders.js?v=20260806-3',
-    sync:'js/sync.js?v=20260806-2',
-    permissions:'js/permissions.js?v=20260806-5'
+    cutting:'js/cutting.js?v=20260808-7',
+    accounts:'js/accounts.js?v=20260808-1',
+    orders:'js/orders.js?v=20260808-1',
+    sync:'js/sync.js?v=20260808-1',
+    permissions:'js/permissions.js?v=20260808-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260808-7'
+    cutting:'styles/features/cutting.css?v=20260808-9',
+    orders:'styles/features/orders.css?v=20260808-2',
+    products:'styles/features/products.css?v=20260808-2',
+    sync:'styles/features/sync.css?v=20260808-1',
+    cost:'styles/features/cost.css?v=20260808-2',
+    accounts:'styles/features/accounts.css?v=20260808-2'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -25,6 +30,7 @@
       pages:[
         {
           page:'progress',feature:'progress',icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
+          styles:['orders'],
           // data（資料與報表程式）目前仍提供訂單明細共用的工序分類文字；待後續拆出共用工具。
           scripts:['productCache','orderProcessCache','data','orders'],
           dataLoaders:['ensureOperationSettingsLoaded','loadOrderData'],
@@ -38,6 +44,7 @@
       pages:[
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
+          styles:['products'],
           scripts:['productCache','summary','data'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
@@ -71,6 +78,7 @@
       pages:[
         {
           page:'sync',feature:'sync',icon:'ti-refresh',vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步',
+          styles:['sync'],
           scripts:['orderProcessCache','orders','sync'],
           dataLoaders:['ensureOperationSettingsLoaded','reloadOrders'],
           onOpen:['syncInit']
@@ -83,16 +91,18 @@
       pages:[
         {
           page:'settings',feature:'settings',icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定',
+          styles:['cost'],
           scripts:['summary','data','settings'],
           dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded'],
           onOpen:['rAll']
         },
         {
           page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄',
-          scripts:['data'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
+          styles:['cost'],scripts:['data'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
         },
         {
           page:'export',feature:'export',icon:'ti-download',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出',
+          styles:['cost'],
           scripts:['productCache','data'],
           dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded','ensureProductsLoaded'],
           onOpen:['rExp']
@@ -105,11 +115,11 @@
       pages:[
         {
           page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理',
-          scripts:['accounts'],dataLoaders:[],onOpen:['loadAccounts']
+          styles:['accounts'],scripts:['accounts'],dataLoaders:[],onOpen:['loadAccounts']
         },
         {
           page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理',
-          scripts:['permissions'],dataLoaders:[],onOpen:['renderPermissions']
+          styles:['accounts'],scripts:['permissions'],dataLoaders:[],onOpen:['renderPermissions']
         }
       ]
     }

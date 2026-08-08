@@ -1,0 +1,92 @@
+/* products.css（款號功能樣式）：整理款號總表、匯入與備份視窗。 */
+#pg-summary {
+  min-width: 0;
+}
+
+#pg-summary .detail-import-drop {
+  min-height: 70px;
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+}
+
+#pg-summary .detail-import-drop:hover,
+#pg-summary .detail-import-drop.dragging {
+  background: var(--ui-color-primary-soft);
+}
+
+#pg-summary .mg {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  margin: 12px 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  overflow: hidden;
+}
+
+#pg-summary .mc {
+  min-width: 0;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+#pg-summary .mc + .mc {
+  border-left: 1px solid var(--ui-color-border);
+}
+
+#pg-summary .ml,
+#pg-summary .mvi {
+  color: var(--ui-color-text-muted);
+}
+
+#pg-summary .mv {
+  color: var(--ui-color-text);
+}
+
+#pg-summary .sr {
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+#pg-summary .sw {
+  flex: 1 1 280px;
+}
+
+#pg-summary #s-client {
+  min-width: 180px;
+  min-height: 36px;
+}
+
+#pg-summary .to {
+  border-color: var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+}
+
+#pg-summary th {
+  background: var(--ui-color-table-header);
+  color: var(--ui-color-text);
+}
+
+#pg-summary .summary-detail-row td,
+#pg-summary .summary-detail-cell,
+#pg-summary .summary-detail-wrap {
+  background: var(--ui-color-primary-soft);
+}
+
+#m-import .md,
+#m-history .md,
+#m-backup .md,
+#m-del .md {
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-dialog);
+}
+
+@media (max-width: 1365px) {
+  #pg-summary .sr .btn {
+    flex: 0 0 auto;
+  }
+}

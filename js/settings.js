@@ -3,6 +3,14 @@
 function canEditCostSettings(){
   return typeof canOpenPage==='function'&&canOpenPage('settings');
 }
+function settingsMessage(vi,zh,kind='info'){
+  return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
+}
+function setSettingsStatus(element,vi,zh,color){
+  if(!element) return;
+  element.replaceChildren(window.PCMSUIText.create({vi,zh}));
+  if(color) element.style.color=color;
+}
 function readSettingNumber(id,fallback,min=0,max=null,writeBack=false){
   const el=g(id);
   let v=Number(el?.value);
@@ -19,14 +27,14 @@ function aCC(){  if(window.S.mc) return;
 
 function onMC(){
   const v=+g('ss-tc').value; window.S.mc=v||null;
-  const tg=g('ct-tag'); tg.className=v?'mt':'at'; tg.textContent=v?'手動':'自動';
+  const tg=g('ct-tag'); tg.className=v?'mt':'at'; tg.innerHTML=v?'Thủ công<br>手動':'Tự động<br>自動';
   if(!window.S.mh&&v) g('ss-hr').value=Math.round(v/208);
   rAll();
 }
 
 function onMH(){
   const v=+g('ss-hr').value; window.S.mh=v||null;
-  const tg=g('ht-tag'); tg.className=v?'mt':'at'; tg.textContent=v?'手動':'自動';
+  const tg=g('ht-tag'); tg.className=v?'mt':'at'; tg.innerHTML=v?'Thủ công<br>手動':'Tự động<br>自動';
   rAll();
 }
 
@@ -57,7 +65,7 @@ function rAll(){
 
 async function saveSt(){
   if(!canEditCostSettings()){
-    alert('Không có quyền cài đặt chi phí / 沒有成本設定權限');
+    await settingsMessage('Không có quyền cài đặt chi phí.','沒有成本設定權限。','warning');
     return false;
   }
   const prevS={...window.S};
@@ -95,13 +103,13 @@ async function saveSt(){
     rAll(); uEff();
     const n=g('st-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
     if(ch.length>0&&!savedLog){
-      alert('Đã lưu cài đặt, nhưng không thể lưu lịch sử thao tác.\n設定已儲存，但操作紀錄無法保存。');
+      await settingsMessage('Đã lưu cài đặt, nhưng không thể lưu lịch sử thao tác.','設定已儲存，但操作紀錄無法保存。','warning');
     }
   }catch(e){
     window.S=prevS;
     window.cLog=prevClog;
     rAll(); uEff(); rClog();
-    alert('Lưu cài đặt thất bại, vui lòng kiểm tra mạng rồi thử lại.\n保存設定失敗，請確認網路後再試一次。');
+    await settingsMessage('Lưu cài đặt thất bại, vui lòng kiểm tra mạng rồi thử lại.','儲存設定失敗，請確認網路後再試一次。','danger');
   }
 }
 
@@ -110,7 +118,7 @@ async function fetchRates(){
   if(!canEditCostSettings()) return;
   const btn=g('btn-fetchrate'), info=g('rate-updated');
   if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>'; }
-  if(info){ info.textContent='抓取中... / Đang tải...'; info.style.color='var(--hi)'; }
+  setSettingsStatus(info,'Đang tải...','抓取中...','var(--hi)');
   try{
     const res=await fetch('https://open.er-api.com/v6/latest/USD');
     if(!res.ok) throw new Error('API 錯誤');
@@ -124,11 +132,11 @@ async function fetchRates(){
     if(twdEl) twdEl.value=vndPerTwd;
     rAll();
     const now=new Date().toLocaleString('zh-TW');
-    if(info){ info.textContent='✓ 更新於 '+now; info.style.color='var(--ok)'; }
+    setSettingsStatus(info,`✓ Cập nhật lúc ${now}`,`✓ 更新於 ${now}`,'var(--ok)');
     const infoTwd=g('rate-updated-twd');
-    if(infoTwd){ infoTwd.textContent='✓ 更新於 '+now; infoTwd.style.color='var(--ok)'; }
+    setSettingsStatus(infoTwd,`✓ Cập nhật lúc ${now}`,`✓ 更新於 ${now}`,'var(--ok)');
   }catch(e){
-    if(info){ info.textContent='⚠ 抓取失敗，使用手動值 / Lấy tỷ giá thất bại'; info.style.color='var(--warn)'; }
+    setSettingsStatus(info,'⚠ Lấy tỷ giá thất bại, dùng giá trị thủ công.','⚠ 抓取失敗，使用手動值。','var(--warn)');
     console.error('fetchRates error:', e);
   }finally{
     if(btn){ btn.disabled=false; btn.innerHTML='<i class="ti ti-refresh"></i>'; }

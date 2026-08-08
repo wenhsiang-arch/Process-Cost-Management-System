@@ -1,8 +1,29 @@
 // ===== 匯入 =====
 let nItms=null, dups=[], detailImportFileName='';
+let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
 const dataSafeText=value=>window.PCMSSafe.text(value); // dataSafeText（資料畫面安全文字）
 const dataSafeError=error=>window.PCMSSafe.errorMessage(error); // dataSafeError（資料畫面安全錯誤訊息）
+function dataMessage(vi,zh,kind='info'){
+  return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
+}
+function setDataBilingual(targetId,vi,zh){
+  const target=g(targetId);
+  if(!target) return;
+  if(!vi&&!zh){ target.replaceChildren(); return; }
+  target.replaceChildren(window.PCMSUIComponents.createLanguageSections({vi:String(vi||''),zh:String(zh||'')}));
+}
+function splitDataBilingual(value){
+  return String(value||'').split('\n').reduce((result,line)=>{
+    const separator=line.lastIndexOf(' / ');
+    if(separator<0){ if(line){ result.vi.push(line); result.zh.push(line); } }
+    else{
+      result.vi.push(line.slice(0,separator));
+      result.zh.push(line.slice(separator+3));
+    }
+    return result;
+  },{vi:[],zh:[]});
+}
 function processCategoryLabel(code){ return PROCESS_CATEGORIES[code]||code||'—'; }
 
 function validateImportProcessRows(rows){
@@ -81,32 +102,57 @@ function validateRequiredImportFields(rows){
 function renderImportErrors(errors){
   const codes=[...new Set(errors.map(e=>e.code).filter(Boolean))];
   const shown=errors.slice(0,10);
-  let html=`<div>Phát hiện ${errors.length} lỗi trong ${codes.length} mã hàng.</div>
-    <div style="margin-bottom:8px">發現 ${codes.length} 個款號，共 ${errors.length} 筆錯誤。</div>`;
   const grouped={};
   shown.forEach(e=>{
     const code=e.code||'Khác / 其他';
     if(!grouped[code]) grouped[code]=[];
     grouped[code].push(e);
   });
-  Object.entries(grouped).forEach(([code,list])=>{
-    const total=errors.filter(e=>(e.code||'Khác / 其他')===code).length;
-    html+=`<div style="margin-top:8px;font-weight:600">▼ ${dataSafeText(code)}　${total} lỗi / ${total} 筆錯誤</div>`;
-    list.forEach(e=>{
-      html+=`<div style="margin:5px 0 0 18px">${dataSafeText(e.vi)}<br><span style="color:var(--err)">${dataSafeText(e.zh)}</span></div>`;
+  const buildLanguage=(language,summary,more)=>{
+    let content=`<div>${summary}</div>`;
+    Object.entries(grouped).forEach(([code,list])=>{
+      const total=errors.filter(e=>(e.code||'Khác / 其他')===code).length;
+      content+=`<div style="margin-top:8px;font-weight:600">▼ ${dataSafeText(code)}　${total} ${language==='vi'?'lỗi':'筆錯誤'}</div>`;
+      list.forEach(error=>{ content+=`<div style="margin:5px 0 0 18px">${dataSafeText(error[language])}</div>`; });
     });
-  });
-  if(errors.length>10) html+=`<div style="margin-top:10px">Hiển thị 10/${errors.length} lỗi.<br>目前顯示 10/${errors.length} 筆錯誤。</div>`;
-  return html;
+    if(errors.length>10) content+=`<div style="margin-top:10px">${more}</div>`;
+    return content;
+  }; // buildLanguage（建立單一語言錯誤內容）
+  const vi=buildLanguage('vi',`Phát hiện ${errors.length} lỗi trong ${codes.length} mã hàng.`,`Hiển thị 10/${errors.length} lỗi.`);
+  const zh=buildLanguage('zh',`發現 ${codes.length} 個款號，共 ${errors.length} 筆錯誤。`,`目前顯示 10/${errors.length} 筆錯誤。`);
+  return `<div class="ui-language-sections"><div class="ui-language-section">${vi}</div><div class="ui-language-section">${zh}</div></div>`;
 }
 
 function setProg(p,l,s){
-  g('pw-wrap').style.display='block';
-  g('pw-bar').style.width=p+'%';
-  g('pw-label').textContent=l;
-  g('pw-sub').textContent=s||'';
+  const wrap=g('pw-wrap');
+  if(wrap) wrap.style.display='none';
+  const labelPair=splitDataBilingual(l);
+  const subPair=splitDataBilingual(s||'');
+  const value=Math.max(0,Math.min(100,Number(p)||0)); // value（產品匯入百分比進度）
+  const textPair={vi:labelPair.vi.join('\n'),zh:labelPair.zh.join('\n')}; // textPair（產品匯入雙語進度文字）
+  const detailPair={
+    vi:subPair.vi.join('\n')||'Vui lòng chờ, không đóng cửa sổ này.',
+    zh:subPair.zh.join('\n')||'請稍候，不要關閉此視窗。'
+  }; // detailPair（產品匯入雙語補充文字）
+  if(!dataImportProgressController){
+    dataImportProgressController=window.PCMSUIComponents.progressDialog({
+      title:{vi:'Tiến độ nhập dữ liệu sản phẩm',zh:'產品資料匯入進度'},
+      value,
+      text:textPair,
+      detail:detailPair,
+      onClose:()=>{ dataImportProgressController=null; }
+    });
+  }else{
+    dataImportProgressController.update({value,text:textPair,detail:detailPair});
+  }
+  if(value>=100) dataImportProgressController.complete(textPair,detailPair);
 }
-function hideProg(){ g('pw-wrap').style.display='none'; }
+function hideProg(){
+  const wrap=g('pw-wrap');
+  if(wrap) wrap.style.display='none';
+  dataImportProgressController?.close('program');
+  dataImportProgressController=null;
+}
 
 function resetDetailImportDisplay(){
   ['imp-prev','dup-warn','imp-ok','imp-err'].forEach(id=>g(id).style.display='none');
@@ -143,7 +189,7 @@ function handleDetailImportDrop(event){
   openDetailImportModal();
   if(!/\.(xlsx|xls)$/i.test(file.name)){
     g('imp-err').style.display='flex';
-    g('imp-err-msg').textContent='只支援 .xlsx 或 .xls 檔案';
+    setDataBilingual('imp-err-msg','Chỉ hỗ trợ tệp .xlsx hoặc .xls.','只支援 .xlsx 或 .xls 檔案。');
     return;
   }
   processDetailImportFile(file);
@@ -162,7 +208,7 @@ async function processDetailImportFile(file){
     await window.PCMSFeatures.ensureSpreadsheetTool();
   }catch(error){
     g('imp-err').style.display='flex';
-    g('imp-err-msg').textContent='Không thể tải công cụ Excel. / 無法載入 Excel（表格檔）工具。';
+    setDataBilingual('imp-err-msg','Không thể tải công cụ bảng tính.','無法載入表格檔工具。');
     g('fi').value='';
     return;
   }
@@ -172,7 +218,7 @@ async function processDetailImportFile(file){
     reader.onerror=function(){
       hideProg();
       g('imp-err').style.display='flex';
-      g('imp-err-msg').textContent='Không thể đọc file, vui lòng kiểm tra định dạng. / 無法讀取檔案，請確認格式是否正確。';
+      setDataBilingual('imp-err-msg','Không thể đọc tệp, vui lòng kiểm tra định dạng.','無法讀取檔案，請確認格式是否正確。');
       g('fi').value='';
     };
     reader.onload=function(e){
@@ -206,13 +252,13 @@ async function processDetailImportFile(file){
                 });
                 nItms=ni;
                 dups=Object.keys(ni).filter(code=>window.D.find(d=>d.code===code));
-                setProg(100,'Hoàn tất / 完成！',`Tìm thấy / 找到 ${Object.keys(ni).length} mã hàng/款號`);
+                setProg(100,'Hoàn tất / 完成！',`Đã tìm thấy ${Object.keys(ni).length} mã hàng. / 找到 ${Object.keys(ni).length} 個款號。`);
                 setTimeout(()=>{
                   hideProg();
                   const prev=g('imp-prev'); prev.style.display='block';
                   const thead=document.querySelector('#prev-tbl thead');
                   const tbody=document.querySelector('#prev-tbl tbody');
-                  thead.innerHTML='<tr><th>Mã hàng/款號</th><th>Khách/客人</th><th>Tên TQ/中文</th><th>Tên VN/越文</th><th>Size/尺寸</th><th>Số CĐ/工序號</th><th>Phân loại/加工</th><th>CĐ(TQ)</th><th>CĐ(VN)</th><th>Giây/秒數</th></tr>';
+                  thead.innerHTML='<tr><th>Mã hàng<br><span class="tv">款號</span></th><th>Khách hàng<br><span class="tv">客人</span></th><th>Tên Trung<br><span class="tv">中文名稱</span></th><th>Tên Việt<br><span class="tv">越文名稱</span></th><th>Kích thước<br><span class="tv">尺寸</span></th><th>Số công đoạn<br><span class="tv">工序號</span></th><th>Phân loại<br><span class="tv">加工分類</span></th><th>Công đoạn Trung<br><span class="tv">工序中文</span></th><th>Công đoạn Việt<br><span class="tv">工序越文</span></th><th>Giây<br><span class="tv">秒數</span></th></tr>';
                   tbody.innerHTML='';
                   dr.slice(0,5).forEach(r=>{
                     const isDup=dups.includes(String(r[0]).trim());
@@ -221,13 +267,13 @@ async function processDetailImportFile(file){
                     tbody.appendChild(tr);
                   });
                 },500);
-              }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').textContent='Xử lý dữ liệu thất bại / 處理資料失敗：'+String(err?.message||''); }
+              }catch(err){ console.error('Xử lý dữ liệu thất bại / 處理資料失敗',err); hideProg(); g('imp-err').style.display='flex'; setDataBilingual('imp-err-msg','Xử lý dữ liệu thất bại.','處理資料失敗。'); }
               finally{ g('fi').value=''; }
             },300);
-          }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').textContent='Không thể đọc bảng tính / 讀取工作表失敗：'+String(err?.message||''); }
+          }catch(err){ console.error('Không thể đọc bảng tính / 讀取工作表失敗',err); hideProg(); g('imp-err').style.display='flex'; setDataBilingual('imp-err-msg','Không thể đọc bảng tính.','讀取工作表失敗。'); }
           finally{ g('fi').value=''; }
         },200);
-      }catch(err){ hideProg(); g('imp-err').style.display='flex'; g('imp-err-msg').textContent='Định dạng tệp không đúng / 檔案格式錯誤：'+String(err?.message||''); }
+      }catch(err){ console.error('Định dạng tệp không đúng / 檔案格式錯誤',err); hideProg(); g('imp-err').style.display='flex'; setDataBilingual('imp-err-msg','Định dạng tệp không đúng.','檔案格式錯誤。'); }
       finally{ g('fi').value=''; }
     };
     reader.readAsBinaryString(file);
@@ -267,19 +313,15 @@ async function cImp(mode){
   let msgZh=`雲端已同步：${actualCount} 款，${to} 工序`;
   if(ow){ msgVi+=`, ghi đè ${ow} mã`; msgZh+=`，覆蓋 ${ow} 款`; }
   if(sk){ msgVi+=`, bỏ qua ${sk} mã`; msgZh+=`，跳過 ${sk} 款`; }
-  const msg=`<div>${msgVi}</div><div>${msgZh}</div>`;
+  const msg=`<div class="ui-language-sections"><div class="ui-language-section">${msgVi}</div><div class="ui-language-section">${msgZh}</div></div>`;
 
-  g('imp-ok-msg').textContent=`Đang đồng bộ lên đám mây / 正在同步雲端：${actualCount} 款，${to} 工序`;
+  setDataBilingual('imp-ok-msg',`Đang đồng bộ lên đám mây: ${actualCount} mã, ${to} công đoạn.`,`正在同步雲端：${actualCount} 款，${to} 工序。`);
   g('imp-ok').style.display='flex';
   if(window.saveProductItemsToFB && window.saveHistoryToFB){
     const ok1=await saveProductItemsToFB(changedItems);
     if(!ok1){
-      const failMsg=window.lastProductSyncError || '❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại file Excel / 匯入失敗，正式資料未更新。請確認網路後重新匯入 Excel（表格檔）';
-      if(window.lastProductSyncError){
-        g('imp-ok-msg').innerHTML=window.PCMSSafe.lines(failMsg);
-      } else {
-        g('imp-ok-msg').textContent=failMsg;
-      }
+      const failMsg=window.lastProductSyncError || '❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại tệp bảng tính. / 匯入失敗，正式資料未更新。請確認網路後重新匯入表格檔。';
+      setDataBilingual('imp-ok-msg','❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại tệp bảng tính.','匯入失敗，正式資料未更新。請確認網路後重新匯入表格檔。');
       if(window.setSyncState) window.setSyncState('failed', failMsg);
       return;
     }
@@ -296,7 +338,7 @@ async function cImp(mode){
       console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',error);
     }
     if(!savedHistory){
-      g('imp-ok-msg').innerHTML=msg+'<div>⚠️ Lịch sử nhập không lưu được lên đám mây, không lưu tạm trên máy này</div><div>匯入紀錄無法保存到雲端，未暫存在本機</div>';
+      g('imp-ok-msg').innerHTML=`<div class="ui-language-sections"><div class="ui-language-section">${msgVi}<br>⚠️ Lịch sử nhập không lưu được lên đám mây và không được lưu tạm trên máy này.</div><div class="ui-language-section">${msgZh}<br>匯入紀錄無法保存到雲端，亦未暫存在本機。</div></div>`;
     } else {
       window.impHist=[savedHistory,...(window.impHist||[])].slice(0,50);
     }
@@ -305,7 +347,7 @@ async function cImp(mode){
     rSum(); rDet(); rExp(); rBk(); rHist();
     if(savedHistory) g('imp-ok-msg').innerHTML=msg;
   } else {
-    g('imp-ok-msg').textContent='❌ Không thể đồng bộ / 無法同步：Firebase 功能尚未載入，正式款號資料未更新';
+    setDataBilingual('imp-ok-msg','❌ Không thể đồng bộ vì dịch vụ dữ liệu đám mây chưa sẵn sàng; dữ liệu chính thức chưa cập nhật.','❌ 無法同步：雲端資料庫服務尚未載入，正式款號資料未更新。');
   }
 }
 
@@ -337,18 +379,17 @@ function rExp(){
 
 // showSpreadsheetSaveUnsupported（顯示不支援選擇表格檔儲存位置的提示）。
 function showSpreadsheetSaveUnsupported(){
-  alert(
-    'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\n' +
-    'Vui lòng sử dụng phiên bản Microsoft Edge hoặc Google Chrome mới nhất.\n\n' +
-    '此瀏覽器不支援選擇檔案儲存位置。\n' +
-    '請使用最新版 Microsoft Edge 或 Google Chrome。'
+  return dataMessage(
+    'Trình duyệt này không hỗ trợ chọn vị trí lưu tệp.\nVui lòng sử dụng trình duyệt mới nhất có hỗ trợ chức năng này.',
+    '此瀏覽器不支援選擇檔案儲存位置。\n請使用支援此功能的最新版瀏覽器。',
+    'warning'
   );
 }
 
 // chooseSpreadsheetSaveHandle（選擇表格檔儲存位置）：必須由使用者點擊匯出後直接呼叫。
 async function chooseSpreadsheetSaveHandle(suggestedName){
   if(typeof window.showSaveFilePicker !== 'function'){
-    showSpreadsheetSaveUnsupported();
+    await showSpreadsheetSaveUnsupported();
     return null;
   }
   try{
@@ -394,7 +435,7 @@ async function writeSpreadsheetWorkbookToHandle(fileHandle,workbook){
 
 async function doExport(){
   if(typeof canOpenPage==='function'&&!canOpenPage('export')){
-    alert('Không có quyền xuất giá công sản phẩm / 沒有產品工價匯出權限');
+    await dataMessage('Không có quyền xuất giá công sản phẩm.','沒有產品工價匯出權限。','warning');
     return;
   }
   try{
@@ -532,11 +573,14 @@ async function doExport(){
         });
       }catch(logError){
         console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
-        alert('Đã xuất tệp, nhưng không thể lưu lịch sử thao tác.\n檔案已匯出，但操作紀錄無法保存。');
+        await dataMessage('Đã xuất tệp, nhưng không thể lưu lịch sử thao tác.','檔案已匯出，但操作紀錄無法保存。','warning');
       }
     }
     const n=g('ex-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
-  }catch(err){ alert('Xuất thất bại / 匯出失敗：'+err.message); console.error(err); }
+  }catch(err){
+    console.error('Xuất tệp thất bại / 檔案匯出失敗',err);
+    await dataMessage('Xuất tệp thất bại. Vui lòng kiểm tra rồi thử lại.','檔案匯出失敗，請檢查後再試。','danger');
+  }
 }
 
 // ===== 備份匯出 =====
@@ -554,9 +598,9 @@ function rBk(){
   let totalOps=0; fd.forEach(d=>totalOps+=d.ops.length);
   const tb=g('bk-stats'); if(!tb) return;
   tb.innerHTML=`
-    <div class="mc"><div class="ml">款號數</div><div class="mvi">Số mã hàng</div><div class="mv">${fd.length}</div></div>
-    <div class="mc"><div class="ml">工序總數</div><div class="mvi">Tổng công đoạn</div><div class="mv">${totalOps}</div></div>
-    <div class="mc"><div class="ml">客人數</div><div class="mvi">Số khách hàng</div><div class="mv">${cl.length}</div></div>`;
+    <div class="mc"><div class="ml">Số mã hàng</div><div class="mvi">款號數</div><div class="mv">${fd.length}</div></div>
+    <div class="mc"><div class="ml">Tổng công đoạn</div><div class="mvi">工序總數</div><div class="mv">${totalOps}</div></div>
+    <div class="mc"><div class="ml">Số khách hàng</div><div class="mvi">客人數</div><div class="mv">${cl.length}</div></div>`;
 }
 
 async function doBackup(){
@@ -621,13 +665,16 @@ async function doBackup(){
         });
       }catch(logError){
         console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
-        alert('Đã xuất tệp, nhưng không thể lưu lịch sử thao tác.\n檔案已匯出，但操作紀錄無法保存。');
+        await dataMessage('Đã xuất tệp, nhưng không thể lưu lịch sử thao tác.','檔案已匯出，但操作紀錄無法保存。','warning');
       }
     }
     const n=g('bk-ok');
-    g('bk-ok-msg').textContent=`✓ 已匯出 ${fd.length} 個款號，${fd.reduce((a,d)=>a+d.ops.length,0)} 道工序 / Đã xuất ${fd.length} mã hàng.`;
+    g('bk-ok-msg').innerHTML=`<div class="ui-language-sections"><div class="ui-language-section is-vi">✓ Đã xuất ${fd.length} mã hàng, ${fd.reduce((a,d)=>a+d.ops.length,0)} công đoạn.</div><div class="ui-language-section is-zh">✓ 已匯出 ${fd.length} 個款號，${fd.reduce((a,d)=>a+d.ops.length,0)} 道工序。</div></div>`;
     n.style.display='flex'; setTimeout(()=>n.style.display='none',4000);
-  }catch(err){ alert('Xuất thất bại / 匯出失敗：'+err.message); console.error(err); }
+  }catch(err){
+    console.error('Xuất tệp sao lưu thất bại / 備份檔匯出失敗',err);
+    await dataMessage('Xuất tệp sao lưu thất bại. Vui lòng kiểm tra rồi thử lại.','備份檔匯出失敗，請檢查後再試。','danger');
+  }
 }
 
 // ===== 匯入記錄 =====
@@ -648,31 +695,42 @@ function rHist(){
 function rClog(){
   const el=g('clog-list'); if(!el) return;
   if(typeof canOpenPage==='function'&&!canOpenPage('costlog')){
-    el.innerHTML='<p style="color:var(--mu);font-size:13px">Không có quyền xem lịch sử chi phí / 沒有查看成本歷史權限</p>';
+    el.innerHTML='<div class="cost-log-empty"><div>Không có quyền xem lịch sử chi phí</div><div>沒有查看成本歷史權限</div></div>';
     return;
   }
-  if(!window.cLog.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }
+  if(!window.cLog.length){ el.innerHTML='<div class="cost-log-empty"><div>Chưa có lịch sử</div><div>尚無記錄</div></div>'; return; }
+  const fieldLabels={
+    '平均薪資':{vi:'Lương bình quân',zh:'平均薪資'},
+    '平均保險':{vi:'Bảo hiểm bình quân',zh:'平均保險'},
+    '餐費':{vi:'Chi phí bữa ăn',zh:'餐費'},
+    '匯率USD':{vi:'Tỷ giá đô la Mỹ',zh:'美元匯率'},
+    '匯率TWD':{vi:'Tỷ giá Đài tệ',zh:'台幣匯率'},
+    '工作秒數/小時':{vi:'Giây làm việc mỗi giờ',zh:'工作秒數／小時'},
+    '生產效率(%)':{vi:'Hiệu suất sản xuất',zh:'生產效率'},
+    '平均時薪':{vi:'Lương giờ bình quân',zh:'平均時薪'}
+  }; // fieldLabels（成本欄位顯示文字）：只轉換畫面，不改既有紀錄資料。
   el.innerHTML=window.cLog.map(log=>{
     const changes=Array.isArray(log.changes)?log.changes:(Array.isArray(log.ch)?log.ch:[]);
     const time=log.createdAt?new Date(log.createdAt).toLocaleString('zh-TW'):log.t;
     const user=log.createdBy||log.u||'';
     return`
-    <div style="margin-bottom:14px;border:1px solid var(--bd);border-radius:10px;overflow:hidden">
-      <div style="background:#f8fafc;padding:9px 14px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--bd)">
+    <div class="cost-log-card">
+      <div class="cost-log-head">
         <i class="ti ti-clock" style="color:var(--accent)"></i>
         <span style="font-size:12px;color:var(--mu)">${dataSafeText(time)}</span>
         <span class="tg tn">${dataSafeText(user)}</span>
-        <span class="tg tb2">${changes.length} thay đổi / 項變更</span>
+        <span class="tg tb2">${changes.length} thay đổi / ${changes.length} 項變更</span>
       </div>
-      <div style="padding:4px 0">
+      <div class="cost-log-body">
         ${changes.map(c=>{
           const before=c.before??c.b??0;
           const after=c.after??c.a??0;
           const percent=c.percent??c.p??null;
           const field=c.field??c.f??'';
+          const label=fieldLabels[field]||{vi:field,zh:field};
           const up=after>before;
           return`<div class="cc">
-            <span style="min-width:100px;font-weight:500;font-size:12px">${dataSafeText(field)}</span>
+            <span style="min-width:130px;font-weight:500;font-size:12px">${dataSafeText(label.vi)}<span class="tv">${dataSafeText(label.zh)}</span></span>
             <span style="color:var(--mu);font-size:12px">${Number(before).toLocaleString()}</span>
             <i class="ti ti-arrow-right" style="color:var(--hi);font-size:12px"></i>
             <span style="font-weight:500;font-size:12px">${Number(after).toLocaleString()}</span>

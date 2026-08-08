@@ -2,6 +2,9 @@
 let _sumSortCol='', _sumSortDir=0;
 const _expandedSummaryCodes=new Set();
 const summarySafeText=value=>window.PCMSSafe.text(value); // summarySafeText（款號畫面安全文字）
+function summaryMessage(vi,zh,kind='info'){
+  return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
+}
 function sumSort(col){
   if(_sumSortCol===col){ _sumSortDir=(_sumSortDir+1)%3; }
   else{ _sumSortCol=col; _sumSortDir=1; }
@@ -44,12 +47,12 @@ function renderSummaryDetail(d){
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
-      <span class="tg tn">Khách: ${summarySafeText(d.client)}</span><span class="tg tn">Size: ${summarySafeText(d.sz)}</span>
+      <span class="tg tn">Khách hàng / 客人: ${summarySafeText(d.client)}</span><span class="tg tn">Kích thước / 尺寸: ${summarySafeText(d.sz)}</span>
       ${isA?`<span class="tg tg2">USD: ${summarySafeText(fU(total))}</span><span class="tg tb2">VND: ${summarySafeText(fV(total))}</span><span class="tg ta">TWD: ${summarySafeText(fT(total))}</span>`:''}
     </div>
     <div style="overflow-x:auto"><table class="summary-detail-table">
-      <thead><tr><th>工序號</th><th>Phân loại<span class="tv">加工分類</span></th><th>工序(中)</th><th>工序(越)/Tên CĐ</th><th>秒數/Giây</th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí</th>':''}</tr></thead>
-      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">尚無工序資料 / Chưa có công đoạn</td></tr>`}</tbody>
+      <thead><tr><th>Số công đoạn<span class="tv">工序號</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí<span class="tv">工資</span></th>':''}</tr></thead>
+      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">Chưa có công đoạn<span class="tv">尚無工序資料</span></td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
@@ -73,7 +76,7 @@ function rSum(){
     const expanded=_expandedSummaryCodes.has(d.code);
     const colspan=isA?9:8;
     const r=document.createElement('tr');
-    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${summarySafeText(d.sz)}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td><button class="btn bsm bd2 summary-delete"><i class="ti ti-trash"></i></button></td>`;
+    r.innerHTML=`<td style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="Mở chi tiết công đoạn / 展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td>${hl(d.client,q)}</td><td>${hl(d.zh,q)}</td><td style="color:var(--mu)">${hl(d.vi,q)}</td><td><span class="tg tn">${summarySafeText(d.sz)}</span></td><td><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td><button class="btn bsm bd2 summary-delete"><i class="ti ti-trash"></i></button></td>`;
     r.querySelector('.summary-toggle')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-code')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-delete')?.addEventListener('click',()=>askDel(d.code));
@@ -129,10 +132,10 @@ function askDel(code){
 }
 async function confDel(){
   const code=g('del-code').value, inp=g('del-inp').value.trim();
-  if(inp!==code){ alert('Mã hàng không khớp / 款號輸入不符合！'); return; }
+  if(inp!==code){ await summaryMessage('Mã hàng không khớp.','款號輸入不符合。','warning'); return; }
   if(window.deleteProductFromFB){
     const ok=await deleteProductFromFB(code);
-    if(!ok){ alert(window.lastProductSyncError || 'Xóa thất bại, dữ liệu chính thức chưa thay đổi / 刪除失敗，正式資料未變更'); return; }
+    if(!ok){ await summaryMessage('Xóa thất bại, dữ liệu chính thức chưa thay đổi.','刪除失敗，正式資料未變更。','danger'); return; }
   }
   window.D=window.D.filter(d=>d.code!==code); cm('m-del'); rSum(); rDet(); rExp(); rBk();
 }

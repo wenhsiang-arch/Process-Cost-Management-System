@@ -5,14 +5,17 @@ const PERMISSION_KEYS = window.PCMSFeatures.permissionKeys;
 const PERMISSION_STRUCTURE = window.PCMSFeatures.permissionStructure;
 const DEFAULT_PERMISSIONS = window.PCMSFeatures.defaultPermissions;
 const normalizeFeaturePermissions = window.normalizeFeaturePermissions;
+function permissionsMessage(vi,zh,kind='info'){
+  return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
+}
 
 async function savePermissions(){
   if(!isAdm()){
-    alert('Chỉ quản trị viên mới có thể lưu quyền / 只有管理員可以儲存權限');
+    await permissionsMessage('Chỉ quản trị viên mới có thể lưu quyền.','只有管理員可以儲存權限。','warning');
     return false;
   }
   if(typeof window.firebaseSaveRolePermissions!=='function'){
-    alert('Dịch vụ Firebase chưa sẵn sàng / Firebase（雲端資料庫）服務尚未就緒');
+    await permissionsMessage('Dịch vụ dữ liệu đám mây chưa sẵn sàng.','雲端資料庫服務尚未就緒。','warning');
     return false;
   }
   const now=Date.now();
@@ -31,12 +34,12 @@ async function savePermissions(){
     await window.firebaseSaveRolePermissions(payload);
     window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,true]));
     renderPermissions();
-    alert('Đã lưu và áp dụng quyền / 權限設定已儲存套用');
+    await permissionsMessage('Đã lưu và áp dụng quyền.','權限設定已儲存套用。','success');
     if(typeof uNav==='function') uNav();
     return true;
   }catch(e){
     console.error('Không thể lưu rolePermissions / 無法儲存角色功能權限：',e);
-    alert('Lưu quyền thất bại / 儲存權限失敗\n\n'+(e?.message||''));
+    await permissionsMessage('Lưu quyền thất bại.','儲存權限失敗。','danger');
     return false;
   }
 }
@@ -131,7 +134,7 @@ function renderPermissionModule(role,module){
       <div class="permission-module-title"><i class="ti ${module.icon}"></i><div><strong>${module.vi}</strong><span>${module.zh}</span></div></div>
       ${moduleFixed?permissionFixedBadge():''}${mainSwitch}
     </div>
-    ${moduleEnabled&&!fixedForRole?body:`<div class="permission-paused">Chức năng chính đang tắt, các mục bên dưới tạm dừng. / 主功能已關閉，下層設定暫停。</div>`}
+    ${moduleEnabled&&!fixedForRole?body:`<div class="permission-paused"><div>Chức năng chính đang tắt, các mục bên dưới tạm dừng.</div><div>主功能已關閉，下層設定暫停。</div></div>`}
   </section>`;
 }
 
@@ -140,6 +143,7 @@ function renderPermissions(){
   if(!wrap) return;
   const selected=window.selectedPermissionRole||'manager';
   const roles=['admin',...CONFIGURABLE_ROLES];
+  const selectedLabels=permissionRoleLabel(selected).split(' / ');
   const roleTabs=roles.map(role=>{
     const active=role===selected;
     const ready=role==='admin'||window.rolePermissionsReady?.[role]===true;
@@ -153,7 +157,7 @@ function renderPermissions(){
   wrap.innerHTML=`
     <div class="permission-role-tabs">${roleTabs}</div>
     <div class="permission-selected-title">
-      <div><strong>${permissionRoleLabel(selected)}</strong><span>${selected==='admin'?'Quyền hệ thống cố định / 系統固定權限':'Thiết lập đầy đủ theo chức năng / 依功能完整設定'}</span></div>
+      <div><strong>${selectedLabels[0]||''}</strong><small>${selectedLabels[1]||''}</small><span>${selected==='admin'?'Quyền hệ thống cố định':'Thiết lập đầy đủ theo chức năng'}</span><span>${selected==='admin'?'系統固定權限':'依功能完整設定'}</span></div>
     </div>
     <div class="permission-tree">${PERMISSION_STRUCTURE.map(module=>renderPermissionModule(selected,module)).join('')}</div>`;
 }
