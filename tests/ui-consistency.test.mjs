@@ -130,6 +130,7 @@ test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
 
 test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',()=>{
   const html=read('index.html');
+  const style=read('styles/features/production.css');
   const entrySource=read('js/production/production-entry.js');
   const recordSource=read('js/production/production-records.js');
   const pageStart=html.indexOf('id="pg-production-entry"');
@@ -143,6 +144,11 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(entrySource,/state\.processTimer = setTimeout\([\s\S]*?if\(exact\) selectProcess\(exact\)[\s\S]*?},400\)/);
   assert.doesNotMatch(entrySource,/keydown[\s\S]*?Enter/);
   assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
+  assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
+  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?grid-template-columns:\s*minmax\(230px,[\s\S]*?repeat\(2,/);
+  assert.match(style,/\.production-filter-grid\s*\{[\s\S]*?height:\s*auto;[\s\S]*?grid-template-columns:/);
+  assert.match(style,/\.production-command-actions\s*\{[\s\S]*?height:\s*auto;[\s\S]*?align-self:\s*stretch;/);
+  assert.match(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-entry-fields[\s\S]*?\.production-filter-grid[\s\S]*?\.production-employee-fields/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
