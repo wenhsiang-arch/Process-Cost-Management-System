@@ -10,7 +10,12 @@
     order:null,
     orderReady:false,
     product:null,
-    process:null
+    process:null,
+    columnVisibility:{
+      processName:true,
+      orderQuantity:true,
+      processSeconds:true
+    }
   }; // state（登記頁目前狀態）
 
   const DROPDOWN_BINDINGS = Object.freeze({
@@ -36,8 +41,48 @@
       return;
     }
     host.hidden = !vi && !zh;
-    host.className = `ui-notice is-${kind}`;
+    host.className = `production-entry-status is-${kind}`;
     window.PCMSUIText?.set?.(host,{vi:String(vi || ''),zh:String(zh || '')});
+  }
+
+  function closeColumnSettings(){
+    const menu = element('production-column-settings-menu');
+    const button = element('production-column-settings-button');
+    if(menu) menu.hidden = true;
+    button?.setAttribute('aria-expanded','false');
+  }
+
+  function toggleColumnSettings(){
+    const menu = element('production-column-settings-menu');
+    const button = element('production-column-settings-button');
+    if(!menu || !button) return;
+    const willOpen = menu.hidden;
+    menu.hidden = !willOpen;
+    button.setAttribute('aria-expanded',String(willOpen));
+  }
+
+  function applyColumnVisibility(){
+    const table = element('production-entry-table-body')?.closest('table');
+    if(!table) return;
+    table.querySelectorAll('[data-production-column]').forEach(cell=>{
+      const key = cell.dataset.productionColumn;
+      const visible = state.columnVisibility[key] !== false;
+      cell.classList.toggle('is-column-hidden',!visible);
+    });
+    table.querySelectorAll('[data-production-column-toggle]').forEach(input=>{
+      input.checked = state.columnVisibility[input.dataset.productionColumnToggle] !== false;
+    });
+  }
+
+  function setColumnVisibility(key,visible){
+    if(!Object.prototype.hasOwnProperty.call(state.columnVisibility,key)) return;
+    state.columnVisibility[key] = visible === true;
+    applyColumnVisibility();
+  }
+
+  function resetColumnVisibility(){
+    Object.keys(state.columnVisibility).forEach(key=>{ state.columnVisibility[key] = true; });
+    applyColumnVisibility();
   }
 
   function closeDropdown(id){
@@ -387,9 +432,10 @@
     }).catch(()=>null);
   }
 
-  function appendCell(row,value,className=''){
+  function appendCell(row,value,className='',columnKey=''){
     const cell = document.createElement('td');
     if(className) cell.className = className;
+    if(columnKey) cell.dataset.productionColumn = columnKey;
     cell.textContent = String(value ?? '—');
     row.appendChild(cell);
   }
@@ -402,13 +448,13 @@
     body.replaceChildren();
     rows.forEach(item=>{
       const row = document.createElement('tr');
-      appendCell(row,item.orderNo || '—');
-      appendCell(row,item.productCode || '—');
-      appendCell(row,item.processNo || '—','production-number-cell');
-      appendCell(row,item.processNameVi || item.processNameZh || '—');
-      appendCell(row,numberText(item.quantity),'production-number-cell');
-      appendCell(row,numberText(item.orderQtySnapshot),'production-number-cell');
-      appendCell(row,numberText(item.processSecSnapshot),'production-number-cell');
+      appendCell(row,item.orderNo || '—','', 'order');
+      appendCell(row,item.productCode || '—','', 'product');
+      appendCell(row,item.processNo || '—','production-number-cell','processNo');
+      appendCell(row,item.processNameVi || item.processNameZh || '—','', 'processName');
+      appendCell(row,numberText(item.quantity),'production-number-cell','quantity');
+      appendCell(row,numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
+      appendCell(row,numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
       if(isAdmin()){
         const actionCell = document.createElement('td');
         actionCell.className = 'production-row-actions';
@@ -417,6 +463,7 @@
       }
       body.appendChild(row);
     });
+    applyColumnVisibility();
     if(empty) empty.hidden = rows.length > 0;
   }
 
@@ -470,6 +517,11 @@
     element('production-product-toggle').addEventListener('click',toggleProductDropdown);
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
     element('production-save-button').addEventListener('click',()=>void saveEntry());
+    element('production-column-settings-button').addEventListener('click',toggleColumnSettings);
+    element('production-column-settings-reset').addEventListener('click',resetColumnVisibility);
+    document.querySelectorAll('[data-production-column-toggle]').forEach(input=>{
+      input.addEventListener('change',()=>setColumnVisibility(input.dataset.productionColumnToggle,input.checked));
+    });
     document.querySelectorAll('#pg-production-entry .production-combobox').forEach(host=>{
       host.addEventListener('mouseleave',()=>{
         const options = host.querySelector('.production-options'); // options（目前欄位的搜尋選單）
@@ -480,8 +532,15 @@
       if(!event.target.closest('.production-combobox')){
         DROPDOWN_OPTION_IDS.forEach(closeDropdown);
       }
+      if(!event.target.closest('.production-column-settings')) closeColumnSettings();
+    });
+    document.addEventListener('keydown',event=>{
+      if(event.key !== 'Escape') return;
+      DROPDOWN_OPTION_IDS.forEach(closeDropdown);
+      closeColumnSettings();
     });
     syncDropdownAvailability();
+    applyColumnVisibility();
   }
 
   async function loadProductionEntryData(options={}){
@@ -502,6 +561,7 @@
   function productionEntryLeave(){
     stopDateTimer();
     DROPDOWN_OPTION_IDS.forEach(closeDropdown);
+    closeColumnSettings();
   }
 
   window.loadProductionEntryData = loadProductionEntryData;

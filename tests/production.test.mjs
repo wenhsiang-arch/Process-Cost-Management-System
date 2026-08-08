@@ -200,5 +200,37 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-4'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-5'/);
+});
+
+test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
+  const html=read('index.html');
+  const source=read('js/production/production-entry.js');
+  const style=read('styles/features/production.css');
+  const features=read('js/features.js');
+  const pageStart=html.indexOf('id="pg-production-entry"');
+  const pageEnd=html.indexOf('<div class="pg',pageStart+1);
+  const markup=html.slice(pageStart,pageEnd);
+  const todayButton=markup.match(/<button[^>]*id="production-today-button"[\s\S]*?<\/button>/)?.[0]||'';
+
+  assert.match(markup,/production-employee-context[\s\S]*?Thông tin nhân viên[\s\S]*?員工資訊/);
+  assert.match(markup,/production-registration-context[\s\S]*?Đăng ký sản xuất[\s\S]*?生產登記/);
+  assert.match(markup,/production-registration-context[\s\S]*?production-date-input[\s\S]*?production-order-input[\s\S]*?production-product-input[\s\S]*?production-process-input[\s\S]*?production-quantity-input/);
+  assert.match(todayButton,/ti-calendar-time/);
+  assert.doesNotMatch(todayButton,/ui-dual-copy/);
+  assert.match(todayButton,/aria-label="Trở về hôm nay \/ 回到今天"/);
+  assert.match(markup,/id="production-entry-status"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.doesNotMatch(markup,/id="production-entry-status"[^>]*ui-notice/);
+  assert.match(markup,/id="production-column-settings-button"[^>]*aria-expanded="false"/);
+  for(const key of ['processName','orderQuantity','processSeconds']){
+    assert.match(markup,new RegExp(`data-production-column-toggle="${key}"`));
+    assert.match(markup,new RegExp(`data-production-column="${key}"`));
+  }
+  assert.match(source,/function applyColumnVisibility\(\)/);
+  assert.match(source,/function resetColumnVisibility\(\)/);
+  assert.match(source,/dataset\.productionColumn/);
+  assert.match(source,/event\.key !== 'Escape'/);
+  assert.match(style,/\.production-entry-fields \{[\s\S]*?grid-template-columns: 150px minmax\(220px, 1\.35fr\) minmax\(180px, 1fr\) 110px 128px;/);
+  assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-6'/);
 });
