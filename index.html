@@ -649,48 +649,83 @@ tr:hover td{background:#f8fafc}
             <div id="st-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã lưu cài đặt.</span><span class="ui-text-zh">設定已儲存。</span></span></div>
           </section>
 
-          <section class="settings-data-section ui-data-section">
-            <div class="ui-section-header"><i class="ti ti-currency-dollar"></i><span class="ui-dual-copy"><strong>Cài đặt giá công trực tiếp</strong><span>直接工價設定</span></span></div>
-            <div class="settings-section-body ui-table-frame">
-              <div class="fg cols3 ui-form-grid is-three-column">
-                <div class="fgrp ui-form-field"><label>Lương trung bình (VND/tháng)<span class="lvi">平均薪資（VND／月）</span></label><input type="number" id="ss-sal" value="0" oninput="aCC()"></div>
-                <div class="fgrp ui-form-field"><label>Bảo hiểm trung bình (VND/tháng)<span class="lvi">平均保險（VND／月）</span></label><input type="number" id="ss-ins" value="0" oninput="aCC()"></div>
-                <div class="fgrp ui-form-field"><label>Phí ăn uống (VND/tháng)<span class="lvi">餐費（VND／月）</span></label><input type="number" id="ss-meal" value="0" oninput="aCC()"></div>
-              </div>
-              <div class="fg cols3 ui-form-grid is-three-column">
-                <div class="fgrp ui-form-field"><label>Tổng chi phí trung bình/tháng <span id="ct-tag" class="at">Tự động<br>自動</span><span class="lvi">平均總成本／月</span></label><input type="number" id="ss-tc" oninput="onMC()"></div>
-                <div class="fgrp ui-form-field"><label>Lương giờ trung bình <span id="ht-tag" class="at">Tự động<br>自動</span><span class="lvi">平均時薪（VND）</span></label><input type="number" id="ss-hr" oninput="onMH()"></div>
-                <div class="fgrp ui-form-field"><label>Tỷ giá USD (VND/USD)<span class="lvi">USD 匯率</span></label>
-                  <div class="settings-rate-control">
-                    <input type="number" id="ss-usd" value="25400" oninput="rAll()">
-                    <button class="btn bsm" onclick="fetchRates()" id="btn-fetchrate" title="Tự động lấy tỷ giá / 自動抓取匯率"><i class="ti ti-refresh"></i></button>
-                  </div>
-                  <span id="rate-updated" class="settings-rate-status"></span>
+          <div class="settings-matrix">
+            <section class="settings-data-section settings-personnel-section ui-data-section">
+              <div class="ui-section-header"><i class="ti ti-currency-dollar"></i><span class="ui-dual-copy"><strong>Chi phí nhân sự</strong><span>人事成本</span></span></div>
+              <div class="settings-matrix-body ui-table-frame">
+                <div class="settings-matrix-row">
+                  <label class="settings-matrix-label" for="ss-sal"><span class="ui-dual-copy"><strong>Lương trung bình</strong><span>平均薪資</span></span></label>
+                  <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
+                  <div class="settings-matrix-value"><input type="number" id="ss-sal" value="0" oninput="aCC()"></div>
+                </div>
+                <div class="settings-matrix-row">
+                  <label class="settings-matrix-label" for="ss-ins"><span class="ui-dual-copy"><strong>Bảo hiểm trung bình</strong><span>平均保險</span></span></label>
+                  <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
+                  <div class="settings-matrix-value"><input type="number" id="ss-ins" value="0" oninput="aCC()"></div>
+                </div>
+                <div class="settings-matrix-row">
+                  <label class="settings-matrix-label" for="ss-meal"><span class="ui-dual-copy"><strong>Phí ăn uống</strong><span>餐費</span></span></label>
+                  <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
+                  <div class="settings-matrix-value"><input type="number" id="ss-meal" value="0" oninput="aCC()"></div>
+                </div>
+                <div class="settings-matrix-row">
+                  <label class="settings-matrix-label" for="ss-tc"><span class="ui-dual-copy"><strong>Tổng chi phí trung bình/tháng</strong><span>平均總成本／月</span></span></label>
+                  <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
+                  <div class="settings-matrix-value"><input type="number" id="ss-tc" oninput="onMC()"><span id="ct-tag" class="at">Tự động<br>自動</span></div>
+                </div>
+                <div class="settings-matrix-row">
+                  <label class="settings-matrix-label" for="ss-hr"><span class="ui-dual-copy"><strong>Lương giờ trung bình</strong><span>平均時薪</span></span></label>
+                  <div class="settings-matrix-unit"><span>VND/giờ</span><span>VND／小時</span></div>
+                  <div class="settings-matrix-value"><input type="number" id="ss-hr" oninput="onMH()"><span id="ht-tag" class="at">Tự động<br>自動</span></div>
                 </div>
               </div>
-              <div class="fg cols3 ui-form-grid is-three-column">
-                <div class="fgrp ui-form-field"><label>Tỷ giá TWD (VND/TWD)<span class="lvi">TWD 匯率</span></label><input type="number" id="ss-twd" value="780" oninput="rAll()">
-                  <span id="rate-updated-twd" class="settings-rate-status"></span>
-                </div>
-              </div>
-            </div>
-          </section>
+            </section>
 
-          <section class="settings-data-section ui-data-section">
-            <div class="ui-section-header"><i class="ti ti-clock"></i><span class="ui-dual-copy"><strong>Cài đặt hiệu suất sản xuất</strong><span>生產效率設定</span></span></div>
-            <div class="settings-section-body ui-table-frame">
-              <div class="fg cols2 ui-form-grid is-two-column">
-                <div class="fgrp ui-form-field"><label>Giây làm việc thực tế/giờ<span class="lvi">實際工作秒數／小時</span></label><input type="number" id="ss-ws" value="3000" oninput="rAll()"></div>
-                <div class="fgrp ui-form-field"><label>Hiệu suất sản xuất (%)<span class="lvi">生產效率（%）</span></label><input type="number" id="ss-eff" value="80" min="1" max="100" oninput="uEff()"></div>
-              </div>
-              <div class="settings-summary-row ui-summary-row">
-                <div class="ui-summary-item"><div class="ui-summary-label">Hiệu suất<span>效率</span></div><div class="ui-summary-value" id="e-in">80%</div></div>
-                <div class="ui-summary-item"><div class="ui-summary-label">Hệ số chi phí<span>成本倍數</span></div><div class="ui-summary-value" id="e-mu">125.00%</div></div>
-                <div class="ui-summary-item"><div class="ui-summary-label">Chi phí tăng<span>成本增加</span></div><div class="ui-summary-value" id="e-ic">+25.00%</div></div>
-                <div class="ui-summary-item"><div class="ui-summary-label">Công thức<span>公式</span></div><div class="settings-formula-value" id="e-fo">1 ÷ 80% = 125%</div></div>
-              </div>
+            <div class="settings-matrix-side">
+              <section class="settings-data-section settings-rate-section ui-data-section">
+                <div class="ui-section-header">
+                  <i class="ti ti-arrows-exchange"></i>
+                  <span class="ui-dual-copy"><strong>Tỷ giá</strong><span>匯率</span></span>
+                  <button type="button" class="settings-rate-refresh btn bsm" onclick="fetchRates()" id="btn-fetchrate" title="Tự động lấy tỷ giá / 自動抓取匯率"><i class="ti ti-refresh"></i></button>
+                </div>
+                <div class="settings-matrix-body ui-table-frame">
+                  <div class="settings-matrix-row">
+                    <label class="settings-matrix-label" for="ss-usd"><span class="ui-dual-copy"><strong>Tỷ giá USD</strong><span>USD 匯率</span></span></label>
+                    <div class="settings-matrix-unit"><span>VND/USD</span><span>VND／USD</span></div>
+                    <div class="settings-matrix-value settings-rate-value"><input type="number" id="ss-usd" value="25400" oninput="rAll()"><span id="rate-updated" class="settings-rate-status"></span></div>
+                  </div>
+                  <div class="settings-matrix-row">
+                    <label class="settings-matrix-label" for="ss-twd"><span class="ui-dual-copy"><strong>Tỷ giá TWD</strong><span>TWD 匯率</span></span></label>
+                    <div class="settings-matrix-unit"><span>VND/TWD</span><span>VND／TWD</span></div>
+                    <div class="settings-matrix-value settings-rate-value"><input type="number" id="ss-twd" value="780" oninput="rAll()"><span id="rate-updated-twd" class="settings-rate-status"></span></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-data-section settings-efficiency-section ui-data-section">
+                <div class="ui-section-header"><i class="ti ti-clock"></i><span class="ui-dual-copy"><strong>Hiệu suất sản xuất</strong><span>生產效率</span></span></div>
+                <div class="settings-matrix-body ui-table-frame">
+                  <div class="settings-matrix-row">
+                    <label class="settings-matrix-label" for="ss-ws"><span class="ui-dual-copy"><strong>Giây làm việc thực tế/giờ</strong><span>實際工作秒數／小時</span></span></label>
+                    <div class="settings-matrix-unit"><span>giây/giờ</span><span>秒／小時</span></div>
+                    <div class="settings-matrix-value"><input type="number" id="ss-ws" value="3000" oninput="rAll()"></div>
+                  </div>
+                  <div class="settings-matrix-row">
+                    <label class="settings-matrix-label" for="ss-eff"><span class="ui-dual-copy"><strong>Hiệu suất sản xuất</strong><span>生產效率</span></span></label>
+                    <div class="settings-matrix-unit"><span>%</span><span>百分比</span></div>
+                    <div class="settings-matrix-value"><input type="number" id="ss-eff" value="80" min="1" max="100" oninput="uEff()"></div>
+                  </div>
+                </div>
+              </section>
             </div>
-          </section>
+          </div>
+
+          <div class="settings-summary-row ui-summary-row">
+            <div class="ui-summary-item"><div class="ui-summary-label">Hiệu suất<span>效率</span></div><div class="ui-summary-value" id="e-in">80%</div></div>
+            <div class="ui-summary-item"><div class="ui-summary-label">Hệ số chi phí<span>成本倍數</span></div><div class="ui-summary-value" id="e-mu">125.00%</div></div>
+            <div class="ui-summary-item"><div class="ui-summary-label">Chi phí tăng<span>成本增加</span></div><div class="ui-summary-value" id="e-ic">+25.00%</div></div>
+            <div class="ui-summary-item"><div class="ui-summary-label">Công thức<span>公式</span></div><div class="settings-formula-value" id="e-fo">1 ÷ 80% = 125%</div></div>
+          </div>
         </div>
       </div>
 
@@ -1054,7 +1089,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-11"></script>
+<script src="js/features.js?v=20260808-12"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

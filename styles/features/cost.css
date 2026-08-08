@@ -21,36 +21,141 @@
   margin: 0 10px 10px;
 }
 
-#pg-settings .settings-section-body {
-  padding: 14px;
+#pg-settings .settings-matrix {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(520px, 1.12fr) minmax(420px, .88fr);
+  align-items: start;
+  gap: 12px;
 }
 
-#pg-settings .settings-section-body > .ui-form-grid + .ui-form-grid {
-  margin-top: 12px;
+#pg-settings .settings-matrix-side {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
 }
 
-#pg-settings .settings-rate-control {
+#pg-settings .settings-data-section {
+  margin-bottom: 0;
+}
+
+#pg-settings .settings-matrix-body {
+  overflow: visible;
+}
+
+#pg-settings .settings-matrix-row {
+  display: grid;
+  min-width: 0;
+  min-height: 60px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(88px, .54fr) minmax(150px, .9fr);
+  align-items: stretch;
+}
+
+#pg-settings .settings-matrix-row + .settings-matrix-row {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+#pg-settings .settings-matrix-label,
+#pg-settings .settings-matrix-unit,
+#pg-settings .settings-matrix-value {
   display: flex;
+  min-width: 0;
+  justify-content: center;
+  flex-direction: column;
+  padding: 8px 11px;
+}
+
+#pg-settings .settings-matrix-label {
+  color: var(--ui-color-text);
+  cursor: pointer;
+}
+
+#pg-settings .settings-matrix-label .ui-dual-copy strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#pg-settings .settings-matrix-unit,
+#pg-settings .settings-matrix-value {
+  border-left: 1px solid var(--ui-color-border);
+}
+
+#pg-settings .settings-matrix-unit {
+  color: var(--ui-color-text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+#pg-settings .settings-matrix-unit span + span {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+#pg-settings .settings-matrix-value {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
   align-items: center;
   gap: 6px;
 }
 
-#pg-settings .settings-rate-control input {
+#pg-settings .settings-matrix-value input {
+  width: 100%;
   min-width: 0;
-  flex: 1;
+  height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 12px;
+}
+
+#pg-settings .settings-matrix-value input:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+#pg-settings #ct-tag,
+#pg-settings #ht-tag {
+  display: inline-flex;
+  min-width: 42px;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+#pg-settings .settings-rate-refresh {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  justify-content: center;
+  margin-left: auto;
+  padding: 0;
+}
+
+#pg-settings .settings-rate-value {
+  align-content: center;
 }
 
 #pg-settings .settings-rate-status {
   display: block;
-  min-height: 14px;
-  margin-top: 2px;
+  grid-column: 1 / -1;
   color: var(--hi);
   font-size: 10px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+#pg-settings .settings-rate-status:empty {
+  display: none;
 }
 
 #pg-settings .settings-summary-row {
-  margin: 14px -14px -14px;
-  border-bottom: 0;
+  margin-top: 12px;
 }
 
 #pg-settings .settings-formula-value {
@@ -135,22 +240,22 @@
 }
 
 @media (max-width: 1365px) {
-  #pg-settings .cols3,
   #pg-export .cols3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #pg-settings .settings-summary-row {
-    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  #pg-settings .settings-matrix {
+    grid-template-columns: minmax(480px, 1.08fr) minmax(390px, .92fr);
   }
 
-  #pg-settings .settings-summary-row .ui-summary-item:nth-child(3) {
-    border-left: 0;
-    border-top: 1px solid var(--ui-color-border);
+  #pg-settings .settings-matrix-row {
+    grid-template-columns: minmax(0, 1.25fr) minmax(82px, .52fr) minmax(140px, .88fr);
   }
 
-  #pg-settings .settings-summary-row .ui-summary-item:nth-child(4) {
-    border-top: 1px solid var(--ui-color-border);
+  #pg-settings .settings-matrix-label,
+  #pg-settings .settings-matrix-unit,
+  #pg-settings .settings-matrix-value {
+    padding-inline: 9px;
   }
 
   #pg-export .export-command-row {

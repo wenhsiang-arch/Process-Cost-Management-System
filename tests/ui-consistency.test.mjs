@@ -122,6 +122,34 @@ test('第六階段舊功能頁全部使用裁帶共用版面骨架',()=>{
   }
 });
 
+test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
+  const html=read('index.html');
+  const style=read('styles/features/cost.css');
+  const pageStart=html.indexOf('id="pg-settings"'); // pageStart（設定頁起點）
+  const pageEnd=html.indexOf('<div class="pg',pageStart+1); // pageEnd（設定頁終點）
+  const settingsMarkup=html.slice(pageStart,pageEnd); // settingsMarkup（設定頁標記）
+  assert.match(settingsMarkup,/class="settings-matrix"/);
+  assert.match(settingsMarkup,/settings-personnel-section[\s\S]*?settings-rate-section[\s\S]*?settings-efficiency-section/);
+  assert.match(settingsMarkup,/class="settings-summary-row ui-summary-row"/);
+  assert.doesNotMatch(settingsMarkup,/settings-section-body|ui-form-grid/);
+  const fieldEvents={
+    'ss-sal':'aCC()','ss-ins':'aCC()','ss-meal':'aCC()',
+    'ss-tc':'onMC()','ss-hr':'onMH()','ss-usd':'rAll()',
+    'ss-twd':'rAll()','ss-ws':'rAll()','ss-eff':'uEff()'
+  }; // fieldEvents（設定欄位與原有輸入事件）
+  for(const [id,event] of Object.entries(fieldEvents)){
+    assert.equal((settingsMarkup.match(new RegExp(`id="${id}"`,'g'))||[]).length,1,`${id}（設定欄位）必須唯一`);
+    const fieldTag=settingsMarkup.match(new RegExp(`<input[^>]*id="${id}"[^>]*>`))?.[0]||''; // fieldTag（設定欄位標記）
+    assert.ok(fieldTag,`${id}（設定欄位）不存在`);
+    assert.ok(fieldTag.includes(`oninput="${event}"`),`${id}（設定欄位）原事件不可變更`);
+  }
+  const rateButtonTag=settingsMarkup.match(/<button[^>]*id="btn-fetchrate"[^>]*>/)?.[0]||''; // rateButtonTag（匯率按鈕標記）
+  assert.ok(rateButtonTag.includes('onclick="fetchRates()"'));
+  assert.match(style,/\.settings-matrix \{[\s\S]*?grid-template-columns: minmax\(520px, 1\.12fr\) minmax\(420px, \.88fr\);/);
+  assert.match(style,/\.settings-matrix-row \{[\s\S]*?grid-template-columns:[^;]+;/);
+  assert.doesNotMatch(style,/#pg-settings \.settings-summary-row[^\{]*\{[^\}]*grid-template-columns: repeat\(2/);
+});
+
 test('每個功能頁保留裁帶式平面抬頭且單頁不得省略',()=>{
   const html=read('index.html');
   const core=read('styles/ui-core.css');
