@@ -197,21 +197,32 @@ function rAll(){
 }
 
 const COST_SETTINGS_HISTORY_LABELS=Object.freeze({
-  sal:'平均薪資',ins:'平均保險',meal:'餐費',usd:'匯率USD',twd:'匯率TWD',
-  ws:'工作秒數/小時',eff:'生產效率(%)',hr:'平均時薪'
+  sal:'平均薪資',ins:'平均保險',meal:'餐費',month:'每月總成本',hr:'平均時薪',
+  usd:'匯率USD',twd:'匯率TWD',ws:'工作秒數/小時',eff:'生產效率(%)'
 }); // COST_SETTINGS_HISTORY_LABELS（成本設定歷史欄位名稱）。
 let savedCostSettingsHistoryBaseline=null; // savedCostSettingsHistoryBaseline（最後一次已載入或已儲存的成本比較基準）。
+
+function getCostSettingsMonthlyTotal(){
+  const manualMonthly=safePositiveNumber(window.S?.mc,0); // manualMonthly（手動設定的每月總成本）。
+  if(manualMonthly) return Math.round(manualMonthly);
+  return Math.round(
+    safePositiveNumber(window.S?.sal,0)
+    +safePositiveNumber(window.S?.ins,0)
+    +safePositiveNumber(window.S?.meal,0)
+  );
+}
 
 function createCostSettingsHistorySnapshot(){
   return {
     sal:window.S.sal,
     ins:window.S.ins,
     meal:window.S.meal,
+    month:getCostSettingsMonthlyTotal(),
+    hr:Math.round(getH()),
     usd:window.S.usd,
     twd:window.S.twd,
     ws:window.S.ws,
-    eff:window.S.eff,
-    hr:Math.round(getH())
+    eff:window.S.eff
   };
 }
 
@@ -221,14 +232,16 @@ function setCostSettingsHistoryBaseline(snapshot=createCostSettingsHistorySnapsh
 }
 
 function buildCostSettingsHistoryChanges(previous,next){
-  const changes=[]; // changes（準備寫入共用歷史紀錄的成本變動）。
-  Object.keys(COST_SETTINGS_HISTORY_LABELS).forEach(key=>{
-    if(previous[key]!==next[key]){
-      const percent=previous[key]?((next[key]-previous[key])/previous[key]*100).toFixed(1):null; // percent（變動百分比）。
-      changes.push({f:COST_SETTINGS_HISTORY_LABELS[key],b:previous[key],a:next[key],p:percent});
-    }
+  return buildCostSettingsHistoryEntries(previous,next).filter(change=>change.b!==change.a);
+}
+
+function buildCostSettingsHistoryEntries(previous,next){
+  return Object.keys(COST_SETTINGS_HISTORY_LABELS).map(key=>{
+    const before=previous[key]; // before（修改前數值）。
+    const after=next[key]; // after（修改後數值）。
+    const percent=before!==after&&before?((after-before)/before*100).toFixed(1):null; // percent（變動百分比）。
+    return {f:COST_SETTINGS_HISTORY_LABELS[key],b:before,a:after,p:percent};
   });
-  return changes;
 }
 
 async function loadCostSettingsPageData(options={}){
@@ -257,6 +270,7 @@ async function saveSt(){
   const next=createCostSettingsHistorySnapshot();
   const nextS={...window.S};
   const ch=buildCostSettingsHistoryChanges(prev,next);
+  const historyEntries=buildCostSettingsHistoryEntries(prev,next); // historyEntries（本次全部成本設定快照）。
   try{
     window.S=nextS;
     if(window.saveSettingsToFB){
@@ -267,14 +281,14 @@ async function saveSt(){
     let savedLog=null;
     if(ch.length>0&&window.saveCostLogToFB){
       try{
-        savedLog=await saveCostLogToFB({changes:ch});
+        savedLog=await saveCostLogToFB({changes:historyEntries,changeCount:ch.length});
       }catch(logError){
         console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',logError);
       }
     }
     window.cLog=savedLog?[savedLog,...prevClog].slice(0,50):prevClog;
-    if(ch.length>0){
-      rClog();
+    if(ch.length>0&&typeof window.rClog==='function'){
+      window.rClog();
     }
     rAll();
     window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã lưu cài đặt.',zh:'設定已儲存。'}});
@@ -284,7 +298,8 @@ async function saveSt(){
   }catch(e){
     window.S=prevS;
     window.cLog=prevClog;
-    rAll(); rClog();
+    rAll();
+    if(typeof window.rClog==='function') window.rClog();
     await settingsMessage('Lưu cài đặt thất bại, vui lòng kiểm tra mạng rồi thử lại.','儲存設定失敗，請確認網路後再試一次。','danger');
   }
 }

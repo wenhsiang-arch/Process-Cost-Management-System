@@ -79,7 +79,7 @@ test('成本設定載入完成後才建立已儲存比較基準',async()=>{
   };
   context.ensureCostSettingsLoaded=async()=>{
     costReads+=1;
-    Object.assign(context.S,{sal:400,ins:40,meal:25,mh:3});
+    Object.assign(context.S,{sal:400,ins:40,meal:25,mc:465,mh:3});
   };
 
   await context.loadCostSettingsPageData();
@@ -117,10 +117,14 @@ test('成本設定即時重算後，儲存仍會寫入共用歷史紀錄',async(
   await context.saveSt();
 
   assert.equal(logged.length,1);
-  assert.deepEqual(
-    Array.from(logged[0].changes,change=>({f:change.f,b:change.b,a:change.a})),
-    [{f:'平均薪資',b:300,a:360}]
-  );
+  assert.equal(logged[0].changeCount,2);
+  assert.equal(logged[0].changes.length,9);
+  const salaryChange=logged[0].changes.find(change=>change.f==='平均薪資'); // salaryChange（平均薪資歷史內容）。
+  const monthlyChange=logged[0].changes.find(change=>change.f==='每月總成本'); // monthlyChange（每月總成本歷史內容）。
+  assert.deepEqual({b:salaryChange.b,a:salaryChange.a,p:salaryChange.p},{b:300,a:360,p:'20.0'});
+  assert.deepEqual({b:monthlyChange.b,a:monthlyChange.a,p:monthlyChange.p},{b:350,a:410,p:'17.1'});
+  assert.equal(logged[0].changes.some(change=>change.f==='工作秒數/小時'&&change.b===change.a),true);
+  assert.equal(logged[0].changes.some(change=>change.f==='生產效率(%)'&&change.b===change.a),true);
 });
 
 test('成本設定儲存失敗時保留原比較基準供下次重試',async()=>{

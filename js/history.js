@@ -289,7 +289,7 @@
     feature:'cost',
     action:'costSettingsUpdate',
     status:'success',
-    itemCount:Array.isArray(costLog?.changes)?costLog.changes.length:0,
+    itemCount:costLog?.changeCount??(Array.isArray(costLog?.changes)?costLog.changes.length:0),
     detailCount:0,
     changes:costLog?.changes||[]
   });

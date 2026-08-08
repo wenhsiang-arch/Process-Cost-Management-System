@@ -461,29 +461,249 @@
 }
 
 /* 成本變動記錄 */
+#pg-costlog .costlog-data-section {
+  min-width: 0;
+}
+
+#pg-costlog .costlog-section-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+#pg-costlog .costlog-section-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+#pg-costlog .costlog-section-title > i {
+  color: var(--ui-color-primary);
+  font-size: 20px;
+}
+
+#pg-costlog .costlog-refresh {
+  display: inline-flex;
+  min-width: 112px;
+  min-height: 48px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  cursor: pointer;
+}
+
+#pg-costlog .costlog-refresh:hover:not(:disabled) {
+  border-color: var(--ui-color-primary);
+  color: var(--ui-color-primary);
+}
+
+#pg-costlog .costlog-refresh:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
+#pg-costlog .costlog-refresh.is-loading > i {
+  animation: cost-log-spin 1s linear infinite;
+}
+
+@keyframes cost-log-spin {
+  to { transform: rotate(360deg); }
+}
+
 #pg-costlog .costlog-list {
+  overflow: hidden;
   border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
 }
 
-#pg-costlog .cost-log-card {
-  background: var(--ui-color-surface);
+#pg-costlog .cost-log-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
-#pg-costlog .cost-log-card + .cost-log-card {
-  border-top: 1px solid var(--ui-color-border);
+#pg-costlog .cost-log-table {
+  width: 100%;
+  min-width: 990px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
-#pg-costlog .cost-log-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+#pg-costlog .cost-log-table-scroll.is-extra-expanded .cost-log-table {
+  min-width: 1230px;
+}
+
+#pg-costlog .cost-log-table th,
+#pg-costlog .cost-log-table td {
+  padding: 12px 8px;
+  border-right: 1px solid var(--ui-color-border);
   border-bottom: 1px solid var(--ui-color-border);
+  text-align: center;
+  vertical-align: middle;
+}
+
+#pg-costlog .cost-log-table th:last-child,
+#pg-costlog .cost-log-table td:last-child {
+  border-right: 0;
+}
+
+#pg-costlog .cost-log-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+#pg-costlog .cost-log-table th {
+  height: 64px;
+  background: var(--ui-color-table-header);
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#pg-costlog .cost-log-table th > span,
+#pg-costlog .cost-log-table th > small {
+  display: block;
+}
+
+#pg-costlog .cost-log-table th > small {
+  margin-top: 5px;
+  color: var(--ui-color-text-subtle);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+#pg-costlog .cost-log-table td {
+  height: 70px;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font-size: 13px;
+}
+
+#pg-costlog .cost-log-table tbody tr:hover td {
+  background: var(--ui-color-row-hover);
+}
+
+#pg-costlog .cost-log-time-head,
+#pg-costlog .cost-log-time-cell {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 145px;
+  min-width: 145px;
+  text-align: left;
+}
+
+#pg-costlog .cost-log-user-head,
+#pg-costlog .cost-log-user-cell {
+  position: sticky;
+  left: 145px;
+  z-index: 3;
+  width: 105px;
+  min-width: 105px;
+  text-align: left;
+  box-shadow: 1px 0 0 var(--ui-color-border);
+}
+
+#pg-costlog .cost-log-time-head,
+#pg-costlog .cost-log-user-head {
+  z-index: 5;
   background: var(--ui-color-table-header);
 }
 
-#pg-costlog .cost-log-body {
-  padding: 4px 0;
+#pg-costlog .cost-log-time-cell,
+#pg-costlog .cost-log-user-cell {
+  background: var(--ui-color-surface);
+  white-space: nowrap;
+}
+
+#pg-costlog .cost-log-table tbody tr:hover .cost-log-time-cell,
+#pg-costlog .cost-log-table tbody tr:hover .cost-log-user-cell {
+  background: var(--ui-color-row-hover);
+}
+
+#pg-costlog .cost-log-value-head,
+#pg-costlog .cost-log-value-cell {
+  width: 100px;
+}
+
+#pg-costlog .cost-log-value-cell.is-changed {
+  background: #fff8e6;
+  box-shadow: inset 0 0 0 1px #f4d893;
+}
+
+#pg-costlog .cost-log-table tbody tr:hover .cost-log-value-cell.is-changed {
+  background: #fff3d3;
+}
+
+#pg-costlog .cost-log-value,
+#pg-costlog .cost-log-percent {
+  display: block;
+  white-space: nowrap;
+}
+
+#pg-costlog .cost-log-value {
+  font-weight: 600;
+}
+
+#pg-costlog .cost-log-percent {
+  margin-top: 5px;
+  color: #b96a00;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+#pg-costlog .cost-log-value-cell.is-missing {
+  color: var(--ui-color-text-subtle);
+}
+
+#pg-costlog .cost-log-extra {
+  display: none;
+  width: 120px;
+}
+
+#pg-costlog .cost-log-table-scroll.is-extra-expanded .cost-log-extra {
+  display: table-cell;
+}
+
+#pg-costlog .cost-log-toggle-head,
+#pg-costlog .cost-log-toggle-spacer {
+  position: sticky;
+  right: 0;
+  z-index: 4;
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  background: var(--ui-color-table-header);
+}
+
+#pg-costlog .cost-log-toggle-spacer {
+  z-index: 2;
+  background: var(--ui-color-surface);
+}
+
+#pg-costlog .cost-log-extra-toggle {
+  display: inline-flex;
+  width: 30px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 8px;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+#pg-costlog .cost-log-extra-toggle:hover {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
 }
 
 #pg-costlog .cost-log-empty {
@@ -497,6 +717,39 @@
 }
 
 @media (max-width: 1365px) {
+  #pg-costlog .cost-log-table {
+    min-width: 950px;
+  }
+
+  #pg-costlog .cost-log-table-scroll.is-extra-expanded .cost-log-table {
+    min-width: 1190px;
+  }
+
+  #pg-costlog .cost-log-time-head,
+  #pg-costlog .cost-log-time-cell {
+    width: 136px;
+    min-width: 136px;
+  }
+
+  #pg-costlog .cost-log-user-head,
+  #pg-costlog .cost-log-user-cell {
+    left: 136px;
+    width: 96px;
+    min-width: 96px;
+  }
+
+  #pg-costlog .cost-log-value-head,
+  #pg-costlog .cost-log-value-cell {
+    width: 96px;
+    padding-inline: 6px;
+  }
+
+  #pg-costlog .cost-log-value,
+  #pg-costlog .cost-log-time-cell,
+  #pg-costlog .cost-log-user-cell {
+    font-size: 12px;
+  }
+
   #pg-export .cols3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

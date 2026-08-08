@@ -1,13 +1,14 @@
 // features（功能中央清單）：統一管理導覽、頁面、權限、程式依賴、資料載入與進入頁面動作。
 (function(){
   const SCRIPT_URLS = Object.freeze({
-    history:'js/history.js?v=20260808-1',
+    history:'js/history.js?v=20260809-2',
     fileIo:'js/file-io.js?v=20260808-1',
-    settings:'js/settings.js?v=20260809-2',
+    settings:'js/settings.js?v=20260809-3',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260808-2',
-    data:'js/data.js?v=20260809-1',
+    data:'js/data.js?v=20260809-2',
+    costLog:'js/cost-log.js?v=20260809-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260808-8',
     accounts:'js/accounts.js?v=20260809-1',
@@ -27,7 +28,7 @@
     orders:'styles/features/orders.css?v=20260808-4',
     products:'styles/features/products.css?v=20260808-3',
     sync:'styles/features/sync.css?v=20260808-2',
-    cost:'styles/features/cost.css?v=20260809-2',
+    cost:'styles/features/cost.css?v=20260809-3',
     accounts:'styles/features/accounts.css?v=20260809-1',
     production:'styles/features/production.css?v=20260809-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -134,7 +135,7 @@
         },
         {
           page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄',
-          styles:['cost'],scripts:['history','data'],dataScopes:['operationLogs:costlog'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
+          styles:['cost'],scripts:['history','costLog'],dataScopes:['operationLogs:costlog'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
         },
         {
           page:'export',feature:'export',icon:'ti-download',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出',
