@@ -34,7 +34,7 @@ async function savePermissions(){
     await window.firebaseSaveRolePermissions(payload);
     window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,true]));
     renderPermissions();
-    await permissionsMessage('Đã lưu và áp dụng quyền.','權限設定已儲存套用。','success');
+    window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã lưu và áp dụng quyền.',zh:'權限設定已儲存套用。'}});
     if(typeof uNav==='function') uNav();
     return true;
   }catch(e){

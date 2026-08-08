@@ -32,12 +32,33 @@
 }
 
 #pg-accounts table {
-  min-width: 920px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+}
+
+#pg-accounts th:nth-child(1) { width: 25%; }
+#pg-accounts th:nth-child(2) { width: 13%; }
+#pg-accounts th:nth-child(3) { width: 22%; }
+#pg-accounts th:nth-child(4) { width: 15%; }
+#pg-accounts th:nth-child(5) { width: 15%; }
+#pg-accounts th:nth-child(6) { width: 10%; }
+
+#pg-accounts td:nth-child(1),
+#pg-accounts td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+
+#pg-accounts td:nth-child(3) .tg,
+#pg-accounts td:nth-child(4) .tg {
+  max-width: 100%;
+  white-space: normal;
 }
 
 #pg-accounts .account-row-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
 }
 
@@ -48,10 +69,12 @@
 }
 
 #pg-accounts .accounts-uid {
-  max-width: 260px;
+  max-width: 0;
   font-family: var(--font-mono, monospace);
   font-size: 11px;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #pg-permissions .permissions-table-frame {

@@ -188,17 +188,55 @@ test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
   assert.ok(rateButtonTag.includes('onclick="fetchRates()"'));
   assert.match(style,/\.settings-matrix \{[\s\S]*?grid-template-columns: minmax\(520px, 1\.12fr\) minmax\(420px, \.88fr\);/);
   assert.match(style,/\.settings-matrix-row \{[\s\S]*?grid-template-columns:[^;]+;/);
-  assert.match(style,/#pg-settings \.settings-summary-row[^\{]*\{[\s\S]*?grid-template-columns: repeat\(2/);
+  assert.match(style,/#pg-settings \.settings-summary-row[^\{]*\{[\s\S]*?grid-template-columns: repeat\(3/);
   assert.match(style,/input\[type="number"\]::\-webkit-inner-spin-button/);
   assert.match(style,/\.settings-rate-status[\s\S]*?white-space: nowrap/);
+  assert.doesNotMatch(settingsMarkup,/id="st-ok"/);
+  assert.doesNotMatch(settingsMarkup,/id="e-ic"|id="e-fo"/);
+  assert.match(settingsMarkup,/id="e-time"/);
+  assert.match(settingsMarkup,/Hiệu suất sản xuất thực tế[\s\S]*?實際生產效率/);
+  assert.match(settingsMarkup,/id="ss-ws-help"[\s\S]*?款號表/);
+  assert.doesNotMatch(settingsMarkup,/<label class="settings-matrix-label"/);
+  assert.doesNotMatch(settingsMarkup,/id="ss-eff"[^>]*max="100"/);
   const settingsSource=read('js/settings.js'); // settingsSource（設定功能程式內容）
   assert.match(settingsSource,/replace\(\/,\/g,''\)/);
   assert.match(settingsSource,/toLocaleString\('en-US'\)/);
   assert.match(settingsSource,/setRateUpdatedStatus\(info,now/);
   assert.doesNotMatch(settingsSource,/rate-updated-twd/);
+  assert.match(settingsSource,/SETTINGS_POSITIVE_NUMBER_IDS/);
+  assert.match(settingsSource,/effectiveMinutes[\s\S]*?workSeconds\*\(efficiency\/100\)[\s\S]*?\/60/);
+  assert.match(settingsSource,/PCMSUIComponents\.showToast/);
   const specification=read('UI設計規範與參照/介面設計規範.md');
   assert.match(specification,/所有金額及匯率顯示值必須使用逗號千分位/);
   assert.match(specification,/計算、比對及儲存仍使用不含逗號的純數值/);
+});
+
+test('共用成功提示固定顯示且不改變頁面高度',()=>{
+  const html=read('index.html');
+  const core=read('styles/ui-core.css');
+  const components=read('js/ui-components.js');
+  const accounts=read('js/accounts.js');
+  const permissions=read('js/permissions.js');
+  const productionEntry=read('js/production/production-entry.js');
+  const productionEmployees=read('js/production/production-employees.js');
+  assert.doesNotMatch(html,/id="sync-status"/);
+  assert.match(core,/\.ui-toast-stack \{[\s\S]*?position: fixed;[\s\S]*?top: 70px;[\s\S]*?right: 18px;/);
+  assert.match(components,/function showToast\(/);
+  assert.match(components,/durationMs[\s\S]*?3200/);
+  assert.match(components,/showToast,/);
+  for(const source of [accounts,permissions,productionEntry,productionEmployees]){
+    assert.match(source,/PCMSUIComponents\.showToast/);
+  }
+});
+
+test('帳號表格使用固定欄寬且使用者識別碼不撐寬頁面',()=>{
+  const style=read('styles/features/accounts.css');
+  const source=read('js/accounts.js');
+  assert.match(style,/#pg-accounts table \{[\s\S]*?min-width: 0;[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/#pg-accounts th:nth-child\(1\) \{ width: 25%; \}/);
+  assert.match(style,/#pg-accounts th:nth-child\(5\) \{ width: 15%; \}/);
+  assert.match(style,/\.accounts-uid \{[\s\S]*?text-overflow: ellipsis;[\s\S]*?white-space: nowrap;/);
+  assert.match(source,/uidCell\.title=uidText/);
 });
 
 test('每個功能頁保留裁帶式平面抬頭且單頁不得省略',()=>{

@@ -25,6 +25,13 @@ function setRateUpdatedStatus(element,timestamp,color){
 const SETTINGS_GROUPED_NUMBER_IDS=Object.freeze([
   'ss-sal','ss-ins','ss-meal','ss-tc','ss-hr','ss-usd','ss-twd'
 ]); // SETTINGS_GROUPED_NUMBER_IDS（使用千分位顯示的設定欄位識別碼）
+const SETTINGS_POSITIVE_NUMBER_IDS=Object.freeze([
+  'ss-sal','ss-ins','ss-meal','ss-tc','ss-hr','ss-usd','ss-twd','ss-ws','ss-eff'
+]); // SETTINGS_POSITIVE_NUMBER_IDS（儲存時必須大於零的設定欄位識別碼）
+const SETTINGS_POSITIVE_ERROR=Object.freeze({
+  vi:'Giá trị phải là số lớn hơn 0.',
+  zh:'數值必須大於 0。'
+}); // SETTINGS_POSITIVE_ERROR（設定欄位正數驗證訊息）
 
 function parseSettingNumberValue(value){
   const normalized=String(value??'').replace(/,/g,'').trim(); // normalized（移除千分位後的純數字文字）
@@ -35,6 +42,7 @@ function parseSettingNumberValue(value){
 function sanitizeSettingNumberInput(element){
   if(!element) return;
   element.value=String(element.value||'').replace(/[^0-9]/g,'');
+  if(isPositiveSettingNumber(element.value)) clearSettingFieldError(element);
 }
 
 function formatSettingNumberValue(value){
@@ -72,44 +80,100 @@ function beginSettingNumberEdit(element){
 }
 
 function finishSettingNumberEdit(element){
-  formatSettingGroupedField(element);
+  if(!element) return;
+  if(validateSettingNumberField(element,true)) formatSettingGroupedField(element);
 }
 
-function readSettingNumber(id,fallback,min=0,max=null,writeBack=false){
-  const el=g(id);
-  let v=parseSettingNumberValue(el?.value);
-  if(!Number.isFinite(v)||v<min) v=fallback;
-  if(max!==null&&v>max) v=max;
-  if(writeBack&&el) writeSettingNumberValue(id,v);
-  return v;
+function isPositiveSettingNumber(value){
+  const number=parseSettingNumberValue(value); // number（準備驗證的設定數值）
+  return Number.isFinite(number)&&number>0;
 }
-function aCC(){  if(window.S.mc) return;
-  const t=(parseSettingNumberValue(g('ss-sal').value)||0)+(parseSettingNumberValue(g('ss-ins').value)||0)+(parseSettingNumberValue(g('ss-meal').value)||0);
-  writeSettingNumberValue('ss-tc',Math.round(t));
-  if(!window.S.mh) writeSettingNumberValue('ss-hr',Math.round(t/208));
+
+function clearSettingFieldError(element){
+  if(!element) return;
+  element.removeAttribute('aria-invalid');
+  const host=element.closest('.settings-matrix-value'); // host（設定欄位外框）
+  if(!host) return;
+  host.classList.remove('is-invalid');
+  host.querySelector('.settings-field-error')?.remove();
+}
+
+function showSettingFieldError(element){
+  if(!element) return;
+  const host=element.closest('.settings-matrix-value'); // host（設定欄位外框）
+  if(!host) return;
+  element.setAttribute('aria-invalid','true');
+  host.classList.add('is-invalid');
+  let error=host.querySelector('.settings-field-error'); // error（欄位驗證訊息）
+  if(!error){
+    error=document.createElement('div');
+    error.className='settings-field-error';
+    error.appendChild(window.PCMSUIText.create(SETTINGS_POSITIVE_ERROR));
+    host.appendChild(error);
+  }
+}
+
+function validateSettingNumberField(element,showError=false){
+  const valid=isPositiveSettingNumber(element?.value); // valid（欄位是否為有效正數）
+  if(valid) clearSettingFieldError(element);
+  else if(showError) showSettingFieldError(element);
+  return valid;
+}
+
+function validateAllSettingNumbers(){
+  let firstInvalid=null; // firstInvalid（第一個無效設定欄位）
+  SETTINGS_POSITIVE_NUMBER_IDS.forEach(id=>{
+    const element=g(id); // element（目前驗證的設定欄位）
+    if(element&&!validateSettingNumberField(element,true)&&!firstInvalid) firstInvalid=element;
+  });
+  firstInvalid?.focus();
+  return !firstInvalid;
+}
+
+function readPositiveSettingNumber(id){
+  const element=g(id); // element（正數設定欄位）
+  const value=parseSettingNumberValue(element?.value); // value（欄位目前數值）
+  return Number.isFinite(value)&&value>0?value:null;
+}
+
+function aCC(){
+  const values=['ss-sal','ss-ins','ss-meal'].map(readPositiveSettingNumber); // values（人事成本欄位數值）
+  if(values.some(value=>value===null)) return;
+  const t=values.reduce((sum,value)=>sum+value,0); // t（每月人事總成本）
+  if(!window.S.mc&&document.activeElement!==g('ss-tc')) writeSettingNumberValue('ss-tc',Math.round(t));
+  if(!window.S.mh&&document.activeElement!==g('ss-hr')) writeSettingNumberValue('ss-hr',Math.round(t/208));
 }
 
 function onMC(){
-  const v=parseSettingNumberValue(g('ss-tc').value); window.S.mc=v||null;
+  const v=readPositiveSettingNumber('ss-tc');
+  if(v===null) return;
+  window.S.mc=v;
   const tg=g('ct-tag'); tg.className=v?'mt':'at'; tg.innerHTML=v?'Thủ công<br>手動':'Tự động<br>自動';
   if(!window.S.mh&&v) writeSettingNumberValue('ss-hr',Math.round(v/208));
   rAll();
 }
 
 function onMH(){
-  const v=parseSettingNumberValue(g('ss-hr').value); window.S.mh=v||null;
+  const v=readPositiveSettingNumber('ss-hr');
+  if(v===null) return;
+  window.S.mh=v;
   const tg=g('ht-tag'); tg.className=v?'mt':'at'; tg.innerHTML=v?'Thủ công<br>手動':'Tự động<br>自動';
   rAll();
 }
 
 function uEff(){
-  window.S.eff=readSettingNumber('ss-eff',80,1,100,true);
-  const m=(1/(window.S.eff/100))*100, i=m-100;
-  g('e-in').textContent=window.S.eff+'%';
-  g('e-mu').textContent=m.toFixed(2)+'%';
-  g('e-ic').textContent='+'+i.toFixed(2)+'%';
-  g('e-fo').textContent='1 ÷ '+window.S.eff+'% = '+m.toFixed(2)+'%';
   rAll();
+}
+
+function updateEfficiencySummary(){
+  const efficiency=readPositiveSettingNumber('ss-eff'); // efficiency（實際生產效率）
+  const workSeconds=readPositiveSettingNumber('ss-ws'); // workSeconds（每小時實際工作秒數）
+  const efficiencyText=efficiency===null?'—':`${Number(efficiency.toFixed(2))}%`; // efficiencyText（效率摘要文字）
+  const multiplier=efficiency===null?null:100/efficiency; // multiplier（報價成本倍數）
+  const effectiveMinutes=efficiency===null||workSeconds===null?null:(workSeconds*(efficiency/100))/60; // effectiveMinutes（每小時預估有效生產分鐘）
+  g('e-in').textContent=efficiencyText;
+  g('e-mu').textContent=multiplier===null?'—':`${(multiplier*100).toFixed(2)}%`;
+  g('e-time').textContent=effectiveMinutes===null?'—':effectiveMinutes.toFixed(1);
 }
 
 function rAll(){
@@ -118,13 +182,18 @@ function rAll(){
     rSum(); rDet(); rExp(); rBk();
     return;
   }
-  window.S.sal  = readSettingNumber('ss-sal',0,0,null,false);
-  window.S.ins  = readSettingNumber('ss-ins',0,0,null,false);
-  window.S.meal = readSettingNumber('ss-meal',0,0,null,false);
-  window.S.usd  = readSettingNumber('ss-usd',window.S.usd||25400,1,null,true);
-  window.S.twd  = readSettingNumber('ss-twd',window.S.twd||780,1,null,true);
-  window.S.ws   = readSettingNumber('ss-ws',window.S.ws||3000,1,null,true);
-  aCC(); formatSettingGroupedFields(); rSum(); rDet(); rExp(); rBk();
+  const fields={sal:'ss-sal',ins:'ss-ins',meal:'ss-meal',usd:'ss-usd',twd:'ss-twd',ws:'ss-ws',eff:'ss-eff'}; // fields（畫面欄位與成本設定對應）
+  Object.entries(fields).forEach(([key,id])=>{
+    const value=readPositiveSettingNumber(id); // value（目前有效設定值）
+    if(value!==null){
+      window.S[key]=value;
+      clearSettingFieldError(g(id));
+    }
+  });
+  aCC();
+  formatSettingGroupedFields();
+  updateEfficiencySummary();
+  rSum(); rDet(); rExp(); rBk();
 }
 
 async function saveSt(){
@@ -132,10 +201,11 @@ async function saveSt(){
     await settingsMessage('Không có quyền cài đặt chi phí.','沒有成本設定權限。','warning');
     return false;
   }
+  if(!validateAllSettingNumbers()) return false;
   const prevS={...window.S};
   const prevClog=Array.isArray(window.cLog)?window.cLog.map(log=>({...log})):[];
   const prev={sal:prevS.sal,ins:prevS.ins,meal:prevS.meal,usd:prevS.usd,twd:prevS.twd,ws:prevS.ws,eff:prevS.eff,hr:Math.round(getH())};
-  rAll(); uEff();
+  rAll();
   const next={sal:window.S.sal,ins:window.S.ins,meal:window.S.meal,usd:window.S.usd,twd:window.S.twd,ws:window.S.ws,eff:window.S.eff,hr:Math.round(getH())};
   const nextS={...window.S};
   const lbs={sal:'平均薪資',ins:'平均保險',meal:'餐費',usd:'匯率USD',twd:'匯率TWD',ws:'工作秒數/小時',eff:'生產效率(%)',hr:'平均時薪'};
@@ -164,15 +234,15 @@ async function saveSt(){
     if(ch.length>0){
       rClog();
     }
-    rAll(); uEff();
-    const n=g('st-ok'); n.style.display='flex'; setTimeout(()=>n.style.display='none',3000);
+    rAll();
+    window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã lưu cài đặt.',zh:'設定已儲存。'}});
     if(ch.length>0&&!savedLog){
       await settingsMessage('Đã lưu cài đặt, nhưng không thể lưu lịch sử thao tác.','設定已儲存，但操作紀錄無法保存。','warning');
     }
   }catch(e){
     window.S=prevS;
     window.cLog=prevClog;
-    rAll(); uEff(); rClog();
+    rAll(); rClog();
     await settingsMessage('Lưu cài đặt thất bại, vui lòng kiểm tra mạng rồi thử lại.','儲存設定失敗，請確認網路後再試一次。','danger');
   }
 }

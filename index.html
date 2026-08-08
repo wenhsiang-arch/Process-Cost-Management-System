@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260808-9">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260809-1">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -293,9 +293,6 @@ tr:hover td{background:#f8fafc}
     </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
-  <!-- 同步狀態 -->
-  <div id="sync-status" style="display:none;position:fixed;bottom:14px;right:16px;font-size:11px;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:6px 12px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.08)"></div>
-
   <div class="mn">
     <div class="tb">
       <div class="tb-title ui-bilingual" id="active-page-title" aria-live="polite" hidden></div>
@@ -789,17 +786,15 @@ tr:hover td{background:#f8fafc}
                   </div>
                 </div>
                 <div class="settings-summary-row ui-summary-row">
-                  <div class="ui-summary-item"><div class="ui-summary-label">Hiệu suất<span>效率</span></div><div class="ui-summary-value" id="e-in">80%</div></div>
+                  <div class="ui-summary-item"><div class="ui-summary-label">Hiệu suất sản xuất thực tế<span>實際生產效率</span></div><div class="ui-summary-value" id="e-in">80%</div></div>
                   <div class="ui-summary-item"><div class="ui-summary-label">Hệ số chi phí<span>成本倍數</span></div><div class="ui-summary-value" id="e-mu">125.00%</div></div>
-                  <div class="ui-summary-item"><div class="ui-summary-label">Chi phí tăng<span>成本增加</span></div><div class="ui-summary-value" id="e-ic">+25.00%</div></div>
-                  <div class="ui-summary-item"><div class="ui-summary-label">Công thức<span>公式</span></div><div class="settings-formula-value" id="e-fo">1 ÷ 80% = 125%</div></div>
+                  <div class="ui-summary-item"><div class="ui-summary-label">Thời gian sản xuất hiệu dụng ước tính<span>預估有效生產時間</span></div><div class="settings-summary-time"><span class="ui-summary-value" id="e-time">40.0</span><span class="settings-summary-unit"><span>phút/giờ</span><span>分鐘／小時</span></span></div></div>
                 </div>
               </div>
               <div class="settings-command-actions ui-command-actions">
                 <button type="button" class="settings-command-action ui-command-action is-primary" onclick="saveSt()"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Lưu và tính lại</strong><span>儲存並重新計算</span></span></button>
               </div>
             </div>
-            <div id="st-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Đã lưu cài đặt.</span><span class="ui-text-zh">設定已儲存。</span></span></div>
           </section>
 
           <div class="settings-matrix">
@@ -807,29 +802,29 @@ tr:hover td{background:#f8fafc}
               <div class="ui-section-header"><i class="ti ti-currency-dollar"></i><span class="ui-dual-copy"><strong>Chi phí nhân sự</strong><span>人事成本</span></span></div>
               <div class="settings-matrix-body ui-table-frame">
                 <div class="settings-matrix-row">
-                  <label class="settings-matrix-label" for="ss-sal"><span class="ui-dual-copy"><strong>Lương trung bình</strong><span>平均薪資</span></span></label>
+                  <div class="settings-matrix-label" id="ss-sal-label"><span class="ui-dual-copy"><strong>Lương trung bình</strong><span>平均薪資</span></span></div>
                   <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
-                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-sal" value="0" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);aCC()" onblur="finishSettingNumberEdit(this)"></div>
+                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-sal" value="0" aria-labelledby="ss-sal-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);aCC()" onblur="finishSettingNumberEdit(this)"></div>
                 </div>
                 <div class="settings-matrix-row">
-                  <label class="settings-matrix-label" for="ss-ins"><span class="ui-dual-copy"><strong>Bảo hiểm trung bình</strong><span>平均保險</span></span></label>
+                  <div class="settings-matrix-label" id="ss-ins-label"><span class="ui-dual-copy"><strong>Bảo hiểm trung bình</strong><span>平均保險</span></span></div>
                   <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
-                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-ins" value="0" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);aCC()" onblur="finishSettingNumberEdit(this)"></div>
+                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-ins" value="0" aria-labelledby="ss-ins-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);aCC()" onblur="finishSettingNumberEdit(this)"></div>
                 </div>
                 <div class="settings-matrix-row">
-                  <label class="settings-matrix-label" for="ss-meal"><span class="ui-dual-copy"><strong>Phí ăn uống</strong><span>餐費</span></span></label>
+                  <div class="settings-matrix-label" id="ss-meal-label"><span class="ui-dual-copy"><strong>Phí ăn uống</strong><span>餐費</span></span></div>
                   <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
-                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-meal" value="0" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);aCC()" onblur="finishSettingNumberEdit(this)"></div>
+                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-meal" value="0" aria-labelledby="ss-meal-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);aCC()" onblur="finishSettingNumberEdit(this)"></div>
                 </div>
                 <div class="settings-matrix-row">
-                  <label class="settings-matrix-label" for="ss-tc"><span class="ui-dual-copy"><strong>Tổng chi phí trung bình/tháng</strong><span>平均總成本／月</span></span></label>
+                  <div class="settings-matrix-label" id="ss-tc-label"><span class="ui-dual-copy"><strong>Tổng chi phí trung bình/tháng</strong><span>平均總成本／月</span></span></div>
                   <div class="settings-matrix-unit"><span>VND/tháng</span><span>VND／月</span></div>
-                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-tc" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);onMC()" onblur="finishSettingNumberEdit(this)"><span id="ct-tag" class="at">Tự động<br>自動</span></div>
+                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-tc" aria-labelledby="ss-tc-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);onMC()" onblur="finishSettingNumberEdit(this)"><span id="ct-tag" class="at">Tự động<br>自動</span></div>
                 </div>
                 <div class="settings-matrix-row">
-                  <label class="settings-matrix-label" for="ss-hr"><span class="ui-dual-copy"><strong>Lương giờ trung bình</strong><span>平均時薪</span></span></label>
+                  <div class="settings-matrix-label" id="ss-hr-label"><span class="ui-dual-copy"><strong>Lương giờ trung bình</strong><span>平均時薪</span></span></div>
                   <div class="settings-matrix-unit"><span>VND/giờ</span><span>VND／小時</span></div>
-                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-hr" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);onMH()" onblur="finishSettingNumberEdit(this)"><span id="ht-tag" class="at">Tự động<br>自動</span></div>
+                  <div class="settings-matrix-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-hr" aria-labelledby="ss-hr-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);onMH()" onblur="finishSettingNumberEdit(this)"><span id="ht-tag" class="at">Tự động<br>自動</span></div>
                 </div>
               </div>
             </section>
@@ -844,30 +839,34 @@ tr:hover td{background:#f8fafc}
                 </div>
                 <div class="settings-matrix-body ui-table-frame">
                   <div class="settings-matrix-row">
-                    <label class="settings-matrix-label" for="ss-usd"><span class="ui-dual-copy"><strong>Tỷ giá USD</strong><span>USD 匯率</span></span></label>
+                    <div class="settings-matrix-label" id="ss-usd-label"><span class="ui-dual-copy"><strong>Tỷ giá USD</strong><span>USD 匯率</span></span></div>
                     <div class="settings-matrix-unit"><span>VND/USD</span><span>VND／USD</span></div>
-                    <div class="settings-matrix-value settings-rate-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-usd" value="25,400" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);rAll()" onblur="finishSettingNumberEdit(this)"></div>
+                    <div class="settings-matrix-value settings-rate-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-usd" value="25,400" aria-labelledby="ss-usd-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);rAll()" onblur="finishSettingNumberEdit(this)"></div>
                   </div>
                   <div class="settings-matrix-row">
-                    <label class="settings-matrix-label" for="ss-twd"><span class="ui-dual-copy"><strong>Tỷ giá TWD</strong><span>TWD 匯率</span></span></label>
+                    <div class="settings-matrix-label" id="ss-twd-label"><span class="ui-dual-copy"><strong>Tỷ giá TWD</strong><span>TWD 匯率</span></span></div>
                     <div class="settings-matrix-unit"><span>VND/TWD</span><span>VND／TWD</span></div>
-                    <div class="settings-matrix-value settings-rate-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-twd" value="780" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);rAll()" onblur="finishSettingNumberEdit(this)"></div>
+                    <div class="settings-matrix-value settings-rate-value"><input type="text" inputmode="numeric" class="settings-grouped-number" id="ss-twd" value="780" aria-labelledby="ss-twd-label" onfocus="beginSettingNumberEdit(this)" oninput="sanitizeSettingNumberInput(this);rAll()" onblur="finishSettingNumberEdit(this)"></div>
                   </div>
                 </div>
               </section>
 
               <section class="settings-data-section settings-efficiency-section ui-data-section">
-                <div class="ui-section-header"><i class="ti ti-clock"></i><span class="ui-dual-copy"><strong>Hiệu suất sản xuất</strong><span>生產效率</span></span></div>
+                <div class="ui-section-header"><i class="ti ti-clock"></i><span class="ui-dual-copy"><strong>Hiệu suất sản xuất thực tế</strong><span>實際生產效率</span></span></div>
                 <div class="settings-matrix-body ui-table-frame">
                   <div class="settings-matrix-row">
-                    <label class="settings-matrix-label" for="ss-ws"><span class="ui-dual-copy"><strong>Giây làm việc thực tế/giờ</strong><span>實際工作秒數／小時</span></span></label>
+                    <div class="settings-matrix-label settings-label-with-help">
+                      <span class="ui-dual-copy" id="ss-ws-label"><strong>Giây làm việc thực tế/giờ</strong><span>實際工作秒數／小時</span></span>
+                      <button type="button" class="settings-help-button" aria-label="Thông tin liên quan đến bảng mã hàng / 與款號表相關的說明" aria-describedby="ss-ws-help"><i class="ti ti-info-circle" aria-hidden="true"></i></button>
+                      <span class="settings-help-popover" id="ss-ws-help" role="tooltip"><span>Giá trị này dùng để tính sản lượng tiêu chuẩn và đơn giá gia công trong bảng mã hàng. Giá trị càng cao, đơn giá mỗi sản phẩm càng thấp.</span><span>此數值用於計算款號表的標準產量與工價；數值越高，單件工價越低。</span></span>
+                    </div>
                     <div class="settings-matrix-unit"><span>giây/giờ</span><span>秒／小時</span></div>
-                    <div class="settings-matrix-value"><input type="number" id="ss-ws" value="3000" oninput="rAll()"></div>
+                    <div class="settings-matrix-value"><input type="number" id="ss-ws" value="3000" step="any" aria-labelledby="ss-ws-label" aria-describedby="ss-ws-help" oninput="rAll()" onblur="finishSettingNumberEdit(this)"></div>
                   </div>
                   <div class="settings-matrix-row">
-                    <label class="settings-matrix-label" for="ss-eff"><span class="ui-dual-copy"><strong>Hiệu suất sản xuất</strong><span>生產效率</span></span></label>
+                    <div class="settings-matrix-label" id="ss-eff-label"><span class="ui-dual-copy"><strong>Hiệu suất sản xuất thực tế</strong><span>實際生產效率</span></span></div>
                     <div class="settings-matrix-unit"><span>%</span><span>百分比</span></div>
-                    <div class="settings-matrix-value"><input type="number" id="ss-eff" value="80" min="1" max="100" oninput="uEff()"></div>
+                    <div class="settings-matrix-value"><input type="number" id="ss-eff" value="80" step="any" aria-labelledby="ss-eff-label" oninput="uEff()" onblur="finishSettingNumberEdit(this)"></div>
                   </div>
                 </div>
               </section>
@@ -1233,11 +1232,11 @@ tr:hover td{background:#f8fafc}
 <script src="js/safe-dom.js?v=20260806-1"></script>
 <script src="js/ui-text.js?v=20260807-1"></script>
 <script src="js/ui-runtime.js?v=20260807-1"></script>
-<script src="js/ui-components.js?v=20260808-5"></script>
+<script src="js/ui-components.js?v=20260809-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260805-2"></script>
-<script src="js/features.js?v=20260808-15"></script>
+<script src="js/features.js?v=20260809-1"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

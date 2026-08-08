@@ -128,8 +128,10 @@ function rAcc(){
     statusCell.appendChild(statusTag);
     tr.appendChild(statusCell);
 
-    const uidCell=appendAccountCell(tr,a.authUid||'Chưa đăng nhập / 尚未登入');
+    const uidText=a.authUid||'Chưa đăng nhập / 尚未登入'; // uidText（使用者識別碼顯示文字）
+    const uidCell=appendAccountCell(tr,uidText);
     uidCell.className='accounts-uid';
+    uidCell.title=uidText;
 
     const actionCell=document.createElement('td');
     const actions=document.createElement('div');
@@ -216,6 +218,7 @@ async function saveAcc(){
     g('ac-r').value='manager';
     g('ac-active').checked=true;
     rAcc();
+    window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã thêm tài khoản.',zh:'帳號已新增。'}});
   }catch(e){
     console.error('Không thể tạo userAccess / 無法新增使用者權限：',e);
     await accountsMessage('Tạo tài khoản thất bại.','新增帳號失敗。','danger');
@@ -280,6 +283,7 @@ async function saveEacc(){
     }
     cm('m-eacc');
     rAcc();
+    window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã lưu thay đổi tài khoản.',zh:'帳號修改已儲存。'}});
   }catch(e){
     console.error('Không thể cập nhật userAccess / 無法更新使用者權限：',e);
     await accountsMessage('Lưu tài khoản thất bại.','儲存帳號失敗。','danger');
@@ -307,6 +311,7 @@ async function delAcc(accessId){
     await window.firebaseDeleteUserAccess(accessId);
     window.accs=window.accs.filter(a=>a.accessId!==accessId);
     rAcc();
+    window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã xóa quyền truy cập.',zh:'使用權限已刪除。'}});
   }catch(e){
     console.error('Không thể xóa userAccess / 無法刪除使用者權限：',e);
     await accountsMessage('Xóa tài khoản thất bại.','刪除帳號失敗。','danger');

@@ -23,6 +23,11 @@
   function setStatus(vi,zh,kind='info'){
     const host = element('production-entry-status');
     if(!host) return;
+    if(kind === 'success'){
+      host.hidden = true;
+      window.PCMSUIComponents.showToast({kind,text:{vi:String(vi || ''),zh:String(zh || '')}});
+      return;
+    }
     host.hidden = !vi && !zh;
     host.className = `ui-notice is-${kind}`;
     window.PCMSUIText?.set?.(host,{vi:String(vi || ''),zh:String(zh || '')});

@@ -919,6 +919,45 @@
   color: var(--ui-color-danger-text);
 }
 
+/* ui-toast-stack（共用短暫提示容器）：固定在內容區右上角，不參與頁面高度計算。 */
+.ui-toast-stack {
+  position: fixed;
+  top: 70px;
+  right: 18px;
+  z-index: 10020;
+  display: flex;
+  width: min(340px, calc(100vw - 36px));
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  pointer-events: none;
+}
+
+.ui-toast {
+  margin: 0;
+  background: var(--ui-color-surface);
+  box-shadow: 0 10px 30px rgba(26, 53, 88, .16);
+  opacity: 0;
+  pointer-events: auto;
+  transform: translateY(-8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.ui-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.ui-toast.is-leaving {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.ui-toast .ui-bilingual,
+.ui-toast .ui-dual-copy {
+  min-width: 0;
+}
+
 .ui-dialog-field {
   display: flex;
   min-width: 0;

@@ -13,6 +13,7 @@
   const activeActions = new Map(); // activeActions（執行中的共用操作）：同一操作鍵只允許一個非同步工作。
   let activeDialog = null; // activeDialog（目前開啟的共用視窗）
   let dialogSequence = 0; // dialogSequence（共用視窗流水號）
+  let toastSequence = 0; // toastSequence（共用短暫提示流水號）
 
   // closeDismissibleDetails（關閉展開元件）：保留使用者目前正在操作的內容，其餘開啟項目一律收回。
   function closeDismissibleDetails(except = null){
@@ -86,6 +87,57 @@
         : textApi.create(options.text,{tagName:'div'}));
     }
     return notice;
+  }
+
+  // getToastStack（取得共用短暫提示容器）：全系統只建立一個固定位置，不占用頁面排版空間。
+  function getToastStack(){
+    let stack = document.getElementById('ui-toast-stack'); // stack（共用短暫提示容器）
+    if(stack) return stack;
+    stack = document.createElement('div');
+    stack.id = 'ui-toast-stack';
+    stack.className = 'ui-toast-stack';
+    stack.setAttribute('aria-live','polite');
+    stack.setAttribute('aria-relevant','additions');
+    document.body.appendChild(stack);
+    return stack;
+  }
+
+  // showToast（顯示共用短暫提示）：適用於已確認完成的簡短成功結果，不取代錯誤或長時間工作進度。
+  function showToast(options = {}){
+    const kind = NOTICE_KINDS.has(options.kind) ? options.kind : 'success'; // kind（短暫提示種類）
+    const durationMs = Math.max(1200,Number(options.durationMs) || 3200); // durationMs（自動收回時間）
+    const stack = getToastStack(); // stack（共用短暫提示容器）
+    const toast = createNotice({kind,text:options.text || options.message || {vi:'',zh:''},icon:options.icon}); // toast（短暫提示元件）
+    const animate = window.requestAnimationFrame || (callback=>setTimeout(callback,0)); // animate（開始顯示動畫）
+    let closeTimer = null; // closeTimer（自動收回計時器）
+    let closed = false; // closed（提示是否已收回）
+    toast.id = `ui-toast-${++toastSequence}`;
+    toast.classList.add('ui-toast');
+
+    function close(){
+      if(closed) return false;
+      closed = true;
+      if(closeTimer) clearTimeout(closeTimer);
+      toast.classList.add('is-leaving');
+      setTimeout(()=>toast.remove(),180);
+      return true;
+    }
+
+    function scheduleClose(){
+      if(closed) return;
+      if(closeTimer) clearTimeout(closeTimer);
+      closeTimer = setTimeout(close,durationMs);
+    }
+
+    toast.addEventListener('pointerenter',()=>{
+      if(closeTimer) clearTimeout(closeTimer);
+    });
+    toast.addEventListener('pointerleave',scheduleClose);
+    while(stack.children.length >= 4) stack.firstElementChild?.remove();
+    stack.appendChild(toast);
+    animate(()=>toast.classList.add('is-visible'));
+    scheduleClose();
+    return Object.freeze({element:toast,close});
   }
 
   // createLanguageSections（建立長篇雙語區塊）：完整越文在前、完整中文在後，外觀不以字級或顏色區分。
@@ -405,6 +457,7 @@
   window.PCMSUIComponents = Object.freeze({ // PCMSUIComponents（共用介面元件介面）
     createButton,
     createNotice,
+    showToast,
     createLanguageSections,
     openDialog,
     confirmDialog,
