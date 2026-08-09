@@ -25,7 +25,7 @@
 #pg-summary .products-filter-row {
   align-items: flex-end;
   margin: 0;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border-right: 1px solid var(--ui-color-border);
   border-left: 1px solid var(--ui-color-border);
   background: var(--ui-color-surface);
@@ -96,7 +96,7 @@
 
 #pg-summary .summary-table-header {
   position: relative;
-  min-height: 60px;
+  min-height: 44px;
   overflow: visible;
 }
 
@@ -119,7 +119,7 @@
 #pg-summary .summary-main-table [data-ui-table-column="action"] { width: 7%; }
 
 #pg-summary .summary-columns-empty {
-  padding: 26px 16px;
+  padding: 18px 14px;
   border: 1px solid var(--ui-color-border);
   border-top: 0;
   color: var(--ui-color-text-muted);
@@ -145,7 +145,7 @@
 
 #pg-summary .pgr {
   margin: 0;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border: 1px solid var(--ui-color-border);
   border-top: 0;
   border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);

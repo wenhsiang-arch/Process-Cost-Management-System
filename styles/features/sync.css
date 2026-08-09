@@ -33,7 +33,7 @@
 }
 
 #pg-sync .sync-section-header {
-  min-height: 62px;
+  min-height: 46px;
 }
 
 #pg-sync #sync-count {
@@ -66,7 +66,7 @@
 }
 
 #pg-sync td {
-  min-height: 40px;
+  min-height: 36px;
 }
 
 @media (max-width: 1365px) {

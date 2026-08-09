@@ -54,7 +54,7 @@
 #pg-settings .settings-matrix-row {
   display: grid;
   min-width: 0;
-  min-height: 60px;
+  min-height: 52px;
   grid-template-columns: minmax(0, 1.08fr) minmax(84px, .46fr) minmax(190px, 1.12fr);
   align-items: stretch;
 }
@@ -70,7 +70,7 @@
   min-width: 0;
   justify-content: center;
   flex-direction: column;
-  padding: 8px 11px;
+  padding: 6px 9px;
 }
 
 #pg-settings .settings-matrix-label {
@@ -485,7 +485,7 @@
 #pg-costlog .costlog-refresh {
   display: inline-flex;
   min-width: 112px;
-  min-height: 48px;
+  min-height: 44px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -542,7 +542,7 @@
 
 #pg-costlog .cost-log-table th,
 #pg-costlog .cost-log-table td {
-  padding: 12px 8px;
+  padding: 6px 8px;
   border-right: 1px solid var(--ui-color-border);
   border-bottom: 1px solid var(--ui-color-border);
   text-align: center;
@@ -559,7 +559,7 @@
 }
 
 #pg-costlog .cost-log-table th {
-  height: 64px;
+  height: 52px;
   background: var(--ui-color-table-header);
   color: var(--ui-color-text-muted);
   font-size: 12px;
@@ -573,14 +573,14 @@
 }
 
 #pg-costlog .cost-log-table th > small {
-  margin-top: 5px;
+  margin-top: 3px;
   color: var(--ui-color-text-subtle);
   font-size: 11px;
   font-weight: 500;
 }
 
 #pg-costlog .cost-log-table td {
-  height: 70px;
+  height: 54px;
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
   font-size: 13px;
@@ -653,7 +653,7 @@
 }
 
 #pg-costlog .cost-log-percent {
-  margin-top: 5px;
+  margin-top: 3px;
   color: #b96a00;
   font-size: 12px;
   font-weight: 700;
@@ -708,7 +708,7 @@
 
 #pg-costlog .cost-log-empty {
   display: flex;
-  min-height: 180px;
+  min-height: 120px;
   align-items: center;
   justify-content: center;
   flex-direction: column;

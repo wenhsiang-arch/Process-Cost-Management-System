@@ -11,10 +11,15 @@
   --ui-radius-panel: 10px; /* ui-radius-panel（工作面板圓角） */
   --ui-radius-dialog: 12px; /* ui-radius-dialog（彈出視窗圓角） */
   --ui-border-width: 1px; /* ui-border-width（共用邊框寬度） */
+  --ui-page-padding: 12px; /* ui-page-padding（桌機主內容緊湊內距） */
   --ui-control-height-single: 36px; /* ui-control-height-single（單行控制項最小高度） */
-  --ui-control-height-bilingual: 48px; /* ui-control-height-bilingual（雙語控制項最小高度） */
-  --ui-action-tile-width: 108px; /* ui-action-tile-width（整合操作區按鈕標準寬度） */
-  --ui-action-tile-height: 86px; /* ui-action-tile-height（整合操作區按鈕標準高度） */
+  --ui-control-height-bilingual: 44px; /* ui-control-height-bilingual（雙語控制項緊湊最小高度） */
+  --ui-tab-min-height: 46px; /* ui-tab-min-height（平面分頁緊湊高度） */
+  --ui-action-tile-width: 100px; /* ui-action-tile-width（整合操作區按鈕緊湊寬度） */
+  --ui-action-tile-height: 68px; /* ui-action-tile-height（整合操作區按鈕緊湊高度） */
+  --ui-section-header-min-height: 34px; /* ui-section-header-min-height（區塊標題緊湊高度） */
+  --ui-table-cell-padding-block: 5px; /* ui-table-cell-padding-block（表格儲存格上下內距） */
+  --ui-table-cell-padding-inline: 10px; /* ui-table-cell-padding-inline（表格儲存格左右內距） */
   --ui-motion-fast: 160ms ease; /* ui-motion-fast（快速介面過場時間） */
 
   /* 舊變數相容層：舊頁面先讀取新的語意色，實際頁面仍依後續節點逐頁搬移。 */
@@ -282,7 +287,7 @@
   display: flex;
   min-width: 0;
   align-items: stretch;
-  margin-bottom: var(--ui-space-3);
+  margin-bottom: var(--ui-space-2);
   border-bottom: var(--ui-border-width) solid var(--ui-color-border);
   overflow: visible;
 }
@@ -298,11 +303,11 @@
 
 .ui-tab {
   display: inline-flex;
-  min-width: 170px;
-  min-height: 56px;
+  min-width: 150px;
+  min-height: var(--ui-tab-min-height);
   align-items: center;
   justify-content: center;
-  padding: 8px 20px;
+  padding: 5px 16px;
   border: var(--ui-border-width) solid var(--ui-color-border);
   border-bottom: 3px solid transparent;
   border-radius: 0;
@@ -364,7 +369,7 @@
 .ui-operation-panel {
   position: relative;
   min-width: 0;
-  margin-bottom: var(--ui-space-3);
+  margin-bottom: var(--ui-space-2);
   border: var(--ui-border-width) solid var(--ui-color-operation-border);
   border-radius: var(--ui-radius-panel);
   background: var(--ui-color-operation-background);
@@ -399,8 +404,8 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-content: center;
   align-items: center;
-  gap: 6px 10px;
-  padding: 7px 14px;
+  gap: 4px 8px;
+  padding: 5px 10px;
   border: 0;
   background: transparent;
   color: inherit;
@@ -420,14 +425,14 @@
 .ui-context-item > i {
   grid-row: 1 / span 2;
   color: var(--ui-color-primary);
-  font-size: 27px;
+  font-size: 22px;
 }
 
 .ui-file-picker {
-  width: calc(100% - 10px);
-  height: calc(var(--ui-action-tile-height) - 10px);
-  margin: 5px;
-  padding: 7px 10px;
+  width: calc(100% - 8px);
+  height: calc(var(--ui-action-tile-height) - 8px);
+  margin: 4px;
+  padding: 5px 8px;
   border: 1px dashed var(--ui-color-primary);
   border-radius: var(--ui-radius-control);
   background: color-mix(in srgb, var(--ui-color-primary-soft) 52%, transparent);
@@ -506,10 +511,10 @@
   min-height: 0;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   flex-direction: column;
   flex: 0 0 var(--ui-action-tile-width);
-  padding: 8px 5px;
+  padding: 5px 4px;
   border: 0;
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
   background: var(--ui-color-surface);
@@ -535,7 +540,7 @@
 
 .ui-command-action > i {
   color: var(--ui-color-primary);
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .ui-command-action:hover:not(:disabled) {
@@ -649,7 +654,7 @@
   gap: 5px;
   flex-direction: column;
   flex: 0 0 var(--ui-action-tile-width);
-  padding: 10px 14px;
+  padding: 6px 10px;
   border: 0;
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
   background: transparent;
@@ -709,7 +714,7 @@
 
 .ui-drop-hint {
   flex-basis: 100%;
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-top: var(--ui-border-width) solid var(--ui-color-operation-divider);
   color: var(--ui-color-text-muted);
   font-size: 11px;
@@ -720,9 +725,9 @@
   display: flex;
   min-width: 0;
   align-items: flex-end;
-  gap: var(--ui-space-3);
+  gap: var(--ui-space-2);
   flex-wrap: wrap;
-  padding: var(--ui-space-3) 0;
+  padding: var(--ui-space-2) 0;
 }
 
 .ui-toolbar-actions {
@@ -737,8 +742,8 @@
   min-height: var(--ui-control-height-single);
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 7px 14px;
+  gap: 6px;
+  padding: 6px 12px;
   border: var(--ui-border-width) solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
   background: var(--ui-color-surface);
@@ -784,7 +789,7 @@
   display: grid;
   min-width: 0;
   grid-template-columns: repeat(4, minmax(130px, 1fr));
-  margin-bottom: var(--ui-space-3);
+  margin-bottom: var(--ui-space-2);
   border-top: var(--ui-border-width) solid var(--ui-color-border);
   border-bottom: var(--ui-border-width) solid var(--ui-color-border);
   background: var(--ui-color-surface);
@@ -796,8 +801,8 @@
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  padding: 9px 18px 9px 26px;
+  gap: 8px;
+  padding: 6px 14px 6px 22px;
 }
 
 .ui-summary-item + .ui-summary-item {
@@ -806,7 +811,7 @@
 
 .ui-summary-item::before {
   position: absolute;
-  left: 14px;
+  left: 11px;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -843,7 +848,7 @@
 
 .ui-summary-value {
   color: var(--ui-color-primary);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
 }
 
@@ -861,16 +866,16 @@
 
 .ui-data-section {
   min-width: 0;
-  margin-bottom: var(--ui-space-3);
+  margin-bottom: var(--ui-space-2);
 }
 
 .ui-section-header {
   display: flex;
   min-width: 0;
-  min-height: 38px;
+  min-height: var(--ui-section-header-min-height);
   align-items: center;
-  gap: 9px;
-  padding: 6px 11px;
+  gap: 7px;
+  padding: 4px 9px;
   border: var(--ui-border-width) solid var(--ui-color-border);
   border-bottom: 0;
   border-radius: var(--ui-radius-panel) var(--ui-radius-panel) 0 0;
@@ -879,7 +884,7 @@
 
 .ui-section-header > i {
   color: var(--ui-color-primary);
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .ui-section-header + .ui-table-frame {
@@ -941,7 +946,7 @@
 }
 
 .ui-table th {
-  padding: 8px 10px;
+  padding: var(--ui-table-cell-padding-block) var(--ui-table-cell-padding-inline);
   border-bottom: var(--ui-border-width) solid var(--ui-color-border);
   background: var(--ui-color-table-header);
   color: var(--ui-color-text);
@@ -962,8 +967,8 @@
 }
 
 .ui-table td {
-  min-height: 40px;
-  padding: 8px 10px;
+  min-height: 36px;
+  padding: var(--ui-table-cell-padding-block) var(--ui-table-cell-padding-inline);
   border-bottom: var(--ui-border-width) solid var(--ui-color-border);
   background: var(--ui-color-surface);
   vertical-align: middle;
@@ -1562,11 +1567,11 @@
 
   .ui-context-item {
     gap: 5px 8px;
-    padding: 7px 10px;
+    padding: 5px 8px;
   }
 
   .ui-context-item > i {
-    font-size: 24px;
+    font-size: 21px;
   }
 }
 

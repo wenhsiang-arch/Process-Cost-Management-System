@@ -42,7 +42,7 @@
 }
 
 #pg-progress .orders-progress-frame {
-  min-height: 120px;
+  min-height: 100px;
   border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
 }
 
@@ -80,7 +80,7 @@
 }
 
 #pg-progress td {
-  min-height: 40px;
+  min-height: 36px;
   border-bottom: 1px solid var(--ui-color-border);
   vertical-align: middle;
 }
@@ -93,12 +93,12 @@
 #pg-progress .orders-loading,
 #pg-progress .orders-error {
   display: flex;
-  min-height: 180px;
+  min-height: 120px;
   align-items: center;
   justify-content: center;
   flex-direction: column;
   gap: 8px;
-  padding: 24px;
+  padding: 16px;
   color: var(--ui-color-text-muted);
   text-align: center;
 }
@@ -161,7 +161,7 @@
 #pg-progress .orders-filter-row {
   align-items: flex-end;
   margin: 0;
-  padding: 10px 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--ui-color-border);
   background: var(--ui-color-surface);
 }
