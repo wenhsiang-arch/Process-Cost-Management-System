@@ -22,6 +22,10 @@
     };
   }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
+  function employeeDisplayName(item){ // employeeDisplayName（目前顯示的員工姓名）：優先使用員工主資料，舊紀錄快照只作備援。
+    const employee = window.PCMSProductionEmployees?.find?.(item?.employeeId);
+    return String(employee?.name || item?.employeeName || '').trim() || '—';
+  }
   function shiftDate(days){
     const value = new Date(); value.setDate(value.getDate()+days);
     return typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
@@ -94,7 +98,7 @@
       const groupStart = index === 0 || state.filtered[index-1]?.productionDate !== item.productionDate;
       if(groupStart) row.classList.add('production-date-group-start');
       addDateCell(row,item.productionDate,groupStart);
-      addCell(row,`${item.employeeId} · ${item.employeeName}`);
+      addCell(row,`${item.employeeId} · ${employeeDisplayName(item)}`);
       addCell(row,item.orderNo || '—');
       addCell(row,item.productCode || '—');
       addCell(row,item.processNo || '—','production-number-cell');

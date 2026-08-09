@@ -80,6 +80,14 @@ test('員工工號、姓名及部門可用整段任意文字搜尋',async()=>{
   assert.equal(window.PCMSProductionEmployees.validateEmployee({employeeId:'m91234',name:'A',department:'B'}).employeeId,'M91234');
 });
 
+test('生產紀錄姓名優先顯示員工主資料並保留歷史快照備援',()=>{
+  const recordsPage=read('js/production/production-records.js'); // recordsPage（生產紀錄頁程式內容）
+  assert.match(recordsPage,/function employeeDisplayName\(item\)[\s\S]*?PCMSProductionEmployees\?\.find\?\.\(item\?\.employeeId\)/);
+  assert.match(recordsPage,/employee\?\.name \|\| item\?\.employeeName/);
+  assert.match(recordsPage,/`\$\{item\.employeeId\} · \$\{employeeDisplayName\(item\)\}`/);
+  assert.doesNotMatch(recordsPage,/`\$\{item\.employeeId\} · \$\{item\.employeeName\}`/);
+});
+
 test('新增既有工號必須拒絕且只有編輯流程可以更新',async()=>{
   const {window,documents}=createEmployeeMutationContext();
   await assert.rejects(
@@ -279,5 +287,6 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-2'/);
   assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-9'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-3'/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-4'/);
+  assert.match(html,/js\/features\.js\?v=20260809-13/);
 });
