@@ -1010,8 +1010,9 @@
 }
 
 .production-records-table {
-  width: clamp(1320px, 100%, 1500px);
+  width: 100%;
   min-width: 1320px;
+  max-width: none;
   table-layout: fixed;
 }
 

@@ -31,7 +31,7 @@
     sync:'styles/features/sync.css?v=20260808-2',
     cost:'styles/features/cost.css?v=20260809-3',
     accounts:'styles/features/accounts.css?v=20260809-3',
-    production:'styles/features/production.css?v=20260809-14'
+    production:'styles/features/production.css?v=20260810-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
