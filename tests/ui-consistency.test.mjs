@@ -162,11 +162,14 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(markup,/id="production-column-settings-menu"[\s\S]*?id="production-column-settings-reset"[\s\S]*?data-production-column-toggle="order"[\s\S]*?data-production-column-toggle="action"/);
   assert.doesNotMatch(markup,/data-production-column-toggle="[^"]+"[^>]*disabled/);
   assert.doesNotMatch(markup,/production-save-button|Lưu sản lượng|儲存產量/);
+  assert.match(markup,/for="production-quantity-input"><strong>Số lượng<\/strong><span>數量<\/span>/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
-  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?grid-template-columns:\s*minmax\(270px, 315px\)[\s\S]*?margin:\s*0;[\s\S]*?border-left:\s*1px/);
+  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?grid-template-columns:\s*220px minmax\(220px, 1fr\)[\s\S]*?margin:\s*0;[\s\S]*?border-left:\s*1px/);
   assert.match(style,/\.production-employee-inline-field input\s*\{[\s\S]*?height:\s*36px;[\s\S]*?border:\s*1px solid/);
+  assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*112px;[\s\S]*?max-width:\s*112px;/);
   assert.match(style,/\.production-entry-command\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
-  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?grid-template-columns:\s*150px minmax\(220px, 1\.35fr\) minmax\(180px, 1fr\) 110px 128px;/);
+  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?grid-template-columns:\s*172px 210px 160px 104px 126px;/);
+  assert.match(style,/\.production-quantity-progress\s*\{[\s\S]*?max-width:\s*none;[\s\S]*?overflow:\s*visible;/);
   assert.match(style,/\.production-records-table \.production-date-cell\s*\{/);
   assert.match(style,/\.production-filter-grid\s*\{[\s\S]*?height:\s*auto;[\s\S]*?grid-template-columns:/);
   assert.match(style,/\.production-command-actions\s*\{[\s\S]*?height:\s*auto;[\s\S]*?align-self:\s*stretch;/);

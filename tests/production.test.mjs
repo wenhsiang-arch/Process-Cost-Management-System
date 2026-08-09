@@ -209,7 +209,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-7'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-8'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -228,6 +228,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(markup,/tabindex="-1"[^>]*id="production-calendar-button"[\s\S]*?ti-calendar-time/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-date-previous"[\s\S]*?tabindex="-1"[^>]*id="production-date-next"/);
   assert.match(markup,/id="production-quantity-input"[^>]*placeholder="Enter để lưu \/ Enter 儲存"/);
+  assert.match(markup,/for="production-quantity-input"><strong>Số lượng<\/strong><span>數量<\/span>/);
   assert.match(markup,/id="production-entry-status"[^>]*role="status"[^>]*aria-live="polite"/);
   assert.doesNotMatch(markup,/id="production-entry-status"[^>]*ui-notice/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-column-settings-button"[^>]*aria-expanded="false"/);
@@ -257,9 +258,11 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(records,/window\.PCMSProductionRecords = Object\.freeze\(\{setPendingFilters\}\)/);
   assert.match(source,/dataset\.productionColumn/);
   assert.match(source,/event\.key !== 'Escape'/);
-  assert.match(style,/\.production-entry-fields \{[\s\S]*?grid-template-columns: 150px minmax\(220px, 1\.35fr\) minmax\(180px, 1fr\) 110px 128px;/);
+  assert.match(style,/\.production-entry-fields \{[\s\S]*?width: max-content;[\s\S]*?grid-template-columns: 172px 210px 160px 104px 126px;/);
   assert.match(style,/\.production-registration-header \{[\s\S]*?grid-template-columns: 180px minmax\(0, 1fr\);/);
   assert.match(style,/\.production-employee-inline-panel \{[\s\S]*?background: var\(--ui-color-surface-muted\);/);
+  assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control \{[\s\S]*?width: 112px;[\s\S]*?max-width: 112px;/);
+  assert.match(style,/\.production-quantity-progress \{[\s\S]*?max-width: none;[\s\S]*?overflow: visible;/);
   assert.match(style,/\.production-quantity-progress\.is-over \{[\s\S]*?var\(--ui-color-danger-text\)/);
   assert.match(style,/\.production-records-table \.production-date-cell \{/);
   assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);

@@ -47,7 +47,7 @@
 .production-employee-inline-panel {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(270px, 315px) minmax(220px, 1fr) minmax(170px, .75fr);
+  grid-template-columns: 220px minmax(220px, 1fr) minmax(170px, .75fr);
   gap: 12px;
   align-items: center;
   margin: 0;
@@ -61,7 +61,7 @@
 .production-employee-inline-field {
   display: grid;
   min-width: 0;
-  grid-template-columns: 86px minmax(150px, 1fr);
+  grid-template-columns: 86px 112px;
   gap: 8px;
   align-items: center;
 }
@@ -83,8 +83,8 @@
 }
 
 .production-employee-inline-field .ui-search-dropdown-control {
-  width: 100%;
-  max-width: 220px;
+  width: 112px;
+  max-width: 112px;
 }
 
 .production-employee-inline-field input {
@@ -149,8 +149,10 @@
 
 .production-entry-fields {
   display: grid;
+  width: max-content;
+  max-width: 100%;
   min-width: 0;
-  grid-template-columns: 150px minmax(220px, 1.35fr) minmax(180px, 1fr) 110px 128px;
+  grid-template-columns: 172px 210px 160px 104px 126px;
   gap: 10px;
   align-content: start;
   align-items: end;
@@ -413,8 +415,9 @@
 
 .production-quantity-progress {
   display: inline-flex;
-  min-width: 0;
-  max-width: 94px;
+  min-width: max-content;
+  max-width: none;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: flex-end;
   padding: 0;
@@ -425,8 +428,8 @@
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -803,18 +806,18 @@
   }
 
   .production-employee-inline-panel {
-    grid-template-columns: minmax(250px, 300px) minmax(190px, 1fr) minmax(145px, .75fr);
+    grid-template-columns: 208px minmax(190px, 1fr) minmax(145px, .75fr);
     gap: 8px;
     padding-right: 8px;
     padding-left: 8px;
   }
 
   .production-employee-inline-field {
-    grid-template-columns: 78px minmax(140px, 1fr);
+    grid-template-columns: 78px 112px;
   }
 
   .production-entry-fields {
-    grid-template-columns: 138px minmax(195px, 1.35fr) minmax(155px, 1fr) 96px 112px;
+    grid-template-columns: 168px 180px 140px 100px 126px;
     gap: 8px;
   }
 
