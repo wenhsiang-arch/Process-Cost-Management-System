@@ -4,8 +4,10 @@
 
   const COLLECTION_NAME = 'productionEntries'; // COLLECTION_NAME（產能登記集合名稱）
   const PAGE_SIZE = 50; // PAGE_SIZE（每頁筆數）
+  const EXACT_PAGE_SIZE = 200; // EXACT_PAGE_SIZE（單日完整查詢每次讀取筆數）
   let historyCursor = null; // historyCursor（歷史查詢游標）
   let historySignature = ''; // historySignature（目前查詢條件）
+  const exactPromises = new Map(); // exactPromises（相同單日查詢共用工作）
 
   function normalizeDate(value){ return String(value || '').trim(); }
   function normalizeEmployeeId(value){
@@ -19,18 +21,43 @@
     });
   }
 
+  async function loadExactRows(key,conditions){
+    if(exactPromises.has(key)) return exactPromises.get(key);
+    const promise = (async()=>{
+      const rows = [];
+      let cursor = null;
+      do{
+        const queryConditions = conditions.slice();
+        if(cursor) queryConditions.push(window._startAfter(cursor));
+        queryConditions.push(window._limit(EXACT_PAGE_SIZE));
+        const snapshot = await window._getDocs(window._query(window._collection(COLLECTION_NAME),...queryConditions));
+        rows.push(...snapshot.docs.map(item=>({id:item.id,...item.data()})));
+        cursor = snapshot.size === EXACT_PAGE_SIZE ? snapshot.docs[snapshot.docs.length-1] : null;
+      }while(cursor);
+      return sortRows(rows);
+    })().finally(()=>exactPromises.delete(key));
+    exactPromises.set(key,promise);
+    return promise;
+  }
+
   async function loadDaily(employeeId,productionDate){
     const normalizedEmployeeId = normalizeEmployeeId(employeeId);
     const normalizedDate = normalizeDate(productionDate);
     if(!normalizedEmployeeId || !normalizedDate) return [];
-    const snapshot = await window._getDocs(window._query(
-      window._collection(COLLECTION_NAME),
+    const rows = await loadExactRows(`employee:${normalizedEmployeeId}:${normalizedDate}`,[
       window._where('employeeId','==',normalizedEmployeeId),
-      window._where('productionDate','==',normalizedDate),
-      window._limit(PAGE_SIZE)
-    ));
-    return sortRows(snapshot.docs.map(item=>({id:item.id,...item.data()})))
-      .filter(item=>item.status === 'active');
+      window._where('productionDate','==',normalizedDate)
+    ]);
+    return rows.filter(item=>item.status === 'active');
+  }
+
+  async function loadDay(productionDate,options={}){
+    const normalizedDate = normalizeDate(productionDate);
+    if(!normalizedDate) return [];
+    const rows = await loadExactRows(`date:${normalizedDate}`,[
+      window._where('productionDate','==',normalizedDate)
+    ]);
+    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
   function buildSignature(filters){
@@ -79,7 +106,7 @@
     });
   }
 
-  function reset(){ historyCursor = null; historySignature = ''; }
+  function reset(){ historyCursor = null; historySignature = ''; exactPromises.clear(); }
 
-  window.PCMSProductionReports = Object.freeze({loadDaily,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
+  window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
 })();

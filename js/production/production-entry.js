@@ -15,6 +15,7 @@
     processTotal:null,
     processTotalLoading:false,
     processTotalRequest:0,
+    attendanceRequest:0,
     dailyRows:[]
   }; // state（登記頁目前狀態）
 
@@ -399,7 +400,46 @@
     const department = element('production-employee-department');
     if(name) name.textContent = '—';
     if(department) department.textContent = '—';
+    setAttendanceSummary('Chưa chọn','尚未選擇');
+    state.attendanceRequest += 1;
     renderDailyRows([]);
+  }
+
+  function setAttendanceSummary(vi,zh){
+    const viNode = element('production-entry-attendance-summary-vi');
+    const zhNode = element('production-entry-attendance-summary-zh');
+    if(viNode) viNode.textContent = String(vi || '—');
+    if(zhNode) zhNode.textContent = String(zh || '—');
+  }
+
+  async function refreshAttendanceSummary(){
+    const requestId = ++state.attendanceRequest;
+    const employeeId = state.employee?.employeeId;
+    const productionDate = element('production-date-input')?.value;
+    if(!employeeId || !productionDate){
+      setAttendanceSummary('Chưa chọn','尚未選擇');
+      return;
+    }
+    setAttendanceSummary('Đang tải...','正在載入…');
+    try{
+      const attendance = await window.PCMSProductionAttendance.loadOne(employeeId,productionDate,{force:true});
+      if(requestId !== state.attendanceRequest) return;
+      if(!attendance){
+        setAttendanceSummary('Chưa chấm công','考勤未登記');
+        return;
+      }
+      const normal = Number(attendance.normalHours || 0);
+      const overtime = Number(attendance.overtimeHours || 0);
+      const total = normal+overtime;
+      setAttendanceSummary(
+        `${hoursText(normal)} + ${hoursText(overtime)} = ${hoursText(total)} giờ`,
+        `正常 ${hoursText(normal)} + 加班 ${hoursText(overtime)} = ${hoursText(total)} 小時`
+      );
+    }catch(error){
+      if(requestId !== state.attendanceRequest) return;
+      setAttendanceSummary('Không thể tải','無法載入');
+      console.warn('Không thể tải giờ chấm công / 無法載入考勤時數：',error);
+    }
   }
 
   function selectEmployee(employee){
@@ -409,6 +449,7 @@
     element('production-employee-department').textContent = employee.department || '—';
     closeDropdown('production-employee-options');
     void loadDailyRows();
+    void refreshAttendanceSummary();
   }
 
   function handleEmployeeInput(){
@@ -991,6 +1032,7 @@
     state.dateAuto = auto || date.value === maximum;
     syncDateControls();
     void loadDailyRows();
+    void refreshAttendanceSummary();
   }
 
   function shiftProductionDate(days){
@@ -1018,6 +1060,7 @@
         element('production-date-input').value = current;
         syncDateControls();
         void loadDailyRows();
+        void refreshAttendanceSummary();
       }
     },30000);
   }
@@ -1105,7 +1148,7 @@
     syncDateControls();
     scheduleEntryFieldLayout();
     startDateTimer();
-    if(state.employee) await loadDailyRows();
+    if(state.employee) await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
   }
 
   function productionEntryLeave(){

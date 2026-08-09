@@ -18,9 +18,11 @@
     permissions:'js/permissions.js?v=20260810-1',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
     productionEntryStore:'js/production/entry-store.js?v=20260809-3',
-    productionReportStore:'js/production/report-store.js?v=20260809-2',
-    productionEntry:'js/production/production-entry.js?v=20260810-3',
-    productionRecords:'js/production/production-records.js?v=20260809-6',
+    productionReportStore:'js/production/report-store.js?v=20260810-1',
+    productionAttendanceStore:'js/production/attendance-store.js?v=20260810-1',
+    productionEntry:'js/production/production-entry.js?v=20260810-4',
+    productionRecords:'js/production/production-records.js?v=20260810-1',
+    productionAttendance:'js/production/production-attendance.js?v=20260810-1',
     productionEmployees:'js/production/production-employees.js?v=20260810-2'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
@@ -31,7 +33,7 @@
     sync:'styles/features/sync.css?v=20260810-2',
     cost:'styles/features/cost.css?v=20260810-2',
     accounts:'styles/features/accounts.css?v=20260810-2',
-    production:'styles/features/production.css?v=20260810-6'
+    production:'styles/features/production.css?v=20260810-7'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -89,16 +91,23 @@
         {
           page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
           styles:['production'],
-          scripts:['uiTableControls','orderProcessCache','productionEmployeeStore','productionEntryStore','productionReportStore','productionEntry'],
-          dataScopes:['productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals'],
+          scripts:['uiTableControls','orderProcessCache','productionEmployeeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionEntry'],
+          dataScopes:['productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals','productionAttendance'],
           dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit'],onLeave:['productionEntryLeave']
         },
         {
           page:'production-records',feature:'productionRecords',icon:'ti-history',vi:'Lịch sử sản xuất',zh:'生產紀錄',
           styles:['production'],
-          scripts:['uiTableControls','productionEmployeeStore','productionEntryStore','productionReportStore','productionRecords'],
-          dataScopes:['productionEmployees','productionEntries','productionProcessTotals'],
+          scripts:['uiTableControls','productionEmployeeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords'],
+          dataScopes:['productionEmployees','productionEntries','productionProcessTotals','productionAttendance'],
           dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
+        },
+        {
+          page:'production-attendance',feature:'productionAttendance',icon:'ti-calendar-time',vi:'Chấm công',zh:'考勤',
+          styles:['production'],
+          scripts:['uiTableControls','productionEmployeeStore','productionReportStore','productionAttendanceStore','productionAttendance'],
+          dataScopes:['productionEmployees','productionEntries','productionAttendance'],
+          dataLoaders:['loadProductionAttendanceData'],onOpen:['productionAttendanceInit'],onLeave:['productionAttendanceLeave']
         },
         {
           page:'production-employees',feature:'productionEmployees',icon:'ti-users',vi:'Dữ liệu nhân viên',zh:'員工資料',
@@ -166,7 +175,7 @@
 
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','cutting','sync',
-    'productionMain','productionEntry','productionRecords','productionEmployees',
+    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees',
     'costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
@@ -236,6 +245,7 @@
     if(features&&typeof features.productionMain!=='boolean'){
       normalized.productionMain=normalized.productionEntry===true
         ||normalized.productionRecords===true
+        ||normalized.productionAttendance===true
         ||normalized.productionEmployees===true;
     }
     normalized.accounts=false;

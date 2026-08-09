@@ -31,7 +31,7 @@ test('共用表格操作只在使用功能開啟後按需載入',()=>{
   const productsEnd=source.indexOf("id:'cutting'",productsStart);
   const products=source.slice(productsStart,productsEnd);
   assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
-  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260809-1'/);
+  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-3'/);
   assert.match(products,/scripts:\['history','fileIo','productCache','uiTableControls','summary','data'\]/);
   assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });
@@ -63,8 +63,8 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','permissions','production-employees',
-    'production-entry','production-records','progress','settings','summary','sync'
+    'accounts','costlog','cutting','export','permissions','production-attendance',
+    'production-employees','production-entry','production-records','progress','settings','summary','sync'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
   assert.match(read('index.html'),/value="sales">Kinh doanh \/ 業務/);
@@ -87,7 +87,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.equal(normalized.orderImport,true);
   const production=context.window.PCMSFeatures.getModule('production');
   assert.deepEqual(Array.from(production.pages).map(page=>page.page),[
-    'production-entry','production-records','production-employees'
+    'production-entry','production-records','production-attendance','production-employees'
   ]);
   assert.equal(production.pages.every(page=>page.scripts.some(name=>name.startsWith('production'))),true);
   assert.equal(context.window.normalizeFeaturePermissions({productionEntry:true}).productionMain,true);
@@ -128,8 +128,10 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     productionEmployeeStore:'js/production/employee-store.js',
     productionEntryStore:'js/production/entry-store.js',
     productionReportStore:'js/production/report-store.js',
+    productionAttendanceStore:'js/production/attendance-store.js',
     productionEntry:'js/production/production-entry.js',
     productionRecords:'js/production/production-records.js',
+    productionAttendance:'js/production/production-attendance.js',
     productionEmployees:'js/production/production-employees.js'
   }; // scriptFiles（中央清單程式來源）
   const coreFiles=['js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js','js/safe-dom.js'];
@@ -177,7 +179,9 @@ test('裁帶模板識別碼安全且歷史只在點開分頁後讀取',()=>{
   assert.match(source,/cuttingDownloadTemplate\(\$\{inlineArg\(t\.id\)\}, this\)/);
   assert.match(source,/cuttingDeleteTemplate\(\$\{inlineArg\(t\.id\)\}\)/);
   assert.doesNotMatch(source,/cuttingDownloadTemplate\('\$\{esc\(t\.id\)\}'/);
-  const deleteBody=source.match(/async function cuttingDeleteTemplate\(id\)\{([\s\S]*?)\n  \}\n\n  function cuttingPickOrder/)?.[1]||''; // deleteBody（裁帶模板刪除函式內容）
+  const deleteStart=source.indexOf('async function cuttingDeleteTemplate(id)'); // deleteStart（裁帶模板刪除函式起點）
+  const deleteEnd=source.indexOf('function cuttingPickOrder()',deleteStart); // deleteEnd（下一個裁帶函式起點）
+  const deleteBody=source.slice(deleteStart,deleteEnd); // deleteBody（裁帶模板刪除函式內容）
   assert.match(deleteBody,/action:'cuttingTemplateDelete'/);
   assert.match(deleteBody,/rememberCuttingHistoryLog\(savedLog\)/);
   assert.match(htmlSource,/id="cut-tab-history" onclick="cuttingSwitchTab\('history'\)"/);
@@ -201,7 +205,7 @@ test('裁帶操作區使用頁面捲動、可辨識結果框與內嵌側欄開�
   assert.match(html,/id="cut-results-empty"/);
   assert.match(html,/class="cutting-result-group" id="cut-missing-box"/);
   assert.match(html,/class="cutting-result-group" id="cut-error-box"/);
-  assert.match(html,/class="to cutting-page-table">\s*<table>[\s\S]*?id="cut-template-tb"/);
+  assert.match(html,/class="to cutting-page-table ui-table-frame">\s*<div class="ui-table-scroll"[^>]*>\s*<table class="ui-table"[^>]*>[\s\S]*?id="cut-template-tb"/);
   assert.doesNotMatch(html,/class="ts" style="max-height:260px">\s*<table>[\s\S]*?id="cut-template-tb"/);
   assert.match(style,/\.cutting-guide-disclosure \{\s*position: static;/);
   assert.match(style,/\.cutting-guide-panel \{[\s\S]*?left: 50%;[\s\S]*?transform: translateX\(-50%\)/);

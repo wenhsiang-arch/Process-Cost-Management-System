@@ -8,7 +8,7 @@ const read=file=>fs.readFileSync(new URL(file,root),'utf8');
 
 const featurePages=[
   'summary','cutting','sync','progress','settings','export','costlog','accounts','permissions',
-  'production-entry','production-records','production-employees'
+  'production-entry','production-records','production-attendance','production-employees'
 ]; // featurePages（正式功能頁）
 const featureScripts=['cutting','orders','sync','summary','data','settings','accounts','permissions']; // featureScripts（本輪介面功能程式）
 const featureStyles=['cutting','orders','products','sync','cost','accounts','production']; // featureStyles（功能專屬樣式）
@@ -29,13 +29,52 @@ test('全部正式功能頁均接上共用頁面與功能樣式',()=>{
   }
 });
 
+test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制高度',()=>{
+  const html=read('index.html');
+  const features=read('js/features.js');
+  const core=read('styles/ui-core.css');
+  const accounts=read('styles/features/accounts.css');
+  const cost=read('styles/features/cost.css');
+  const cutting=read('styles/features/cutting.css');
+  const products=read('styles/features/products.css');
+  const production=read('styles/features/production.css');
+  const sync=read('styles/features/sync.css');
+  assert.match(core,/--ui-page-padding:\s*12px/);
+  assert.match(core,/--ui-control-height-single:\s*36px/);
+  assert.match(core,/--ui-control-height-bilingual:\s*44px/);
+  assert.match(core,/--ui-tab-min-height:\s*46px/);
+  assert.match(core,/--ui-action-tile-width:\s*100px/);
+  assert.match(core,/--ui-action-tile-height:\s*68px/);
+  assert.match(core,/--ui-section-header-min-height:\s*34px/);
+  assert.match(core,/--ui-table-cell-padding-block:\s*5px/);
+  assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260810-6/);
+  assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
+  assert.match(html,/js\/features\.js\?v=20260810-9/);
+  assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260810-2'/);
+  assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
+  assert.match(features,/products:'styles\/features\/products\.css\?v=20260810-1'/);
+  assert.match(features,/sync:'styles\/features\/sync\.css\?v=20260810-2'/);
+  assert.match(features,/cost:'styles\/features\/cost\.css\?v=20260810-2'/);
+  assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260810-2'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-7'/);
+  assert.match(accounts,/\.permission-matrix-table tbody td \{[\s\S]*?height: 38px;[\s\S]*?padding: 4px 7px;/);
+  assert.match(cost,/\.cost-log-table th \{[\s\S]*?height: 52px;/);
+  assert.match(cost,/\.cost-log-table td \{[\s\S]*?height: 54px;/);
+  assert.match(cutting,/\.cut-template-action \{[\s\S]*?height: 40px;/);
+  assert.match(products,/\.summary-table-header \{[\s\S]*?min-height: 44px;/);
+  assert.match(production,/\.production-registration-header \{[\s\S]*?min-height: 56px;/);
+  assert.match(production,/\.production-entry-table-header \{[\s\S]*?min-height: 44px;/);
+  assert.match(sync,/\.sync-section-header \{[\s\S]*?min-height: 46px;/);
+});
+
 test('超寬正式表格使用共用浮動水平捲軸且不建立第二條垂直捲軸',()=>{
   const html=read('index.html');
   const source=read('js/ui-table.js');
   const core=read('styles/ui-core.css');
   const specification=read('UI設計規範與參照/介面設計規範.md');
-  assert.match(html,/styles\/ui-core\.css\?v=20260809-5/);
-  assert.match(html,/js\/ui-table\.js\?v=20260809-1/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260810-6/);
+  assert.match(html,/js\/ui-table\.js\?v=20260810-2/);
   assert.match(source,/TABLE_SCROLL_SELECTOR = '\.ui-table-scroll'/);
   assert.match(source,/scrollWidth[\s\S]*?clientWidth[\s\S]*?overflowX === 'auto'/);
   assert.match(source,/floatingScroll\.scrollLeft = activeTarget\.scrollLeft/);
@@ -177,21 +216,21 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(markup,/class="production-entry-panels"/);
   assert.match(markup,/production-registration-context[\s\S]*?production-registration-header[\s\S]*?production-employee-inline-panel/);
   assert.match(markup,/class="production-field-label-row"[\s\S]*?id="production-calendar-button"[\s\S]*?id="production-date-input"[\s\S]*?id="production-date-previous"[\s\S]*?id="production-date-next"/);
-  assert.match(markup,/id="production-column-settings-menu"[\s\S]*?id="production-column-settings-select-all"[\s\S]*?id="production-column-settings-reset"[\s\S]*?data-production-column-toggle="order"[\s\S]*?data-production-column-toggle="action"/);
-  assert.doesNotMatch(markup,/data-production-column-toggle="[^"]+"[^>]*disabled/);
+  assert.match(markup,/id="production-column-settings-menu"[^>]*data-ui-table-columns-menu[^>]*hidden/);
+  assert.match(entrySource,/PCMSUITableControls\.create\(\{[\s\S]*?columns:PRODUCTION_TABLE_COLUMNS/);
   assert.doesNotMatch(markup,/production-save-button|Lưu sản lượng|儲存產量/);
   assert.match(markup,/for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng<\/strong><span id="production-quantity-label-zh">數量<\/span>/);
   assert.match(markup,/id="production-process-input"[^>]*maxlength="2"[\s\S]*?id="production-process-name"[\s\S]*?id="production-quantity-input"/);
   assert.match(markup,/id="production-supplement-help-button"[\s\S]*?Hướng dẫn[\s\S]*?說明/);
-  assert.match(markup,/data-production-column-toggle="supplementHours"/);
+  assert.match(entrySource,/key:'supplementHours'/);
   assert.match(markup,/Giờ bổ sung[\s\S]*?補充工時/);
   assert.match(markup,/Sản lượng của nhân viên trong ngày[\s\S]*?id="production-quantity-progress"[\s\S]*?已登記數量 \/ 訂單數量上限/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
-  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?width:\s*100%;[\s\S]*?grid-template-columns:\s*minmax\(0, 220px\)[\s\S]*?minmax\(58px, 86px\);[\s\S]*?border-left:\s*1px/);
+  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?width:\s*100%;[\s\S]*?grid-template-columns:\s*minmax\(210px, 1\.15fr\)[\s\S]*?minmax\(68px, 86px\);[\s\S]*?background:\s*var\(--ui-color-table-header\)/);
   assert.match(style,/\.production-employee-inline-field input\s*\{[\s\S]*?height:\s*36px;[\s\S]*?border:\s*1px solid/);
   assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
   assert.match(style,/\.production-entry-command\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
-  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?width:\s*min\(100%, 1040px\);[\s\S]*?grid-template-columns:\s*minmax\(0, \.98fr\)[\s\S]*?minmax\(0, \.62fr\)[\s\S]*?column-gap:\s*clamp\(6px, \.8vw, 12px\);/);
+  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?display:\s*flex;[\s\S]*?width:\s*100%;[\s\S]*?flex-wrap:\s*nowrap;[\s\S]*?gap:\s*clamp\(5px, \.65vw, 10px\);/);
   assert.match(style,/\.production-process-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
   assert.match(style,/\.production-process-name-output\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(style,/\.production-entry-context-panel\.is-supplement-mode \.production-process-name-output/);
@@ -201,16 +240,15 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy\s*\{[\s\S]*?align-items:\s*flex-end;/);
   assert.match(entrySource,/production-product-code-cell/);
   assert.match(style,/\.production-entry-table td\.production-product-code-cell\s*\{[\s\S]*?font-weight:\s*700;/);
-  assert.match(entrySource,/function setAllColumnVisibility\(visible\)/);
+  assert.match(entrySource,/function ensureProductionTableControl\(\)/);
   assert.match(entrySource,/function employeeOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId,secondary:''/);
   assert.match(style,/\.production-records-table \.production-date-cell\s*\{/);
   assert.match(style,/\.production-data-section \.ui-table-frame\s*\{[\s\S]*?overflow:\s*hidden;/);
   assert.match(style,/\.production-data-section \.ui-table-scroll\s*\{[\s\S]*?overflow-x:\s*auto;/);
   assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog\s*\{[\s\S]*?transform:\s*translate\(-50%, -50%\);/);
   assert.match(entrySource,/document\.querySelector\('#ma > \.mn'\)[\s\S]*?new ResizeObserver\(updatePosition\)/);
-  assert.match(entrySource,/function updateStickyHeaderPosition\(\)[\s\S]*?visibleTop-tableRect\.top/);
-  assert.match(entrySource,/function productionEntryLeave\(\)[\s\S]*?stopProductionStickyHeader\(\)/);
-  assert.match(style,/\.production-entry-table thead \{[\s\S]*?position:\s*relative;[\s\S]*?transform:\s*translateY\(var\(--production-table-header-offset\)\);/);
+  assert.match(entrySource,/function productionEntryLeave\(\)[\s\S]*?productionTableControl\?\.deactivate\?\.\(\{resetSort:true\}\)/);
+  assert.match(markup,/id="production-entry-table"[^>]*data-ui-table-sticky="original"/);
   assert.doesNotMatch(entrySource,/cloneNode\(/);
   assert.match(style,/\.production-filter-grid\s*\{[\s\S]*?height:\s*auto;[\s\S]*?grid-template-columns:/);
   assert.match(style,/\.production-command-actions\s*\{[\s\S]*?height:\s*auto;[\s\S]*?align-self:\s*stretch;/);
@@ -252,8 +290,28 @@ test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇�
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;[\s\S]*?width: min\(340px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(640px, calc\(100vh - 96px\)\);[\s\S]*?overflow-y: auto;/);
   assert.match(core,/\.ui-table-sort-heading \{[\s\S]*?display: flex;[\s\S]*?align-items: center;/);
   assert.match(core,/\.ui-table \.is-column-hidden \{[\s\S]*?display: none;/);
-  assert.match(features,/summary:'js\/summary\.js\?v=20260809-2'/);
-  assert.match(features,/products:'styles\/features\/products\.css\?v=20260809-2'/);
+  assert.match(features,/summary:'js\/summary\.js\?v=20260810-2'/);
+  assert.match(features,/products:'styles\/features\/products\.css\?v=20260810-1'/);
+});
+
+test('第一批正式表格支援拖曳欄寬、雙擊自動符合及恢復預設',()=>{
+  const html=read('index.html');
+  const controls=read('js/ui-table-controls.js');
+  const core=read('styles/ui-core.css');
+  const features=read('js/features.js');
+  for(const id of ['summary-main-table','production-entry-table','production-records-table','production-attendance-table']){
+    assert.match(html,new RegExp(`id="${id}"[^>]*data-ui-table-resizable="true"`),`${id}（第一批表格）未啟用使用者欄寬調整`);
+  }
+  assert.match(html,/summary-table-scroll" data-ui-floating-scroll="only"/);
+  assert.match(controls,/RESIZE_HANDLE_SELECTOR = '\[data-ui-table-resize-handle\]'/);
+  assert.match(controls,/WIDTH_STORAGE_PREFIX = 'pcms\.ui\.table-widths\.v1'/);
+  assert.match(controls,/addEventListener\('pointerdown',handleResizePointerDown\)/);
+  assert.match(controls,/addEventListener\('dblclick',handleResizeDoubleClick\)/);
+  assert.match(controls,/function resetColumnWidths\(\)/);
+  assert.match(controls,/if\(event\.target\?\.closest\?\.\(RESIZE_HANDLE_SELECTOR\)\) return;/);
+  assert.match(core,/\.ui-table-resize-handle \{[\s\S]*?cursor: col-resize;[\s\S]*?touch-action: none;/);
+  assert.match(core,/body\.is-ui-table-resizing,[\s\S]*?cursor: col-resize !important;/);
+  assert.match(features,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-3'/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
@@ -339,7 +397,7 @@ test('產品工價預覽一次顯示一種幣別且每頁固定五十筆',()=>{
   assert.match(renderSource,/filtered\.slice\(start,start\+EXPORT_PREVIEW_PAGE_SIZE\)/);
   assert.match(renderSource,/mkPager\('ex-pager',[\s\S]*?EXPORT_PREVIEW_PAGE_SIZE,'goExportPreviewPage'\)/);
   assert.doesNotMatch(renderSource,/Tổng giá công \(USD\)[\s\S]*?Tổng giá công \(VND\)[\s\S]*?Tổng giá công \(TWD\)/);
-  assert.match(style,/#pg-export \.export-data-section table \{[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/#pg-export \.export-data-section table\[data-ui-table-controls="auto"\] \{[\s\S]*?table-layout: fixed;/);
   assert.match(style,/#pg-export \.export-preview-currency-button\.is-active/);
 });
 
@@ -366,9 +424,11 @@ test('共用成功提示固定顯示且不改變頁面高度',()=>{
 test('帳號表格使用固定欄寬且使用者識別碼不撐寬頁面',()=>{
   const style=read('styles/features/accounts.css');
   const source=read('js/accounts.js');
-  assert.match(style,/#pg-accounts table \{[\s\S]*?min-width: 0;[\s\S]*?table-layout: fixed;/);
-  assert.match(style,/#pg-accounts th:nth-child\(1\) \{ width: 25%; \}/);
-  assert.match(style,/#pg-accounts th:nth-child\(5\) \{ width: 15%; \}/);
+  const html=read('index.html');
+  assert.match(style,/#pg-accounts table\[data-ui-table-controls="auto"\] \{[\s\S]*?min-width: max\(100%, var\(--ui-table-visible-min-width, 100%\)\);[\s\S]*?table-layout: fixed;/);
+  assert.match(html,/id="accounts-table"[^>]*data-ui-table-controls="auto"[^>]*data-ui-table-sticky="original"/);
+  assert.match(html,/data-ui-table-column="email"[^>]*data-ui-table-min-width="220"[^>]*data-ui-table-width="300"[^>]*data-ui-table-max-width="420"/);
+  assert.match(html,/data-ui-table-column="uid"[^>]*data-ui-table-ellipsis="true"/);
   assert.match(style,/\.accounts-uid \{[\s\S]*?text-overflow: ellipsis;[\s\S]*?white-space: nowrap;/);
   assert.match(source,/uidCell\.title=uidText/);
 });
@@ -462,11 +522,11 @@ test('主要功能頁表格只使用主內容區捲軸且不改彈出視窗',()=
   assert.match(core,/\.ui-page \.ui-table-frame \{\s*overflow: visible;/);
   assert.match(core,/\.ui-page \.ui-table-scroll \{[\s\S]*?max-height: none;[\s\S]*?overflow: visible;/);
   assert.match(cuttingStyle,/#pg-cutting \.ts \{[\s\S]*?max-height: none;[\s\S]*?overflow: visible;/);
-  assert.match(cuttingStyle,/#pg-cutting \.cutting-history-scroll \{[\s\S]*?max-height: none;[\s\S]*?overflow: visible;/);
-  assert.match(ordersStyle,/#pg-progress \.orders-table-wrap \{[\s\S]*?overflow: visible;/);
+  assert.match(cuttingStyle,/#pg-cutting \.cutting-history-scroll \{[\s\S]*?max-height: none;[\s\S]*?overflow-x: auto;[\s\S]*?overflow-y: visible;/);
+  assert.match(ordersStyle,/#pg-progress \.orders-table-wrap \{[\s\S]*?overflow-x: auto;[\s\S]*?overflow-y: visible;/);
   assert.match(ordersStyle,/#pg-progress \.order-manager-panel \{[\s\S]*?overflow: visible;/);
-  assert.match(summarySource,/class="summary-detail-table-wrap"><table class="summary-detail-table">/);
-  assert.doesNotMatch(summarySource,/style="overflow-x:auto"><table class="summary-detail-table">/);
+  assert.match(summarySource,/class="summary-detail-table-wrap"><table class="summary-detail-table ui-table" data-ui-table-layout="special">/);
+  assert.doesNotMatch(summarySource,/style="overflow-x:auto"><table class="summary-detail-table/);
   assert.match(html,/id="m-order-adjust-history"[\s\S]*?max-height:520px;overflow:auto/);
   assert.match(cuttingSource,/class="ts" style="max-height:320px"/);
 });
@@ -480,7 +540,7 @@ test('權限管理使用固定職務矩陣、合併母子欄並只標示敏感�
   assert.doesNotMatch(html,/permission-role-tabs|permission-role-card|permission-switch/);
   assert.match(source,/function permissionMatrixRows\(\)/);
   assert.match(source,/const roles=\['admin',\.\.\.CONFIGURABLE_ROLES\]/);
-  assert.match(source,/class="permission-matrix-table"/);
+  assert.match(source,/class="permission-matrix-table ui-table"/);
   assert.match(source,/data-permission-filter="differences"/);
   assert.match(source,/data-permission-filter="sensitive"/);
   assert.match(source,/function permissionParentEnabled\(role,row\)/);
@@ -493,8 +553,8 @@ test('權限管理使用固定職務矩陣、合併母子欄並只標示敏感�
   assert.doesNotMatch(source,/Sử dụng chức năng chính|使用主功能|Sử dụng trang|使用分頁/);
   assert.match(source,/window\.permissionSettings\[role\]\[key\]=checked===true/);
   assert.match(source,/firebaseSaveRolePermissions\(payload\)/);
-  assert.match(features,/permissions:'js\/permissions\.js\?v=20260809-3'/);
-  assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260809-3'/);
+  assert.match(features,/permissions:'js\/permissions\.js\?v=20260810-1'/);
+  assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260810-2'/);
   assert.match(style,/\.permission-matrix-table \{[\s\S]*?table-layout: fixed;/);
   assert.match(style,/\.permission-matrix-shell \{[\s\S]*?overflow: visible;/);
   assert.doesNotMatch(style,/\.permission-matrix-shell \{[\s\S]*?overflow-x:\s*auto/);

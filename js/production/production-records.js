@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state = {initialized:false,rows:[],filtered:[],pendingFilters:null}; // state（紀錄頁狀態）
+  const state = {initialized:false,rows:[],filtered:[],pendingFilters:null,efficiencies:new Map()}; // state（紀錄頁狀態）
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
   function dateText(value){
@@ -77,6 +77,49 @@
     row.appendChild(cell);
   }
 
+  function efficiencyKey(item){ return `${item.employeeId}|${item.productionDate}`; }
+
+  function addEfficiencyCell(row,item){
+    const cell = document.createElement('td');
+    cell.className = 'production-center-cell production-efficiency-cell';
+    const result = state.efficiencies.get(efficiencyKey(item));
+    if(result?.status === 'ready'){
+      cell.textContent = `${Number(result.percentage || 0).toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+    }else{
+      const copy = document.createElement('span');
+      copy.className = 'ui-dual-copy production-efficiency-status';
+      const vi = document.createElement('strong');
+      const zh = document.createElement('span');
+      if(result?.status === 'invalid-attendance'){
+        vi.textContent = 'Giờ bất thường';
+        zh.textContent = '考勤時數異常';
+      }else if(result?.status === 'invalid-capacity'){
+        vi.textContent = 'Thiếu chuẩn giờ';
+        zh.textContent = '缺少標準產能';
+      }else{
+        vi.textContent = 'Chưa chấm công';
+        zh.textContent = '考勤未登記';
+      }
+      copy.append(vi,zh);
+      cell.appendChild(copy);
+    }
+    row.appendChild(cell);
+  }
+
+  async function loadEfficiencies(rows){
+    const pairs = new Map();
+    (Array.isArray(rows) ? rows : []).forEach(item=>pairs.set(efficiencyKey(item),item));
+    const results = await Promise.all(Array.from(pairs.entries()).map(async([key,item])=>{
+      try{
+        return [key,await window.PCMSProductionAttendance.efficiencyFor(item.employeeId,item.productionDate,{force:true})];
+      }catch(error){
+        console.warn('Không thể tính hiệu suất ngày / 無法計算當日效率：',error);
+        return [key,{status:'missing-attendance',percentage:null}];
+      }
+    }));
+    state.efficiencies = new Map(results);
+  }
+
   function addDateCell(row,value,showBadge){
     const cell = document.createElement('td');
     cell.className = 'production-date-cell';
@@ -106,13 +149,15 @@
       const groupStart = index === 0 || state.filtered[index-1]?.productionDate !== item.productionDate;
       if(groupStart) row.classList.add('production-date-group-start');
       addDateCell(row,item.productionDate,groupStart);
-      addCell(row,`${item.employeeId} · ${employeeDisplayName(item)}`,'production-record-text-cell',true);
+      addCell(row,item.employeeId,'production-record-text-cell',true);
+      addCell(row,employeeDisplayName(item),'production-record-text-cell',true);
       addCell(row,item.orderNo || '—','production-record-text-cell',true);
       addCell(row,item.productCode || '—','production-record-text-cell',true);
       addCell(row,item.processNo || '—','production-number-cell');
       addCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'production-record-text-cell',true);
       addCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell');
       addCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell');
+      addEfficiencyCell(row,item);
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
       const badge = document.createElement('span');
@@ -149,6 +194,7 @@
       const result = await window.PCMSProductionReports.loadHistory(filters(),options);
       state.rows = options.loadMore === true ? state.rows.concat(result.rows) : result.rows;
       button.hidden = !result.hasMore;
+      await loadEfficiencies(state.rows);
       render();
     }catch(error){ await showError(error); }
   }
@@ -286,7 +332,7 @@
   }
 
   async function productionRecordsInit(){ init(); applyPendingFilters(); await load(); }
-  function productionRecordsLeave(){ window.PCMSProductionReports.reset(); }
+  function productionRecordsLeave(){ window.PCMSProductionReports.reset(); state.efficiencies.clear(); }
 
   window.loadProductionRecordsData = loadProductionRecordsData;
   window.productionRecordsInit = productionRecordsInit;
