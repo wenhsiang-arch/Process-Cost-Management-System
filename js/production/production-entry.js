@@ -11,6 +11,7 @@
     orderReady:false,
     product:null,
     process:null,
+    supplementMode:false,
     processTotal:null,
     processTotalLoading:false,
     processTotalRequest:0,
@@ -20,6 +21,7 @@
       processNo:true,
       processName:true,
       quantity:true,
+      supplementHours:true,
       orderQuantity:true,
       processSeconds:true,
       action:true
@@ -28,7 +30,7 @@
 
   const ENTRY_INPUT_IDS = Object.freeze([
     'production-employee-input','production-date-input','production-order-input',
-    'production-product-input','production-process-input','production-quantity-input'
+    'production-product-input','production-process-input','production-process-name','production-quantity-input'
   ]); // ENTRY_INPUT_IDS（生產登記鍵盤輸入順序）
 
   const DROPDOWN_BINDINGS = Object.freeze({
@@ -45,6 +47,10 @@
   function isAdmin(){ return window.cu?.role === 'admin'; }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
+  function hoursText(value){
+    const hours = Number(value);
+    return Number.isFinite(hours) ? hours.toLocaleString(undefined,{minimumFractionDigits:hours % 1 === 0 ? 0 : 1,maximumFractionDigits:1}) : '—';
+  }
 
   function setStatus(vi,zh,kind='info'){
     const host = element('production-entry-status');
@@ -224,7 +230,7 @@
     const productToggle = element('production-product-toggle');
     const processToggle = element('production-process-toggle');
     if(productToggle) productToggle.disabled = !state.order || !state.orderReady;
-    if(processToggle) processToggle.disabled = !state.orderReady || !state.product;
+    if(processToggle) processToggle.disabled = state.supplementMode || !state.orderReady || !state.product;
   }
 
   function resetQuantityProgress(){
@@ -334,8 +340,44 @@
     if(!host) return;
     const processVi = String(process?.processVi || '').trim();
     const processZh = String(process?.processZh || '').trim();
-    host.textContent = processVi || processZh || '—';
+    host.value = processVi || processZh || '';
     host.title = [processVi,processZh].filter(Boolean).join(' / ');
+  }
+
+  function setSupplementMode(enabled,options={}){
+    const active = enabled === true;
+    const reasonInput = element('production-process-name');
+    const valueInput = element('production-quantity-input');
+    state.supplementMode = active;
+    state.process = null;
+    if(options.clearValues !== false){
+      if(reasonInput) reasonInput.value = '';
+      if(valueInput) valueInput.value = '';
+    }
+    if(reasonInput){
+      reasonInput.readOnly = !active;
+      reasonInput.tabIndex = active ? 0 : -1;
+      reasonInput.placeholder = active ? 'Nhập lý do / 輸入原因' : '—';
+      reasonInput.title = active ? 'Lý do bổ sung giờ / 補充工時原因' : '';
+    }
+    if(valueInput){
+      valueInput.min = active ? '0.5' : '1';
+      valueInput.max = active ? '24' : '';
+      valueInput.step = active ? '0.5' : '1';
+      valueInput.inputMode = active ? 'decimal' : 'numeric';
+      valueInput.placeholder = active ? '0.5–24 · Enter để lưu / Enter 儲存' : 'Enter để lưu / Enter 儲存';
+    }
+    const labelCopy = active
+      ? {processVi:'Lý do',processZh:'原因',valueVi:'Giờ',valueZh:'小時'}
+      : {processVi:'Công đoạn',processZh:'工序',valueVi:'Số lượng',valueZh:'數量'};
+    element('production-process-name-label-vi').textContent = labelCopy.processVi;
+    element('production-process-name-label-zh').textContent = labelCopy.processZh;
+    element('production-quantity-label-vi').textContent = labelCopy.valueVi;
+    element('production-quantity-label-zh').textContent = labelCopy.valueZh;
+    element('production-process-name')?.closest('.production-entry-context-panel')?.classList.toggle('is-supplement-mode',active);
+    resetQuantityProgress();
+    closeDropdown('production-process-options');
+    syncDropdownAvailability();
   }
 
   function clearEmployee(){
@@ -378,12 +420,10 @@
     state.order = null;
     state.orderReady = false;
     state.product = null;
-    state.process = null;
+    setSupplementMode(false);
     element('production-product-input').value = '';
     element('production-process-input').value = '';
-    element('production-quantity-input').value = '';
     setProcessName(null);
-    resetQuantityProgress();
     closeDropdown('production-product-options');
     closeDropdown('production-process-options');
     syncDropdownAvailability();
@@ -393,13 +433,11 @@
     state.order = order;
     state.orderReady = false;
     state.product = null;
-    state.process = null;
+    setSupplementMode(false);
     element('production-order-input').value = order.orderId || order.id;
     element('production-product-input').value = '';
     element('production-process-input').value = '';
-    element('production-quantity-input').value = '';
     setProcessName(null);
-    resetQuantityProgress();
     closeDropdown('production-order-options');
     closeDropdown('production-product-options');
     closeDropdown('production-process-options');
@@ -439,23 +477,19 @@
 
   function clearProduct(){
     state.product = null;
-    state.process = null;
+    setSupplementMode(false);
     element('production-process-input').value = '';
-    element('production-quantity-input').value = '';
     setProcessName(null);
-    resetQuantityProgress();
     closeDropdown('production-process-options');
     syncDropdownAvailability();
   }
 
   function selectProduct(product){
     state.product = product;
-    state.process = null;
+    setSupplementMode(false);
     element('production-product-input').value = product.code;
     element('production-process-input').value = '';
-    element('production-quantity-input').value = '';
     setProcessName(null);
-    resetQuantityProgress();
     closeDropdown('production-product-options');
     syncDropdownAvailability();
   }
@@ -481,6 +515,7 @@
   }
 
   function selectProcess(process,options={}){
+    setSupplementMode(false);
     state.process = process;
     element('production-process-input').value = String(process.processNo || '');
     setProcessName(process);
@@ -494,8 +529,14 @@
     state.process = null;
     setProcessName(null);
     resetQuantityProgress();
-    if(!state.orderReady || !state.product){ closeDropdown('production-process-options'); return; }
     const value = element('production-process-input').value.trim();
+    if(value === '0'){
+      setSupplementMode(true);
+      setStatus('Đã bật chế độ bổ sung giờ.','已啟動補充工時模式。','info');
+      return;
+    }
+    if(state.supplementMode) setSupplementMode(false);
+    if(!state.orderReady || !state.product){ closeDropdown('production-process-options'); return; }
     if(!value){ closeDropdown('production-process-options'); return; }
     const possible = window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
       .filter(item=>String(item.code || '') === state.product.code)
@@ -537,6 +578,12 @@
       return;
     }
     if(event.key === 'Enter' && id === 'production-process-options'){
+      if(element('production-process-input').value.trim() === '0'){
+        event.preventDefault();
+        setSupplementMode(true,{clearValues:false});
+        element('production-process-name')?.focus({preventScroll:true});
+        return;
+      }
       const exact = processForExactInput();
       if(exact){
         event.preventDefault();
@@ -562,13 +609,19 @@
     }
   }
 
-  function handleEntryTab(event,currentIndex){
+  function entryInputIds(){
+    return ENTRY_INPUT_IDS.filter(id=>id !== 'production-process-name' || state.supplementMode);
+  }
+
+  function handleEntryTab(event,currentId){
     if(event.key !== 'Tab') return;
     event.preventDefault();
     DROPDOWN_OPTION_IDS.forEach(closeDropdown);
+    const inputIds = entryInputIds();
+    const currentIndex = Math.max(0,inputIds.indexOf(currentId));
     const offset = event.shiftKey ? -1 : 1;
-    const targetIndex = (currentIndex + offset + ENTRY_INPUT_IDS.length) % ENTRY_INPUT_IDS.length;
-    element(ENTRY_INPUT_IDS[targetIndex])?.focus({preventScroll:true});
+    const targetIndex = (currentIndex + offset + inputIds.length) % inputIds.length;
+    element(inputIds[targetIndex])?.focus({preventScroll:true});
   }
 
   async function openSelectedProcessRecords(){
@@ -600,6 +653,18 @@
     const message = String(error?.message || 'Không thể hoàn tất thao tác. / 無法完成操作。');
     const parts = message.split(' / ');
     await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
+  }
+
+  async function openSupplementHelp(){
+    await window.PCMSUIComponents.alertDialog({
+      title:{vi:'Hướng dẫn công đoạn 0',zh:'工序0使用說明'},
+      message:{
+        vi:'Nhập số công đoạn 0 để ghi nhận giờ bổ sung. Ô Công đoạn sẽ đổi thành Lý do, ô Số lượng sẽ đổi thành Giờ. Giờ bổ sung cho một bản ghi phải từ 0,5 đến 24 giờ và tăng theo mỗi 0,5 giờ. Có thể không chọn đơn hàng và mã hàng; nếu chọn đơn hàng thì phải chọn mã hàng thuộc đơn hàng đó. Giờ bổ sung được tính là hiệu suất 100% và không cộng thêm giờ chấm công.',
+        zh:'輸入工序號 0，即可登記補充工時。「工序」欄會改為「原因」，「數量」欄會改為「小時」。單筆補充工時必須為 0.5～24 小時，並以 0.5 小時為單位。訂單與款號可以不選；若選擇訂單，必須同時選擇該訂單內的款號。補充工時以 100% 效率計算，不會增加考勤時數。'
+      },
+      kind:'info',
+      size:'large'
+    });
   }
 
   function ensureDeleteColumn(){
@@ -642,28 +707,41 @@
   }
 
   async function deleteDailyRecord(item){
+    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
     const confirmed = await window.PCMSUIComponents.confirmDialog({
-      title:{vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
-      message:{
-        vi:`Xóa ${numberText(item.quantity)} sản phẩm của công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
-        zh:`確定永久刪除工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
-      }
+      title:supplement
+        ? {vi:'Xóa vĩnh viễn giờ bổ sung',zh:'永久刪除補充工時'}
+        : {vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
+      message:supplement
+        ? {
+            vi:`Xóa ${hoursText(item.supplementHours)} giờ bổ sung với lý do “${item.supplementReason || '—'}”? Dữ liệu không thể khôi phục.`,
+            zh:`確定永久刪除「${item.supplementReason || '—'}」的 ${hoursText(item.supplementHours)} 小時補充工時？刪除後不能復原。`
+          }
+        : {
+            vi:`Xóa ${numberText(item.quantity)} sản phẩm của công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
+            zh:`確定永久刪除工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
+          }
     });
     if(!confirmed) return;
     try{
       await window.PCMSProductionEntryStore.deleteEntry(item.id);
       await loadDailyRows();
-      if(state.process) void loadQuantityProgress(state.process);
-      setStatus('Đã xóa vĩnh viễn bản ghi sản xuất.','生產紀錄已永久刪除。','success');
+      if(state.process && !supplement) void loadQuantityProgress(state.process);
+      setStatus(
+        supplement ? 'Đã xóa vĩnh viễn giờ bổ sung.' : 'Đã xóa vĩnh viễn bản ghi sản xuất.',
+        supplement ? '補充工時已永久刪除。' : '生產紀錄已永久刪除。',
+        'success'
+      );
     }catch(error){ await showError(error); }
   }
 
   async function saveEntry(){
-    if(state.processTotalLoading){
+    const supplement = state.supplementMode;
+    if(!supplement && state.processTotalLoading){
       setStatus('Đang kiểm tra số lượng đã ghi nhận.','正在確認目前已登記數量。','info');
       return null;
     }
-    const preview = quantityProgress();
+    const preview = supplement ? null : quantityProgress();
     if(preview?.exceededQuantity > 0){
       setStatus(
         `Số lượng dự kiến vượt ${numberText(preview.exceededQuantity)}.`,
@@ -674,6 +752,7 @@
       return null;
     }
     const quantityInput = element('production-quantity-input');
+    const reasonInput = element('production-process-name');
     return window.PCMSUIComponents.runActionOnce('production.entry.save',async()=>{
       try{
         const saved = await window.PCMSProductionEntryStore.createEntry({
@@ -681,17 +760,20 @@
           employeeId:state.employee?.employeeId,
           orderId:state.order?.id,
           productCode:state.product?.code,
-          processNo:state.process?.processNo,
-          quantity:element('production-quantity-input').value
+          processNo:supplement ? '0' : state.process?.processNo,
+          quantity:supplement ? undefined : quantityInput.value,
+          supplementReason:supplement ? reasonInput.value : undefined,
+          supplementHours:supplement ? quantityInput.value : undefined
         });
         element('production-process-input').value = '';
-        element('production-quantity-input').value = '';
-        state.process = null;
-        setProcessName(null);
-        resetQuantityProgress();
+        setSupplementMode(false);
         setStatus(
-          `Đã lưu ${numberText(saved.quantity)} sản phẩm cho công đoạn ${saved.processNo}.`,
-          `已儲存工序 ${saved.processNo} 的 ${numberText(saved.quantity)} 件生產數量。`,
+          supplement
+            ? `Đã lưu ${hoursText(saved.supplementHours)} giờ bổ sung: ${saved.supplementReason}.`
+            : `Đã lưu ${numberText(saved.quantity)} sản phẩm cho công đoạn ${saved.processNo}.`,
+          supplement
+            ? `已儲存 ${hoursText(saved.supplementHours)} 小時補充工時：${saved.supplementReason}。`
+            : `已儲存工序 ${saved.processNo} 的 ${numberText(saved.quantity)} 件生產數量。`,
           'success'
         );
         await loadDailyRows();
@@ -703,7 +785,7 @@
         throw error;
       }
     },{
-      controls:[quantityInput],
+      controls:supplement ? [reasonInput,quantityInput] : [quantityInput],
       cooldownMs:1000,
       onDuplicate:()=>setStatus('Đang lưu, vui lòng chờ.','正在儲存，請稍候。','info')
     }).catch(()=>null);
@@ -724,14 +806,16 @@
     ensureDeleteColumn();
     body.replaceChildren();
     rows.forEach(item=>{
+      const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
       const row = document.createElement('tr');
       appendCell(row,item.orderNo || '—','', 'order');
       appendCell(row,item.productCode || '—','', 'product');
       appendCell(row,item.processNo || '—','production-number-cell','processNo');
-      appendCell(row,item.processNameVi || item.processNameZh || '—','', 'processName');
-      appendCell(row,numberText(item.quantity),'production-number-cell','quantity');
-      appendCell(row,numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
-      appendCell(row,numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
+      appendCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
+      appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity');
+      appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
+      appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
+      appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
       if(isAdmin()){
         const actionCell = document.createElement('td');
         actionCell.className = 'production-row-actions';
@@ -836,6 +920,11 @@
     element('production-product-input').addEventListener('input',handleProductInput);
     element('production-process-input').addEventListener('input',handleProcessInput);
     element('production-quantity-input').addEventListener('input',renderQuantityProgress);
+    element('production-process-name').addEventListener('keydown',event=>{
+      if(event.key !== 'Enter' || !state.supplementMode) return;
+      event.preventDefault();
+      element('production-quantity-input')?.focus({preventScroll:true});
+    });
     element('production-quantity-input').addEventListener('keydown',event=>{
       if(event.key !== 'Enter') return;
       event.preventDefault();
@@ -845,6 +934,7 @@
     element('production-order-toggle').addEventListener('click',toggleOrderDropdown);
     element('production-product-toggle').addEventListener('click',toggleProductDropdown);
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
+    element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
     element('production-quantity-progress').addEventListener('click',()=>void openSelectedProcessRecords());
     element('production-column-settings-button').addEventListener('click',toggleColumnSettings);
     element('production-column-settings-reset').addEventListener('click',resetColumnVisibility);
@@ -861,8 +951,8 @@
     Object.entries(DROPDOWN_BINDINGS).forEach(([optionsId,binding])=>{
       element(binding.inputId)?.addEventListener('keydown',event=>handleDropdownKeyboard(event,optionsId));
     });
-    ENTRY_INPUT_IDS.forEach((id,index)=>{
-      element(id)?.addEventListener('keydown',event=>handleEntryTab(event,index));
+    ENTRY_INPUT_IDS.forEach(id=>{
+      element(id)?.addEventListener('keydown',event=>handleEntryTab(event,id));
     });
     document.addEventListener('click',event=>{
       if(!event.target.closest('.production-combobox')){

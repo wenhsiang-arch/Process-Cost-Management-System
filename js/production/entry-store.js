@@ -12,6 +12,7 @@
   });
   const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/; // DATE_PATTERN（生產日期格式）
   const ENTRY_DELETE_ACTION = 'productionEntryDelete'; // productionEntryDelete（永久刪除生產紀錄）
+  const SUPPLEMENT_PROCESS_NO = '0'; // SUPPLEMENT_PROCESS_NO（補充工時特殊工序號）
   let orders = []; // orders（目前可用訂單）
   let ordersPromise = null; // ordersPromise（訂單共用載入工作）
   const processRows = new Map(); // processRows（各訂單已載入工序）
@@ -22,6 +23,14 @@
   function normalizedText(value){ return String(value || '').trim(); }
   function lower(value){ return normalizedText(value).toLocaleLowerCase(); }
   function isPositiveInteger(value){ return Number.isInteger(value) && value > 0; }
+  function isValidSupplementHours(value){
+    const hours = Number(value);
+    return Number.isFinite(hours) && hours >= 0.5 && hours <= 24 && Number.isInteger(hours*2);
+  }
+  function isSupplementEntry(item){
+    return item?.recordType === 'supplement'
+      || (normalizedText(item?.processNo) === SUPPLEMENT_PROCESS_NO && Number.isFinite(Number(item?.supplementHours)));
+  }
   function isValidDate(value){
     if(!DATE_PATTERN.test(value)) return false;
     const [year,month,day] = value.split('-').map(Number);
@@ -165,11 +174,20 @@
     const quantity = Number(input?.quantity);
     if(!isValidDate(productionDate)) throw new Error('Ngày sản xuất không hợp lệ. / 生產日期不正確。');
     if(!employeeId) throw new Error('Vui lòng chọn nhân viên. / 請選擇員工。');
+    if(!processNo) throw new Error('Vui lòng nhập số công đoạn. / 請輸入工序號。');
+    if(processNo === SUPPLEMENT_PROCESS_NO){
+      const supplementReason = normalizedText(input?.supplementReason);
+      const supplementHours = Number(input?.supplementHours);
+      if(Boolean(orderId) !== Boolean(productCode)) throw new Error('Đơn hàng và mã hàng phải được chọn cùng nhau hoặc để trống cùng nhau. / 訂單與款號必須一起選擇，或一起留空。');
+      if(!supplementReason) throw new Error('Vui lòng nhập lý do bổ sung giờ. / 請輸入補充工時原因。');
+      if(supplementReason.length > 200) throw new Error('Lý do bổ sung giờ không được vượt quá 200 ký tự. / 補充工時原因不得超過200字。');
+      if(!isValidSupplementHours(supplementHours)) throw new Error('Giờ bổ sung phải từ 0,5 đến 24 giờ và tăng theo mỗi 0,5 giờ. / 補充工時必須為0.5至24小時，並以0.5小時為單位。');
+      return {recordType:'supplement',productionDate,employeeId,orderId,productCode,processNo,supplementReason,supplementHours};
+    }
     if(!orderId) throw new Error('Vui lòng chọn đơn hàng. / 請選擇訂單。');
     if(!productCode) throw new Error('Vui lòng chọn mã hàng. / 請選擇款號。');
-    if(!processNo) throw new Error('Vui lòng nhập số công đoạn. / 請輸入工序號。');
     if(!isPositiveInteger(quantity)) throw new Error('Số lượng sản xuất phải là số nguyên dương. / 生產數量必須是正整數。');
-    return {productionDate,employeeId,orderId,productCode,processNo,quantity};
+    return {recordType:'standard',productionDate,employeeId,orderId,productCode,processNo,quantity};
   }
 
   function hourlyCapacity(process){
@@ -196,8 +214,7 @@
     };
   }
 
-  async function createEntry(input){
-    const normalized = validateEntryInput(input);
+  async function createStandardEntry(normalized){
     const employeeReference = window._docRef(COLLECTIONS.employees,normalized.employeeId);
     const orderReference = window._docRef(COLLECTIONS.orders,normalized.orderId);
     const process = findProcess(normalized.orderId,normalized.productCode,normalized.processNo);
@@ -288,6 +305,63 @@
     return {id:entryReference.id,...saved};
   }
 
+  async function createSupplementEntry(normalized){
+    const employeeReference = window._docRef(COLLECTIONS.employees,normalized.employeeId);
+    const orderReference = normalized.orderId ? window._docRef(COLLECTIONS.orders,normalized.orderId) : null;
+    const entryReference = window._newDocRef(COLLECTIONS.entries);
+    const now = Date.now();
+    const userId = currentUserId();
+    const userName = currentUserName();
+    if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
+    let saved;
+    await window._runTransaction(async transaction=>{
+      const employeeSnapshot = await transaction.get(employeeReference);
+      if(!employeeSnapshot.exists() || employeeSnapshot.data().active !== true) throw new Error('Nhân viên không tồn tại hoặc đã ngừng sử dụng. / 員工不存在或已停用。');
+      let orderData = null;
+      if(orderReference){
+        const orderSnapshot = await transaction.get(orderReference);
+        if(!orderSnapshot.exists() || !usableOrder(orderSnapshot.data())) throw new Error('Đơn hàng không còn sử dụng được. / 訂單目前不可使用。');
+        orderData = orderSnapshot.data();
+        if(!Array.isArray(orderData.productCodes) || !orderData.productCodes.map(normalizedText).includes(normalized.productCode)){
+          throw new Error('Mã hàng không thuộc đơn hàng đã chọn. / 款號不屬於所選訂單。');
+        }
+      }
+      const employee = employeeSnapshot.data();
+      saved = {
+        recordType:'supplement',
+        productionDate:normalized.productionDate,
+        employeeId:normalized.employeeId,
+        employeeName:normalizedText(employee.name),
+        department:normalizedText(employee.department),
+        orderId:normalized.orderId,
+        orderNo:normalized.orderId ? normalizedText(orderData?.orderId || normalized.orderId) : '',
+        productCode:normalized.productCode,
+        processNo:SUPPLEMENT_PROCESS_NO,
+        supplementReason:normalized.supplementReason,
+        supplementHours:normalized.supplementHours,
+        status:'active',
+        revision:1,
+        createdAt:now,
+        createdByUid:userId,
+        createdBy:userName,
+        updatedAt:now,
+        updatedByUid:userId,
+        updatedBy:userName,
+        schemaVersion:1,
+        calculationVersion:'supplement-hours-v1'
+      };
+      transaction.set(entryReference,saved);
+    });
+    return {id:entryReference.id,...saved};
+  }
+
+  async function createEntry(input){
+    const normalized = validateEntryInput(input);
+    return normalized.recordType === 'supplement'
+      ? createSupplementEntry(normalized)
+      : createStandardEntry(normalized);
+  }
+
   async function updateQuantity(entryId,newQuantity,reason){
     const quantity = Number(newQuantity);
     const note = normalizedText(reason);
@@ -302,6 +376,7 @@
       if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi sản xuất. / 找不到生產紀錄。');
       const current = entrySnapshot.data();
       if(current.status !== 'active') throw new Error('Bản ghi đã hủy không thể chỉnh sửa. / 已作廢紀錄不能修改。');
+      if(isSupplementEntry(current)) throw new Error('Vui lòng dùng chức năng chỉnh sửa giờ bổ sung. / 請使用補充工時修改功能。');
       const processReference = window._docRef(COLLECTIONS.processes,current.orderProcessId);
       const totalReference = window._docRef(COLLECTIONS.totals,current.orderProcessId);
       const processSnapshot = await transaction.get(processReference);
@@ -324,6 +399,28 @@
     return {id:entryReference.id,...saved};
   }
 
+  async function updateSupplementHours(entryId,newHours,reason){
+    const supplementHours = Number(newHours);
+    const note = normalizedText(reason);
+    if(!isValidSupplementHours(supplementHours)) throw new Error('Giờ bổ sung phải từ 0,5 đến 24 giờ và tăng theo mỗi 0,5 giờ. / 補充工時必須為0.5至24小時，並以0.5小時為單位。');
+    if(!note) throw new Error('Vui lòng nhập lý do chỉnh sửa. / 請輸入修改原因。');
+    const entryReference = window._docRef(COLLECTIONS.entries,normalizedText(entryId));
+    const logReference = window._newDocRef(COLLECTIONS.logs);
+    const now = Date.now();
+    let saved;
+    await window._runTransaction(async transaction=>{
+      const entrySnapshot = await transaction.get(entryReference);
+      if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi bổ sung giờ. / 找不到補充工時紀錄。');
+      const current = entrySnapshot.data();
+      if(!isSupplementEntry(current)) throw new Error('Bản ghi không phải là giờ bổ sung. / 此紀錄不是補充工時。');
+      if(current.status !== 'active') throw new Error('Bản ghi đã hủy không thể chỉnh sửa. / 已作廢紀錄不能修改。');
+      saved = {...current,supplementHours,revision:Number(current.revision||1)+1,updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName()};
+      transaction.set(entryReference,saved);
+      transaction.set(logReference,operationLogData('productionEntryUpdate',note,[{field:'supplementHours',before:current.supplementHours,after:supplementHours}],now));
+    });
+    return {id:entryReference.id,...saved};
+  }
+
   async function voidEntry(entryId,reason){
     const note = normalizedText(reason);
     if(!note) throw new Error('Vui lòng nhập lý do hủy. / 請輸入作廢原因。');
@@ -336,6 +433,16 @@
       if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi sản xuất. / 找不到生產紀錄。');
       const current = entrySnapshot.data();
       if(current.status !== 'active') throw new Error('Bản ghi đã được hủy. / 紀錄已經作廢。');
+      if(isSupplementEntry(current)){
+        saved = {
+          ...current,status:'voided',revision:Number(current.revision||1)+1,
+          voidedAt:now,voidedByUid:currentUserId(),voidedBy:currentUserName(),voidReason:note,
+          updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName()
+        };
+        transaction.set(entryReference,saved);
+        transaction.set(logReference,operationLogData('productionEntryVoid',note,[{field:'status',before:'active',after:'voided'}],now));
+        return;
+      }
       const totalReference = window._docRef(COLLECTIONS.totals,current.orderProcessId);
       const totalSnapshot = await transaction.get(totalReference);
       if(!totalSnapshot.exists()) throw new Error('Thiếu dữ liệu tổng hợp công đoạn. / 缺少工序累計資料。');
@@ -373,7 +480,7 @@
       if(!['active','voided'].includes(current.status)){
         throw new Error('Trạng thái bản ghi sản xuất không hợp lệ. / 生產紀錄狀態不正確。');
       }
-      if(current.status === 'active'){
+      if(current.status === 'active' && !isSupplementEntry(current)){
         const totalReference = window._docRef(COLLECTIONS.totals,current.orderProcessId);
         const totalSnapshot = await transaction.get(totalReference);
         if(!totalSnapshot.exists()) throw new Error('Thiếu dữ liệu tổng hợp công đoạn. / 缺少工序累計資料。');
@@ -409,6 +516,7 @@
 
   window.PCMSProductionEntryStore = Object.freeze({
     loadOrders,listOrders,searchOrders,findOrder,loadProcesses,getLoadedProcesses,
-    productsForOrder,searchProducts,findProcess,loadProcessTotal,createEntry,updateQuantity,voidEntry,deleteEntry,reset,validateEntryInput
+    productsForOrder,searchProducts,findProcess,loadProcessTotal,createEntry,updateQuantity,updateSupplementHours,
+    voidEntry,deleteEntry,reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
   });
 })();

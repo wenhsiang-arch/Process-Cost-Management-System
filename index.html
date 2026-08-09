@@ -323,6 +323,10 @@ tr:hover td{background:#f8fafc}
                     <span class="production-inline-label"><strong>Bộ phận</strong><span>部門</span></span>
                     <span class="production-inline-value" id="production-employee-department">—</span>
                   </div>
+                  <button type="button" tabindex="-1" class="production-supplement-help" id="production-supplement-help-button" aria-label="Hướng dẫn công đoạn 0 / 工序0使用說明">
+                    <i class="ti ti-help-circle"></i>
+                    <span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>說明</span></span>
+                  </button>
                 </div>
               </div>
               <div class="production-entry-command ui-command-row">
@@ -365,11 +369,11 @@ tr:hover td{background:#f8fafc}
                     </div>
                   </div>
                   <div class="production-field production-process-name-field">
-                    <label for="production-process-name"><strong>Công đoạn</strong><span>工序</span></label>
-                    <output class="production-process-name-output" id="production-process-name">—</output>
+                    <label for="production-process-name"><strong id="production-process-name-label-vi">Công đoạn</strong><span id="production-process-name-label-zh">工序</span></label>
+                    <input class="production-process-name-output" type="text" id="production-process-name" maxlength="200" autocomplete="off" readonly tabindex="-1" placeholder="—">
                   </div>
                   <div class="production-field production-quantity-field">
-                    <label for="production-quantity-input"><strong>Số lượng</strong><span>數量</span></label>
+                    <label for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng</strong><span id="production-quantity-label-zh">數量</span></label>
                     <input type="number" id="production-quantity-input" min="1" step="1" inputmode="numeric" autocomplete="off" placeholder="Enter để lưu / Enter 儲存">
                   </div>
                 </div>
@@ -391,6 +395,7 @@ tr:hover td{background:#f8fafc}
                   <label><input type="checkbox" data-production-column-toggle="processNo" checked><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span></label>
                   <label><input type="checkbox" data-production-column-toggle="processName" checked><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></label>
                   <label><input type="checkbox" data-production-column-toggle="quantity" checked><span class="ui-dual-copy"><strong>Số lượng sản xuất</strong><span>生產數量</span></span></label>
+                  <label><input type="checkbox" data-production-column-toggle="supplementHours" checked><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></label>
                   <label><input type="checkbox" data-production-column-toggle="orderQuantity" checked><span class="ui-dual-copy"><strong>Số lượng đơn hàng</strong><span>訂單數量</span></span></label>
                   <label><input type="checkbox" data-production-column-toggle="processSeconds" checked><span class="ui-dual-copy"><strong>Giây công đoạn</strong><span>工序秒數</span></span></label>
                   <label class="production-operation-column-option" id="production-operation-column-option"><input type="checkbox" data-production-column-toggle="action" checked><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></label>
@@ -412,6 +417,7 @@ tr:hover td{background:#f8fafc}
                 <th class="production-number-cell" data-production-column="processNo"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
                 <th data-production-column="processName"><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
                 <th class="production-number-cell" data-production-column="quantity"><span class="ui-dual-copy"><strong>SL sản xuất</strong><span>生產數量</span></span></th>
+                <th class="production-number-cell" data-production-column="supplementHours"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
                 <th class="production-number-cell" data-production-column="orderQuantity"><span class="ui-dual-copy"><strong>SL đơn hàng</strong><span>訂單數量</span></span></th>
                 <th class="production-number-cell" data-production-column="processSeconds"><span class="ui-dual-copy"><strong>Giây</strong><span>工序秒數</span></span></th>
               </tr></thead>
@@ -452,6 +458,7 @@ tr:hover td{background:#f8fafc}
                 <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
                 <th><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
                 <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số lượng</strong><span>生產數量</span></span></th>
+                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
                 <th class="production-center-cell"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
                 <th class="production-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
               </tr></thead>
@@ -1287,7 +1294,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260809-13"></script>
+<script src="js/features.js?v=20260809-14"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

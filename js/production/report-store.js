@@ -73,7 +73,7 @@
     return (Array.isArray(rows)?rows:[]).filter(item=>{
       if(orderNeedle && !String(item.orderNo || '').toLocaleLowerCase().includes(orderNeedle)) return false;
       if(productNeedle && !String(item.productCode || '').toLocaleLowerCase().includes(productNeedle)) return false;
-      if(processNeedle && ![item.processNo,item.processNameVi,item.processNameZh].some(value=>String(value || '').toLocaleLowerCase().includes(processNeedle))) return false;
+      if(processNeedle && ![item.processNo,item.processNameVi,item.processNameZh,item.supplementReason].some(value=>String(value || '').toLocaleLowerCase().includes(processNeedle))) return false;
       if(status && item.status !== status) return false;
       return true;
     });

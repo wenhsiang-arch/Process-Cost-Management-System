@@ -22,6 +22,11 @@
     };
   }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
+  function hoursText(value){
+    const hours = Number(value);
+    return Number.isFinite(hours) ? hours.toLocaleString(undefined,{minimumFractionDigits:hours % 1 === 0 ? 0 : 1,maximumFractionDigits:1}) : '—';
+  }
+  function isSupplementEntry(item){ return window.PCMSProductionEntryStore.isSupplementEntry(item); }
   function employeeDisplayName(item){ // employeeDisplayName（目前顯示的員工姓名）：優先使用員工主資料，舊紀錄快照只作備援。
     const employee = window.PCMSProductionEmployees?.find?.(item?.employeeId);
     return String(employee?.name || item?.employeeName || '').trim() || '—';
@@ -94,6 +99,7 @@
     const body = element('production-records-table-body');
     body.replaceChildren();
     state.filtered.forEach((item,index)=>{
+      const supplement = isSupplementEntry(item);
       const row = document.createElement('tr');
       const groupStart = index === 0 || state.filtered[index-1]?.productionDate !== item.productionDate;
       if(groupStart) row.classList.add('production-date-group-start');
@@ -102,8 +108,9 @@
       addCell(row,item.orderNo || '—');
       addCell(row,item.productCode || '—');
       addCell(row,item.processNo || '—','production-number-cell');
-      addCell(row,item.processNameVi || item.processNameZh || '—');
-      addCell(row,numberText(item.quantity),'production-number-cell');
+      addCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'));
+      addCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell');
+      addCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell');
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
       const badge = document.createElement('span');
@@ -114,7 +121,12 @@
       actionCell.className = 'production-row-actions';
       if(item.status === 'active'){
         actionCell.append(
-          actionButton('ti-edit','Chỉnh sửa số lượng','修改數量',()=>void editQuantity(item)),
+          actionButton(
+            'ti-edit',
+            supplement ? 'Chỉnh sửa giờ bổ sung' : 'Chỉnh sửa số lượng',
+            supplement ? '修改補充工時' : '修改數量',
+            ()=>void editRecord(item)
+          ),
           actionButton('ti-ban','Hủy bản ghi','作廢紀錄',()=>void voidRecord(item),'danger')
         );
       }
@@ -139,15 +151,22 @@
     }catch(error){ await showError(error); }
   }
 
-  async function editQuantity(item){
-    const quantityText = await window.PCMSUIComponents.promptDialog({
-      title:{vi:'Chỉnh sửa số lượng sản xuất',zh:'修改生產數量'},
-      label:{vi:'Số lượng mới',zh:'新生產數量'},
+  async function editRecord(item){
+    const supplement = isSupplementEntry(item);
+    const valueText = await window.PCMSUIComponents.promptDialog({
+      title:supplement
+        ? {vi:'Chỉnh sửa giờ bổ sung',zh:'修改補充工時'}
+        : {vi:'Chỉnh sửa số lượng sản xuất',zh:'修改生產數量'},
+      label:supplement
+        ? {vi:'Giờ mới (0,5–24)',zh:'新補充工時（0.5～24）'}
+        : {vi:'Số lượng mới',zh:'新生產數量'},
       type:'number',
-      value:item.quantity,
-      validate:value=>Number.isInteger(Number(value)) && Number(value) > 0
+      value:supplement ? item.supplementHours : item.quantity,
+      validate:value=>supplement
+        ? window.PCMSProductionEntryStore.isValidSupplementHours(value)
+        : Number.isInteger(Number(value)) && Number(value) > 0
     });
-    if(quantityText === null) return;
+    if(valueText === null) return;
     const reason = await window.PCMSUIComponents.promptDialog({
       title:{vi:'Lý do chỉnh sửa',zh:'修改原因'},
       label:{vi:'Nhập lý do',zh:'輸入原因'},
@@ -157,12 +176,14 @@
     });
     if(reason === null) return;
     try{
-      await window.PCMSProductionEntryStore.updateQuantity(item.id,Number(quantityText),reason);
+      if(supplement) await window.PCMSProductionEntryStore.updateSupplementHours(item.id,Number(valueText),reason);
+      else await window.PCMSProductionEntryStore.updateQuantity(item.id,Number(valueText),reason);
       await load();
     }catch(error){ await showError(error); }
   }
 
   async function voidRecord(item){
+    const supplement = isSupplementEntry(item);
     const reason = await window.PCMSUIComponents.promptDialog({
       title:{vi:'Lý do hủy bản ghi',zh:'作廢原因'},
       label:{vi:'Nhập lý do',zh:'輸入原因'},
@@ -172,11 +193,18 @@
     });
     if(reason === null) return;
     const confirmed = await window.PCMSUIComponents.confirmDialog({
-      title:{vi:'Xác nhận hủy bản ghi',zh:'確認作廢紀錄'},
-      message:{
-        vi:`Hủy ${numberText(item.quantity)} sản phẩm của ${item.employeeId}, công đoạn ${item.processNo}. Số lượng này sẽ được trả lại cho đơn hàng.`,
-        zh:`將作廢員工 ${item.employeeId}、工序 ${item.processNo} 的 ${numberText(item.quantity)} 件；數量會退回訂單工序剩餘量。`
-      }
+      title:supplement
+        ? {vi:'Xác nhận hủy giờ bổ sung',zh:'確認作廢補充工時'}
+        : {vi:'Xác nhận hủy bản ghi',zh:'確認作廢紀錄'},
+      message:supplement
+        ? {
+            vi:`Hủy ${hoursText(item.supplementHours)} giờ bổ sung của ${item.employeeId}, lý do “${item.supplementReason || '—'}”?`,
+            zh:`將作廢員工 ${item.employeeId}「${item.supplementReason || '—'}」的 ${hoursText(item.supplementHours)} 小時補充工時。`
+          }
+        : {
+            vi:`Hủy ${numberText(item.quantity)} sản phẩm của ${item.employeeId}, công đoạn ${item.processNo}. Số lượng này sẽ được trả lại cho đơn hàng.`,
+            zh:`將作廢員工 ${item.employeeId}、工序 ${item.processNo} 的 ${numberText(item.quantity)} 件；數量會退回訂單工序剩餘量。`
+          }
     });
     if(!confirmed) return;
     try{
@@ -186,12 +214,20 @@
   }
 
   async function deleteRecord(item){
+    const supplement = isSupplementEntry(item);
     const confirmed = await window.PCMSUIComponents.confirmDialog({
-      title:{vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
-      message:{
-        vi:`Xóa ${numberText(item.quantity)} sản phẩm của ${item.employeeId}, công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
-        zh:`確定永久刪除員工 ${item.employeeId}、工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
-      }
+      title:supplement
+        ? {vi:'Xóa vĩnh viễn giờ bổ sung',zh:'永久刪除補充工時'}
+        : {vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
+      message:supplement
+        ? {
+            vi:`Xóa ${hoursText(item.supplementHours)} giờ bổ sung của ${item.employeeId}, lý do “${item.supplementReason || '—'}”? Dữ liệu không thể khôi phục.`,
+            zh:`確定永久刪除員工 ${item.employeeId}「${item.supplementReason || '—'}」的 ${hoursText(item.supplementHours)} 小時補充工時？刪除後不能復原。`
+          }
+        : {
+            vi:`Xóa ${numberText(item.quantity)} sản phẩm của ${item.employeeId}, công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
+            zh:`確定永久刪除員工 ${item.employeeId}、工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
+          }
     });
     if(!confirmed) return;
     try{

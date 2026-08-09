@@ -47,7 +47,7 @@
 .production-employee-inline-panel {
   display: grid;
   min-width: 0;
-  grid-template-columns: 220px minmax(220px, 1fr) minmax(170px, .75fr);
+  grid-template-columns: 220px minmax(220px, 1fr) minmax(170px, .75fr) 86px;
   gap: 12px;
   align-items: center;
   margin: 0;
@@ -56,6 +56,48 @@
   border-left: 1px solid var(--ui-color-border);
   border-radius: 0 calc(var(--ui-radius-panel) - 1px) 0 0;
   background: var(--ui-color-surface-muted);
+}
+
+.production-supplement-help {
+  display: inline-flex;
+  width: 86px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+.production-supplement-help:hover,
+.production-supplement-help:focus-visible {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+}
+
+.production-supplement-help:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-supplement-help > i {
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+
+.production-supplement-help .ui-dual-copy {
+  align-items: flex-start;
+  font-size: 10px;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.production-supplement-help .ui-dual-copy span {
+  font-size: 9px;
 }
 
 .production-employee-inline-field {
@@ -234,6 +276,17 @@
   line-height: 34px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.production-entry-context-panel.is-supplement-mode .production-process-name-output {
+  background: var(--ui-color-surface);
+  font-weight: 400;
+}
+
+.production-entry-context-panel.is-supplement-mode .production-process-name-output:focus {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
 }
 
 .production-process-field .ui-search-dropdown-control {
@@ -690,27 +743,31 @@
 }
 
 .production-entry-table [data-production-column="order"] {
-  width: 12%;
+  width: 11%;
 }
 
 .production-entry-table [data-production-column="product"] {
-  width: 12%;
+  width: 11%;
 }
 
 .production-entry-table [data-production-column="processNo"] {
-  width: 7%;
+  width: 6%;
 }
 
 .production-entry-table [data-production-column="processName"] {
-  width: 29%;
+  width: 27%;
 }
 
 .production-entry-table [data-production-column="quantity"],
+.production-entry-table [data-production-column="supplementHours"],
 .production-entry-table [data-production-column="orderQuantity"] {
-  width: 12%;
+  width: 10%;
 }
 
-.production-entry-table [data-production-column="processSeconds"],
+.production-entry-table [data-production-column="processSeconds"] {
+  width: 7%;
+}
+
 .production-entry-table [data-production-column="action"] {
   width: 8%;
 }
@@ -815,6 +872,10 @@
   display: flex;
   justify-content: flex-end;
   padding-top: 10px;
+}
+
+.production-records-table {
+  min-width: 1120px;
 }
 
 .production-records-table .production-date-cell {
@@ -999,10 +1060,14 @@
   }
 
   .production-employee-inline-panel {
-    grid-template-columns: 208px minmax(190px, 1fr) minmax(145px, .75fr);
+    grid-template-columns: 208px minmax(190px, 1fr) minmax(145px, .75fr) 82px;
     gap: 8px;
     padding-right: 8px;
     padding-left: 8px;
+  }
+
+  .production-supplement-help {
+    width: 82px;
   }
 
   .production-employee-inline-field {

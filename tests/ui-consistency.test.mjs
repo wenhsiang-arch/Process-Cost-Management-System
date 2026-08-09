@@ -154,7 +154,7 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(entrySource,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
   assert.match(entrySource,/selectProcess\(exact,\{focusQuantity:true\}\)/);
   assert.match(entrySource,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
-  assert.match(entrySource,/function handleEntryTab\(event,currentIndex\)/);
+  assert.match(entrySource,/function handleEntryTab\(event,currentId\)/);
   assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
   assert.match(markup,/class="production-entry-panels"/);
   assert.match(markup,/production-registration-context[\s\S]*?production-registration-header[\s\S]*?production-employee-inline-panel/);
@@ -162,8 +162,11 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(markup,/id="production-column-settings-menu"[\s\S]*?id="production-column-settings-select-all"[\s\S]*?id="production-column-settings-reset"[\s\S]*?data-production-column-toggle="order"[\s\S]*?data-production-column-toggle="action"/);
   assert.doesNotMatch(markup,/data-production-column-toggle="[^"]+"[^>]*disabled/);
   assert.doesNotMatch(markup,/production-save-button|Lưu sản lượng|儲存產量/);
-  assert.match(markup,/for="production-quantity-input"><strong>Số lượng<\/strong><span>數量<\/span>/);
+  assert.match(markup,/for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng<\/strong><span id="production-quantity-label-zh">數量<\/span>/);
   assert.match(markup,/id="production-process-input"[^>]*maxlength="2"[\s\S]*?id="production-process-name"[\s\S]*?id="production-quantity-input"/);
+  assert.match(markup,/id="production-supplement-help-button"[\s\S]*?Hướng dẫn[\s\S]*?說明/);
+  assert.match(markup,/data-production-column-toggle="supplementHours"/);
+  assert.match(markup,/Giờ bổ sung[\s\S]*?補充工時/);
   assert.match(markup,/Sản lượng của nhân viên trong ngày[\s\S]*?id="production-quantity-progress"[\s\S]*?已登記數量 \/ 訂單數量上限/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
   assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?grid-template-columns:\s*220px minmax\(220px, 1fr\)[\s\S]*?margin:\s*0;[\s\S]*?border-left:\s*1px/);
@@ -173,6 +176,8 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?grid-template-columns:\s*158px 178px 160px 104px 176px 126px;/);
   assert.match(style,/\.production-process-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*80px;[\s\S]*?max-width:\s*80px;/);
   assert.match(style,/\.production-process-name-output\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
+  assert.match(style,/\.production-entry-context-panel\.is-supplement-mode \.production-process-name-output/);
+  assert.match(style,/\.production-supplement-help\s*\{/);
   assert.match(style,/\.production-quantity-progress\s*\{[\s\S]*?min-width:\s*330px;[\s\S]*?background:\s*var\(--ui-color-primary-soft\);/);
   assert.match(style,/\.production-entry-table th\.production-number-cell,[\s\S]*?\.production-entry-table td\.production-number-cell\s*\{[\s\S]*?text-align:\s*right;/);
   assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy\s*\{[\s\S]*?align-items:\s*flex-end;/);
