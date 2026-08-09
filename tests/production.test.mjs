@@ -209,7 +209,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-6'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-7'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -224,6 +224,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(markup,/production-registration-context[\s\S]*?production-registration-header[\s\S]*?Đăng ký sản xuất[\s\S]*?生產登記/);
   assert.match(markup,/production-employee-inline-panel[\s\S]*?Mã nhân viên[\s\S]*?員工工號[\s\S]*?Tên nhân viên[\s\S]*?姓名[\s\S]*?Bộ phận[\s\S]*?部門/);
   assert.match(markup,/production-registration-context[\s\S]*?production-date-input[\s\S]*?production-order-input[\s\S]*?production-product-input[\s\S]*?production-process-input[\s\S]*?production-quantity-input/);
+  assert.doesNotMatch(markup,/production-save-button|Lưu sản lượng|儲存產量/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-calendar-button"[\s\S]*?ti-calendar-time/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-date-previous"[\s\S]*?tabindex="-1"[^>]*id="production-date-next"/);
   assert.match(markup,/id="production-quantity-input"[^>]*placeholder="Enter để lưu \/ Enter 儲存"/);
@@ -244,6 +245,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
   assert.match(source,/selectProcess\(exact,\{focusQuantity:true\}\)/);
   assert.match(source,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
+  assert.match(source,/const quantityInput = element\('production-quantity-input'\)[\s\S]*?controls:\[quantityInput\]/);
   assert.match(source,/loadProcessTotal\(process\?\.id\)/);
   assert.match(source,/preview\?\.exceededQuantity > 0/);
   assert.match(source,/setPendingFilters\?\.\(\{/);
@@ -262,6 +264,6 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-records-table \.production-date-cell \{/);
   assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-2'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-7'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-8'/);
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-3'/);
 });

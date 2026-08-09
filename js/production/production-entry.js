@@ -622,7 +622,7 @@
       element('production-quantity-input')?.focus({preventScroll:true});
       return null;
     }
-    const button = element('production-save-button');
+    const quantityInput = element('production-quantity-input');
     return window.PCMSUIComponents.runActionOnce('production.entry.save',async()=>{
       try{
         const saved = await window.PCMSProductionEntryStore.createEntry({
@@ -651,7 +651,7 @@
         throw error;
       }
     },{
-      controls:[button],
+      controls:[quantityInput],
       cooldownMs:1000,
       onDuplicate:()=>setStatus('Đang lưu, vui lòng chờ.','正在儲存，請稍候。','info')
     }).catch(()=>null);
@@ -793,7 +793,6 @@
     element('production-order-toggle').addEventListener('click',toggleOrderDropdown);
     element('production-product-toggle').addEventListener('click',toggleProductDropdown);
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
-    element('production-save-button').addEventListener('click',()=>void saveEntry());
     element('production-quantity-progress').addEventListener('click',()=>void openSelectedProcessRecords());
     element('production-column-settings-button').addEventListener('click',toggleColumnSettings);
     element('production-column-settings-reset').addEventListener('click',resetColumnVisibility);
