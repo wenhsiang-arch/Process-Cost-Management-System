@@ -1207,6 +1207,7 @@ body.is-ui-table-resizing * {
 }
 
 .ui-table-sortable-header {
+  --ui-table-sort-control-space: 23px;
   cursor: default;
   user-select: none;
 }
@@ -1268,7 +1269,20 @@ body.is-ui-table-resizing * {
   text-align: right;
 }
 
+.ui-table th.ui-table-number-cell.ui-table-sortable-header > .tv {
+  padding-inline-end: var(--ui-table-sort-control-space);
+}
+
 .ui-table .ui-table-center-cell {
+  text-align: center;
+}
+
+.ui-table th.ui-table-center-cell .ui-table-sort-heading {
+  justify-content: center;
+}
+
+.ui-table th.ui-table-center-cell.ui-table-sortable-header > .tv {
+  padding-inline-end: var(--ui-table-sort-control-space);
   text-align: center;
 }
 
