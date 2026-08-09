@@ -24,6 +24,7 @@
       supplementHours:true,
       orderQuantity:true,
       processSeconds:true,
+      hourlyCapacity:true,
       action:true
     }
   }; // state（登記頁目前狀態）
@@ -50,6 +51,10 @@
   function hoursText(value){
     const hours = Number(value);
     return Number.isFinite(hours) ? hours.toLocaleString(undefined,{minimumFractionDigits:hours % 1 === 0 ? 0 : 1,maximumFractionDigits:1}) : '—';
+  }
+  function hourlyCapacityText(value){
+    const capacity = Number(value);
+    return Number.isInteger(capacity) && capacity > 0 ? capacity.toLocaleString() : '—';
   }
 
   function setStatus(vi,zh,kind='info'){
@@ -791,11 +796,19 @@
     }).catch(()=>null);
   }
 
-  function appendCell(row,value,className='',columnKey=''){
+  function appendCell(row,value,className='',columnKey='',valueClass=''){
     const cell = document.createElement('td');
     if(className) cell.className = className;
     if(columnKey) cell.dataset.productionColumn = columnKey;
-    cell.textContent = String(value ?? '—');
+    const text = String(value ?? '—');
+    if(valueClass && text !== '—'){
+      const content = document.createElement('span');
+      content.className = valueClass;
+      content.textContent = text;
+      cell.appendChild(content);
+    }else{
+      cell.textContent = text;
+    }
     row.appendChild(cell);
   }
 
@@ -809,13 +822,14 @@
       const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
       const row = document.createElement('tr');
       appendCell(row,item.orderNo || '—','', 'order');
-      appendCell(row,item.productCode || '—','', 'product');
-      appendCell(row,item.processNo || '—','production-number-cell','processNo');
+      appendCell(row,item.productCode || '—','production-product-code-cell','product');
+      appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
       appendCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
-      appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity');
+      appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity','production-value-badge');
       appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
       appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
       appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
+      appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacitySnapshot),'production-number-cell','hourlyCapacity');
       if(isAdmin()){
         const actionCell = document.createElement('td');
         actionCell.className = 'production-row-actions';

@@ -398,6 +398,7 @@ tr:hover td{background:#f8fafc}
                   <label><input type="checkbox" data-production-column-toggle="supplementHours" checked><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></label>
                   <label><input type="checkbox" data-production-column-toggle="orderQuantity" checked><span class="ui-dual-copy"><strong>Số lượng đơn hàng</strong><span>訂單數量</span></span></label>
                   <label><input type="checkbox" data-production-column-toggle="processSeconds" checked><span class="ui-dual-copy"><strong>Giây công đoạn</strong><span>工序秒數</span></span></label>
+                  <label><input type="checkbox" data-production-column-toggle="hourlyCapacity" checked><span class="ui-dual-copy"><strong>Số lượng mỗi giờ</strong><span>每小時數量</span></span></label>
                   <label class="production-operation-column-option" id="production-operation-column-option"><input type="checkbox" data-production-column-toggle="action" checked><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></label>
                 </div>
               </div>
@@ -420,6 +421,7 @@ tr:hover td{background:#f8fafc}
                 <th class="production-number-cell" data-production-column="supplementHours"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
                 <th class="production-number-cell" data-production-column="orderQuantity"><span class="ui-dual-copy"><strong>SL đơn hàng</strong><span>訂單數量</span></span></th>
                 <th class="production-number-cell" data-production-column="processSeconds"><span class="ui-dual-copy"><strong>Giây</strong><span>工序秒數</span></span></th>
+                <th class="production-number-cell" data-production-column="hourlyCapacity"><span class="ui-dual-copy"><strong>SL/giờ</strong><span>每小時數量</span></span></th>
               </tr></thead>
               <tbody id="production-entry-table-body"></tbody>
             </table></div></div>
@@ -799,7 +801,28 @@ tr:hover td{background:#f8fafc}
           </div>
 
           <section class="products-data-section ui-data-section">
-            <div class="ui-section-header"><i class="ti ti-list-details"></i><span class="ui-dual-copy"><strong>Danh sách mã hàng</strong><span>款號列表</span></span></div>
+            <div class="ui-section-header summary-table-header">
+              <div class="summary-column-settings">
+                <button type="button" tabindex="-1" class="summary-column-settings-button" id="summary-column-settings-button" aria-label="Chọn cột hiển thị / 選擇顯示欄位" title="Chọn cột hiển thị / 選擇顯示欄位" aria-controls="summary-column-settings-menu" aria-expanded="false"><i class="ti ti-list-check"></i></button>
+                <div class="summary-column-settings-menu" id="summary-column-settings-menu" role="dialog" aria-label="Chọn cột hiển thị / 選擇顯示欄位" hidden>
+                  <div class="summary-column-settings-heading">
+                    <label class="summary-column-settings-select-all"><input type="checkbox" id="summary-column-settings-select-all" checked><span class="ui-dual-copy"><strong>Chọn tất cả</strong><span>全選</span></span></label>
+                    <div class="summary-column-settings-title ui-dual-copy"><strong>Chọn cột hiển thị</strong><span>選擇顯示欄位</span></div>
+                    <button type="button" tabindex="-1" class="summary-column-settings-reset" id="summary-column-settings-reset"><span class="ui-dual-copy"><strong>Mặc định</strong><span>恢復預設</span></span></button>
+                  </div>
+                  <label><input type="checkbox" data-summary-column-toggle="index" checked><span class="ui-dual-copy"><strong>STT</strong><span>序號</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="code" checked><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="client" checked><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="zh" checked><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="vi" checked><span class="ui-dual-copy"><strong>Tên Việt</strong><span>越文名稱</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="size" checked><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="ops" checked><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序數</span></span></label>
+                  <label id="summary-cost-column-option" hidden><input type="checkbox" data-summary-column-toggle="cost" checked><span class="ui-dual-copy"><strong>Tổng chi phí</strong><span>總工價</span></span></label>
+                  <label><input type="checkbox" data-summary-column-toggle="action" checked><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></label>
+                </div>
+              </div>
+              <span class="ui-dual-copy"><strong>Danh sách mã hàng</strong><span>款號列表</span></span>
+            </div>
             <div class="products-filter-row ui-toolbar">
               <label class="products-filter-field products-search-field" for="s-search"><span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span><span class="products-search-control"><i class="ti ti-search"></i><input type="text" placeholder="Nhập từ khóa / 輸入關鍵字..." id="s-search" oninput="window.sPage=1;rSum()"></span></label>
               <label class="products-filter-field" for="s-client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><select id="s-client" onchange="window.sPage=1;rSum()"><option value="">Tất cả KH / 全部客人</option></select></label>
@@ -809,7 +832,8 @@ tr:hover td{background:#f8fafc}
                 <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
               </div></div>
             </div>
-            <div class="to ui-table-frame"><div class="ts ui-table-scroll summary-table-scroll"><table class="ui-table"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
+            <div class="to ui-table-frame" id="summary-table-frame"><div class="ts ui-table-scroll summary-table-scroll"><table class="ui-table summary-main-table" id="summary-main-table"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
+            <div class="summary-columns-empty" id="summary-columns-empty" hidden><span class="ui-dual-copy"><strong>Chưa chọn cột hiển thị</strong><span>尚未選擇顯示欄位</span></span></div>
             <div class="pgr" id="sp2"></div>
           </section>
         </div>
@@ -1294,7 +1318,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260809-14"></script>
+<script src="js/features.js?v=20260809-15"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

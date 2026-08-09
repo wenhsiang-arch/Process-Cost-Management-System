@@ -94,6 +94,229 @@
   border-radius: 0;
 }
 
+#pg-summary .summary-table-header {
+  position: relative;
+  min-height: 60px;
+  overflow: visible;
+}
+
+#pg-summary .summary-column-settings {
+  position: relative;
+  align-self: stretch;
+}
+
+#pg-summary .summary-column-settings-button {
+  display: inline-flex;
+  width: 28px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-control);
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+#pg-summary .summary-column-settings-button:hover,
+#pg-summary .summary-column-settings-button:focus-visible,
+#pg-summary .summary-column-settings-button[aria-expanded="true"] {
+  background: var(--ui-color-primary-soft);
+}
+
+#pg-summary .summary-column-settings-button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+#pg-summary .summary-column-settings-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  left: 0;
+  display: grid;
+  width: 340px;
+  gap: 0;
+  padding: 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+}
+
+#pg-summary .summary-column-settings-menu[hidden],
+#pg-summary .summary-column-settings-menu > label[hidden] {
+  display: none;
+}
+
+#pg-summary .summary-column-settings-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 5px 7px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+#pg-summary .summary-column-settings-title {
+  min-width: 0;
+  align-items: center;
+  text-align: center;
+}
+
+#pg-summary .summary-column-settings-select-all,
+#pg-summary .summary-column-settings-menu > label {
+  display: grid;
+  align-items: center;
+  color: var(--ui-color-text);
+  cursor: pointer;
+}
+
+#pg-summary .summary-column-settings-select-all {
+  min-height: 30px;
+  grid-template-columns: 16px auto;
+  gap: 6px;
+  color: var(--ui-color-primary);
+}
+
+#pg-summary .summary-column-settings-select-all .ui-dual-copy {
+  align-items: flex-start;
+}
+
+#pg-summary .summary-column-settings-select-all .ui-dual-copy strong,
+#pg-summary .summary-column-settings-reset .ui-dual-copy strong {
+  font-size: 10px;
+}
+
+#pg-summary .summary-column-settings-select-all .ui-dual-copy span,
+#pg-summary .summary-column-settings-reset .ui-dual-copy span {
+  font-size: 9px;
+}
+
+#pg-summary .summary-column-settings-menu > label {
+  min-height: 38px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 5px;
+}
+
+#pg-summary .summary-column-settings-menu input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ui-color-primary);
+}
+
+#pg-summary .summary-column-settings-reset {
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+#pg-summary .summary-column-settings-reset:hover,
+#pg-summary .summary-column-settings-reset:focus-visible {
+  background: var(--ui-color-primary-soft);
+}
+
+#pg-summary .summary-main-table {
+  table-layout: fixed;
+}
+
+#pg-summary .summary-main-table [data-summary-column] {
+  box-sizing: border-box;
+}
+
+#pg-summary .summary-main-table [data-summary-column="index"] { width: 5%; }
+#pg-summary .summary-main-table [data-summary-column="code"] { width: 10%; }
+#pg-summary .summary-main-table [data-summary-column="client"] { width: 9%; }
+#pg-summary .summary-main-table [data-summary-column="zh"] { width: 22%; }
+#pg-summary .summary-main-table [data-summary-column="vi"] { width: 22%; }
+#pg-summary .summary-main-table [data-summary-column="size"] { width: 8%; }
+#pg-summary .summary-main-table [data-summary-column="ops"] { width: 8%; }
+#pg-summary .summary-main-table [data-summary-column="cost"] { width: 9%; }
+#pg-summary .summary-main-table [data-summary-column="action"] { width: 7%; }
+
+#pg-summary .summary-main-table .is-column-hidden {
+  display: none;
+}
+
+#pg-summary .summary-main-table td[data-summary-column="code"],
+#pg-summary .summary-main-table td[data-summary-column="client"],
+#pg-summary .summary-main-table td[data-summary-column="zh"],
+#pg-summary .summary-main-table td[data-summary-column="vi"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#pg-summary .summary-sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+#pg-summary .summary-sort-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.2;
+}
+
+#pg-summary .summary-sort-icon {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+#pg-summary .summary-sort-icon.is-idle {
+  opacity: .4;
+}
+
+#pg-summary .summary-main-table th[data-summary-column="ops"],
+#pg-summary .summary-main-table td[data-summary-column="ops"],
+#pg-summary .summary-main-table th[data-summary-column="cost"],
+#pg-summary .summary-main-table td[data-summary-column="cost"] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#pg-summary .summary-main-table th[data-summary-column="ops"] .summary-sort-heading,
+#pg-summary .summary-main-table th[data-summary-column="cost"] .summary-sort-heading {
+  justify-content: flex-end;
+}
+
+#pg-summary .summary-main-table th[data-summary-column="ops"] > .tv,
+#pg-summary .summary-main-table th[data-summary-column="cost"] > .tv {
+  text-align: right;
+}
+
+#pg-summary .summary-action-column {
+  text-align: center;
+}
+
+#pg-summary .summary-action-column > .ui-dual-copy {
+  align-items: center;
+  text-align: center;
+}
+
+#pg-summary .summary-columns-empty {
+  padding: 26px 16px;
+  border: 1px solid var(--ui-color-border);
+  border-top: 0;
+  color: var(--ui-color-text-muted);
+  text-align: center;
+}
+
+#pg-summary .summary-columns-empty[hidden],
+#pg-summary #summary-table-frame[hidden],
+#pg-summary #sp2[hidden] {
+  display: none;
+}
+
 #pg-summary th {
   background: var(--ui-color-table-header);
   color: var(--ui-color-text);

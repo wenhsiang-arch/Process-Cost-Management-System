@@ -194,8 +194,9 @@
   width: max-content;
   max-width: 100%;
   min-width: 0;
-  grid-template-columns: 158px 178px 160px 104px 176px 126px;
-  gap: 10px;
+  grid-template-columns: 150px 150px 140px 86px 168px 150px;
+  column-gap: 12px;
+  row-gap: 10px;
   align-content: start;
   align-items: end;
   padding: 10px 12px 12px;
@@ -203,9 +204,19 @@
 
 .production-field {
   display: flex;
+  width: 100%;
   min-width: 0;
   flex-direction: column;
   gap: 4px;
+}
+
+.production-field .ui-search-dropdown-control,
+.production-date-control,
+.production-process-name-output,
+.production-quantity-field > input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .production-field > label,
@@ -290,8 +301,8 @@
 }
 
 .production-process-field .ui-search-dropdown-control {
-  width: 80px;
-  max-width: 80px;
+  width: 100%;
+  max-width: none;
 }
 
 .production-field input[type="number"] {
@@ -743,11 +754,11 @@
 }
 
 .production-entry-table [data-production-column="order"] {
-  width: 11%;
+  width: 10%;
 }
 
 .production-entry-table [data-production-column="product"] {
-  width: 11%;
+  width: 10%;
 }
 
 .production-entry-table [data-production-column="processNo"] {
@@ -755,17 +766,21 @@
 }
 
 .production-entry-table [data-production-column="processName"] {
-  width: 27%;
+  width: 24%;
 }
 
 .production-entry-table [data-production-column="quantity"],
 .production-entry-table [data-production-column="supplementHours"],
 .production-entry-table [data-production-column="orderQuantity"] {
-  width: 10%;
+  width: 9%;
 }
 
 .production-entry-table [data-production-column="processSeconds"] {
   width: 7%;
+}
+
+.production-entry-table [data-production-column="hourlyCapacity"] {
+  width: 8%;
 }
 
 .production-entry-table [data-production-column="action"] {
@@ -778,6 +793,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.production-entry-table td.production-product-code-cell {
+  font-weight: 700;
 }
 
 #production-entry-table-frame[hidden],
@@ -815,6 +834,20 @@
 .production-entry-table th[data-production-column="processNo"] > .ui-dual-copy {
   align-items: center;
   text-align: center;
+}
+
+.production-value-badge {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 9px;
+  border-radius: 9px;
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .production-entry-table th.production-center-cell > .ui-dual-copy {
@@ -1072,16 +1105,6 @@
 
   .production-employee-inline-field {
     grid-template-columns: 78px 112px;
-  }
-
-  .production-entry-fields {
-    grid-template-columns: 150px 153px 140px 100px 156px 126px;
-    gap: 8px;
-  }
-
-  .production-process-field .ui-search-dropdown-control {
-    width: 76px;
-    max-width: 76px;
   }
 
   .production-command-action {
