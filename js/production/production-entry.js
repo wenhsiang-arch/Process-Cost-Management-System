@@ -16,11 +16,17 @@
     processTotalLoading:false,
     processTotalRequest:0,
     attendanceRequest:0,
+    processRowsRequest:0,
+    processRowsMode:false,
+    processRowsProcessId:'',
     dailyRows:[],
     pendingContext:null
   }; // state（登記頁目前狀態）
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
+    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:96,preferred:108,maximum:132,available:()=>state.processRowsMode},
+    {key:'employeeId',label:{vi:'Mã nhân viên',zh:'員工工號'},minimum:96,preferred:112,maximum:148,available:()=>state.processRowsMode},
+    {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:118,preferred:148,maximum:220,available:()=>state.processRowsMode},
     {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:130,preferred:150,maximum:240},
     {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:135,preferred:155,maximum:240},
     {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:72,preferred:80,maximum:96},
@@ -69,6 +75,10 @@
     return isAdmin() || typeof window.canOpenPage !== 'function' || window.canOpenPage('production-records');
   }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
+  function dateText(value){
+    const parts = String(value || '').split('-');
+    return parts.length === 3 ? `${parts[0]}/${parts[1]}/${parts[2]}` : String(value || '—');
+  }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
   function hoursText(value){
     const hours = Number(value);
@@ -90,6 +100,33 @@
     host.hidden = !vi && !zh;
     host.className = `production-entry-status is-${kind}`;
     window.PCMSUIText?.set?.(host,{vi:String(vi || ''),zh:String(zh || '')});
+  }
+
+  function syncEntryTableMode(){
+    const processMode = state.processRowsMode === true;
+    const titleVi = element('production-entry-table-title-vi');
+    const titleZh = element('production-entry-table-title-zh');
+    const empty = element('production-entry-empty');
+    if(titleVi) titleVi.textContent = processMode ? 'Đăng ký của công đoạn' : 'Sản lượng của nhân viên trong ngày';
+    if(titleZh) titleZh.textContent = processMode ? '工序登記明細' : '員工當日生產紀錄';
+    if(empty){
+      window.PCMSUIText?.set?.(empty,processMode
+        ? {vi:'Không có đăng ký hiệu lực cho công đoạn này',zh:'這個工序尚無有效登記'}
+        : {vi:'Chọn nhân viên để xem dữ liệu trong ngày',zh:'選擇員工後顯示當日紀錄'});
+    }
+    productionTableControl?.refresh?.();
+    renderQuantityProgress();
+  }
+
+  function setProcessRowsMode(active,processId=''){
+    state.processRowsMode = active === true;
+    state.processRowsProcessId = state.processRowsMode ? String(processId || '') : '';
+    if(!state.processRowsMode) state.processRowsRequest += 1;
+    syncEntryTableMode();
+  }
+
+  function restoreDailyRowsIfNeeded(){
+    if(state.processRowsMode) void loadDailyRows();
   }
 
   function entryFieldPreferredWidth(value,rule){
@@ -306,9 +343,13 @@
     if(overCopy) overCopy.hidden = !over;
     if(overVi) overVi.textContent = `Vượt +${numberText(summary.exceededQuantity)}`;
     if(overZh) overZh.textContent = `超量 +${numberText(summary.exceededQuantity)}`;
-    progress.title = over
+    const detailHint = state.processRowsMode
+      ? 'Nhấn để trở về dữ liệu trong ngày / 點擊返回員工當日紀錄'
+      : 'Nhấn để chỉ xem đăng ký của công đoạn / 點擊只顯示此工序登記';
+    const quantityTitle = over
       ? `Đã đăng ký ${numberText(summary.registeredQuantity)}, dự kiến vượt ${numberText(summary.exceededQuantity)} / 已登記 ${numberText(summary.registeredQuantity)}，預計超量 ${numberText(summary.exceededQuantity)}`
       : `Đã đăng ký ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)} / 已登記 ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)}`;
+    progress.title = `${quantityTitle} · ${detailHint}`;
   }
 
   async function loadQuantityProgress(process){
@@ -406,6 +447,7 @@
     if(department) department.textContent = '—';
     setAttendanceSummary('Chưa chọn','尚未選擇');
     state.attendanceRequest += 1;
+    setProcessRowsMode(false);
     renderDailyRows([]);
   }
 
@@ -413,7 +455,10 @@
     const viNode = element('production-entry-attendance-summary-vi');
     const zhNode = element('production-entry-attendance-summary-zh');
     if(viNode) viNode.textContent = String(vi || '—');
-    if(zhNode) zhNode.textContent = String(zh || '—');
+    if(zhNode){
+      zhNode.textContent = String(zh || '');
+      zhNode.hidden = !zh;
+    }
   }
 
   async function refreshAttendanceSummary(){
@@ -432,13 +477,8 @@
         setAttendanceSummary('Chưa chấm công','考勤未登記');
         return;
       }
-      const normal = Number(attendance.normalHours || 0);
-      const overtime = Number(attendance.overtimeHours || 0);
-      const total = normal+overtime;
-      setAttendanceSummary(
-        `${hoursText(total)} giờ`,
-        `${hoursText(total)} 小時`
-      );
+      const total = Number(attendance.normalHours || 0)+Number(attendance.overtimeHours || 0);
+      setAttendanceSummary(hoursText(total),'');
     }catch(error){
       if(requestId !== state.attendanceRequest) return;
       setAttendanceSummary('Không thể tải','無法載入');
@@ -475,6 +515,7 @@
   }
 
   function clearOrder(){
+    restoreDailyRowsIfNeeded();
     state.order = null;
     state.orderReady = false;
     state.product = null;
@@ -534,6 +575,7 @@
   }
 
   function clearProduct(){
+    restoreDailyRowsIfNeeded();
     state.product = null;
     setSupplementMode(false);
     element('production-process-input').value = '';
@@ -573,6 +615,7 @@
   }
 
   function selectProcess(process,options={}){
+    restoreDailyRowsIfNeeded();
     setSupplementMode(false);
     state.process = process;
     element('production-process-input').value = String(process.processNo || '');
@@ -584,6 +627,7 @@
   }
 
   function handleProcessInput(){
+    restoreDailyRowsIfNeeded();
     state.process = null;
     setProcessName(null);
     resetQuantityProgress();
@@ -712,24 +756,38 @@
     element(inputIds[targetIndex])?.focus({preventScroll:true});
   }
 
-  function focusSelectedProcessRows(){
+  async function loadSelectedProcessRows(){
     if(!state.process || !state.employee) return;
-    const body = element('production-entry-table-body');
-    const rows = Array.from(body?.querySelectorAll('tr') || []);
-    rows.forEach(row=>row.classList.remove('is-process-focus'));
     const processId = String(state.process.id || '');
-    const matches = rows.filter(row=>row.dataset.orderProcessId === processId);
-    if(!matches.length){
+    if(!processId) return;
+    const request = ++state.processRowsRequest;
+    setProcessRowsMode(true,processId);
+    setStatus('Đang tải các đăng ký của công đoạn...','正在載入此工序的登記…','info');
+    try{
+      const rows = await window.PCMSProductionReports.loadProcess(processId,{activeOnly:true});
+      if(request !== state.processRowsRequest || state.process?.id !== processId) return;
+      renderDailyRows(rows);
       setStatus(
-        'Nhân viên chưa đăng ký công đoạn này trong ngày sản xuất đã chọn.',
-        '此員工在所選生產日期尚未登記這個工序。',
+        `Chỉ hiển thị ${rows.length} đăng ký hiệu lực của công đoạn này. Nhấn lại khung số lượng để trở về dữ liệu trong ngày.`,
+        `目前只顯示此工序的 ${rows.length} 筆有效登記；再次點擊數量框可返回員工當日紀錄。`,
         'info'
       );
+    }catch(error){
+      if(request !== state.processRowsRequest) return;
+      setProcessRowsMode(false);
+      await loadDailyRows();
+      await showError(error);
+    }
+  }
+
+  async function toggleSelectedProcessRows(){
+    const processId = String(state.process?.id || '');
+    if(state.processRowsMode && processId && state.processRowsProcessId === processId){
+      await loadDailyRows();
+      setStatus('Đã trở về dữ liệu trong ngày của nhân viên.','已返回員工當日生產紀錄。','info');
       return;
     }
-    matches.forEach(row=>row.classList.add('is-process-focus'));
-    matches[0].scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
-    setStatus('Đã tìm thấy công đoạn trong bảng bên dưới.','已在下方表格找到這個工序。','info');
+    await loadSelectedProcessRows();
   }
 
   async function showError(error){
@@ -998,7 +1056,7 @@
       cell.dataset.uiTableColumn = columnKey;
     }
     const text = String(value ?? '—');
-    if(text !== '—' && ['order','product','processName'].includes(columnKey)) cell.title = text;
+    if(text !== '—' && ['employeeName','order','product','processName'].includes(columnKey)) cell.title = text;
     if(valueClass && text !== '—'){
       const content = document.createElement('span');
       content.className = valueClass;
@@ -1012,7 +1070,11 @@
 
   function dailySortValue(item,key){
     const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
+    const currentEmployee = window.PCMSProductionEmployees?.find?.(item.employeeId);
     const values = {
+      date:item.productionDate || '',
+      employeeId:item.employeeId || '',
+      employeeName:currentEmployee?.name || item.employeeName || '',
       order:item.orderNo || '',
       product:item.productCode || '',
       processNo:Number(item.processNo || 0),
@@ -1051,8 +1113,12 @@
     body.replaceChildren();
     sortedDailyRows(state.dailyRows).forEach(item=>{
       const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
+      const currentEmployee = window.PCMSProductionEmployees?.find?.(item.employeeId);
       const row = document.createElement('tr');
       row.dataset.orderProcessId = String(item.orderProcessId || '');
+      appendCell(row,dateText(item.productionDate),'production-record-text-cell','date');
+      appendCell(row,item.employeeId || '—','production-record-text-cell','employeeId');
+      appendCell(row,currentEmployee?.name || item.employeeName || '—','production-record-text-cell','employeeName');
       appendCell(row,item.orderNo || '—','', 'order');
       appendCell(row,item.productCode || '—','production-product-code-cell','product');
       appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
@@ -1104,6 +1170,7 @@
   }
 
   async function loadDailyRows(){
+    setProcessRowsMode(false);
     if(!state.employee){ renderDailyRows([]); return; }
     try{
       const rows = await window.PCMSProductionReports.loadDaily(
@@ -1217,7 +1284,7 @@
     element('production-product-toggle').addEventListener('click',toggleProductDropdown);
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
     element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
-    element('production-quantity-progress').addEventListener('click',focusSelectedProcessRows);
+    element('production-quantity-progress').addEventListener('click',()=>void toggleSelectedProcessRows());
     document.querySelectorAll('#pg-production-entry .production-combobox').forEach(host=>{
       host.addEventListener('mouseleave',()=>{
         const options = host.querySelector('.production-options'); // options（目前欄位的搜尋選單）

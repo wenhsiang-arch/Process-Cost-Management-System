@@ -13,6 +13,33 @@
     value.setDate(value.getDate()+days);
     return typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
   }
+  function dateObject(value){
+    const [year,month,day] = String(value || '').split('-').map(Number);
+    const result = new Date(year,month-1,day);
+    return Number.isFinite(result.getTime()) ? result : new Date();
+  }
+  function syncDateControl(inputId,nextId){
+    const input = element(inputId);
+    const next = element(nextId);
+    if(!input) return;
+    input.max = today();
+    if(next) next.disabled = input.value >= input.max;
+  }
+  function shiftDateInput(inputId,nextId,days){
+    const input = element(inputId);
+    if(!input) return;
+    const value = dateObject(input.value || today());
+    value.setDate(value.getDate()+days);
+    const nextValue = typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
+    input.value = nextValue > today() ? today() : nextValue;
+    syncDateControl(inputId,nextId);
+  }
+  function openDatePicker(inputId){
+    const input = element(inputId);
+    if(!input) return;
+    if(typeof input.showPicker === 'function') input.showPicker();
+    else input.focus({preventScroll:true});
+  }
   function dateText(value){
     const parts = String(value || '').split('-');
     return parts.length === 3 ? `${parts[0]}/${parts[1]}/${parts[2]}` : String(value || '—');
@@ -281,6 +308,8 @@
   function clearFilters(){
     element('production-record-from').value = shiftDate(-7);
     element('production-record-to').value = today();
+    syncDateControl('production-record-from','production-record-from-next');
+    syncDateControl('production-record-to','production-record-to-next');
     element('production-record-search').value = '';
     element('production-record-status-filter').value = '';
     void load();
@@ -291,6 +320,16 @@
     state.initialized = true;
     element('production-record-from').value = shiftDate(-7);
     element('production-record-to').value = today();
+    syncDateControl('production-record-from','production-record-from-next');
+    syncDateControl('production-record-to','production-record-to-next');
+    element('production-record-from-calendar').addEventListener('click',()=>openDatePicker('production-record-from'));
+    element('production-record-to-calendar').addEventListener('click',()=>openDatePicker('production-record-to'));
+    element('production-record-from-previous').addEventListener('click',()=>shiftDateInput('production-record-from','production-record-from-next',-1));
+    element('production-record-from-next').addEventListener('click',()=>shiftDateInput('production-record-from','production-record-from-next',1));
+    element('production-record-to-previous').addEventListener('click',()=>shiftDateInput('production-record-to','production-record-to-next',-1));
+    element('production-record-to-next').addEventListener('click',()=>shiftDateInput('production-record-to','production-record-to-next',1));
+    element('production-record-from').addEventListener('change',()=>syncDateControl('production-record-from','production-record-from-next'));
+    element('production-record-to').addEventListener('change',()=>syncDateControl('production-record-to','production-record-to-next'));
     element('production-record-search-button').addEventListener('click',()=>void load());
     element('production-record-clear-button').addEventListener('click',clearFilters);
     element('production-record-search').addEventListener('input',render);

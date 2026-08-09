@@ -249,7 +249,8 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
   assert.match(employeePage,/active:state\.editingId \? existing\?\.active === true : true/);
   assert.doesNotMatch(employeePage,/production-employee-active/);
   assert.match(html,/<select id="production-employee-department-input">/);
-  assert.match(html,/<option value="__manage__">Quản lý bộ phận \/ 部門管理<\/option>/);
+  assert.match(html,/<option value="__manage__">Chỉnh sửa bộ phận \/ 編輯部門<\/option>/);
+  assert.match(employeePage,/Chỉnh sửa bộ phận \/ 編輯部門/);
   assert.doesNotMatch(html,/id="production-department-(?:add|manage)-button"/);
   assert.match(employeePage,/const MANAGE_DEPARTMENT_VALUE = '__manage__'/);
   assert.match(employeePage,/function handleDepartmentSelection\(\)[\s\S]*?openDepartmentManager\(\)/);
@@ -290,7 +291,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-9'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-10'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -318,7 +319,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.doesNotMatch(markup,/id="production-entry-status"[^>]*ui-notice/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-column-settings-button"[^>]*aria-expanded="false"/);
   assert.match(markup,/id="production-column-settings-menu"[^>]*data-ui-table-columns-menu[^>]*hidden/);
-  for(const key of ['order','product','processNo','processName','quantity','supplementHours','orderQuantity','processSeconds','hourlyCapacity','status','action']){
+  for(const key of ['date','employeeId','employeeName','order','product','processNo','processName','quantity','supplementHours','orderQuantity','processSeconds','hourlyCapacity','status','action']){
     assert.match(source,new RegExp(`key:'${key}'`));
     if(key !== 'action') assert.match(markup,new RegExp(`data-production-column="${key}"`));
   }
@@ -327,7 +328,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(markup,/id="production-entry-table"[^>]*data-ui-table-resizable="true"/);
   assert.match(html,/id="production-records-table"[^>]*data-ui-table-resizable="true"/);
   assert.match(source,/const ENTRY_TABLE_COLUMN_MINIMUMS = Object\.freeze\(Object\.fromEntries\(/);
-  for(const key of ['order','product','processNo','processName','quantity','supplementHours','orderQuantity','processSeconds','hourlyCapacity','status','action']){
+  for(const key of ['date','employeeId','employeeName','order','product','processNo','processName','quantity','supplementHours','orderQuantity','processSeconds','hourlyCapacity','status','action']){
     assert.match(source,new RegExp(`key:'${key}'[^\\n]*minimum:[^\\n]*preferred:[^\\n]*maximum:`));
   }
   assert.match(controls,/ui-table-column-settings-heading/);
@@ -361,7 +362,10 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/value\.textContent = `\$\{numberText\(summary\.registeredQuantity\)\} \/ \$\{numberText\(summary\.orderQuantity\)\}`/);
   assert.match(source,/function employeeOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId,secondary:''/);
   assert.match(source,/function setProcessName\(process\)/);
-  assert.match(source,/function focusSelectedProcessRows\(\)/);
+  assert.match(source,/async function loadSelectedProcessRows\(\)/);
+  assert.match(source,/PCMSProductionReports\.loadProcess\(processId,\{activeOnly:true\}\)/);
+  assert.match(source,/async function toggleSelectedProcessRows\(\)/);
+  assert.doesNotMatch(source,/matches\[0\]\.scrollIntoView/);
   assert.match(source,/row\.dataset\.orderProcessId/);
   assert.doesNotMatch(source,/setPendingFilters|PCMSProductionRecords/);
   assert.match(source,/date\.max = maximum/);
@@ -398,13 +402,13 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog \{[\s\S]*?--production-dialog-center-x/);
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-3'/);
-  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260810-3'/);
+  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260810-4'/);
   assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260810-1'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-5'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-3'/);
-  assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260810-2'/);
-  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-3'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-9'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-6'/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-4'/);
+  assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260810-3'/);
+  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-4'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-10'/);
   assert.match(html,/js\/features\.js\?v=20260810-12/);
 });
 
@@ -423,12 +427,17 @@ test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',
   assert.match(records,/element\('production-record-search'\)\.addEventListener\('input',render\)/);
   assert.match(records,/item\.employeeId,item\.employeeName,item\.department/);
   assert.match(reportStore,/async function loadRange\(fromValue,toValue,options=\{\}\)/);
+  assert.match(reportStore,/async function loadProcess\(orderProcessId,options=\{\}\)/);
   assert.match(style,/\.production-filter-grid \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.doesNotMatch(style,/\.production-filter-actions \{[\s\S]*?grid-column:/);
   assert.match(style,/\.production-filter-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
   assert.match(style,/\.production-attendance-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-employee-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-date-stepper \{[\s\S]*?width: 16px;[\s\S]*?height: 28px;/);
+  assert.match(html,/id="production-record-from-calendar"[\s\S]*?id="production-record-from-previous"[\s\S]*?id="production-record-from-next"/);
+  assert.match(html,/id="production-record-to-calendar"[\s\S]*?id="production-record-to-previous"[\s\S]*?id="production-record-to-next"/);
+  assert.match(html,/id="production-attendance-calendar"[\s\S]*?id="production-attendance-previous"[\s\S]*?id="production-attendance-next"/);
+  assert.match(style,/\.production-employee-form-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(92px, 1fr\)\);/);
   assert.doesNotMatch(style,/\.production-date-stepper \{[\s\S]*?border-left:/);
   assert.match(core,/\.ui-button\.is-primary \.ui-dual-copy > span \{[\s\S]*?color: inherit;/);
   assert.match(employees,/handleDepartmentSelection/);
@@ -466,6 +475,7 @@ test('員工績效依原日期標籤分組並可返回當日生產登記',()=>{
   assert.match(features,/page:'production-records'[\s\S]*?vi:'Hiệu suất nhân viên',zh:'員工績效'/);
   assert.match(html,/Hiệu suất nhân viên[\s\S]*?員工績效/);
   assert.match(html,/data-ui-table-column="employeeId" data-ui-table-default-visible="false"/);
+  assert.match(html,/data-ui-table-column="department" data-ui-table-default-visible="false"/);
   for(const status of ['ready','missing-attendance','invalid-attendance','invalid-capacity']){
     assert.match(html,new RegExp(`<option value="${status}">`));
   }
@@ -478,15 +488,15 @@ test('員工績效依原日期標籤分組並可返回當日生產登記',()=>{
   assert.match(style,/\.production-records-table tr\.production-date-group-start > td/);
   assert.match(records,/PCMSProductionEntry\?\.setPendingContext\?\.\(\{/);
   assert.match(entry,/function setPendingContext\(context=\{\}\)/);
-  assert.match(entry,/function focusSelectedProcessRows\(\)/);
-  assert.match(entry,/matches\[0\]\.scrollIntoView/);
-  assert.match(entry,/`\$\{hoursText\(total\)\} giờ`/);
-  assert.match(entry,/`\$\{hoursText\(total\)\} 小時`/);
+  assert.match(entry,/async function loadSelectedProcessRows\(\)/);
+  assert.match(entry,/setAttendanceSummary\(hoursText\(total\),''\)/);
+  assert.doesNotMatch(entry,/`\$\{hoursText\(total\)\} giờ`/);
+  assert.doesNotMatch(entry,/`\$\{hoursText\(total\)\} 小時`/);
   assert.doesNotMatch(entry,/正常 \$\{hoursText\(normal\)\} \+ 加班/);
   assert.doesNotMatch(html,/data-ui-table-column="note"/);
   assert.doesNotMatch(attendance,/function createNoteInput/);
   assert.match(attendance,/note:draft\.note/);
-  assert.match(style,/\.production-attendance-table \{[\s\S]*?820px/);
+  assert.match(style,/\.production-attendance-table \{[\s\S]*?920px[\s\S]*?720px/);
 });
 
 test('考勤分頁沿用正式操作面板與表格並位於生產紀錄及員工資料之間',()=>{

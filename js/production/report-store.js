@@ -4,7 +4,7 @@
 
   const COLLECTION_NAME = 'productionEntries'; // COLLECTION_NAME（產能登記集合名稱）
   const PAGE_SIZE = 50; // PAGE_SIZE（每頁筆數）
-  const EXACT_PAGE_SIZE = 200; // EXACT_PAGE_SIZE（單日完整查詢每次讀取筆數）
+  const EXACT_PAGE_SIZE = 200; // EXACT_PAGE_SIZE（精確條件完整查詢每次讀取筆數）
   let historyCursor = null; // historyCursor（歷史查詢游標）
   let historySignature = ''; // historySignature（目前查詢條件）
   const exactPromises = new Map(); // exactPromises（相同單日查詢共用工作）
@@ -75,6 +75,15 @@
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
+  async function loadProcess(orderProcessId,options={}){
+    const processId = String(orderProcessId || '').trim();
+    if(!processId) return [];
+    const rows = await loadExactRows(`process:${processId}`,[
+      window._where('orderProcessId','==',processId)
+    ]);
+    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+  }
+
   async function loadRange(fromValue,toValue,options={}){
     const from = normalizeDate(fromValue);
     const to = normalizeDate(toValue);
@@ -140,5 +149,5 @@
 
   function reset(){ historyCursor = null; historySignature = ''; exactPromises.clear(); }
 
-  window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadRange,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
+  window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadProcess,loadRange,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
 })();

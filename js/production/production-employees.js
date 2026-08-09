@@ -49,7 +49,7 @@
     });
     const manage = document.createElement('option');
     manage.value = MANAGE_DEPARTMENT_VALUE;
-    manage.textContent = 'Quản lý bộ phận / 部門管理';
+    manage.textContent = 'Chỉnh sửa bộ phận / 編輯部門';
     select.appendChild(manage);
     select.value = selectedValue;
     select.dataset.previousValue = select.value;
@@ -294,7 +294,7 @@
 
   function openDepartmentManager(){
     window.PCMSUIComponents.openDialog({
-      title:{vi:'Quản lý bộ phận',zh:'部門管理'},
+      title:{vi:'Chỉnh sửa bộ phận',zh:'編輯部門'},
       body:departmentManagerBody(),
       size:'large',
       actions:[

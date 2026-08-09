@@ -18,6 +18,34 @@
     const hours = Number(value || 0);
     return hours.toLocaleString(undefined,{minimumFractionDigits:hours % 1 === 0 ? 0 : 1,maximumFractionDigits:1});
   }
+  function dateObject(value){
+    const [year,month,day] = String(value || '').split('-').map(Number);
+    const result = new Date(year,month-1,day);
+    return Number.isFinite(result.getTime()) ? result : new Date();
+  }
+  function syncDateControl(){
+    const date = element('production-attendance-date');
+    const next = element('production-attendance-next');
+    if(!date) return;
+    date.max = today();
+    if(next) next.disabled = date.value >= date.max;
+  }
+  function shiftAttendanceDate(days){
+    const input = element('production-attendance-date');
+    if(!input) return;
+    const value = dateObject(input.value || today());
+    value.setDate(value.getDate()+days);
+    const nextValue = typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
+    input.value = nextValue > today() ? today() : nextValue;
+    syncDateControl();
+    void load();
+  }
+  function openAttendanceCalendar(){
+    const input = element('production-attendance-date');
+    if(!input) return;
+    if(typeof input.showPicker === 'function') input.showPicker();
+    else input.focus({preventScroll:true});
+  }
 
   function setStatus(vi,zh,kind='info'){
     const host = element('production-attendance-status');
@@ -333,8 +361,11 @@
     state.initialized = true;
     const date = element('production-attendance-date');
     date.value = today();
-    date.max = today();
-    date.addEventListener('change',()=>void load());
+    syncDateControl();
+    date.addEventListener('change',()=>{ syncDateControl(); void load(); });
+    element('production-attendance-calendar').addEventListener('click',openAttendanceCalendar);
+    element('production-attendance-previous').addEventListener('click',()=>shiftAttendanceDate(-1));
+    element('production-attendance-next').addEventListener('click',()=>shiftAttendanceDate(1));
     element('production-attendance-department').addEventListener('change',render);
     element('production-attendance-search').addEventListener('input',render);
     element('production-attendance-apply-button').addEventListener('click',()=>void applyBatch());
