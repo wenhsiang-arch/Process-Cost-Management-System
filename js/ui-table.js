@@ -1,7 +1,9 @@
 // ui-table.js（共用表格控制）：讓超寬表格在主內容可視底部提供同步水平捲軸。
 (function(){
   const TABLE_SCROLL_SELECTOR = '.ui-table-scroll'; // TABLE_SCROLL_SELECTOR（正式表格水平捲動區）
+  const STICKY_TABLE_SELECTOR = 'table[data-ui-table-sticky="original"]'; // STICKY_TABLE_SELECTOR（使用原表頭凍結的表格）
   const FLOATING_ONLY_CLASS = 'is-ui-floating-only'; // FLOATING_ONLY_CLASS（浮動捲軸接管原始捲軸的狀態）
+  const STICKY_CLASS = 'is-ui-header-frozen'; // STICKY_CLASS（原表頭目前已凍結）
   const MIN_OVERFLOW_PX = 2; // MIN_OVERFLOW_PX（判定超寬的最小差距）
   const FALLBACK_BAR_HEIGHT = 18; // FALLBACK_BAR_HEIGHT（浮動捲軸預設備用高度）
   let activePageName = ''; // activePageName（目前套用共用表格控制的頁面）
@@ -55,6 +57,18 @@
     floatingScroll.classList.remove('is-visible');
     floatingScroll.setAttribute('aria-hidden','true');
     floatingScroll.scrollLeft = 0;
+  }
+
+  function clearStickyHeader(table){
+    if(!table) return;
+    if(table.style?.getPropertyValue?.('--ui-table-header-offset')){
+      table.style.removeProperty('--ui-table-header-offset');
+    }
+    table.classList?.remove?.(STICKY_CLASS);
+  }
+
+  function clearStickyHeaders(page=activePage){
+    page?.querySelectorAll?.(STICKY_TABLE_SELECTOR)?.forEach(clearStickyHeader);
   }
 
   function isHidden(element){
@@ -119,6 +133,26 @@
     syncingScroll = false;
   }
 
+  function refreshStickyHeaders(contentRect){
+    if(!activePage || !contentRect) return;
+    activePage.querySelectorAll(STICKY_TABLE_SELECTOR).forEach(table=>{
+      const header = table.tHead;
+      if(isHidden(table) || !header){
+        clearStickyHeader(table);
+        return;
+      }
+      const tableRect = table.getBoundingClientRect();
+      const headerHeight = Number(header.getBoundingClientRect?.().height || 0);
+      const maximumOffset = Math.max(0,Number(tableRect.height || 0)-headerHeight);
+      const offset = Math.min(maximumOffset,Math.max(0,contentRect.top-tableRect.top));
+      const value = `${offset}px`;
+      if(table.style.getPropertyValue('--ui-table-header-offset') !== value){
+        table.style.setProperty('--ui-table-header-offset',value);
+      }
+      table.classList.toggle(STICKY_CLASS,offset > 0 && headerHeight > 0);
+    });
+  }
+
   function update(){
     frameId = 0;
     if(!activePage?.classList?.contains('active') || !scrollHost){
@@ -127,9 +161,11 @@
     }
     const contentRect = visibleContentRect();
     if(!contentRect){
+      clearStickyHeaders();
       hideFloatingScroll();
       return;
     }
+    refreshStickyHeaders(contentRect);
     const candidate = chooseTarget(contentRect);
     if(!candidate){
       hideFloatingScroll();
@@ -180,6 +216,7 @@
     stopObservers();
     if(frameId) window.cancelAnimationFrame(frameId);
     frameId = 0;
+    clearStickyHeaders();
     activePageName = '';
     activePage = null;
     scrollHost = null;

@@ -15,19 +15,21 @@
     processTotal:null,
     processTotalLoading:false,
     processTotalRequest:0,
-    columnVisibility:{
-      order:true,
-      product:true,
-      processNo:true,
-      processName:true,
-      quantity:true,
-      supplementHours:true,
-      orderQuantity:true,
-      processSeconds:true,
-      hourlyCapacity:true,
-      action:true
-    }
+    dailyRows:[]
   }; // state（登記頁目前狀態）
+
+  const PRODUCTION_TABLE_COLUMNS = Object.freeze([
+    {key:'order',label:{vi:'Đơn hàng',zh:'訂單'}},
+    {key:'product',label:{vi:'Mã hàng',zh:'款號'}},
+    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'}},
+    {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'}},
+    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'}},
+    {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'}},
+    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'}},
+    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'}},
+    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'}},
+    {key:'action',label:{vi:'Thao tác',zh:'操作'},available:()=>isAdmin()}
+  ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果仍由產能功能提供。
 
   const ENTRY_INPUT_IDS = Object.freeze([
     'production-employee-input','production-date-input','production-order-input',
@@ -64,7 +66,7 @@
 
   const DROPDOWN_OPTION_IDS = Object.freeze(Object.keys(DROPDOWN_BINDINGS)); // DROPDOWN_OPTION_IDS（全部搜尋下拉選單識別碼）
   const dropdownInteractions = new Map(); // dropdownInteractions（搜尋下拉目前鍵盤選取狀態）
-  let stickyHeaderRuntime = null; // stickyHeaderRuntime（當日表格凍結表頭執行狀態）
+  let productionTableControl = null; // productionTableControl（當日表格共用操作控制）
   let entryFieldLayoutFrame = 0; // entryFieldLayoutFrame（等待中的單列欄位寬度更新）
 
   function element(id){ return document.getElementById(id); }
@@ -91,36 +93,6 @@
     host.hidden = !vi && !zh;
     host.className = `production-entry-status is-${kind}`;
     window.PCMSUIText?.set?.(host,{vi:String(vi || ''),zh:String(zh || '')});
-  }
-
-  function closeColumnSettings(){
-    const menu = element('production-column-settings-menu');
-    const button = element('production-column-settings-button');
-    if(menu) menu.hidden = true;
-    button?.setAttribute('aria-expanded','false');
-  }
-
-  function toggleColumnSettings(){
-    const menu = element('production-column-settings-menu');
-    const button = element('production-column-settings-button');
-    if(!menu || !button) return;
-    const willOpen = menu.hidden;
-    menu.hidden = !willOpen;
-    button.setAttribute('aria-expanded',String(willOpen));
-  }
-
-  function availableColumnToggles(){
-    return Array.from(document.querySelectorAll('#production-column-settings-menu [data-production-column-toggle]'))
-      .filter(input=>!input.closest('label')?.hidden);
-  }
-
-  function syncSelectAllControl(){
-    const selectAll = element('production-column-settings-select-all');
-    if(!selectAll) return;
-    const toggles = availableColumnToggles();
-    const selectedCount = toggles.filter(input=>state.columnVisibility[input.dataset.productionColumnToggle] !== false).length;
-    selectAll.checked = toggles.length > 0 && selectedCount === toggles.length;
-    selectAll.indeterminate = selectedCount > 0 && selectedCount < toggles.length;
   }
 
   function entryFieldPreferredWidth(value,rule){
@@ -150,57 +122,40 @@
     entryFieldLayoutFrame = window.requestAnimationFrame(updateEntryFieldLayout);
   }
 
-  function updateEntryTableMinimumWidth(table){
-    const visibleColumns = Array.from(table.querySelectorAll('thead [data-production-column]'))
-      .filter(cell=>!cell.classList.contains('is-column-hidden'))
-      .map(cell=>cell.dataset.productionColumn);
+  function updateEntryTableMinimumWidth(table,visibleColumns=productionTableControl?.getVisibleKeys?.() || []){
     const minimumWidth = visibleColumns.reduce((total,key)=>total+(ENTRY_TABLE_COLUMN_MINIMUMS[key] || 0),0);
     table.style.setProperty('--production-entry-table-min-width',`${minimumWidth}px`);
     window.PCMSUITable?.refresh?.();
     return visibleColumns.length;
   }
 
-  function applyColumnVisibility(){
-    const table = element('production-entry-table-body')?.closest('table');
-    if(!table) return;
-    table.querySelectorAll('[data-production-column]').forEach(cell=>{
-      const key = cell.dataset.productionColumn;
-      const visible = state.columnVisibility[key] !== false;
-      cell.classList.toggle('is-column-hidden',!visible);
-    });
-    document.querySelectorAll('#production-column-settings-menu [data-production-column-toggle]').forEach(input=>{
-      input.checked = state.columnVisibility[input.dataset.productionColumnToggle] !== false;
-    });
-    const operationOption = element('production-operation-column-option');
-    if(operationOption) operationOption.hidden = !isAdmin();
-    syncSelectAllControl();
-    const visibleColumnCount = updateEntryTableMinimumWidth(table);
-    const frame = element('production-entry-table-frame');
-    const noColumns = element('production-columns-empty');
-    if(frame) frame.hidden = visibleColumnCount === 0;
-    if(noColumns) noColumns.hidden = visibleColumnCount !== 0;
+  function syncProductionEmptyState(visibleColumnCount){
     const empty = element('production-entry-empty');
     const body = element('production-entry-table-body');
     if(empty) empty.hidden = visibleColumnCount === 0 || Boolean(body?.children.length);
-    scheduleStickyHeaderUpdate();
   }
 
-  function setColumnVisibility(key,visible){
-    if(!Object.prototype.hasOwnProperty.call(state.columnVisibility,key)) return;
-    state.columnVisibility[key] = visible === true;
-    applyColumnVisibility();
-  }
-
-  function setAllColumnVisibility(visible){
-    availableColumnToggles().forEach(input=>{
-      state.columnVisibility[input.dataset.productionColumnToggle] = visible === true;
+  function ensureProductionTableControl(){
+    if(productionTableControl){
+      productionTableControl.refresh();
+      return productionTableControl;
+    }
+    productionTableControl = window.PCMSUITableControls.create({
+      root:'#pg-production-entry',
+      table:'#production-entry-table',
+      settings:'#production-column-settings',
+      settingsButton:'#production-column-settings-button',
+      settingsMenu:'#production-column-settings-menu',
+      frame:'#production-entry-table-frame',
+      empty:'#production-columns-empty',
+      columns:PRODUCTION_TABLE_COLUMNS,
+      onColumnsChanged:({visibleKeys,visibleCount})=>{
+        updateEntryTableMinimumWidth(element('production-entry-table'),visibleKeys);
+        syncProductionEmptyState(visibleCount);
+      },
+      onSortChanged:()=>renderDailyRows(state.dailyRows,{store:false})
     });
-    applyColumnVisibility();
-  }
-
-  function resetColumnVisibility(){
-    Object.keys(state.columnVisibility).forEach(key=>{ state.columnVisibility[key] = true; });
-    applyColumnVisibility();
+    return productionTableControl;
   }
 
   function closeDropdown(id){
@@ -798,61 +753,6 @@
     }
   }
 
-  function updateStickyHeaderPosition(){
-    const runtime = stickyHeaderRuntime;
-    if(!runtime) return;
-    runtime.frameId = 0;
-    const {scrollHost,table,header} = runtime;
-    if(!scrollHost.isConnected || !table.isConnected || !header.isConnected || table.closest('[hidden]')){
-      table.style.removeProperty('--production-table-header-offset');
-      table.classList.remove('is-header-frozen');
-      return;
-    }
-    const scrollRect = scrollHost.getBoundingClientRect();
-    const tableRect = table.getBoundingClientRect();
-    const headerHeight = header.getBoundingClientRect().height;
-    const visibleTop = Math.max(0,scrollRect.top);
-    const maximumOffset = Math.max(0,tableRect.height-headerHeight);
-    const offset = Math.min(maximumOffset,Math.max(0,visibleTop-tableRect.top));
-    table.style.setProperty('--production-table-header-offset',`${offset}px`);
-    table.classList.toggle('is-header-frozen',offset > 0 && headerHeight > 0);
-  }
-
-  function scheduleStickyHeaderUpdate(){
-    if(!stickyHeaderRuntime || stickyHeaderRuntime.frameId) return;
-    stickyHeaderRuntime.frameId = window.requestAnimationFrame(updateStickyHeaderPosition);
-  }
-
-  function stopProductionStickyHeader(){
-    const runtime = stickyHeaderRuntime;
-    if(!runtime) return;
-    runtime.scrollHost.removeEventListener('scroll',scheduleStickyHeaderUpdate);
-    window.removeEventListener('resize',scheduleStickyHeaderUpdate);
-    window.visualViewport?.removeEventListener('resize',scheduleStickyHeaderUpdate);
-    runtime.observer?.disconnect();
-    if(runtime.frameId) window.cancelAnimationFrame(runtime.frameId);
-    runtime.table.style.removeProperty('--production-table-header-offset');
-    runtime.table.classList.remove('is-header-frozen');
-    stickyHeaderRuntime = null;
-  }
-
-  function startProductionStickyHeader(){
-    stopProductionStickyHeader();
-    const table = element('production-entry-table-body')?.closest('table');
-    const header = table?.tHead;
-    const scrollHost = element('pg-production-entry')?.closest('.ct');
-    if(!table || !header || !scrollHost) return;
-    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(scheduleStickyHeaderUpdate) : null;
-    stickyHeaderRuntime = {scrollHost,table,header,observer,frameId:0};
-    scrollHost.addEventListener('scroll',scheduleStickyHeaderUpdate,{passive:true});
-    window.addEventListener('resize',scheduleStickyHeaderUpdate);
-    window.visualViewport?.addEventListener('resize',scheduleStickyHeaderUpdate);
-    observer?.observe(scrollHost);
-    observer?.observe(table);
-    observer?.observe(header);
-    scheduleStickyHeaderUpdate();
-  }
-
   function ensureDeleteColumn(){
     const table = element('production-entry-table-body')?.closest('table');
     const headerRow = table?.querySelector('thead tr');
@@ -867,6 +767,7 @@
     header.className = 'production-center-cell';
     header.dataset.productionDeleteColumn = 'true';
     header.dataset.productionColumn = 'action';
+    header.dataset.uiTableColumn = 'action';
     const copy = document.createElement('span');
     copy.className = 'ui-dual-copy';
     const vi = document.createElement('strong');
@@ -980,7 +881,10 @@
   function appendCell(row,value,className='',columnKey='',valueClass=''){
     const cell = document.createElement('td');
     if(className) cell.className = className;
-    if(columnKey) cell.dataset.productionColumn = columnKey;
+    if(columnKey){
+      cell.dataset.productionColumn = columnKey;
+      cell.dataset.uiTableColumn = columnKey;
+    }
     const text = String(value ?? '—');
     if(text !== '—' && ['order','product','processName'].includes(columnKey)) cell.title = text;
     if(valueClass && text !== '—'){
@@ -994,13 +898,45 @@
     row.appendChild(cell);
   }
 
-  function renderDailyRows(rows){
+  function dailySortValue(item,key){
+    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
+    const values = {
+      order:item.orderNo || '',
+      product:item.productCode || '',
+      processNo:Number(item.processNo || 0),
+      processName:supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || ''),
+      quantity:supplement ? null : Number(item.quantity || 0),
+      supplementHours:supplement ? Number(item.supplementHours || 0) : null,
+      orderQuantity:supplement ? null : Number(item.orderQtySnapshot || 0),
+      processSeconds:supplement ? null : Number(item.processSecSnapshot || 0),
+      hourlyCapacity:supplement ? null : Number(item.hourlyCapacitySnapshot || 0)
+    };
+    return values[key];
+  }
+
+  function sortedDailyRows(rows){
+    const sort = productionTableControl?.getSort?.() || {key:'',direction:'none'};
+    if(sort.direction === 'none' || !sort.key) return [...rows];
+    const direction = sort.direction === 'ascending' ? 1 : -1;
+    return [...rows].sort((left,right)=>{
+      const leftValue = dailySortValue(left,sort.key);
+      const rightValue = dailySortValue(right,sort.key);
+      if(leftValue == null && rightValue == null) return 0;
+      if(leftValue == null) return 1;
+      if(rightValue == null) return -1;
+      if(typeof leftValue === 'number' && typeof rightValue === 'number') return (leftValue-rightValue)*direction;
+      return String(leftValue).localeCompare(String(rightValue),undefined,{numeric:true,sensitivity:'base'})*direction;
+    });
+  }
+
+  function renderDailyRows(rows,{store=true}={}){
     const body = element('production-entry-table-body');
     const empty = element('production-entry-empty');
     if(!body) return;
+    if(store) state.dailyRows = [...rows];
     ensureDeleteColumn();
     body.replaceChildren();
-    rows.forEach(item=>{
+    sortedDailyRows(state.dailyRows).forEach(item=>{
       const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
       const row = document.createElement('tr');
       appendCell(row,item.orderNo || '—','', 'order');
@@ -1016,14 +952,16 @@
         const actionCell = document.createElement('td');
         actionCell.className = 'production-row-actions';
         actionCell.dataset.productionColumn = 'action';
+        actionCell.dataset.uiTableColumn = 'action';
         actionCell.appendChild(deleteButton(item));
         row.appendChild(actionCell);
       }
       body.appendChild(row);
     });
-    if(empty) empty.hidden = rows.length > 0;
-    applyColumnVisibility();
-    scheduleStickyHeaderUpdate();
+    const control = ensureProductionTableControl();
+    control.refresh();
+    if(empty) empty.hidden = control.getVisibleKeys().length === 0 || state.dailyRows.length > 0;
+    window.PCMSUITable?.refresh?.();
   }
 
   async function loadDailyRows(){
@@ -1135,12 +1073,6 @@
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
     element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
     element('production-quantity-progress').addEventListener('click',()=>void openSelectedProcessRecords());
-    element('production-column-settings-button').addEventListener('click',toggleColumnSettings);
-    element('production-column-settings-reset').addEventListener('click',resetColumnVisibility);
-    element('production-column-settings-select-all').addEventListener('change',event=>setAllColumnVisibility(event.currentTarget.checked));
-    document.querySelectorAll('[data-production-column-toggle]').forEach(input=>{
-      input.addEventListener('change',()=>setColumnVisibility(input.dataset.productionColumnToggle,input.checked));
-    });
     document.querySelectorAll('#pg-production-entry .production-combobox').forEach(host=>{
       host.addEventListener('mouseleave',()=>{
         const options = host.querySelector('.production-options'); // options（目前欄位的搜尋選單）
@@ -1157,15 +1089,14 @@
       if(!event.target.closest('.production-combobox')){
         DROPDOWN_OPTION_IDS.forEach(closeDropdown);
       }
-      if(!event.target.closest('.production-column-settings')) closeColumnSettings();
     });
     document.addEventListener('keydown',event=>{
       if(event.key !== 'Escape') return;
       DROPDOWN_OPTION_IDS.forEach(closeDropdown);
-      closeColumnSettings();
     });
     syncDropdownAvailability();
-    applyColumnVisibility();
+    ensureDeleteColumn();
+    ensureProductionTableControl();
     scheduleEntryFieldLayout();
   }
 
@@ -1183,17 +1114,15 @@
     syncDateControls();
     scheduleEntryFieldLayout();
     startDateTimer();
-    startProductionStickyHeader();
     if(state.employee) await loadDailyRows();
   }
 
   function productionEntryLeave(){
     stopDateTimer();
-    stopProductionStickyHeader();
+    productionTableControl?.deactivate?.({resetSort:true});
     if(entryFieldLayoutFrame) window.cancelAnimationFrame(entryFieldLayoutFrame);
     entryFieldLayoutFrame = 0;
     DROPDOWN_OPTION_IDS.forEach(closeDropdown);
-    closeColumnSettings();
   }
 
   window.loadProductionEntryData = loadProductionEntryData;

@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260810-1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260810-2">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -382,25 +382,9 @@ tr:hover td{background:#f8fafc}
           </div>
           <section class="production-data-section ui-data-section">
             <div class="ui-section-header production-entry-table-header">
-              <div class="production-column-settings">
-                <button type="button" tabindex="-1" class="production-column-settings-button" id="production-column-settings-button" aria-label="Chọn cột hiển thị / 選擇顯示欄位" title="Chọn cột hiển thị / 選擇顯示欄位" aria-controls="production-column-settings-menu" aria-expanded="false"><i class="ti ti-list-check"></i></button>
-                <div class="production-column-settings-menu" id="production-column-settings-menu" role="dialog" aria-label="Chọn cột hiển thị / 選擇顯示欄位" hidden>
-                  <div class="production-column-settings-heading">
-                    <label class="production-column-settings-select-all"><input type="checkbox" id="production-column-settings-select-all" checked><span class="ui-dual-copy"><strong>Chọn tất cả</strong><span>全選</span></span></label>
-                    <div class="production-column-settings-title ui-dual-copy"><strong>Chọn cột hiển thị</strong><span>選擇顯示欄位</span></div>
-                    <button type="button" tabindex="-1" class="production-column-settings-reset" id="production-column-settings-reset"><span class="ui-dual-copy"><strong>Mặc định</strong><span>恢復預設</span></span></button>
-                  </div>
-                  <label><input type="checkbox" data-production-column-toggle="order" checked><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="product" checked><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="processNo" checked><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="processName" checked><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="quantity" checked><span class="ui-dual-copy"><strong>Số lượng sản xuất</strong><span>生產數量</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="supplementHours" checked><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="orderQuantity" checked><span class="ui-dual-copy"><strong>Số lượng đơn hàng</strong><span>訂單數量</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="processSeconds" checked><span class="ui-dual-copy"><strong>Giây công đoạn</strong><span>工序秒數</span></span></label>
-                  <label><input type="checkbox" data-production-column-toggle="hourlyCapacity" checked><span class="ui-dual-copy"><strong>Số lượng mỗi giờ</strong><span>每小時數量</span></span></label>
-                  <label class="production-operation-column-option" id="production-operation-column-option"><input type="checkbox" data-production-column-toggle="action" checked><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></label>
-                </div>
+              <div class="ui-table-column-settings" id="production-column-settings">
+                <button type="button" tabindex="-1" class="ui-table-column-settings-button" id="production-column-settings-button" aria-label="Chọn cột hiển thị / 選擇顯示欄位" title="Chọn cột hiển thị / 選擇顯示欄位" aria-controls="production-column-settings-menu" aria-expanded="false" data-ui-table-columns-button><i class="ti ti-list-check"></i></button>
+                <div class="ui-table-column-settings-menu" id="production-column-settings-menu" role="dialog" aria-label="Chọn cột hiển thị / 選擇顯示欄位" data-ui-table-columns-menu hidden></div>
               </div>
               <span class="ui-dual-copy"><strong>Sản lượng của nhân viên trong ngày</strong><span>員工當日生產紀錄</span></span>
               <button type="button" tabindex="-1" class="production-quantity-progress" id="production-quantity-progress" aria-label="Xem số lượng đã đăng ký và giới hạn đơn hàng / 查看已登記數量與訂單數量上限" title="Xem đăng ký của mã hàng / 查看款號登記紀錄" hidden>
@@ -411,17 +395,17 @@ tr:hover td{background:#f8fafc}
                 </span>
               </button>
             </div>
-            <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-entry-table">
+            <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-entry-table" id="production-entry-table" data-ui-table-sticky="original">
               <thead><tr>
-                <th data-production-column="order"><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
-                <th data-production-column="product"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
-                <th class="production-number-cell" data-production-column="processNo"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
-                <th data-production-column="processName"><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
-                <th class="production-number-cell" data-production-column="quantity"><span class="ui-dual-copy"><strong>SL sản xuất</strong><span>生產數量</span></span></th>
-                <th class="production-number-cell" data-production-column="supplementHours"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
-                <th class="production-number-cell" data-production-column="orderQuantity"><span class="ui-dual-copy"><strong>SL đơn hàng</strong><span>訂單數量</span></span></th>
-                <th class="production-number-cell" data-production-column="processSeconds"><span class="ui-dual-copy"><strong>Giây</strong><span>工序秒數</span></span></th>
-                <th class="production-number-cell" data-production-column="hourlyCapacity"><span class="ui-dual-copy"><strong>SL/giờ</strong><span>每小時數量</span></span></th>
+                <th class="ui-table-sortable-header" data-production-column="order" data-ui-table-column="order" data-ui-table-sort-key="order"><span class="ui-table-sort-heading"><span>Đơn hàng</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">訂單</span></th>
+                <th class="ui-table-sortable-header" data-production-column="product" data-ui-table-column="product" data-ui-table-sort-key="product"><span class="ui-table-sort-heading"><span>Mã hàng</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">款號</span></th>
+                <th class="production-number-cell ui-table-center-cell ui-table-sortable-header" data-production-column="processNo" data-ui-table-column="processNo" data-ui-table-sort-key="processNo"><span class="ui-table-sort-heading"><span>Số CĐ</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序號</span></th>
+                <th class="ui-table-sortable-header" data-production-column="processName" data-ui-table-column="processName" data-ui-table-sort-key="processName"><span class="ui-table-sort-heading"><span>Tên công đoạn</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序名稱</span></th>
+                <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="quantity" data-ui-table-column="quantity" data-ui-table-sort-key="quantity"><span class="ui-table-sort-heading"><span>SL sản xuất</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">生產數量</span></th>
+                <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="supplementHours" data-ui-table-column="supplementHours" data-ui-table-sort-key="supplementHours"><span class="ui-table-sort-heading"><span>Giờ bổ sung</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">補充工時</span></th>
+                <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="orderQuantity" data-ui-table-column="orderQuantity" data-ui-table-sort-key="orderQuantity"><span class="ui-table-sort-heading"><span>SL đơn hàng</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">訂單數量</span></th>
+                <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="processSeconds" data-ui-table-column="processSeconds" data-ui-table-sort-key="processSeconds"><span class="ui-table-sort-heading"><span>Giây</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序秒數</span></th>
+                <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="hourlyCapacity" data-ui-table-column="hourlyCapacity" data-ui-table-sort-key="hourlyCapacity"><span class="ui-table-sort-heading"><span>SL/giờ</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">每小時數量</span></th>
               </tr></thead>
               <tbody id="production-entry-table-body"></tbody>
             </table></div></div>
@@ -817,7 +801,7 @@ tr:hover td{background:#f8fafc}
                 <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
               </div></div>
             </div>
-            <div class="to ui-table-frame" id="summary-table-frame"><div class="ts ui-table-scroll summary-table-scroll"><table class="ui-table summary-main-table" id="summary-main-table"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
+            <div class="to ui-table-frame" id="summary-table-frame"><div class="ts ui-table-scroll summary-table-scroll"><table class="ui-table summary-main-table" id="summary-main-table" data-ui-table-sticky="original"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
             <div class="summary-columns-empty" id="summary-columns-empty" hidden><span class="ui-dual-copy"><strong>Chưa chọn cột hiển thị</strong><span>尚未選擇顯示欄位</span></span></div>
             <div class="pgr" id="sp2"></div>
           </section>
@@ -1301,10 +1285,10 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-runtime.js?v=20260807-1"></script>
 <script src="js/ui-components.js?v=20260809-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
-<script src="js/ui-table.js?v=20260810-1"></script>
+<script src="js/ui-table.js?v=20260810-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-2"></script>
+<script src="js/features.js?v=20260810-3"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

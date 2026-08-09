@@ -943,6 +943,31 @@
   background: var(--ui-color-row-hover);
 }
 
+/* 原表頭凍結沿用同一張表格，不建立複製表頭，欄寬會與資料列保持同一基準。 */
+.ui-table[data-ui-table-sticky="original"] {
+  --ui-table-header-offset: 0px;
+}
+
+.ui-table[data-ui-table-sticky="original"] thead {
+  position: relative;
+  top: auto;
+  z-index: 2;
+  transform: translateY(var(--ui-table-header-offset));
+}
+
+.ui-table[data-ui-table-sticky="original"] thead th {
+  background: var(--ui-color-table-header);
+  background-clip: padding-box;
+}
+
+.ui-table[data-ui-table-sticky="original"].is-ui-header-frozen thead {
+  z-index: 8;
+}
+
+.ui-table[data-ui-table-sticky="original"].is-ui-header-frozen thead th {
+  border-bottom-color: var(--ui-color-operation-border);
+}
+
 /* 共用欄位選單只管理介面狀態；可用欄位與權限結果由各功能提供。 */
 .ui-table-column-settings {
   position: relative;
