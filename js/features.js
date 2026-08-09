@@ -4,9 +4,10 @@
     history:'js/history.js?v=20260809-2',
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
+    uiTableControls:'js/ui-table-controls.js?v=20260809-1',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
-    summary:'js/summary.js?v=20260809-1',
+    summary:'js/summary.js?v=20260809-2',
     data:'js/data.js?v=20260809-2',
     costLog:'js/cost-log.js?v=20260809-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
@@ -26,7 +27,7 @@
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260808-11',
     orders:'styles/features/orders.css?v=20260808-4',
-    products:'styles/features/products.css?v=20260809-1',
+    products:'styles/features/products.css?v=20260809-2',
     sync:'styles/features/sync.css?v=20260808-2',
     cost:'styles/features/cost.css?v=20260809-3',
     accounts:'styles/features/accounts.css?v=20260809-3',
@@ -56,14 +57,14 @@
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
           styles:['products'],
-          scripts:['history','fileIo','productCache','summary','data'],
+          scripts:['history','fileIo','productCache','uiTableControls','summary','data'],
           dataScopes:['operationSettings','costSettings','products'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
             {name:'ensureCostSettingsLoaded',when:'costView'},
             'ensureProductsLoaded'
           ],
-          onOpen:['rSum'],
+          onOpen:['rSum'],onLeave:['summaryLeave'],
           restrictions:[
             {key:'costView',vi:'Hiển thị giá công sản phẩm',zh:'顯示產品工價'}
           ]
@@ -477,10 +478,12 @@
   async function leaveActivePage(){
     if(!activePageName){
       window.PCMSUIFileDrop?.deactivatePage?.();
+      window.PCMSUITable?.deactivatePage?.();
       return;
     }
     const leavingPageName=activePageName; // leavingPageName（正在離開的頁面名稱）
     window.PCMSUIFileDrop?.deactivatePage?.(leavingPageName);
+    window.PCMSUITable?.deactivatePage?.(leavingPageName);
     try{
       await runPageHooks(leavingPageName,'onLeave');
     }finally{
@@ -495,8 +498,10 @@
     window.PCMSUIFileDrop?.activatePage?.(pageName);
     try{
       await runPageHooks(pageName,'onOpen');
+      window.PCMSUITable?.activatePage?.(pageName);
     }catch(error){
       window.PCMSUIFileDrop?.deactivatePage?.(pageName);
+      window.PCMSUITable?.deactivatePage?.(pageName);
       activePageName='';
       updateActivePageTitle(null);
       throw error;
@@ -509,6 +514,7 @@
     activePageName='';
     updateActivePageTitle(null);
     window.PCMSUIFileDrop?.deactivatePage?.(previousPageName);
+    window.PCMSUITable?.deactivatePage?.(previousPageName);
   }
 
   resetPermissionsToDefaults();

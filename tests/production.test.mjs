@@ -350,7 +350,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-13'/);
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-6'/);
   assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-14'/);
-  assert.match(html,/js\/features\.js\?v=20260809-17/);
+  assert.match(html,/js\/features\.js\?v=20260809-19/);
 });
 
 test('當日表格原表頭依主內容可視邊界凍結且不重算欄寬',()=>{

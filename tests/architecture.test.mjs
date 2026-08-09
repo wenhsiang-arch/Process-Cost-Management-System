@@ -10,11 +10,30 @@ test('登入首頁只預載核心程式且不包含大型表格工具',()=>{
   const html=read('index.html');
   const coreScripts=[...html.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)].map(match=>match[1].split('?')[0]);
   assert.deepEqual(coreScripts,[
-    'js/safe-dom.js','js/ui-text.js','js/ui-runtime.js','js/ui-components.js','js/ui-file-drop.js',
+    'js/safe-dom.js','js/ui-text.js','js/ui-runtime.js','js/ui-components.js','js/ui-file-drop.js','js/ui-table.js',
     'js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js'
   ]);
   assert.match(html,/id="pg-home"/);
   assert.doesNotMatch(html,/JSZip|jszip|xlsx\.bundle\.js/);
+});
+
+test('共用表格控制跟隨功能生命週期啟用及清理',()=>{
+  const source=read('js/features.js');
+  assert.match(source,/runPageHooks\(pageName,'onOpen'\)[\s\S]*?PCMSUITable\?\.activatePage\?\.\(pageName\)/);
+  assert.match(source,/PCMSUITable\?\.deactivatePage\?\.\(leavingPageName\)[\s\S]*?runPageHooks\(leavingPageName,'onLeave'\)/);
+  assert.match(source,/function resetActivePage\(\)[\s\S]*?PCMSUITable\?\.deactivatePage\?\.\(previousPageName\)/);
+});
+
+test('共用表格操作只在使用功能開啟後按需載入',()=>{
+  const html=read('index.html');
+  const source=read('js/features.js');
+  const productsStart=source.indexOf("id:'products'");
+  const productsEnd=source.indexOf("id:'cutting'",productsStart);
+  const products=source.slice(productsStart,productsEnd);
+  assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
+  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260809-1'/);
+  assert.match(products,/scripts:\['history','fileIo','productCache','uiTableControls','summary','data'\]/);
+  assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });
 
 test('電子信箱只用於首次核准且業務權限固定使用 UID',()=>{
@@ -102,7 +121,8 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
   vm.runInContext(source,context);
   const scriptFiles={
     history:'js/history.js',fileIo:'js/file-io.js',costLog:'js/cost-log.js',
-    settings:'js/settings.js',productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
+    settings:'js/settings.js',uiTableControls:'js/ui-table-controls.js',
+    productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js',
     productionEmployeeStore:'js/production/employee-store.js',

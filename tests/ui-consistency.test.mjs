@@ -29,6 +29,23 @@ test('全部正式功能頁均接上共用頁面與功能樣式',()=>{
   }
 });
 
+test('超寬正式表格使用共用浮動水平捲軸且不建立第二條垂直捲軸',()=>{
+  const html=read('index.html');
+  const source=read('js/ui-table.js');
+  const core=read('styles/ui-core.css');
+  const specification=read('UI設計規範與參照/介面設計規範.md');
+  assert.match(html,/styles\/ui-core\.css\?v=20260809-5/);
+  assert.match(html,/js\/ui-table\.js\?v=20260809-1/);
+  assert.match(source,/TABLE_SCROLL_SELECTOR = '\.ui-table-scroll'/);
+  assert.match(source,/scrollWidth[\s\S]*?clientWidth[\s\S]*?overflowX === 'auto'/);
+  assert.match(source,/floatingScroll\.scrollLeft = activeTarget\.scrollLeft/);
+  assert.match(source,/activeTarget\.scrollLeft = floatingScroll\.scrollLeft/);
+  assert.match(source,/item\.rect\.bottom > contentRect\.bottom\+1/);
+  assert.match(core,/\.ui-table-floating-scroll \{[\s\S]*?position: fixed;[\s\S]*?overflow-x: auto;[\s\S]*?overflow-y: hidden;/);
+  assert.match(core,/\.ui-table-floating-scroll\.is-visible \{[\s\S]*?pointer-events: auto;/);
+  assert.match(specification,/浮動水平捲軸/);
+});
+
 test('介面功能不再使用瀏覽器原生提示、確認或輸入框',()=>{
   for(const script of featureScripts){
     const source=read(`js/${script}.js`);
@@ -205,36 +222,38 @@ test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇�
   const html=read('index.html');
   const source=read('js/summary.js');
   const style=read('styles/features/products.css');
+  const core=read('styles/ui-core.css');
+  const controls=read('js/ui-table-controls.js');
   const features=read('js/features.js');
   const pageStart=html.indexOf('id="pg-summary"');
   const pageEnd=html.indexOf('<div class="pg',pageStart+1);
   const markup=html.slice(pageStart,pageEnd);
-  assert.match(markup,/class="ui-section-header summary-table-header"[\s\S]*?id="summary-column-settings-button"[\s\S]*?id="summary-column-settings-menu"/);
-  assert.match(markup,/id="summary-column-settings-select-all"[\s\S]*?Chọn tất cả[\s\S]*?全選[\s\S]*?id="summary-column-settings-reset"/);
+  assert.match(markup,/class="ui-section-header summary-table-header"[\s\S]*?class="ui-table-column-settings"[\s\S]*?data-ui-table-columns-button[\s\S]*?data-ui-table-columns-menu/);
+  assert.doesNotMatch(markup,/summary-cost-column-option|data-ui-table-column-toggle/);
+  assert.match(source,/const SUMMARY_COLUMNS=Object\.freeze\(\[/);
   for(const key of ['index','code','client','zh','vi','size','ops','cost','action']){
-    assert.match(markup,new RegExp(`data-summary-column-toggle="${key}"`));
+    assert.match(source,new RegExp(`key:'${key}'`));
   }
-  assert.match(markup,/id="summary-cost-column-option" hidden/);
   assert.match(markup,/id="summary-main-table"/);
   assert.match(markup,/id="summary-columns-empty"[^>]*hidden/);
-  assert.match(source,/const _summaryColumnVisibility=\{index:true,code:true,client:true,zh:true,vi:true,size:true,ops:true,cost:true,action:true\}/);
-  assert.match(source,/function applySummaryColumnVisibility\(\)/);
-  assert.match(source,/function setAllSummaryColumns\(visible\)/);
-  assert.match(source,/selectAll\.indeterminate=selected>0&&selected<toggles\.length/);
-  assert.match(source,/class="summary-sortable-header"[\s\S]*?class="summary-sort-heading"[\s\S]*?\$\{sortIcon\(col\)\}[\s\S]*?class="tv"/);
-  assert.match(source,/aria-sort="\$\{summarySortAria\(col\)\}"/);
-  assert.match(source,/summary-sort-icon is-idle/);
-  assert.doesNotMatch(source,/keydown[\s\S]*?sumSort/);
-  assert.match(source,/canSeeCosts=canViewCosts\(\)[\s\S]*?costOption\.hidden=!canSeeCosts/);
-  assert.match(source,/data-summary-column="code"[\s\S]*?data-summary-column="client"[\s\S]*?data-summary-column="action"/);
+  assert.match(source,/PCMSUITableControls\.create\(\{[\s\S]*?columns:SUMMARY_COLUMNS/);
+  assert.match(source,/key:'cost'[\s\S]*?available:\(\)=>canViewCosts\(\)/);
+  assert.match(source,/onColumnsChanged:\(\{visibleCount\}\)=>/);
+  assert.match(source,/getSort\?\.\(\)[\s\S]*?sort\.direction==='ascending'/);
+  assert.match(source,/class="ui-table-sortable-header[\s\S]*?class="ui-table-sort-heading"[\s\S]*?data-ui-table-sort-icon[\s\S]*?class="tv"/);
+  assert.doesNotMatch(source,/onclick="sumSort|keydown[\s\S]*?onSortChanged/);
+  assert.match(source,/data-ui-table-column="code"[\s\S]*?data-ui-table-column="client"[\s\S]*?data-ui-table-column="action"/);
+  assert.match(controls,/selectAll\.indeterminate = selected > 0 && selected < toggles\.length/);
+  assert.match(controls,/currentAvailableColumns\(\)[\s\S]*?columnIsAvailable/);
   assert.match(style,/#pg-summary \.summary-main-table \{[\s\S]*?table-layout: fixed;/);
-  assert.match(style,/data-summary-column="zh"\] \{ width: 22%; \}/);
-  assert.match(style,/data-summary-column="vi"\] \{ width: 22%; \}/);
-  assert.match(style,/#pg-summary \.summary-sort-heading \{[\s\S]*?display: flex;[\s\S]*?align-items: center;/);
-  assert.match(style,/#pg-summary \.summary-column-settings-menu \{[\s\S]*?position: absolute;/);
-  assert.match(style,/#pg-summary \.summary-main-table \.is-column-hidden \{[\s\S]*?display: none;/);
-  assert.match(features,/summary:'js\/summary\.js\?v=20260809-1'/);
-  assert.match(features,/products:'styles\/features\/products\.css\?v=20260809-1'/);
+  assert.match(style,/data-ui-table-column="zh"\] \{ width: 22%; \}/);
+  assert.match(style,/data-ui-table-column="vi"\] \{ width: 22%; \}/);
+  assert.doesNotMatch(style,/summary-column-settings-menu|summary-sort-heading|summary-sort-icon/);
+  assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;[\s\S]*?width: min\(340px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(640px, calc\(100vh - 96px\)\);[\s\S]*?overflow-y: auto;/);
+  assert.match(core,/\.ui-table-sort-heading \{[\s\S]*?display: flex;[\s\S]*?align-items: center;/);
+  assert.match(core,/\.ui-table \.is-column-hidden \{[\s\S]*?display: none;/);
+  assert.match(features,/summary:'js\/summary\.js\?v=20260809-2'/);
+  assert.match(features,/products:'styles\/features\/products\.css\?v=20260809-2'/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{

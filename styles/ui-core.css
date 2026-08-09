@@ -943,6 +943,213 @@
   background: var(--ui-color-row-hover);
 }
 
+/* 共用欄位選單只管理介面狀態；可用欄位與權限結果由各功能提供。 */
+.ui-table-column-settings {
+  position: relative;
+  align-self: stretch;
+}
+
+.ui-table-column-settings-button {
+  display: inline-flex;
+  width: 28px;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-control);
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+.ui-table-column-settings-button:hover,
+.ui-table-column-settings-button:focus-visible,
+.ui-table-column-settings-button[aria-expanded="true"] {
+  background: var(--ui-color-primary-soft);
+}
+
+.ui-table-column-settings-button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.ui-table-column-settings-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  left: 0;
+  display: grid;
+  width: min(340px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 96px));
+  gap: 0;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .14);
+}
+
+.ui-table-column-settings-menu[hidden] {
+  display: none;
+}
+
+.ui-table-column-settings-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 3px 5px 7px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.ui-table-column-settings-title {
+  min-width: 0;
+  align-items: center;
+  text-align: center;
+}
+
+.ui-table-column-settings-select-all,
+.ui-table-column-settings-option {
+  display: grid;
+  align-items: center;
+  color: var(--ui-color-text);
+  cursor: pointer;
+}
+
+.ui-table-column-settings-select-all {
+  min-height: 30px;
+  grid-template-columns: 16px auto;
+  gap: 6px;
+  color: var(--ui-color-primary);
+}
+
+.ui-table-column-settings-select-all .ui-dual-copy {
+  align-items: flex-start;
+}
+
+.ui-table-column-settings-select-all .ui-dual-copy strong,
+.ui-table-column-settings-reset .ui-dual-copy strong {
+  font-size: 10px;
+}
+
+.ui-table-column-settings-select-all .ui-dual-copy span,
+.ui-table-column-settings-reset .ui-dual-copy span {
+  font-size: 9px;
+}
+
+.ui-table-column-settings-option {
+  min-height: 38px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  padding: 4px 5px;
+}
+
+.ui-table-column-settings-menu input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ui-color-primary);
+}
+
+.ui-table-column-settings-reset {
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+.ui-table-column-settings-reset:hover,
+.ui-table-column-settings-reset:focus-visible {
+  background: var(--ui-color-primary-soft);
+}
+
+.ui-table .is-column-hidden {
+  display: none;
+}
+
+.ui-table-sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.ui-table-sort-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  line-height: 1.2;
+}
+
+.ui-table-sort-icon {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+
+.ui-table-sort-icon.is-idle {
+  opacity: .4;
+}
+
+.ui-table .ui-table-number-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-table th.ui-table-number-cell .ui-table-sort-heading {
+  justify-content: flex-end;
+}
+
+.ui-table th.ui-table-number-cell > .tv {
+  text-align: right;
+}
+
+.ui-table .ui-table-center-cell {
+  text-align: center;
+}
+
+.ui-table th.ui-table-center-cell > .ui-dual-copy {
+  align-items: center;
+  text-align: center;
+}
+
+.ui-table .ui-table-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 浮動水平捲軸只在原表格捲軸離開可視範圍時出現，並沿用原捲動區的位置。 */
+.ui-table-floating-scroll {
+  position: fixed;
+  z-index: 24;
+  height: 18px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: var(--ui-border-width) solid var(--ui-color-border);
+  border-radius: 6px 6px 0 0;
+  background: var(--ui-color-surface);
+  box-shadow: 0 -2px 6px rgba(15, 23, 42, .08);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.ui-table-floating-scroll.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.ui-table-floating-scroll-spacer {
+  width: 0;
+  height: 1px;
+}
+
 .ui-notice {
   display: flex;
   align-items: flex-start;

@@ -1,120 +1,69 @@
-// ===== 款號排序 =====
-let _sumSortCol='', _sumSortDir=0;
+// ===== 款號表格操作 =====
 const _expandedSummaryCodes=new Set();
-const _summaryColumnVisibility={index:true,code:true,client:true,zh:true,vi:true,size:true,ops:true,cost:true,action:true};
-let _summaryColumnSettingsBound=false;
+let _summaryTableControl=null; // _summaryTableControl（款號共用表格操作控制）
+const SUMMARY_COLUMNS=Object.freeze([
+  {key:'index',label:{vi:'STT',zh:'序號'}},
+  {key:'code',label:{vi:'Mã hàng',zh:'款號'}},
+  {key:'client',label:{vi:'Khách hàng',zh:'客人'}},
+  {key:'zh',label:{vi:'Tên Trung',zh:'中文名稱'}},
+  {key:'vi',label:{vi:'Tên Việt',zh:'越文名稱'}},
+  {key:'size',label:{vi:'Kích thước',zh:'尺寸'}},
+  {key:'ops',label:{vi:'Số công đoạn',zh:'工序數'}},
+  {key:'cost',label:{vi:'Tổng chi phí',zh:'總工價'},available:()=>canViewCosts()},
+  {key:'action',label:{vi:'Thao tác',zh:'操作'}}
+]); // SUMMARY_COLUMNS（款號欄位定義）：只提供欄位文字、預設及既有權限結果。
 const summarySafeText=value=>window.PCMSSafe.text(value); // summarySafeText（款號畫面安全文字）
 function summaryMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
 }
-function sumSort(col){
-  if(_sumSortCol===col){ _sumSortDir=(_sumSortDir+1)%3; }
-  else{ _sumSortCol=col; _sumSortDir=1; }
-  window.sPage=1; rSum();
+
+function ensureSummaryTableControl(){
+  if(_summaryTableControl) return _summaryTableControl;
+  _summaryTableControl=window.PCMSUITableControls.create({
+    root:'#pg-summary',
+    table:'#summary-main-table',
+    settings:'#summary-column-settings',
+    settingsButton:'#summary-column-settings-button',
+    settingsMenu:'#summary-column-settings-menu',
+    frame:'#summary-table-frame',
+    empty:'#summary-columns-empty',
+    columns:SUMMARY_COLUMNS,
+    onColumnsChanged:({visibleCount})=>{
+      document.querySelectorAll('#summary-main-table .summary-detail-cell').forEach(cell=>{
+        cell.colSpan=Math.max(1,visibleCount);
+      });
+      const pager=g('sp2');
+      if(pager) pager.hidden=visibleCount===0;
+    },
+    onSortChanged:()=>{
+      window.sPage=1;
+      rSum();
+    }
+  });
+  return _summaryTableControl;
 }
+
 function sortD(){
   let d=[...window.D];
-  if(_sumSortDir===0||!_sumSortCol) return d;
-  const asc=_sumSortDir===1;
-  if(_sumSortCol==='code') d.sort((a,b)=>asc?a.code.localeCompare(b.code):b.code.localeCompare(a.code));
-  else if(_sumSortCol==='client') d.sort((a,b)=>asc?a.client.localeCompare(b.client):b.client.localeCompare(a.client));
-  else if(_sumSortCol==='zh') d.sort((a,b)=>asc?(a.zh||'').localeCompare(b.zh||''):(b.zh||'').localeCompare(a.zh||''));
-  else if(_sumSortCol==='vi') d.sort((a,b)=>asc?(a.vi||'').localeCompare(b.vi||''):(b.vi||'').localeCompare(a.vi||''));
-  else if(_sumSortCol==='sz') d.sort((a,b)=>asc?(a.sz||'').localeCompare(b.sz||''):(b.sz||'').localeCompare(a.sz||''));
-  else if(_sumSortCol==='ops') d.sort((a,b)=>asc?a.ops.length-b.ops.length:b.ops.length-a.ops.length);
-  else if(_sumSortCol==='cost') d.sort((a,b)=>{
+  const sort=_summaryTableControl?.getSort?.() || {key:'',direction:'none'}; // sort（共用控制提供的排序狀態）
+  if(sort.direction==='none'||!sort.key) return d;
+  const asc=sort.direction==='ascending';
+  if(sort.key==='code') d.sort((a,b)=>asc?a.code.localeCompare(b.code):b.code.localeCompare(a.code));
+  else if(sort.key==='client') d.sort((a,b)=>asc?a.client.localeCompare(b.client):b.client.localeCompare(a.client));
+  else if(sort.key==='zh') d.sort((a,b)=>asc?(a.zh||'').localeCompare(b.zh||''):(b.zh||'').localeCompare(a.zh||''));
+  else if(sort.key==='vi') d.sort((a,b)=>asc?(a.vi||'').localeCompare(b.vi||''):(b.vi||'').localeCompare(a.vi||''));
+  else if(sort.key==='sz') d.sort((a,b)=>asc?(a.sz||'').localeCompare(b.sz||''):(b.sz||'').localeCompare(a.sz||''));
+  else if(sort.key==='ops') d.sort((a,b)=>asc?a.ops.length-b.ops.length:b.ops.length-a.ops.length);
+  else if(sort.key==='cost') d.sort((a,b)=>{
     const av=a.ops.reduce((s,o)=>s+calc(o.sec).vnd,0);
     const bv=b.ops.reduce((s,o)=>s+calc(o.sec).vnd,0);
     return asc?av-bv:bv-av;
   });
   return d;
 }
-function sortIcon(col){
-  if(_sumSortCol!==col||_sumSortDir===0) return '<i class="ti ti-arrows-sort summary-sort-icon is-idle" aria-hidden="true"></i>';
-  return _sumSortDir===1?'<i class="ti ti-arrow-up summary-sort-icon" aria-hidden="true"></i>':'<i class="ti ti-arrow-down summary-sort-icon" aria-hidden="true"></i>';
-}
-function summarySortAria(col){
-  if(_sumSortCol!==col||_sumSortDir===0) return 'none';
-  return _sumSortDir===1?'ascending':'descending';
-}
-function closeSummaryColumnSettings(){
-  const menu=g('summary-column-settings-menu');
-  const button=g('summary-column-settings-button');
-  if(menu) menu.hidden=true;
-  button?.setAttribute('aria-expanded','false');
-}
-function toggleSummaryColumnSettings(){
-  const menu=g('summary-column-settings-menu');
-  const button=g('summary-column-settings-button');
-  if(!menu||!button) return;
-  const willOpen=menu.hidden;
-  menu.hidden=!willOpen;
-  button.setAttribute('aria-expanded',String(willOpen));
-}
-function availableSummaryColumnToggles(){
-  return Array.from(document.querySelectorAll('#summary-column-settings-menu [data-summary-column-toggle]'))
-    .filter(input=>!input.closest('label')?.hidden);
-}
-function syncSummarySelectAll(){
-  const selectAll=g('summary-column-settings-select-all');
-  if(!selectAll) return;
-  const toggles=availableSummaryColumnToggles();
-  const selected=toggles.filter(input=>_summaryColumnVisibility[input.dataset.summaryColumnToggle]!==false).length;
-  selectAll.checked=toggles.length>0&&selected===toggles.length;
-  selectAll.indeterminate=selected>0&&selected<toggles.length;
-}
-function applySummaryColumnVisibility(){
-  const table=g('summary-main-table');
-  if(!table) return;
-  const canSeeCosts=canViewCosts();
-  const costOption=g('summary-cost-column-option');
-  if(costOption) costOption.hidden=!canSeeCosts;
-  table.querySelectorAll('[data-summary-column]').forEach(cell=>{
-    const key=cell.dataset.summaryColumn;
-    const visible=_summaryColumnVisibility[key]!==false&&(key!=='cost'||canSeeCosts);
-    cell.classList.toggle('is-column-hidden',!visible);
-  });
-  document.querySelectorAll('#summary-column-settings-menu [data-summary-column-toggle]').forEach(input=>{
-    input.checked=_summaryColumnVisibility[input.dataset.summaryColumnToggle]!==false;
-  });
-  const visibleCount=Array.from(table.querySelectorAll('thead [data-summary-column]'))
-    .filter(cell=>!cell.classList.contains('is-column-hidden')).length;
-  table.querySelectorAll('.summary-detail-cell').forEach(cell=>{ cell.colSpan=Math.max(1,visibleCount); });
-  const frame=g('summary-table-frame');
-  const empty=g('summary-columns-empty');
-  const pager=g('sp2');
-  if(frame) frame.hidden=visibleCount===0;
-  if(empty) empty.hidden=visibleCount!==0;
-  if(pager) pager.hidden=visibleCount===0;
-  syncSummarySelectAll();
-}
-function setAllSummaryColumns(visible){
-  availableSummaryColumnToggles().forEach(input=>{
-    _summaryColumnVisibility[input.dataset.summaryColumnToggle]=visible===true;
-  });
-  applySummaryColumnVisibility();
-}
-function resetSummaryColumns(){
-  Object.keys(_summaryColumnVisibility).forEach(key=>{ _summaryColumnVisibility[key]=true; });
-  applySummaryColumnVisibility();
-}
-function bindSummaryColumnSettings(){
-  if(_summaryColumnSettingsBound) return;
-  const button=g('summary-column-settings-button');
-  if(!button) return;
-  button.addEventListener('click',toggleSummaryColumnSettings);
-  g('summary-column-settings-reset')?.addEventListener('click',resetSummaryColumns);
-  g('summary-column-settings-select-all')?.addEventListener('change',event=>setAllSummaryColumns(event.currentTarget.checked));
-  document.querySelectorAll('#summary-column-settings-menu [data-summary-column-toggle]').forEach(input=>{
-    input.addEventListener('change',event=>{
-      _summaryColumnVisibility[event.currentTarget.dataset.summaryColumnToggle]=event.currentTarget.checked;
-      applySummaryColumnVisibility();
-    });
-  });
-  document.addEventListener('click',event=>{
-    if(!event.target.closest('.summary-column-settings')) closeSummaryColumnSettings();
-  });
-  _summaryColumnSettingsBound=true;
+
+function summaryLeave(){
+  _summaryTableControl?.deactivate?.({resetSort:true});
 }
 
 function toggleSummaryDetail(code){
@@ -147,9 +96,9 @@ function rSum(){
   const q  = (g('s-search')||{}).value||'';
   const cf = (g('s-client')||{}).value||'';
   const isA = canViewCosts();
-  bindSummaryColumnSettings();
-  const th=(col,key,vi,zh)=>`<th class="summary-sortable-header" data-summary-column="${key}" aria-sort="${summarySortAria(col)}" onclick="sumSort('${col}')"><span class="summary-sort-heading"><span>${vi}</span>${sortIcon(col)}</span><span class="tv">${zh}</span></th>`;
-  g('sh').innerHTML=`<th data-summary-column="index">#</th>${th('code','code','Mã hàng','款號')}${th('client','client','Khách hàng','客人')}${th('zh','zh','Tên Trung','中文名稱')}${th('vi','vi','Tên Việt','越文名稱')}${th('sz','size','Kích thước','尺寸')}${th('ops','ops','Số công đoạn','工序數')}`+(isA?th('cost','cost',`Tổng chi phí (${window.cur})`,'總工價'):'')+`<th class="summary-action-column" data-summary-column="action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>`;
+  const tableControl=ensureSummaryTableControl(); // tableControl（款號共用表格操作控制）
+  const th=(col,key,vi,zh,numeric=false)=>`<th class="ui-table-sortable-header${numeric?' ui-table-number-cell':''}" data-ui-table-column="${key}" data-ui-table-sort-key="${col}" aria-sort="none"><span class="ui-table-sort-heading"><span>${vi}</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">${zh}</span></th>`;
+  g('sh').innerHTML=`<th data-ui-table-column="index">#</th>${th('code','code','Mã hàng','款號')}${th('client','client','Khách hàng','客人')}${th('zh','zh','Tên Trung','中文名稱')}${th('vi','vi','Tên Việt','越文名稱')}${th('sz','size','Kích thước','尺寸')}${th('ops','ops','Số công đoạn','工序數',true)}`+(isA?th('cost','cost',`Tổng chi phí (${window.cur})`,'總工價',true):'')+`<th class="ui-table-center-cell summary-action-column" data-ui-table-column="action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>`;
   let fd=sortD().filter(d=>{
     const m=!q||(d.code+d.client+d.zh+d.vi).toLowerCase().includes(q.toLowerCase());
     return m&&(!cf||d.client===cf);
@@ -160,10 +109,9 @@ function rSum(){
   pg.forEach((d,i)=>{
     let sv2=0; d.ops.forEach(op=>{ sv2+=calc(op.sec).vnd; });
     const expanded=_expandedSummaryCodes.has(d.code);
-    const visibleColumns=['index','code','client','zh','vi','size','ops',...(isA?['cost']:[]),'action']
-      .filter(key=>_summaryColumnVisibility[key]!==false).length;
+    const visibleColumns=tableControl.getVisibleKeys().length;
     const r=document.createElement('tr');
-    r.innerHTML=`<td data-summary-column="index" style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="Mở chi tiết công đoạn / 展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td data-summary-column="code"><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td data-summary-column="client">${hl(d.client,q)}</td><td data-summary-column="zh">${hl(d.zh,q)}</td><td data-summary-column="vi" style="color:var(--mu)">${hl(d.vi,q)}</td><td data-summary-column="size"><span class="tg tn">${summarySafeText(d.sz)}</span></td><td data-summary-column="ops"><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td data-summary-column="cost" style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td class="summary-action-column" data-summary-column="action"><button class="btn bsm bd2 summary-delete"><i class="ti ti-trash"></i></button></td>`;
+    r.innerHTML=`<td data-ui-table-column="index" style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="Mở chi tiết công đoạn / 展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td class="ui-table-ellipsis" data-ui-table-column="code"><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td class="ui-table-ellipsis" data-ui-table-column="client">${hl(d.client,q)}</td><td class="ui-table-ellipsis" data-ui-table-column="zh">${hl(d.zh,q)}</td><td class="ui-table-ellipsis" data-ui-table-column="vi" style="color:var(--mu)">${hl(d.vi,q)}</td><td data-ui-table-column="size"><span class="tg tn">${summarySafeText(d.sz)}</span></td><td class="ui-table-number-cell" data-ui-table-column="ops"><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td class="ui-table-number-cell" data-ui-table-column="cost" style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td class="ui-table-center-cell summary-action-column" data-ui-table-column="action"><button class="btn bsm bd2 summary-delete"><i class="ti ti-trash"></i></button></td>`;
     r.querySelector('.summary-toggle')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-code')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-delete')?.addEventListener('click',()=>askDel(d.code));
@@ -179,7 +127,7 @@ function rSum(){
   g('m-rows').textContent=tr;
   mkPager('sp2',window.sPage,fd.length,pp,'goSP');
   rcf();
-  applySummaryColumnVisibility();
+  tableControl.refresh();
 }
 
 // ===== 工序明細表 =====
