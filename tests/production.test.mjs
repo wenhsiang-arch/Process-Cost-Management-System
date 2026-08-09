@@ -217,7 +217,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-9'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-10'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -283,6 +283,11 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-quantity-progress\.is-over \{[\s\S]*?var\(--ui-color-danger-background\)[\s\S]*?var\(--ui-color-danger-text\)/);
   assert.match(style,/\.production-entry-table th\.production-number-cell,[\s\S]*?\.production-entry-table td\.production-number-cell \{[\s\S]*?text-align: right;/);
   assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy \{[\s\S]*?align-items: flex-end;/);
+  assert.match(style,/\.production-entry-table \{[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/data-production-column="order"\] \{[\s\S]*?width: 12%;/);
+  assert.match(style,/data-production-column="processName"\] \{[\s\S]*?width: 29%;/);
+  assert.match(style,/data-production-column="processNo"\],[\s\S]*?data-production-column="processNo"\] \{[\s\S]*?text-align: center;/);
+  assert.match(style,/\.production-entry-table td\.production-row-actions \{[\s\S]*?display: table-cell;[\s\S]*?text-align: center;/);
   assert.match(style,/\.production-records-table \.production-date-cell \{/);
   assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-2'/);

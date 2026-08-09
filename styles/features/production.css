@@ -681,6 +681,48 @@
   display: none;
 }
 
+.production-entry-table {
+  table-layout: fixed;
+}
+
+.production-entry-table [data-production-column] {
+  box-sizing: border-box;
+}
+
+.production-entry-table [data-production-column="order"] {
+  width: 12%;
+}
+
+.production-entry-table [data-production-column="product"] {
+  width: 12%;
+}
+
+.production-entry-table [data-production-column="processNo"] {
+  width: 7%;
+}
+
+.production-entry-table [data-production-column="processName"] {
+  width: 29%;
+}
+
+.production-entry-table [data-production-column="quantity"],
+.production-entry-table [data-production-column="orderQuantity"] {
+  width: 12%;
+}
+
+.production-entry-table [data-production-column="processSeconds"],
+.production-entry-table [data-production-column="action"] {
+  width: 8%;
+}
+
+.production-entry-table td[data-production-column="order"],
+.production-entry-table td[data-production-column="product"],
+.production-entry-table td[data-production-column="processName"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #production-entry-table-frame[hidden],
 .production-columns-empty[hidden],
 .production-operation-column-option[hidden] {
@@ -706,6 +748,16 @@
 .production-entry-table th.production-number-cell > .ui-dual-copy {
   align-items: flex-end;
   text-align: right;
+}
+
+.production-entry-table th[data-production-column="processNo"],
+.production-entry-table td[data-production-column="processNo"] {
+  text-align: center;
+}
+
+.production-entry-table th[data-production-column="processNo"] > .ui-dual-copy {
+  align-items: center;
+  text-align: center;
 }
 
 .production-entry-table th.production-center-cell > .ui-dual-copy {
@@ -887,6 +939,13 @@
   min-width: 86px;
   justify-content: center;
   gap: 6px;
+}
+
+.production-entry-table td.production-row-actions {
+  display: table-cell;
+  min-width: 0;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .production-row-button {
