@@ -84,7 +84,7 @@ function renderSummaryDetail(d){
       <span class="tg tn">Khách hàng / 客人: ${summarySafeText(d.client)}</span><span class="tg tn">Kích thước / 尺寸: ${summarySafeText(d.sz)}</span>
       ${isA?`<span class="tg tg2">USD: ${summarySafeText(fU(total))}</span><span class="tg tb2">VND: ${summarySafeText(fV(total))}</span><span class="tg ta">TWD: ${summarySafeText(fT(total))}</span>`:''}
     </div>
-    <div class="summary-detail-table-wrap"><table class="summary-detail-table">
+    <div class="summary-detail-table-wrap"><table class="summary-detail-table ui-table" data-ui-table-layout="special">
       <thead><tr><th>Số công đoạn<span class="tv">工序號</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí<span class="tv">工資</span></th>':''}</tr></thead>
       <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">Chưa có công đoạn<span class="tv">尚無工序資料</span></td></tr>`}</tbody>
     </table></div>

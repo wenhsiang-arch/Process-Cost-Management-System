@@ -671,7 +671,7 @@
         Phát hiện ${fmtNum(issues.length)} lỗi. Vui lòng sửa đúng ô được liệt kê rồi nhập lại.<br>
         發現 ${fmtNum(issues.length)} 個錯誤，請修改列出的儲存格後重新匯入。
       </div>
-      <div class="to"><div class="ts" style="max-height:320px"><table>
+      <div class="to"><div class="ts" style="max-height:320px"><table class="ui-table" data-ui-table-layout="special">
         <thead><tr>
           <th>Trang tính<br><span class="tv">工作表</span></th>
           <th>Ô<br><span class="tv">儲存格</span></th>
@@ -723,7 +723,7 @@
         Đây là cảnh báo, vẫn có thể xác nhận và nhập mẫu.<br>
         此項屬於提醒，仍可確認並匯入模板。
       </div>
-      <div class="to"><div class="ts" style="max-height:320px"><table>
+      <div class="to"><div class="ts" style="max-height:320px"><table class="ui-table" data-ui-table-layout="special">
         <thead><tr>
           <th>Trang tính<br><span class="tv">工作表</span></th>
           <th>Dòng tiêu đề<br><span class="tv">表頭列</span></th>
@@ -1749,7 +1749,7 @@
     const passed = validations.filter(row => !row.problems.length).length;
     const failed = validations.length - passed + sharedProblems.length;
     const problemHtml = failed ? `
-      <div class="to"><div class="ts" style="max-height:260px"><table>
+      <div class="to"><div class="ts" style="max-height:260px"><table class="ui-table" data-ui-table-layout="special">
         <thead><tr>
           <th>Mã hàng<br><span class="tv">款號</span></th>
           <th>Nội dung lỗi<br><span class="tv">錯誤內容</span></th>

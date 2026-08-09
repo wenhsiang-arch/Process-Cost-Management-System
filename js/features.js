@@ -7,21 +7,21 @@
     uiTableControls:'js/ui-table-controls.js?v=20260810-2',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
-    summary:'js/summary.js?v=20260809-2',
+    summary:'js/summary.js?v=20260810-1',
     data:'js/data.js?v=20260809-2',
-    costLog:'js/cost-log.js?v=20260809-1',
+    costLog:'js/cost-log.js?v=20260810-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260808-8',
+    cutting:'js/cutting.js?v=20260810-1',
     accounts:'js/accounts.js?v=20260809-1',
-    orders:'js/orders.js?v=20260808-2',
+    orders:'js/orders.js?v=20260810-1',
     sync:'js/sync.js?v=20260808-1',
-    permissions:'js/permissions.js?v=20260809-3',
+    permissions:'js/permissions.js?v=20260810-1',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
     productionEntryStore:'js/production/entry-store.js?v=20260809-3',
     productionReportStore:'js/production/report-store.js?v=20260809-2',
     productionEntry:'js/production/production-entry.js?v=20260810-2',
     productionRecords:'js/production/production-records.js?v=20260809-6',
-    productionEmployees:'js/production/production-employees.js?v=20260809-5'
+    productionEmployees:'js/production/production-employees.js?v=20260810-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({

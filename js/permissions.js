@@ -303,7 +303,7 @@ function renderPermissions(){
       </div>
     </div>
     <div class="permission-matrix-shell">
-      <table class="permission-matrix-table">
+      <table class="permission-matrix-table ui-table" id="permission-matrix-table" data-ui-table-layout="special" data-ui-table-sticky="original">
         <colgroup>
           <col class="permission-matrix-col-module"><col class="permission-matrix-col-page"><col class="permission-matrix-col-item">
           ${roles.map(()=>'<col class="permission-matrix-col-role">').join('')}

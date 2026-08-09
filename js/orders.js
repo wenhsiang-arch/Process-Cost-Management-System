@@ -793,8 +793,8 @@ async function renderProgress(){
       content.innerHTML='<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng</div><div>尚無訂單</div></div>';
       return;
     }
-    const thS='padding:6px 8px;text-align:left;background:var(--sf);position:sticky;top:0;z-index:1;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:11px;font-weight:500;color:var(--mu)';
-    let html='<div class="orders-table-wrap"><table class="orders-progress-table"><thead><tr>';
+    const thS='padding:6px 8px;text-align:left;background:var(--sf);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:11px;font-weight:500;color:var(--mu)';
+    let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
     html+=`<th style="${thS};width:36px">No</th>`;
     html+=`<th style="${thS};width:80px">Khách hàng<br><span style="font-size:10px;font-weight:400">客人</span></th>`;
     html+=`<th style="${thS};width:110px">Số đơn hàng<br><span style="font-size:10px;font-weight:400">訂單號碼</span></th>`;
@@ -942,7 +942,7 @@ function toggleProgCodeDetail(ordId,code,detailId){
       <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.slPerHour||0).toLocaleString()}</td>
     </tr>`;
   }).join('');
-  detail.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--sf)">
+  detail.innerHTML=`<table class="orders-detail-table ui-table" data-ui-table-layout="special" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--sf)">
     <th style="padding:4px 6px;text-align:left;width:60px;font-size:11px">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
     <th style="padding:4px 6px;text-align:left;width:90px;font-size:11px">Phân loại<br><span style="font-weight:400;color:var(--mu)">加工分類</span></th>
     <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>

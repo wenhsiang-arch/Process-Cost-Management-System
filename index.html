@@ -706,7 +706,7 @@ tr:hover td{background:#f8fafc}
               </div>
               <div class="cutting-result-group" id="cut-missing-box" style="display:none">
                 <div class="cutting-result-subheader"><i class="ti ti-alert-triangle"></i><span class="cutting-section-copy ui-dual-copy"><strong>Mã hàng thiếu mẫu</strong><span>缺少模板款號</span></span></div>
-                <table>
+                <table class="ui-table" data-ui-table-layout="special">
                   <thead><tr>
                     <th>Trạng thái<br><span class="tv">狀態</span></th>
                     <th>Mã hàng<br><span class="tv">款號</span></th>
@@ -719,7 +719,7 @@ tr:hover td{background:#f8fafc}
               <!-- cut-error-box（裁帶錯誤區）：只顯示使用者可處理的款號、原因與處理方式。 -->
               <div class="cutting-result-group" id="cut-error-box" style="display:none">
                 <div class="cutting-result-subheader"><i class="ti ti-alert-circle"></i><span class="cutting-section-copy ui-dual-copy"><strong>Lỗi đơn hàng</strong><span>訂單錯誤</span></span></div>
-                <table class="cutting-error-table">
+                <table class="cutting-error-table ui-table" data-ui-table-layout="special">
                   <thead><tr>
                     <th>Mã hàng<br><span class="tv">款號</span></th>
                     <th>Nguyên nhân<br><span class="tv">原因</span></th>
@@ -1108,7 +1108,7 @@ tr:hover td{background:#f8fafc}
     </div>
     <div id="imp-prev" style="display:none">
       <p style="font-size:13px;margin-bottom:10px;color:var(--mu);font-weight:500">預覽（前5筆）</p>
-      <div class="to"><div class="ts" style="max-height:180px"><table id="prev-tbl"><thead></thead><tbody></tbody></table></div></div>
+      <div class="to"><div class="ts" style="max-height:180px"><table class="ui-table" id="prev-tbl" data-ui-table-layout="special"><thead></thead><tbody></tbody></table></div></div>
       <div class="br" style="margin-top:12px">
         <button class="btn bp" onclick="chkDup()"><i class="ti ti-check"></i>確認匯入</button>
         <button class="btn" onclick="xImp()"><i class="ti ti-x"></i>取消</button>
@@ -1216,7 +1216,7 @@ tr:hover td{background:#f8fafc}
     <div id="imp-step2" style="display:none">
       <div class="nt ns" id="imp-order-ok" style="margin-bottom:8px"></div>
       <div class="nt nw" id="imp-skip-msg" style="display:none;margin-bottom:8px"></div>
-      <div class="to" style="max-height:260px;overflow-y:auto"><table>
+      <div class="to" style="max-height:260px;overflow-y:auto"><table class="ui-table" id="order-import-preview-table" data-ui-table-layout="special">
         <thead><tr><th>Mã hàng<br><span style="font-size:10px;color:var(--mu)">款號</span></th><th>Mô tả<br><span style="font-size:10px;color:var(--mu)">說明</span></th><th>Màu<br><span style="font-size:10px;color:var(--mu)">顏色</span></th><th>SL<br><span style="font-size:10px;color:var(--mu)">數量</span></th><th>Số CĐ<br><span style="font-size:10px;color:var(--mu)">工序數</span></th><th>Trạng thái<br><span style="font-size:10px;color:var(--mu)">狀態</span></th></tr></thead>
         <tbody id="imp-preview-tb"></tbody>
       </table></div>
@@ -1243,7 +1243,7 @@ tr:hover td{background:#f8fafc}
 
   <div class="mb" id="m-order-adjust-history"><div class="md wide">
     <div class="mt2"><span><i class="ti ti-history"></i> Lịch sử điều chỉnh số lượng / 數量調整紀錄</span><button class="btn bsm" onclick="cm('m-order-adjust-history')"><i class="ti ti-x"></i></button></div>
-    <div class="to" style="max-height:520px;overflow:auto"><table><thead><tr>
+    <div class="to" style="max-height:520px;overflow:auto"><table class="ui-table" id="order-adjustment-history-table" data-ui-table-layout="special"><thead><tr>
       <th>Đơn hàng<br><span style="font-size:10px;color:var(--mu)">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu)">款號</span></th>
       <th>SL cũ<br><span style="font-size:10px;color:var(--mu)">原數量</span></th><th>SL mới<br><span style="font-size:10px;color:var(--mu)">新數量</span></th>
       <th>Lý do<br><span style="font-size:10px;color:var(--mu)">原因</span></th><th>Người thao tác<br><span style="font-size:10px;color:var(--mu)">操作者</span></th>
@@ -1288,7 +1288,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-table.js?v=20260810-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-4"></script>
+<script src="js/features.js?v=20260810-5"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

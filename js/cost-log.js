@@ -72,8 +72,8 @@
     const label=extraExpanded
       ? 'Thu gọn cài đặt / 收合計算設定'
       : 'Mở rộng cài đặt / 展開計算設定';
-    return `<div class="cost-log-table-scroll ui-table-scroll${expandedClass}">
-      <table class="cost-log-table ui-table">
+    return `<div class="cost-log-table-scroll ui-table-scroll${expandedClass}" data-ui-floating-scroll="only">
+      <table class="cost-log-table ui-table" id="cost-log-table" data-ui-table-layout="special" data-ui-table-sticky="original">
         <thead><tr>
           <th class="cost-log-time-head"><span>Thời gian</span><small>時間</small></th>
           <th class="cost-log-user-head"><span>Người thao tác</span><small>操作者</small></th>
