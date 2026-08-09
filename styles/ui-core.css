@@ -1341,7 +1341,6 @@ body.is-ui-table-resizing * {
 /* 只有浮動控制已成功接管時才隱藏原生捲軸；程式停用或離頁後會移除此類別並自動還原。 */
 .ui-table-scroll.is-ui-floating-only {
   box-sizing: border-box;
-  padding-bottom: 18px;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -1349,6 +1348,12 @@ body.is-ui-table-resizing * {
 .ui-table-scroll.is-ui-floating-only::-webkit-scrollbar {
   width: 0;
   height: 0;
+}
+
+/* 浮動捲軸的高度保留在每張表格自己的資料區底部，不再卡在短表格或空表頭下方。 */
+.ui-table-floating-anchor {
+  box-sizing: border-box;
+  padding-bottom: 18px;
 }
 
 .ui-notice {
