@@ -34,6 +34,27 @@
     'production-product-input','production-process-input','production-process-name','production-quantity-input'
   ]); // ENTRY_INPUT_IDS（生產登記鍵盤輸入順序）
 
+  const ENTRY_FIELD_LAYOUT_RULES = Object.freeze([
+    {inputId:'production-order-input',minimum:118,maximum:240,extra:52,emptyShrink:1.35,filledShrink:.35},
+    {inputId:'production-product-input',minimum:110,maximum:220,extra:52,emptyShrink:1.35,filledShrink:.35},
+    {inputId:'production-process-input',minimum:76,maximum:96,extra:50,emptyShrink:1.2,filledShrink:.25},
+    {inputId:'production-process-name',minimum:142,maximum:420,extra:24,emptyShrink:1.45,filledShrink:.8},
+    {inputId:'production-quantity-input',minimum:198,maximum:260,extra:24,emptyShrink:1.25,filledShrink:.35}
+  ]); // ENTRY_FIELD_LAYOUT_RULES（單列欄位依實際內容調整寬度的規則）
+
+  const ENTRY_TABLE_COLUMN_MINIMUMS = Object.freeze({
+    order:130,
+    product:135,
+    processNo:72,
+    processName:226,
+    quantity:110,
+    supplementHours:110,
+    orderQuantity:110,
+    processSeconds:90,
+    hourlyCapacity:105,
+    action:72
+  }); // ENTRY_TABLE_COLUMN_MINIMUMS（當日表格各可見欄位最低可讀寬度）
+
   const DROPDOWN_BINDINGS = Object.freeze({
     'production-employee-options':{inputId:'production-employee-input',toggleId:'production-employee-toggle'},
     'production-order-options':{inputId:'production-order-input',toggleId:'production-order-toggle'},
@@ -44,6 +65,7 @@
   const DROPDOWN_OPTION_IDS = Object.freeze(Object.keys(DROPDOWN_BINDINGS)); // DROPDOWN_OPTION_IDS（全部搜尋下拉選單識別碼）
   const dropdownInteractions = new Map(); // dropdownInteractions（搜尋下拉目前鍵盤選取狀態）
   let stickyHeaderRuntime = null; // stickyHeaderRuntime（當日表格凍結表頭執行狀態）
+  let entryFieldLayoutFrame = 0; // entryFieldLayoutFrame（等待中的單列欄位寬度更新）
 
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
@@ -101,6 +123,43 @@
     selectAll.indeterminate = selectedCount > 0 && selectedCount < toggles.length;
   }
 
+  function entryFieldPreferredWidth(value,rule){
+    const contentLength = Array.from(String(value || '').trim()).length;
+    const measured = Math.ceil(contentLength*8 + rule.extra);
+    return Math.max(rule.minimum,Math.min(rule.maximum,measured));
+  }
+
+  function updateEntryFieldLayout(){
+    entryFieldLayoutFrame = 0;
+    ENTRY_FIELD_LAYOUT_RULES.forEach(rule=>{
+      const input = element(rule.inputId);
+      const field = input?.closest('.production-field');
+      if(!input || !field) return;
+      const value = String(input.value || '').trim();
+      field.style.setProperty('--production-field-basis',`${entryFieldPreferredWidth(value,rule)}px`);
+      field.style.setProperty('--production-field-shrink',String(value ? rule.filledShrink : rule.emptyShrink));
+      if(rule.inputId === 'production-order-input' || rule.inputId === 'production-product-input'){
+        if(value) input.title = value;
+        else input.removeAttribute('title');
+      }
+    });
+  }
+
+  function scheduleEntryFieldLayout(){
+    if(entryFieldLayoutFrame) return;
+    entryFieldLayoutFrame = window.requestAnimationFrame(updateEntryFieldLayout);
+  }
+
+  function updateEntryTableMinimumWidth(table){
+    const visibleColumns = Array.from(table.querySelectorAll('thead [data-production-column]'))
+      .filter(cell=>!cell.classList.contains('is-column-hidden'))
+      .map(cell=>cell.dataset.productionColumn);
+    const minimumWidth = visibleColumns.reduce((total,key)=>total+(ENTRY_TABLE_COLUMN_MINIMUMS[key] || 0),0);
+    table.style.setProperty('--production-entry-table-min-width',`${minimumWidth}px`);
+    window.PCMSUITable?.refresh?.();
+    return visibleColumns.length;
+  }
+
   function applyColumnVisibility(){
     const table = element('production-entry-table-body')?.closest('table');
     if(!table) return;
@@ -115,8 +174,7 @@
     const operationOption = element('production-operation-column-option');
     if(operationOption) operationOption.hidden = !isAdmin();
     syncSelectAllControl();
-    const visibleColumnCount = Array.from(table.querySelectorAll('thead [data-production-column]'))
-      .filter(cell=>!cell.classList.contains('is-column-hidden')).length;
+    const visibleColumnCount = updateEntryTableMinimumWidth(table);
     const frame = element('production-entry-table-frame');
     const noColumns = element('production-columns-empty');
     if(frame) frame.hidden = visibleColumnCount === 0;
@@ -349,6 +407,7 @@
     const processZh = String(process?.processZh || '').trim();
     host.value = processVi || processZh || '';
     host.title = [processVi,processZh].filter(Boolean).join(' / ');
+    scheduleEntryFieldLayout();
   }
 
   function setSupplementMode(enabled,options={}){
@@ -385,6 +444,7 @@
     resetQuantityProgress();
     closeDropdown('production-process-options');
     syncDropdownAvailability();
+    scheduleEntryFieldLayout();
   }
 
   function clearEmployee(){
@@ -991,6 +1051,7 @@
     date.max = maximum;
     if(date.value > maximum) date.value = maximum;
     if(next) next.disabled = !date.value || date.value >= maximum;
+    scheduleEntryFieldLayout();
   }
 
   function setProductionDate(value,{auto=false}={}){
@@ -1057,6 +1118,7 @@
     element('production-product-input').addEventListener('input',handleProductInput);
     element('production-process-input').addEventListener('input',handleProcessInput);
     element('production-quantity-input').addEventListener('input',renderQuantityProgress);
+    ENTRY_FIELD_LAYOUT_RULES.forEach(rule=>element(rule.inputId)?.addEventListener('input',scheduleEntryFieldLayout));
     element('production-process-name').addEventListener('keydown',event=>{
       if(event.key !== 'Enter' || !state.supplementMode) return;
       event.preventDefault();
@@ -1104,6 +1166,7 @@
     });
     syncDropdownAvailability();
     applyColumnVisibility();
+    scheduleEntryFieldLayout();
   }
 
   async function loadProductionEntryData(options={}){
@@ -1118,6 +1181,7 @@
     init();
     if(state.dateAuto) element('production-date-input').value = today();
     syncDateControls();
+    scheduleEntryFieldLayout();
     startDateTimer();
     startProductionStickyHeader();
     if(state.employee) await loadDailyRows();
@@ -1126,6 +1190,8 @@
   function productionEntryLeave(){
     stopDateTimer();
     stopProductionStickyHeader();
+    if(entryFieldLayoutFrame) window.cancelAnimationFrame(entryFieldLayoutFrame);
+    entryFieldLayoutFrame = 0;
     DROPDOWN_OPTION_IDS.forEach(closeDropdown);
     closeColumnSettings();
   }

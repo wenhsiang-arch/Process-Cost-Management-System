@@ -221,17 +221,56 @@
 }
 
 .production-entry-fields {
-  display: grid;
-  width: min(100%, 1040px);
+  display: flex;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  grid-template-columns: minmax(0, .98fr) minmax(0, 1.2fr) minmax(0, 1.08fr) minmax(0, .62fr) minmax(0, 1.38fr) minmax(0, 1.1fr);
-  column-gap: clamp(6px, .8vw, 12px);
-  row-gap: 10px;
+  flex-wrap: nowrap;
+  gap: clamp(6px, .8vw, 12px);
   align-content: start;
   align-items: end;
   padding: 10px 12px 12px;
+}
+
+.production-entry-fields > .production-field {
+  width: auto;
+  flex: var(--production-field-grow, 1) var(--production-field-shrink, 1) var(--production-field-basis, 0px);
+}
+
+.production-entry-fields > .production-date-field {
+  min-width: 176px;
+  max-width: 176px;
+  flex: 0 0 176px;
+}
+
+.production-entry-fields > .production-order-field {
+  min-width: 118px;
+  max-width: 240px;
+  --production-field-grow: 1.1;
+}
+
+.production-entry-fields > .production-product-field {
+  min-width: 110px;
+  max-width: 220px;
+  --production-field-grow: 1;
+}
+
+.production-entry-fields > .production-process-field {
+  min-width: 76px;
+  max-width: 96px;
+  --production-field-grow: .45;
+}
+
+.production-entry-fields > .production-process-name-field {
+  min-width: 142px;
+  --production-field-grow: 1.65;
+}
+
+.production-entry-fields > .production-quantity-field {
+  min-width: 198px;
+  max-width: 260px;
+  --production-field-grow: 1;
 }
 
 .production-field {
@@ -822,8 +861,9 @@
 
 .production-entry-table {
   --production-table-header-offset: 0px;
-  width: clamp(1160px, 100%, 1320px);
-  min-width: 1160px;
+  width: 100%;
+  min-width: var(--production-entry-table-min-width, 1160px);
+  max-width: none;
   table-layout: fixed;
 }
 

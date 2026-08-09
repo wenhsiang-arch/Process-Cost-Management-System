@@ -1122,7 +1122,7 @@
   white-space: nowrap;
 }
 
-/* 浮動水平捲軸只在原表格捲軸離開可視範圍時出現，並沿用原捲動區的位置。 */
+/* 浮動水平捲軸沿用原捲動區的位置；指定 only（唯一）模式時由它接管可見的水平操作。 */
 .ui-table-floating-scroll {
   position: fixed;
   z-index: 24;
@@ -1148,6 +1148,19 @@
 .ui-table-floating-scroll-spacer {
   width: 0;
   height: 1px;
+}
+
+/* 只有浮動控制已成功接管時才隱藏原生捲軸；程式停用或離頁後會移除此類別並自動還原。 */
+.ui-table-scroll.is-ui-floating-only {
+  box-sizing: border-box;
+  padding-bottom: 18px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.ui-table-scroll.is-ui-floating-only::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .ui-notice {

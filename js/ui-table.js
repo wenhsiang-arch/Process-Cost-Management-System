@@ -1,6 +1,7 @@
 // ui-table.js（共用表格控制）：讓超寬表格在主內容可視底部提供同步水平捲軸。
 (function(){
   const TABLE_SCROLL_SELECTOR = '.ui-table-scroll'; // TABLE_SCROLL_SELECTOR（正式表格水平捲動區）
+  const FLOATING_ONLY_CLASS = 'is-ui-floating-only'; // FLOATING_ONLY_CLASS（浮動捲軸接管原始捲軸的狀態）
   const MIN_OVERFLOW_PX = 2; // MIN_OVERFLOW_PX（判定超寬的最小差距）
   const FALLBACK_BAR_HEIGHT = 18; // FALLBACK_BAR_HEIGHT（浮動捲軸預設備用高度）
   let activePageName = ''; // activePageName（目前套用共用表格控制的頁面）
@@ -42,7 +43,12 @@
     return floatingScroll;
   }
 
+  function releaseActiveTarget(){
+    activeTarget?.classList?.remove?.(FLOATING_ONLY_CLASS);
+  }
+
   function hideFloatingScroll(){
+    releaseActiveTarget();
     activeTarget = null;
     if(floatingSpacer) floatingSpacer.style.width = '0px';
     if(!floatingScroll) return;
@@ -60,6 +66,10 @@
     if(Number(element.scrollWidth) <= Number(element.clientWidth) + MIN_OVERFLOW_PX) return false;
     const overflowX = String(window.getComputedStyle?.(element)?.overflowX || '');
     return overflowX === 'auto' || overflowX === 'scroll';
+  }
+
+  function isFloatingOnly(element){
+    return element?.dataset?.uiFloatingScroll === 'only';
   }
 
   function visibleContentRect(){
@@ -94,10 +104,10 @@
   function chooseTarget(contentRect){
     const candidates = refreshObservedTargets()
       .filter(isHorizontalScroller)
-      .map(element=>({element,rect:element.getBoundingClientRect()}))
+      .map(element=>({element,rect:element.getBoundingClientRect(),floatingOnly:isFloatingOnly(element)}))
       .filter(item=>item.rect.top < contentRect.bottom-FALLBACK_BAR_HEIGHT
-        && item.rect.bottom > contentRect.bottom+1
-        && item.rect.bottom > contentRect.top)
+        && item.rect.bottom > contentRect.top
+        && (item.floatingOnly || item.rect.bottom > contentRect.bottom+1))
       .sort((left,right)=>right.rect.top-left.rect.top);
     return candidates[0] || null;
   }
@@ -133,15 +143,18 @@
       hideFloatingScroll();
       return;
     }
+    if(activeTarget !== candidate.element) releaseActiveTarget();
     activeTarget = candidate.element;
     floatingSpacer.style.width = `${Math.max(activeTarget.scrollWidth,width)}px`;
     bar.style.left = `${left}px`;
     bar.style.width = `${width}px`;
     const barHeight = Number(bar.offsetHeight) || FALLBACK_BAR_HEIGHT;
-    bar.style.top = `${Math.max(contentRect.top,contentRect.bottom-barHeight)}px`;
+    const visibleBottom = candidate.floatingOnly ? Math.min(contentRect.bottom,candidate.rect.bottom) : contentRect.bottom;
+    bar.style.top = `${Math.max(contentRect.top,visibleBottom-barHeight)}px`;
     bar.scrollLeft = activeTarget.scrollLeft;
     bar.classList.add('is-visible');
     bar.setAttribute('aria-hidden','false');
+    activeTarget.classList?.toggle?.(FLOATING_ONLY_CLASS,candidate.floatingOnly);
   }
 
   function scheduleUpdate(){

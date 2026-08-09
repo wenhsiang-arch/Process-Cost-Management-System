@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260809-5">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260810-1">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -411,7 +411,7 @@ tr:hover td{background:#f8fafc}
                 </span>
               </button>
             </div>
-            <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll"><table class="ui-table production-entry-table">
+            <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-entry-table">
               <thead><tr>
                 <th data-production-column="order"><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
                 <th data-production-column="product"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
@@ -451,7 +451,7 @@ tr:hover td{background:#f8fafc}
           </section>
           <section class="production-data-section ui-data-section">
             <div class="ui-section-header"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử sản xuất</strong><span>生產紀錄</span></span><span class="production-section-count"><span id="production-records-count">0</span> dòng / 筆</span></div>
-            <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table production-records-table">
+            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table">
               <thead><tr>
                 <th><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
                 <th><span class="ui-dual-copy"><strong>Nhân viên</strong><span>員工</span></span></th>
@@ -1301,10 +1301,10 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-runtime.js?v=20260807-1"></script>
 <script src="js/ui-components.js?v=20260809-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
-<script src="js/ui-table.js?v=20260809-1"></script>
+<script src="js/ui-table.js?v=20260810-1"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-1"></script>
+<script src="js/features.js?v=20260810-2"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
