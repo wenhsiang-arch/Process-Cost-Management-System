@@ -239,6 +239,7 @@
     const table = document.createElement('table');
     table.className = 'production-table production-department-table ui-table';
     table.dataset.uiTableLayout = 'special';
+    table.dataset.uiTableSticky = 'container';
     const head = document.createElement('thead');
     const headRow = document.createElement('tr');
     [['Bộ phận','部門'],['Trạng thái','狀態'],['Thao tác','操作']].forEach(([vi,zh])=>{

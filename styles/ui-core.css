@@ -950,6 +950,15 @@
   line-height: 1.25;
   text-align: left;
   vertical-align: middle;
+  white-space: nowrap;
+}
+
+.ui-table th .tv {
+  display: block;
+  margin-top: 1px;
+  color: var(--ui-color-text-subtle);
+  font-size: 9px;
+  font-weight: 400;
 }
 
 .ui-table td {
@@ -958,10 +967,23 @@
   border-bottom: var(--ui-border-width) solid var(--ui-color-border);
   background: var(--ui-color-surface);
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .ui-table tbody tr:hover td {
   background: var(--ui-color-row-hover);
+}
+
+/* container（表格內部捲動容器凍結）：只供彈窗或獨立預覽區使用，不跟隨主頁卷軸位移。 */
+.ui-table[data-ui-table-sticky="container"] thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.ui-table[data-ui-table-sticky="container"] thead th {
+  background: var(--ui-color-table-header);
+  background-clip: padding-box;
 }
 
 /* 原表頭凍結沿用同一張表格，不建立複製表頭，欄寬會與資料列保持同一基準。 */
