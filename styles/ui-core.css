@@ -1310,7 +1310,7 @@ body.is-ui-table-resizing * {
   display: none;
 }
 
-/* 浮動水平捲軸沿用原捲動區的位置；指定 only（唯一）模式時由它接管可見的水平操作。 */
+/* 浮動水平捲軸固定在頁面主內容可視底部；指定 only（唯一）模式時由它接管可見的水平操作。 */
 .ui-table-floating-scroll {
   position: fixed;
   z-index: 24;
@@ -1338,7 +1338,7 @@ body.is-ui-table-resizing * {
   height: 1px;
 }
 
-/* 只有浮動控制已成功接管時才隱藏原生捲軸；程式停用或離頁後會移除此類別並自動還原。 */
+/* 共用控制啟用期間隱藏功能框內的原始捲軸；離開功能後移除此類別並自動還原。 */
 .ui-table-scroll.is-ui-floating-only {
   box-sizing: border-box;
   -ms-overflow-style: none;
@@ -1348,12 +1348,6 @@ body.is-ui-table-resizing * {
 .ui-table-scroll.is-ui-floating-only::-webkit-scrollbar {
   width: 0;
   height: 0;
-}
-
-/* 浮動捲軸的高度保留在每張表格自己的資料區底部，不再卡在短表格或空表頭下方。 */
-.ui-table-floating-anchor {
-  box-sizing: border-box;
-  padding-bottom: 18px;
 }
 
 .ui-notice {

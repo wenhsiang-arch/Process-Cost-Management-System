@@ -1,11 +1,8 @@
 // ui-table.js（共用表格控制）：讓超寬表格在主內容可視底部提供同步水平捲軸。
 (function(){
   const TABLE_SCROLL_SELECTOR = '.ui-table-scroll'; // TABLE_SCROLL_SELECTOR（正式表格水平捲動區）
-  const TABLE_FRAME_SELECTOR = '.ui-table-frame'; // TABLE_FRAME_SELECTOR（單張表格外框）
-  const DATA_SECTION_SELECTOR = '.ui-data-section'; // DATA_SECTION_SELECTOR（表格所屬完整資料區）
   const STICKY_TABLE_SELECTOR = 'table[data-ui-table-sticky="original"]'; // STICKY_TABLE_SELECTOR（使用原表頭凍結的表格）
   const FLOATING_ONLY_CLASS = 'is-ui-floating-only'; // FLOATING_ONLY_CLASS（浮動捲軸接管原始捲軸的狀態）
-  const FLOATING_ANCHOR_CLASS = 'is-ui-floating-anchor'; // FLOATING_ANCHOR_CLASS（在資料區底部保留捲軸位置）
   const STICKY_CLASS = 'is-ui-header-frozen'; // STICKY_CLASS（原表頭目前已凍結）
   const MIN_OVERFLOW_PX = 2; // MIN_OVERFLOW_PX（判定超寬的最小差距）
   const FALLBACK_BAR_HEIGHT = 18; // FALLBACK_BAR_HEIGHT（浮動捲軸預設備用高度）
@@ -15,7 +12,6 @@
   let floatingScroll = null; // floatingScroll（浮動水平捲軸）
   let floatingSpacer = null; // floatingSpacer（提供完整水平距離的空白內容）
   let activeTarget = null; // activeTarget（目前與浮動捲軸同步的表格捲動區）
-  let activeAnchor = null; // activeAnchor（目前用來定位捲軸底部的資料區或表格框）
   let frameId = 0; // frameId（等待中的畫面更新工作）
   let resizeObserver = null; // resizeObserver（尺寸變更觀察器）
   let mutationObserver = null; // mutationObserver（表格結構變更觀察器）
@@ -49,14 +45,7 @@
     return floatingScroll;
   }
 
-  function releaseActiveTarget(){
-    activeTarget?.classList?.remove?.(FLOATING_ONLY_CLASS);
-    activeAnchor?.classList?.remove?.(FLOATING_ANCHOR_CLASS);
-    activeAnchor = null;
-  }
-
   function hideFloatingScroll(){
-    releaseActiveTarget();
     activeTarget = null;
     if(floatingSpacer) floatingSpacer.style.width = '0px';
     if(!floatingScroll) return;
@@ -82,22 +71,22 @@
   }
 
   function isHorizontalScroller(element){
-    if(isHidden(element) || element.dataset?.uiFloatingScroll === 'off') return false;
+    if(isHidden(element)) return false;
     if(Number(element.scrollWidth) <= Number(element.clientWidth) + MIN_OVERFLOW_PX) return false;
     const overflowX = String(window.getComputedStyle?.(element)?.overflowX || '');
     return overflowX === 'auto' || overflowX === 'scroll';
   }
 
-  function isFloatingOnly(element){
+  function isManagedScroller(element){
     return element?.dataset?.uiFloatingScroll === 'only';
   }
 
-  function resolveFloatingAnchor(element){
-    const frame = element?.closest?.(TABLE_FRAME_SELECTOR);
-    const section = frame?.closest?.(DATA_SECTION_SELECTOR) || element?.closest?.(DATA_SECTION_SELECTOR);
-    const sectionTargets = section?.querySelectorAll?.(TABLE_SCROLL_SELECTOR);
-    if(section && sectionTargets?.length === 1 && sectionTargets[0] === element) return section;
-    return frame || element;
+  function shouldShowFloating(){
+    if(!scrollHost) return false;
+    const scrollHeight = Number(scrollHost.scrollHeight) || 0;
+    const clientHeight = Number(scrollHost.clientHeight) || 0;
+    if(scrollHeight <= clientHeight + MIN_OVERFLOW_PX) return true;
+    return (Number(scrollHost.scrollTop) || 0) > MIN_OVERFLOW_PX;
   }
 
   function visibleContentRect(){
@@ -114,13 +103,15 @@
 
   function refreshObservedTargets(){
     if(!activePage) return [];
-    const latest = new Set(Array.from(activePage.querySelectorAll(TABLE_SCROLL_SELECTOR)));
+    const latest = new Set(Array.from(activePage.querySelectorAll(TABLE_SCROLL_SELECTOR)).filter(isManagedScroller));
     observedTargets.forEach(target=>{
       if(latest.has(target)) return;
       target.removeEventListener('scroll',handleTargetScroll);
       resizeObserver?.unobserve?.(target);
+      target.classList?.remove?.(FLOATING_ONLY_CLASS);
     });
     latest.forEach(target=>{
+      target.classList?.add?.(FLOATING_ONLY_CLASS);
       if(observedTargets.has(target)) return;
       target.addEventListener('scroll',handleTargetScroll,{passive:true});
       resizeObserver?.observe?.(target);
@@ -130,22 +121,14 @@
   }
 
   function chooseTarget(contentRect){
-    const candidates = refreshObservedTargets()
+    const targets = refreshObservedTargets();
+    if(!shouldShowFloating()) return null;
+    const candidates = targets
       .filter(isHorizontalScroller)
-      .map(element=>{
-        const anchor = resolveFloatingAnchor(element);
-        return {
-          element,
-          anchor,
-          rect:element.getBoundingClientRect(),
-          anchorRect:anchor.getBoundingClientRect(),
-          floatingOnly:isFloatingOnly(element)
-        };
-      })
-      .filter(item=>item.anchorRect.top < contentRect.bottom-FALLBACK_BAR_HEIGHT
-        && item.anchorRect.bottom > contentRect.top
-        && (item.floatingOnly || item.anchorRect.bottom > contentRect.bottom+1))
-      .sort((left,right)=>right.anchorRect.top-left.anchorRect.top);
+      .map(element=>({element,rect:element.getBoundingClientRect()}))
+      .filter(item=>item.rect.top < contentRect.bottom-FALLBACK_BAR_HEIGHT
+        && item.rect.bottom > contentRect.top)
+      .sort((left,right)=>right.rect.top-left.rect.top);
     return candidates[0] || null;
   }
 
@@ -202,18 +185,12 @@
       hideFloatingScroll();
       return;
     }
-    if(activeTarget !== candidate.element || activeAnchor !== candidate.anchor) releaseActiveTarget();
     activeTarget = candidate.element;
-    activeAnchor = candidate.anchor;
-    activeTarget.classList?.toggle?.(FLOATING_ONLY_CLASS,candidate.floatingOnly);
-    activeAnchor.classList?.toggle?.(FLOATING_ANCHOR_CLASS,candidate.floatingOnly);
-    const anchorRect = activeAnchor.getBoundingClientRect();
     floatingSpacer.style.width = `${Math.max(activeTarget.scrollWidth,width)}px`;
     bar.style.left = `${left}px`;
     bar.style.width = `${width}px`;
     const barHeight = Number(bar.offsetHeight) || FALLBACK_BAR_HEIGHT;
-    const visibleBottom = candidate.floatingOnly ? Math.min(contentRect.bottom,anchorRect.bottom) : contentRect.bottom;
-    bar.style.top = `${Math.max(contentRect.top,visibleBottom-barHeight)}px`;
+    bar.style.top = `${Math.max(contentRect.top,contentRect.bottom-barHeight)}px`;
     bar.scrollLeft = activeTarget.scrollLeft;
     bar.classList.add('is-visible');
     bar.setAttribute('aria-hidden','false');
@@ -229,7 +206,10 @@
     mutationObserver?.disconnect?.();
     resizeObserver = null;
     mutationObserver = null;
-    observedTargets.forEach(target=>target.removeEventListener('scroll',handleTargetScroll));
+    observedTargets.forEach(target=>{
+      target.removeEventListener('scroll',handleTargetScroll);
+      target.classList?.remove?.(FLOATING_ONLY_CLASS);
+    });
     observedTargets.clear();
   }
 
