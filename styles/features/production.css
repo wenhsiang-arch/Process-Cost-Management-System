@@ -213,7 +213,7 @@
 }
 
 .production-employee-command {
-  grid-template-columns: minmax(0, 1fr) 150px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .production-entry-fields {
@@ -235,9 +235,9 @@
 }
 
 .production-entry-fields > .production-date-field {
-  min-width: 176px;
-  max-width: 176px;
-  flex: 0 0 176px;
+  min-width: 160px;
+  max-width: 160px;
+  flex: 0 0 160px;
 }
 
 .production-entry-fields > .production-order-field {
@@ -426,7 +426,7 @@
 }
 
 .production-date-control input {
-  padding-right: 35px;
+  padding-right: 28px;
 }
 
 .production-date-control input::-webkit-calendar-picker-indicator {
@@ -436,15 +436,13 @@
 
 .production-date-stepper {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  bottom: 1px;
+  top: 50%;
+  right: 6px;
   display: grid;
-  width: 30px;
+  width: 16px;
+  height: 28px;
   grid-template-rows: 1fr 1fr;
-  border-left: 1px solid var(--ui-color-border);
-  border-radius: 0 calc(var(--ui-radius-control) - 1px) calc(var(--ui-radius-control) - 1px) 0;
-  overflow: hidden;
+  transform: translateY(-50%);
 }
 
 .production-date-stepper button {
@@ -453,18 +451,19 @@
   justify-content: center;
   padding: 0;
   border: 0;
-  background: var(--ui-color-surface);
-  color: var(--ui-color-primary);
+  background: transparent;
+  color: var(--ui-color-text-muted);
   cursor: pointer;
-  font-size: 11px;
+  font-size: 9px;
+  line-height: 1;
 }
 
 .production-date-stepper button + button {
-  border-top: 1px solid var(--ui-color-border);
+  border-top: 0;
 }
 
 .production-date-stepper button:hover:not(:disabled) {
-  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
 }
 
 .production-date-stepper button:disabled {
@@ -878,21 +877,25 @@
   min-width: 0;
   height: auto;
   box-sizing: border-box;
-  grid-template-columns: minmax(0, .9fr) minmax(0, .9fr) repeat(3, minmax(0, 1.15fr));
-  gap: 10px;
+  grid-template-columns: minmax(136px, .8fr) minmax(136px, .8fr) minmax(240px, 1.8fr) minmax(150px, .85fr) minmax(200px, auto);
+  gap: 8px;
   align-items: end;
 }
 
 .production-filter-actions {
-  display: flex;
-  grid-column: 3 / -1;
-  gap: 8px;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(82px, .9fr) minmax(104px, 1.1fr);
+  gap: 6px;
   align-items: flex-end;
-  justify-content: flex-end;
 }
 
 .production-filter-button {
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
+  padding: 4px 8px;
 }
 
 .production-record-actions {
@@ -994,19 +997,33 @@
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 154px minmax(150px, .8fr) minmax(190px, 1.2fr) 128px 116px minmax(230px, auto);
-  gap: 10px;
+  grid-template-columns: minmax(124px, .85fr) minmax(120px, .8fr) minmax(160px, 1.2fr) minmax(96px, .65fr) minmax(96px, .65fr) minmax(188px, 1fr);
+  gap: 8px;
   align-items: end;
 }
 
 .production-attendance-actions {
   display: flex;
-  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  gap: 6px;
   justify-content: flex-end;
 }
 
 .production-attendance-actions .ui-button {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 0;
   min-height: 44px;
+  padding: 4px 7px;
+}
+
+.production-attendance-actions .ui-dual-copy > strong {
+  font-size: 11px;
+}
+
+.production-attendance-actions .ui-dual-copy > span {
+  font-size: 9px;
 }
 
 .production-attendance-table {
@@ -1063,20 +1080,9 @@
 
 .production-employee-fields {
   display: grid;
-  grid-template-columns: 150px minmax(220px, 1fr) minmax(220px, 1fr);
-  gap: 12px;
+  grid-template-columns: minmax(128px, .65fr) minmax(180px, 1.15fr) minmax(170px, 1fr) minmax(190px, auto);
+  gap: 10px;
   align-items: end;
-}
-
-.production-department-control {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px 32px;
-  gap: 6px;
-  align-items: center;
-}
-
-.production-department-control .production-row-button {
-  height: 36px;
 }
 
 .production-employee-command > :first-child {
@@ -1085,10 +1091,23 @@
 }
 
 .production-employee-form-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 10px;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(72px, .75fr) minmax(106px, 1.1fr);
+  gap: 6px;
+  align-items: end;
+}
+
+.production-employee-form-actions .ui-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 8px;
+}
+
+.production-employee-form-actions .ui-button > i {
+  color: inherit;
 }
 
 .production-employee-table-tools {
@@ -1211,8 +1230,8 @@
   }
 
   .production-attendance-fields {
-    grid-template-columns: 144px minmax(130px, .8fr) minmax(160px, 1fr) 112px 104px minmax(210px, auto);
-    gap: 8px;
+    grid-template-columns: minmax(0, .85fr) minmax(0, .8fr) minmax(0, 1.15fr) minmax(0, .65fr) minmax(0, .65fr) minmax(176px, 1fr);
+    gap: 6px;
   }
 
   .production-command-action {
@@ -1222,15 +1241,13 @@
   }
 
   .production-filter-grid {
-    grid-template-columns: minmax(0, .9fr) minmax(0, .9fr) repeat(2, minmax(0, 1.15fr));
-  }
-
-  .production-filter-actions {
-    grid-column: 3 / -1;
+    grid-template-columns: minmax(0, .85fr) minmax(0, .85fr) minmax(0, 1.5fr) minmax(0, .8fr) minmax(168px, 1fr);
+    gap: 6px;
   }
 
   .production-employee-fields {
-    grid-template-columns: 140px minmax(190px, 1fr) minmax(180px, 1fr);
+    grid-template-columns: minmax(112px, .65fr) minmax(0, 1.15fr) minmax(0, 1fr) minmax(176px, auto);
+    gap: 8px;
   }
 
   .production-employee-table-tools {

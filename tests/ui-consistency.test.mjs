@@ -48,16 +48,16 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-section-header-min-height:\s*34px/);
   assert.match(core,/--ui-table-cell-padding-block:\s*5px/);
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
-  assert.match(html,/styles\/ui-core\.css\?v=20260810-6/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260810-8/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260810-9/);
+  assert.match(html,/js\/features\.js\?v=20260810-11/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260810-2'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260810-1'/);
   assert.match(features,/sync:'styles\/features\/sync\.css\?v=20260810-2'/);
   assert.match(features,/cost:'styles\/features\/cost\.css\?v=20260810-2'/);
   assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260810-2'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-7'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-8'/);
   assert.match(accounts,/\.permission-matrix-table tbody td \{[\s\S]*?height: 38px;[\s\S]*?padding: 4px 7px;/);
   assert.match(cost,/\.cost-log-table th \{[\s\S]*?height: 52px;/);
   assert.match(cost,/\.cost-log-table td \{[\s\S]*?height: 54px;/);
@@ -73,7 +73,7 @@ test('超寬正式表格使用共用浮動水平捲軸且不建立第二條垂�
   const source=read('js/ui-table.js');
   const core=read('styles/ui-core.css');
   const specification=read('UI設計規範與參照/介面設計規範.md');
-  assert.match(html,/styles\/ui-core\.css\?v=20260810-6/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260810-8/);
   assert.match(html,/js\/ui-table\.js\?v=20260810-2/);
   assert.match(source,/TABLE_SCROLL_SELECTOR = '\.ui-table-scroll'/);
   assert.match(source,/scrollWidth[\s\S]*?clientWidth[\s\S]*?overflowX === 'auto'/);
@@ -299,6 +299,7 @@ test('第一批正式表格支援拖曳欄寬、雙擊自動符合及恢復預�
   const controls=read('js/ui-table-controls.js');
   const core=read('styles/ui-core.css');
   const features=read('js/features.js');
+  const specification=read('UI設計規範與參照/介面設計規範.md');
   for(const id of ['summary-main-table','production-entry-table','production-records-table','production-attendance-table']){
     assert.match(html,new RegExp(`id="${id}"[^>]*data-ui-table-resizable="true"`),`${id}（第一批表格）未啟用使用者欄寬調整`);
   }
@@ -308,10 +309,21 @@ test('第一批正式表格支援拖曳欄寬、雙擊自動符合及恢復預�
   assert.match(controls,/addEventListener\('pointerdown',handleResizePointerDown\)/);
   assert.match(controls,/addEventListener\('dblclick',handleResizeDoubleClick\)/);
   assert.match(controls,/function resetColumnWidths\(\)/);
-  assert.match(controls,/if\(event\.target\?\.closest\?\.\(RESIZE_HANDLE_SELECTOR\)\) return;/);
+  assert.match(controls,/SORT_TRIGGER_SELECTOR = '\[data-ui-table-sort-trigger\]'/);
+  assert.match(controls,/const trigger = event\.target\?\.closest\?\.\(SORT_TRIGGER_SELECTOR\)/);
+  assert.match(controls,/function headerMinimumWidth\(column\)/);
+  assert.match(controls,/ti ti-arrows-horizontal/);
+  assert.match(controls,/createDualCopy\(\{vi:'Mặc định',zh:'恢復預設'\}\)/);
   assert.match(core,/\.ui-table-resize-handle \{[\s\S]*?cursor: col-resize;[\s\S]*?touch-action: none;/);
+  assert.match(core,/\.ui-table-resize-handle \{[\s\S]*?width: 18px;[\s\S]*?height: 24px;[\s\S]*?border-radius: 999px;/);
+  assert.match(core,/th:hover > \.ui-table-resize-handle/);
+  assert.doesNotMatch(core,/\.ui-table-resize-handle::after/);
+  assert.match(core,/\.ui-table-sort-trigger \{[\s\S]*?width: 20px;[\s\S]*?height: 20px;/);
   assert.match(core,/body\.is-ui-table-resizing,[\s\S]*?cursor: col-resize !important;/);
-  assert.match(features,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-3'/);
+  assert.match(features,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-4'/);
+  assert.match(specification,/只有越文標題右側的排序箭頭可觸發排序/);
+  assert.match(specification,/最小寬度以完整表頭為準/);
+  assert.doesNotMatch(specification,/整個可排序表頭都能以滑鼠點擊/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{

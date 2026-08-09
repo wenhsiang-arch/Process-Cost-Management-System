@@ -242,8 +242,11 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
   assert.match(employeePage,/active:state\.editingId \? existing\?\.active === true : true/);
   assert.doesNotMatch(employeePage,/production-employee-active/);
   assert.match(html,/<select id="production-employee-department-input">/);
-  assert.match(html,/id="production-department-add-button"/);
-  assert.match(html,/id="production-department-manage-button"/);
+  assert.match(html,/<option value="__manage__">Quản lý bộ phận \/ 部門管理<\/option>/);
+  assert.doesNotMatch(html,/id="production-department-(?:add|manage)-button"/);
+  assert.match(employeePage,/const MANAGE_DEPARTMENT_VALUE = '__manage__'/);
+  assert.match(employeePage,/function handleDepartmentSelection\(\)[\s\S]*?openDepartmentManager\(\)/);
+  assert.match(employeePage,/production-employee-department-input'\)\.addEventListener\('change',handleDepartmentSelection\)/);
   assert.match(employeeStore,/async function departmentInUse/);
   assert.match(employeeStore,/_where\('department','==',normalized\)/);
   assert.match(employeeStore,/productionDepartmentCreate/);
@@ -280,7 +283,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-7'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-8'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -385,13 +388,61 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog \{[\s\S]*?--production-dialog-center-x/);
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-3'/);
-  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260810-1'/);
+  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260810-2'/);
   assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260810-1'/);
   assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-4'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-1'/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-2'/);
   assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260810-1'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-7'/);
-  assert.match(html,/js\/features\.js\?v=20260810-9/);
+  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-3'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-8'/);
+  assert.match(html,/js\/features\.js\?v=20260810-11/);
+});
+
+test('產能三個藍底操作區維持單排且生產紀錄使用綜合搜尋',()=>{
+  const html=read('index.html');
+  const records=read('js/production/production-records.js');
+  const reportStore=read('js/production/report-store.js');
+  const employees=read('js/production/production-employees.js');
+  const style=read('styles/features/production.css');
+  const core=read('styles/ui-core.css');
+  assert.match(html,/id="production-record-search"[^>]*placeholder="Mã, đơn hàng, mã hàng, công đoạn \/ 工號、訂單、款號、工序"/);
+  assert.doesNotMatch(html,/id="production-record-(?:employee|order|product|process)"/);
+  assert.match(records,/search:element\('production-record-search'\)\.value/);
+  assert.match(records,/element\('production-record-search'\)\.addEventListener\('input',render\)/);
+  assert.match(reportStore,/function searchTokens\(value\)/);
+  assert.match(reportStore,/tokens\.every\(token=>searchable\.includes\(token\)\)/);
+  assert.match(reportStore,/item\.employeeId,item\.displayEmployeeName,item\.employeeName,item\.department/);
+  assert.match(reportStore,/item\.orderNo,item\.productCode,item\.processNo,item\.processNameVi,item\.processNameZh/);
+  assert.match(style,/\.production-filter-grid \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
+  assert.doesNotMatch(style,/\.production-filter-actions \{[\s\S]*?grid-column:/);
+  assert.match(style,/\.production-attendance-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
+  assert.match(style,/\.production-employee-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
+  assert.match(style,/\.production-date-stepper \{[\s\S]*?width: 16px;[\s\S]*?height: 28px;/);
+  assert.doesNotMatch(style,/\.production-date-stepper \{[\s\S]*?border-left:/);
+  assert.match(core,/\.ui-button\.is-primary \.ui-dual-copy > span \{[\s\S]*?color: inherit;/);
+  assert.match(employees,/handleDepartmentSelection/);
+});
+
+test('生產紀錄綜合搜尋可比對表格中的工號姓名訂單款號工序數值與日期',()=>{
+  const context={window:{},console,Object,Array,String,Number,Date,Map,RegExp};
+  vm.createContext(context);
+  vm.runInContext(read('js/production/report-store.js'),context);
+  const rows=[{
+    id:'A',productionDate:'2026-08-10',employeeId:'M12345',displayEmployeeName:'Hỏa Vương',department:'May',
+    orderNo:'OD-7788',productCode:'STYLE-500',processNo:'12',processNameVi:'May thân',processNameZh:'車身',
+    quantity:500,orderQuantitySnapshot:1000,processSecSnapshot:48,hourlyCapacitySnapshot:63,displayEfficiency:'87.5%',status:'active'
+  },{
+    id:'B',productionDate:'2026-08-09',employeeId:'M90000',displayEmployeeName:'Lan',department:'Đóng gói',
+    orderNo:'OD-9900',productCode:'STYLE-900',processNo:'3',processNameVi:'Kiểm tra',processNameZh:'檢查',
+    quantity:300,displayEfficiency:'100.0%',status:'voided'
+  }];
+  const filter=search=>context.window.PCMSProductionReports.filterRows(rows,{search});
+  assert.equal(filter('12345 style-500 12').length,1);
+  assert.equal(filter('Hỏa 87.5%')[0].id,'A');
+  assert.equal(filter('10/08/2026')[0].id,'A');
+  assert.equal(filter('1000 48 63')[0].id,'A');
+  assert.equal(filter('檢查 300')[0].id,'B');
+  assert.equal(filter('不存在').length,0);
 });
 
 test('考勤分頁沿用正式操作面板與表格並位於生產紀錄及員工資料之間',()=>{

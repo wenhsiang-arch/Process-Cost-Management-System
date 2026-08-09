@@ -13,6 +13,21 @@
   function normalizeEmployeeId(value){
     return window.PCMSProductionEmployees?.normalizeEmployeeId?.(value) || String(value || '').trim().toUpperCase();
   }
+  function normalizeSearch(value){ return String(value ?? '').trim().toLocaleLowerCase(); }
+  function searchTokens(value){ return normalizeSearch(value).split(/\s+/).filter(Boolean); }
+  function searchableRowText(item){
+    const dateParts = String(item.productionDate || '').split('-');
+    const displayDate = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : '';
+    const statusText = item.status === 'active'
+      ? 'active hiệu lực 有效'
+      : item.status === 'voided' ? 'voided đã hủy 已作廢' : item.status;
+    return [
+      item.productionDate,displayDate,item.employeeId,item.displayEmployeeName,item.employeeName,item.department,
+      item.orderNo,item.productCode,item.processNo,item.processNameVi,item.processNameZh,item.supplementReason,
+      item.quantity,item.supplementHours,item.orderQuantitySnapshot,item.processSecSnapshot,item.hourlyCapacitySnapshot,
+      item.displayEfficiency,statusText
+    ].map(normalizeSearch).join(' ');
+  }
 
   function sortRows(rows){
     return rows.slice().sort((a,b)=>{
@@ -93,11 +108,16 @@
   }
 
   function filterRows(rows,filters={}){
+    const tokens = searchTokens(filters.search);
     const orderNeedle = String(filters.order || '').trim().toLocaleLowerCase();
     const productNeedle = String(filters.product || '').trim().toLocaleLowerCase();
     const processNeedle = String(filters.process || '').trim().toLocaleLowerCase();
     const status = String(filters.status || '').trim();
     return (Array.isArray(rows)?rows:[]).filter(item=>{
+      if(tokens.length){
+        const searchable = searchableRowText(item);
+        if(!tokens.every(token=>searchable.includes(token))) return false;
+      }
       if(orderNeedle && !String(item.orderNo || '').toLocaleLowerCase().includes(orderNeedle)) return false;
       if(productNeedle && !String(item.productCode || '').toLocaleLowerCase().includes(productNeedle)) return false;
       if(processNeedle && ![item.processNo,item.processNameVi,item.processNameZh,item.supplementReason].some(value=>String(value || '').toLocaleLowerCase().includes(processNeedle))) return false;

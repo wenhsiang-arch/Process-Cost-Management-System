@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260810-7">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260810-8">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -419,10 +419,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
             <div class="production-filter-grid ui-command-row">
               <div class="production-field"><label for="production-record-from"><strong>Từ ngày</strong><span>開始日期</span></label><input type="date" id="production-record-from"></div>
               <div class="production-field"><label for="production-record-to"><strong>Đến ngày</strong><span>結束日期</span></label><input type="date" id="production-record-to"></div>
-              <div class="production-field"><label for="production-record-employee"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-record-employee" autocomplete="off"></div>
-              <div class="production-field"><label for="production-record-order"><strong>Đơn hàng</strong><span>訂單</span></label><input type="text" id="production-record-order" autocomplete="off"></div>
-              <div class="production-field"><label for="production-record-product"><strong>Mã hàng</strong><span>款號</span></label><input type="text" id="production-record-product" autocomplete="off"></div>
-              <div class="production-field"><label for="production-record-process"><strong>Công đoạn</strong><span>工序</span></label><input type="text" id="production-record-process" autocomplete="off"></div>
+              <div class="production-field production-record-search-field"><label for="production-record-search"><strong>Tìm trong bảng</strong><span>表格搜尋</span></label><input type="search" id="production-record-search" autocomplete="off" placeholder="Mã, đơn hàng, mã hàng, công đoạn / 工號、訂單、款號、工序"></div>
               <div class="production-field"><label for="production-record-status-filter"><strong>Trạng thái</strong><span>狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="active">Hiệu lực / 有效</option><option value="voided">Đã hủy / 已作廢</option></select></div>
               <div class="production-filter-actions">
                 <button type="button" class="ui-button is-primary production-filter-button" id="production-record-search-button"><span class="ui-dual-copy"><strong>Tìm kiếm</strong><span>搜尋</span></span></button>
@@ -504,12 +501,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <div class="production-employee-fields">
                   <div class="production-field"><label for="production-employee-id"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-employee-id" maxlength="30" autocomplete="off"></div>
                   <div class="production-field"><label for="production-employee-name-input"><strong>Tên nhân viên</strong><span>員工姓名</span></label><input type="text" id="production-employee-name-input" maxlength="100" autocomplete="off"></div>
-                  <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><div class="production-department-control"><select id="production-employee-department-input"><option value="">Chọn bộ phận / 選擇部門</option></select><button type="button" class="production-row-button" id="production-department-add-button" aria-label="Thêm bộ phận / 新增部門" title="Thêm bộ phận / 新增部門"><i class="ti ti-plus"></i></button><button type="button" class="production-row-button" id="production-department-manage-button" aria-label="Quản lý bộ phận / 管理部門" title="Quản lý bộ phận / 管理部門"><i class="ti ti-settings"></i></button></div></div>
+                  <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><select id="production-employee-department-input"><option value="">Chọn bộ phận / 選擇部門</option><option value="__manage__">Quản lý bộ phận / 部門管理</option></select></div>
+                  <div class="production-employee-form-actions">
+                    <button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button>
+                    <button type="button" class="ui-button is-primary" id="production-employee-save-button"><i class="ti ti-user-plus"></i><span class="ui-dual-copy" id="production-employee-save-copy"><strong>Thêm nhân viên</strong><span>新增員工</span></span></button>
+                  </div>
                 </div>
-                <div class="production-employee-form-actions"><button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button></div>
-              </div>
-              <div class="production-command-actions ui-command-actions">
-                <button type="button" class="production-command-action ui-command-action is-primary" id="production-employee-save-button"><i class="ti ti-user-plus"></i><span class="ui-dual-copy" id="production-employee-save-copy"><strong>Thêm nhân viên</strong><span>新增員工</span></span></button>
               </div>
             </div>
           </section>
@@ -1327,7 +1324,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/ui-table.js?v=20260810-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-10"></script>
+<script src="js/features.js?v=20260810-11"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

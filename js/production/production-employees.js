@@ -2,6 +2,7 @@
 (function(){
   'use strict';
 
+  const MANAGE_DEPARTMENT_VALUE = '__manage__'; // MANAGE_DEPARTMENT_VALUE（開啟部門管理的下拉選項值）
   const state = {initialized:false,editingId:''}; // state（員工頁狀態）
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
@@ -46,7 +47,23 @@
         : `${department.name} · Ngừng dùng / 停用`;
       select.appendChild(option);
     });
+    const manage = document.createElement('option');
+    manage.value = MANAGE_DEPARTMENT_VALUE;
+    manage.textContent = 'Quản lý bộ phận / 部門管理';
+    select.appendChild(manage);
     select.value = selectedValue;
+    select.dataset.previousValue = select.value;
+  }
+
+  function handleDepartmentSelection(){
+    const select = element('production-employee-department-input');
+    if(select.value !== MANAGE_DEPARTMENT_VALUE){
+      select.dataset.previousValue = select.value;
+      return;
+    }
+    const previous = String(select.dataset.previousValue || '');
+    select.value = Array.from(select.options).some(option=>option.value === previous) ? previous : '';
+    openDepartmentManager();
   }
 
   function resetForm(){
@@ -329,8 +346,7 @@
     state.initialized = true;
     element('production-employee-save-button').addEventListener('click',()=>void save());
     element('production-employee-cancel-button').addEventListener('click',resetForm);
-    element('production-department-add-button').addEventListener('click',()=>void addDepartment());
-    element('production-department-manage-button').addEventListener('click',openDepartmentManager);
+    element('production-employee-department-input').addEventListener('change',handleDepartmentSelection);
     element('production-employee-search').addEventListener('input',render);
     element('production-employee-filter-status').addEventListener('change',render);
   }

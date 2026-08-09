@@ -763,6 +763,10 @@
   color: var(--ui-color-on-primary);
 }
 
+.ui-button.is-primary .ui-dual-copy > span {
+  color: inherit;
+}
+
 .ui-button.is-danger {
   border-color: var(--ui-color-danger-border);
   color: var(--ui-color-danger-text);

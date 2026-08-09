@@ -29,7 +29,7 @@
   function isSupplementEntry(item){ return window.PCMSProductionEntryStore.isSupplementEntry(item); }
   function employeeDisplayName(item){ // employeeDisplayName（目前顯示的員工姓名）：優先使用員工主資料，舊紀錄快照只作備援。
     const employee = window.PCMSProductionEmployees?.find?.(item?.employeeId);
-    return String(employee?.name || item?.employeeName || '').trim() || '—';
+    return String(item?.displayEmployeeName || employee?.name || item?.employeeName || '').trim() || '—';
   }
   function shiftDate(days){
     const value = new Date(); value.setDate(value.getDate()+days);
@@ -43,15 +43,10 @@
   }
 
   function filters(){
-    const employeeInput = String(element('production-record-employee').value || '').trim();
-    const employee = window.PCMSProductionEmployees.search(employeeInput,{activeOnly:false,limit:2});
     return {
       from:element('production-record-from').value,
       to:element('production-record-to').value,
-      employeeId:employee.length === 1 ? employee[0].employeeId : '',
-      order:element('production-record-order').value,
-      product:element('production-record-product').value,
-      process:element('production-record-process').value,
+      search:element('production-record-search').value,
       status:element('production-record-status-filter').value
     };
   }
@@ -78,6 +73,17 @@
   }
 
   function efficiencyKey(item){ return `${item.employeeId}|${item.productionDate}`; }
+
+  function efficiencySearchText(item){
+    const result = state.efficiencies.get(efficiencyKey(item));
+    if(result?.status === 'ready'){
+      const percentage = Number(result.percentage || 0);
+      return `${percentage} ${percentage.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+    }
+    if(result?.status === 'invalid-attendance') return 'Giờ bất thường 考勤時數異常';
+    if(result?.status === 'invalid-capacity') return 'Thiếu chuẩn giờ 缺少標準產能';
+    return 'Chưa chấm công 考勤未登記';
+  }
 
   function addEfficiencyCell(row,item){
     const cell = document.createElement('td');
@@ -140,7 +146,12 @@
   }
 
   function render(){
-    state.filtered = window.PCMSProductionReports.filterRows(state.rows,filters());
+    const searchableRows = state.rows.map(item=>({
+      ...item,
+      displayEmployeeName:employeeDisplayName(item),
+      displayEfficiency:efficiencySearchText(item)
+    }));
+    state.filtered = window.PCMSProductionReports.filterRows(searchableRows,filters());
     const body = element('production-records-table-body');
     body.replaceChildren();
     state.filtered.forEach((item,index)=>{
@@ -288,29 +299,24 @@
   function clearFilters(){
     element('production-record-from').value = shiftDate(-7);
     element('production-record-to').value = shiftDate(0);
-    element('production-record-employee').value = '';
-    element('production-record-order').value = '';
-    element('production-record-product').value = '';
-    element('production-record-process').value = '';
+    element('production-record-search').value = '';
     element('production-record-status-filter').value = '';
     void load();
   }
 
   function setPendingFilters(filters={}){
-    state.pendingFilters = {
-      order:String(filters.order || '').trim(),
-      product:String(filters.product || '').trim(),
-      process:String(filters.process || '').trim()
-    };
+    state.pendingFilters = [filters.order,filters.product,filters.process]
+      .map(value=>String(value || '').trim())
+      .filter(Boolean)
+      .filter((value,index,values)=>values.indexOf(value) === index)
+      .join(' ');
   }
 
   function applyPendingFilters(){
     const pending = state.pendingFilters;
     state.pendingFilters = null;
     if(!pending) return;
-    element('production-record-order').value = pending.order;
-    element('production-record-product').value = pending.product;
-    element('production-record-process').value = pending.process;
+    element('production-record-search').value = pending;
     element('production-record-status-filter').value = 'active';
   }
 
@@ -322,7 +328,7 @@
     element('production-record-search-button').addEventListener('click',()=>void load());
     element('production-record-clear-button').addEventListener('click',clearFilters);
     element('production-record-load-more').addEventListener('click',()=>void load({loadMore:true}));
-    ['production-record-order','production-record-product','production-record-process'].forEach(id=>element(id).addEventListener('input',render));
+    element('production-record-search').addEventListener('input',render);
     element('production-record-status-filter').addEventListener('change',render);
   }
 
