@@ -75,6 +75,20 @@
     button.setAttribute('aria-expanded',String(willOpen));
   }
 
+  function availableColumnToggles(){
+    return Array.from(document.querySelectorAll('#production-column-settings-menu [data-production-column-toggle]'))
+      .filter(input=>!input.closest('label')?.hidden);
+  }
+
+  function syncSelectAllControl(){
+    const selectAll = element('production-column-settings-select-all');
+    if(!selectAll) return;
+    const toggles = availableColumnToggles();
+    const selectedCount = toggles.filter(input=>state.columnVisibility[input.dataset.productionColumnToggle] !== false).length;
+    selectAll.checked = toggles.length > 0 && selectedCount === toggles.length;
+    selectAll.indeterminate = selectedCount > 0 && selectedCount < toggles.length;
+  }
+
   function applyColumnVisibility(){
     const table = element('production-entry-table-body')?.closest('table');
     if(!table) return;
@@ -88,6 +102,7 @@
     });
     const operationOption = element('production-operation-column-option');
     if(operationOption) operationOption.hidden = !isAdmin();
+    syncSelectAllControl();
     const visibleColumnCount = Array.from(table.querySelectorAll('thead [data-production-column]'))
       .filter(cell=>!cell.classList.contains('is-column-hidden')).length;
     const frame = element('production-entry-table-frame');
@@ -102,6 +117,13 @@
   function setColumnVisibility(key,visible){
     if(!Object.prototype.hasOwnProperty.call(state.columnVisibility,key)) return;
     state.columnVisibility[key] = visible === true;
+    applyColumnVisibility();
+  }
+
+  function setAllColumnVisibility(visible){
+    availableColumnToggles().forEach(input=>{
+      state.columnVisibility[input.dataset.productionColumnToggle] = visible === true;
+    });
     applyColumnVisibility();
   }
 
@@ -143,10 +165,15 @@
       button.dataset.optionIndex = String(index);
       const copy = render(item);
       const primary = document.createElement('strong');
-      const secondary = document.createElement('span');
       primary.textContent = String(copy.primary || '');
-      secondary.textContent = String(copy.secondary || '');
-      button.append(primary,secondary);
+      button.appendChild(primary);
+      if(copy.secondary){
+        const secondary = document.createElement('span');
+        secondary.textContent = String(copy.secondary);
+        button.appendChild(secondary);
+      }else{
+        button.classList.add('is-single-line');
+      }
       button.addEventListener('mousedown',event=>event.preventDefault());
       button.addEventListener('click',()=>void Promise.resolve(onSelect(item)));
       host.appendChild(button);
@@ -207,9 +234,11 @@
     const progress = element('production-quantity-progress');
     if(progress){
       progress.hidden = true;
-      progress.classList.remove('is-over');
+      progress.classList.remove('is-complete','is-over');
       progress.disabled = true;
     }
+    const overCopy = element('production-quantity-progress-over');
+    if(overCopy) overCopy.hidden = true;
   }
 
   function quantityProgress(){
@@ -228,26 +257,36 @@
   function renderQuantityProgress(){
     const progress = element('production-quantity-progress');
     const value = element('production-quantity-progress-value');
+    const overCopy = element('production-quantity-progress-over');
+    const overVi = element('production-quantity-progress-over-vi');
+    const overZh = element('production-quantity-progress-over-zh');
     const summary = quantityProgress();
     if(!progress || !value || !summary || summary.orderQuantity <= 0){
       if(progress) progress.hidden = true;
+      if(overCopy) overCopy.hidden = true;
       return;
     }
     progress.hidden = false;
     const canOpenRecords = typeof window.canOpenPage !== 'function' || window.canOpenPage('production-records');
     progress.disabled = !canOpenRecords;
     if(state.processTotalLoading){
-      progress.classList.remove('is-over');
+      progress.classList.remove('is-complete','is-over');
+      if(overCopy) overCopy.hidden = true;
       value.textContent = `… / ${numberText(summary.orderQuantity)}`;
       progress.title = 'Đang đọc số lượng đã ghi nhận / 正在讀取已登記數量';
       return;
     }
     const over = summary.exceededQuantity > 0;
+    const complete = !over && summary.registeredQuantity >= summary.orderQuantity;
+    progress.classList.toggle('is-complete',complete);
     progress.classList.toggle('is-over',over);
-    value.textContent = `${numberText(summary.projectedQuantity)} / ${numberText(summary.orderQuantity)}${over ? ` (+${numberText(summary.exceededQuantity)})` : ''}`;
+    value.textContent = `${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)}`;
+    if(overCopy) overCopy.hidden = !over;
+    if(overVi) overVi.textContent = `Vượt +${numberText(summary.exceededQuantity)}`;
+    if(overZh) overZh.textContent = `超量 +${numberText(summary.exceededQuantity)}`;
     progress.title = over
-      ? `Vượt ${numberText(summary.exceededQuantity)} / 超出 ${numberText(summary.exceededQuantity)}`
-      : `Đã ghi nhận ${numberText(summary.registeredQuantity)} / 已登記 ${numberText(summary.registeredQuantity)}`;
+      ? `Đã đăng ký ${numberText(summary.registeredQuantity)}, dự kiến vượt ${numberText(summary.exceededQuantity)} / 已登記 ${numberText(summary.registeredQuantity)}，預計超量 ${numberText(summary.exceededQuantity)}`
+      : `Đã đăng ký ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)} / 已登記 ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)}`;
   }
 
   async function loadQuantityProgress(process){
@@ -272,7 +311,7 @@
   }
 
   function employeeOptionCopy(item){
-    return {primary:`${item.employeeId} · ${item.name}`,secondary:item.department || ''};
+    return {primary:item.employeeId,secondary:''};
   }
 
   function orderOptionCopy(item){
@@ -287,10 +326,16 @@
   }
 
   function processOptionCopy(item){
-    return {
-      primary:`${item.processNo} · ${item.processVi || item.processZh || ''}`,
-      secondary:item.processZh && item.processVi ? item.processZh : ''
-    };
+    return {primary:String(item.processNo || ''),secondary:''};
+  }
+
+  function setProcessName(process){
+    const host = element('production-process-name');
+    if(!host) return;
+    const processVi = String(process?.processVi || '').trim();
+    const processZh = String(process?.processZh || '').trim();
+    host.textContent = processVi || processZh || '—';
+    host.title = [processVi,processZh].filter(Boolean).join(' / ');
   }
 
   function clearEmployee(){
@@ -337,6 +382,7 @@
     element('production-product-input').value = '';
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
+    setProcessName(null);
     resetQuantityProgress();
     closeDropdown('production-product-options');
     closeDropdown('production-process-options');
@@ -352,6 +398,7 @@
     element('production-product-input').value = '';
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
+    setProcessName(null);
     resetQuantityProgress();
     closeDropdown('production-order-options');
     closeDropdown('production-product-options');
@@ -395,6 +442,7 @@
     state.process = null;
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
+    setProcessName(null);
     resetQuantityProgress();
     closeDropdown('production-process-options');
     syncDropdownAvailability();
@@ -406,6 +454,7 @@
     element('production-product-input').value = product.code;
     element('production-process-input').value = '';
     element('production-quantity-input').value = '';
+    setProcessName(null);
     resetQuantityProgress();
     closeDropdown('production-product-options');
     syncDropdownAvailability();
@@ -434,6 +483,7 @@
   function selectProcess(process,options={}){
     state.process = process;
     element('production-process-input').value = String(process.processNo || '');
+    setProcessName(process);
     closeDropdown('production-process-options');
     setStatus('','','info');
     void loadQuantityProgress(process);
@@ -442,6 +492,7 @@
 
   function handleProcessInput(){
     state.process = null;
+    setProcessName(null);
     resetQuantityProgress();
     if(!state.orderReady || !state.product){ closeDropdown('production-process-options'); return; }
     const value = element('production-process-input').value.trim();
@@ -636,6 +687,7 @@
         element('production-process-input').value = '';
         element('production-quantity-input').value = '';
         state.process = null;
+        setProcessName(null);
         resetQuantityProgress();
         setStatus(
           `Đã lưu ${numberText(saved.quantity)} sản phẩm cho công đoạn ${saved.processNo}.`,
@@ -796,6 +848,7 @@
     element('production-quantity-progress').addEventListener('click',()=>void openSelectedProcessRecords());
     element('production-column-settings-button').addEventListener('click',toggleColumnSettings);
     element('production-column-settings-reset').addEventListener('click',resetColumnVisibility);
+    element('production-column-settings-select-all').addEventListener('change',event=>setAllColumnVisibility(event.currentTarget.checked));
     document.querySelectorAll('[data-production-column-toggle]').forEach(input=>{
       input.addEventListener('change',()=>setColumnVisibility(input.dataset.productionColumnToggle,input.checked));
     });

@@ -209,7 +209,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-8'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-9'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -229,10 +229,12 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(markup,/tabindex="-1"[^>]*id="production-date-previous"[\s\S]*?tabindex="-1"[^>]*id="production-date-next"/);
   assert.match(markup,/id="production-quantity-input"[^>]*placeholder="Enter để lưu \/ Enter 儲存"/);
   assert.match(markup,/for="production-quantity-input"><strong>Số lượng<\/strong><span>數量<\/span>/);
+  assert.match(markup,/id="production-process-input"[^>]*maxlength="2"[\s\S]*?id="production-process-name"/);
+  assert.match(markup,/Sản lượng của nhân viên trong ngày[\s\S]*?id="production-quantity-progress"[\s\S]*?Đã đăng ký \/ Giới hạn đơn hàng[\s\S]*?已登記數量 \/ 訂單數量上限/);
   assert.match(markup,/id="production-entry-status"[^>]*role="status"[^>]*aria-live="polite"/);
   assert.doesNotMatch(markup,/id="production-entry-status"[^>]*ui-notice/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-column-settings-button"[^>]*aria-expanded="false"/);
-  assert.match(markup,/production-column-settings-heading[\s\S]*?id="production-column-settings-reset"/);
+  assert.match(markup,/production-column-settings-heading[\s\S]*?id="production-column-settings-select-all"[\s\S]*?Chọn tất cả[\s\S]*?全選[\s\S]*?id="production-column-settings-reset"/);
   for(const key of ['order','product','processNo','processName','quantity','orderQuantity','processSeconds','action']){
     assert.match(markup,new RegExp(`data-production-column-toggle="${key}"`));
     if(key !== 'action') assert.match(markup,new RegExp(`data-production-column="${key}"`));
@@ -240,6 +242,8 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.doesNotMatch(markup,/data-production-column-toggle="[^"]+"[^>]*disabled/);
   assert.match(markup,/id="production-columns-empty"[^>]*hidden/);
   assert.match(source,/function applyColumnVisibility\(\)/);
+  assert.match(source,/function setAllColumnVisibility\(visible\)/);
+  assert.match(source,/selectAll\.indeterminate = selectedCount > 0/);
   assert.match(source,/function resetColumnVisibility\(\)/);
   assert.match(source,/const ENTRY_INPUT_IDS = Object\.freeze\(\[/);
   assert.match(source,/function handleEntryTab\(event,currentIndex\)/);
@@ -249,6 +253,9 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/const quantityInput = element\('production-quantity-input'\)[\s\S]*?controls:\[quantityInput\]/);
   assert.match(source,/loadProcessTotal\(process\?\.id\)/);
   assert.match(source,/preview\?\.exceededQuantity > 0/);
+  assert.match(source,/value\.textContent = `\$\{numberText\(summary\.registeredQuantity\)\} \/ \$\{numberText\(summary\.orderQuantity\)\}`/);
+  assert.match(source,/function employeeOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId,secondary:''/);
+  assert.match(source,/function setProcessName\(process\)/);
   assert.match(source,/setPendingFilters\?\.\(\{/);
   assert.match(source,/date\.max = maximum/);
   assert.match(records,/function dateBadgeText\(value\)/);
@@ -258,15 +265,19 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(records,/window\.PCMSProductionRecords = Object\.freeze\(\{setPendingFilters\}\)/);
   assert.match(source,/dataset\.productionColumn/);
   assert.match(source,/event\.key !== 'Escape'/);
-  assert.match(style,/\.production-entry-fields \{[\s\S]*?width: max-content;[\s\S]*?grid-template-columns: 172px 210px 160px 104px 126px;/);
+  assert.match(style,/\.production-entry-fields \{[\s\S]*?width: max-content;[\s\S]*?grid-template-columns: 158px 178px 160px 104px 176px 126px;/);
+  assert.match(style,/\.production-process-field \.ui-search-dropdown-control \{[\s\S]*?width: 80px;[\s\S]*?max-width: 80px;/);
   assert.match(style,/\.production-registration-header \{[\s\S]*?grid-template-columns: 180px minmax\(0, 1fr\);/);
   assert.match(style,/\.production-employee-inline-panel \{[\s\S]*?background: var\(--ui-color-surface-muted\);/);
   assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control \{[\s\S]*?width: 112px;[\s\S]*?max-width: 112px;/);
-  assert.match(style,/\.production-quantity-progress \{[\s\S]*?max-width: none;[\s\S]*?overflow: visible;/);
-  assert.match(style,/\.production-quantity-progress\.is-over \{[\s\S]*?var\(--ui-color-danger-text\)/);
+  assert.match(style,/\.production-quantity-progress \{[\s\S]*?min-width: 330px;[\s\S]*?background: var\(--ui-color-primary-soft\);/);
+  assert.match(style,/#production-quantity-progress-value \{[\s\S]*?font-size: 20px;[\s\S]*?font-variant-numeric: tabular-nums;/);
+  assert.match(style,/\.production-quantity-progress\.is-over \{[\s\S]*?var\(--ui-color-danger-background\)[\s\S]*?var\(--ui-color-danger-text\)/);
+  assert.match(style,/\.production-entry-table th\.production-number-cell,[\s\S]*?\.production-entry-table td\.production-number-cell \{[\s\S]*?text-align: right;/);
+  assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy \{[\s\S]*?align-items: flex-end;/);
   assert.match(style,/\.production-records-table \.production-date-cell \{/);
   assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-2'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-8'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-9'/);
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-3'/);
 });

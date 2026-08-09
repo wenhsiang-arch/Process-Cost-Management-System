@@ -152,7 +152,7 @@
   width: max-content;
   max-width: 100%;
   min-width: 0;
-  grid-template-columns: 172px 210px 160px 104px 126px;
+  grid-template-columns: 158px 178px 160px 104px 176px 126px;
   gap: 10px;
   align-content: start;
   align-items: end;
@@ -217,6 +217,28 @@
   border-color: var(--ui-color-primary);
   outline: 3px solid var(--ui-color-focus-ring);
   outline-offset: 1px;
+}
+
+.production-process-name-output {
+  display: block;
+  width: 100%;
+  height: 36px;
+  overflow: hidden;
+  padding: 0 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-muted);
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 34px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-process-field .ui-search-dropdown-control {
+  width: 80px;
+  max-width: 80px;
 }
 
 .production-field input[type="number"] {
@@ -375,6 +397,11 @@
   white-space: nowrap;
 }
 
+.production-option.is-single-line {
+  min-height: 36px;
+  gap: 0;
+}
+
 .production-command-actions {
   display: flex;
   height: auto;
@@ -414,26 +441,88 @@
 }
 
 .production-quantity-progress {
-  display: inline-flex;
-  min-width: max-content;
-  max-width: none;
+  display: grid;
+  width: max-content;
+  min-width: 330px;
+  max-width: min(390px, 38vw);
+  min-height: 48px;
+  grid-template-columns: minmax(0, 1fr) auto;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: flex-end;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  gap: 12px;
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid var(--ui-color-primary);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-primary-soft);
   color: var(--ui-color-primary);
   cursor: pointer;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  overflow: visible;
-  text-overflow: clip;
+  text-align: left;
+}
+
+.production-quantity-progress:hover:not(:disabled),
+.production-quantity-progress:focus-visible {
+  border-color: var(--ui-color-primary-hover);
+}
+
+.production-quantity-progress:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-quantity-progress-label {
+  align-items: flex-start;
   white-space: nowrap;
 }
 
+.production-quantity-progress-label > strong {
+  font-size: 10px;
+}
+
+.production-quantity-progress-label > span {
+  font-size: 9px;
+}
+
+.production-quantity-progress-metric {
+  display: flex;
+  min-width: 86px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 1.05;
+}
+
+#production-quantity-progress-value {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.production-quantity-progress-over {
+  align-items: flex-end;
+  margin-top: 3px;
+  color: var(--ui-color-danger-text);
+}
+
+.production-quantity-progress-over > strong,
+.production-quantity-progress-over > span {
+  font-size: 9px;
+}
+
+.production-quantity-progress-over[hidden] {
+  display: none;
+}
+
+.production-quantity-progress.is-complete {
+  border-color: var(--ui-color-success-border);
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+}
+
 .production-quantity-progress.is-over {
+  border-color: var(--ui-color-danger-border);
+  background: var(--ui-color-danger-background);
   color: var(--ui-color-danger-text);
 }
 
@@ -459,6 +548,7 @@
 
 .production-entry-table-header {
   position: relative;
+  min-height: 60px;
 }
 
 .production-column-settings {
@@ -498,7 +588,7 @@
   top: calc(100% + 5px);
   left: 0;
   display: grid;
-  width: 260px;
+  width: 340px;
   gap: 0;
   padding: 8px;
   border: 1px solid var(--ui-color-border);
@@ -513,7 +603,7 @@
 
 .production-column-settings-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
   align-items: center;
   padding: 3px 5px 7px;
@@ -522,6 +612,30 @@
 
 .production-column-settings-title {
   min-width: 0;
+  align-items: center;
+  text-align: center;
+}
+
+.production-column-settings-select-all {
+  display: grid;
+  min-height: 30px;
+  grid-template-columns: 16px auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+.production-column-settings-select-all .ui-dual-copy {
+  align-items: flex-start;
+}
+
+.production-column-settings-select-all .ui-dual-copy strong {
+  font-size: 10px;
+}
+
+.production-column-settings-select-all .ui-dual-copy span {
+  font-size: 9px;
 }
 
 .production-column-settings-menu > label {
@@ -584,7 +698,27 @@
   font-variant-numeric: tabular-nums;
 }
 
+.production-entry-table th.production-number-cell,
+.production-entry-table td.production-number-cell {
+  text-align: right;
+}
+
+.production-entry-table th.production-number-cell > .ui-dual-copy {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.production-entry-table th.production-center-cell > .ui-dual-copy {
+  align-items: center;
+  text-align: center;
+}
+
 .production-center-cell {
+  text-align: center;
+}
+
+.production-entry-table th.production-center-cell,
+.production-entry-table td.production-center-cell {
   text-align: center;
 }
 
@@ -817,8 +951,13 @@
   }
 
   .production-entry-fields {
-    grid-template-columns: 168px 180px 140px 100px 126px;
+    grid-template-columns: 150px 153px 140px 100px 156px 126px;
     gap: 8px;
+  }
+
+  .production-process-field .ui-search-dropdown-control {
+    width: 76px;
+    max-width: 76px;
   }
 
   .production-command-action {

@@ -359,16 +359,17 @@ tr:hover td{background:#f8fafc}
                   <div class="production-field production-combobox production-process-field">
                     <label for="production-process-input"><strong>Số công đoạn</strong><span>工序號</span></label>
                     <div class="ui-search-dropdown-control">
-                      <input class="ui-search-dropdown-input" type="text" id="production-process-input" maxlength="20" inputmode="numeric" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-process-options" aria-expanded="false">
+                      <input class="ui-search-dropdown-input" type="text" id="production-process-input" maxlength="2" inputmode="numeric" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-process-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-process-toggle" aria-label="Mở danh sách công đoạn / 展開工序清單" aria-controls="production-process-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
                       <div class="production-options" id="production-process-options" role="listbox" hidden></div>
                     </div>
                   </div>
+                  <div class="production-field production-process-name-field">
+                    <label for="production-process-name"><strong>Công đoạn</strong><span>工序</span></label>
+                    <output class="production-process-name-output" id="production-process-name">—</output>
+                  </div>
                   <div class="production-field production-quantity-field">
-                    <div class="production-field-label-row">
-                      <label class="production-field-label" for="production-quantity-input"><strong>Số lượng</strong><span>數量</span></label>
-                      <button type="button" tabindex="-1" class="production-quantity-progress" id="production-quantity-progress" aria-label="Xem đăng ký của mã hàng / 查看款號登記紀錄" title="Xem đăng ký của mã hàng / 查看款號登記紀錄" hidden><span id="production-quantity-progress-value">0 / 0</span></button>
-                    </div>
+                    <label for="production-quantity-input"><strong>Số lượng</strong><span>數量</span></label>
                     <input type="number" id="production-quantity-input" min="1" step="1" inputmode="numeric" autocomplete="off" placeholder="Enter để lưu / Enter 儲存">
                   </div>
                 </div>
@@ -381,6 +382,7 @@ tr:hover td{background:#f8fafc}
                 <button type="button" tabindex="-1" class="production-column-settings-button" id="production-column-settings-button" aria-label="Chọn cột hiển thị / 選擇顯示欄位" title="Chọn cột hiển thị / 選擇顯示欄位" aria-controls="production-column-settings-menu" aria-expanded="false"><i class="ti ti-list-check"></i></button>
                 <div class="production-column-settings-menu" id="production-column-settings-menu" role="dialog" aria-label="Chọn cột hiển thị / 選擇顯示欄位" hidden>
                   <div class="production-column-settings-heading">
+                    <label class="production-column-settings-select-all"><input type="checkbox" id="production-column-settings-select-all" checked><span class="ui-dual-copy"><strong>Chọn tất cả</strong><span>全選</span></span></label>
                     <div class="production-column-settings-title ui-dual-copy"><strong>Chọn cột hiển thị</strong><span>選擇顯示欄位</span></div>
                     <button type="button" tabindex="-1" class="production-column-settings-reset" id="production-column-settings-reset"><span class="ui-dual-copy"><strong>Mặc định</strong><span>恢復預設</span></span></button>
                   </div>
@@ -395,6 +397,13 @@ tr:hover td{background:#f8fafc}
                 </div>
               </div>
               <span class="ui-dual-copy"><strong>Sản lượng của nhân viên trong ngày</strong><span>員工當日生產紀錄</span></span>
+              <button type="button" tabindex="-1" class="production-quantity-progress" id="production-quantity-progress" aria-label="Xem số lượng đã đăng ký và giới hạn đơn hàng / 查看已登記數量與訂單數量上限" title="Xem đăng ký của mã hàng / 查看款號登記紀錄" hidden>
+                <span class="production-quantity-progress-label ui-dual-copy"><strong>Đã đăng ký / Giới hạn đơn hàng</strong><span>已登記數量 / 訂單數量上限</span></span>
+                <span class="production-quantity-progress-metric">
+                  <strong id="production-quantity-progress-value">0 / 0</strong>
+                  <span class="production-quantity-progress-over ui-dual-copy" id="production-quantity-progress-over" hidden><strong id="production-quantity-progress-over-vi">Vượt +0</strong><span id="production-quantity-progress-over-zh">超量 +0</span></span>
+                </span>
+              </button>
             </div>
             <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll"><table class="ui-table production-entry-table">
               <thead><tr>
@@ -1278,7 +1287,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260809-11"></script>
+<script src="js/features.js?v=20260809-12"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
