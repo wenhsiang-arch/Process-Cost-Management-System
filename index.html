@@ -384,7 +384,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <div class="ui-table-column-settings-menu" id="production-column-settings-menu" role="dialog" aria-label="Chọn cột hiển thị / 選擇顯示欄位" data-ui-table-columns-menu hidden></div>
               </div>
               <span class="ui-dual-copy"><strong>Sản lượng của nhân viên trong ngày</strong><span>員工當日生產紀錄</span></span>
-              <button type="button" tabindex="-1" class="production-quantity-progress" id="production-quantity-progress" aria-label="Xem số lượng đã đăng ký và giới hạn đơn hàng / 查看已登記數量與訂單數量上限" title="Xem đăng ký của mã hàng / 查看款號登記紀錄" hidden>
+              <button type="button" tabindex="-1" class="production-quantity-progress" id="production-quantity-progress" aria-label="Tìm công đoạn trong bảng đăng ký hằng ngày / 在當日登記表格尋找工序" title="Tìm công đoạn trong bảng bên dưới / 在下方表格尋找工序" hidden>
                 <span class="production-quantity-progress-label ui-dual-copy"><strong>Đã đăng ký / Giới hạn đơn hàng</strong><span>已登記數量 / 訂單數量上限</span></span>
                 <span class="production-quantity-progress-metric">
                   <strong id="production-quantity-progress-value">0 / 0</strong>
@@ -403,6 +403,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="orderQuantity" data-ui-table-column="orderQuantity" data-ui-table-sort-key="orderQuantity"><span class="ui-table-sort-heading"><span>SL đơn hàng</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">訂單數量</span></th>
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="processSeconds" data-ui-table-column="processSeconds" data-ui-table-sort-key="processSeconds"><span class="ui-table-sort-heading"><span>Giây</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序秒數</span></th>
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="hourlyCapacity" data-ui-table-column="hourlyCapacity" data-ui-table-sort-key="hourlyCapacity"><span class="ui-table-sort-heading"><span>SL/giờ</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">每小時數量</span></th>
+                <th class="production-center-cell ui-table-sortable-header" data-production-column="status" data-ui-table-column="status" data-ui-table-sort-key="status"><span class="ui-table-sort-heading"><span>Trạng thái</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">狀態</span></th>
               </tr></thead>
               <tbody id="production-entry-table-body"></tbody>
             </table></div></div>
@@ -412,15 +413,15 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         </div>
       </div>
 
-      <!-- 生產紀錄 -->
+      <!-- 員工績效 -->
       <div class="pg ui-page" id="pg-production-records">
         <div class="production-page ui-work-panel">
           <section class="production-filter-panel ui-operation-panel">
             <div class="production-filter-grid ui-command-row">
               <div class="production-field"><label for="production-record-from"><strong>Từ ngày</strong><span>開始日期</span></label><input type="date" id="production-record-from"></div>
               <div class="production-field"><label for="production-record-to"><strong>Đến ngày</strong><span>結束日期</span></label><input type="date" id="production-record-to"></div>
-              <div class="production-field production-record-search-field"><label for="production-record-search"><strong>Tìm trong bảng</strong><span>表格搜尋</span></label><input type="search" id="production-record-search" autocomplete="off" placeholder="Mã, đơn hàng, mã hàng, công đoạn / 工號、訂單、款號、工序"></div>
-              <div class="production-field"><label for="production-record-status-filter"><strong>Trạng thái</strong><span>狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="active">Hiệu lực / 有效</option><option value="voided">Đã hủy / 已作廢</option></select></div>
+              <div class="production-field production-record-search-field"><label for="production-record-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><input type="search" id="production-record-search" autocomplete="off" placeholder="Mã, tên, bộ phận / 工號、姓名、部門"></div>
+              <div class="production-field"><label for="production-record-status-filter"><strong>Tình trạng hiệu suất</strong><span>績效狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="ready">Đã tính / 已計算</option><option value="missing-attendance">Chưa chấm công / 考勤未登記</option><option value="invalid-attendance">Giờ bất thường / 考勤時數異常</option><option value="invalid-capacity">Thiếu chuẩn giờ / 缺少標準產能</option></select></div>
               <div class="production-filter-actions">
                 <button type="button" class="ui-button is-primary production-filter-button" id="production-record-search-button"><span class="ui-dual-copy"><strong>Tìm kiếm</strong><span>搜尋</span></span></button>
                 <button type="button" class="ui-button production-filter-button" id="production-record-clear-button"><span class="ui-dual-copy"><strong>Xóa bộ lọc</strong><span>清除篩選</span></span></button>
@@ -428,26 +429,23 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
             </div>
           </section>
           <section class="production-data-section ui-data-section">
-            <div class="ui-section-header"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử sản xuất</strong><span>生產紀錄</span></span><span class="production-section-count"><span id="production-records-count">0</span> dòng / 筆</span></div>
-            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table" id="production-records-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
+            <div class="ui-section-header"><i class="ti ti-chart-bar"></i><span class="ui-dual-copy"><strong>Hiệu suất nhân viên</strong><span>員工績效</span></span><span class="production-section-count"><span id="production-records-count">0</span> ngày công / 人日</span></div>
+            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table production-performance-table" id="production-records-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
               <thead><tr>
-                <th data-ui-table-column="date" data-ui-table-sort-type="date" data-ui-table-min-width="96" data-ui-table-width="112" data-ui-table-max-width="128"><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
-                <th data-ui-table-column="employeeId" data-ui-table-min-width="112" data-ui-table-width="128" data-ui-table-max-width="160"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
-                <th data-ui-table-column="employeeName" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="220" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
-                <th data-ui-table-column="order" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="180"><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
-                <th data-ui-table-column="product" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="200" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="processNo" data-ui-table-sort-type="number" data-ui-table-min-width="68" data-ui-table-width="76" data-ui-table-max-width="84"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
-                <th data-ui-table-column="processName" data-ui-table-min-width="180" data-ui-table-width="260" data-ui-table-max-width="520" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="quantity" data-ui-table-sort-type="number" data-ui-table-min-width="90" data-ui-table-width="100" data-ui-table-max-width="120"><span class="ui-dual-copy"><strong>Số lượng</strong><span>生產數量</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="supplementHours" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="110" data-ui-table-max-width="140"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
-                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="efficiency" data-ui-table-min-width="118" data-ui-table-width="138" data-ui-table-max-width="180"><span class="ui-dual-copy"><strong>Hiệu suất ngày</strong><span>當日效率</span></span></th>
-                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="120" data-ui-table-width="132" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
-                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="112" data-ui-table-width="126" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+                <th data-ui-table-column="date" data-ui-table-sort-type="date" data-ui-table-min-width="110" data-ui-table-width="124" data-ui-table-max-width="144"><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
+                <th data-ui-table-column="employeeId" data-ui-table-default-visible="false" data-ui-table-min-width="112" data-ui-table-width="128" data-ui-table-max-width="160"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
+                <th data-ui-table-column="employeeName" data-ui-table-min-width="140" data-ui-table-width="180" data-ui-table-max-width="260" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+                <th data-ui-table-column="department" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="220" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="workedHours" data-ui-table-sort-type="number" data-ui-table-min-width="108" data-ui-table-width="124" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Giờ chấm công</strong><span>考勤總工時</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="standardHours" data-ui-table-sort-type="number" data-ui-table-min-width="118" data-ui-table-width="140" data-ui-table-max-width="170"><span class="ui-dual-copy"><strong>Giờ tiêu chuẩn</strong><span>有效標準工時</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="supplementHours" data-ui-table-sort-type="number" data-ui-table-min-width="104" data-ui-table-width="120" data-ui-table-max-width="148"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="efficiency" data-ui-table-sort-type="number" data-ui-table-min-width="104" data-ui-table-width="120" data-ui-table-max-width="148"><span class="ui-dual-copy"><strong>Hiệu suất ngày</strong><span>當日效率</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="118" data-ui-table-width="140" data-ui-table-max-width="180"><span class="ui-dual-copy"><strong>Tình trạng</strong><span>績效狀態</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="118" data-ui-table-width="136" data-ui-table-max-width="168"><span class="ui-dual-copy"><strong>Đăng ký</strong><span>生產登記</span></span></th>
               </tr></thead>
               <tbody id="production-records-table-body"></tbody>
             </table></div></div>
-            <div class="production-empty" id="production-records-empty"><span class="ui-dual-copy"><strong>Chưa có dữ liệu trong phạm vi đã chọn</strong><span>所選範圍尚無資料</span></span></div>
-            <div class="production-record-actions"><button type="button" class="ui-button" id="production-record-load-more" hidden><span class="ui-dual-copy"><strong>Tải thêm 50 dòng</strong><span>再載入50筆</span></span></button></div>
+            <div class="production-empty" id="production-records-empty"><span class="ui-dual-copy"><strong>Chưa có hiệu suất trong phạm vi đã chọn</strong><span>所選範圍尚無每日績效</span></span></div>
           </section>
         </div>
       </div>
@@ -475,15 +473,14 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
             <div class="ui-section-header"><i class="ti ti-calendar-time"></i><span class="ui-dual-copy"><strong>Giờ chấm công của nhân viên</strong><span>員工考勤時數</span></span><span class="production-section-count"><span id="production-attendance-count">0</span> người / 人</span></div>
             <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-attendance-table" id="production-attendance-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
               <thead><tr>
-                <th data-ui-table-column="employeeId" data-ui-table-min-width="112" data-ui-table-width="128" data-ui-table-max-width="160"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
-                <th data-ui-table-column="employeeName" data-ui-table-min-width="140" data-ui-table-width="180" data-ui-table-max-width="260" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
-                <th data-ui-table-column="department" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="220" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="normalHours" data-ui-table-sort-type="number" data-ui-table-min-width="112" data-ui-table-width="128" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Giờ bình thường</strong><span>正常工時</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="overtimeHours" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="116" data-ui-table-max-width="140"><span class="ui-dual-copy"><strong>Giờ tăng ca</strong><span>加班工時</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="totalHours" data-ui-table-sort-type="number" data-ui-table-min-width="90" data-ui-table-width="104" data-ui-table-max-width="126"><span class="ui-dual-copy"><strong>Tổng giờ</strong><span>總工時</span></span></th>
-                <th data-ui-table-column="note" data-ui-table-min-width="180" data-ui-table-width="260" data-ui-table-max-width="420" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Ghi chú</strong><span>備註</span></span></th>
-                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="110" data-ui-table-width="126" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
-                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="76" data-ui-table-width="88" data-ui-table-max-width="104"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+                <th data-ui-table-column="employeeId" data-ui-table-min-width="100" data-ui-table-width="112" data-ui-table-max-width="136"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
+                <th data-ui-table-column="employeeName" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="210" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+                <th data-ui-table-column="department" data-ui-table-min-width="110" data-ui-table-width="135" data-ui-table-max-width="190" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="normalHours" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="112" data-ui-table-max-width="132"><span class="ui-dual-copy"><strong>Giờ bình thường</strong><span>正常工時</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="overtimeHours" data-ui-table-sort-type="number" data-ui-table-min-width="92" data-ui-table-width="104" data-ui-table-max-width="124"><span class="ui-dual-copy"><strong>Giờ tăng ca</strong><span>加班工時</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="totalHours" data-ui-table-sort-type="number" data-ui-table-min-width="80" data-ui-table-width="92" data-ui-table-max-width="110"><span class="ui-dual-copy"><strong>Tổng giờ</strong><span>總工時</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="100" data-ui-table-width="116" data-ui-table-max-width="140"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="68" data-ui-table-width="76" data-ui-table-max-width="92"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
               </tr></thead>
               <tbody id="production-attendance-table-body"></tbody>
             </table></div></div>
@@ -1324,7 +1321,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/ui-table.js?v=20260810-4"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-11"></script>
+<script src="js/features.js?v=20260810-12"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

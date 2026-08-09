@@ -158,21 +158,6 @@
     return input;
   }
 
-  function createNoteInput(draft){
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'production-attendance-note-input';
-    input.maxLength = 200;
-    input.value = draft.note;
-    input.disabled = draft.employee.missing === true;
-    input.addEventListener('input',()=>{
-      draft.note = input.value;
-      markDirty(draft.employee.employeeId);
-      refreshRowStatus(input,draft);
-    });
-    return input;
-  }
-
   function addTextCell(row,value,className=''){
     const cell = document.createElement('td');
     if(className) cell.className = className;
@@ -229,8 +214,6 @@
       totalCell.className = 'production-number-cell production-attendance-total';
       totalCell.dataset.attendanceTotal = 'true';
       totalCell.textContent = hoursText(Number(draft.normalHours || 0)+Number(draft.overtimeHours || 0));
-      const noteCell = document.createElement('td');
-      noteCell.appendChild(createNoteInput(draft));
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
       statusCell.dataset.attendanceStatus = 'true';
@@ -238,7 +221,7 @@
       const actionCell = document.createElement('td');
       actionCell.className = 'production-row-actions';
       if(isAdmin() && draft.record) actionCell.appendChild(deleteButton(draft));
-      row.append(normalCell,overtimeCell,totalCell,noteCell,statusCell,actionCell);
+      row.append(normalCell,overtimeCell,totalCell,statusCell,actionCell);
       body.appendChild(row);
     });
     element('production-attendance-empty').hidden = visible.length > 0;

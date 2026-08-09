@@ -10,7 +10,8 @@ function classList(initial=[]){
   return {
     add:value=>values.add(value),
     remove:value=>values.delete(value),
-    contains:value=>values.has(value)
+    contains:value=>values.has(value),
+    toggle(value,active){ active ? values.add(value) : values.delete(value); }
   };
 }
 
@@ -27,7 +28,7 @@ function eventTarget(properties={}){
   },properties);
 }
 
-function createHarness(){
+function createHarness(options={}){
   const frames=[];
   const created=[];
   const resizeObservers=[];
@@ -35,11 +36,12 @@ function createHarness(){
   const target=eventTarget({
     isConnected:true,
     hidden:false,
-    dataset:{},
+    classList:classList(),
+    dataset:{uiFloatingScroll:'only'},
     scrollWidth:1600,
     clientWidth:960,
     scrollLeft:0,
-    rect:{left:220,right:1180,top:120,bottom:1400},
+    rect:{left:220,right:1180,top:120,bottom:options.targetBottom??1400},
     closest:()=>null,
     getBoundingClientRect(){ return {...this.rect}; }
   });
@@ -47,6 +49,8 @@ function createHarness(){
     isConnected:true,
     clientWidth:1000,
     clientHeight:750,
+    scrollHeight:options.scrollHeight??750,
+    scrollTop:options.scrollTop??0,
     closest:()=>null,
     getBoundingClientRect:()=>({left:200,right:1200,top:50,bottom:800,width:1000,height:750})
   });
@@ -109,7 +113,7 @@ function createHarness(){
   };
 }
 
-test('浮動捲軸只在超寬表格底部離開畫面時顯示並雙向同步',()=>{
+test('唯一浮動捲軸固定在主視窗底部並與表格雙向同步',()=>{
   const harness=createHarness();
   assert.equal(harness.api.activatePage('production-records'),true);
   harness.flush();
@@ -129,7 +133,8 @@ test('浮動捲軸只在超寬表格底部離開畫面時顯示並雙向同步',
   harness.target.dispatch('scroll');
   assert.equal(bar.scrollLeft,420);
 
-  harness.target.rect.bottom=790;
+  harness.target.rect.top=810;
+  harness.target.rect.bottom=1400;
   harness.api.refresh();
   harness.flush();
   assert.equal(bar.classList.contains('is-visible'),false);
@@ -154,4 +159,37 @@ test('表格不再超寬或離開功能時會移除浮動捲軸狀態',()=>{
   harness.api.deactivatePage('production-records');
   assert.equal(bar.classList.contains('is-visible'),false);
   assert.equal(harness.target.listeners.get('scroll')?.size||0,0);
+});
+
+test('短內容的唯一水平捲軸固定在主視窗最下方',()=>{
+  const harness=createHarness({targetBottom:180,scrollHeight:750});
+  harness.api.activatePage('production-records');
+  harness.flush();
+  const bar=harness.created[0];
+  assert.equal(bar.classList.contains('is-visible'),true);
+  assert.equal(bar.style.top,'782px');
+  assert.equal(harness.target.classList.contains('is-ui-floating-only'),true);
+});
+
+test('長內容初始不顯示，向下捲動後才在主視窗底部顯示浮動捲軸',()=>{
+  const harness=createHarness({targetBottom:1400,scrollHeight:1800});
+  harness.api.activatePage('production-records');
+  harness.flush();
+  assert.equal(harness.created.length,0);
+  assert.equal(harness.target.classList.contains('is-ui-floating-only'),true);
+
+  harness.scrollHost.scrollTop=120;
+  harness.scrollHost.dispatch('scroll');
+  harness.flush();
+  const bar=harness.created[0];
+  assert.equal(bar.classList.contains('is-visible'),true);
+  assert.equal(bar.style.top,'782px');
+
+  harness.scrollHost.scrollTop=0;
+  harness.scrollHost.dispatch('scroll');
+  harness.flush();
+  assert.equal(bar.classList.contains('is-visible'),false);
+
+  harness.api.deactivatePage('production-records');
+  assert.equal(harness.target.classList.contains('is-ui-floating-only'),false);
 });

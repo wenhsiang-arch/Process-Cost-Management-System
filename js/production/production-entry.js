@@ -16,7 +16,8 @@
     processTotalLoading:false,
     processTotalRequest:0,
     attendanceRequest:0,
-    dailyRows:[]
+    dailyRows:[],
+    pendingContext:null
   }; // state（登記頁目前狀態）
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
@@ -29,7 +30,8 @@
     {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:110,preferred:120,maximum:160},
     {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},minimum:90,preferred:100,maximum:130},
     {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},minimum:105,preferred:115,maximum:150},
-    {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:72,preferred:80,maximum:104,available:()=>isAdmin()}
+    {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:100,preferred:116,maximum:140},
+    {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:122,preferred:142,maximum:176,available:()=>canManageRecords()}
   ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果與可拖曳寬度限制仍由產能功能提供。
 
   const ENTRY_INPUT_IDS = Object.freeze([
@@ -63,6 +65,9 @@
 
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
+  function canManageRecords(){
+    return isAdmin() || typeof window.canOpenPage !== 'function' || window.canOpenPage('production-records');
+  }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
   function hoursText(value){
@@ -285,8 +290,7 @@
       return;
     }
     progress.hidden = false;
-    const canOpenRecords = typeof window.canOpenPage !== 'function' || window.canOpenPage('production-records');
-    progress.disabled = !canOpenRecords;
+    progress.disabled = !state.employee;
     if(state.processTotalLoading){
       progress.classList.remove('is-complete','is-over');
       if(overCopy) overCopy.hidden = true;
@@ -432,8 +436,8 @@
       const overtime = Number(attendance.overtimeHours || 0);
       const total = normal+overtime;
       setAttendanceSummary(
-        `${hoursText(normal)} + ${hoursText(overtime)} = ${hoursText(total)} giờ`,
-        `正常 ${hoursText(normal)} + 加班 ${hoursText(overtime)} = ${hoursText(total)} 小時`
+        `${hoursText(total)} giờ`,
+        `${hoursText(total)} 小時`
       );
     }catch(error){
       if(requestId !== state.attendanceRequest) return;
@@ -708,18 +712,24 @@
     element(inputIds[targetIndex])?.focus({preventScroll:true});
   }
 
-  async function openSelectedProcessRecords(){
-    if(!state.order || !state.product || !state.process) return;
-    if(typeof window.canOpenPage === 'function' && !window.canOpenPage('production-records')) return;
-    try{
-      await window.PCMSFeatures?.ensurePageScripts?.('production-records');
-      window.PCMSProductionRecords?.setPendingFilters?.({
-        order:state.order.orderId || state.order.id,
-        product:state.product.code,
-        process:String(state.process.processNo || '')
-      });
-      if(typeof window.sp === 'function') await window.sp('production-records');
-    }catch(error){ await showError(error); }
+  function focusSelectedProcessRows(){
+    if(!state.process || !state.employee) return;
+    const body = element('production-entry-table-body');
+    const rows = Array.from(body?.querySelectorAll('tr') || []);
+    rows.forEach(row=>row.classList.remove('is-process-focus'));
+    const processId = String(state.process.id || '');
+    const matches = rows.filter(row=>row.dataset.orderProcessId === processId);
+    if(!matches.length){
+      setStatus(
+        'Nhân viên chưa đăng ký công đoạn này trong ngày sản xuất đã chọn.',
+        '此員工在所選生產日期尚未登記這個工序。',
+        'info'
+      );
+      return;
+    }
+    matches.forEach(row=>row.classList.add('is-process-focus'));
+    matches[0].scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'});
+    setStatus('Đã tìm thấy công đoạn trong bảng bên dưới.','已在下方表格找到這個工序。','info');
   }
 
   async function showError(error){
@@ -785,19 +795,19 @@
     }
   }
 
-  function ensureDeleteColumn(){
+  function ensureActionColumn(){
     const table = element('production-entry-table-body')?.closest('table');
     const headerRow = table?.querySelector('thead tr');
     if(!headerRow) return;
-    let header = headerRow.querySelector('[data-production-delete-column]');
-    if(!isAdmin()){
+    let header = headerRow.querySelector('[data-production-action-column]');
+    if(!canManageRecords()){
       header?.remove();
       return;
     }
     if(header) return;
     header = document.createElement('th');
     header.className = 'production-center-cell';
-    header.dataset.productionDeleteColumn = 'true';
+    header.dataset.productionActionColumn = 'true';
     header.dataset.productionColumn = 'action';
     header.dataset.uiTableColumn = 'action';
     const copy = document.createElement('span');
@@ -811,18 +821,88 @@
     headerRow.appendChild(header);
   }
 
-  function deleteButton(item){
+  function actionButton(iconClass,vi,zh,handler,kind=''){
     const button = document.createElement('button');
     button.type = 'button';
     button.tabIndex = -1;
-    button.className = 'production-row-button is-danger';
-    button.title = 'Xóa vĩnh viễn / 永久刪除';
-    button.setAttribute('aria-label','Xóa vĩnh viễn / 永久刪除');
+    button.className = `production-row-button${kind ? ` is-${kind}` : ''}`;
+    button.title = `${vi} / ${zh}`;
+    button.setAttribute('aria-label',`${vi} / ${zh}`);
     const icon = document.createElement('i');
-    icon.className = 'ti ti-trash';
+    icon.className = `ti ${iconClass}`;
     button.appendChild(icon);
-    button.addEventListener('click',()=>void deleteDailyRecord(item));
+    button.addEventListener('click',handler);
     return button;
+  }
+
+  function deleteButton(item){
+    return actionButton('ti-trash','Xóa vĩnh viễn','永久刪除',()=>void deleteDailyRecord(item),'danger');
+  }
+
+  async function editDailyRecord(item){
+    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
+    const valueText = await window.PCMSUIComponents.promptDialog({
+      title:supplement
+        ? {vi:'Chỉnh sửa giờ bổ sung',zh:'修改補充工時'}
+        : {vi:'Chỉnh sửa số lượng sản xuất',zh:'修改生產數量'},
+      label:supplement
+        ? {vi:'Giờ mới (0,5–24)',zh:'新補充工時（0.5～24）'}
+        : {vi:'Số lượng mới',zh:'新生產數量'},
+      type:'number',
+      value:supplement ? item.supplementHours : item.quantity,
+      validate:value=>supplement
+        ? window.PCMSProductionEntryStore.isValidSupplementHours(value)
+        : Number.isInteger(Number(value)) && Number(value) > 0
+    });
+    if(valueText === null) return;
+    const reason = await window.PCMSUIComponents.promptDialog({
+      title:{vi:'Lý do chỉnh sửa',zh:'修改原因'},
+      label:{vi:'Nhập lý do',zh:'輸入原因'},
+      multiline:true,
+      maxLength:500,
+      validate:value=>String(value || '').trim().length > 0
+    });
+    if(reason === null) return;
+    try{
+      if(supplement) await window.PCMSProductionEntryStore.updateSupplementHours(item.id,Number(valueText),reason);
+      else await window.PCMSProductionEntryStore.updateQuantity(item.id,Number(valueText),reason);
+      await loadDailyRows();
+      if(state.process && !supplement) void loadQuantityProgress(state.process);
+      setStatus('Đã lưu nội dung chỉnh sửa.','修改內容已儲存。','success');
+    }catch(error){ await showError(error); }
+  }
+
+  async function voidDailyRecord(item){
+    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
+    const reason = await window.PCMSUIComponents.promptDialog({
+      title:{vi:'Lý do hủy bản ghi',zh:'作廢原因'},
+      label:{vi:'Nhập lý do',zh:'輸入原因'},
+      multiline:true,
+      maxLength:500,
+      validate:value=>String(value || '').trim().length > 0
+    });
+    if(reason === null) return;
+    const confirmed = await window.PCMSUIComponents.confirmDialog({
+      title:supplement
+        ? {vi:'Xác nhận hủy giờ bổ sung',zh:'確認作廢補充工時'}
+        : {vi:'Xác nhận hủy bản ghi',zh:'確認作廢紀錄'},
+      message:supplement
+        ? {
+            vi:`Hủy ${hoursText(item.supplementHours)} giờ bổ sung, lý do “${item.supplementReason || '—'}”?`,
+            zh:`將作廢「${item.supplementReason || '—'}」的 ${hoursText(item.supplementHours)} 小時補充工時。`
+          }
+        : {
+            vi:`Hủy ${numberText(item.quantity)} sản phẩm của công đoạn ${item.processNo}? Số lượng này sẽ được trả lại cho đơn hàng.`,
+            zh:`將作廢工序 ${item.processNo} 的 ${numberText(item.quantity)} 件；數量會退回訂單工序剩餘量。`
+          }
+    });
+    if(!confirmed) return;
+    try{
+      await window.PCMSProductionEntryStore.voidEntry(item.id,reason);
+      await loadDailyRows();
+      if(state.process && !supplement) void loadQuantityProgress(state.process);
+      setStatus('Đã hủy bản ghi.','紀錄已作廢。','success');
+    }catch(error){ await showError(error); }
   }
 
   async function deleteDailyRecord(item){
@@ -941,7 +1021,8 @@
       supplementHours:supplement ? Number(item.supplementHours || 0) : null,
       orderQuantity:supplement ? null : Number(item.orderQtySnapshot || 0),
       processSeconds:supplement ? null : Number(item.processSecSnapshot || 0),
-      hourlyCapacity:supplement ? null : Number(item.hourlyCapacitySnapshot || 0)
+      hourlyCapacity:supplement ? null : Number(item.hourlyCapacitySnapshot || 0),
+      status:item.status || ''
     };
     return values[key];
   }
@@ -966,11 +1047,12 @@
     const empty = element('production-entry-empty');
     if(!body) return;
     if(store) state.dailyRows = [...rows];
-    ensureDeleteColumn();
+    ensureActionColumn();
     body.replaceChildren();
     sortedDailyRows(state.dailyRows).forEach(item=>{
       const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
       const row = document.createElement('tr');
+      row.dataset.orderProcessId = String(item.orderProcessId || '');
       appendCell(row,item.orderNo || '—','', 'order');
       appendCell(row,item.productCode || '—','production-product-code-cell','product');
       appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
@@ -980,12 +1062,37 @@
       appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
       appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
       appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacitySnapshot),'production-number-cell','hourlyCapacity');
-      if(isAdmin()){
+      const statusCell = document.createElement('td');
+      statusCell.className = 'production-center-cell';
+      statusCell.dataset.productionColumn = 'status';
+      statusCell.dataset.uiTableColumn = 'status';
+      const status = document.createElement('span');
+      status.className = `production-status ui-dual-copy ${item.status === 'voided' ? 'is-voided' : 'is-active'}`;
+      const statusVi = document.createElement('strong');
+      const statusZh = document.createElement('span');
+      statusVi.textContent = item.status === 'voided' ? 'Đã hủy' : 'Hiệu lực';
+      statusZh.textContent = item.status === 'voided' ? '已作廢' : '有效';
+      status.append(statusVi,statusZh);
+      statusCell.appendChild(status);
+      row.appendChild(statusCell);
+      if(canManageRecords()){
         const actionCell = document.createElement('td');
         actionCell.className = 'production-row-actions';
         actionCell.dataset.productionColumn = 'action';
         actionCell.dataset.uiTableColumn = 'action';
-        actionCell.appendChild(deleteButton(item));
+        if(item.status !== 'voided'){
+          actionCell.append(
+            actionButton(
+              'ti-edit',
+              supplement ? 'Chỉnh sửa giờ bổ sung' : 'Chỉnh sửa số lượng',
+              supplement ? '修改補充工時' : '修改數量',
+              ()=>void editDailyRecord(item)
+            ),
+            actionButton('ti-ban','Hủy bản ghi','作廢紀錄',()=>void voidDailyRecord(item),'danger')
+          );
+        }
+        if(isAdmin()) actionCell.appendChild(deleteButton(item));
+        if(!actionCell.childElementCount) actionCell.textContent = '—';
         row.appendChild(actionCell);
       }
       body.appendChild(row);
@@ -999,7 +1106,11 @@
   async function loadDailyRows(){
     if(!state.employee){ renderDailyRows([]); return; }
     try{
-      const rows = await window.PCMSProductionReports.loadDaily(state.employee.employeeId,element('production-date-input').value);
+      const rows = await window.PCMSProductionReports.loadDaily(
+        state.employee.employeeId,
+        element('production-date-input').value,
+        {activeOnly:false}
+      );
       renderDailyRows(rows);
     }catch(error){
       renderDailyRows([]);
@@ -1106,7 +1217,7 @@
     element('production-product-toggle').addEventListener('click',toggleProductDropdown);
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
     element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
-    element('production-quantity-progress').addEventListener('click',()=>void openSelectedProcessRecords());
+    element('production-quantity-progress').addEventListener('click',focusSelectedProcessRows);
     document.querySelectorAll('#pg-production-entry .production-combobox').forEach(host=>{
       host.addEventListener('mouseleave',()=>{
         const options = host.querySelector('.production-options'); // options（目前欄位的搜尋選單）
@@ -1129,7 +1240,7 @@
       DROPDOWN_OPTION_IDS.forEach(closeDropdown);
     });
     syncDropdownAvailability();
-    ensureDeleteColumn();
+    ensureActionColumn();
     ensureProductionTableControl();
     scheduleEntryFieldLayout();
   }
@@ -1142,8 +1253,51 @@
     return true;
   }
 
+  function setPendingContext(context={}){
+    state.pendingContext = {
+      employeeId:String(context.employeeId || '').trim().toUpperCase(),
+      productionDate:String(context.productionDate || '').trim()
+    };
+  }
+
+  async function applyPendingContext(){
+    const pending = state.pendingContext;
+    state.pendingContext = null;
+    if(!pending?.employeeId) return false;
+    const requestedDate = /^\d{4}-\d{2}-\d{2}$/.test(pending.productionDate)
+      ? pending.productionDate
+      : today();
+    const productionDate = requestedDate > today() ? today() : requestedDate;
+    element('production-date-input').value = productionDate;
+    state.dateAuto = productionDate === today();
+    syncDateControls();
+    clearOrder();
+    element('production-order-input').value = '';
+    element('production-quantity-input').value = '';
+    const employee = window.PCMSProductionEmployees.find(pending.employeeId);
+    if(!employee){
+      clearEmployee();
+      element('production-employee-input').value = pending.employeeId;
+      setStatus('Không tìm thấy nhân viên đã chọn.','找不到指定的員工。','danger');
+      return true;
+    }
+    state.employee = employee;
+    element('production-employee-input').value = employee.employeeId;
+    element('production-employee-name').textContent = employee.name || '—';
+    element('production-employee-department').textContent = employee.department || '—';
+    closeDropdown('production-employee-options');
+    await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
+    element('production-process-input')?.focus({preventScroll:true});
+    return true;
+  }
+
   async function productionEntryInit(){
     init();
+    if(await applyPendingContext()){
+      scheduleEntryFieldLayout();
+      startDateTimer();
+      return;
+    }
     if(state.dateAuto) element('production-date-input').value = today();
     syncDateControls();
     scheduleEntryFieldLayout();
@@ -1162,4 +1316,5 @@
   window.loadProductionEntryData = loadProductionEntryData;
   window.productionEntryInit = productionEntryInit;
   window.productionEntryLeave = productionEntryLeave;
+  window.PCMSProductionEntry = Object.freeze({setPendingContext});
 })();

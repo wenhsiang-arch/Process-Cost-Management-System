@@ -31,7 +31,7 @@ test('共用表格操作只在使用功能開啟後按需載入',()=>{
   const productsEnd=source.indexOf("id:'cutting'",productsStart);
   const products=source.slice(productsStart,productsEnd);
   assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
-  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-3'/);
+  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-4'/);
   assert.match(products,/scripts:\['history','fileIo','productCache','uiTableControls','summary','data'\]/);
   assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });

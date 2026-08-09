@@ -55,7 +55,7 @@
     return promise;
   }
 
-  async function loadDaily(employeeId,productionDate){
+  async function loadDaily(employeeId,productionDate,options={}){
     const normalizedEmployeeId = normalizeEmployeeId(employeeId);
     const normalizedDate = normalizeDate(productionDate);
     if(!normalizedEmployeeId || !normalizedDate) return [];
@@ -63,7 +63,7 @@
       window._where('employeeId','==',normalizedEmployeeId),
       window._where('productionDate','==',normalizedDate)
     ]);
-    return rows.filter(item=>item.status === 'active');
+    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
   async function loadDay(productionDate,options={}){
@@ -71,6 +71,18 @@
     if(!normalizedDate) return [];
     const rows = await loadExactRows(`date:${normalizedDate}`,[
       window._where('productionDate','==',normalizedDate)
+    ]);
+    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+  }
+
+  async function loadRange(fromValue,toValue,options={}){
+    const from = normalizeDate(fromValue);
+    const to = normalizeDate(toValue);
+    if(!from || !to || from > to) throw new Error('Khoảng ngày không hợp lệ. / 日期範圍不正確。');
+    const rows = await loadExactRows(`range:${from}:${to}`,[
+      window._where('productionDate','>=',from),
+      window._where('productionDate','<=',to),
+      window._orderBy('productionDate','desc')
     ]);
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
@@ -128,5 +140,5 @@
 
   function reset(){ historyCursor = null; historySignature = ''; exactPromises.clear(); }
 
-  window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
+  window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadRange,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
 })();
