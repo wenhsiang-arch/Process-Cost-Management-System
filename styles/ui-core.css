@@ -947,7 +947,7 @@
 
 /* resizable（可調欄寬表格）：保留父框滿寬，使用者放大欄位後才增加表格最低總寬。 */
 .ui-table[data-ui-table-resizable="true"] {
-  min-width: max(100%, var(--ui-table-visible-min-width, 0px), var(--ui-table-resized-min-width, 0px));
+  min-width: max(100%, var(--ui-table-resized-min-width, var(--ui-table-visible-min-width, 0px)));
 }
 
 .ui-table[data-ui-table-resizable="true"] > thead > tr > th {
@@ -956,30 +956,44 @@
 
 .ui-table-resize-handle {
   position: absolute;
-  z-index: 4;
-  top: 0;
-  right: -4px;
-  width: 8px;
-  height: 100%;
+  z-index: 6;
+  top: 50%;
+  right: -9px;
+  display: inline-flex;
+  width: 18px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ui-color-primary);
   cursor: col-resize;
+  opacity: 0;
+  transform: translateY(-50%) scale(.9);
+  transition: opacity var(--ui-motion-fast), transform var(--ui-motion-fast), background var(--ui-motion-fast), border-color var(--ui-motion-fast);
   touch-action: none;
 }
 
-.ui-table-resize-handle::after {
-  position: absolute;
-  top: 18%;
-  bottom: 18%;
-  left: 3px;
-  width: 2px;
-  border-radius: 2px;
-  background: transparent;
-  content: "";
+.ui-table-resize-handle > i {
+  font-size: 11px;
+  pointer-events: none;
 }
 
-.ui-table-resize-handle:hover::after,
-.ui-table-resize-handle:active::after,
-.ui-table.is-ui-table-resizing .ui-table-resize-handle::after {
-  background: var(--ui-color-primary);
+.ui-table[data-ui-table-resizable="true"] > thead > tr > th:hover > .ui-table-resize-handle,
+.ui-table-resize-handle:hover,
+.ui-table-resize-handle:active,
+.ui-table .is-ui-table-resizing-column > .ui-table-resize-handle {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-surface);
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+}
+
+.ui-table > thead > tr > th.is-ui-table-resizing-column {
+  background: var(--ui-color-primary-soft) !important;
+  box-shadow: inset 0 0 0 2px var(--ui-color-primary);
 }
 
 body.is-ui-table-resizing,
@@ -1189,7 +1203,7 @@ body.is-ui-table-resizing * {
 }
 
 .ui-table-sortable-header {
-  cursor: pointer;
+  cursor: default;
   user-select: none;
 }
 
@@ -1197,13 +1211,40 @@ body.is-ui-table-resizing * {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
   line-height: 1.2;
+}
+
+.ui-table-sort-trigger {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ui-table-sort-trigger:hover,
+.ui-table-sort-trigger:focus-visible {
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+}
+
+.ui-table-sort-trigger:focus-visible {
+  outline: 2px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
 }
 
 .ui-table-sort-icon {
   flex: 0 0 auto;
   font-size: 11px;
+  pointer-events: none;
 }
 
 .ui-table-sort-icon.is-idle {

@@ -5,6 +5,7 @@
   const COLUMN_CELL_SELECTOR = '[data-ui-table-column]'; // COLUMN_CELL_SELECTOR（共用欄位儲存格）
   const COLUMN_TOGGLE_SELECTOR = '[data-ui-table-column-toggle]'; // COLUMN_TOGGLE_SELECTOR（欄位顯示切換項目）
   const SORT_HEADER_SELECTOR = '[data-ui-table-sort-key]'; // SORT_HEADER_SELECTOR（可排序表頭）
+  const SORT_TRIGGER_SELECTOR = '[data-ui-table-sort-trigger]'; // SORT_TRIGGER_SELECTOR（唯一可觸發排序的箭頭按鈕）
   const SORT_ICON_SELECTOR = '[data-ui-table-sort-icon]'; // SORT_ICON_SELECTOR（排序狀態圖示）
   const RESIZE_HANDLE_SELECTOR = '[data-ui-table-resize-handle]'; // RESIZE_HANDLE_SELECTOR（欄寬拖曳分隔線）
   const AUTO_TABLE_SELECTOR = 'table[data-ui-table-controls="auto"]'; // AUTO_TABLE_SELECTOR（可由共用程式接入的一般表格）
@@ -127,6 +128,7 @@
     columns.forEach(column=>{ visibility[column.key] = column.defaultVisible; });
     let resizeWidths = resizable ? readStoredWidths(widthKey,widthSignature) : {}; // resizeWidths（使用者調整後的各欄寬）
     let activeResize = null; // activeResize（目前進行中的欄寬拖曳）
+    let measureCanvas = null; // measureCanvas（依目前表頭字型量測最低欄寬的畫布）
     let availabilitySignature = '';
     let sortState = Object.freeze({key:'',direction:'none'}); // sortState（目前單欄排序狀態）
     let destroyed = false;
@@ -160,10 +162,64 @@
         .filter(cell=>String(cell.dataset?.uiTableColumn || '') === String(key || ''));
     }
 
+    function textWidth(text,element){
+      const content = String(text || '');
+      const computed = window.getComputedStyle?.(element || table) || {};
+      const fontSize = positiveWidth(Number.parseFloat(computed.fontSize),12);
+      try{
+        measureCanvas ||= document.createElement('canvas');
+        const context = measureCanvas.getContext?.('2d');
+        if(context){
+          context.font = computed.font || `${computed.fontWeight || 400} ${fontSize}px ${computed.fontFamily || 'sans-serif'}`;
+          return context.measureText(content).width;
+        }
+      }catch(_error){}
+      return Array.from(content).reduce((total,character)=>total+(/[^\u0000-\u00ff]/.test(character) ? fontSize : fontSize*.58),0);
+    }
+
+    function headerMinimumWidth(column){
+      const configured = positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH);
+      if(column?.resizable === false || column?.key === 'action') return configured;
+      const header = headerForColumn(column?.key);
+      if(!header) return Math.max(DEFAULT_MINIMUM_WIDTH,Math.min(configured,positiveWidth(column?.preferred,configured)));
+      const label = headerLabel(header);
+      const heading = header.querySelector?.('.ui-table-sort-heading');
+      const viElement = heading?.querySelector?.(':scope > span') || header.querySelector?.('.ui-dual-copy > strong') || header;
+      const zhElement = header.querySelector?.(':scope > .tv') || header.querySelector?.('.ui-dual-copy > span') || header;
+      const trigger = header.querySelector?.(SORT_TRIGGER_SELECTOR);
+      const headingStyle = window.getComputedStyle?.(heading || header) || {};
+      const headerStyle = window.getComputedStyle?.(header) || {};
+      const gap = trigger ? positiveWidth(Number.parseFloat(headingStyle.columnGap || headingStyle.gap),3) : 0;
+      const triggerWidth = trigger ? positiveWidth(trigger.getBoundingClientRect?.().width,20) : 0;
+      const viWidth = textWidth(label.vi || column?.label?.vi,viElement)+triggerWidth+gap;
+      const zhWidth = textWidth(label.zh || column?.label?.zh,zhElement);
+      const horizontalPadding = (Number.parseFloat(headerStyle.paddingLeft) || 10)+(Number.parseFloat(headerStyle.paddingRight) || 10)+2;
+      return Math.max(DEFAULT_MINIMUM_WIDTH,Math.ceil(Math.max(viWidth,zhWidth)+horizontalPadding));
+    }
+
     function clampWidth(value,column){
-      const minimum = positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH);
+      const minimum = headerMinimumWidth(column);
       const maximum = Math.max(minimum,positiveWidth(column?.maximum,DEFAULT_MAXIMUM_WIDTH));
       return Math.max(minimum,Math.min(maximum,Math.round(Number(value) || minimum)));
+    }
+
+    function renderSortTriggers(){
+      table.querySelectorAll(SORT_HEADER_SELECTOR).forEach(header=>{
+        const icon = header.querySelector?.(SORT_ICON_SELECTOR);
+        if(!icon) return;
+        let trigger = icon.closest?.(SORT_TRIGGER_SELECTOR);
+        if(!trigger){
+          trigger = document.createElement('button');
+          trigger.type = 'button';
+          trigger.tabIndex = -1;
+          trigger.className = 'ui-table-sort-trigger';
+          trigger.dataset.uiTableSortTrigger = 'true';
+          icon.parentElement?.insertBefore?.(trigger,icon);
+          trigger.appendChild?.(icon);
+        }
+        trigger.title = 'Sắp xếp cột / 排序欄位';
+        trigger.setAttribute?.('aria-label','Sắp xếp cột / 排序欄位');
+      });
     }
 
     function renderResizeHandles(){
@@ -180,6 +236,10 @@
         handle.dataset.uiTableResizeHandle = 'true';
         handle.setAttribute('aria-hidden','true');
         handle.title = 'Kéo để đổi độ rộng; nhấp đúp để vừa nội dung / 拖曳調整欄寬；雙擊符合內容';
+        const icon = document.createElement('i');
+        icon.className = 'ti ti-arrows-horizontal';
+        icon.setAttribute('aria-hidden','true');
+        handle.appendChild(icon);
         header.appendChild(handle);
       });
     }
@@ -247,12 +307,13 @@
         const textWidth = Array.from(String(cell.textContent || '').trim()).length*8+24;
         return Math.max(scrollWidth,textWidth);
       });
-      widths.push(Number(column?.preferred || column?.minimum || DEFAULT_MINIMUM_WIDTH));
+      widths.push(headerMinimumWidth(column));
       return clampWidth(Math.max(...widths),column);
     }
 
     function finishResize(save=true){
       if(!activeResize) return;
+      activeResize.header?.classList?.remove?.('is-ui-table-resizing-column');
       activeResize = null;
       table.classList.remove('is-ui-table-resizing');
       document.body?.classList?.remove?.('is-ui-table-resizing');
@@ -273,10 +334,11 @@
       event.stopPropagation?.();
       captureVisibleWidths();
       activeResize = {
-        key,column,startX:Number(event.clientX || 0),
+        key,column,header,startX:Number(event.clientX || 0),
         startWidth:clampWidth(resizeWidths[key] || header.getBoundingClientRect?.().width,column)
       };
       table.classList.add('is-ui-table-resizing');
+      header.classList?.add?.('is-ui-table-resizing-column');
       document.body?.classList?.add?.('is-ui-table-resizing');
       window.addEventListener('pointermove',handleResizePointerMove);
       window.addEventListener('pointerup',handleResizePointerUp);
@@ -392,6 +454,7 @@
         const visible = availableKeys.has(key) && visibility[key] !== false;
         cell.classList.toggle('is-column-hidden',!visible);
       });
+      renderSortTriggers();
       renderResizeHandles();
       applyResizeWidths();
       const keys = visibleKeys();
@@ -458,9 +521,12 @@
     }
 
     function handleTableClick(event){
-      if(event.target?.closest?.(RESIZE_HANDLE_SELECTOR)) return;
-      const header = event.target?.closest?.(SORT_HEADER_SELECTOR);
+      const trigger = event.target?.closest?.(SORT_TRIGGER_SELECTOR);
+      if(!trigger || !table.contains(trigger)) return;
+      const header = trigger.closest?.(SORT_HEADER_SELECTOR);
       if(!header || !table.contains(header)) return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
       const key = String(header.dataset.uiTableSortKey || '');
       sortState = nextSortState(sortState,key);
       applySort();

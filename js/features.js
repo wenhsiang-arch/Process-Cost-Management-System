@@ -4,7 +4,7 @@
     history:'js/history.js?v=20260809-2',
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
-    uiTableControls:'js/ui-table-controls.js?v=20260810-3',
+    uiTableControls:'js/ui-table-controls.js?v=20260810-4',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260810-2',
