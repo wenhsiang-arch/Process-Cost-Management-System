@@ -731,7 +731,7 @@
 
 .production-entry-table {
   width: 100%;
-  min-width: var(--production-entry-table-min-width, 1160px);
+  min-width: max(100%, var(--ui-table-visible-min-width, 1160px));
   max-width: none;
   table-layout: fixed;
 }

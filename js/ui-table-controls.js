@@ -6,7 +6,11 @@
   const COLUMN_TOGGLE_SELECTOR = '[data-ui-table-column-toggle]'; // COLUMN_TOGGLE_SELECTOR（欄位顯示切換項目）
   const SORT_HEADER_SELECTOR = '[data-ui-table-sort-key]'; // SORT_HEADER_SELECTOR（可排序表頭）
   const SORT_ICON_SELECTOR = '[data-ui-table-sort-icon]'; // SORT_ICON_SELECTOR（排序狀態圖示）
+  const RESIZE_HANDLE_SELECTOR = '[data-ui-table-resize-handle]'; // RESIZE_HANDLE_SELECTOR（欄寬拖曳分隔線）
   const AUTO_TABLE_SELECTOR = 'table[data-ui-table-controls="auto"]'; // AUTO_TABLE_SELECTOR（可由共用程式接入的一般表格）
+  const WIDTH_STORAGE_PREFIX = 'pcms.ui.table-widths.v1'; // WIDTH_STORAGE_PREFIX（本機欄寬偏好識別）
+  const DEFAULT_MINIMUM_WIDTH = 56; // DEFAULT_MINIMUM_WIDTH（未指定時的最低可讀欄寬）
+  const DEFAULT_MAXIMUM_WIDTH = 720; // DEFAULT_MAXIMUM_WIDTH（未指定時的最大合理欄寬）
   const autoRuntimes = new WeakMap(); // autoRuntimes（一般表格與共用操作執行狀態）
   let activePageName = ''; // activePageName（目前啟用一般表格操作的頁面）
   let activePage = null; // activePage（目前功能頁）
@@ -26,8 +30,17 @@
       key:String(column?.key || ''),
       label:{vi:String(column?.label?.vi || ''),zh:String(column?.label?.zh || '')},
       defaultVisible:column?.defaultVisible !== false,
-      available:column?.available
+      available:column?.available,
+      minimum:positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH),
+      preferred:positiveWidth(column?.preferred,positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH)),
+      maximum:positiveWidth(column?.maximum,DEFAULT_MAXIMUM_WIDTH),
+      resizable:column?.resizable !== false
     })).filter(column=>column.key);
+  }
+
+  function positiveWidth(value,fallback){
+    const width = Number(value);
+    return Number.isFinite(width) && width > 0 ? width : Number(fallback);
   }
 
   function columnIsAvailable(column){
@@ -40,6 +53,36 @@
 
   function availableColumns(columns){
     return normalizeColumns(columns).filter(columnIsAvailable);
+  }
+
+  function resizeStorageKey(table,explicitKey){
+    const key = String(explicitKey || table?.id || '').trim();
+    return key ? `${WIDTH_STORAGE_PREFIX}.${key}` : '';
+  }
+
+  function readStoredWidths(key,signature){
+    if(!key) return {};
+    try{
+      const parsed = JSON.parse(window.localStorage?.getItem?.(key) || 'null');
+      if(!parsed || parsed.signature !== signature || !parsed.widths || typeof parsed.widths !== 'object') return {};
+      return Object.fromEntries(Object.entries(parsed.widths)
+        .map(([column,width])=>[String(column),Number(width)])
+        .filter(([,width])=>Number.isFinite(width) && width > 0));
+    }catch(_error){
+      return {};
+    }
+  }
+
+  function writeStoredWidths(key,signature,widths){
+    if(!key) return;
+    try{
+      window.localStorage?.setItem?.(key,JSON.stringify({signature,widths}));
+    }catch(_error){}
+  }
+
+  function removeStoredWidths(key){
+    if(!key) return;
+    try{ window.localStorage?.removeItem?.(key); }catch(_error){}
   }
 
   function nextSortState(current,key){
@@ -76,8 +119,14 @@
     const frame = resolveElement(options.frame,root);
     const empty = resolveElement(options.empty,root);
     const columns = normalizeColumns(options.columns);
+    const columnMap = new Map(columns.map(column=>[column.key,column])); // columnMap（欄位識別與欄寬限制）
+    const resizable = options.resizable === true || table?.dataset?.uiTableResizable === 'true'; // resizable（是否啟用滑鼠欄寬調整）
+    const widthSignature = columns.map(column=>column.key).join('|'); // widthSignature（欄位結構識別）
+    const widthKey = resizeStorageKey(table,options.resizeStorageKey); // widthKey（目前表格本機欄寬保存鍵）
     const visibility = Object.create(null); // visibility（各欄位目前顯示狀態）
     columns.forEach(column=>{ visibility[column.key] = column.defaultVisible; });
+    let resizeWidths = resizable ? readStoredWidths(widthKey,widthSignature) : {}; // resizeWidths（使用者調整後的各欄寬）
+    let activeResize = null; // activeResize（目前進行中的欄寬拖曳）
     let availabilitySignature = '';
     let sortState = Object.freeze({key:'',direction:'none'}); // sortState（目前單欄排序狀態）
     let destroyed = false;
@@ -96,6 +145,174 @@
       return currentAvailableColumns()
         .filter(column=>visibility[column.key] !== false)
         .map(column=>column.key);
+    }
+
+    function headerCells(){
+      return Array.from(table.tHead?.rows?.[0]?.cells || []);
+    }
+
+    function headerForColumn(key){
+      return headerCells().find(header=>String(header.dataset?.uiTableColumn || '') === String(key || '')) || null;
+    }
+
+    function cellsForColumn(key){
+      return Array.from(table.querySelectorAll(COLUMN_CELL_SELECTOR))
+        .filter(cell=>String(cell.dataset?.uiTableColumn || '') === String(key || ''));
+    }
+
+    function clampWidth(value,column){
+      const minimum = positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH);
+      const maximum = Math.max(minimum,positiveWidth(column?.maximum,DEFAULT_MAXIMUM_WIDTH));
+      return Math.max(minimum,Math.min(maximum,Math.round(Number(value) || minimum)));
+    }
+
+    function renderResizeHandles(){
+      if(!resizable) return;
+      const available = new Set(currentAvailableColumns().filter(column=>column.resizable).map(column=>column.key));
+      headerCells().forEach(header=>{
+        const key = String(header.dataset?.uiTableColumn || '');
+        const enabled = available.has(key) && header.dataset?.uiTableResizable !== 'false';
+        const current = Array.from(header.children || []).find(child=>child?.dataset?.uiTableResizeHandle === 'true');
+        if(!enabled){ current?.remove?.(); return; }
+        if(current) return;
+        const handle = document.createElement('span');
+        handle.className = 'ui-table-resize-handle';
+        handle.dataset.uiTableResizeHandle = 'true';
+        handle.setAttribute('aria-hidden','true');
+        handle.title = 'Kéo để đổi độ rộng; nhấp đúp để vừa nội dung / 拖曳調整欄寬；雙擊符合內容';
+        header.appendChild(handle);
+      });
+    }
+
+    function applyResizeWidths(){
+      if(!resizable) return;
+      const resizedKeys = Object.keys(resizeWidths).filter(key=>columnMap.has(key));
+      columns.forEach(column=>{
+        const hasWidth = resizedKeys.includes(column.key);
+        const width = hasWidth ? clampWidth(resizeWidths[column.key],column) : 0;
+        cellsForColumn(column.key).forEach(cell=>{
+          if(hasWidth) cell.style.width = `${width}px`;
+          else cell.style.removeProperty('width');
+        });
+        if(hasWidth) resizeWidths[column.key] = width;
+      });
+      if(!resizedKeys.length){
+        table.style.removeProperty('--ui-table-resized-min-width');
+        window.PCMSUITable?.refresh?.();
+        return;
+      }
+      const total = visibleKeys().reduce((sum,key)=>{
+        const column = columnMap.get(key);
+        const stored = Number(resizeWidths[key]);
+        if(Number.isFinite(stored) && stored > 0) return sum+clampWidth(stored,column);
+        const header = headerForColumn(key);
+        const measured = Number(header?.getBoundingClientRect?.().width || column?.preferred || column?.minimum || 0);
+        return sum+clampWidth(measured,column);
+      },0);
+      if(total > 0) table.style.setProperty('--ui-table-resized-min-width',`${Math.ceil(total)}px`);
+      else table.style.removeProperty('--ui-table-resized-min-width');
+      window.PCMSUITable?.refresh?.();
+    }
+
+    function captureVisibleWidths(){
+      visibleKeys().forEach(key=>{
+        const column = columnMap.get(key);
+        const header = headerForColumn(key);
+        if(!column || !header) return;
+        const measured = Number(header.getBoundingClientRect?.().width || column.preferred || column.minimum);
+        resizeWidths[key] = clampWidth(measured,column);
+      });
+    }
+
+    function persistResizeWidths(){
+      const widths = Object.fromEntries(Object.entries(resizeWidths)
+        .filter(([key,width])=>columnMap.has(key) && Number.isFinite(Number(width)) && Number(width) > 0)
+        .map(([key,width])=>[key,Math.round(Number(width))]));
+      resizeWidths = widths;
+      writeStoredWidths(widthKey,widthSignature,widths);
+    }
+
+    function resetColumnWidths(){
+      if(!resizable) return false;
+      resizeWidths = {};
+      removeStoredWidths(widthKey);
+      applyResizeWidths();
+      return true;
+    }
+
+    function measuredContentWidth(key){
+      const column = columnMap.get(key);
+      const widths = cellsForColumn(key).map(cell=>{
+        const scrollWidth = Number(cell.scrollWidth || 0);
+        const textWidth = Array.from(String(cell.textContent || '').trim()).length*8+24;
+        return Math.max(scrollWidth,textWidth);
+      });
+      widths.push(Number(column?.preferred || column?.minimum || DEFAULT_MINIMUM_WIDTH));
+      return clampWidth(Math.max(...widths),column);
+    }
+
+    function finishResize(save=true){
+      if(!activeResize) return;
+      activeResize = null;
+      table.classList.remove('is-ui-table-resizing');
+      document.body?.classList?.remove?.('is-ui-table-resizing');
+      window.removeEventListener('pointermove',handleResizePointerMove);
+      window.removeEventListener('pointerup',handleResizePointerUp);
+      window.removeEventListener('pointercancel',handleResizePointerCancel);
+      if(save) persistResizeWidths();
+    }
+
+    function handleResizePointerDown(event){
+      const handle = event.target?.closest?.(RESIZE_HANDLE_SELECTOR);
+      if(!resizable || !handle || !table.contains(handle) || (event.button != null && event.button !== 0)) return;
+      const header = handle.closest('th');
+      const key = String(header?.dataset?.uiTableColumn || '');
+      const column = columnMap.get(key);
+      if(!column || column.resizable === false) return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      captureVisibleWidths();
+      activeResize = {
+        key,column,startX:Number(event.clientX || 0),
+        startWidth:clampWidth(resizeWidths[key] || header.getBoundingClientRect?.().width,column)
+      };
+      table.classList.add('is-ui-table-resizing');
+      document.body?.classList?.add?.('is-ui-table-resizing');
+      window.addEventListener('pointermove',handleResizePointerMove);
+      window.addEventListener('pointerup',handleResizePointerUp);
+      window.addEventListener('pointercancel',handleResizePointerCancel);
+    }
+
+    function handleResizePointerMove(event){
+      if(!activeResize) return;
+      event.preventDefault?.();
+      resizeWidths[activeResize.key] = clampWidth(
+        activeResize.startWidth+(Number(event.clientX || 0)-activeResize.startX),
+        activeResize.column
+      );
+      applyResizeWidths();
+    }
+
+    function handleResizePointerUp(event){
+      if(!activeResize) return;
+      event.preventDefault?.();
+      finishResize(true);
+    }
+
+    function handleResizePointerCancel(){ finishResize(false); }
+
+    function handleResizeDoubleClick(event){
+      const handle = event.target?.closest?.(RESIZE_HANDLE_SELECTOR);
+      if(!resizable || !handle || !table.contains(handle)) return;
+      const header = handle.closest('th');
+      const key = String(header?.dataset?.uiTableColumn || '');
+      if(!columnMap.has(key)) return;
+      event.preventDefault?.();
+      event.stopPropagation?.();
+      captureVisibleWidths();
+      resizeWidths[key] = measuredContentWidth(key);
+      applyResizeWidths();
+      persistResizeWidths();
     }
 
     function closeMenu(){
@@ -175,6 +392,8 @@
         const visible = availableKeys.has(key) && visibility[key] !== false;
         cell.classList.toggle('is-column-hidden',!visible);
       });
+      renderResizeHandles();
+      applyResizeWidths();
       const keys = visibleKeys();
       if(frame) frame.hidden = keys.length === 0;
       if(empty) empty.hidden = keys.length !== 0;
@@ -232,10 +451,14 @@
     }
 
     function handleSettingsClick(event){
-      if(event.target?.closest?.('[data-ui-table-columns-reset]')) resetColumns();
+      if(event.target?.closest?.('[data-ui-table-columns-reset]')){
+        resetColumns();
+        resetColumnWidths();
+      }
     }
 
     function handleTableClick(event){
+      if(event.target?.closest?.(RESIZE_HANDLE_SELECTOR)) return;
       const header = event.target?.closest?.(SORT_HEADER_SELECTOR);
       if(!header || !table.contains(header)) return;
       const key = String(header.dataset.uiTableSortKey || '');
@@ -254,6 +477,7 @@
     }
 
     function deactivate(deactivateOptions={}){
+      finishResize(false);
       closeMenu();
       if(deactivateOptions.resetSort === true){
         sortState = Object.freeze({key:'',direction:'none'});
@@ -267,8 +491,14 @@
       settingsMenu?.removeEventListener?.('change',handleSettingsChange);
       settingsMenu?.removeEventListener?.('click',handleSettingsClick);
       table.removeEventListener('click',handleTableClick);
+      table.removeEventListener('pointerdown',handleResizePointerDown);
+      table.removeEventListener('dblclick',handleResizeDoubleClick);
       document.removeEventListener('click',handleDocumentClick);
       document.removeEventListener('keydown',handleDocumentKeydown);
+      finishResize(false);
+      headerCells().forEach(header=>Array.from(header.children || [])
+        .filter(child=>child?.dataset?.uiTableResizeHandle === 'true')
+        .forEach(handle=>handle.remove?.()));
       destroyed = true;
       closeMenu();
     }
@@ -277,6 +507,10 @@
     settingsMenu?.addEventListener?.('change',handleSettingsChange);
     settingsMenu?.addEventListener?.('click',handleSettingsClick);
     table.addEventListener('click',handleTableClick);
+    if(resizable){
+      table.addEventListener('pointerdown',handleResizePointerDown);
+      table.addEventListener('dblclick',handleResizeDoubleClick);
+    }
     document.addEventListener('click',handleDocumentClick);
     document.addEventListener('keydown',handleDocumentKeydown);
     renderMenu();
@@ -286,9 +520,11 @@
       refresh,
       applyColumns,
       resetColumns,
+      resetColumnWidths,
       setAllColumns,
       getVisibleKeys:()=>[...visibleKeys()],
       getVisibility:()=>Object.freeze({...visibility}),
+      getColumnWidths:()=>Object.freeze({...resizeWidths}),
       getSort:()=>sortState,
       deactivate,
       destroy
@@ -335,7 +571,8 @@
       preferred,
       maximum,
       ellipsis:header.dataset.uiTableEllipsis === 'true',
-      align
+      align,
+      resizable:header.dataset.uiTableResizable !== 'false'
     };
   }
 
@@ -544,6 +781,7 @@
       frame:table.closest('.ui-table-frame'),
       empty,
       columns,
+      resizable:table.dataset.uiTableResizable === 'true',
       onColumnsChanged:({visibleKeys})=>updateAutoMinimumWidth(table,columns,visibleKeys),
       onSortChanged:()=>applyAutoSort(runtime)
     });

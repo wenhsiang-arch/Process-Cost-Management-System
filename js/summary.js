@@ -2,16 +2,16 @@
 const _expandedSummaryCodes=new Set();
 let _summaryTableControl=null; // _summaryTableControl（款號共用表格操作控制）
 const SUMMARY_COLUMNS=Object.freeze([
-  {key:'index',label:{vi:'STT',zh:'序號'}},
-  {key:'code',label:{vi:'Mã hàng',zh:'款號'}},
-  {key:'client',label:{vi:'Khách hàng',zh:'客人'}},
-  {key:'zh',label:{vi:'Tên Trung',zh:'中文名稱'}},
-  {key:'vi',label:{vi:'Tên Việt',zh:'越文名稱'}},
-  {key:'size',label:{vi:'Kích thước',zh:'尺寸'}},
-  {key:'ops',label:{vi:'Số công đoạn',zh:'工序數'}},
-  {key:'cost',label:{vi:'Tổng chi phí',zh:'總工價'},available:()=>canViewCosts()},
-  {key:'action',label:{vi:'Thao tác',zh:'操作'}}
-]); // SUMMARY_COLUMNS（款號欄位定義）：只提供欄位文字、預設及既有權限結果。
+  {key:'index',label:{vi:'STT',zh:'序號'},minimum:58,preferred:68,maximum:84},
+  {key:'code',label:{vi:'Mã hàng',zh:'款號'},minimum:110,preferred:140,maximum:220},
+  {key:'client',label:{vi:'Khách hàng',zh:'客人'},minimum:100,preferred:130,maximum:220},
+  {key:'zh',label:{vi:'Tên Trung',zh:'中文名稱'},minimum:180,preferred:280,maximum:520},
+  {key:'vi',label:{vi:'Tên Việt',zh:'越文名稱'},minimum:180,preferred:280,maximum:520},
+  {key:'size',label:{vi:'Kích thước',zh:'尺寸'},minimum:90,preferred:110,maximum:160},
+  {key:'ops',label:{vi:'Số công đoạn',zh:'工序數'},minimum:90,preferred:105,maximum:130},
+  {key:'cost',label:{vi:'Tổng chi phí',zh:'總工價'},minimum:120,preferred:150,maximum:210,available:()=>canViewCosts()},
+  {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:88,preferred:96,maximum:120}
+]); // SUMMARY_COLUMNS（款號欄位定義）：提供文字、既有權限與使用者拖曳時的合理寬度範圍。
 const summarySafeText=value=>window.PCMSSafe.text(value); // summarySafeText（款號畫面安全文字）
 function summaryMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});

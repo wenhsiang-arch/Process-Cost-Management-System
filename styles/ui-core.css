@@ -945,6 +945,49 @@
   max-width: var(--ui-table-column-max, none);
 }
 
+/* resizable（可調欄寬表格）：保留父框滿寬，使用者放大欄位後才增加表格最低總寬。 */
+.ui-table[data-ui-table-resizable="true"] {
+  min-width: max(100%, var(--ui-table-visible-min-width, 0px), var(--ui-table-resized-min-width, 0px));
+}
+
+.ui-table[data-ui-table-resizable="true"] > thead > tr > th {
+  position: relative;
+}
+
+.ui-table-resize-handle {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.ui-table-resize-handle::after {
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  content: "";
+}
+
+.ui-table-resize-handle:hover::after,
+.ui-table-resize-handle:active::after,
+.ui-table.is-ui-table-resizing .ui-table-resize-handle::after {
+  background: var(--ui-color-primary);
+}
+
+body.is-ui-table-resizing,
+body.is-ui-table-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .ui-table th {
   padding: var(--ui-table-cell-padding-block) var(--ui-table-cell-padding-inline);
   border-bottom: var(--ui-border-width) solid var(--ui-color-border);

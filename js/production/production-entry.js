@@ -19,17 +19,17 @@
   }; // state（登記頁目前狀態）
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
-    {key:'order',label:{vi:'Đơn hàng',zh:'訂單'}},
-    {key:'product',label:{vi:'Mã hàng',zh:'款號'}},
-    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'}},
-    {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'}},
-    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'}},
-    {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'}},
-    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'}},
-    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'}},
-    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'}},
-    {key:'action',label:{vi:'Thao tác',zh:'操作'},available:()=>isAdmin()}
-  ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果仍由產能功能提供。
+    {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:130,preferred:150,maximum:240},
+    {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:135,preferred:155,maximum:240},
+    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:72,preferred:80,maximum:96},
+    {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'},minimum:226,preferred:320,maximum:600},
+    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},minimum:110,preferred:120,maximum:160},
+    {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'},minimum:110,preferred:120,maximum:160},
+    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:110,preferred:120,maximum:160},
+    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},minimum:90,preferred:100,maximum:130},
+    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},minimum:105,preferred:115,maximum:150},
+    {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:72,preferred:80,maximum:104,available:()=>isAdmin()}
+  ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果與可拖曳寬度限制仍由產能功能提供。
 
   const ENTRY_INPUT_IDS = Object.freeze([
     'production-employee-input','production-date-input','production-order-input',
@@ -44,18 +44,9 @@
     {inputId:'production-quantity-input',minimum:198,maximum:260,extra:24,emptyShrink:1.25,filledShrink:.35}
   ]); // ENTRY_FIELD_LAYOUT_RULES（單列欄位依實際內容調整寬度的規則）
 
-  const ENTRY_TABLE_COLUMN_MINIMUMS = Object.freeze({
-    order:130,
-    product:135,
-    processNo:72,
-    processName:226,
-    quantity:110,
-    supplementHours:110,
-    orderQuantity:110,
-    processSeconds:90,
-    hourlyCapacity:105,
-    action:72
-  }); // ENTRY_TABLE_COLUMN_MINIMUMS（當日表格各可見欄位最低可讀寬度）
+  const ENTRY_TABLE_COLUMN_MINIMUMS = Object.freeze(Object.fromEntries(
+    PRODUCTION_TABLE_COLUMNS.map(column=>[column.key,column.minimum])
+  )); // ENTRY_TABLE_COLUMN_MINIMUMS（由正式欄位定義建立的各可見欄位最低可讀寬度）
 
   const DROPDOWN_BINDINGS = Object.freeze({
     'production-employee-options':{inputId:'production-employee-input',toggleId:'production-employee-toggle'},
@@ -124,7 +115,7 @@
 
   function updateEntryTableMinimumWidth(table,visibleColumns=productionTableControl?.getVisibleKeys?.() || []){
     const minimumWidth = visibleColumns.reduce((total,key)=>total+(ENTRY_TABLE_COLUMN_MINIMUMS[key] || 0),0);
-    table.style.setProperty('--production-entry-table-min-width',`${minimumWidth}px`);
+    table.style.setProperty('--ui-table-visible-min-width',`${minimumWidth}px`);
     window.PCMSUITable?.refresh?.();
     return visibleColumns.length;
   }

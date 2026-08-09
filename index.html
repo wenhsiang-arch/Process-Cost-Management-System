@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260810-5">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260810-6">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -389,7 +389,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 </span>
               </button>
             </div>
-            <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-entry-table" id="production-entry-table" data-ui-table-layout="custom" data-ui-table-sticky="original">
+            <div class="ui-table-frame" id="production-entry-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-entry-table" id="production-entry-table" data-ui-table-layout="custom" data-ui-table-resizable="true" data-ui-table-sticky="original">
               <thead><tr>
                 <th class="ui-table-sortable-header" data-production-column="order" data-ui-table-column="order" data-ui-table-sort-key="order"><span class="ui-table-sort-heading"><span>Đơn hàng</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">訂單</span></th>
                 <th class="ui-table-sortable-header" data-production-column="product" data-ui-table-column="product" data-ui-table-sort-key="product"><span class="ui-table-sort-heading"><span>Mã hàng</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">款號</span></th>
@@ -429,7 +429,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
           </section>
           <section class="production-data-section ui-data-section">
             <div class="ui-section-header"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử sản xuất</strong><span>生產紀錄</span></span><span class="production-section-count"><span id="production-records-count">0</span> dòng / 筆</span></div>
-            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table" id="production-records-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original">
+            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table" id="production-records-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
               <thead><tr>
                 <th data-ui-table-column="date" data-ui-table-sort-type="date" data-ui-table-min-width="96" data-ui-table-width="112" data-ui-table-max-width="128"><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
                 <th data-ui-table-column="employee" data-ui-table-min-width="145" data-ui-table-width="180" data-ui-table-max-width="230" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Nhân viên</strong><span>員工</span></span></th>
@@ -795,7 +795,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <button class="cb" id="cur-TWD" onclick="setCur('TWD')">TWD</button>
               </div></div>
             </div>
-            <div class="to ui-table-frame" id="summary-table-frame"><div class="ts ui-table-scroll summary-table-scroll"><table class="ui-table summary-main-table" id="summary-main-table" data-ui-table-layout="custom" data-ui-table-sticky="original"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
+            <div class="to ui-table-frame" id="summary-table-frame"><div class="ts ui-table-scroll summary-table-scroll" data-ui-floating-scroll="only"><table class="ui-table summary-main-table" id="summary-main-table" data-ui-table-layout="custom" data-ui-table-resizable="true" data-ui-table-sticky="original"><thead><tr id="sh"></tr></thead><tbody id="sb2"></tbody></table></div></div>
             <div class="summary-columns-empty" id="summary-columns-empty" hidden><span class="ui-dual-copy"><strong>Chưa chọn cột hiển thị</strong><span>尚未選擇顯示欄位</span></span></div>
             <div class="pgr" id="sp2"></div>
           </section>
@@ -1282,7 +1282,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/ui-table.js?v=20260810-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-7"></script>
+<script src="js/features.js?v=20260810-8"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
