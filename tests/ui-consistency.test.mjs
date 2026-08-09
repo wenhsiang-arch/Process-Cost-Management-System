@@ -151,18 +151,23 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(entrySource,/addEventListener\('mouseleave'/);
   assert.doesNotMatch(entrySource,/latest\.length === 1|if\(exact\) selectProcess\(exact\)/);
   assert.doesNotMatch(entrySource,/production-(?:order|product)-input'\)\.addEventListener\('(?:focus|click)'/);
-  assert.doesNotMatch(entrySource,/keydown[\s\S]*?Enter/);
+  assert.match(entrySource,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
+  assert.match(entrySource,/selectProcess\(exact,\{focusQuantity:true\}\)/);
+  assert.match(entrySource,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
+  assert.match(entrySource,/function handleEntryTab\(event,currentIndex\)/);
   assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
   assert.match(markup,/class="production-entry-panels"/);
-  assert.match(markup,/production-employee-context[\s\S]*?production-registration-context/);
-  assert.match(markup,/class="production-field-label-row"[\s\S]*?id="production-today-button"[\s\S]*?id="production-date-input"/);
-  assert.match(markup,/id="production-column-settings-menu"[\s\S]*?data-production-column-toggle="processName"[\s\S]*?data-production-column-toggle="orderQuantity"[\s\S]*?data-production-column-toggle="processSeconds"/);
+  assert.match(markup,/production-registration-context[\s\S]*?production-registration-header[\s\S]*?production-employee-inline-panel/);
+  assert.match(markup,/class="production-field-label-row"[\s\S]*?id="production-calendar-button"[\s\S]*?id="production-date-input"[\s\S]*?id="production-date-previous"[\s\S]*?id="production-date-next"/);
+  assert.match(markup,/id="production-column-settings-menu"[\s\S]*?id="production-column-settings-reset"[\s\S]*?data-production-column-toggle="order"[\s\S]*?data-production-column-toggle="action"/);
+  assert.doesNotMatch(markup,/data-production-column-toggle="[^"]+"[^>]*disabled/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
-  assert.match(style,/\.production-employee-context-fields\s*\{[\s\S]*?grid-template-columns:\s*minmax\(210px, 260px\)/);
+  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?grid-template-columns:\s*minmax\(300px, 1\.15fr\)/);
   assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?grid-template-columns:\s*150px minmax\(220px, 1\.35fr\) minmax\(180px, 1fr\) 110px 128px;/);
+  assert.match(style,/\.production-records-table \.production-date-cell\s*\{/);
   assert.match(style,/\.production-filter-grid\s*\{[\s\S]*?height:\s*auto;[\s\S]*?grid-template-columns:/);
   assert.match(style,/\.production-command-actions\s*\{[\s\S]*?height:\s*auto;[\s\S]*?align-self:\s*stretch;/);
-  assert.match(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-employee-context-fields[\s\S]*?\.production-entry-fields[\s\S]*?\.production-filter-grid[\s\S]*?\.production-employee-fields/);
+  assert.match(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-employee-inline-panel[\s\S]*?\.production-entry-fields[\s\S]*?\.production-filter-grid[\s\S]*?\.production-employee-fields/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{

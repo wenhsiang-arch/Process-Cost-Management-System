@@ -16,10 +16,10 @@
     sync:'js/sync.js?v=20260808-1',
     permissions:'js/permissions.js?v=20260809-3',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
-    productionEntryStore:'js/production/entry-store.js?v=20260809-1',
+    productionEntryStore:'js/production/entry-store.js?v=20260809-2',
     productionReportStore:'js/production/report-store.js?v=20260808-1',
-    productionEntry:'js/production/production-entry.js?v=20260809-6',
-    productionRecords:'js/production/production-records.js?v=20260809-2',
+    productionEntry:'js/production/production-entry.js?v=20260809-7',
+    productionRecords:'js/production/production-records.js?v=20260809-3',
     productionEmployees:'js/production/production-employees.js?v=20260809-5'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
@@ -30,7 +30,7 @@
     sync:'styles/features/sync.css?v=20260808-2',
     cost:'styles/features/cost.css?v=20260809-3',
     accounts:'styles/features/accounts.css?v=20260809-3',
-    production:'styles/features/production.css?v=20260809-5'
+    production:'styles/features/production.css?v=20260809-6'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([

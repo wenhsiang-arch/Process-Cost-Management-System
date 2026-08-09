@@ -142,6 +142,20 @@
     return getLoadedProcesses(orderId).find(item=>normalizedText(item.code) === code && normalizedText(item.processNo) === number) || null;
   }
 
+  async function loadProcessTotal(processId){
+    const normalizedProcessId = normalizedText(processId);
+    if(!normalizedProcessId) return {registeredQuantity:0,orderQuantity:0};
+    const process = Array.from(processRows.values())
+      .flatMap(group=>group.rows)
+      .find(item=>item.id === normalizedProcessId);
+    const snapshot = await window._getDoc(window._docRef(COLLECTIONS.totals,normalizedProcessId));
+    const total = snapshot.exists() ? snapshot.data() : null;
+    return {
+      registeredQuantity:Math.max(0,Number(total?.registeredQty)||0),
+      orderQuantity:Math.max(0,Number(total?.orderQty)||Number(process?.orderQty)||0)
+    };
+  }
+
   function validateEntryInput(input){
     const productionDate = normalizedText(input?.productionDate);
     const employeeId = window.PCMSProductionEmployees?.normalizeEmployeeId?.(input?.employeeId) || normalizedText(input?.employeeId).toUpperCase();
@@ -395,6 +409,6 @@
 
   window.PCMSProductionEntryStore = Object.freeze({
     loadOrders,listOrders,searchOrders,findOrder,loadProcesses,getLoadedProcesses,
-    productsForOrder,searchProducts,findProcess,createEntry,updateQuantity,voidEntry,deleteEntry,reset,validateEntryInput
+    productsForOrder,searchProducts,findProcess,loadProcessTotal,createEntry,updateQuantity,voidEntry,deleteEntry,reset,validateEntryInput
   });
 })();

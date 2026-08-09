@@ -2,12 +2,24 @@
 (function(){
   'use strict';
 
-  const state = {initialized:false,rows:[],filtered:[]}; // state（紀錄頁狀態）
+  const state = {initialized:false,rows:[],filtered:[],pendingFilters:null}; // state（紀錄頁狀態）
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
   function dateText(value){
     const parts = String(value || '').split('-');
     return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : String(value || '—');
+  }
+  function dateBadgeText(value){
+    const parts = String(value || '').split('-').map(Number);
+    if(parts.length !== 3 || parts.some(part=>!Number.isFinite(part))) return {date:dateText(value),vi:'',zh:''};
+    const date = new Date(parts[0],parts[1]-1,parts[2]);
+    const viDays = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+    const zhDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    return {
+      date:`${String(parts[2]).padStart(2,'0')}/${String(parts[1]).padStart(2,'0')}`,
+      vi:viDays[date.getDay()],
+      zh:zhDays[date.getDay()]
+    };
   }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
   function shiftDate(days){
@@ -54,13 +66,34 @@
     row.appendChild(cell);
   }
 
+  function addDateCell(row,value,showBadge){
+    const cell = document.createElement('td');
+    cell.className = 'production-date-cell';
+    if(showBadge){
+      const copy = dateBadgeText(value);
+      const badge = document.createElement('span');
+      badge.className = 'production-date-badge';
+      const date = document.createElement('strong');
+      const weekday = document.createElement('span');
+      date.textContent = copy.date;
+      weekday.textContent = `${copy.vi} / ${copy.zh}`;
+      badge.append(date,weekday);
+      cell.appendChild(badge);
+    }else{
+      cell.setAttribute('aria-label',dateText(value));
+    }
+    row.appendChild(cell);
+  }
+
   function render(){
     state.filtered = window.PCMSProductionReports.filterRows(state.rows,filters());
     const body = element('production-records-table-body');
     body.replaceChildren();
-    state.filtered.forEach(item=>{
+    state.filtered.forEach((item,index)=>{
       const row = document.createElement('tr');
-      addCell(row,dateText(item.productionDate));
+      const groupStart = index === 0 || state.filtered[index-1]?.productionDate !== item.productionDate;
+      if(groupStart) row.classList.add('production-date-group-start');
+      addDateCell(row,item.productionDate,groupStart);
       addCell(row,`${item.employeeId} · ${item.employeeName}`);
       addCell(row,item.orderNo || '—');
       addCell(row,item.productCode || '—');
@@ -175,6 +208,24 @@
     void load();
   }
 
+  function setPendingFilters(filters={}){
+    state.pendingFilters = {
+      order:String(filters.order || '').trim(),
+      product:String(filters.product || '').trim(),
+      process:String(filters.process || '').trim()
+    };
+  }
+
+  function applyPendingFilters(){
+    const pending = state.pendingFilters;
+    state.pendingFilters = null;
+    if(!pending) return;
+    element('production-record-order').value = pending.order;
+    element('production-record-product').value = pending.product;
+    element('production-record-process').value = pending.process;
+    element('production-record-status-filter').value = 'active';
+  }
+
   function init(){
     if(state.initialized) return;
     state.initialized = true;
@@ -192,10 +243,11 @@
     return true;
   }
 
-  async function productionRecordsInit(){ init(); await load(); }
+  async function productionRecordsInit(){ init(); applyPendingFilters(); await load(); }
   function productionRecordsLeave(){ window.PCMSProductionReports.reset(); }
 
   window.loadProductionRecordsData = loadProductionRecordsData;
   window.productionRecordsInit = productionRecordsInit;
   window.productionRecordsLeave = productionRecordsLeave;
+  window.PCMSProductionRecords = Object.freeze({setPendingFilters});
 })();

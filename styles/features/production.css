@@ -15,28 +15,96 @@
   overflow: visible;
 }
 
-.production-context-header {
-  display: flex;
-  min-height: 40px;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 12px;
+.production-registration-header {
+  display: grid;
+  min-width: 0;
+  min-height: 64px;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: stretch;
   border-bottom: var(--ui-border-width) solid var(--ui-color-operation-divider);
   border-radius: calc(var(--ui-radius-panel) - 1px) calc(var(--ui-radius-panel) - 1px) 0 0;
-  background: var(--ui-color-surface-muted);
+  background: var(--ui-color-surface);
 }
 
-.production-context-header > i {
+.production-registration-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+}
+
+.production-registration-title > i {
+  flex: 0 0 auto;
   color: var(--ui-color-primary);
   font-size: 18px;
 }
 
-.production-employee-context-fields {
+.production-registration-title > .ui-dual-copy {
+  flex: 0 0 auto;
+}
+
+.production-employee-inline-panel {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(210px, 260px) minmax(210px, 1fr) minmax(190px, .8fr);
-  gap: 10px;
-  padding: 10px 12px 12px;
+  grid-template-columns: minmax(300px, 1.15fr) minmax(220px, .95fr) minmax(170px, .7fr);
+  gap: 12px;
+  align-items: center;
+  margin: 7px 10px 7px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-muted);
+}
+
+.production-employee-inline-field {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 86px minmax(150px, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.production-employee-inline-field > label {
+  color: var(--ui-color-text-muted);
+  line-height: 1.15;
+}
+
+.production-employee-inline-field > label strong,
+.production-inline-label strong {
+  font-size: 11px;
+}
+
+.production-employee-inline-field > label span,
+.production-inline-label span {
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.production-employee-inline-copy {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 7px;
+  align-items: center;
+}
+
+.production-inline-label {
+  display: flex;
+  flex-direction: column;
+  color: var(--ui-color-text-muted);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.production-inline-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-color-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .production-entry-command,
@@ -129,7 +197,7 @@
   appearance: none;
 }
 
-.production-today-button {
+.production-calendar-button {
   display: inline-flex;
   width: 26px;
   height: 26px;
@@ -144,14 +212,66 @@
   font-size: 15px;
 }
 
-.production-today-button:hover,
-.production-today-button:focus-visible {
+.production-calendar-button:hover,
+.production-calendar-button:focus-visible {
   background: var(--ui-color-primary-soft);
 }
 
-.production-today-button:focus-visible {
+.production-calendar-button:focus-visible {
   outline: 3px solid var(--ui-color-focus-ring);
   outline-offset: 1px;
+}
+
+.production-date-control {
+  position: relative;
+  min-width: 0;
+}
+
+.production-date-control input {
+  padding-right: 35px;
+}
+
+.production-date-control input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.production-date-stepper {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  display: grid;
+  width: 30px;
+  grid-template-rows: 1fr 1fr;
+  border-left: 1px solid var(--ui-color-border);
+  border-radius: 0 calc(var(--ui-radius-control) - 1px) calc(var(--ui-radius-control) - 1px) 0;
+  overflow: hidden;
+}
+
+.production-date-stepper button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.production-date-stepper button + button {
+  border-top: 1px solid var(--ui-color-border);
+}
+
+.production-date-stepper button:hover:not(:disabled) {
+  background: var(--ui-color-primary-soft);
+}
+
+.production-date-stepper button:disabled {
+  color: var(--ui-color-text-subtle);
+  cursor: default;
 }
 
 .production-combobox {
@@ -202,7 +322,8 @@
 }
 
 .production-option:hover,
-.production-option:focus-visible {
+.production-option:focus-visible,
+.production-option.is-keyboard-active {
   background: var(--ui-color-primary-soft);
   outline: none;
 }
@@ -220,27 +341,6 @@
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.production-readonly-value {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  height: 36px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface-muted);
-  color: var(--ui-color-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.production-readonly-value:empty::before {
-  content: '—';
-  color: var(--ui-color-text-muted);
 }
 
 .production-command-actions {
@@ -271,7 +371,7 @@
 
 .production-entry-status {
   min-width: 0;
-  margin-left: auto;
+  flex: 1 1 auto;
   color: var(--ui-color-text-muted);
   font-size: 10px;
   line-height: 1.25;
@@ -279,6 +379,37 @@
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.production-quantity-progress {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 94px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-quantity-progress.is-over {
+  color: var(--ui-color-danger-text);
+}
+
+.production-quantity-progress:disabled {
+  cursor: default;
+}
+
+.production-quantity-progress[hidden] {
+  display: none;
 }
 
 .production-entry-status.is-danger {
@@ -334,7 +465,7 @@
   top: calc(100% + 5px);
   left: 0;
   display: grid;
-  width: 240px;
+  width: 260px;
   gap: 0;
   padding: 8px;
   border: 1px solid var(--ui-color-border);
@@ -347,9 +478,17 @@
   display: none;
 }
 
-.production-column-settings-title {
+.production-column-settings-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
   padding: 3px 5px 7px;
   border-bottom: 1px solid var(--ui-color-border);
+}
+
+.production-column-settings-title {
+  min-width: 0;
 }
 
 .production-column-settings-menu > label {
@@ -362,11 +501,6 @@
   cursor: pointer;
 }
 
-.production-column-settings-menu > label:has(input:disabled) {
-  color: var(--ui-color-text-muted);
-  cursor: default;
-}
-
 .production-column-settings-menu input {
   width: 16px;
   height: 16px;
@@ -374,13 +508,21 @@
 }
 
 .production-column-settings-reset {
-  min-height: 34px;
-  margin-top: 5px;
+  min-height: 30px;
+  padding: 3px 8px;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
   background: var(--ui-color-surface);
   color: var(--ui-color-primary);
   cursor: pointer;
+}
+
+.production-column-settings-reset .ui-dual-copy strong {
+  font-size: 10px;
+}
+
+.production-column-settings-reset .ui-dual-copy span {
+  font-size: 9px;
 }
 
 .production-column-settings-reset:hover,
@@ -389,6 +531,12 @@
 }
 
 .production-entry-table .is-column-hidden {
+  display: none;
+}
+
+#production-entry-table-frame[hidden],
+.production-columns-empty[hidden],
+.production-operation-column-option[hidden] {
   display: none;
 }
 
@@ -448,6 +596,45 @@
   display: flex;
   justify-content: flex-end;
   padding-top: 10px;
+}
+
+.production-records-table .production-date-cell {
+  width: 96px;
+  min-width: 96px;
+  padding: 6px 8px;
+  background: var(--ui-color-surface-muted);
+  text-align: center;
+  vertical-align: top;
+}
+
+.production-date-badge {
+  display: grid;
+  min-height: 44px;
+  align-content: center;
+  gap: 2px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  line-height: 1.15;
+}
+
+.production-date-badge strong {
+  font-size: 12px;
+}
+
+.production-date-badge span {
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+}
+
+.production-records-table tr.production-date-group-start > td {
+  border-top-width: 2px;
+  border-top-color: var(--ui-color-operation-border);
+}
+
+.production-records-table tr:first-child > td {
+  border-top-width: 1px;
 }
 
 .production-employee-fields {
@@ -581,9 +768,19 @@
 }
 
 @media (max-width: 1366px) {
-  .production-employee-context-fields {
-    grid-template-columns: minmax(190px, 230px) minmax(180px, 1fr) minmax(160px, .8fr);
+  .production-registration-header {
+    grid-template-columns: 162px minmax(0, 1fr);
+  }
+
+  .production-employee-inline-panel {
+    grid-template-columns: minmax(270px, 1.1fr) minmax(190px, .85fr) minmax(145px, .65fr);
     gap: 8px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .production-employee-inline-field {
+    grid-template-columns: 78px minmax(140px, 1fr);
   }
 
   .production-entry-command {
