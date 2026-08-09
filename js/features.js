@@ -4,7 +4,7 @@
     history:'js/history.js?v=20260809-2',
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
-    uiTableControls:'js/ui-table-controls.js?v=20260810-1',
+    uiTableControls:'js/ui-table-controls.js?v=20260810-2',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260809-2',
@@ -25,13 +25,13 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260808-11',
-    orders:'styles/features/orders.css?v=20260808-4',
+    cutting:'styles/features/cutting.css?v=20260810-1',
+    orders:'styles/features/orders.css?v=20260810-1',
     products:'styles/features/products.css?v=20260809-2',
-    sync:'styles/features/sync.css?v=20260808-2',
-    cost:'styles/features/cost.css?v=20260809-3',
-    accounts:'styles/features/accounts.css?v=20260809-3',
-    production:'styles/features/production.css?v=20260810-3'
+    sync:'styles/features/sync.css?v=20260810-1',
+    cost:'styles/features/cost.css?v=20260810-1',
+    accounts:'styles/features/accounts.css?v=20260810-1',
+    production:'styles/features/production.css?v=20260810-4'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -43,7 +43,7 @@
           page:'progress',feature:'progress',icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
           styles:['orders'],
           // data（資料與報表程式）目前仍提供訂單明細共用的工序分類文字；待後續拆出共用工具。
-          scripts:['history','productCache','orderProcessCache','data','orders'],
+          scripts:['history','productCache','uiTableControls','orderProcessCache','data','orders'],
           dataScopes:['operationSettings','orders','orderProcesses'],
           dataLoaders:['ensureOperationSettingsLoaded','loadOrderData'],
           onOpen:['renderProgress','renderOrders']
@@ -78,7 +78,7 @@
       pages:[
         {
           page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Thống kê dây cắt',zh:'裁帶統計',
-          styles:['cutting'],scripts:['history','fileIo','cuttingStore','cutting'],dataScopes:['cuttingTemplates'],dataLoaders:[],onOpen:['cuttingInit']
+          styles:['cutting'],scripts:['history','fileIo','uiTableControls','cuttingStore','cutting'],dataScopes:['cuttingTemplates'],dataLoaders:[],onOpen:['cuttingInit']
         }
       ]
     },
@@ -96,14 +96,14 @@
         {
           page:'production-records',feature:'productionRecords',icon:'ti-history',vi:'Lịch sử sản xuất',zh:'生產紀錄',
           styles:['production'],
-          scripts:['productionEmployeeStore','productionEntryStore','productionReportStore','productionRecords'],
+          scripts:['uiTableControls','productionEmployeeStore','productionEntryStore','productionReportStore','productionRecords'],
           dataScopes:['productionEmployees','productionEntries','productionProcessTotals'],
           dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
         },
         {
           page:'production-employees',feature:'productionEmployees',icon:'ti-users',vi:'Dữ liệu nhân viên',zh:'員工資料',
           styles:['production'],
-          scripts:['productionEmployeeStore','productionEmployees'],
+          scripts:['uiTableControls','productionEmployeeStore','productionEmployees'],
           dataScopes:['productionEmployees','productionDepartments'],dataLoaders:['loadProductionEmployeesData'],onOpen:['productionEmployeesInit']
         }
       ]
@@ -115,7 +115,7 @@
         {
           page:'sync',feature:'sync',icon:'ti-refresh',vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步',
           styles:['sync'],
-          scripts:['orderProcessCache','orders','sync'],
+          scripts:['uiTableControls','orderProcessCache','orders','sync'],
           dataScopes:['operationSettings','orders','orderProcesses'],
           dataLoaders:['ensureOperationSettingsLoaded','reloadOrders'],
           onOpen:['syncInit']
@@ -141,7 +141,7 @@
         {
           page:'export',feature:'export',icon:'ti-download',vi:'Xuất giá công sản phẩm',zh:'產品工價匯出',
           styles:['cost'],
-          scripts:['history','fileIo','productCache','data'],
+          scripts:['history','fileIo','productCache','uiTableControls','data'],
           dataScopes:['operationSettings','costSettings','products'],
           dataLoaders:['ensureOperationSettingsLoaded','ensureCostSettingsLoaded','ensureProductsLoaded'],
           onOpen:['rExp']
@@ -154,7 +154,7 @@
       pages:[
         {
           page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理',
-          styles:['accounts'],scripts:['accounts'],dataScopes:['userAccess'],dataLoaders:['loadAccounts'],onOpen:['rAcc']
+          styles:['accounts'],scripts:['uiTableControls','accounts'],dataScopes:['userAccess'],dataLoaders:['loadAccounts'],onOpen:['rAcc']
         },
         {
           page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理',
@@ -478,11 +478,13 @@
   async function leaveActivePage(){
     if(!activePageName){
       window.PCMSUIFileDrop?.deactivatePage?.();
+      window.PCMSUITableControls?.deactivatePage?.();
       window.PCMSUITable?.deactivatePage?.();
       return;
     }
     const leavingPageName=activePageName; // leavingPageName（正在離開的頁面名稱）
     window.PCMSUIFileDrop?.deactivatePage?.(leavingPageName);
+    window.PCMSUITableControls?.deactivatePage?.(leavingPageName);
     window.PCMSUITable?.deactivatePage?.(leavingPageName);
     try{
       await runPageHooks(leavingPageName,'onLeave');
@@ -498,9 +500,11 @@
     window.PCMSUIFileDrop?.activatePage?.(pageName);
     try{
       await runPageHooks(pageName,'onOpen');
+      window.PCMSUITableControls?.activatePage?.(pageName);
       window.PCMSUITable?.activatePage?.(pageName);
     }catch(error){
       window.PCMSUIFileDrop?.deactivatePage?.(pageName);
+      window.PCMSUITableControls?.deactivatePage?.(pageName);
       window.PCMSUITable?.deactivatePage?.(pageName);
       activePageName='';
       updateActivePageTitle(null);
@@ -514,6 +518,7 @@
     activePageName='';
     updateActivePageTitle(null);
     window.PCMSUIFileDrop?.deactivatePage?.(previousPageName);
+    window.PCMSUITableControls?.deactivatePage?.(previousPageName);
     window.PCMSUITable?.deactivatePage?.(previousPageName);
   }
 

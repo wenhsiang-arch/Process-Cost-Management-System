@@ -31,9 +31,9 @@
   border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
 }
 
-#pg-accounts table {
+#pg-accounts table[data-ui-table-controls="auto"] {
   width: 100%;
-  min-width: 0;
+  min-width: max(100%, var(--ui-table-visible-min-width, 100%));
   table-layout: fixed;
 }
 

@@ -61,8 +61,8 @@
   border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
 }
 
-#pg-sync table {
-  min-width: 880px;
+#pg-sync table[data-ui-table-controls="auto"] {
+  min-width: max(100%, var(--ui-table-visible-min-width, 100%));
 }
 
 #pg-sync td {

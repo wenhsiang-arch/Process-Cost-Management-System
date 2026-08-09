@@ -350,7 +350,8 @@
 
 #pg-cutting .cutting-history-scroll {
   max-height: none;
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .cutting-history-title {

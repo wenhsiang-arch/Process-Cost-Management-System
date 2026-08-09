@@ -418,9 +418,9 @@
   outline-offset: 1px;
 }
 
-#pg-export .export-data-section table {
+#pg-export .export-data-section table[data-ui-table-controls="auto"] {
   width: 100%;
-  min-width: 0;
+  min-width: max(100%, var(--ui-table-visible-min-width, 100%));
   table-layout: fixed;
 }
 

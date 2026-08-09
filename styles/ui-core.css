@@ -912,11 +912,32 @@
   overflow: visible;
 }
 
+/* floating-only（只顯示浮動橫向控制）仍需保留可同步的原始捲動容器，但不建立第二條上下捲軸。 */
+.ui-page .ui-table-scroll[data-ui-floating-scroll="only"] {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
 .ui-table {
   width: 100%;
   border-collapse: collapse;
   color: var(--ui-color-text);
   font-size: 12px;
+}
+
+/* auto（一般表格自動接入）：以可見欄位最低可讀寬度為下限，空間足夠時跟隨功能底框填滿。 */
+.ui-table[data-ui-table-controls="auto"] {
+  width: 100%;
+  min-width: max(100%, var(--ui-table-visible-min-width, 100%));
+  max-width: none;
+  table-layout: fixed;
+}
+
+.ui-table[data-ui-table-controls="auto"] th {
+  width: var(--ui-table-column-width, auto);
+  min-width: var(--ui-table-column-min, 0);
+  max-width: var(--ui-table-column-max, none);
 }
 
 .ui-table th {
@@ -1145,6 +1166,33 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ui-table td.ui-table-ellipsis > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-table-column-settings-auto {
+  flex: 0 0 32px;
+  height: 34px;
+  align-self: center;
+}
+
+.ui-table-columns-empty {
+  padding: 18px;
+  border: var(--ui-border-width) solid var(--ui-color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-muted);
+  text-align: center;
+}
+
+.ui-table-columns-empty[hidden] {
+  display: none;
 }
 
 /* 浮動水平捲軸沿用原捲動區的位置；指定 only（唯一）模式時由它接管可見的水平操作。 */

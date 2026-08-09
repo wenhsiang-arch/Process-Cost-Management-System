@@ -6,6 +6,14 @@
   const COLUMN_TOGGLE_SELECTOR = '[data-ui-table-column-toggle]'; // COLUMN_TOGGLE_SELECTOR（欄位顯示切換項目）
   const SORT_HEADER_SELECTOR = '[data-ui-table-sort-key]'; // SORT_HEADER_SELECTOR（可排序表頭）
   const SORT_ICON_SELECTOR = '[data-ui-table-sort-icon]'; // SORT_ICON_SELECTOR（排序狀態圖示）
+  const AUTO_TABLE_SELECTOR = 'table[data-ui-table-controls="auto"]'; // AUTO_TABLE_SELECTOR（可由共用程式接入的一般表格）
+  const autoRuntimes = new WeakMap(); // autoRuntimes（一般表格與共用操作執行狀態）
+  let activePageName = ''; // activePageName（目前啟用一般表格操作的頁面）
+  let activePage = null; // activePage（目前功能頁）
+  let activeAutoTables = new Set(); // activeAutoTables（目前頁面的一般表格）
+  let pageObserver = null; // pageObserver（動態表格與資料列觀察器）
+  let pageFrameId = 0; // pageFrameId（等待中的一般表格更新工作）
+  let generatedTableId = 0; // generatedTableId（沒有識別碼表格的本機流水號）
 
   function resolveElement(value,root=document){
     if(!value) return null;
@@ -287,9 +295,316 @@
     });
   }
 
+  function headerLabel(header){
+    const dual = header.querySelector?.('.ui-dual-copy');
+    const vi = dual?.querySelector?.('strong')?.textContent
+      || header.querySelector?.('.ui-table-sort-heading > span')?.textContent
+      || Array.from(header.childNodes || []).filter(node=>node.nodeType === 3).map(node=>node.textContent).join(' ').trim()
+      || String(header.textContent || '').trim();
+    const zh = dual?.querySelector?.(':scope > span:not(.ui-table-sort-heading)')?.textContent
+      || header.querySelector?.('.tv')?.textContent
+      || '';
+    return {vi:String(vi || '').trim(),zh:String(zh || '').trim()};
+  }
+
+  function autoColumnKey(header,index){
+    return String(header.dataset.uiTableColumn || header.dataset.uiTableKey || `column-${index+1}`);
+  }
+
+  function autoColumnDefinition(header,index,sortEnabled){
+    const key = autoColumnKey(header,index);
+    const label = headerLabel(header);
+    const actionLike = header.dataset.uiTableSortable === 'false'
+      || key === 'action'
+      || /^thao tác$/i.test(label.vi)
+      || label.zh === '操作';
+    const textAlign = String(header.style?.textAlign || '');
+    const align = header.classList.contains('ui-table-number-cell') || textAlign === 'right'
+      ? 'number'
+      : (header.classList.contains('ui-table-center-cell') || textAlign === 'center' ? 'center' : 'text');
+    const minimum = Number(header.dataset.uiTableMinWidth) || (actionLike ? 88 : (align === 'number' ? 92 : 128));
+    const preferred = Math.max(minimum,Number(header.dataset.uiTableWidth) || minimum);
+    const maximum = Math.max(preferred,Number(header.dataset.uiTableMaxWidth) || (align === 'text' ? 420 : preferred));
+    return {
+      key,
+      label,
+      defaultVisible:header.dataset.uiTableDefaultVisible !== 'false',
+      sortable:sortEnabled && !actionLike,
+      sortType:String(header.dataset.uiTableSortType || (align === 'number' ? 'number' : 'text')),
+      minimum,
+      preferred,
+      maximum,
+      ellipsis:header.dataset.uiTableEllipsis === 'true',
+      align
+    };
+  }
+
+  function decorateAutoHeader(header,column){
+    header.dataset.uiTableColumn = column.key;
+    header.style.setProperty('--ui-table-column-min',`${column.minimum}px`);
+    header.style.setProperty('--ui-table-column-width',`${column.preferred}px`);
+    header.style.setProperty('--ui-table-column-max',`${column.maximum}px`);
+    header.classList.toggle('ui-table-number-cell',column.align === 'number');
+    header.classList.toggle('ui-table-center-cell',column.align === 'center');
+    if(column.ellipsis) header.classList.add('ui-table-ellipsis');
+    if(!column.sortable) return;
+    header.setAttribute('aria-sort','none');
+    header.dataset.uiTableSortKey = column.key;
+    header.classList.add('ui-table-sortable-header');
+    if(header.querySelector(SORT_ICON_SELECTOR)) return;
+    const heading = document.createElement('span');
+    heading.className = 'ui-table-sort-heading';
+    const vi = document.createElement('span');
+    vi.textContent = column.label.vi;
+    const icon = document.createElement('i');
+    icon.className = 'ti ti-arrows-sort ui-table-sort-icon is-idle';
+    icon.dataset.uiTableSortIcon = 'true';
+    icon.setAttribute('aria-hidden','true');
+    heading.append(vi,icon);
+    const zh = document.createElement('span');
+    zh.className = 'tv';
+    zh.textContent = column.label.zh;
+    header.replaceChildren(heading,zh);
+  }
+
+  function syncAutoCells(runtime){
+    const rows = Array.from(runtime.table.tBodies || []).flatMap(body=>Array.from(body.rows || []));
+    rows.forEach(row=>{
+      if(row.cells.length !== runtime.columns.length) return;
+      if(!runtime.originalOrder.has(row)) runtime.originalOrder.set(row,runtime.nextOrder++);
+      runtime.columns.forEach((column,index)=>{
+        const cell = row.cells[index];
+        if(!cell) return;
+        cell.dataset.uiTableColumn = column.key;
+        cell.classList.toggle('ui-table-number-cell',column.align === 'number');
+        cell.classList.toggle('ui-table-center-cell',column.align === 'center');
+        cell.classList.toggle('ui-table-ellipsis',column.ellipsis);
+        if(cell.classList.contains('ui-table-ellipsis')){
+          const fullText = String(cell.textContent || '').trim();
+          if(fullText && fullText !== '—') cell.title = fullText;
+        }
+      });
+    });
+  }
+
+  function numericValue(value){
+    const normalized = String(value || '').replace(/[,\s]/g,'').replace(/[^0-9+\-.]/g,'');
+    const number = Number(normalized);
+    return normalized && Number.isFinite(number) ? number : null;
+  }
+
+  function dateValue(value){
+    const text = String(value || '').trim();
+    const match = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+    if(match) return Number(`${match[1]}${match[2].padStart(2,'0')}${match[3].padStart(2,'0')}`);
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function autoCellValue(cell,column){
+    const explicit = cell?.dataset?.uiTableSortValue;
+    const input = cell?.querySelector?.('input,select,textarea');
+    const text = explicit ?? input?.value ?? cell?.textContent ?? '';
+    if(column.sortType === 'number') return numericValue(text);
+    if(column.sortType === 'date') return dateValue(text);
+    return String(text || '').trim();
+  }
+
+  function compareAutoValues(left,right,column,direction){
+    const leftValue = autoCellValue(left,column);
+    const rightValue = autoCellValue(right,column);
+    if((leftValue == null || leftValue === '') && (rightValue == null || rightValue === '')) return 0;
+    if(leftValue == null || leftValue === '') return 1;
+    if(rightValue == null || rightValue === '') return -1;
+    if(typeof leftValue === 'number' && typeof rightValue === 'number') return (leftValue-rightValue)*direction;
+    return String(leftValue).localeCompare(String(rightValue),undefined,{numeric:true,sensitivity:'base'})*direction;
+  }
+
+  function applyAutoSort(runtime){
+    const sort = runtime.control.getSort();
+    const body = runtime.table.tBodies?.[0];
+    if(!body) return;
+    syncAutoCells(runtime);
+    const rows = Array.from(body.rows || []).filter(row=>row.cells.length === runtime.columns.length);
+    const columnIndex = runtime.columns.findIndex(column=>column.key === sort.key);
+    const direction = sort.direction === 'descending' ? -1 : 1;
+    const ordered = sort.direction === 'none' || columnIndex < 0
+      ? rows.sort((left,right)=>(runtime.originalOrder.get(left)||0)-(runtime.originalOrder.get(right)||0))
+      : rows.sort((left,right)=>compareAutoValues(left.cells[columnIndex],right.cells[columnIndex],runtime.columns[columnIndex],direction)
+        || (runtime.originalOrder.get(left)||0)-(runtime.originalOrder.get(right)||0));
+    const current = Array.from(body.rows || []).filter(row=>row.cells.length === runtime.columns.length);
+    if(ordered.every((row,index)=>row === current[index])) return;
+    ordered.forEach(row=>body.appendChild(row));
+  }
+
+  function updateAutoMinimumWidth(table,columns,visibleKeys){
+    const visible = new Set(visibleKeys);
+    const minimum = columns.reduce((total,column)=>total+(visible.has(column.key) ? column.minimum : 0),0);
+    table.style.setProperty('--ui-table-visible-min-width',`${minimum}px`);
+    table.querySelectorAll('tbody tr > td:only-child[colspan]').forEach(cell=>{
+      cell.colSpan = Math.max(visibleKeys.length,1);
+    });
+    window.PCMSUITable?.refresh?.();
+  }
+
+  function autoSettingsTarget(table){
+    const selector = String(table.dataset.uiTableSettingsTarget || '');
+    if(selector) return table.closest('.ui-page')?.querySelector?.(selector) || document.querySelector(selector);
+    const frame = table.closest('.ui-table-frame');
+    const section = frame?.closest('.ui-data-section');
+    const header = section?.querySelector?.('.ui-section-header');
+    if(header && header.tagName !== 'BUTTON') return header;
+    return frame?.querySelector?.('.ui-toolbar') || null;
+  }
+
+  function createAutoSettings(table){
+    const target = autoSettingsTarget(table);
+    if(!target) return {};
+    const id = table.id || `ui-table-auto-${++generatedTableId}`;
+    if(!table.id) table.id = id;
+    const settings = document.createElement('div');
+    settings.className = 'ui-table-column-settings ui-table-column-settings-auto';
+    settings.dataset.uiTableAutoSettings = id;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.className = 'ui-table-column-settings-button';
+    button.setAttribute('aria-label','Chọn cột hiển thị / 選擇顯示欄位');
+    button.title = 'Chọn cột hiển thị / 選擇顯示欄位';
+    button.setAttribute('aria-expanded','false');
+    button.dataset.uiTableColumnsButton = 'true';
+    const icon = document.createElement('i');
+    icon.className = 'ti ti-list-check';
+    button.appendChild(icon);
+    const menu = document.createElement('div');
+    menu.className = 'ui-table-column-settings-menu';
+    menu.hidden = true;
+    menu.setAttribute('role','dialog');
+    menu.setAttribute('aria-label','Chọn cột hiển thị / 選擇顯示欄位');
+    menu.dataset.uiTableColumnsMenu = 'true';
+    const menuId = `${id}-column-settings-menu`;
+    menu.id = menuId;
+    button.setAttribute('aria-controls',menuId);
+    settings.append(button,menu);
+    target.prepend(settings);
+    return {settings,button,menu};
+  }
+
+  function createAutoEmpty(table){
+    const frame = table.closest('.ui-table-frame');
+    if(!frame) return null;
+    const empty = document.createElement('div');
+    empty.className = 'ui-table-columns-empty';
+    empty.hidden = true;
+    empty.appendChild(createDualCopy({vi:'Chưa chọn cột hiển thị',zh:'尚未選擇顯示欄位'}));
+    frame.insertAdjacentElement('afterend',empty);
+    return empty;
+  }
+
+  function autoHeaderSignature(table){
+    return Array.from(table.tHead?.rows?.[0]?.cells || [])
+      .map((header,index)=>`${autoColumnKey(header,index)}:${headerLabel(header).vi}:${headerLabel(header).zh}`)
+      .join('|');
+  }
+
+  function enhanceAutoTable(table){
+    const current = autoRuntimes.get(table);
+    const signature = autoHeaderSignature(table);
+    if(current && current.signature === signature){
+      syncAutoCells(current);
+      current.control.refresh();
+      applyAutoSort(current);
+      return current;
+    }
+    if(current){
+      current.control.destroy();
+      current.settings?.remove?.();
+      current.empty?.remove?.();
+      autoRuntimes.delete(table);
+    }
+    const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+    if(!headers.length) return null;
+    const sortEnabled = table.dataset.uiTableSort !== 'none';
+    const columns = headers.map((header,index)=>autoColumnDefinition(header,index,sortEnabled));
+    columns.forEach((column,index)=>decorateAutoHeader(headers[index],column));
+    const {settings,button,menu} = createAutoSettings(table);
+    if(!settings || !button || !menu) return null;
+    const empty = createAutoEmpty(table);
+    const runtime = {
+      table,columns,settings,empty,signature:autoHeaderSignature(table),
+      originalOrder:new WeakMap(),nextOrder:1,control:null
+    };
+    syncAutoCells(runtime);
+    runtime.control = create({
+      root:table.closest('.ui-page') || document,
+      table,
+      settings,
+      settingsButton:button,
+      settingsMenu:menu,
+      frame:table.closest('.ui-table-frame'),
+      empty,
+      columns,
+      onColumnsChanged:({visibleKeys})=>updateAutoMinimumWidth(table,columns,visibleKeys),
+      onSortChanged:()=>applyAutoSort(runtime)
+    });
+    autoRuntimes.set(table,runtime);
+    applyAutoSort(runtime);
+    return runtime;
+  }
+
+  function scanActivePage(){
+    pageFrameId = 0;
+    if(!activePage?.classList?.contains('active')) return;
+    const latest = new Set(Array.from(activePage.querySelectorAll(AUTO_TABLE_SELECTOR)));
+    activeAutoTables.forEach(table=>{
+      if(latest.has(table)) return;
+      const runtime = autoRuntimes.get(table);
+      runtime?.control?.deactivate?.({resetSort:true});
+    });
+    latest.forEach(enhanceAutoTable);
+    activeAutoTables = latest;
+  }
+
+  function refreshPage(){
+    if(pageFrameId) return;
+    pageFrameId = window.requestAnimationFrame(scanActivePage);
+  }
+
+  function deactivatePage(pageName){
+    if(pageName && activePageName && pageName !== activePageName) return;
+    pageObserver?.disconnect?.();
+    pageObserver = null;
+    if(pageFrameId) window.cancelAnimationFrame(pageFrameId);
+    pageFrameId = 0;
+    activeAutoTables.forEach(table=>{
+      const runtime = autoRuntimes.get(table);
+      runtime?.control?.deactivate?.({resetSort:true});
+      if(runtime) applyAutoSort(runtime);
+    });
+    activeAutoTables.clear();
+    activePageName = '';
+    activePage = null;
+  }
+
+  function activatePage(pageName){
+    deactivatePage();
+    const name = String(pageName || '');
+    const page = document.getElementById(`pg-${name}`);
+    if(!page) return false;
+    activePageName = name;
+    activePage = page;
+    pageObserver = typeof MutationObserver === 'function' ? new MutationObserver(refreshPage) : null;
+    pageObserver?.observe?.(activePage,{subtree:true,childList:true});
+    scanActivePage();
+    return true;
+  }
+
   window.PCMSUITableControls = Object.freeze({ // PCMSUITableControls（共用表格操作介面）
     create,
     availableColumns,
-    nextSortState
+    nextSortState,
+    activatePage,
+    deactivatePage,
+    refreshPage
   });
 })();

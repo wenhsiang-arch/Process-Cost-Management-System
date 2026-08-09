@@ -899,21 +899,10 @@
 
 .production-records-table {
   width: 100%;
-  min-width: 1320px;
+  min-width: max(100%, var(--ui-table-visible-min-width, 100%));
   max-width: none;
   table-layout: fixed;
 }
-
-.production-records-table th:nth-child(1) { width: 96px; }
-.production-records-table th:nth-child(2) { width: 180px; }
-.production-records-table th:nth-child(3) { width: 140px; }
-.production-records-table th:nth-child(4) { width: 140px; }
-.production-records-table th:nth-child(5) { width: 70px; }
-.production-records-table th:nth-child(6) { width: auto; }
-.production-records-table th:nth-child(7) { width: 100px; }
-.production-records-table th:nth-child(8) { width: 110px; }
-.production-records-table th:nth-child(9) { width: 130px; }
-.production-records-table th:nth-child(10) { width: 126px; }
 
 .production-records-table .production-record-text-cell {
   overflow: hidden;

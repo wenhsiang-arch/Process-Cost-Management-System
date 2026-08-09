@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260810-2">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260810-3">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -435,18 +435,18 @@ tr:hover td{background:#f8fafc}
           </section>
           <section class="production-data-section ui-data-section">
             <div class="ui-section-header"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử sản xuất</strong><span>生產紀錄</span></span><span class="production-section-count"><span id="production-records-count">0</span> dòng / 筆</span></div>
-            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table">
+            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table" id="production-records-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original">
               <thead><tr>
-                <th><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
-                <th><span class="ui-dual-copy"><strong>Nhân viên</strong><span>員工</span></span></th>
-                <th><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
-                <th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
-                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
-                <th><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
-                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Số lượng</strong><span>生產數量</span></span></th>
-                <th class="production-number-cell"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
-                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
-                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+                <th data-ui-table-column="date" data-ui-table-sort-type="date" data-ui-table-min-width="96" data-ui-table-width="112" data-ui-table-max-width="128"><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
+                <th data-ui-table-column="employee" data-ui-table-min-width="145" data-ui-table-width="180" data-ui-table-max-width="230" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Nhân viên</strong><span>員工</span></span></th>
+                <th data-ui-table-column="order" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="180"><span class="ui-dual-copy"><strong>Đơn hàng</strong><span>訂單</span></span></th>
+                <th data-ui-table-column="product" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="200" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="processNo" data-ui-table-sort-type="number" data-ui-table-min-width="68" data-ui-table-width="76" data-ui-table-max-width="84"><span class="ui-dual-copy"><strong>Số CĐ</strong><span>工序號</span></span></th>
+                <th data-ui-table-column="processName" data-ui-table-min-width="180" data-ui-table-width="260" data-ui-table-max-width="520" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên công đoạn</strong><span>工序名稱</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="quantity" data-ui-table-sort-type="number" data-ui-table-min-width="90" data-ui-table-width="100" data-ui-table-max-width="120"><span class="ui-dual-copy"><strong>Số lượng</strong><span>生產數量</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="supplementHours" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="110" data-ui-table-max-width="140"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="120" data-ui-table-width="132" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="112" data-ui-table-width="126" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
               </tr></thead>
               <tbody id="production-records-table-body"></tbody>
             </table></div></div>
@@ -477,13 +477,13 @@ tr:hover td{background:#f8fafc}
           <div class="production-entry-status ui-notice is-info" id="production-employee-status" hidden></div>
           <section class="production-data-section ui-data-section">
             <div class="ui-section-header"><i class="ti ti-users"></i><span class="ui-dual-copy"><strong>Danh sách nhân viên</strong><span>員工資料</span></span><div class="production-employee-table-tools"><input type="search" id="production-employee-search" placeholder="Tìm mã, tên, bộ phận / 搜尋工號、姓名、部門"><select id="production-employee-filter-status"><option value="">Tất cả / 全部</option><option value="active">Đang dùng / 啟用</option><option value="inactive">Ngừng dùng / 停用</option></select></div><span class="production-section-count"><span id="production-employees-count">0</span> người / 人</span></div>
-            <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table">
+            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="production-employees-table" data-ui-table-controls="auto" data-ui-table-sticky="original">
               <thead><tr>
-                <th><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
-                <th><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
-                <th><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
-                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
-                <th class="production-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+                <th data-ui-table-column="employeeId" data-ui-table-min-width="150" data-ui-table-width="180" data-ui-table-max-width="230"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
+                <th data-ui-table-column="name" data-ui-table-min-width="170" data-ui-table-width="220" data-ui-table-max-width="320" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+                <th data-ui-table-column="department" data-ui-table-min-width="150" data-ui-table-width="190" data-ui-table-max-width="280" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="120" data-ui-table-width="132" data-ui-table-max-width="150"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
+                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="160" data-ui-table-width="190" data-ui-table-max-width="230"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
               </tr></thead>
               <tbody id="production-employees-table-body"></tbody>
             </table></div></div>
@@ -550,17 +550,17 @@ tr:hover td{background:#f8fafc}
               <button class="btn bd2" id="sync-retry-btn" style="display:none;margin-top:10px" onclick="syncRetry()"><i class="ti ti-refresh"></i>Tiếp tục đồng bộ / 繼續同步</button>
             </div>
             <div class="sync-table-frame ui-table-frame">
-              <div class="sync-table-scroll ui-table-scroll">
-              <table class="ui-table">
+              <div class="sync-table-scroll ui-table-scroll" data-ui-floating-scroll="only">
+              <table class="ui-table" id="sync-table" data-ui-table-controls="auto" data-ui-table-sticky="original">
                 <thead>
                   <tr>
-                    <th>Mã hàng<br><span class="tv">款號</span></th>
-                    <th>Màu sắc<br><span class="tv">顏色</span></th>
-                    <th>Kích thước<br><span class="tv">尺寸</span></th>
-                    <th style="text-align:right">Giây hiện tại<br><span class="tv">現有秒數</span></th>
-                    <th style="text-align:right">SL/giờ hiện tại<br><span class="tv">現有產量/時</span></th>
-                    <th style="text-align:center">Nhập giây mới<br><span class="tv">輸入新秒數</span></th>
-                    <th style="text-align:right">SL/giờ mới<br><span class="tv">預覽新產量/時</span></th>
+                    <th data-ui-table-column="product" data-ui-table-min-width="140" data-ui-table-width="180" data-ui-table-max-width="260" data-ui-table-ellipsis="true">Mã hàng<br><span class="tv">款號</span></th>
+                    <th data-ui-table-column="color" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="220" data-ui-table-ellipsis="true">Màu sắc<br><span class="tv">顏色</span></th>
+                    <th data-ui-table-column="size" data-ui-table-min-width="100" data-ui-table-width="120" data-ui-table-max-width="160">Kích thước<br><span class="tv">尺寸</span></th>
+                    <th class="ui-table-number-cell" data-ui-table-column="currentSeconds" data-ui-table-sort-type="number" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="170">Giây hiện tại<br><span class="tv">現有秒數</span></th>
+                    <th class="ui-table-number-cell" data-ui-table-column="currentHourly" data-ui-table-sort-type="number" data-ui-table-min-width="150" data-ui-table-width="170" data-ui-table-max-width="200">SL/giờ hiện tại<br><span class="tv">現有產量/時</span></th>
+                    <th class="ui-table-center-cell" data-ui-table-column="newSeconds" data-ui-table-sort-type="number" data-ui-table-min-width="130" data-ui-table-width="150" data-ui-table-max-width="170">Nhập giây mới<br><span class="tv">輸入新秒數</span></th>
+                    <th class="ui-table-number-cell" data-ui-table-column="newHourly" data-ui-table-sort-type="number" data-ui-table-min-width="150" data-ui-table-width="170" data-ui-table-max-width="200">SL/giờ mới<br><span class="tv">預覽新產量/時</span></th>
                   </tr>
                 </thead>
                 <tbody id="sync-tb"></tbody>
@@ -619,18 +619,18 @@ tr:hover td{background:#f8fafc}
 
           <section class="cutting-data-section ui-data-section">
             <div class="cutting-section-header ui-section-header"><i class="ti ti-database"></i><span class="cutting-section-copy ui-dual-copy"><strong>Dữ liệu mẫu đã lưu</strong><span>已建檔模板</span></span></div>
-            <div class="to cutting-page-table">
-              <table>
+            <div class="to cutting-page-table ui-table-frame">
+              <div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="cutting-template-table" data-ui-table-controls="auto" data-ui-table-sticky="original">
                 <thead><tr>
-                  <th>File mẫu<br><span class="tv">模板檔案</span></th>
-                  <th style="text-align:right">Sheet<br><span class="tv">工作表</span></th>
-                  <th style="text-align:right">Mã hàng<br><span class="tv">款號</span></th>
-                  <th style="text-align:right">Dòng điền<br><span class="tv">填寫列</span></th>
-                  <th>Trạng thái<br><span class="tv">狀態</span></th>
-                  <th style="text-align:center;min-width:196px">Thao tác<br><span class="tv">操作</span></th>
+                  <th data-ui-table-column="file" data-ui-table-min-width="240" data-ui-table-width="320" data-ui-table-max-width="520" data-ui-table-ellipsis="true">File mẫu<br><span class="tv">模板檔案</span></th>
+                  <th class="ui-table-number-cell" data-ui-table-column="sheetCount" data-ui-table-sort-type="number" data-ui-table-min-width="88" data-ui-table-width="96" data-ui-table-max-width="110">Sheet<br><span class="tv">工作表</span></th>
+                  <th class="ui-table-number-cell" data-ui-table-column="productCount" data-ui-table-sort-type="number" data-ui-table-min-width="88" data-ui-table-width="96" data-ui-table-max-width="110">Mã hàng<br><span class="tv">款號</span></th>
+                  <th class="ui-table-number-cell" data-ui-table-column="rowCount" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="110" data-ui-table-max-width="125">Dòng điền<br><span class="tv">填寫列</span></th>
+                  <th data-ui-table-column="status" data-ui-table-min-width="180" data-ui-table-width="240" data-ui-table-max-width="360" data-ui-table-ellipsis="true">Trạng thái<br><span class="tv">狀態</span></th>
+                  <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="196" data-ui-table-width="220" data-ui-table-max-width="240">Thao tác<br><span class="tv">操作</span></th>
                 </tr></thead>
                 <tbody id="cut-template-tb"></tbody>
-              </table>
+              </table></div>
             </div>
           </section>
         </div>
@@ -741,15 +741,15 @@ tr:hover td{background:#f8fafc}
                 <i class="ti ti-refresh"></i><span class="cutting-refresh-copy ui-dual-copy"><strong>Làm mới</strong><span>重新整理</span></span>
               </button>
             </div>
-            <div class="to ui-table-frame"><div class="ts ui-table-scroll cutting-history-scroll"><table>
+            <div class="to ui-table-frame"><div class="ts ui-table-scroll cutting-history-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="cutting-history-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original">
               <thead><tr>
-                <th>Thời gian<br><span class="tv">時間</span></th>
-                <th>Người thao tác<br><span class="tv">操作者</span></th>
-                <th>Thao tác<br><span class="tv">操作</span></th>
-                <th>Tên tệp<br><span class="tv">檔名</span></th>
-                <th style="text-align:right">Mã hàng<br><span class="tv">款號數</span></th>
-                <th style="text-align:right">Chi tiết<br><span class="tv">明細數</span></th>
-                <th>Trạng thái<br><span class="tv">狀態</span></th>
+                <th data-ui-table-column="time" data-ui-table-sort-type="date" data-ui-table-min-width="140" data-ui-table-width="160" data-ui-table-max-width="190">Thời gian<br><span class="tv">時間</span></th>
+                <th data-ui-table-column="operator" data-ui-table-min-width="160" data-ui-table-width="190" data-ui-table-max-width="260" data-ui-table-ellipsis="true">Người thao tác<br><span class="tv">操作者</span></th>
+                <th data-ui-table-column="operation" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="230">Thao tác<br><span class="tv">操作</span></th>
+                <th data-ui-table-column="file" data-ui-table-min-width="240" data-ui-table-width="320" data-ui-table-max-width="520" data-ui-table-ellipsis="true">Tên tệp<br><span class="tv">檔名</span></th>
+                <th class="ui-table-number-cell" data-ui-table-column="productCount" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="110" data-ui-table-max-width="130">Mã hàng<br><span class="tv">款號數</span></th>
+                <th class="ui-table-number-cell" data-ui-table-column="detailCount" data-ui-table-sort-type="number" data-ui-table-min-width="100" data-ui-table-width="110" data-ui-table-max-width="130">Chi tiết<br><span class="tv">明細數</span></th>
+                <th data-ui-table-column="status" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="180">Trạng thái<br><span class="tv">狀態</span></th>
               </tr></thead>
               <tbody id="cut-history-tb"><tr><td colspan="7" style="text-align:center;color:var(--mu)">Chọn trang lịch sử để tải dữ liệu.<br><span class="tv">開啟歷史分頁後才會讀取資料。</span></td></tr></tbody>
             </table></div></div>
@@ -939,7 +939,7 @@ tr:hover td{background:#f8fafc}
                 <button type="button" class="export-preview-currency-button" id="ex-preview-twd" aria-pressed="false" onclick="setExportPreviewCurrency('twd')">TWD</button>
               </div>
             </div>
-            <div class="to ui-table-frame"><div class="ts ui-table-scroll"><table class="ui-table">
+            <div class="to ui-table-frame"><div class="ts ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="export-preview-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original">
               <thead><tr id="ex-th"></tr></thead>
               <tbody id="ex-tb"></tbody>
             </table></div></div>
@@ -984,14 +984,14 @@ tr:hover td{background:#f8fafc}
 
           <section class="accounts-data-section ui-data-section">
             <div class="ui-section-header"><i class="ti ti-users"></i><span class="ui-dual-copy"><strong>Quản lý tài khoản</strong><span>帳號管理</span></span></div>
-            <div class="accounts-table-frame ui-table-frame"><div class="ui-table-scroll"><table class="ui-table">
+            <div class="accounts-table-frame ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="accounts-table" data-ui-table-controls="auto" data-ui-table-sticky="original">
             <thead><tr>
-              <th>Thư điện tử đăng nhập<br><span class="tv">登入電子信箱</span></th>
-              <th>Tên tài khoản<br><span class="tv">帳號名稱</span></th>
-              <th>Vai trò<br><span class="tv">角色</span></th>
-              <th>Trạng thái<br><span class="tv">狀態</span></th>
-              <th>Mã người dùng<br><span class="tv">使用者識別碼</span></th>
-              <th>Thao tác<br><span class="tv">操作</span></th>
+              <th data-ui-table-column="email" data-ui-table-min-width="220" data-ui-table-width="300" data-ui-table-max-width="420" data-ui-table-ellipsis="true">Thư điện tử đăng nhập<br><span class="tv">登入電子信箱</span></th>
+              <th data-ui-table-column="name" data-ui-table-min-width="130" data-ui-table-width="170" data-ui-table-max-width="240" data-ui-table-ellipsis="true">Tên tài khoản<br><span class="tv">帳號名稱</span></th>
+              <th data-ui-table-column="role" data-ui-table-min-width="130" data-ui-table-width="150" data-ui-table-max-width="180">Vai trò<br><span class="tv">角色</span></th>
+              <th data-ui-table-column="status" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="170">Trạng thái<br><span class="tv">狀態</span></th>
+              <th data-ui-table-column="uid" data-ui-table-min-width="220" data-ui-table-width="300" data-ui-table-max-width="420" data-ui-table-ellipsis="true">Mã người dùng<br><span class="tv">使用者識別碼</span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="200">Thao tác<br><span class="tv">操作</span></th>
             </tr></thead>
             <tbody id="acc-tb"></tbody>
             </table></div></div>
@@ -1074,8 +1074,8 @@ tr:hover td{background:#f8fafc}
                 <label class="orders-filter-field" for="ord-q"><span class="ui-dual-copy"><strong>Tìm đơn hàng</strong><span>搜尋訂單</span></span><input type="text" id="ord-q" placeholder="Nhập số đơn hàng / 輸入訂單編號..." oninput="renderOrders()"></label>
                 <label class="orders-filter-field" for="ord-status-filter"><span class="ui-dual-copy"><strong>Trạng thái đơn hàng</strong><span>訂單狀態</span></span><select id="ord-status-filter" onchange="renderOrders()"><option value="active">Đơn đang sử dụng / 使用中訂單</option><option value="archived">Đã xóa (lưu trữ) / 已刪除（封存）</option><option value="all">Tất cả / 全部</option></select></label>
               </div>
-              <div class="orders-table-wrap ui-table-scroll"><table class="ui-table">
-                <thead><tr><th>Số đơn<br><span class="tv">訂單編號</span></th><th>Mã hàng<br><span class="tv">款數</span></th><th>Tổng SL<br><span class="tv">總數量</span></th><th>Ngày giao<br><span class="tv">出貨日期</span></th><th>Trạng thái<br><span class="tv">訂單狀態</span></th><th>Thao tác<br><span class="tv">操作</span></th></tr></thead>
+              <div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="orders-manager-table" data-ui-table-controls="auto" data-ui-table-settings-target=".orders-filter-row" data-ui-table-sticky="original">
+                <thead><tr><th data-ui-table-column="order" data-ui-table-min-width="150" data-ui-table-width="190" data-ui-table-max-width="260">Số đơn<br><span class="tv">訂單編號</span></th><th class="ui-table-number-cell" data-ui-table-column="productCount" data-ui-table-sort-type="number" data-ui-table-min-width="90" data-ui-table-width="100" data-ui-table-max-width="120">Mã hàng<br><span class="tv">款數</span></th><th class="ui-table-number-cell" data-ui-table-column="quantity" data-ui-table-sort-type="number" data-ui-table-min-width="110" data-ui-table-width="130" data-ui-table-max-width="160">Tổng SL<br><span class="tv">總數量</span></th><th data-ui-table-column="dueDate" data-ui-table-sort-type="date" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="170">Ngày giao<br><span class="tv">出貨日期</span></th><th data-ui-table-column="status" data-ui-table-min-width="140" data-ui-table-width="180" data-ui-table-max-width="240">Trạng thái<br><span class="tv">訂單狀態</span></th><th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="220" data-ui-table-width="280" data-ui-table-max-width="420">Thao tác<br><span class="tv">操作</span></th></tr></thead>
                 <tbody id="ord-tb"></tbody>
               </table></div>
               <div id="ord-empty" class="ui-empty-state" style="display:none"><i class="ti ti-inbox"></i><span class="ui-dual-copy"><strong>Chưa có đơn hàng</strong><span>尚無訂單</span></span></div>
@@ -1288,7 +1288,7 @@ tr:hover td{background:#f8fafc}
 <script src="js/ui-table.js?v=20260810-2"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-3"></script>
+<script src="js/features.js?v=20260810-4"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
