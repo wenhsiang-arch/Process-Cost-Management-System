@@ -81,14 +81,6 @@
     return element?.dataset?.uiFloatingScroll === 'only';
   }
 
-  function shouldShowFloating(){
-    if(!scrollHost) return false;
-    const scrollHeight = Number(scrollHost.scrollHeight) || 0;
-    const clientHeight = Number(scrollHost.clientHeight) || 0;
-    if(scrollHeight <= clientHeight + MIN_OVERFLOW_PX) return true;
-    return (Number(scrollHost.scrollTop) || 0) > MIN_OVERFLOW_PX;
-  }
-
   function visibleContentRect(){
     if(!scrollHost?.isConnected) return null;
     const rect = scrollHost.getBoundingClientRect();
@@ -122,7 +114,6 @@
 
   function chooseTarget(contentRect){
     const targets = refreshObservedTargets();
-    if(!shouldShowFloating()) return null;
     const candidates = targets
       .filter(isHorizontalScroller)
       .map(element=>({element,rect:element.getBoundingClientRect()}))
