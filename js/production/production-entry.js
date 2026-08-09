@@ -43,6 +43,7 @@
 
   const DROPDOWN_OPTION_IDS = Object.freeze(Object.keys(DROPDOWN_BINDINGS)); // DROPDOWN_OPTION_IDS（全部搜尋下拉選單識別碼）
   const dropdownInteractions = new Map(); // dropdownInteractions（搜尋下拉目前鍵盤選取狀態）
+  let stickyHeaderRuntime = null; // stickyHeaderRuntime（當日表格凍結表頭執行狀態）
 
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
@@ -123,6 +124,7 @@
     const empty = element('production-entry-empty');
     const body = element('production-entry-table-body');
     if(empty) empty.hidden = visibleColumnCount === 0 || Boolean(body?.children.length);
+    scheduleStickyHeaderUpdate();
   }
 
   function setColumnVisibility(key,visible){
@@ -618,8 +620,38 @@
     return ENTRY_INPUT_IDS.filter(id=>id !== 'production-process-name' || state.supplementMode);
   }
 
+  function confirmProcessForForwardTab(){
+    const input = element('production-process-input');
+    const value = input?.value.trim() || '';
+    if(value === '0'){
+      setSupplementMode(true,{clearValues:false});
+      setStatus('Đã bật chế độ bổ sung giờ.','已啟動補充工時模式。','info');
+      return true;
+    }
+    const exact = processForExactInput();
+    if(!exact){
+      setStatus('Không tìm thấy số công đoạn chính xác.','找不到完全相符的工序號。','danger');
+      input?.focus({preventScroll:true});
+      return false;
+    }
+    const sameProcess = Boolean(state.process)
+      && String(state.process.id || '') === String(exact.id || '')
+      && String(state.process.processNo || '') === String(exact.processNo || '')
+      && String(state.process.code || '') === String(exact.code || '');
+    if(!sameProcess) selectProcess(exact);
+    else{
+      closeDropdown('production-process-options');
+      setStatus('','','info');
+    }
+    return true;
+  }
+
   function handleEntryTab(event,currentId){
     if(event.key !== 'Tab') return;
+    if(!event.shiftKey && currentId === 'production-process-input' && !confirmProcessForForwardTab()){
+      event.preventDefault();
+      return;
+    }
     event.preventDefault();
     DROPDOWN_OPTION_IDS.forEach(closeDropdown);
     const inputIds = entryInputIds();
@@ -661,7 +693,7 @@
   }
 
   async function openSupplementHelp(){
-    await window.PCMSUIComponents.alertDialog({
+    const dialogPromise = window.PCMSUIComponents.alertDialog({
       title:{vi:'Hướng dẫn công đoạn 0',zh:'工序0使用說明'},
       message:{
         vi:'Nhập số công đoạn 0 để ghi nhận giờ bổ sung. Ô Công đoạn sẽ đổi thành Lý do, ô Số lượng sẽ đổi thành Giờ. Giờ bổ sung cho một bản ghi phải từ 0,5 đến 24 giờ và tăng theo mỗi 0,5 giờ. Có thể không chọn đơn hàng và mã hàng; nếu chọn đơn hàng thì phải chọn mã hàng thuộc đơn hàng đó. Giờ bổ sung được tính là hiệu suất 100% và không cộng thêm giờ chấm công.',
@@ -670,6 +702,95 @@
       kind:'info',
       size:'large'
     });
+    const backdrops = document.querySelectorAll('.ui-dialog-backdrop');
+    const backdrop = backdrops[backdrops.length-1];
+    const main = document.querySelector('#ma > .mn') || document.querySelector('.mn');
+    if(!backdrop || !main){
+      await dialogPromise;
+      return;
+    }
+    const updatePosition = ()=>{
+      const rect = main.getBoundingClientRect();
+      const left = Math.max(0,rect.left);
+      const right = Math.min(window.innerWidth,rect.right);
+      const top = Math.max(0,rect.top);
+      const bottom = Math.min(window.innerHeight,rect.bottom);
+      const width = Math.max(0,right-left);
+      const height = Math.max(0,bottom-top);
+      backdrop.style.setProperty('--production-dialog-center-x',`${left+(width/2)}px`);
+      backdrop.style.setProperty('--production-dialog-center-y',`${top+(height/2)}px`);
+      backdrop.style.setProperty('--production-dialog-visible-width',`${width}px`);
+      backdrop.style.setProperty('--production-dialog-visible-height',`${height}px`);
+    };
+    backdrop.classList.add('production-supplement-dialog-backdrop');
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(updatePosition) : null;
+    observer?.observe(main);
+    window.addEventListener('resize',updatePosition);
+    window.visualViewport?.addEventListener('resize',updatePosition);
+    updatePosition();
+    try{
+      await dialogPromise;
+    }finally{
+      observer?.disconnect();
+      window.removeEventListener('resize',updatePosition);
+      window.visualViewport?.removeEventListener('resize',updatePosition);
+      backdrop.classList.remove('production-supplement-dialog-backdrop');
+    }
+  }
+
+  function updateStickyHeaderPosition(){
+    const runtime = stickyHeaderRuntime;
+    if(!runtime) return;
+    runtime.frameId = 0;
+    const {scrollHost,table,header} = runtime;
+    if(!scrollHost.isConnected || !table.isConnected || !header.isConnected || table.closest('[hidden]')){
+      table.style.removeProperty('--production-table-header-offset');
+      table.classList.remove('is-header-frozen');
+      return;
+    }
+    const scrollRect = scrollHost.getBoundingClientRect();
+    const tableRect = table.getBoundingClientRect();
+    const headerHeight = header.getBoundingClientRect().height;
+    const visibleTop = Math.max(0,scrollRect.top);
+    const maximumOffset = Math.max(0,tableRect.height-headerHeight);
+    const offset = Math.min(maximumOffset,Math.max(0,visibleTop-tableRect.top));
+    table.style.setProperty('--production-table-header-offset',`${offset}px`);
+    table.classList.toggle('is-header-frozen',offset > 0 && headerHeight > 0);
+  }
+
+  function scheduleStickyHeaderUpdate(){
+    if(!stickyHeaderRuntime || stickyHeaderRuntime.frameId) return;
+    stickyHeaderRuntime.frameId = window.requestAnimationFrame(updateStickyHeaderPosition);
+  }
+
+  function stopProductionStickyHeader(){
+    const runtime = stickyHeaderRuntime;
+    if(!runtime) return;
+    runtime.scrollHost.removeEventListener('scroll',scheduleStickyHeaderUpdate);
+    window.removeEventListener('resize',scheduleStickyHeaderUpdate);
+    window.visualViewport?.removeEventListener('resize',scheduleStickyHeaderUpdate);
+    runtime.observer?.disconnect();
+    if(runtime.frameId) window.cancelAnimationFrame(runtime.frameId);
+    runtime.table.style.removeProperty('--production-table-header-offset');
+    runtime.table.classList.remove('is-header-frozen');
+    stickyHeaderRuntime = null;
+  }
+
+  function startProductionStickyHeader(){
+    stopProductionStickyHeader();
+    const table = element('production-entry-table-body')?.closest('table');
+    const header = table?.tHead;
+    const scrollHost = element('pg-production-entry')?.closest('.ct');
+    if(!table || !header || !scrollHost) return;
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(scheduleStickyHeaderUpdate) : null;
+    stickyHeaderRuntime = {scrollHost,table,header,observer,frameId:0};
+    scrollHost.addEventListener('scroll',scheduleStickyHeaderUpdate,{passive:true});
+    window.addEventListener('resize',scheduleStickyHeaderUpdate);
+    window.visualViewport?.addEventListener('resize',scheduleStickyHeaderUpdate);
+    observer?.observe(scrollHost);
+    observer?.observe(table);
+    observer?.observe(header);
+    scheduleStickyHeaderUpdate();
   }
 
   function ensureDeleteColumn(){
@@ -801,6 +922,7 @@
     if(className) cell.className = className;
     if(columnKey) cell.dataset.productionColumn = columnKey;
     const text = String(value ?? '—');
+    if(text !== '—' && ['order','product','processName'].includes(columnKey)) cell.title = text;
     if(valueClass && text !== '—'){
       const content = document.createElement('span');
       content.className = valueClass;
@@ -841,6 +963,7 @@
     });
     if(empty) empty.hidden = rows.length > 0;
     applyColumnVisibility();
+    scheduleStickyHeaderUpdate();
   }
 
   async function loadDailyRows(){
@@ -996,11 +1119,13 @@
     if(state.dateAuto) element('production-date-input').value = today();
     syncDateControls();
     startDateTimer();
+    startProductionStickyHeader();
     if(state.employee) await loadDailyRows();
   }
 
   function productionEntryLeave(){
     stopDateTimer();
+    stopProductionStickyHeader();
     DROPDOWN_OPTION_IDS.forEach(closeDropdown);
     closeColumnSettings();
   }

@@ -248,7 +248,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-11'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-14'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -274,7 +274,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.doesNotMatch(markup,/id="production-entry-status"[^>]*ui-notice/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-column-settings-button"[^>]*aria-expanded="false"/);
   assert.match(markup,/production-column-settings-heading[\s\S]*?id="production-column-settings-select-all"[\s\S]*?Chọn tất cả[\s\S]*?全選[\s\S]*?id="production-column-settings-reset"/);
-  for(const key of ['order','product','processNo','processName','quantity','supplementHours','orderQuantity','processSeconds','action']){
+  for(const key of ['order','product','processNo','processName','quantity','supplementHours','orderQuantity','processSeconds','hourlyCapacity','action']){
     assert.match(markup,new RegExp(`data-production-column-toggle="${key}"`));
     if(key !== 'action') assert.match(markup,new RegExp(`data-production-column="${key}"`));
   }
@@ -285,7 +285,9 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/selectAll\.indeterminate = selectedCount > 0/);
   assert.match(source,/function resetColumnVisibility\(\)/);
   assert.match(source,/const ENTRY_INPUT_IDS = Object\.freeze\(\[/);
+  assert.match(source,/function confirmProcessForForwardTab\(\)/);
   assert.match(source,/function handleEntryTab\(event,currentId\)/);
+  assert.match(source,/!event\.shiftKey && currentId === 'production-process-input' && !confirmProcessForForwardTab\(\)/);
   assert.match(source,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
   assert.match(source,/selectProcess\(exact,\{focusQuantity:true\}\)/);
   assert.match(source,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
@@ -293,7 +295,14 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/function setSupplementMode\(enabled,options=\{\}\)/);
   assert.match(source,/processNo:supplement \? '0' : state\.process\?\.processNo/);
   assert.match(source,/supplementHours:supplement \? quantityInput\.value : undefined/);
+  assert.match(source,/function hourlyCapacityText\(value\)/);
+  assert.match(source,/hourlyCapacityText\(item\.hourlyCapacitySnapshot\)/);
+  assert.doesNotMatch(source,/hourlyCapacityText\([^)]*processSecSnapshot/);
+  assert.match(source,/item\.productCode \|\| '—','production-product-code-cell','product'/);
   assert.match(source,/production-supplement-help-button'\)\.addEventListener\('click'/);
+  assert.match(source,/production-supplement-dialog-backdrop/);
+  assert.match(source,/new ResizeObserver\(updatePosition\)/);
+  assert.match(source,/document\.querySelector\('#ma > \.mn'\)/);
   assert.match(records,/updateSupplementHours\(item\.id,Number\(valueText\),reason\)/);
   assert.match(records,/supplement \? hoursText\(item\.supplementHours\) : '—'/);
   assert.match(source,/loadProcessTotal\(process\?\.id\)/);
@@ -305,32 +314,58 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/date\.max = maximum/);
   assert.match(records,/function dateBadgeText\(value\)/);
   assert.match(records,/production-date-group-start/);
+  assert.match(records,/production-record-text-cell',true/);
   assert.match(records,/function setPendingFilters\(filters=\{\}\)/);
   assert.match(records,/function applyPendingFilters\(\)/);
   assert.match(records,/window\.PCMSProductionRecords = Object\.freeze\(\{setPendingFilters\}\)/);
   assert.match(source,/dataset\.productionColumn/);
   assert.match(source,/event\.key !== 'Escape'/);
-  assert.match(style,/\.production-entry-fields \{[\s\S]*?width: max-content;[\s\S]*?grid-template-columns: 158px 178px 160px 104px 176px 126px;/);
-  assert.match(style,/\.production-process-field \.ui-search-dropdown-control \{[\s\S]*?width: 80px;[\s\S]*?max-width: 80px;/);
-  assert.match(style,/\.production-registration-header \{[\s\S]*?grid-template-columns: 180px minmax\(0, 1fr\);/);
-  assert.match(style,/\.production-employee-inline-panel \{[\s\S]*?background: var\(--ui-color-surface-muted\);/);
-  assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control \{[\s\S]*?width: 112px;[\s\S]*?max-width: 112px;/);
-  assert.match(style,/\.production-quantity-progress \{[\s\S]*?min-width: 330px;[\s\S]*?background: var\(--ui-color-primary-soft\);/);
+  assert.match(style,/\.production-entry-fields \{[\s\S]*?width: min\(100%, 1040px\);[\s\S]*?grid-template-columns: minmax\(0, \.98fr\)[\s\S]*?minmax\(0, \.62fr\)[\s\S]*?column-gap: clamp\(6px, \.8vw, 12px\);/);
+  assert.match(style,/\.production-process-field \.ui-search-dropdown-control \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100%;/);
+  assert.match(style,/\.production-registration-header \{[\s\S]*?width: 100%;[\s\S]*?grid-template-columns: minmax\(136px, \.72fr\) minmax\(0, 4fr\);/);
+  assert.match(style,/\.production-employee-inline-panel \{[\s\S]*?grid-template-columns: minmax\(0, 220px\)[\s\S]*?minmax\(58px, 86px\);[\s\S]*?background: var\(--ui-color-surface-muted\);/);
+  assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100%;/);
+  assert.match(style,/\.production-quantity-progress \{[\s\S]*?width: clamp\(210px, 31%, 390px\);[\s\S]*?min-width: 0;[\s\S]*?background: var\(--ui-color-primary-soft\);/);
   assert.match(style,/#production-quantity-progress-value \{[\s\S]*?font-size: 20px;[\s\S]*?font-variant-numeric: tabular-nums;/);
   assert.match(style,/\.production-quantity-progress\.is-over \{[\s\S]*?var\(--ui-color-danger-background\)[\s\S]*?var\(--ui-color-danger-text\)/);
   assert.match(style,/\.production-entry-table th\.production-number-cell,[\s\S]*?\.production-entry-table td\.production-number-cell \{[\s\S]*?text-align: right;/);
   assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy \{[\s\S]*?align-items: flex-end;/);
-  assert.match(style,/\.production-entry-table \{[\s\S]*?table-layout: fixed;/);
-  assert.match(style,/data-production-column="order"\] \{[\s\S]*?width: 11%;/);
-  assert.match(style,/data-production-column="processName"\] \{[\s\S]*?width: 27%;/);
+  assert.match(style,/\.production-entry-table \{[\s\S]*?width: clamp\(1160px, 100%, 1320px\);[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/data-production-column="order"\] \{[\s\S]*?width: 130px;/);
+  assert.match(style,/data-production-column="processName"\] \{[\s\S]*?width: auto;/);
   assert.match(style,/data-production-column="supplementHours"\]/);
+  assert.match(style,/data-production-column="hourlyCapacity"\] \{[\s\S]*?width: 105px;/);
+  assert.match(style,/\.production-value-badge \{[\s\S]*?display: inline-flex;[\s\S]*?background: var\(--ui-color-primary-soft\);/);
+  assert.match(style,/\.production-entry-table td\.production-product-code-cell \{[\s\S]*?font-weight: 700;/);
   assert.match(style,/data-production-column="processNo"\],[\s\S]*?data-production-column="processNo"\] \{[\s\S]*?text-align: center;/);
   assert.match(style,/\.production-entry-table td\.production-row-actions \{[\s\S]*?display: table-cell;[\s\S]*?text-align: center;/);
   assert.match(style,/\.production-records-table \.production-date-cell \{/);
+  assert.match(style,/\.production-data-section \.ui-table-scroll \{[\s\S]*?overflow-x: auto;/);
+  assert.match(style,/\.production-records-table \{[\s\S]*?width: clamp\(1320px, 100%, 1500px\);[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/\.production-records-table td\.production-row-actions \{[\s\S]*?display: table-cell;/);
+  assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog \{[\s\S]*?--production-dialog-center-x/);
   assert.match(style,/\.production-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-3'/);
   assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260809-2'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-10'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-5'/);
-  assert.match(html,/js\/features\.js\?v=20260809-14/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260809-13'/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260809-6'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260809-14'/);
+  assert.match(html,/js\/features\.js\?v=20260809-17/);
+});
+
+test('當日表格原表頭依主內容可視邊界凍結且不重算欄寬',()=>{
+  const source=read('js/production/production-entry.js');
+  const style=read('styles/features/production.css');
+  assert.match(source,/function startProductionStickyHeader\(\)/);
+  assert.match(source,/function stopProductionStickyHeader\(\)/);
+  assert.match(source,/function updateStickyHeaderPosition\(\)/);
+  assert.match(source,/const visibleTop = Math\.max\(0,scrollRect\.top\)/);
+  assert.match(source,/Math\.min\(maximumOffset,Math\.max\(0,visibleTop-tableRect\.top\)\)/);
+  assert.match(source,/scrollHost\.addEventListener\('scroll',scheduleStickyHeaderUpdate,\{passive:true\}\)/);
+  assert.match(source,/new ResizeObserver\(scheduleStickyHeaderUpdate\)/);
+  assert.match(source,/window\.visualViewport\?\.addEventListener\('resize',scheduleStickyHeaderUpdate\)/);
+  assert.doesNotMatch(source,/cloneNode\(/);
+  assert.match(style,/\.production-entry-table thead \{[\s\S]*?transform: translateY\(var\(--production-table-header-offset\)\);/);
+  assert.match(style,/\.production-entry-table thead th \{[\s\S]*?background: var\(--ui-color-table-header\);/);
+  assert.match(style,/\.production-entry-table\.is-header-frozen thead \{[\s\S]*?z-index: 8;/);
 });

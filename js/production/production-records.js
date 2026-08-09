@@ -68,10 +68,12 @@
     return button;
   }
 
-  function addCell(row,value,className=''){
+  function addCell(row,value,className='',showFullText=false){
     const cell = document.createElement('td');
     if(className) cell.className = className;
-    cell.textContent = String(value ?? '—');
+    const text = String(value ?? '—');
+    cell.textContent = text;
+    if(showFullText && text !== '—') cell.title = text;
     row.appendChild(cell);
   }
 
@@ -104,11 +106,11 @@
       const groupStart = index === 0 || state.filtered[index-1]?.productionDate !== item.productionDate;
       if(groupStart) row.classList.add('production-date-group-start');
       addDateCell(row,item.productionDate,groupStart);
-      addCell(row,`${item.employeeId} · ${employeeDisplayName(item)}`);
-      addCell(row,item.orderNo || '—');
-      addCell(row,item.productCode || '—');
+      addCell(row,`${item.employeeId} · ${employeeDisplayName(item)}`,'production-record-text-cell',true);
+      addCell(row,item.orderNo || '—','production-record-text-cell',true);
+      addCell(row,item.productCode || '—','production-record-text-cell',true);
       addCell(row,item.processNo || '—','production-number-cell');
-      addCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'));
+      addCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'production-record-text-cell',true);
       addCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell');
       addCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell');
       const statusCell = document.createElement('td');

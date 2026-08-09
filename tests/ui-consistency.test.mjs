@@ -142,7 +142,7 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   ['employee','order','product','process'].forEach(name=>{
     assert.match(markup,new RegExp(`class="ui-search-dropdown-input"[^>]*id="production-${name}-input"[\\s\\S]*?class="ui-search-dropdown-toggle"[^>]*id="production-${name}-toggle"`));
   });
-  assert.match(markup,/Số CĐ[\s\S]*?工序號[\s\S]*?SL sản xuất[\s\S]*?生產數量[\s\S]*?SL đơn hàng[\s\S]*?訂單數量[\s\S]*?Giây[\s\S]*?工序秒數/);
+  assert.match(markup,/Số CĐ[\s\S]*?工序號[\s\S]*?SL sản xuất[\s\S]*?生產數量[\s\S]*?SL đơn hàng[\s\S]*?訂單數量[\s\S]*?Giây[\s\S]*?工序秒數[\s\S]*?SL\/giờ[\s\S]*?每小時數量/);
   assert.doesNotMatch(markup,/Hiệu suất|效率/);
   assert.match(core,/\.ui-search-dropdown-control \{[\s\S]*?position: relative;/);
   assert.match(core,/\.ui-search-dropdown-toggle \{[\s\S]*?position: absolute;[\s\S]*?right: 1px;/);
@@ -155,6 +155,7 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(entrySource,/selectProcess\(exact,\{focusQuantity:true\}\)/);
   assert.match(entrySource,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
   assert.match(entrySource,/function handleEntryTab\(event,currentId\)/);
+  assert.match(entrySource,/function confirmProcessForForwardTab\(\)[\s\S]*?Không tìm thấy số công đoạn chính xác/);
   assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
   assert.match(markup,/class="production-entry-panels"/);
   assert.match(markup,/production-registration-context[\s\S]*?production-registration-header[\s\S]*?production-employee-inline-panel/);
@@ -169,24 +170,71 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(markup,/Giờ bổ sung[\s\S]*?補充工時/);
   assert.match(markup,/Sản lượng của nhân viên trong ngày[\s\S]*?id="production-quantity-progress"[\s\S]*?已登記數量 \/ 訂單數量上限/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
-  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?grid-template-columns:\s*220px minmax\(220px, 1fr\)[\s\S]*?margin:\s*0;[\s\S]*?border-left:\s*1px/);
+  assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?width:\s*100%;[\s\S]*?grid-template-columns:\s*minmax\(0, 220px\)[\s\S]*?minmax\(58px, 86px\);[\s\S]*?border-left:\s*1px/);
   assert.match(style,/\.production-employee-inline-field input\s*\{[\s\S]*?height:\s*36px;[\s\S]*?border:\s*1px solid/);
-  assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*112px;[\s\S]*?max-width:\s*112px;/);
+  assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
   assert.match(style,/\.production-entry-command\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/);
-  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?width:\s*max-content;[\s\S]*?grid-template-columns:\s*158px 178px 160px 104px 176px 126px;/);
-  assert.match(style,/\.production-process-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*80px;[\s\S]*?max-width:\s*80px;/);
+  assert.match(style,/\.production-entry-fields\s*\{[\s\S]*?width:\s*min\(100%, 1040px\);[\s\S]*?grid-template-columns:\s*minmax\(0, \.98fr\)[\s\S]*?minmax\(0, \.62fr\)[\s\S]*?column-gap:\s*clamp\(6px, \.8vw, 12px\);/);
+  assert.match(style,/\.production-process-field \.ui-search-dropdown-control\s*\{[\s\S]*?width:\s*100%;[\s\S]*?max-width:\s*100%;/);
   assert.match(style,/\.production-process-name-output\s*\{[\s\S]*?text-overflow:\s*ellipsis;/);
   assert.match(style,/\.production-entry-context-panel\.is-supplement-mode \.production-process-name-output/);
   assert.match(style,/\.production-supplement-help\s*\{/);
-  assert.match(style,/\.production-quantity-progress\s*\{[\s\S]*?min-width:\s*330px;[\s\S]*?background:\s*var\(--ui-color-primary-soft\);/);
+  assert.match(style,/\.production-quantity-progress\s*\{[\s\S]*?width:\s*clamp\(210px, 31%, 390px\);[\s\S]*?min-width:\s*0;[\s\S]*?background:\s*var\(--ui-color-primary-soft\);/);
   assert.match(style,/\.production-entry-table th\.production-number-cell,[\s\S]*?\.production-entry-table td\.production-number-cell\s*\{[\s\S]*?text-align:\s*right;/);
   assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy\s*\{[\s\S]*?align-items:\s*flex-end;/);
+  assert.match(entrySource,/production-product-code-cell/);
+  assert.match(style,/\.production-entry-table td\.production-product-code-cell\s*\{[\s\S]*?font-weight:\s*700;/);
   assert.match(entrySource,/function setAllColumnVisibility\(visible\)/);
   assert.match(entrySource,/function employeeOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId,secondary:''/);
   assert.match(style,/\.production-records-table \.production-date-cell\s*\{/);
+  assert.match(style,/\.production-data-section \.ui-table-frame\s*\{[\s\S]*?overflow:\s*hidden;/);
+  assert.match(style,/\.production-data-section \.ui-table-scroll\s*\{[\s\S]*?overflow-x:\s*auto;/);
+  assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog\s*\{[\s\S]*?transform:\s*translate\(-50%, -50%\);/);
+  assert.match(entrySource,/document\.querySelector\('#ma > \.mn'\)[\s\S]*?new ResizeObserver\(updatePosition\)/);
+  assert.match(entrySource,/function updateStickyHeaderPosition\(\)[\s\S]*?visibleTop-tableRect\.top/);
+  assert.match(entrySource,/function productionEntryLeave\(\)[\s\S]*?stopProductionStickyHeader\(\)/);
+  assert.match(style,/\.production-entry-table thead \{[\s\S]*?position:\s*relative;[\s\S]*?transform:\s*translateY\(var\(--production-table-header-offset\)\);/);
+  assert.doesNotMatch(entrySource,/cloneNode\(/);
   assert.match(style,/\.production-filter-grid\s*\{[\s\S]*?height:\s*auto;[\s\S]*?grid-template-columns:/);
   assert.match(style,/\.production-command-actions\s*\{[\s\S]*?height:\s*auto;[\s\S]*?align-self:\s*stretch;/);
-  assert.match(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-employee-inline-panel[\s\S]*?\.production-entry-fields[\s\S]*?\.production-filter-grid[\s\S]*?\.production-employee-fields/);
+  assert.match(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-employee-inline-panel[\s\S]*?\.production-filter-grid[\s\S]*?\.production-employee-fields/);
+  assert.doesNotMatch(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-entry-fields/);
+});
+
+test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇功能',()=>{
+  const html=read('index.html');
+  const source=read('js/summary.js');
+  const style=read('styles/features/products.css');
+  const features=read('js/features.js');
+  const pageStart=html.indexOf('id="pg-summary"');
+  const pageEnd=html.indexOf('<div class="pg',pageStart+1);
+  const markup=html.slice(pageStart,pageEnd);
+  assert.match(markup,/class="ui-section-header summary-table-header"[\s\S]*?id="summary-column-settings-button"[\s\S]*?id="summary-column-settings-menu"/);
+  assert.match(markup,/id="summary-column-settings-select-all"[\s\S]*?Chọn tất cả[\s\S]*?全選[\s\S]*?id="summary-column-settings-reset"/);
+  for(const key of ['index','code','client','zh','vi','size','ops','cost','action']){
+    assert.match(markup,new RegExp(`data-summary-column-toggle="${key}"`));
+  }
+  assert.match(markup,/id="summary-cost-column-option" hidden/);
+  assert.match(markup,/id="summary-main-table"/);
+  assert.match(markup,/id="summary-columns-empty"[^>]*hidden/);
+  assert.match(source,/const _summaryColumnVisibility=\{index:true,code:true,client:true,zh:true,vi:true,size:true,ops:true,cost:true,action:true\}/);
+  assert.match(source,/function applySummaryColumnVisibility\(\)/);
+  assert.match(source,/function setAllSummaryColumns\(visible\)/);
+  assert.match(source,/selectAll\.indeterminate=selected>0&&selected<toggles\.length/);
+  assert.match(source,/class="summary-sortable-header"[\s\S]*?class="summary-sort-heading"[\s\S]*?\$\{sortIcon\(col\)\}[\s\S]*?class="tv"/);
+  assert.match(source,/aria-sort="\$\{summarySortAria\(col\)\}"/);
+  assert.match(source,/summary-sort-icon is-idle/);
+  assert.doesNotMatch(source,/keydown[\s\S]*?sumSort/);
+  assert.match(source,/canSeeCosts=canViewCosts\(\)[\s\S]*?costOption\.hidden=!canSeeCosts/);
+  assert.match(source,/data-summary-column="code"[\s\S]*?data-summary-column="client"[\s\S]*?data-summary-column="action"/);
+  assert.match(style,/#pg-summary \.summary-main-table \{[\s\S]*?table-layout: fixed;/);
+  assert.match(style,/data-summary-column="zh"\] \{ width: 22%; \}/);
+  assert.match(style,/data-summary-column="vi"\] \{ width: 22%; \}/);
+  assert.match(style,/#pg-summary \.summary-sort-heading \{[\s\S]*?display: flex;[\s\S]*?align-items: center;/);
+  assert.match(style,/#pg-summary \.summary-column-settings-menu \{[\s\S]*?position: absolute;/);
+  assert.match(style,/#pg-summary \.summary-main-table \.is-column-hidden \{[\s\S]*?display: none;/);
+  assert.match(features,/summary:'js\/summary\.js\?v=20260809-1'/);
+  assert.match(features,/products:'styles\/features\/products\.css\?v=20260809-1'/);
 });
 
 test('系統設定頁使用緊湊分組矩陣且保留原欄位事件',()=>{
