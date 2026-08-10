@@ -1352,13 +1352,15 @@ body.is-ui-table-resizing * {
   height: 1px;
 }
 
-/* 共用控制啟用期間隱藏功能框內的原始捲軸；離開功能後移除此類別並自動還原。 */
+/* 標記 floating-only（只用浮動控制）的表格從首次顯示起就隱藏原始捲軸，避免切頁初始化時先閃現在功能框底部。 */
+.ui-table-scroll[data-ui-floating-scroll="only"],
 .ui-table-scroll.is-ui-floating-only {
   box-sizing: border-box;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
 
+.ui-table-scroll[data-ui-floating-scroll="only"]::-webkit-scrollbar,
 .ui-table-scroll.is-ui-floating-only::-webkit-scrollbar {
   width: 0;
   height: 0;
