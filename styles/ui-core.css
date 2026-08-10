@@ -378,7 +378,8 @@
 .ui-command-row {
   display: grid;
   min-width: 0;
-  height: var(--ui-action-tile-height);
+  min-height: var(--ui-action-tile-height);
+  height: auto;
   grid-template-columns: minmax(340px, 1fr) auto;
   align-items: stretch;
   border-radius: inherit;
@@ -387,7 +388,8 @@
 .ui-context-grid {
   display: grid;
   min-width: 0;
-  height: 100%;
+  min-height: var(--ui-action-tile-height);
+  height: auto;
   grid-template-columns: repeat(2, minmax(160px, 1fr));
   align-items: stretch;
   overflow: hidden;
@@ -501,6 +503,12 @@
   border-left: var(--ui-border-width) solid var(--ui-color-operation-divider);
   border-radius: 0 calc(var(--ui-radius-panel) - 1px) calc(var(--ui-radius-panel) - 1px) 0;
   background: var(--ui-color-surface);
+}
+
+/* 多排操作內容可自然增高；右側操作方塊維持標準高度並貼齊最後一排。 */
+.ui-command-row > .ui-command-actions {
+  height: var(--ui-action-tile-height);
+  align-self: end;
 }
 
 .ui-command-action {

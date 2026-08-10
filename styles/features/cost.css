@@ -16,7 +16,8 @@
 #pg-settings .settings-command-content {
   display: grid;
   min-width: 0;
-  height: 100%;
+  min-height: var(--ui-action-tile-height);
+  height: auto;
   grid-template-columns: minmax(230px, .7fr) minmax(440px, 1.3fr);
   align-items: stretch;
 }
@@ -278,9 +279,10 @@
 }
 
 #pg-settings .settings-summary-row {
-  height: 100%;
+  min-height: var(--ui-action-tile-height);
+  height: auto;
   grid-template-columns: repeat(3, minmax(135px, 1fr));
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: auto;
   margin: 0;
   border: 0;
   background: transparent;
