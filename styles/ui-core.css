@@ -425,14 +425,15 @@
 }
 
 .ui-context-item > i {
-  grid-row: 1 / span 2;
+  align-self: center;
   color: var(--ui-color-primary);
   font-size: 22px;
 }
 
 .ui-file-picker {
   width: calc(100% - 8px);
-  height: calc(var(--ui-action-tile-height) - 8px);
+  min-height: calc(var(--ui-action-tile-height) + 4px);
+  height: auto;
   margin: 4px;
   padding: 5px 8px;
   border: 1px dashed var(--ui-color-primary);
@@ -505,10 +506,11 @@
   background: var(--ui-color-surface);
 }
 
-/* 多排操作內容可自然增高；右側操作方塊維持標準高度並貼齊最後一排。 */
+/* 操作內容增高時，右側操作群組同步承接父列高度，避免外框與內容分離。 */
 .ui-command-row > .ui-command-actions {
-  height: var(--ui-action-tile-height);
-  align-self: end;
+  min-height: var(--ui-action-tile-height);
+  height: auto;
+  align-self: stretch;
 }
 
 .ui-command-action {
@@ -516,7 +518,7 @@
   width: var(--ui-action-tile-width);
   min-width: var(--ui-action-tile-width);
   height: 100%;
-  min-height: 0;
+  min-height: var(--ui-action-tile-height);
   align-items: center;
   justify-content: center;
   gap: 4px;

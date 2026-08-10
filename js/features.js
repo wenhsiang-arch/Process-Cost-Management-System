@@ -27,11 +27,11 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260810-2',
+    cutting:'styles/features/cutting.css?v=20260810-3',
     orders:'styles/features/orders.css?v=20260810-2',
     products:'styles/features/products.css?v=20260810-1',
     sync:'styles/features/sync.css?v=20260810-2',
-    cost:'styles/features/cost.css?v=20260810-3',
+    cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260810-13'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

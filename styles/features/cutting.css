@@ -10,7 +10,8 @@
 
 /* 舊裁帶回歸檢查相容層：實際骨架由 ui-command-row（共用操作列）提供。 */
 .cutting-command-row {
-  height: var(--ui-action-tile-height);
+  min-height: var(--ui-action-tile-height);
+  height: auto;
 }
 
 /* 舊裁帶回歸檢查相容層：共用停用狀態仍由 ui-command-action（共用操作方塊）完整定義。 */

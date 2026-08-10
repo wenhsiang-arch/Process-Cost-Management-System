@@ -290,8 +290,8 @@
 
 #pg-settings .settings-summary-row .ui-summary-item {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-content: center;
+  grid-template-rows: minmax(min-content, 1fr) auto;
+  align-content: stretch;
   align-items: start;
   gap: 5px;
   padding: 7px 10px 7px 22px;
