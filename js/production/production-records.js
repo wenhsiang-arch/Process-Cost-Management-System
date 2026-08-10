@@ -180,21 +180,32 @@
     cell.dataset.uiTableSortValue = String(value || '');
     if(showBadge){
       const copy = dateBadgeText(value);
-      const badge = document.createElement('button');
-      badge.type = 'button';
+      const badge = document.createElement('span');
       badge.className = 'production-date-badge';
-      badge.title = 'Mở đăng ký trong ngày / 開啟當日生產登記';
-      badge.setAttribute('aria-label',`${dateText(value)} · Mở đăng ký trong ngày / 開啟當日生產登記`);
       const date = document.createElement('strong');
       const weekday = document.createElement('span');
       date.textContent = copy.date;
       weekday.textContent = `${copy.vi} / ${copy.zh}`;
       badge.append(date,weekday);
-      badge.addEventListener('click',()=>void openRegistrationDate(value));
       cell.appendChild(badge);
     }else{
       cell.setAttribute('aria-label',dateText(value));
     }
+    row.appendChild(cell);
+  }
+
+  function addEmployeeCell(row,item){
+    const cell = document.createElement('td');
+    cell.className = 'production-record-text-cell production-employee-detail-cell';
+    cell.dataset.uiTableSortValue = String(item.employeeName || '');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'production-employee-detail-button';
+    button.textContent = String(item.employeeName || '—');
+    button.title = 'Mở chi tiết công đoạn của nhân viên / 開啟員工工序明細';
+    button.setAttribute('aria-label',`${item.employeeName || item.employeeId} · ${dateText(item.productionDate)} · Mở chi tiết công đoạn / 開啟工序明細`);
+    button.addEventListener('click',()=>void openEmployeeRegistration(item));
+    cell.appendChild(button);
     row.appendChild(cell);
   }
 
@@ -224,12 +235,13 @@
     return badge;
   }
 
-  async function openRegistrationDate(productionDate){
+  async function openEmployeeRegistration(item){
     if(typeof window.canOpenPage === 'function' && !window.canOpenPage('production-entry')) return;
     try{
       await window.PCMSFeatures?.ensurePageScripts?.('production-entry');
       window.PCMSProductionEntry?.setPendingContext?.({
-        productionDate
+        employeeId:item.employeeId,
+        productionDate:item.productionDate
       });
       if(typeof window.sp === 'function') await window.sp('production-entry');
     }catch(error){ await showError(error); }
@@ -245,7 +257,7 @@
       if(groupStart) row.classList.add('production-date-group-start');
       addDateCell(row,item.productionDate,groupStart);
       addTextCell(row,item.employeeId,'production-record-text-cell');
-      addTextCell(row,item.employeeName,'production-record-text-cell');
+      addEmployeeCell(row,item);
       addTextCell(row,item.department,'production-record-text-cell');
       addTextCell(row,item.workedHours == null ? '—' : hoursText(item.workedHours),'production-number-cell',item.workedHours ?? '');
       addTextCell(row,hoursText(item.standardHours),'production-number-cell',item.standardHours);
