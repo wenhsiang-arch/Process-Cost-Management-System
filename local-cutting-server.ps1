@@ -1134,7 +1134,35 @@ function Draw-ImageFit($graphics, [string]$path, [System.Drawing.RectangleF]$rec
   }
 }
 
-function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [float]$groupHeight, $bodyFontSizes = $null, [string]$orderLabel = '') {
+# Get-PageLabelRect（取得頁碼位置）：固定保留約 12 × 5 mm，並從承載區左上角向內約 3 mm。
+function Get-PageLabelRect([System.Drawing.RectangleF]$hostRect) {
+  $inset = 8.0
+  $width = 34.0
+  $height = 14.2
+  return [System.Drawing.RectangleF]::new(
+    [float]($hostRect.X + $inset),
+    [float]($hostRect.Y + $inset),
+    [float]$width,
+    [float]$height
+  )
+}
+
+# Draw-PageLabel（繪製頁碼）：以半透明白底及淺灰字保持圖片滿版時仍可辨識。
+function Draw-PageLabel($graphics, [string]$pageLabel, [System.Drawing.RectangleF]$hostRect) {
+  if ([string]::IsNullOrWhiteSpace($pageLabel)) { return }
+  $labelRect = Get-PageLabelRect $hostRect
+  $background = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(205, 255, 255, 255))
+  $textBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(135, 135, 135))
+  try {
+    $graphics.FillRectangle($background, $labelRect)
+    Draw-CenteredText $graphics $pageLabel $labelRect 7.0 5.5 $false $textBrush
+  } finally {
+    $background.Dispose()
+    $textBrush.Dispose()
+  }
+}
+
+function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [float]$groupHeight, $bodyFontSizes = $null, [string]$orderLabel = '', [string]$pageLabel = '') {
   $columns = @($printGroup.module.columns)
   $headerColumns = @()
   if ($null -ne $printGroup.group -and $null -ne $printGroup.group.PSObject.Properties['columns']) {
@@ -1192,6 +1220,8 @@ function Draw-Group($graphics, $printGroup, [float]$pageWidth, [float]$top, [flo
       }
       $imageBody = [System.Drawing.RectangleF]::new($imageBody.X + 2, $imageTop + 2, $imageBody.Width - 4, $imageHeight - 4)
       Draw-ImageFit $graphics ([string]$printGroup.imagePath) $imageBody
+      # pageLabel（頁碼）：每頁只在第一組圖片區左上角顯示，不占用右側生產文字。
+      Draw-PageLabel $graphics $pageLabel $imageBody
     }
 
     $skipCells = @{}
@@ -1445,7 +1475,7 @@ function Save-BitmapAsJpeg([System.Drawing.Bitmap]$bitmap, [string]$path, [int]$
   }
 }
 
-function Save-ReportImage($sections, [string]$path, $renderOptions) {
+function Save-ReportImage($sections, [string]$path, $renderOptions, [string]$pageLabel = '') {
   $width = [int]$renderOptions.width
   $height = [int]$renderOptions.height
   $bitmap = New-Object System.Drawing.Bitmap $width, $height
@@ -1466,6 +1496,8 @@ function Save-ReportImage($sections, [string]$path, $renderOptions) {
       foreach ($section in @($sections)) {
         Draw-ReportTable $graphics ([string]$section.title) @($section.rows) ([float]$section.x) ([float]$section.y) ([float]$section.bottom) $section.summary
       }
+      # 統計頁沒有圖片，頁碼改放在頁面左上方既有空白區。
+      Draw-PageLabel $graphics $pageLabel ([System.Drawing.RectangleF]::new(0.0, 0.0, 595.0, 842.0))
     } finally {
       $graphics.Dispose()
     }
@@ -1475,7 +1507,17 @@ function Save-ReportImage($sections, [string]$path, $renderOptions) {
   }
 }
 
-function Save-ReportPages($report, [string]$root, $renderOptions) {
+function Get-ReportPageCount($report) {
+  if ($null -eq $report) { return 0 }
+  $completedRows = @($report.completed)
+  $missingRows = @($report.missing)
+  if ($completedRows.Count -le 14 -and $missingRows.Count -le 14) { return 1 }
+  $completedPages = if ($completedRows.Count -gt 0) { [Math]::Ceiling($completedRows.Count / 34.0) } else { 0 }
+  $missingPages = if ($missingRows.Count -gt 0) { [Math]::Ceiling($missingRows.Count / 34.0) } else { 0 }
+  return [int]($completedPages + $missingPages)
+}
+
+function Save-ReportPages($report, [string]$root, $renderOptions, [int]$pageStart = 0, [int]$pageTotal = 0) {
   if ($null -eq $report) { return @() }
   $completedRows = @($report.completed)
   $missingRows = @($report.missing)
@@ -1490,7 +1532,8 @@ function Save-ReportPages($report, [string]$root, $renderOptions) {
       [PSCustomObject]@{ title = "Danh sách mã hàng hoàn tất / 已完成款號（總共$($completedCount)個）"; rows = $completedRows; summary = $completedSummary; x = 30.0; y = 35.0; bottom = 405.0 },
       [PSCustomObject]@{ title = "Công đoạn thiếu tệp / 缺少檔案的工序段（總共$($missingCount)個）"; rows = $missingRows; summary = $missingSummary; x = 30.0; y = 445.0; bottom = 812.0 }
     )
-    Save-ReportImage $sections $path $renderOptions
+    $pageLabel = if ($pageTotal -gt 0) { "{0} / {1}" -f ($pageStart + 1), $pageTotal } else { '' }
+    Save-ReportImage $sections $path $renderOptions $pageLabel
     return @($path)
   }
   $pageIndex = 0
@@ -1510,7 +1553,8 @@ function Save-ReportPages($report, [string]$root, $renderOptions) {
       $isLastChunk = ($i + $take) -ge $rows.Count
       $summary = if ($isLastChunk) { $sectionData.summary } else { $null }
       $sections = @([PSCustomObject]@{ title = [string]$sectionData.title; rows = $chunk; summary = $summary; x = 30.0; y = 35.0; bottom = 812.0 })
-      Save-ReportImage $sections $path $renderOptions
+      $pageLabel = if ($pageTotal -gt 0) { "{0} / {1}" -f ($pageStart + $pageIndex), $pageTotal } else { '' }
+      Save-ReportImage $sections $path $renderOptions $pageLabel
       $pages += $path
     }
   }
@@ -1593,7 +1637,7 @@ function Split-PrintGroupsIntoPages($groups) {
   return $pages
 }
 
-function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions, [string]$orderLabel = '') {
+function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions, [string]$orderLabel = '', [string]$pageLabel = '') {
   $width = [int]$renderOptions.width
   $height = [int]$renderOptions.height
   $bitmap = New-Object System.Drawing.Bitmap $width, $height
@@ -1612,10 +1656,13 @@ function Save-JpegPage($groups, [string]$path, $bodyFontSizes, $renderOptions, [
       $scaleY = $height / 842.0
       $graphics.ScaleTransform($scaleX, $scaleY)
       $top = 0.0
+      $groupIndex = 0
       foreach ($group in @($groups)) {
         $groupHeight = Get-PrintGroupHeight $group
-        Draw-Group $graphics $group 595.0 ([float]$top) ([float]$groupHeight) $bodyFontSizes $orderLabel
+        $groupPageLabel = if ($groupIndex -eq 0) { $pageLabel } else { '' }
+        Draw-Group $graphics $group 595.0 ([float]$top) ([float]$groupHeight) $bodyFontSizes $orderLabel $groupPageLabel
         $top += $groupHeight
+        $groupIndex++
       }
     } finally {
       $graphics.Dispose()
@@ -1718,17 +1765,20 @@ function New-CuttingPdf($payload) {
   Add-Log 'body_font_sizes' $fontSizeLog
   $renderOptions = Get-PdfRenderOptions $payload
   Add-Log 'render_quality' "mode=$($renderOptions.mode) width=$($renderOptions.width) height=$($renderOptions.height) jpegQuality=$($renderOptions.jpegQuality)"
+  $packedPages = @(Split-PrintGroupsIntoPages $printGroups)
+  $reportPageCount = Get-ReportPageCount $payload.report
+  $totalPageCount = [int]($reportPageCount + $packedPages.Count)
   $pageImages = @()
-  $reportPages = @(Save-ReportPages $payload.report $root $renderOptions)
+  $reportPages = @(Save-ReportPages $payload.report $root $renderOptions 0 $totalPageCount)
   if ($reportPages.Count -gt 0) {
     $pageImages += $reportPages
     Add-Log 'render_report' "pages=$($reportPages.Count)"
   }
-  $packedPages = @(Split-PrintGroupsIntoPages $printGroups)
   for ($i = 0; $i -lt $packedPages.Count; $i++) {
     $pageGroups = @($packedPages[$i].groups)
     $jpgPath = Join-Path $root ("page_{0}.jpg" -f ($i + 1))
-    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes $renderOptions $orderLabel
+    $pageLabel = "{0} / {1}" -f ($reportPages.Count + $i + 1), $totalPageCount
+    Save-JpegPage $pageGroups $jpgPath $bodyFontSizes $renderOptions $orderLabel $pageLabel
     $pageImages += $jpgPath
     Add-Log 'render_page' "page=$($pageImages.Count) groups=$($pageGroups.Count)"
   }
