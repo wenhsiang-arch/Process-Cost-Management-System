@@ -927,8 +927,9 @@
 }
 
 .production-performance-table[data-ui-table-controls="auto"] {
-  width: min(100%, 1100px);
-  min-width: min(100%, var(--ui-table-visible-min-width, 860px));
+  width: 100%;
+  min-width: max(100%, var(--ui-table-resized-min-width, var(--ui-table-visible-min-width, 860px)));
+  max-width: none;
 }
 
 .production-performance-table th,
@@ -1088,6 +1089,14 @@
 .production-attendance-table .production-record-text-cell {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-attendance-table td.production-row-actions {
+  display: table-cell;
+  min-width: 0;
+  text-align: center;
+  vertical-align: middle;
   white-space: nowrap;
 }
 

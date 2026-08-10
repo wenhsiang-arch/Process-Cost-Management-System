@@ -293,7 +293,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-11'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-12'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -410,8 +410,8 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-5'/);
   assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260810-3'/);
   assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-5'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-11'/);
-  assert.match(html,/js\/features\.js\?v=20260810-13/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-12'/);
+  assert.match(html,/js\/features\.js\?v=20260810-14/);
 });
 
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{
@@ -511,6 +511,8 @@ test('員工績效依日期分組且日期卡片可開啟當日生產登記',()=
   assert.doesNotMatch(attendance,/function createNoteInput/);
   assert.match(attendance,/note:draft\.note/);
   assert.match(style,/\.production-attendance-table \{[\s\S]*?width: 100%;[\s\S]*?min-width: 100%;/);
+  assert.match(style,/\.production-attendance-table td\.production-row-actions \{[\s\S]*?display: table-cell;[\s\S]*?vertical-align: middle;/);
+  assert.match(style,/\.production-performance-table\[data-ui-table-controls="auto"\] \{[\s\S]*?width: 100%;[\s\S]*?--ui-table-resized-min-width/);
   assert.match(style,/\.production-employee-edit-form \{/);
   assert.match(records,/addTextCell\(row,'—','production-number-cell production-bonus-cell'\)/);
 });
