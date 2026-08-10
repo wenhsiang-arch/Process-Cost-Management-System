@@ -1330,7 +1330,7 @@
   async function applyPendingContext(){
     const pending = state.pendingContext;
     state.pendingContext = null;
-    if(!pending?.employeeId) return false;
+    if(!pending?.employeeId && !/^\d{4}-\d{2}-\d{2}$/.test(pending?.productionDate || '')) return false;
     const requestedDate = /^\d{4}-\d{2}-\d{2}$/.test(pending.productionDate)
       ? pending.productionDate
       : today();
@@ -1341,6 +1341,12 @@
     clearOrder();
     element('production-order-input').value = '';
     element('production-quantity-input').value = '';
+    if(!pending.employeeId){
+      clearEmployee();
+      element('production-employee-input').value = '';
+      element('production-employee-input')?.focus({preventScroll:true});
+      return true;
+    }
     const employee = window.PCMSProductionEmployees.find(pending.employeeId);
     if(!employee){
       clearEmployee();

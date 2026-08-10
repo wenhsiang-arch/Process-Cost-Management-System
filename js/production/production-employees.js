@@ -3,7 +3,7 @@
   'use strict';
 
   const MANAGE_DEPARTMENT_VALUE = '__manage__'; // MANAGE_DEPARTMENT_VALUE（開啟部門管理的下拉選項值）
-  const state = {initialized:false,editingId:''}; // state（員工頁狀態）
+  const state = {initialized:false}; // state（員工頁狀態）
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
 
@@ -25,21 +25,20 @@
     await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
   }
 
-  function renderDepartmentSelect(selected=''){
-    const select = element('production-employee-department-input');
+  function fillDepartmentSelect(select,selected='',options={}){
     const activeRows = window.PCMSProductionEmployees.listDepartments({activeOnly:true});
     const selectedValue = String(selected || '').trim();
-    const options = activeRows.slice();
-    if(state.editingId && selectedValue && !options.some(item=>item.name === selectedValue)){
+    const departmentRows = activeRows.slice();
+    if(selectedValue && !departmentRows.some(item=>item.name === selectedValue)){
       const existing = window.PCMSProductionEmployees.findDepartment(selectedValue);
-      options.push(existing || {departmentId:'legacy',name:selectedValue,active:false}); // legacy（既有舊部門暫時選項）
+      departmentRows.push(existing || {departmentId:'legacy',name:selectedValue,active:false}); // legacy（既有舊部門暫時選項）
     }
     select.replaceChildren();
     const placeholder = document.createElement('option');
     placeholder.value = '';
     placeholder.textContent = 'Chọn bộ phận / 選擇部門';
     select.appendChild(placeholder);
-    options.forEach(department=>{
+    departmentRows.forEach(department=>{
       const option = document.createElement('option');
       option.value = department.name;
       option.textContent = department.active === true
@@ -47,12 +46,18 @@
         : `${department.name} · Ngừng dùng / 停用`;
       select.appendChild(option);
     });
-    const manage = document.createElement('option');
-    manage.value = MANAGE_DEPARTMENT_VALUE;
-    manage.textContent = 'Chỉnh sửa bộ phận / 編輯部門';
-    select.appendChild(manage);
+    if(options.includeManage === true){
+      const manage = document.createElement('option');
+      manage.value = MANAGE_DEPARTMENT_VALUE;
+      manage.textContent = 'Chỉnh sửa bộ phận / 編輯部門';
+      select.appendChild(manage);
+    }
     select.value = selectedValue;
     select.dataset.previousValue = select.value;
+  }
+
+  function renderDepartmentSelect(selected=''){
+    fillDepartmentSelect(element('production-employee-department-input'),selected,{includeManage:true});
   }
 
   function handleDepartmentSelection(){
@@ -67,43 +72,23 @@
   }
 
   function resetForm(){
-    state.editingId = '';
     element('production-employee-id').value = '';
-    element('production-employee-id').readOnly = false;
     element('production-employee-name-input').value = '';
     renderDepartmentSelect('');
-    window.PCMSUIText?.set?.(element('production-employee-save-copy'),{vi:'Thêm nhân viên',zh:'新增員工'});
-  }
-
-  function startEdit(employee){
-    state.editingId = employee.employeeId;
-    element('production-employee-id').value = employee.employeeId;
-    element('production-employee-id').readOnly = true;
-    element('production-employee-name-input').value = employee.name || '';
-    renderDepartmentSelect(employee.department || '');
-    window.PCMSUIText?.set?.(element('production-employee-save-copy'),{vi:'Lưu thay đổi',zh:'儲存修改'});
-    element('production-employee-name-input').focus();
   }
 
   async function save(){
     const button = element('production-employee-save-button');
     return window.PCMSUIComponents.runActionOnce('production.employee.save',async()=>{
       try{
-        const existing = state.editingId ? window.PCMSProductionEmployees.find(state.editingId) : null; // existing（編輯中的既有員工）
         const input = {
           employeeId:element('production-employee-id').value,
           name:element('production-employee-name-input').value,
           department:element('production-employee-department-input').value,
-          active:state.editingId ? existing?.active === true : true
+          active:true
         }; // input（員工表單資料）
-        const saved = state.editingId
-          ? await window.PCMSProductionEmployees.updateEmployee(state.editingId,input)
-          : await window.PCMSProductionEmployees.createEmployee(input);
-        setMessage(
-          state.editingId ? `Đã cập nhật nhân viên ${saved.employeeId}.` : `Đã thêm nhân viên ${saved.employeeId}.`,
-          state.editingId ? `已更新員工 ${saved.employeeId}。` : `已新增員工 ${saved.employeeId}。`,
-          'success'
-        );
+        const saved = await window.PCMSProductionEmployees.createEmployee(input);
+        setMessage(`Đã thêm nhân viên ${saved.employeeId}.`,`已新增員工 ${saved.employeeId}。`,'success');
         resetForm();
         render();
         return saved;
@@ -143,7 +128,6 @@
     if(!confirmed) return;
     try{
       await window.PCMSProductionEmployees.deleteEmployee(employee.employeeId);
-      if(state.editingId === employee.employeeId) resetForm();
       render();
       setMessage('Đã xóa vĩnh viễn nhân viên.','員工已永久刪除。','success');
     }catch(error){
@@ -304,6 +288,83 @@
     });
   }
 
+  function editDialogField(vi,zh,control){
+    const field = document.createElement('div');
+    field.className = 'ui-dialog-field';
+    const label = document.createElement('label');
+    if(control.id) label.htmlFor = control.id;
+    label.appendChild(window.PCMSUIText.create({vi,zh}));
+    field.append(label,control);
+    return field;
+  }
+
+  function employeeEditBody(employee){
+    const host = document.createElement('div');
+    host.className = 'production-employee-edit-form';
+
+    const employeeId = document.createElement('div');
+    employeeId.className = 'production-employee-edit-value';
+    employeeId.textContent = employee.employeeId;
+
+    const name = document.createElement('input');
+    name.id = 'production-employee-edit-name';
+    name.type = 'text';
+    name.maxLength = 100;
+    name.autocomplete = 'off';
+    name.value = employee.name || '';
+
+    const department = document.createElement('select');
+    department.id = 'production-employee-edit-department';
+    fillDepartmentSelect(department,employee.department || '');
+
+    const status = document.createElement('span');
+    status.className = `production-status ui-dual-copy ${employee.active === true ? 'is-active' : 'is-voided'}`;
+    const statusVi = document.createElement('strong');
+    const statusZh = document.createElement('span');
+    statusVi.textContent = employee.active === true ? 'Đang dùng' : 'Ngừng dùng';
+    statusZh.textContent = employee.active === true ? '啟用' : '停用';
+    status.append(statusVi,statusZh);
+    const statusValue = document.createElement('div');
+    statusValue.className = 'production-employee-edit-status';
+    statusValue.appendChild(status);
+
+    host.append(
+      editDialogField('Mã nhân viên','員工工號',employeeId),
+      editDialogField('Tên nhân viên','員工姓名',name),
+      editDialogField('Bộ phận','部門',department),
+      editDialogField('Trạng thái','狀態',statusValue)
+    );
+    return {host,name,department};
+  }
+
+  function openEmployeeEditor(employee){
+    const fields = employeeEditBody(employee);
+    window.PCMSUIComponents.openDialog({
+      title:{vi:'Chỉnh sửa nhân viên',zh:'修改員工'},
+      body:fields.host,
+      actions:[
+        {text:'common.cancel'},
+        {
+          text:{vi:'Lưu thay đổi',zh:'儲存修改'},
+          icon:'ti-device-floppy',
+          kind:'primary',
+          onClick:async()=>{
+            const saved = await window.PCMSProductionEmployees.updateEmployee(employee.employeeId,{
+              employeeId:employee.employeeId,
+              name:fields.name.value,
+              department:fields.department.value,
+              active:employee.active === true
+            });
+            render();
+            setMessage(`Đã cập nhật nhân viên ${saved.employeeId}.`,`已更新員工 ${saved.employeeId}。`,'success');
+            return saved;
+          }
+        }
+      ],
+      onError:error=>void showError(error)
+    });
+  }
+
   function render(){
     const body = element('production-employees-table-body');
     const needle = String(element('production-employee-search').value || '').trim().toLocaleLowerCase();
@@ -328,7 +389,7 @@
       const actionCell = document.createElement('td');
       actionCell.className = 'production-row-actions';
       actionCell.append(
-        actionButton('ti-edit','Chỉnh sửa','修改',()=>startEdit(employee)),
+        actionButton('ti-edit','Chỉnh sửa','修改',()=>openEmployeeEditor(employee)),
         actionButton(employee.active === true ? 'ti-user-off' : 'ti-user-check',employee.active === true ? 'Ngừng dùng' : 'Kích hoạt',employee.active === true ? '停用' : '啟用',()=>void toggleActive(employee),employee.active === true ? 'danger' : '')
       );
       if(isAdmin()) actionCell.append(

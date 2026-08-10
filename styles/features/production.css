@@ -239,9 +239,9 @@
 }
 
 .production-entry-fields > .production-date-field {
-  min-width: 148px;
-  max-width: 148px;
-  flex: 0 0 148px;
+  min-width: 138px;
+  max-width: 138px;
+  flex: 0 0 138px;
 }
 
 .production-entry-fields > .production-order-field {
@@ -430,9 +430,9 @@
 }
 
 .production-compact-date-field {
-  width: 154px;
-  min-width: 148px;
-  max-width: 158px;
+  width: 138px;
+  min-width: 136px;
+  max-width: 140px;
 }
 
 .production-date-control input {
@@ -891,8 +891,8 @@
   min-width: 0;
   height: auto;
   box-sizing: border-box;
-  grid-template-columns: minmax(136px, .8fr) minmax(136px, .8fr) minmax(240px, 1.8fr) minmax(150px, .85fr) minmax(200px, auto);
-  gap: 8px;
+  grid-template-columns: 138px 138px minmax(240px, 1.5fr) minmax(150px, .8fr) 212px;
+  gap: 10px;
   align-items: end;
 }
 
@@ -973,32 +973,6 @@
   margin-left: 6px;
 }
 
-.production-performance-entry-button {
-  display: inline-grid;
-  min-width: 88px;
-  min-height: 34px;
-  place-content: center;
-  gap: 1px;
-  border: 1px solid var(--ui-color-border);
-  border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface);
-  color: var(--ui-color-primary);
-  cursor: pointer;
-  line-height: 1.05;
-}
-
-.production-performance-entry-button strong {
-  font-size: 10px;
-}
-
-.production-performance-entry-button span {
-  font-size: 9px;
-}
-
-.production-performance-entry-button:hover {
-  background: var(--ui-color-primary-soft);
-}
-
 .production-records-table .production-date-cell {
   width: 96px;
   min-width: 96px;
@@ -1010,14 +984,28 @@
 
 .production-date-badge {
   display: grid;
+  width: 100%;
   min-height: 40px;
   align-content: center;
   gap: 2px;
-  border: 1px solid var(--ui-color-border);
+  box-sizing: border-box;
+  border: 1px dashed color-mix(in srgb, var(--ui-color-primary) 72%, var(--ui-color-border));
   border-radius: var(--ui-radius-control);
-  background: var(--ui-color-surface);
+  background: color-mix(in srgb, var(--ui-color-primary-soft) 68%, transparent);
   color: var(--ui-color-primary);
+  backdrop-filter: blur(5px) saturate(115%);
+  cursor: pointer;
+  font: inherit;
   line-height: 1.15;
+  transition: border-color var(--ui-motion-fast), background var(--ui-motion-fast), box-shadow var(--ui-motion-fast);
+}
+
+.production-date-badge:hover,
+.production-date-badge:focus-visible {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ui-color-primary) 14%, transparent);
+  outline: none;
 }
 
 .production-date-badge strong {
@@ -1030,12 +1018,11 @@
 }
 
 .production-records-table tr.production-date-group-start > td {
-  border-top-width: 2px;
-  border-top-color: var(--ui-color-operation-border);
+  border-top: 2px solid var(--ui-color-primary);
 }
 
 .production-records-table tr:first-child > td {
-  border-top-width: 1px;
+  border-top: 0;
 }
 
 .production-attendance-panel {
@@ -1050,8 +1037,8 @@
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 154px 132px minmax(190px, 300px) 108px 108px 210px;
-  gap: 8px;
+  grid-template-columns: 138px 132px minmax(190px, 1fr) 108px 108px 210px;
+  gap: 10px;
   align-items: end;
   justify-content: start;
 }
@@ -1081,15 +1068,15 @@
 }
 
 .production-attendance-table {
-  width: min(100%, 920px);
-  min-width: min(100%, var(--ui-table-visible-min-width, 720px));
+  width: 100%;
+  min-width: 100%;
   max-width: none;
   table-layout: fixed;
 }
 
 .production-attendance-table[data-ui-table-controls="auto"] {
-  width: min(100%, 920px);
-  min-width: min(100%, var(--ui-table-visible-min-width, 720px));
+  width: 100%;
+  min-width: 100%;
 }
 
 .production-attendance-table th,
@@ -1166,6 +1153,42 @@
 
 .production-employee-form-actions .ui-button > i {
   color: inherit;
+}
+
+.production-employee-edit-form {
+  display: grid;
+  width: min(560px, 100%);
+  min-width: 520px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  text-align: left;
+}
+
+.production-employee-edit-value,
+.production-employee-edit-form input,
+.production-employee-edit-form select {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  box-sizing: border-box;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+}
+
+.production-employee-edit-value {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: var(--ui-color-surface-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.production-employee-edit-status {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
 }
 
 .production-employee-table-tools {
@@ -1288,8 +1311,8 @@
   }
 
   .production-attendance-fields {
-    grid-template-columns: 148px 124px minmax(170px, 1fr) 100px 100px 190px;
-    gap: 6px;
+    grid-template-columns: 134px 124px minmax(170px, 1fr) 100px 100px 190px;
+    gap: 8px;
   }
 
   .production-command-action {
@@ -1299,8 +1322,8 @@
   }
 
   .production-filter-grid {
-    grid-template-columns: minmax(0, .85fr) minmax(0, .85fr) minmax(0, 1.5fr) minmax(0, .8fr) minmax(168px, 1fr);
-    gap: 6px;
+    grid-template-columns: 134px 134px minmax(220px, 1fr) minmax(140px, .75fr) 198px;
+    gap: 8px;
   }
 
   .production-employee-fields {

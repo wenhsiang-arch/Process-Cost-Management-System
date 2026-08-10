@@ -244,9 +244,11 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
   assert.match(employeeStore,/async function createEmployee/);
   assert.match(employeeStore,/if\(snapshot\.exists\(\)\)\{\s*throw new Error\('Mã nhân viên đã tồn tại/);
   assert.match(employeeStore,/async function updateEmployee/);
-  assert.match(employeePage,/updateEmployee\(state\.editingId,input\)/);
+  assert.match(employeePage,/function openEmployeeEditor\(employee\)/);
+  assert.match(employeePage,/updateEmployee\(employee\.employeeId,\{/);
   assert.match(employeePage,/createEmployee\(input\)/);
-  assert.match(employeePage,/active:state\.editingId \? existing\?\.active === true : true/);
+  assert.match(employeePage,/active:true/);
+  assert.doesNotMatch(employeePage,/state\.editingId|function startEdit/);
   assert.doesNotMatch(employeePage,/production-employee-active/);
   assert.match(html,/<select id="production-employee-department-input">/);
   assert.match(html,/<option value="__manage__">Chỉnh sửa bộ phận \/ 編輯部門<\/option>/);
@@ -291,7 +293,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-10'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-11'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -404,12 +406,12 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-3'/);
   assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260810-4'/);
   assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260810-1'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-6'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-4'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-7'/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-5'/);
   assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260810-3'/);
-  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-4'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-10'/);
-  assert.match(html,/js\/features\.js\?v=20260810-12/);
+  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-5'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-11'/);
+  assert.match(html,/js\/features\.js\?v=20260810-13/);
 });
 
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{
@@ -465,13 +467,14 @@ test('生產紀錄綜合搜尋可比對表格中的工號姓名訂單款號工�
   assert.equal(filter('不存在').length,0);
 });
 
-test('員工績效依原日期標籤分組並可返回當日生產登記',()=>{
+test('員工績效依日期分組且日期卡片可開啟當日生產登記',()=>{
   const html=read('index.html');
   const features=read('js/features.js');
   const records=read('js/production/production-records.js');
   const entry=read('js/production/production-entry.js');
   const attendance=read('js/production/production-attendance.js');
   const style=read('styles/features/production.css');
+  const performanceMarkup=html.slice(html.indexOf('id="production-records-table"'),html.indexOf('id="production-records-table-body"'));
   assert.match(features,/page:'production-records'[\s\S]*?vi:'Hiệu suất nhân viên',zh:'員工績效'/);
   assert.match(html,/Hiệu suất nhân viên[\s\S]*?員工績效/);
   assert.match(html,/data-ui-table-column="employeeId" data-ui-table-default-visible="false"/);
@@ -484,10 +487,21 @@ test('員工績效依原日期標籤分組並可返回當日生產登記',()=>{
   assert.match(records,/PCMSProductionAttendance\.calculateEfficiency\(group\.entries,group\.attendance\)/);
   assert.match(records,/function dateBadgeText\(value\)/);
   assert.match(records,/if\(groupStart\) row\.classList\.add\('production-date-group-start'\)/);
+  assert.match(records,/document\.createElement\('button'\)[\s\S]*?openRegistrationDate\(value\)/);
   assert.match(style,/\.production-date-badge \{/);
+  assert.match(style,/\.production-date-badge \{[\s\S]*?border: 1px dashed/);
   assert.match(style,/\.production-records-table tr\.production-date-group-start > td/);
-  assert.match(records,/PCMSProductionEntry\?\.setPendingContext\?\.\(\{/);
+  assert.match(style,/border-top: 2px solid var\(--ui-color-primary\)/);
+  assert.match(records,/PCMSProductionEntry\?\.setPendingContext\?\.\(\{[\s\S]*?productionDate[\s\S]*?\}\)/);
+  assert.doesNotMatch(records,/employeeId:item\.employeeId/);
+  assert.match(records,/loadRequest/);
+  assert.match(records,/request !== state\.loadRequest/);
+  assert.match(records,/production-record-from'\)\.addEventListener\('change',[\s\S]*?void load\(\)/);
   assert.match(entry,/function setPendingContext\(context=\{\}\)/);
+  assert.match(entry,/if\(!pending\.employeeId\)\{[\s\S]*?production-employee-input[\s\S]*?return true/);
+  assert.match(performanceMarkup,/data-ui-table-column="bonus"/);
+  assert.doesNotMatch(performanceMarkup,/data-ui-table-column="action"/);
+  assert.doesNotMatch(html,/id="production-entry-empty"/);
   assert.match(entry,/async function loadSelectedProcessRows\(\)/);
   assert.match(entry,/setAttendanceSummary\(hoursText\(total\),''\)/);
   assert.doesNotMatch(entry,/`\$\{hoursText\(total\)\} giờ`/);
@@ -496,7 +510,9 @@ test('員工績效依原日期標籤分組並可返回當日生產登記',()=>{
   assert.doesNotMatch(html,/data-ui-table-column="note"/);
   assert.doesNotMatch(attendance,/function createNoteInput/);
   assert.match(attendance,/note:draft\.note/);
-  assert.match(style,/\.production-attendance-table \{[\s\S]*?920px[\s\S]*?720px/);
+  assert.match(style,/\.production-attendance-table \{[\s\S]*?width: 100%;[\s\S]*?min-width: 100%;/);
+  assert.match(style,/\.production-employee-edit-form \{/);
+  assert.match(records,/addTextCell\(row,'—','production-number-cell production-bonus-cell'\)/);
 });
 
 test('考勤分頁沿用正式操作面板與表格並位於生產紀錄及員工資料之間',()=>{

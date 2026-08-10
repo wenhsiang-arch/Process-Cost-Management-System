@@ -3,7 +3,7 @@
   'use strict';
 
   const MAX_RANGE_DAYS = 31; // MAX_RANGE_DAYS（每日績效單次最多查詢天數）
-  const state = {initialized:false,rows:[],filtered:[],loading:false}; // state（每日績效頁狀態）
+  const state = {initialized:false,rows:[],filtered:[],loading:false,loadRequest:0}; // state（每日績效頁狀態）
 
   function element(id){ return document.getElementById(id); }
   function normalize(value){ return String(value || '').trim().toLocaleLowerCase(); }
@@ -33,6 +33,7 @@
     const nextValue = typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
     input.value = nextValue > today() ? today() : nextValue;
     syncDateControl(inputId,nextId);
+    void load();
   }
   function openDatePicker(inputId){
     const input = element(inputId);
@@ -179,13 +180,17 @@
     cell.dataset.uiTableSortValue = String(value || '');
     if(showBadge){
       const copy = dateBadgeText(value);
-      const badge = document.createElement('span');
+      const badge = document.createElement('button');
+      badge.type = 'button';
       badge.className = 'production-date-badge';
+      badge.title = 'Mở đăng ký trong ngày / 開啟當日生產登記';
+      badge.setAttribute('aria-label',`${dateText(value)} · Mở đăng ký trong ngày / 開啟當日生產登記`);
       const date = document.createElement('strong');
       const weekday = document.createElement('span');
       date.textContent = copy.date;
       weekday.textContent = `${copy.vi} / ${copy.zh}`;
       badge.append(date,weekday);
+      badge.addEventListener('click',()=>void openRegistrationDate(value));
       cell.appendChild(badge);
     }else{
       cell.setAttribute('aria-label',dateText(value));
@@ -219,30 +224,15 @@
     return badge;
   }
 
-  async function openRegistration(item){
+  async function openRegistrationDate(productionDate){
     if(typeof window.canOpenPage === 'function' && !window.canOpenPage('production-entry')) return;
     try{
       await window.PCMSFeatures?.ensurePageScripts?.('production-entry');
       window.PCMSProductionEntry?.setPendingContext?.({
-        employeeId:item.employeeId,
-        productionDate:item.productionDate
+        productionDate
       });
       if(typeof window.sp === 'function') await window.sp('production-entry');
     }catch(error){ await showError(error); }
-  }
-
-  function registrationButton(item){
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'production-performance-entry-button';
-    button.title = 'Mở đăng ký trong ngày / 開啟當日生產登記';
-    const vi = document.createElement('strong');
-    const zh = document.createElement('span');
-    vi.textContent = 'Mở đăng ký';
-    zh.textContent = '前往登記';
-    button.append(vi,zh);
-    button.addEventListener('click',()=>void openRegistration(item));
-    return button;
   }
 
   function render(){
@@ -261,16 +251,11 @@
       addTextCell(row,hoursText(item.standardHours),'production-number-cell',item.standardHours);
       addTextCell(row,hoursText(item.supplementHours),'production-number-cell',item.supplementHours);
       addTextCell(row,item.percentage == null ? '—' : percentageText(item.percentage),'production-number-cell',item.percentage ?? '');
+      addTextCell(row,'—','production-number-cell production-bonus-cell');
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
       statusCell.appendChild(statusBadge(item));
       row.appendChild(statusCell);
-      const actionCell = document.createElement('td');
-      actionCell.className = 'production-center-cell';
-      if(typeof window.canOpenPage !== 'function' || window.canOpenPage('production-entry')){
-        actionCell.appendChild(registrationButton(item));
-      }else actionCell.textContent = '—';
-      row.appendChild(actionCell);
       body.appendChild(row);
     });
     element('production-records-empty').hidden = state.filtered.length > 0;
@@ -279,12 +264,14 @@
   }
 
   async function load(){
-    if(state.loading) return;
     const current = filters();
     let dates;
     try{ dates = rangeDates(current.from,current.to); }
     catch(error){ await showError(error); return; }
+    const request = ++state.loadRequest; // request（查詢序號）：只允許最後一次日期查詢更新畫面。
     state.loading = true;
+    state.rows = [];
+    render();
     const searchButton = element('production-record-search-button');
     if(searchButton) searchButton.disabled = true;
     try{
@@ -292,16 +279,20 @@
         window.PCMSProductionReports.loadRange(current.from,current.to,{activeOnly:true}),
         ...dates.map(date=>window.PCMSProductionAttendance.loadDay(date))
       ]);
+      if(request !== state.loadRequest) return;
       const attendanceByDate = new Map(dates.map((date,index)=>[date,attendanceDays[index]]));
       state.rows = aggregatePerformance(entries,attendanceByDate);
       render();
     }catch(error){
+      if(request !== state.loadRequest) return;
       state.rows = [];
       render();
       await showError(error);
     }finally{
-      state.loading = false;
-      if(searchButton) searchButton.disabled = false;
+      if(request === state.loadRequest){
+        state.loading = false;
+        if(searchButton) searchButton.disabled = false;
+      }
     }
   }
 
@@ -328,8 +319,14 @@
     element('production-record-from-next').addEventListener('click',()=>shiftDateInput('production-record-from','production-record-from-next',1));
     element('production-record-to-previous').addEventListener('click',()=>shiftDateInput('production-record-to','production-record-to-next',-1));
     element('production-record-to-next').addEventListener('click',()=>shiftDateInput('production-record-to','production-record-to-next',1));
-    element('production-record-from').addEventListener('change',()=>syncDateControl('production-record-from','production-record-from-next'));
-    element('production-record-to').addEventListener('change',()=>syncDateControl('production-record-to','production-record-to-next'));
+    element('production-record-from').addEventListener('change',()=>{
+      syncDateControl('production-record-from','production-record-from-next');
+      void load();
+    });
+    element('production-record-to').addEventListener('change',()=>{
+      syncDateControl('production-record-to','production-record-to-next');
+      void load();
+    });
     element('production-record-search-button').addEventListener('click',()=>void load());
     element('production-record-clear-button').addEventListener('click',clearFilters);
     element('production-record-search').addEventListener('input',render);
@@ -342,7 +339,11 @@
   }
 
   async function productionRecordsInit(){ init(); await load(); }
-  function productionRecordsLeave(){ window.PCMSProductionReports.reset(); }
+  function productionRecordsLeave(){
+    state.loadRequest += 1;
+    state.loading = false;
+    window.PCMSProductionReports.reset();
+  }
 
   window.loadProductionRecordsData = loadProductionRecordsData;
   window.productionRecordsInit = productionRecordsInit;

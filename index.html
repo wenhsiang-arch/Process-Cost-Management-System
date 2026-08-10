@@ -411,7 +411,6 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               <tbody id="production-entry-table-body"></tbody>
             </table></div></div>
             <div class="production-empty production-columns-empty" id="production-columns-empty" hidden><span class="ui-dual-copy"><strong>Chưa chọn cột hiển thị</strong><span>尚未選擇顯示欄位</span></span></div>
-            <div class="production-empty" id="production-entry-empty"><span class="ui-dual-copy"><strong>Chọn nhân viên để xem dữ liệu trong ngày</strong><span>選擇員工後顯示當日紀錄</span></span></div>
           </section>
         </div>
       </div>
@@ -443,14 +442,14 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               <thead><tr>
                 <th data-ui-table-column="date" data-ui-table-sort-type="date" data-ui-table-min-width="96" data-ui-table-width="106" data-ui-table-max-width="120"><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
                 <th data-ui-table-column="employeeId" data-ui-table-default-visible="false" data-ui-table-min-width="94" data-ui-table-width="106" data-ui-table-max-width="128"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
-                <th data-ui-table-column="employeeName" data-ui-table-min-width="112" data-ui-table-width="136" data-ui-table-max-width="190" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+                <th data-ui-table-column="employeeName" data-ui-table-min-width="96" data-ui-table-width="108" data-ui-table-max-width="160" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
                 <th data-ui-table-column="department" data-ui-table-default-visible="false" data-ui-table-min-width="78" data-ui-table-width="92" data-ui-table-max-width="132" data-ui-table-ellipsis="true"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
-                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="workedHours" data-ui-table-sort-type="number" data-ui-table-min-width="88" data-ui-table-width="98" data-ui-table-max-width="116"><span class="ui-dual-copy"><strong>Giờ chấm công</strong><span>考勤總工時</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="workedHours" data-ui-table-sort-type="number" data-ui-table-min-width="82" data-ui-table-width="90" data-ui-table-max-width="106"><span class="ui-dual-copy"><strong>Giờ chấm công</strong><span>考勤總工時</span></span></th>
                 <th class="production-number-cell ui-table-number-cell" data-ui-table-column="standardHours" data-ui-table-sort-type="number" data-ui-table-min-width="98" data-ui-table-width="108" data-ui-table-max-width="126"><span class="ui-dual-copy"><strong>Giờ tiêu chuẩn</strong><span>有效標準工時</span></span></th>
                 <th class="production-number-cell ui-table-number-cell" data-ui-table-column="supplementHours" data-ui-table-sort-type="number" data-ui-table-min-width="84" data-ui-table-width="94" data-ui-table-max-width="112"><span class="ui-dual-copy"><strong>Giờ bổ sung</strong><span>補充工時</span></span></th>
                 <th class="production-number-cell ui-table-number-cell" data-ui-table-column="efficiency" data-ui-table-sort-type="number" data-ui-table-min-width="86" data-ui-table-width="96" data-ui-table-max-width="114"><span class="ui-dual-copy"><strong>Hiệu suất ngày</strong><span>當日效率</span></span></th>
+                <th class="production-number-cell ui-table-number-cell" data-ui-table-column="bonus" data-ui-table-sort-type="number" data-ui-table-min-width="92" data-ui-table-width="104" data-ui-table-max-width="124"><span class="ui-dual-copy"><strong>Thưởng hiệu suất</strong><span>績效獎金</span></span></th>
                 <th class="production-center-cell ui-table-center-cell" data-ui-table-column="status" data-ui-table-min-width="96" data-ui-table-width="108" data-ui-table-max-width="132"><span class="ui-dual-copy"><strong>Tình trạng</strong><span>績效狀態</span></span></th>
-                <th class="production-center-cell ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="88" data-ui-table-width="98" data-ui-table-max-width="118"><span class="ui-dual-copy"><strong>Đăng ký</strong><span>生產登記</span></span></th>
               </tr></thead>
               <tbody id="production-records-table-body"></tbody>
             </table></div></div>
@@ -512,8 +511,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                   <div class="production-field"><label for="production-employee-name-input"><strong>Tên nhân viên</strong><span>員工姓名</span></label><input type="text" id="production-employee-name-input" maxlength="100" autocomplete="off"></div>
                   <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><select id="production-employee-department-input"><option value="">Chọn bộ phận / 選擇部門</option><option value="__manage__">Chỉnh sửa bộ phận / 編輯部門</option></select></div>
                   <div class="production-employee-form-actions">
-                    <button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button>
                     <button type="button" class="ui-button is-primary" id="production-employee-save-button"><i class="ti ti-user-plus"></i><span class="ui-dual-copy" id="production-employee-save-copy"><strong>Thêm nhân viên</strong><span>新增員工</span></span></button>
+                    <button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button>
                   </div>
                 </div>
               </div>
@@ -1333,7 +1332,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/ui-table.js?v=20260810-5"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260810-12"></script>
+<script src="js/features.js?v=20260810-13"></script>
 <script src="js/auth.js?v=20260808-10"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
