@@ -6,6 +6,7 @@
     orderErrors: [], // orderErrors（訂單錯誤）：只保存訂單檔案本身的不完整或無效資料，不包含缺少模板。
     orderCodeCount: 0, // orderCodeCount（訂單款號數）：只計算訂單內實際出現的非空白唯一款號。
     orderLabel: '', // orderLabel（PDF 左上角內容）：自動辨識後可由使用者修改。
+    detectedOrderNumber: '', // detectedOrderNumber（匯入時辨識的原始訂單號碼）：只用於 PDF 預設檔名，不受左上角文字修改影響。
     results: [],
     pendingTemplateFile: null,
     pendingBook: null,
@@ -1203,6 +1204,7 @@
     state.orderErrors = [];
     state.orderCodeCount = 0;
     state.orderLabel = '';
+    state.detectedOrderNumber = '';
     state.results = [];
     clearPendingTemplate();
     setTemplateFileDisplay('');
@@ -1228,6 +1230,9 @@
   const ORDER_QTY_HEADERS = new Set([
     'QTY','QUANTITY','ORDERQTY','PCS','SLPOPCS','SOLUONG','SOLUONGPCS','SL','數量','数量','訂單數量'
   ]); // ORDER_QTY_HEADERS（訂單數量表頭名稱）：PCS 是表頭名稱，不是數量內容。
+  const ORDER_TOTAL_LABELS = new Set([
+    'TOTAL','TOTALQTY','TOTALQUANTITY','GRANDTOTAL','TONG','TONGCONG','TONGSOLUONG','總計','合計','總數量'
+  ]); // ORDER_TOTAL_LABELS（總數量標示）：只在款號空白或數量格為加總公式時辨識，避免把合法款號 TOTAL 誤當摘要。
 
   // orderHeaderParts（拆分訂單表頭）：允許同一格使用換行或斜線顯示雙語表頭。
   function orderHeaderParts(value){
@@ -1297,6 +1302,48 @@
     return {ok:true, value:integerValue, rawText};
   }
 
+  // orderFormulaAt（取得訂單儲存格公式）：公式只作為辨識總數量列的文字依據，不會執行。
+  function orderFormulaAt(formulaRows, rowIndex, columnIndex){
+    return String(formulaRows?.[rowIndex]?.[columnIndex] || '').trim();
+  }
+
+  // excelColumnIndex（Excel 欄名轉索引）：用於確認總計公式確實加總訂單數量表頭所在欄位。
+  function excelColumnIndex(columnLetters){
+    const text = String(columnLetters || '').toUpperCase();
+    let value = 0;
+    for(const letter of text){
+      const code = letter.charCodeAt(0) - 64;
+      if(code < 1 || code > 26) return -1;
+      value = value * 26 + code;
+    }
+    return value - 1;
+  }
+
+  // isOrderTotalFormula（辨識總數量公式）：只接受從表頭下方開始、加總到目前列前一列的同一數量欄 SUM 公式。
+  function isOrderTotalFormula(formula, qtyColumnIndex, headerRowIndex, totalRowIndex){
+    const compact = String(formula || '').replace(/\s+/g, '');
+    const match = compact.match(/^=?SUM\((?:(?:'[^']+'|[^!(),]+)!)?\$?([A-Z]+)\$?(\d+):(?:(?:'[^']+'|[^!(),]+)!)?\$?([A-Z]+)\$?(\d+)\)$/i);
+    if(!match) return false;
+    const startColumn = excelColumnIndex(match[1]);
+    const endColumn = excelColumnIndex(match[3]);
+    const startRow = Number(match[2]);
+    const endRow = Number(match[4]);
+    const firstPossibleDataRow = headerRowIndex + 2; // Excel 列號從 1 開始，表頭下一列因此加 2。
+    const previousExcelRow = totalRowIndex; // totalRowIndex 為零起算，正好等於前一列的 Excel 列號。
+    return startColumn === qtyColumnIndex &&
+      endColumn === qtyColumnIndex &&
+      startRow >= firstPossibleDataRow &&
+      startRow <= endRow &&
+      endRow === previousExcelRow;
+  }
+
+  // rowHasOrderTotalLabel（檢查總數量文字）：只檢查數量欄以外的儲存格，避免把數量本身誤當標示。
+  function rowHasOrderTotalLabel(row, qtyColumnIndex){
+    return (row || []).some((value, columnIndex) =>
+      columnIndex !== qtyColumnIndex && ORDER_TOTAL_LABELS.has(normalizeHeader(value))
+    );
+  }
+
   // orderIssueLocation（訂單問題位置）：用工作表名稱與資料列說明，不要求使用者記住英文字母欄位。
   function orderIssueLocation(sheetName, rowNumber){
     const safeSheetName = String(sheetName || '-'); // safeSheetName（顯示用工作表名稱）
@@ -1344,7 +1391,7 @@
   }
 
   // parseOrderRows（檢查訂單資料列）：完整列才進入模板配對；錯誤列保留位置與原始原因並阻止匯出。
-  function parseOrderRows(rows, sheetName = '-'){
+  function parseOrderRows(rows, sheetName = '-', options = {}){
     const header = findOrderHeader(rows); // header（已確認的訂單表頭）
     if(!header.ok){
       return {
@@ -1356,6 +1403,9 @@
     const candidates = []; // candidates（逐列檢查通過的訂單資料）
     const errors = []; // errors（訂單資料錯誤）
     const codeRows = new Map(); // codeRows（同一款號出現的資料列）
+    const formulaRows = Array.isArray(options.formulaRows) ? options.formulaRows : []; // formulaRows（訂單公式位置）：只辨識總數量列，不執行公式。
+    let totalRowNumber = 0; // totalRowNumber（已確認的總數量列）
+    let totalQuantity = null; // totalQuantity（訂單檔案標示的總數量）
     for(let rowIndex = header.row + 1; rowIndex < rows.length; rowIndex++){
       const row = rows[rowIndex] || []; // row（目前訂單資料列）
       const rawCode = row[header.codeIdx]; // rawCode（原始款號內容）
@@ -1368,6 +1418,67 @@
         matchesOrderHeader(rawCode, ORDER_CODE_HEADERS) &&
         matchesOrderHeader(rawQty, ORDER_QTY_HEADERS)
       ) continue;
+      const totalFormula = orderFormulaAt(formulaRows, rowIndex, header.qtyIdx); // totalFormula（目前數量格的公式文字）
+      const codeIsTotalLabel = ORDER_TOTAL_LABELS.has(normalizeHeader(rawCode)); // codeIsTotalLabel（款號位置是否為總計文字）
+      const hasTotalLabel = rowHasOrderTotalLabel(row, header.qtyIdx); // hasTotalLabel（本列是否有總計文字）
+      const hasTotalFormula = isOrderTotalFormula(totalFormula, header.qtyIdx, header.row, rowIndex); // hasTotalFormula（是否為明細加總公式）
+      const isTotalRow = (hasTotalFormula && (!code || codeIsTotalLabel)) || (!code && hasTotalLabel);
+      if(isTotalRow){
+        if(totalRowNumber){
+          errors.push(createOrderError({
+            sheetName,
+            rowNumber,
+            reasonVi:`Tệp đơn hàng có nhiều dòng tổng số lượng: dòng ${totalRowNumber} và dòng ${rowNumber}.`,
+            reasonZh:`訂單檔案出現多個總數量列：第 ${totalRowNumber} 列與第 ${rowNumber} 列。`,
+            solutionVi:'Chỉ giữ một dòng tổng số lượng ở cuối phần chi tiết rồi nhập lại.',
+            solutionZh:'請只保留一個位於明細末端的總數量列後重新匯入。'
+          }));
+          continue;
+        }
+        totalRowNumber = rowNumber;
+        const quantityResult = parseOrderQuantity(rawQty); // quantityResult（總數量內容檢查結果）
+        if(!quantityResult.ok){
+          const reason = quantityIssueText(quantityResult); // reason（總數量錯誤原因）
+          errors.push(createOrderError({
+            sheetName,
+            rowNumber,
+            reasonVi:`Dòng tổng số lượng không hợp lệ. ${reason.vi}`,
+            reasonZh:`總數量列的數量無效。${reason.zh}`,
+            solutionVi:'Sửa tổng số lượng thành số nguyên lớn hơn 0 và kiểm tra lại công thức tổng.',
+            solutionZh:'請將總數量修正為大於 0 的整數，並確認加總公式。'
+          }));
+          continue;
+        }
+        totalQuantity = quantityResult.value;
+        const detailQuantity = candidates.reduce((sum, item) => sum + Number(item.qty || 0), 0); // detailQuantity（總計列前的款號明細加總）
+        if(totalQuantity !== detailQuantity){
+          errors.push(createOrderError({
+            sheetName,
+            rowNumber,
+            reasonVi:`Tổng số lượng là ${totalQuantity}, nhưng tổng chi tiết mã hàng là ${detailQuantity}.`,
+            reasonZh:`總數量為 ${totalQuantity}，但款號明細加總為 ${detailQuantity}。`,
+            solutionVi:'Kiểm tra số lượng từng mã hàng và công thức tổng rồi nhập lại.',
+            solutionZh:'請檢查每個款號的訂單數量與總計公式後重新匯入。'
+          }));
+        }
+        continue;
+      }
+      if(totalRowNumber){
+        if(code){
+          if(!codeRows.has(code)) codeRows.set(code, []);
+          codeRows.get(code).push(rowNumber);
+        }
+        errors.push(createOrderError({
+          sheetName,
+          rowNumber,
+          code,
+          reasonVi:'Vẫn còn dữ liệu đơn hàng sau dòng tổng số lượng.',
+          reasonZh:'總數量列後面仍有訂單資料。',
+          solutionVi:'Đưa dòng tổng số lượng xuống cuối phần chi tiết hoặc xóa dữ liệu thừa rồi nhập lại.',
+          solutionZh:'請將總數量列移到明細最後，或刪除多餘資料後重新匯入。'
+        }));
+        continue;
+      }
       if(code){
         if(!codeRows.has(code)) codeRows.set(code, []);
         codeRows.get(code).push(rowNumber);
@@ -1426,7 +1537,7 @@
         solutionZh:'請檢查款號與訂單數量表頭下方的資料後重新匯入。'
       }));
     }
-    return {items, errors, codeCount:codeRows.size};
+    return {items, errors, codeCount:codeRows.size, totalQuantity};
   }
 
   // extractOrderHeadingValue（解析訂單標題儲存格）：支援 ORDER NO（訂單編號）與 ORDER NUMBER（訂單編號）。
@@ -1460,16 +1571,21 @@
     return numbers;
   }
 
-  // buildDetectedOrderLabel（建立辨識後的左上角文字）：唯一結果預加 PO#（訂單編號前綴），多個不同結果視為無法辨識。
-  function buildDetectedOrderLabel(numbers){
+  // uniqueDetectedOrderNumber（取得唯一訂單號碼）：只有整份訂單得到唯一結果時才採用。
+  function uniqueDetectedOrderNumber(numbers){
     const unique = new Map();
     (numbers || []).forEach(value => {
       const number = String(value ?? '').trim();
       if(number) unique.set(number.toUpperCase(), number);
     });
     if(unique.size !== 1) return '';
-    const number = Array.from(unique.values())[0];
-    return /^PO\s*#/i.test(number) ? number.replace(/^PO\s*#\s*/i, 'PO#') : `PO#${number}`;
+    return Array.from(unique.values())[0].replace(/^PO\s*#\s*/i, '').trim();
+  }
+
+  // buildDetectedOrderLabel（建立辨識後的左上角文字）：唯一結果預加 PO#（訂單編號前綴），多個不同結果視為無法辨識。
+  function buildDetectedOrderLabel(numbers){
+    const number = uniqueDetectedOrderNumber(numbers); // number（唯一辨識到的原始訂單號碼）
+    return number ? `PO#${number}` : '';
   }
 
   // openCuttingOrderLabelDialog（開啟訂單文字視窗）：有辨識結果時預填，沒有結果時保持空白。
@@ -1533,6 +1649,7 @@
     state.results = [];
     setOrderFileDisplay(file.name);
     state.orderLabel = '';
+    state.detectedOrderNumber = '';
     renderResults();
     try{
       if(!/\.(xlsx|xls)$/i.test(String(file.name || ''))){
@@ -1574,10 +1691,14 @@
       wb.SheetNames.forEach(name => {
         const worksheet = wb.Sheets[name]; // worksheet（目前訂單工作表）
         const rows = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:''});
-        all.push(parseOrderRows(rows, name));
+        const formulaRows = rows.map((row, rowIndex) => (row || []).map((_, columnIndex) =>
+          String(worksheet[addr(rowIndex, columnIndex)]?.f || '')
+        )); // formulaRows（訂單公式矩陣）：只保留公式文字供總數量列辨識，不執行公式。
+        all.push(parseOrderRows(rows, name, {formulaRows}));
         const displayRows = XLSX.utils.sheet_to_json(worksheet, {header:1, defval:'', raw:false}); // displayRows（依 Excel 顯示文字讀取的資料列）
         detectedOrderNumbers.push(...findOrderNumbersInRows(displayRows));
       });
+      state.detectedOrderNumber = uniqueDetectedOrderNumber(detectedOrderNumbers);
       state.orderLabel = buildDetectedOrderLabel(detectedOrderNumbers);
       state.orderItems = all.flatMap(result => result.items || []);
       state.orderErrors = all.flatMap(result => result.errors || []);
@@ -2207,14 +2328,41 @@
     cuttingPdfProgressTimer = null;
   }
 
-  function localPdfName(fileName){
+  // localPdfDateStamp（建立檔名日期）：依本機日期輸出「日_月_年」。
+  function localPdfDateStamp(date = new Date()){
+    const value = date instanceof Date ? date : new Date(date); // value（檔名日期）
+    const safeDate = Number.isNaN(value.getTime()) ? new Date() : value; // safeDate（有效檔名日期）
+    return `${safeDate.getDate()}_${safeDate.getMonth() + 1}_${safeDate.getFullYear()}`;
+  }
+
+  // safeOrderNumberForFileName（清理檔名訂單號碼）：移除 Windows（視窗系統）檔名禁止字元。
+  function safeOrderNumberForFileName(orderNumber){
+    return String(orderNumber || '')
+      .replace(/^PO\s*#\s*/i, '')
+      .trim()
+      .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+      .replace(/[.\s]+$/g, '')
+      .slice(0, 120);
+  }
+
+  // detectedOrderPdfName（建立訂單 PDF 檔名）：格式為「訂單號碼_日_月_年.pdf」。
+  function detectedOrderPdfName(orderNumber, date = new Date()){
+    const safeOrderNumber = safeOrderNumberForFileName(orderNumber); // safeOrderNumber（可安全作為檔名的訂單號碼）
+    return safeOrderNumber ? `${safeOrderNumber}_${localPdfDateStamp(date)}.pdf` : '';
+  }
+
+  function localPdfName(fileName, orderNumber = '', date = new Date()){
+    const detectedName = detectedOrderPdfName(orderNumber, date); // detectedName（依訂單號碼產生的預設檔名）
+    if(detectedName) return detectedName;
     const base = String(fileName || 'cutting.xlsx').replace(/\.(xlsx|xlsm|xls)$/i, '');
-    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
+    const stamp = localPdfDateStamp(date);
     return `${base}_PDF_${stamp}.pdf`;
   }
 
-  function localMergedPdfName(){
-    const stamp = new Date().toLocaleDateString('zh-TW').replace(/\//g, '-');
+  function localMergedPdfName(orderNumber = '', date = new Date()){
+    const detectedName = detectedOrderPdfName(orderNumber, date); // detectedName（多模板共用的訂單號碼檔名）
+    if(detectedName) return detectedName;
+    const stamp = localPdfDateStamp(date);
     return `cutting_multi_PDF_${stamp}.pdf`;
   }
 
@@ -2309,8 +2457,8 @@
     const firstTemplateResults = templateEntries[0]?.[1] || []; // firstTemplateResults（第一個模板的輸出資料）
     const firstTemplate = state.templates.find(item => item.id === firstTemplateId); // firstTemplate（第一個模板）
     const suggestedOutputName = templateEntries.length === 1
-      ? localPdfName(firstTemplate?.fileName || firstTemplateResults[0]?.fileName || '')
-      : localMergedPdfName(); // suggestedOutputName（建議輸出檔名）
+      ? localPdfName(firstTemplate?.fileName || firstTemplateResults[0]?.fileName || '', state.detectedOrderNumber)
+      : localMergedPdfName(state.detectedOrderNumber); // suggestedOutputName（建議輸出檔名）
     const saveHandle = await window.PCMSFileIO.chooseSaveHandle({
       suggestedName:suggestedOutputName,
       types:[{
@@ -2381,8 +2529,8 @@
       setCuttingPdfProgress(28,'Đang đóng gói dữ liệu…','正在整理資料…','Đang chuẩn bị số lượng cần điền và vị trí ô.','正在準備填寫數量與儲存格位置。');
       const report = buildLocalPdfReport(exportableResults, state.results);
       const payload = packages.length === 1
-        ? {...packages[0], outputName: localPdfName(packages[0].fileName)}
-        : {outputName: localMergedPdfName(), templates: packages};
+        ? {...packages[0], outputName: localPdfName(packages[0].fileName, state.detectedOrderNumber)}
+        : {outputName: localMergedPdfName(state.detectedOrderNumber), templates: packages};
       payload.report = report;
       payload.orderLabel = confirmedOrderLabel; // orderLabel（PDF 左上角內容）：完全依照匯出前輸入框的確認值。
       payload.pdfQuality = getSelectedPdfQuality(); // pdfQuality（PDF 品質）：standard（標準）或 high（高品質）。
@@ -2509,7 +2657,8 @@
   window.cuttingClosePdfProgress = cuttingClosePdfProgress;
   window.PCMSCuttingOrderValidation = Object.freeze({
     parseRows:parseOrderRows,
-    parseQuantity:parseOrderQuantity
+    parseQuantity:parseOrderQuantity,
+    buildPdfName:localMergedPdfName
   }); // PCMSCuttingOrderValidation（裁帶訂單檢查介面）：提供相同正式規則給自動測試驗收。
   window.cuttingInit = cuttingInit;
 })();

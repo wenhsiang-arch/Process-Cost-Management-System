@@ -29,6 +29,77 @@ test('PCS 表頭與完整正整數訂單可以通過',()=>{
   ]);
 });
 
+test('公式總數量列會略過並核對明細加總',()=>{
+  const validation=loadValidation(); // validation（訂單檢查介面）
+  const result=validation.parseRows([
+    ['ITEM NO','QTY'],
+    ['UI-1101',240],
+    ['UI-1102',80],
+    ['',320]
+  ],'Order',{
+    formulaRows:[[],[],[],['','SUM(B2:B3)']]
+  }); // result（含公式總數量列的檢查結果）
+  assert.equal(result.errors.length,0);
+  assert.equal(result.totalQuantity,320);
+  assert.equal(result.codeCount,2);
+  assert.deepEqual(Array.from(result.items,item=>({...item})),[
+    {code:'UI-1101',qty:240},
+    {code:'UI-1102',qty:80}
+  ]);
+});
+
+test('款號空白且有總計文字的總數量列可以通過',()=>{
+  const validation=loadValidation(); // validation（訂單檢查介面）
+  const result=validation.parseRows([
+    ['ITEM NO','DESCRIPTION','QTY'],
+    ['UI-1201','Product A',100],
+    ['UI-1202','Product B',200],
+    ['','TOTAL',300]
+  ],'Order'); // result（有總計文字的訂單檢查結果）
+  assert.equal(result.errors.length,0);
+  assert.equal(result.totalQuantity,300);
+  assert.equal(result.codeCount,2);
+});
+
+test('總數量與款號明細加總不同時列為訂單錯誤',()=>{
+  const validation=loadValidation(); // validation（訂單檢查介面）
+  const result=validation.parseRows([
+    ['ITEM NO','QTY'],
+    ['UI-1301',100],
+    ['UI-1302',200],
+    ['',299]
+  ],'Order',{
+    formulaRows:[[],[],[],['','SUM(B2:B3)']]
+  }); // result（總數量不一致的檢查結果）
+  assert.equal(result.errors.length,1);
+  assert.match(result.errors[0].reasonZh,/總數量為 299/);
+  assert.match(result.errors[0].reasonZh,/款號明細加總為 300/);
+});
+
+test('總數量列後仍有訂單資料時列為錯誤',()=>{
+  const validation=loadValidation(); // validation（訂單檢查介面）
+  const result=validation.parseRows([
+    ['ITEM NO','QTY'],
+    ['UI-1401',100],
+    ['',100],
+    ['UI-1402',50]
+  ],'Order',{
+    formulaRows:[[],[],['','SUM(B2:B2)'],[]]
+  }); // result（總數量後仍有明細的檢查結果）
+  assert.equal(result.errors.length,1);
+  assert.match(result.errors[0].reasonZh,/總數量列後面仍有訂單資料/);
+});
+
+test('PDF 預設檔名使用訂單號碼與日月年日期',()=>{
+  const validation=loadValidation(); // validation（訂單檢查介面）
+  const date=new Date(2026,7,10); // date（測試日期）：2026 年 8 月 10 日。
+  assert.equal(validation.buildPdfName('2026-117767',date),'2026-117767_10_8_2026.pdf');
+  assert.equal(validation.buildPdfName('PO#2026/117767',date),'2026_117767_10_8_2026.pdf');
+  assert.equal(validation.buildPdfName('',date),'cutting_multi_PDF_10_8_2026.pdf');
+  assert.match(cuttingSource,/state\.detectedOrderNumber = uniqueDetectedOrderNumber\(detectedOrderNumbers\)/);
+  assert.match(cuttingSource,/localMergedPdfName\(state\.detectedOrderNumber\)/);
+});
+
 test('不完整款號與無效數量全部列為訂單錯誤',()=>{
   const validation=loadValidation(); // validation（訂單檢查介面）
   const result=validation.parseRows([

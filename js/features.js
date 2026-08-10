@@ -11,7 +11,7 @@
     data:'js/data.js?v=20260809-2',
     costLog:'js/cost-log.js?v=20260810-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260810-2',
+    cutting:'js/cutting.js?v=20260810-3',
     accounts:'js/accounts.js?v=20260809-1',
     orders:'js/orders.js?v=20260810-1',
     sync:'js/sync.js?v=20260808-1',
