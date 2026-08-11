@@ -23,7 +23,14 @@
     productionEntry:'js/production/production-entry.js?v=20260810-7',
     productionRecords:'js/production/production-records.js?v=20260810-6',
     productionAttendance:'js/production/production-attendance.js?v=20260810-3',
-    productionEmployees:'js/production/production-employees.js?v=20260810-5'
+    productionEmployees:'js/production/production-employees.js?v=20260810-5',
+    productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260811-1',
+    productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260811-1',
+    productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
+    productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260811-1',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260811-1',
+    productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260811-1',
+    productionAnalysis:'js/production-analysis/production-analysis.js?v=20260811-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
@@ -33,7 +40,8 @@
     sync:'styles/features/sync.css?v=20260810-2',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
-    production:'styles/features/production.css?v=20260810-13'
+    production:'styles/features/production.css?v=20260810-13',
+    productionAnalysis:'styles/features/production-analysis.css?v=20260811-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -118,6 +126,24 @@
       ]
     },
     {
+      id:'production-analysis',navId:'production-analysis',navGroup:'primary',icon:'ti-chart-histogram',mainKey:'productionAnalysis',
+      usesInternalTabs:true,
+      vi:'Phân tích sản xuất',zh:'生產分析',
+      pages:[
+        {
+          page:'production-analysis',feature:'productionAnalysis',icon:'ti-chart-histogram',vi:'Phân tích sản xuất',zh:'生產分析',
+          styles:['productionAnalysis'],
+          scripts:[
+            'history','fileIo','uiTableControls','productionEmployeeStore',
+            'productionAnalysisCalculations','productionAnalysisStore','productionAnalysisExport',
+            'productionEmployeeAnalysis','productionIeAnalysis','productionDepartmentAnalysis','productionAnalysis'
+          ],
+          dataScopes:['productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'],
+          dataLoaders:['loadProductionAnalysisData'],onOpen:['productionAnalysisInit'],onLeave:['productionAnalysisLeave']
+        }
+      ]
+    },
+    {
       id:'sync',navId:'sync',navGroup:'management',icon:'ti-refresh',mainKey:'sync',
       vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步',
       pages:[
@@ -176,7 +202,7 @@
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','cutting','sync',
     'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees',
-    'costMain','settings','costlog','export','accounts'
+    'productionAnalysis','costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
   const pageMap = new Map(); // pageMap（頁面設定索引）
@@ -215,7 +241,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','production-entry','cutting','sync','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','production-entry','production-analysis','cutting','sync','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){
