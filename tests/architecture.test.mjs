@@ -102,7 +102,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const navigationHtml=read('index.html');
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260812-1/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260812-2/);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{

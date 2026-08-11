@@ -83,6 +83,54 @@ test('員工高低位置直接比較同工序全線常規效率',()=>{
   assert.equal(calc.relativeLevel(120,100),'high');
 });
 
+test('員工分析以員工每日分組並保留展開用工序明細',()=>{
+  const dataset=calc.buildDataset({
+    entries:[
+      entry({productionDate:'2026-08-09',quantity:400}),
+      entry({productionDate:'2026-08-10',quantity:800})
+    ],
+    attendance:[
+      attendance({attendanceDate:'2026-08-09'}),
+      attendance({attendanceDate:'2026-08-10'})
+    ]
+  });
+  const rows=calc.employeeAnalysisRows(dataset,{fromDate:'2026-08-10',toDate:'2026-08-10'});
+  const groups=calc.employeeDailyAnalysisGroups(rows);
+  assert.equal(groups.length,1);
+  assert.equal(groups[0].status,'ready');
+  assert.equal(groups[0].comparison,'above');
+  assert.equal(groups[0].processes.length,1);
+  assert.equal(groups[0].processes[0].quantity,800);
+});
+
+test('缺少考勤、產能或標準產能時提供原因而不是可比較的零效率',()=>{
+  function statusFor(input){
+    const dataset=calc.buildDataset(input);
+    return calc.employeeDailyAnalysisGroups(calc.employeeAnalysisRows(dataset))[0];
+  }
+  const noAttendance=statusFor({entries:[entry()],attendance:[]});
+  const noProduction=statusFor({entries:[],attendance:[attendance()]});
+  const noCapacity=statusFor({entries:[entry({hourlyCapacitySnapshot:0})],attendance:[attendance()]});
+  const invalidAttendance=statusFor({entries:[entry()],attendance:[attendance({normalHours:0})]});
+  assert.equal(noAttendance.status,'attendance-missing');
+  assert.equal(noProduction.status,'production-missing');
+  assert.equal(noCapacity.status,'capacity-missing');
+  assert.equal(invalidAttendance.status,'attendance-invalid');
+  [noAttendance,noProduction,noCapacity,invalidAttendance].forEach(group=>assert.equal(group.comparison,'unknown'));
+});
+
+test('員工分析畫面移除部門並以每日主列展開完整工序明細',()=>{
+  const employeeSource=fs.readFileSync(new URL('js/production-analysis/employee-analysis.js',root),'utf8');
+  const styleSource=fs.readFileSync(new URL('styles/features/production-analysis.css',root),'utf8');
+  assert.doesNotMatch(employeeSource,/data-filter="department"|data-ui-table-column="department"/);
+  assert.match(employeeSource,/employeeDailyAnalysisGroups/);
+  assert.match(employeeSource,/employee-analysis-expand-button/);
+  assert.match(employeeSource,/當日沒有工序產能明細/);
+  assert.match(employeeSource,/rows:exportRowsData\(\)/);
+  assert.match(styleSource,/\.employee-analysis-detail-row/);
+  assert.match(styleSource,/\.employee-analysis-process-table/);
+});
+
 test('部門效率以總有效工時除以總考勤工時而非平均個人百分比',()=>{
   const dataset=calc.buildDataset({
     entries:[entry({employeeId:'M001',quantity:400}),entry({employeeId:'M002',quantity:400})],

@@ -268,7 +268,8 @@
           lineRawEfficiency:lineReference?.rawEfficiency??null,
           level:relativeLevel(comparisonValue,lineReference?.typicalEfficiency),
           attendanceHours:day.attendanceHours,standardHours:day.standardHours,
-          supplementHours:day.supplementHours,processStandardHours:process?.standardHours??0,
+          supplementHours:day.supplementHours,invalidCapacity:day.invalidCapacity,
+          processStandardHours:process?.standardHours??0,
           inferredHours:process?.inferredHours??null,quantity:process?.quantity??0,
           currentSeconds:process?.processSecSnapshot??null,
           lineParticipantCount:lineReference?.participantCount??0,
@@ -278,6 +279,32 @@
       });
     });
     return rows;
+  }
+
+  function employeeDailyAnalysisGroups(rows){
+    return [...groupBy(Array.isArray(rows)?rows:[],row=>`${row.employeeId}||${row.date}`).values()].map(items=>{
+      const first=items[0]||{};
+      const activityHours=number(first.standardHours)+number(first.supplementHours);
+      let status='ready';
+      if(first.attendanceHours===null) status='attendance-missing';
+      else if(number(first.attendanceHours)<=0) status='attendance-invalid';
+      else if(first.invalidCapacity) status='capacity-missing';
+      else if(activityHours<=0) status='production-missing';
+      else if(first.dailyEfficiency===null) status='capacity-missing';
+
+      let comparison='unknown';
+      let difference=null;
+      if(status==='ready'&&first.dailyEfficiency!==null&&first.employeeHistoryEfficiency!==null){
+        difference=first.dailyEfficiency-first.employeeHistoryEfficiency;
+        comparison=difference<0?'below':difference>0?'above':'equal';
+      }
+      return {
+        ...first,
+        id:`${first.employeeId}||${first.date}`,
+        status,comparison,difference,
+        processes:items.filter(item=>item.productCode||item.processNo)
+      };
+    });
   }
 
   function ieAnalysisRows(dataset,filters={}){
@@ -319,7 +346,7 @@
     calculationVersion:CALCULATION_VERSION,
     confidenceAnchors:CONFIDENCE_ANCHORS,
     standardHoursForEntry,confidenceForHours,relativeLevel,processKey,
-    buildDataset,employeeAnalysisRows,ieAnalysisRows,departmentAnalysisRows,
+    buildDataset,employeeAnalysisRows,employeeDailyAnalysisGroups,ieAnalysisRows,departmentAnalysisRows,
     aggregateProcess,weightedDayEfficiency,round,median
   });
 })();
