@@ -63,8 +63,8 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','permissions','production-attendance',
-    'production-employees','production-entry','production-records','progress','settings','summary','sync'
+    'accounts','costlog','cutting','export','permissions','production-analysis',
+    'production-attendance','production-employees','production-entry','production-records','progress','settings','summary','sync'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
   assert.match(read('index.html'),/value="sales">Kinh doanh \/ 業務/);
@@ -91,6 +91,18 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   ]);
   assert.equal(production.pages.every(page=>page.scripts.some(name=>name.startsWith('production'))),true);
   assert.equal(context.window.normalizeFeaturePermissions({productionEntry:true}).productionMain,true);
+  const productionAnalysis=context.window.PCMSFeatures.getModule('production-analysis');
+  assert.equal(productionAnalysis.mainKey,'productionAnalysis');
+  assert.equal(productionAnalysis.usesInternalTabs,true);
+  assert.deepEqual(Array.from(productionAnalysis.pages).map(page=>page.page),['production-analysis']);
+  assert.deepEqual(Array.from(productionAnalysis.pages[0].dataScopes),[
+    'productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'
+  ]);
+  assert.equal(context.window.PCMSFeatures.defaultPermissions.manager.productionAnalysis,false);
+  const navigationHtml=read('index.html');
+  assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
+  assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260812-1/);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
@@ -132,7 +144,14 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     productionEntry:'js/production/production-entry.js',
     productionRecords:'js/production/production-records.js',
     productionAttendance:'js/production/production-attendance.js',
-    productionEmployees:'js/production/production-employees.js'
+    productionEmployees:'js/production/production-employees.js',
+    productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js',
+    productionAnalysisStore:'js/production-analysis/analysis-store.js',
+    productionAnalysisExport:'js/production-analysis/analysis-export.js',
+    productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js',
+    productionDepartmentAnalysis:'js/production-analysis/department-analysis.js',
+    productionAnalysis:'js/production-analysis/production-analysis.js'
   }; // scriptFiles（中央清單程式來源）
   const coreFiles=['js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js','js/safe-dom.js'];
   const hasFunction=(combined,name)=>new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(|window\\.${name}\\s*=`).test(combined);
