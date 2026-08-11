@@ -32,6 +32,13 @@ async function savePermissions(){
   });
   try{
     await window.firebaseSaveRolePermissions(payload);
+    try{
+      await window.PCMSHistory?.saveOperationLog?.({
+        permissionKey:'systemMonitor',feature:'accounts',action:'rolePermissionsUpdate',status:'success',
+        itemCount:CONFIGURABLE_ROLES.length,detailCount:PERMISSION_KEYS.length,
+        note:'Cập nhật quyền vai trò / 更新角色權限'
+      });
+    }catch(logError){ console.warn('無法寫入角色權限操作紀錄：',logError); }
     window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,true]));
     renderPermissions();
     window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã lưu và áp dụng quyền.',zh:'權限設定已儲存套用。'}});

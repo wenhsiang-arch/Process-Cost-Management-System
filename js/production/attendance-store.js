@@ -4,14 +4,16 @@
 
   const COLLECTION_NAME = 'productionAttendance'; // COLLECTION_NAME（產能考勤集合名稱）
   const LOG_COLLECTION_NAME = 'operationLogs'; // LOG_COLLECTION_NAME（操作紀錄集合名稱）
-  const CACHE_SCOPE = 'productionAttendance'; // CACHE_SCOPE（依 UID 隔離的產能考勤快取範圍）
+  const CACHE_SCOPE = 'productionAttendance'; // CACHE_SCOPE（產能考勤資料版本名稱）
+  const CACHE_DAY_PREFIX = 'productionAttendanceDay:'; // CACHE_DAY_PREFIX（依日期分開保存的考勤快取）
+  const CACHE_RECORD_PREFIX = 'productionAttendanceRecord:'; // CACHE_RECORD_PREFIX（單筆考勤快取）
   const PAGE_SIZE = 200; // PAGE_SIZE（單一日期分頁讀取筆數）
   const MAX_TRANSACTION_ITEMS = 150; // MAX_TRANSACTION_ITEMS（單次交易最多考勤筆數）
-  const MAX_CACHED_DAYS = 31; // MAX_CACHED_DAYS（本機最多保存的考勤日期數）
-  const MAX_CACHED_RECORDS = 300; // MAX_CACHED_RECORDS（本機最多保存的單筆考勤查詢數）
   const dayCache = new Map(); // dayCache（目前工作階段日期快取）
+  const dayCacheVersions = new Map(); // dayCacheVersions（日期快取使用的資料版本）
   const dayPromises = new Map(); // dayPromises（避免同日期重複查詢）
   const recordCache = new Map(); // recordCache（單筆考勤快取）
+  const recordCacheVersions = new Map(); // recordCacheVersions（單筆快取使用的資料版本）
   const efficiencyPromises = new Map(); // efficiencyPromises（同員工同日期效率共用工作）
 
   function currentUserId(){ return String(window.firebaseAuthUser?.uid || ''); }
@@ -38,41 +40,19 @@
   function cacheKey(employeeId,productionDate){
     return `${normalizeEmployeeId(employeeId)}|${normalizeDate(productionDate)}`;
   }
+  function dayCacheScope(productionDate){ return `${CACHE_DAY_PREFIX}${normalizeDate(productionDate)}`; }
+  function recordCacheScope(employeeId,productionDate){ return `${CACHE_RECORD_PREFIX}${cacheKey(employeeId,productionDate)}`; }
   function clone(value){ return value ? {...value} : null; }
   function dataVersionToken(){
     return `${Date.now()}-${currentUserId().slice(0,12)}-${Math.random().toString(36).slice(2,8)}`;
   }
-  function emptyPersistentCache(){ return {days:{},records:{},accessedAt:{}}; }
-  function normalizePersistentCache(value){
-    return {
-      days:value?.days && typeof value.days === 'object' ? value.days : {},
-      records:value?.records && typeof value.records === 'object' ? value.records : {},
-      accessedAt:value?.accessedAt && typeof value.accessedAt === 'object' ? value.accessedAt : {}
-    };
-  }
-  async function readDataVersion(){
+  async function readDataVersion(force=false){
+    if(window.firebaseReadDataVersions){
+      const versionState=await window.firebaseReadDataVersions(force);
+      return String(versionState?.data?.[CACHE_SCOPE]||'0');
+    }
     const snapshot = await window._getDoc(window._docRef('system','dataVersions'));
     return String(snapshot.exists() ? snapshot.data()?.[CACHE_SCOPE] || '0' : '0');
-  }
-  async function readPersistentCache(version){
-    const cached = await window.pcmsDataCache?.read(CACHE_SCOPE,version);
-    return normalizePersistentCache(cached);
-  }
-  function trimPersistentCache(cache){
-    const dateKeys = Object.keys(cache.days).sort((a,b)=>String(b).localeCompare(String(a))).slice(0,MAX_CACHED_DAYS);
-    cache.days = Object.fromEntries(dateKeys.map(key=>[key,cache.days[key]]));
-    const recordKeys = Object.keys(cache.records)
-      .sort((a,b)=>Number(cache.accessedAt[b] || 0)-Number(cache.accessedAt[a] || 0))
-      .slice(0,MAX_CACHED_RECORDS);
-    cache.records = Object.fromEntries(recordKeys.map(key=>[key,cache.records[key]]));
-    cache.accessedAt = Object.fromEntries(recordKeys.map(key=>[key,cache.accessedAt[key] || Date.now()]));
-    return cache;
-  }
-  async function writePersistentCache(version,mutate){
-    if(!window.pcmsDataCache) return;
-    const cache = await readPersistentCache(version).catch(()=>emptyPersistentCache());
-    mutate(cache);
-    await window.pcmsDataCache.write(CACHE_SCOPE,version,trimPersistentCache(cache));
   }
   function sortRows(rows){
     return rows.slice().sort((a,b)=>String(a.employeeId || '').localeCompare(String(b.employeeId || ''),'en',{numeric:true,sensitivity:'base'}));
@@ -112,24 +92,37 @@
   async function loadDay(value,options={}){
     const attendanceDate = normalizeDate(value);
     if(!isValidDate(attendanceDate)) throw new Error('Ngày chấm công không hợp lệ. / 考勤日期不正確。');
-    if(options.force !== true && dayCache.has(attendanceDate)) return dayCache.get(attendanceDate).map(item=>({...item}));
     if(dayPromises.has(attendanceDate)) return dayPromises.get(attendanceDate);
     const promise = (async()=>{
       const version = await readDataVersion();
+      if(options.force !== true && dayCacheVersions.get(attendanceDate)===version && dayCache.has(attendanceDate)){
+        return dayCache.get(attendanceDate).map(item=>({...item}));
+      }
       if(options.force !== true && window.pcmsDataCache){
-        const cache = await readPersistentCache(version);
-        if(Object.prototype.hasOwnProperty.call(cache.days,attendanceDate)){
-          const cachedRows = sortRows(Array.isArray(cache.days[attendanceDate]) ? cache.days[attendanceDate] : []);
+        const cached = await window.pcmsDataCache.read(dayCacheScope(attendanceDate),version);
+        if(Array.isArray(cached)){
+          const cachedRows = sortRows(cached);
           dayCache.set(attendanceDate,cachedRows);
-          cachedRows.forEach(row=>recordCache.set(cacheKey(row.employeeId,row.attendanceDate),row));
+          dayCacheVersions.set(attendanceDate,version);
+          cachedRows.forEach(row=>{
+            const key=cacheKey(row.employeeId,row.attendanceDate);
+            recordCache.set(key,row);
+            recordCacheVersions.set(key,version);
+          });
           return cachedRows.map(item=>({...item}));
         }
       }
       const rows = await readDayFromCloud(attendanceDate);
-      const latestVersion = await readDataVersion();
+      window.PCMSUsageMetrics?.recordFullLoad?.({scope:CACHE_SCOPE});
+      const latestVersion = await readDataVersion(true);
       dayCache.set(attendanceDate,rows);
-      rows.forEach(row=>recordCache.set(cacheKey(row.employeeId,row.attendanceDate),row));
-      await writePersistentCache(latestVersion,cache=>{ cache.days[attendanceDate] = rows; });
+      dayCacheVersions.set(attendanceDate,latestVersion);
+      rows.forEach(row=>{
+        const key=cacheKey(row.employeeId,row.attendanceDate);
+        recordCache.set(key,row);
+        recordCacheVersions.set(key,latestVersion);
+      });
+      await window.pcmsDataCache?.write(dayCacheScope(attendanceDate),latestVersion,rows);
       return rows.map(item=>({...item}));
     })().finally(()=>dayPromises.delete(attendanceDate));
     dayPromises.set(attendanceDate,promise);
@@ -138,19 +131,28 @@
 
   async function loadOne(employeeId,productionDate,options={}){
     const key = cacheKey(employeeId,productionDate);
-    if(options.force !== true && recordCache.has(key)) return clone(recordCache.get(key));
     const version = await readDataVersion();
+    if(options.force !== true && recordCacheVersions.get(key)===version && recordCache.has(key)) return clone(recordCache.get(key));
+    const date=normalizeDate(productionDate);
+    if(options.force!==true&&dayCacheVersions.get(date)===version&&dayCache.has(date)){
+      const row=dayCache.get(date).find(item=>normalizeEmployeeId(item.employeeId)===normalizeEmployeeId(employeeId))||null;
+      recordCache.set(key,row);
+      recordCacheVersions.set(key,version);
+      return clone(row);
+    }
     if(options.force !== true && window.pcmsDataCache){
-      const cache = await readPersistentCache(version);
-      const cachedDay = cache.days[normalizeDate(productionDate)];
+      const cachedDay = await window.pcmsDataCache.read(dayCacheScope(productionDate),version);
       if(Array.isArray(cachedDay)){
         const row = cachedDay.find(item=>normalizeEmployeeId(item.employeeId) === normalizeEmployeeId(employeeId)) || null;
         recordCache.set(key,row);
+        recordCacheVersions.set(key,version);
         return clone(row);
       }
-      if(Object.prototype.hasOwnProperty.call(cache.records,key)){
-        const row = cache.records[key]?.found === true ? cache.records[key].row : null;
+      const cachedRecord = await window.pcmsDataCache.read(recordCacheScope(employeeId,productionDate),version);
+      if(cachedRecord&&cachedRecord.cached===true){
+        const row = cachedRecord.found===true ? cachedRecord.row : null;
         recordCache.set(key,row);
+        recordCacheVersions.set(key,version);
         return clone(row);
       }
     }
@@ -158,11 +160,9 @@
     const snapshot = await window._getDoc(reference);
     const row = snapshot.exists() ? {id:snapshot.id,...snapshot.data()} : null;
     recordCache.set(key,row);
-    const latestVersion = await readDataVersion();
-    await writePersistentCache(latestVersion,cache=>{
-      cache.records[key] = {found:!!row,row};
-      cache.accessedAt[key] = Date.now();
-    });
+    const latestVersion = await readDataVersion(true);
+    recordCacheVersions.set(key,latestVersion);
+    await window.pcmsDataCache?.write(recordCacheScope(employeeId,productionDate),latestVersion,{cached:true,found:!!row,row});
     return clone(row);
   }
 
@@ -182,16 +182,21 @@
     };
   }
 
-  function invalidate(attendanceDate,employeeIds=[]){
+  async function invalidate(attendanceDate,employeeIds=[]){
     const date = normalizeDate(attendanceDate);
     dayCache.delete(date);
+    dayCacheVersions.delete(date);
     dayPromises.delete(date);
     (employeeIds || []).forEach(employeeId=>{
       const key = cacheKey(employeeId,date);
       recordCache.delete(key);
+      recordCacheVersions.delete(key);
       efficiencyPromises.delete(key);
     });
-    void window.pcmsDataCache?.remove(CACHE_SCOPE);
+    await Promise.all([
+      window.pcmsDataCache?.remove(dayCacheScope(date)),
+      ...(employeeIds||[]).map(employeeId=>window.pcmsDataCache?.remove(recordCacheScope(employeeId,date)))
+    ]);
     window.PCMSFeatures?.invalidateDataScopes?.(['productionAttendance']);
   }
 
@@ -266,8 +271,8 @@
     for(let index=0;index<inputs.length;index+=MAX_TRANSACTION_ITEMS){
       saved.push(...await saveChunk(inputs.slice(index,index+MAX_TRANSACTION_ITEMS)));
     }
-    invalidate(inputs[0].attendanceDate,inputs.map(item=>item.employeeId));
-    saved.forEach(row=>recordCache.set(cacheKey(row.employeeId,row.attendanceDate),row));
+    await invalidate(inputs[0].attendanceDate,inputs.map(item=>item.employeeId));
+    await window.PCMSProductionChanges?.markSafely?.(saved);
     return saved.map(item=>({...item}));
   }
 
@@ -293,7 +298,8 @@
         productionAttendance:dataVersionToken()
       },{merge:true});
     });
-    invalidate(deleted.attendanceDate,[deleted.employeeId]);
+    await invalidate(deleted.attendanceDate,[deleted.employeeId]);
+    await window.PCMSProductionChanges?.markSafely?.([deleted]);
     return deleted;
   }
 
@@ -339,8 +345,10 @@
 
   function reset(){
     dayCache.clear();
+    dayCacheVersions.clear();
     dayPromises.clear();
     recordCache.clear();
+    recordCacheVersions.clear();
     efficiencyPromises.clear();
   }
 

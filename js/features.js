@@ -1,7 +1,7 @@
 // features（功能中央清單）：統一管理導覽、頁面、權限、程式依賴、資料載入與進入頁面動作。
 (function(){
   const SCRIPT_URLS = Object.freeze({
-    history:'js/history.js?v=20260809-2',
+    history:'js/history.js?v=20260812-1',
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
     uiTableControls:'js/ui-table-controls.js?v=20260810-4',
@@ -12,20 +12,23 @@
     costLog:'js/cost-log.js?v=20260810-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260810-3',
-    accounts:'js/accounts.js?v=20260809-1',
+    accounts:'js/accounts.js?v=20260812-1',
     orders:'js/orders.js?v=20260810-1',
     sync:'js/sync.js?v=20260808-1',
-    permissions:'js/permissions.js?v=20260810-1',
+    permissions:'js/permissions.js?v=20260812-1',
+    systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
+    systemMonitor:'js/system-monitor/system-monitor.js?v=20260812-1',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
-    productionEntryStore:'js/production/entry-store.js?v=20260809-3',
-    productionReportStore:'js/production/report-store.js?v=20260810-4',
-    productionAttendanceStore:'js/production/attendance-store.js?v=20260810-1',
+    productionChangeStore:'js/production/change-store.js?v=20260812-1',
+    productionEntryStore:'js/production/entry-store.js?v=20260812-1',
+    productionReportStore:'js/production/report-store.js?v=20260812-1',
+    productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
     productionEntry:'js/production/production-entry.js?v=20260810-7',
     productionRecords:'js/production/production-records.js?v=20260810-6',
-    productionAttendance:'js/production/production-attendance.js?v=20260810-3',
+    productionAttendance:'js/production/production-attendance.js?v=20260812-1',
     productionEmployees:'js/production/production-employees.js?v=20260810-5',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-1',
-    productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260811-1',
+    productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
     productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260812-1',
     productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260811-1',
@@ -41,7 +44,8 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260810-13',
-    productionAnalysis:'styles/features/production-analysis.css?v=20260812-1'
+    productionAnalysis:'styles/features/production-analysis.css?v=20260812-1',
+    systemMonitor:'styles/features/system-monitor.css?v=20260812-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -99,21 +103,21 @@
         {
           page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
           styles:['production'],
-          scripts:['uiTableControls','orderProcessCache','productionEmployeeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionEntry'],
+          scripts:['uiTableControls','orderProcessCache','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionEntry'],
           dataScopes:['productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals','productionAttendance'],
           dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit'],onLeave:['productionEntryLeave']
         },
         {
           page:'production-records',feature:'productionRecords',icon:'ti-chart-bar',vi:'Hiệu suất nhân viên',zh:'員工績效',
           styles:['production'],
-          scripts:['uiTableControls','productionEmployeeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords'],
+          scripts:['uiTableControls','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords'],
           dataScopes:['productionEmployees','productionEntries','productionProcessTotals','productionAttendance'],
           dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
         },
         {
           page:'production-attendance',feature:'productionAttendance',icon:'ti-calendar-time',vi:'Chấm công',zh:'考勤',
           styles:['production'],
-          scripts:['uiTableControls','productionEmployeeStore','productionReportStore','productionAttendanceStore','productionAttendance'],
+          scripts:['uiTableControls','productionEmployeeStore','productionChangeStore','productionReportStore','productionAttendanceStore','productionAttendance'],
           dataScopes:['productionEmployees','productionEntries','productionAttendance'],
           dataLoaders:['loadProductionAttendanceData'],onOpen:['productionAttendanceInit'],onLeave:['productionAttendanceLeave']
         },
@@ -134,7 +138,7 @@
           page:'production-analysis',feature:'productionAnalysis',icon:'ti-chart-histogram',vi:'Phân tích sản xuất',zh:'生產分析',
           styles:['productionAnalysis'],
           scripts:[
-            'history','fileIo','uiTableControls','productionEmployeeStore',
+            'history','fileIo','uiTableControls','productionEmployeeStore','productionChangeStore',
             'productionAnalysisCalculations','productionAnalysisStore','productionAnalysisExport',
             'productionEmployeeAnalysis','productionIeAnalysis','productionDepartmentAnalysis','productionAnalysis'
           ],
@@ -189,11 +193,24 @@
       pages:[
         {
           page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理',
-          styles:['accounts'],scripts:['uiTableControls','accounts'],dataScopes:['userAccess'],dataLoaders:['loadAccounts'],onOpen:['rAcc']
+          styles:['accounts'],scripts:['history','uiTableControls','accounts'],dataScopes:['userAccess'],dataLoaders:['loadAccounts'],onOpen:['rAcc']
         },
         {
           page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理',
-          styles:['accounts'],scripts:['permissions'],dataScopes:['rolePermissions'],dataLoaders:[],onOpen:['renderPermissions']
+          styles:['accounts'],scripts:['history','permissions'],dataScopes:['rolePermissions'],dataLoaders:[],onOpen:['renderPermissions']
+        }
+      ]
+    },
+    {
+      id:'system-monitor',navId:'system-monitor',navGroup:'management',icon:'ti-activity-heartbeat',adminOnly:true,
+      usesInternalTabs:true,
+      vi:'Giám sát hệ thống',zh:'系統監控',
+      pages:[
+        {
+          page:'system-monitor',adminOnly:true,icon:'ti-activity-heartbeat',vi:'Giám sát hệ thống',zh:'系統監控',
+          styles:['systemMonitor'],scripts:['history','systemMonitorStore','systemMonitor'],
+          dataScopes:['operationLogs','systemUsageSessions'],dataLoaders:[],
+          onOpen:['systemMonitorInit'],onLeave:['systemMonitorLeave']
         }
       ]
     }

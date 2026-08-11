@@ -91,6 +91,7 @@ function renderModuleTabs(name){
 // showFeatureHome（顯示功能首頁）：登入後不自動載入任何業務功能程式或資料。
 function showFeatureHome(){
   window.PCMSFeatures?.resetActivePage?.();
+  window.PCMSUsageMetrics?.setPage?.('home');
   document.querySelectorAll('.pg').forEach(page=>page.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(item=>item.classList.remove('active'));
   const home=g('pg-home');
@@ -139,7 +140,7 @@ function startIdle(){
     g('idleprog').style.width=p+'%';
     const m=Math.floor(idleT/60), s=idleT%60;
     g('idle-info').textContent='Tự động đăng xuất: '+m+':'+(s<10?'0':'')+s;
-    if(idleT<=0){ clearInterval(idleIv); doLogout(); }
+    if(idleT<=0){ clearInterval(idleIv); doLogout('idle'); }
   },1000);
   ['click','keydown','mousemove'].forEach(e=>document.addEventListener(e,resetIdle,{passive:true}));
 }
@@ -237,6 +238,9 @@ async function enterAuthorizedDeskSystem(user,access){
     error.code='role-no-functions';
     throw error;
   }
+  await window.PCMSUsageMetrics?.startSession?.({
+    uid:user.uid,username:window.cu.user,role:window.cu.role
+  });
   await window.fbInitForAuthorizedUser();
   g('ls').style.display='none';
   g('ma').classList.remove('hidden');
@@ -334,11 +338,13 @@ async function doLogin(){
 }
 
 // ===== 登出 =====
-async function doLogout(){
+async function doLogout(reason='manual'){
+  const shouldEndSession=!!window.firebaseAuthUser&&!!window.cu;
   clearSessionUi();
   hideLoginMessage();
   if(typeof window.resetAuthorizedFirebaseInit==='function') window.resetAuthorizedFirebaseInit();
   try{
+    if(shouldEndSession) await window.PCMSUsageMetrics?.endSession?.(reason);
     if(typeof window.firebaseAuthLogout==='function'&&window.firebaseAuthUser){
       await window.firebaseAuthLogout();
     }
@@ -417,6 +423,7 @@ async function sp(name){
   if(!canOpenPage(name)) return false;
   const pageDataReady=window.PCMSFeatures?.isPageDataReady?.(name)===true; // pageDataReady（此頁是否已有工作階段資料）
   const blockingLoad=!pageDataReady; // blockingLoad（是否需要第一次阻擋載入）
+  window.PCMSUsageMetrics?.setPage?.(name);
   if(blockingLoad) window.firebaseShowLoading?.(true);
   try{
     const pageConfig=await window.PCMSFeatures.ensurePageScripts(name); // pageConfig（已載入程式的頁面設定）

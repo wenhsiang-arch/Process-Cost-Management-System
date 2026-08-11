@@ -11,7 +11,7 @@ test('登入首頁只預載核心程式且不包含大型表格工具',()=>{
   const coreScripts=[...html.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)].map(match=>match[1].split('?')[0]);
   assert.deepEqual(coreScripts,[
     'js/safe-dom.js','js/ui-text.js','js/ui-runtime.js','js/ui-components.js','js/ui-file-drop.js','js/ui-table.js',
-    'js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js'
+    'js/utils.js','js/data-cache.js','js/usage-metrics.js','js/features.js','js/auth.js','js/firebase.js'
   ]);
   assert.match(html,/id="pg-home"/);
   assert.doesNotMatch(html,/JSZip|jszip|xlsx\.bundle\.js/);
@@ -64,7 +64,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
     'accounts','costlog','cutting','export','permissions','production-analysis',
-    'production-attendance','production-employees','production-entry','production-records','progress','settings','summary','sync'
+    'production-attendance','production-employees','production-entry','production-records','progress','settings','summary','sync','system-monitor'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
   assert.match(read('index.html'),/value="sales">Kinh doanh \/ 業務/);
@@ -102,7 +102,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const navigationHtml=read('index.html');
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260812-2/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260812-3/);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
@@ -138,6 +138,7 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js',
     productionEmployeeStore:'js/production/employee-store.js',
+    productionChangeStore:'js/production/change-store.js',
     productionEntryStore:'js/production/entry-store.js',
     productionReportStore:'js/production/report-store.js',
     productionAttendanceStore:'js/production/attendance-store.js',
@@ -151,9 +152,11 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js',
     productionIeAnalysis:'js/production-analysis/ie-analysis.js',
     productionDepartmentAnalysis:'js/production-analysis/department-analysis.js',
-    productionAnalysis:'js/production-analysis/production-analysis.js'
+    productionAnalysis:'js/production-analysis/production-analysis.js',
+    systemMonitorStore:'js/system-monitor/system-monitor-store.js',
+    systemMonitor:'js/system-monitor/system-monitor.js'
   }; // scriptFiles（中央清單程式來源）
-  const coreFiles=['js/utils.js','js/data-cache.js','js/features.js','js/auth.js','js/firebase.js','js/safe-dom.js'];
+  const coreFiles=['js/utils.js','js/data-cache.js','js/usage-metrics.js','js/features.js','js/auth.js','js/firebase.js','js/safe-dom.js'];
   const hasFunction=(combined,name)=>new RegExp(`(?:async\\s+)?function\\s+${name}\\s*\\(|window\\.${name}\\s*=`).test(combined);
   for(const module of context.window.PCMSFeatures.modules){
     for(const page of module.pages){
@@ -346,7 +349,8 @@ test('功能頁重複切換使用工作階段資料並在背景檢查',()=>{
 test('資料與 dataVersions（資料版本）使用同一批次或交易寫入',()=>{
   const source=read('js/firebase.js');
   assert.match(source,/CACHEABLE_COLLECTIONS = new Set\(\[[\s\S]*?'productionEmployees'[\s\S]*?'productionDepartments'/);
-  assert.match(source,/SENSITIVE_PRODUCTION_CACHE_SCOPES[\s\S]*?firebaseAuthLogout[\s\S]*?pcmsDataCache\?\.removeForUser/);
+  assert.match(source,/firebaseAuthLogout = \(\) => signOut\(auth\)/);
+  assert.doesNotMatch(source,/SENSITIVE_PRODUCTION_CACHE_SCOPES/);
   const cacheSource=read('js/data-cache.js'); // cacheSource（共用資料快取程式內容）
   assert.match(cacheSource,/async function removeForUser\(userId,scope\)/);
   assert.match(source,/appendDataVersionWrite\(batch,\[scope\]\)[\s\S]*?await batch\.commit\(\)/);

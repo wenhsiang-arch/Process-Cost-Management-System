@@ -141,3 +141,15 @@ test('部門效率以總有效工時除以總考勤工時而非平均個人百�
   assert.equal(row.employeeCount,2);
   assert.equal(row.attendanceHours,12);
 });
+
+test('生產分析首次完整建立後使用日期變動索引增量更新',()=>{
+  const store=fs.readFileSync(new URL('js/production-analysis/analysis-store.js',root),'utf8');
+  assert.match(store,/production-analysis-cache-v2/);
+  assert.match(store,/firebaseReadDataVersions/);
+  assert.match(store,/pcmsDataCache\?\.readEntry\?\.\(CACHE_SCOPE\)/);
+  assert.match(store,/PCMSProductionChanges\.loadSince\(cached\.cursorMs\)/);
+  assert.match(store,/增量讀取期間若資料版本再次改變/);
+  assert.match(store,/async function readEmployeeDay/);
+  assert.match(store,/source:'incremental'/);
+  assert.match(store,/MAX_INCREMENTAL_DAYS=500/);
+});

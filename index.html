@@ -257,6 +257,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <div class="sb-group" id="management-nav">
       <div class="ni" id="nv-cost" onclick="openModule('cost')"><i class="ti ti-currency-dollar"></i><div class="nl"><span class="nvi">Quản lý chi phí</span><span class="nzh">成本管理</span></div></div>
       <div class="ni" id="nv-accounts" onclick="openModule('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
+      <div class="ni" id="nv-system-monitor" onclick="sp('system-monitor')"><i class="ti ti-activity-heartbeat"></i><div class="nl"><span class="nvi">Giám sát hệ thống</span><span class="nzh">系統監控</span></div></div>
       <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây công đoạn</span><span class="nzh">工序秒數同步</span></div></div>
     </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
@@ -1072,6 +1073,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         </div>
       </div>
 
+      <!-- 系統監控 -->
+      <div class="pg ui-page" id="pg-system-monitor">
+        <div id="system-monitor-root"></div>
+      </div>
+
       <!-- 訂單進度 -->
       <div class="pg ui-page" id="pg-progress">
         <div class="orders-page ui-work-panel">
@@ -1332,12 +1338,13 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/ui-table.js?v=20260810-5"></script>
 <script src="js/utils.js?v=20260806-7"></script>
-<script src="js/data-cache.js?v=20260809-1"></script>
-<script src="js/features.js?v=20260812-2"></script>
-<script src="js/auth.js?v=20260808-10"></script>
+<script src="js/data-cache.js?v=20260812-1"></script>
+<script src="js/usage-metrics.js?v=20260812-1"></script>
+<script src="js/features.js?v=20260812-3"></script>
+<script src="js/auth.js?v=20260812-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260809-1"></script>
+<script type="module" src="js/firebase.js?v=20260812-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

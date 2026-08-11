@@ -265,7 +265,7 @@
     setStatus('Đang tải dữ liệu chấm công...','正在載入考勤資料…','info');
     try{
       state.records = await window.PCMSProductionAttendance.loadDay(
-        element('production-attendance-date').value,{force:true}
+        element('production-attendance-date').value
       );
       resetDrafts();
       renderDepartmentOptions();

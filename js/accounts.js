@@ -14,6 +14,16 @@ function accountUpdatedBy(){
   return String(window.cu?.user||window.firebaseAuthUser?.uid||'system').slice(0,100);
 }
 
+async function saveAccountOperationLog(action,account,note=''){
+  try{
+    await window.PCMSHistory?.saveOperationLog?.({
+      permissionKey:'systemMonitor',feature:'accounts',action,status:'success',
+      itemCount:1,detailCount:0,
+      note:`${String(account?.email||account?.user||account?.accessId||'').slice(0,240)}${note?` · ${note}`:''}`.slice(0,500)
+    });
+  }catch(error){ console.warn('無法寫入帳號操作紀錄：',error); }
+}
+
 // normalizeAccessEmail（標準化核准電子信箱）
 function normalizeAccessEmail(value){
   return String(value||'').trim().toLowerCase();
@@ -211,6 +221,7 @@ async function saveAcc(){
   const payload=buildUserAccessPayload(null,email,username,role,active);
   try{
     await window.firebaseSaveUserAccess(email,payload);
+    await saveAccountOperationLog('accountCreate',{email,user:username},role);
     window.accs=sortUserAccessAccounts([...window.accs,normalizeUserAccessAccount(email,payload)]);
     cm('m-nacc');
     g('ac-email').value='';
@@ -274,6 +285,7 @@ async function saveEacc(){
   const payload=buildUserAccessPayload(account,account.email,username,role,active);
   try{
     await window.firebaseSaveUserAccess(accessId,payload);
+    await saveAccountOperationLog('accountUpdate',account,`${account.role} → ${role}`);
     const index=window.accs.findIndex(a=>a.accessId===accessId);
     window.accs[index]=normalizeUserAccessAccount(accessId,payload);
     window.accs=sortUserAccessAccounts(window.accs);
@@ -309,6 +321,7 @@ async function delAcc(accessId){
   ))) return;
   try{
     await window.firebaseDeleteUserAccess(accessId);
+    await saveAccountOperationLog('accountDelete',account,account.role);
     window.accs=window.accs.filter(a=>a.accessId!==accessId);
     rAcc();
     window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã xóa quyền truy cập.',zh:'使用權限已刪除。'}});

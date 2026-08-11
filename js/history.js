@@ -95,7 +95,7 @@
   function stateMatchesOperationLog(state,log){
     return state.collectionName==='operationLogs'
       && state.loaded
-      && state.permissionKey===String(log.permissionKey||'')
+      && (!state.permissionKey||state.permissionKey===String(log.permissionKey||''))
       && (!state.actions.length||state.actions.includes(String(log.action||'')));
   }
 
@@ -121,7 +121,7 @@
   function queryConstraints(state,{fallback=false}={}){
     const constraints=[];
     if(state.collectionName==='operationLogs'){
-      constraints.push(window._where('permissionKey','==',state.permissionKey));
+      if(state.permissionKey) constraints.push(window._where('permissionKey','==',state.permissionKey));
       if(!fallback&&state.actions.length===1){
         constraints.push(window._where('action','==',state.actions[0]));
       }else if(!fallback&&state.actions.length>1){
@@ -209,6 +209,12 @@
     return loadQueryState(state,options);
   }
 
+  async function loadAllOperationLogs(options={}){
+    if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên mới xem được nhật ký toàn hệ thống. / 只有管理員可以查看全站日誌。');
+    const state=getQueryState('operationLogs',{...options,permissionKey:''});
+    return loadQueryState(state,options);
+  }
+
   async function loadOrderAdjustments(options={}){
     const state=getQueryState('orderAdjustments',options);
     return loadQueryState(state,options);
@@ -267,6 +273,7 @@
   window.PCMSHistory=Object.freeze({
     saveOperationLog,
     loadOperationLogs,
+    loadAllOperationLogs,
     loadOrderAdjustments,
     hasMore,
     invalidateCollection,

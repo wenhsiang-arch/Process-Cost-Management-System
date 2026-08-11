@@ -214,6 +214,10 @@
     };
   }
 
+  async function markAnalysisChange(row){
+    await window.PCMSProductionChanges?.markSafely?.([row]);
+  }
+
   async function createStandardEntry(normalized){
     const employeeReference = window._docRef(COLLECTIONS.employees,normalized.employeeId);
     const orderReference = window._docRef(COLLECTIONS.orders,normalized.orderId);
@@ -302,7 +306,9 @@
       transaction.set(entryReference,saved);
       transaction.set(totalReference,total);
     });
-    return {id:entryReference.id,...saved};
+    const result={id:entryReference.id,...saved};
+    await markAnalysisChange(result);
+    return result;
   }
 
   async function createSupplementEntry(normalized){
@@ -352,7 +358,9 @@
       };
       transaction.set(entryReference,saved);
     });
-    return {id:entryReference.id,...saved};
+    const result={id:entryReference.id,...saved};
+    await markAnalysisChange(result);
+    return result;
   }
 
   async function createEntry(input){
@@ -396,7 +404,9 @@
       });
       transaction.set(logReference,operationLogData('productionEntryUpdate',note,[{field:'quantity',before:current.quantity,after:quantity}],now));
     });
-    return {id:entryReference.id,...saved};
+    const result={id:entryReference.id,...saved};
+    await markAnalysisChange(result);
+    return result;
   }
 
   async function updateSupplementHours(entryId,newHours,reason){
@@ -418,7 +428,9 @@
       transaction.set(entryReference,saved);
       transaction.set(logReference,operationLogData('productionEntryUpdate',note,[{field:'supplementHours',before:current.supplementHours,after:supplementHours}],now));
     });
-    return {id:entryReference.id,...saved};
+    const result={id:entryReference.id,...saved};
+    await markAnalysisChange(result);
+    return result;
   }
 
   async function voidEntry(entryId,reason){
@@ -460,7 +472,9 @@
       });
       transaction.set(logReference,operationLogData('productionEntryVoid',note,[{field:'status',before:'active',after:'voided'}],now));
     });
-    return {id:entryReference.id,...saved};
+    const result={id:entryReference.id,...saved};
+    await markAnalysisChange(result);
+    return result;
   }
 
   async function deleteEntry(entryId){
@@ -504,6 +518,7 @@
       ));
       deleted = {id:entryReference.id,...current};
     });
+    await markAnalysisChange(deleted);
     return deleted;
   }
 

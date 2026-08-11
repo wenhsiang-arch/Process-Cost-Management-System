@@ -201,10 +201,25 @@ test('考勤以0.5小時為單位且每日效率使用每小時產能與補充�
   assert.equal(attendance.calculateEfficiency(entries,{normalHours:0,overtimeHours:0}).status,'invalid-attendance');
   assert.equal(attendance.calculateEfficiency([],{normalHours:0,overtimeHours:0}).percentage,0);
   assert.match(attendanceStore,/const CACHE_SCOPE = 'productionAttendance'/);
-  assert.match(attendanceStore,/const MAX_CACHED_DAYS = 31/);
-  assert.match(attendanceStore,/const MAX_CACHED_RECORDS = 300/);
-  assert.match(attendanceStore,/pcmsDataCache\?\.read\(CACHE_SCOPE,version\)/);
+  assert.match(attendanceStore,/const CACHE_DAY_PREFIX = 'productionAttendanceDay:'/);
+  assert.match(attendanceStore,/firebaseReadDataVersions/);
+  assert.match(attendanceStore,/pcmsDataCache\.read\(dayCacheScope\(attendanceDate\),version\)/);
+  assert.doesNotMatch(attendanceStore,/MAX_CACHED_DAYS|MAX_CACHED_RECORDS/);
+  assert.match(attendanceStore,/PCMSProductionChanges\?\.markSafely/);
   assert.match(attendanceStore,/productionAttendance:dataVersionToken\(\)/);
+});
+
+test('產能與考勤快取依日期或查詢條件保存且不再每次強制重讀',()=>{
+  const reportStore=read('js/production/report-store.js');
+  const attendancePage=read('js/production/production-attendance.js');
+  const changeStore=read('js/production/change-store.js');
+  assert.match(reportStore,/const CACHE_PREFIX = 'productionEntriesQuery:'/);
+  assert.match(reportStore,/firebaseReadDataVersions/);
+  assert.match(reportStore,/pcmsDataCache\.read\(scope,version\)/);
+  assert.match(reportStore,/exactCache\.has\(promiseKey\)/);
+  assert.doesNotMatch(attendancePage,/loadDay\([\s\S]{0,120}force\s*:\s*true/);
+  assert.match(changeStore,/const COLLECTION_NAME='productionDayChanges'/);
+  assert.match(changeStore,/changedAt:window\._serverTimestamp\(\)/);
 });
 
 test('管理員測試刪除保留在各來源功能並同步處理關聯資料',()=>{
@@ -403,15 +418,16 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-records-table td\.production-row-actions \{[\s\S]*?display: table-cell;/);
   assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog \{[\s\S]*?--production-dialog-center-x/);
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;/);
-  assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260809-3'/);
-  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260810-4'/);
-  assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260810-1'/);
+  assert.match(features,/productionChangeStore:'js\/production\/change-store\.js\?v=20260812-1'/);
+  assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260812-1'/);
+  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260812-1'/);
+  assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260812-1'/);
   assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-7'/);
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-6'/);
-  assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260810-3'/);
+  assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260812-1'/);
   assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-5'/);
   assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-13'/);
-  assert.match(html,/js\/features\.js\?v=20260812-2/);
+  assert.match(html,/js\/features\.js\?v=20260812-3/);
 });
 
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{

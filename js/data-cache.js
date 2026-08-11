@@ -10,6 +10,10 @@
   let databasePromise = null;
   let persistenceRequested = false;
 
+  function reportCacheEvent(scope,event){
+    window.PCMSUsageMetrics?.recordCache?.({scope,event});
+  }
+
   function currentUserId(){
     const authUid=window.cu?.authUid||'';
     return authUid&&window.firebaseAuthUser?.uid===authUid?String(authUid):'';
@@ -127,24 +131,59 @@
     const userId=currentUserId();
     if(!userId||!scope) return null;
     const database=await openDatabase();
-    if(!database) return null;
+    if(!database){ reportCacheEvent(scope,'miss'); return null; }
     try{
       const key=cacheKey(userId,scope);
       const transaction=database.transaction(STORE_NAME,'readwrite');
       const store=transaction.objectStore(STORE_NAME);
       const entry=await requestToPromise(store.get(key));
-      if(!entry){ await transactionDone(transaction); return null; }
+      if(!entry){ await transactionDone(transaction); reportCacheEvent(scope,'miss'); return null; }
       if(expectedVersion!==undefined&&String(entry.version||'')!==String(expectedVersion||'')){
         store.delete(key);
         await transactionDone(transaction);
+        reportCacheEvent(scope,'miss');
         return null;
       }
       entry.lastAccessedAt=Date.now();
       store.put(entry);
       await transactionDone(transaction);
+      reportCacheEvent(scope,'hit');
       return entry.data;
     }catch(error){
       console.warn(`讀取 ${scope} data-cache（資料快取）失敗：`,error);
+      reportCacheEvent(scope,'miss');
+      return null;
+    }
+  }
+
+  // readEntry（讀取完整快取項目）：供需要自行比對版本及進行增量更新的功能使用。
+  async function readEntry(scope,options={}){
+    const userId=currentUserId();
+    if(!userId||!scope) return null;
+    const database=await openDatabase();
+    if(!database){ reportCacheEvent(scope,'miss'); return null; }
+    try{
+      const key=cacheKey(userId,scope);
+      const transaction=database.transaction(STORE_NAME,options.touch===false?'readonly':'readwrite');
+      const store=transaction.objectStore(STORE_NAME);
+      const entry=await requestToPromise(store.get(key));
+      if(entry&&options.touch!==false){
+        entry.lastAccessedAt=Date.now();
+        store.put(entry);
+      }
+      await transactionDone(transaction);
+      reportCacheEvent(scope,entry?'hit':'miss');
+      return entry?{
+        scope:entry.scope,
+        version:String(entry.version||''),
+        data:entry.data,
+        byteSize:Number(entry.byteSize)||0,
+        savedAt:Number(entry.savedAt)||0,
+        lastAccessedAt:Number(entry.lastAccessedAt)||0
+      }:null;
+    }catch(error){
+      console.warn(`讀取 ${scope} 完整 data-cache（資料快取）項目失敗：`,error);
+      reportCacheEvent(scope,'miss');
       return null;
     }
   }
@@ -166,6 +205,7 @@
         savedAt:now,lastAccessedAt:now
       });
       await transactionDone(transaction);
+      reportCacheEvent(scope,'write');
       return true;
     }catch(error){
       console.warn(`寫入 ${scope} data-cache（資料快取）失敗：`,error);
@@ -203,8 +243,37 @@
     }
   }
 
+  // inspect（檢查快取狀態）：只回傳目前 UID 的中繼資料，不回傳業務資料內容。
+  async function inspect(){
+    const userId=currentUserId();
+    const database=await openDatabase();
+    if(!userId||!database) return [];
+    try{
+      const entries=await listEntries(database);
+      return entries
+        .filter(item=>item.userId===userId)
+        .map(item=>({
+          scope:String(item.scope||''),
+          version:String(item.version||''),
+          byteSize:Number(item.byteSize)||0,
+          savedAt:Number(item.savedAt)||0,
+          lastAccessedAt:Number(item.lastAccessedAt)||0,
+          itemCount:Array.isArray(item.data)
+            ? item.data.length
+            : Array.isArray(item.data?.entries)||Array.isArray(item.data?.attendance)
+              ? (Array.isArray(item.data?.entries)?item.data.entries.length:0)
+                +(Array.isArray(item.data?.attendance)?item.data.attendance.length:0)
+              : null
+        }))
+        .sort((a,b)=>b.lastAccessedAt-a.lastAccessedAt);
+    }catch(error){
+      console.warn('檢查 data-cache（資料快取）狀態失敗：',error);
+      return [];
+    }
+  }
+
   window.pcmsDataCache={
-    read,write,remove,removeForUser,usage,requestPersistentStorage,
+    read,readEntry,write,remove,removeForUser,usage,inspect,requestPersistentStorage,
     maxBytes:MAX_CACHE_BYTES
   };
 })();

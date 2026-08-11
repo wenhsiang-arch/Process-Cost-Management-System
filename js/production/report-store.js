@@ -5,9 +5,12 @@
   const COLLECTION_NAME = 'productionEntries'; // COLLECTION_NAME（產能登記集合名稱）
   const PAGE_SIZE = 50; // PAGE_SIZE（每頁筆數）
   const EXACT_PAGE_SIZE = 200; // EXACT_PAGE_SIZE（精確條件完整查詢每次讀取筆數）
+  const CACHE_VERSION_KEY = 'productionEntries'; // CACHE_VERSION_KEY（產能紀錄資料版本欄位）
+  const CACHE_PREFIX = 'productionEntriesQuery:'; // CACHE_PREFIX（依查詢條件分開保存的產能紀錄快取）
   let historyCursor = null; // historyCursor（歷史查詢游標）
   let historySignature = ''; // historySignature（目前查詢條件）
   const exactPromises = new Map(); // exactPromises（相同單日查詢共用工作）
+  const exactCache = new Map(); // exactCache（目前工作階段已完成的精確查詢）
 
   function normalizeDate(value){ return String(value || '').trim(); }
   function normalizeEmployeeId(value){
@@ -36,9 +39,33 @@
     });
   }
 
-  async function loadExactRows(key,conditions){
-    if(exactPromises.has(key)) return exactPromises.get(key);
+  async function readDataVersion(force=false){
+    if(window.firebaseReadDataVersions){
+      const versionState=await window.firebaseReadDataVersions(force);
+      return String(versionState?.data?.[CACHE_VERSION_KEY]||'0');
+    }
+    const snapshot=await window._getDoc(window._docRef('system','dataVersions'));
+    return String(snapshot.exists()?snapshot.data()?.[CACHE_VERSION_KEY]||'0':'0');
+  }
+
+  function persistentScope(key){ return `${CACHE_PREFIX}${encodeURIComponent(key)}`; }
+
+  async function loadExactRows(key,conditions,options={}){
+    const version=await readDataVersion();
+    const promiseKey=`${version}|${key}`;
+    if(options.force!==true&&exactCache.has(promiseKey)) return exactCache.get(promiseKey).map(item=>({...item}));
+    if(exactPromises.has(promiseKey)) return exactPromises.get(promiseKey);
     const promise = (async()=>{
+      const scope=persistentScope(key);
+      if(options.force===true) await window.pcmsDataCache?.remove(scope);
+      if(options.force!==true&&window.pcmsDataCache){
+        const cached=await window.pcmsDataCache.read(scope,version);
+        if(Array.isArray(cached)){
+          const rows=sortRows(cached);
+          exactCache.set(promiseKey,rows);
+          return rows.map(item=>({...item}));
+        }
+      }
       const rows = [];
       let cursor = null;
       do{
@@ -49,9 +76,17 @@
         rows.push(...snapshot.docs.map(item=>({id:item.id,...item.data()})));
         cursor = snapshot.size === EXACT_PAGE_SIZE ? snapshot.docs[snapshot.docs.length-1] : null;
       }while(cursor);
-      return sortRows(rows);
-    })().finally(()=>exactPromises.delete(key));
-    exactPromises.set(key,promise);
+      const sorted=sortRows(rows);
+      window.PCMSUsageMetrics?.recordFullLoad?.({scope:CACHE_VERSION_KEY});
+      const latestVersion=await readDataVersion(true);
+      if(latestVersion!==version&&options.retry!==false){
+        return loadExactRows(key,conditions,{...options,force:true,retry:false});
+      }
+      await window.pcmsDataCache?.write(scope,latestVersion,sorted);
+      exactCache.set(`${latestVersion}|${key}`,sorted);
+      return sorted.map(item=>({...item}));
+    })().finally(()=>exactPromises.delete(promiseKey));
+    exactPromises.set(promiseKey,promise);
     return promise;
   }
 
@@ -62,7 +97,7 @@
     const rows = await loadExactRows(`employee:${normalizedEmployeeId}:${normalizedDate}`,[
       window._where('employeeId','==',normalizedEmployeeId),
       window._where('productionDate','==',normalizedDate)
-    ]);
+    ],options);
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
@@ -71,7 +106,7 @@
     if(!normalizedDate) return [];
     const rows = await loadExactRows(`date:${normalizedDate}`,[
       window._where('productionDate','==',normalizedDate)
-    ]);
+    ],options);
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
@@ -80,7 +115,7 @@
     if(!processId) return [];
     const rows = await loadExactRows(`process:${processId}`,[
       window._where('orderProcessId','==',processId)
-    ]);
+    ],options);
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
@@ -92,7 +127,7 @@
       window._where('productionDate','>=',from),
       window._where('productionDate','<=',to),
       window._orderBy('productionDate','desc')
-    ]);
+    ],options);
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
@@ -147,7 +182,7 @@
     });
   }
 
-  function reset(){ historyCursor = null; historySignature = ''; exactPromises.clear(); }
+  function reset(){ historyCursor = null; historySignature = ''; exactPromises.clear(); exactCache.clear(); }
 
   window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadProcess,loadRange,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
 })();

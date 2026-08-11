@@ -1,6 +1,11 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, collection, getDocs, updateDoc, deleteDoc, deleteField, query, where, orderBy, limit, startAfter, documentId, increment, runTransaction, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import {
+  getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
+  setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,updateDoc as firestoreUpdateDoc,
+  deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,documentId,
+  increment,serverTimestamp,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -18,15 +23,82 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+// 以下包裝只記錄呼叫與文件數量，不記錄查詢條件或資料內容。
+async function getDoc(reference){
+  const snapshot=await firestoreGetDoc(reference);
+  window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:1});
+  return snapshot;
+}
+async function getDocFromServer(reference){
+  const snapshot=await firestoreGetDocFromServer(reference);
+  window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:1});
+  return snapshot;
+}
+async function getDocs(reference){
+  const snapshot=await firestoreGetDocs(reference);
+  window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:snapshot.size});
+  return snapshot;
+}
+async function setDoc(reference,data,options){
+  const result=options===undefined
+    ? await firestoreSetDoc(reference,data)
+    : await firestoreSetDoc(reference,data,options);
+  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:1});
+  return result;
+}
+async function updateDoc(reference,data){
+  const result=await firestoreUpdateDoc(reference,data);
+  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:1});
+  return result;
+}
+async function deleteDoc(reference){
+  const result=await firestoreDeleteDoc(reference);
+  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:1});
+  return result;
+}
+function writeBatch(database){
+  const raw=firestoreWriteBatch(database);
+  let writeCount=0;
+  const wrapped={
+    set(reference,data,options){ writeCount+=1; if(options) raw.set(reference,data,options); else raw.set(reference,data); return wrapped; },
+    update(reference,data){ writeCount+=1; raw.update(reference,data); return wrapped; },
+    delete(reference){ writeCount+=1; raw.delete(reference); return wrapped; },
+    async commit(){
+      const result=await raw.commit();
+      window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:writeCount});
+      return result;
+    }
+  };
+  return wrapped;
+}
+async function runTransaction(database,worker){
+  let committedWrites=0;
+  const result=await firestoreRunTransaction(database,async raw=>{
+    let attemptWrites=0;
+    const transaction={
+      async get(reference){
+        const snapshot=await raw.get(reference);
+        window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:1});
+        return snapshot;
+      },
+      set(reference,data,options){ attemptWrites+=1; if(options) raw.set(reference,data,options); else raw.set(reference,data); return transaction; },
+      update(reference,data){ attemptWrites+=1; raw.update(reference,data); return transaction; },
+      delete(reference){ attemptWrites+=1; raw.delete(reference); return transaction; }
+    };
+    const value=await worker(transaction);
+    committedWrites=attemptWrites;
+    return value;
+  });
+  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:committedWrites});
+  return result;
+}
+
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
 const CACHEABLE_COLLECTIONS = new Set([
-  'orders','orderProcesses','productionEmployees','productionDepartments'
+  'orders','orderProcesses','productionEmployees','productionDepartments','productionEntries'
 ]); // CACHEABLE_COLLECTIONS（允許使用資料版本快取的集合）
 const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings']);
-const SENSITIVE_PRODUCTION_CACHE_SCOPES = Object.freeze([
-  'productionEmployees','productionDepartments'
-]); // SENSITIVE_PRODUCTION_CACHE_SCOPES（登出時清除的敏感產能快取）
 const DATA_VERSION_MEMORY_MS = 15000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
@@ -34,13 +106,8 @@ let dataVersionsPromise = null;
 
 window.firebaseAuthUser = null;
 window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
-window.firebaseAuthLogout = async () => {
-  const userId = String(window.firebaseAuthUser?.uid || ''); // userId（登出前的使用者識別碼）
-  await Promise.allSettled(SENSITIVE_PRODUCTION_CACHE_SCOPES.map(
-    scope=>window.pcmsDataCache?.removeForUser(userId,scope)
-  ));
-  return signOut(auth);
-};
+// 產能、考勤與分析快取依 UID（使用者識別碼）隔離並保留，登出不再清除大量日常資料。
+window.firebaseAuthLogout = () => signOut(auth);
 
 // normalizeGoogleEmail（標準化 Google 電子信箱）
 function normalizeGoogleEmail(value){
@@ -308,6 +375,7 @@ async function loadCollectionWithCache(scope,collectionName,options={}){
   }
   const snap=await getDocs(collection(db,collectionName));
   const rows=snap.docs.map(item=>({id:item.id,...item.data()}));
+  window.PCMSUsageMetrics?.recordFullLoad?.({scope,documentReads:snap.size});
   const latest=await readDataVersions(true);
   const version=String(latest.data?.[scope]||cached.expectedVersion||'0');
   await window.pcmsDataCache?.write(scope,version,rows);
@@ -892,6 +960,7 @@ window.ensureOperationSettingsLoaded=ensureOperationSettingsLoaded;
 window.ensureCostSettingsLoaded=ensureCostSettingsLoaded;
 window.firebaseLoadCachedCollection=loadCollectionWithCache;
 window.firebaseTouchDataVersions=touchDataVersions;
+window.firebaseReadDataVersions=readDataVersions;
 window.firebaseShowLoading=showLoading;
 
 window._db         = db;
@@ -946,6 +1015,7 @@ window._setDoc     = async (ref,data,opts) => {
   await finishDataVersionChange(versionChange);
 };
 window._increment  = (n)           => increment(n);
+window._serverTimestamp = ()        => serverTimestamp();
 window._deleteField = ()            => deleteField();
 window._runTransaction = async (fn) => {
   let committedVersionChange=createDataVersionChange([]); // committedVersionChange（最後成功交易的資料版本異動）
@@ -1035,7 +1105,7 @@ async function fbInitForAuthorizedUser(){
       window.cLog=[];
       await window.pcmsDataCache?.remove('cLog');
     }
-    const canReadProductionEmployees = ['production-entry','production-records','production-employees']
+    const canReadProductionEmployees = ['production-entry','production-records','production-employees','production-analysis']
       .some(pageName=>window.canOpenPage?.(pageName) === true); // canReadProductionEmployees（目前帳號可讀取產能員工）
     if(!canReadProductionEmployees) await window.pcmsDataCache?.remove('productionEmployees');
     if(window.canOpenPage?.('production-employees') !== true){
