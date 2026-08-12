@@ -545,9 +545,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         <div id="production-analysis-root"></div>
       </div>
 
-      <!-- 工序修改：屬於產能主功能的獨立分頁，不放入生產登記畫面。 -->
+      <!-- 工序修改與同產品群組：顯示於款號管理抬頭，頁面仍採獨立按需載入。 -->
       <div class="pg ui-page" id="pg-production-process-edit">
         <div id="production-process-edit-root"></div>
+      </div>
+      <div class="pg ui-page" id="pg-product-groups">
+        <div id="product-groups-root"></div>
       </div>
 
       <!-- 款號總成本 -->
@@ -1271,7 +1274,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-<script src="js/features.js?v=20260813-4"></script>
+<script src="js/features.js?v=20260813-5"></script>
 <script src="js/auth.js?v=20260812-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

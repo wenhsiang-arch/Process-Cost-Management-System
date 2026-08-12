@@ -1,8 +1,8 @@
-// process-edit（工序修改畫面）：選擇款號、建立同產品群組、修改正式工序並下載歷史版本。
+// process-edit（工序修改畫面）：依客人選擇款號、套用已確認群組、修改正式工序並下載歷史版本。
 (function(){
   'use strict';
 
-  const state={currentCode:'',draft:[],selectedTargets:new Set(),dirty:false,initialized:false,orderSyncContext:null};
+  const state={currentCode:'',selectedClient:'',draft:[],selectedTargets:new Set(),dirty:false,initialized:false,languageBound:false,orderSyncContext:null};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -28,6 +28,10 @@
       <div class="production-process-edit-page ui-work-panel">
         <section class="process-edit-toolbar ui-operation-panel">
           <div class="process-edit-command ui-command-row">
+            <label class="process-edit-client-field">
+              <span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span>
+              <select id="process-edit-client-select"></select>
+            </label>
             <label class="process-edit-product-field">
               <span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span>
               <input type="search" id="process-edit-product-input" list="process-edit-product-options" autocomplete="off" placeholder="Nhập mã hàng / 輸入款號">
@@ -81,13 +85,37 @@
       </div>`;
   }
 
+  function clientName(product){ return String(product?.client||'').trim(); }
+
+  function clientList(){
+    return [...new Set((window.D||[]).map(clientName).filter(Boolean))]
+      .sort((a,b)=>a.localeCompare(b,'vi',{numeric:true,sensitivity:'base'}));
+  }
+
+  function fillClientOptions(){
+    const select=document.getElementById('process-edit-client-select');
+    if(!select) return;
+    const all=document.createElement('option');
+    all.value='';
+    all.textContent=textApi().visibleText({vi:'Tất cả khách hàng',zh:'全部客人'});
+    select.replaceChildren(all,...clientList().map(client=>{
+      const option=document.createElement('option');
+      option.value=client;
+      option.textContent=client;
+      return option;
+    }));
+    if(clientList().includes(state.selectedClient)) select.value=state.selectedClient;
+    else{ state.selectedClient=''; select.value=''; }
+  }
+
   function fillProductOptions(){
     const datalist=document.getElementById('process-edit-product-options');
     if(!datalist) return;
-    datalist.replaceChildren(...(window.D||[]).slice().sort((a,b)=>String(a.code).localeCompare(String(b.code))).map(item=>{
+    const products=(window.D||[]).filter(item=>!state.selectedClient||clientName(item)===state.selectedClient);
+    datalist.replaceChildren(...products.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code))).map(item=>{
       const option=document.createElement('option');
       option.value=String(item.code||'');
-      option.label=[item.vi,item.zh,item.sz].filter(Boolean).join(' · ');
+      option.label=[item.vi,item.zh,item.sz,clientName(item)].filter(Boolean).join(' · ');
       return option;
     }));
   }
@@ -107,16 +135,19 @@
     if(!host) return;
     host.innerHTML=`
       <div><span class="ui-dual-copy"><strong>Mã hàng hiện tại</strong><span>目前款號</span></span><b>${safe(product.code)}</b></div>
+      <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(clientName(product)||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Tên sản phẩm</strong><span>品名</span></span><b>${safe(product.vi||product.zh||'—')}</b><span>${safe(product.zh||'')}</span></div>
       <div><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span><b>${safe(product.sz||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Lần sửa chính thức</strong><span>正式修訂次數</span></span><b>${Number(product.standardRevision)||0}</b></div>`;
   }
 
-  function groupMemberCard(product,checked){
-    return `<div class="process-edit-member${product.code===state.currentCode?' is-current':''}">
-      <label><input type="checkbox" data-process-target="${safe(product.code)}" ${checked?'checked':''}><span class="ui-dual-copy"><strong>Áp dụng</strong><span>套用</span></span></label>
-      <button type="button" data-process-switch="${safe(product.code)}"><b>${safe(product.code)}</b><span>${safe(product.sz||'—')}</span></button>
-    </div>`;
+  function groupMemberRow(product,checked){
+    return `<tr class="${product.code===state.currentCode?'is-current':''}">
+      <td class="ui-table-center-cell"><input type="checkbox" data-process-target="${safe(product.code)}" ${checked?'checked':''} aria-label="Áp dụng / 套用"></td>
+      <td><b>${safe(product.code)}</b></td>
+      <td>${safe(product.sz||'—')}</td>
+      <td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-process-switch="${safe(product.code)}"><span class="ui-dual-copy"><strong>Sửa mã này</strong><span>編輯此款</span></span></button></td>
+    </tr>`;
   }
 
   function renderGroup(product){
@@ -127,20 +158,16 @@
       const members=(group.memberCodes||[]).map(productByCode).filter(Boolean);
       if(!state.selectedTargets.size) state.selectedTargets.add(product.code);
       host.innerHTML=`<div class="process-edit-group-heading"><span class="ui-dual-copy"><strong>Nhóm đã xác nhận</strong><span>已確認同產品群組</span></span><b>${safe(group.name||group.groupId)}</b><span>${members.length} mã / 款</span></div>
-        <div class="process-edit-members">${members.map(item=>groupMemberCard(item,state.selectedTargets.has(item.code))).join('')}</div>
-        <div class="process-edit-group-note ui-bilingual"><span class="ui-text-vi">Nhấp mã hàng để chuyển kích thước; dấu chọn quyết định mã nào cùng áp dụng lần sửa này.</span><span class="ui-text-zh">點款號可切換尺寸；勾選框決定本次修改要同步套用哪些款號。</span></div>`;
+        <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-edit-target-table">
+          <thead><tr><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Áp dụng lần này</strong><span>本次套用</span></span></th><th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th></tr></thead>
+          <tbody>${members.map(item=>groupMemberRow(item,state.selectedTargets.has(item.code))).join('')}</tbody>
+        </table></div></div>
+        <div class="process-edit-group-note ui-bilingual"><span class="ui-text-vi">Dấu chọn quyết định mã nào cùng áp dụng lần sửa này; nút “Sửa mã này” chỉ chuyển mã đang xem.</span><span class="ui-text-zh">勾選框決定本次要同步套用哪些款號；「編輯此款」只切換目前查看的款號。</span></div>`;
       return;
     }
     state.selectedTargets=new Set([product.code]);
-    const candidates=store().findCandidates(product.code);
-    if(!candidates.length){
-      host.innerHTML='<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Chưa có nhóm và không tìm thấy mã cùng cấu trúc</strong><span>尚未建立群組，也沒有找到工序結構相同的其他款號</span></span></div>';
-      return;
-    }
-    host.innerHTML=`<div class="process-edit-group-heading"><span class="ui-dual-copy"><strong>Gợi ý cùng sản phẩm</strong><span>同產品候選款號</span></span><span>${candidates.length} mã / 款</span></div>
-      <div class="process-edit-candidates">${candidates.map(item=>`<label><input type="checkbox" data-group-candidate="${safe(item.code)}" checked><b>${safe(item.code)}</b><span>${safe(item.sz||'—')}</span></label>`).join('')}</div>
-      <div class="process-edit-group-note ui-bilingual"><span class="ui-text-vi">Hệ thống chỉ gợi ý khi khách hàng, tên sản phẩm, số thứ tự và tên công đoạn giống nhau; kích thước và giây không dùng để phân nhóm. Vẫn phải xác nhận thủ công.</span><span class="ui-text-zh">系統只在客人、品名、工序數量／順序／名稱相同時提出候選；尺寸與秒數不參與判定，仍需人工確認。</span></div>
-      <button type="button" class="ui-button" id="process-edit-create-group"><i class="ti ti-link"></i><span class="ui-dual-copy"><strong>Tạo nhóm đã chọn</strong><span>建立所選群組</span></span></button>`;
+    host.innerHTML=`<div class="process-edit-no-group"><div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Mã này chưa thuộc nhóm cùng sản phẩm</strong><span>此款號尚未加入同產品群組</span></span></div>
+      <button type="button" class="ui-button" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở trang nhóm</strong><span>前往群組分頁</span></span></button></div>`;
   }
 
   function renderOperations(product){
@@ -179,6 +206,16 @@
       setStatus({vi:'Không tìm thấy mã hàng.',zh:'找不到款號。'},'warning');
       return false;
     }
+    if(state.selectedClient&&clientName(product)!==state.selectedClient){
+      if(options.force===true){
+        state.selectedClient=clientName(product);
+        fillClientOptions();
+        fillProductOptions();
+      }else{
+        setStatus({vi:'Mã hàng không thuộc khách hàng đã chọn.',zh:'此款號不屬於所選客人。'},'warning');
+        return false;
+      }
+    }
     if(state.dirty&&options.force!==true){
       const discard=await ui().confirmDialog({
         title:{vi:'Bỏ thay đổi chưa lưu?',zh:'放棄未儲存修改？'},
@@ -206,23 +243,6 @@
     renderGroup(product);
     renderOperations(product);
     return true;
-  }
-
-  async function createSuggestedGroup(){
-    const product=productByCode(state.currentCode);
-    if(!product) return;
-    const codes=[product.code,...Array.from(document.querySelectorAll('[data-group-candidate]:checked'),input=>input.dataset.groupCandidate)];
-    const confirmed=await ui().confirmDialog({
-      title:{vi:'Xác nhận nhóm cùng sản phẩm',zh:'確認同產品群組'},
-      message:{vi:`Tạo nhóm gồm ${codes.length} mã: ${codes.join(', ')}. Sau này vẫn chọn mã áp dụng trước mỗi lần sửa.`,zh:`建立 ${codes.length} 個款號的群組：${codes.join(', ')}。日後每次修改仍需勾選實際套用款號。`},
-      confirmText:{vi:'Tạo nhóm',zh:'建立群組'},cancelText:{vi:'Hủy',zh:'取消'}
-    });
-    if(!confirmed) return;
-    try{
-      await store().createGroup({memberCodes:codes,name:product.vi||product.zh||product.code});
-      setStatus({vi:'Đã tạo nhóm cùng sản phẩm.',zh:'同產品群組已建立。'},'success');
-      renderGroup(product);
-    }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); }
   }
 
   function changeRow(index,action){
@@ -447,9 +467,34 @@
     }
   }
 
+  async function openGroupsPage(){
+    if(state.dirty){
+      const confirmed=await ui().confirmDialog({
+        title:{vi:'Rời nội dung chưa lưu?',zh:'離開未儲存內容？'},
+        message:{vi:'Mở trang nhóm sẽ rời nội dung công đoạn chưa lưu. Khi quay lại, hệ thống sẽ tải lại tiêu chuẩn chính thức hiện tại.',zh:'前往群組分頁會離開未儲存的工序內容；返回時會重新載入目前正式標準。'},
+        confirmText:{vi:'Mở trang nhóm',zh:'前往群組分頁'},cancelText:{vi:'Tiếp tục sửa',zh:'繼續修改'}
+      });
+      if(!confirmed) return;
+    }
+    window.PCMSPendingProductGroupContext={code:state.currentCode};
+    await window.sp?.('product-groups');
+  }
+
+  function handleLanguageChange(){
+    fillClientOptions();
+    fillProductOptions();
+  }
+
   function bindEvents(){
     document.getElementById('process-edit-load-button')?.addEventListener('click',()=>selectProduct(document.getElementById('process-edit-product-input')?.value));
     document.getElementById('process-edit-product-input')?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); selectProduct(event.currentTarget.value); } });
+    document.getElementById('process-edit-client-select')?.addEventListener('change',event=>{
+      state.selectedClient=String(event.currentTarget.value||'');
+      const input=document.getElementById('process-edit-product-input');
+      const inputProduct=productByCode(input?.value);
+      if(input&&inputProduct&&state.selectedClient&&clientName(inputProduct)!==state.selectedClient) input.value='';
+      fillProductOptions();
+    });
     document.getElementById('process-edit-history-button')?.addEventListener('click',openVersionHistory);
     document.getElementById('process-edit-add-button')?.addEventListener('click',addOperation);
     document.getElementById('process-edit-reset-button')?.addEventListener('click',resetDraft);
@@ -478,7 +523,7 @@
     document.getElementById('process-edit-group-area')?.addEventListener('click',event=>{
       const switchButton=event.target.closest('[data-process-switch]');
       if(switchButton){ selectProduct(switchButton.dataset.processSwitch,{preserveTargets:true}); return; }
-      if(event.target.closest('#process-edit-create-group')) createSuggestedGroup();
+      if(event.target.closest('#process-edit-open-groups')) openGroupsPage();
     });
   }
 
@@ -492,6 +537,9 @@
   async function productionProcessEditInit(){
     buildRoot();
     if(!state.initialized){ bindEvents(); state.initialized=true; }
+    textApi().setLocalizedAttribute(document.getElementById('process-edit-product-input'),'placeholder',{vi:'Nhập mã hàng',zh:'輸入款號'});
+    if(!state.languageBound){ document.addEventListener('pcms:languagechange',handleLanguageChange); state.languageBound=true; }
+    fillClientOptions();
     fillProductOptions();
     const pending=window.PCMSPendingProcessEditContext;
     if(pending?.code){
@@ -505,7 +553,10 @@
     }
   }
 
-  function productionProcessEditLeave(){ clearStatus(); }
+  function productionProcessEditLeave(){
+    clearStatus();
+    if(state.languageBound){ document.removeEventListener('pcms:languagechange',handleLanguageChange); state.languageBound=false; }
+  }
 
   window.loadProductionProcessEditData=loadProductionProcessEditData;
   window.productionProcessEditInit=productionProcessEditInit;

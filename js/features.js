@@ -29,7 +29,8 @@
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-2',
-    productionProcessEdit:'js/production/process-edit.js?v=20260813-2',
+    productionProcessEdit:'js/production/process-edit.js?v=20260813-3',
+    productionProductGroups:'js/production/product-groups.js?v=20260813-1',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
@@ -46,7 +47,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260813-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-2',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-3',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -85,6 +86,20 @@
           restrictions:[
             {key:'costView',vi:'Hiển thị giá công sản phẩm',zh:'顯示產品工價'}
           ]
+        },
+        {
+          page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
+          styles:['productionProcessEdit'],
+          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessEdit'],
+          dataScopes:['operationSettings','products','productGroups','productVersions','orders','orderProcesses','processEditJobs'],
+          dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave']
+        },
+        {
+          page:'product-groups',feature:'productionProcessEdit',permissionVisible:false,icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
+          styles:['productionProcessEdit'],
+          scripts:['productCache','productModel','productionProcessEditStore','productionProductGroups'],
+          dataScopes:['products','productGroups'],
+          dataLoaders:['loadProductionProductGroupsData'],onOpen:['productionProductGroupsInit'],onLeave:['productionProductGroupsLeave']
         }
       ]
     },
@@ -129,13 +144,6 @@
           styles:['production'],
           scripts:['uiTableControls','productionEmployeeStore','productionEmployees'],
           dataScopes:['productionEmployees','productionDepartments'],dataLoaders:['loadProductionEmployeesData'],onOpen:['productionEmployeesInit']
-        },
-        {
-          page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
-          styles:['productionProcessEdit'],
-          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessEdit'],
-          dataScopes:['operationSettings','products','productGroups','productVersions','orders','orderProcesses','processEditJobs'],
-          dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave']
         }
       ]
     },
@@ -235,7 +243,7 @@
     restrictions:module.restrictions||[],
     pages:(module.pages.length===1&&module.pages[0].feature===module.mainKey
       ? []
-      : module.pages.map(page=>({
+      : module.pages.filter(page=>page.permissionVisible!==false).map(page=>({
         key:page.feature||page.page,
         adminOnly:page.adminOnly===true,
         vi:page.vi,
@@ -254,7 +262,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','production-entry','production-process-edit','production-analysis','cutting','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','production-process-edit','product-groups','production-entry','production-analysis','cutting','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){
@@ -273,9 +281,11 @@
         ? features[key]
         : defaults[key]===true;
     });
-    if(features&&typeof features.productsMain!=='boolean'){
-      normalized.productsMain=normalized.summary===true||normalized.costView===true;
-    }
+    // productsMain（款號管理主入口）在舊權限文件中可能尚未跟隨工序修改；子權限已開啟時仍要能看見款號管理入口。
+    normalized.productsMain=normalized.productsMain===true
+      ||normalized.summary===true
+      ||normalized.costView===true
+      ||normalized.productionProcessEdit===true;
     // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
     normalized.orderImport=normalized.progress===true;
     if(features&&typeof features.costMain!=='boolean'){
@@ -285,8 +295,7 @@
       normalized.productionMain=normalized.productionEntry===true
         ||normalized.productionRecords===true
         ||normalized.productionAttendance===true
-        ||normalized.productionEmployees===true
-        ||normalized.productionProcessEdit===true;
+        ||normalized.productionEmployees===true;
     }
     normalized.accounts=false;
     return normalized;
