@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state={currentCode:'',selectedClient:'',draft:[],selectedTargets:new Set(),dirty:false,initialized:false,languageBound:false,orderSyncContext:null};
+  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),dirty:false,initialized:false,languageBound:false,orderSyncContext:null};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -73,11 +73,14 @@
             </div></div>
           </section>
           <section class="process-edit-save-panel ui-operation-panel">
-            <label class="process-edit-reason-field"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea id="process-edit-reason" maxlength="500" rows="2" placeholder="Ghi rõ lý do xác nhận của IE / 請填寫IE確認修改原因"></textarea></label>
-            <div class="process-edit-save-actions">
-              <button type="button" class="ui-button" id="process-edit-reset-button"><i class="ti ti-restore"></i><span class="ui-dual-copy"><strong>Khôi phục chưa lưu</strong><span>還原未儲存修改</span></span></button>
-              <button type="button" class="ui-button" id="process-edit-order-exception-button"><i class="ti ti-file-settings"></i><span class="ui-dual-copy"><strong>Ngoại lệ một đơn</strong><span>單張訂單例外</span></span></button>
-              <button type="button" class="ui-button is-primary" id="process-edit-save-button"><i class="ti ti-device-floppy"></i><span class="ui-dual-copy"><strong>Xác nhận sửa chính thức</strong><span>確認正式修改</span></span></button>
+            <div class="process-edit-save-summary" id="process-edit-save-summary"></div>
+            <div class="process-edit-save-main">
+              <label class="process-edit-reason-field"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea id="process-edit-reason" maxlength="500" rows="2" placeholder="Ghi rõ lý do xác nhận của IE / 請填寫IE確認修改原因"></textarea></label>
+              <div class="process-edit-save-actions">
+                <button type="button" class="ui-button" id="process-edit-reset-button"><i class="ti ti-restore"></i><span class="ui-dual-copy"><strong>Khôi phục chưa lưu</strong><span>還原未儲存修改</span></span></button>
+                <button type="button" class="ui-button" id="process-edit-order-exception-button"><i class="ti ti-file-settings"></i><span class="ui-dual-copy"><strong>Ngoại lệ một đơn</strong><span>單張訂單例外</span></span></button>
+                <button type="button" class="ui-button is-primary" id="process-edit-save-button"><i class="ti ti-device-floppy"></i><span class="ui-dual-copy"><strong>Xác nhận sửa chính thức</strong><span>確認正式修改</span></span></button>
+              </div>
             </div>
           </section>
           <section class="process-edit-order-sync ui-data-section" id="process-edit-order-sync" hidden></section>
@@ -142,11 +145,11 @@
   }
 
   function groupMemberRow(product,checked){
-    return `<tr class="${product.code===state.currentCode?'is-current':''}">
-      <td class="ui-table-center-cell"><input type="checkbox" data-process-target="${safe(product.code)}" ${checked?'checked':''} aria-label="Áp dụng / 套用"></td>
+    const current=product.code===state.currentCode;
+    return `<tr class="${current?'is-current':''}">
+      <td class="ui-table-center-cell"><input type="checkbox" data-process-target="${safe(product.code)}" ${checked?'checked':''} ${current?'disabled':''} aria-label="Áp dụng / 套用"></td>
       <td><b>${safe(product.code)}</b></td>
       <td>${safe(product.sz||'—')}</td>
-      <td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-process-switch="${safe(product.code)}"><span class="ui-dual-copy"><strong>Sửa mã này</strong><span>編輯此款</span></span></button></td>
     </tr>`;
   }
 
@@ -156,18 +159,36 @@
     const group=store().groupForProduct(product.code);
     if(group){
       const members=(group.memberCodes||[]).map(productByCode).filter(Boolean);
-      if(!state.selectedTargets.size) state.selectedTargets.add(product.code);
-      host.innerHTML=`<div class="process-edit-group-heading"><span class="ui-dual-copy"><strong>Nhóm đã xác nhận</strong><span>已確認同產品群組</span></span><b>${safe(group.name||group.groupId)}</b><span>${members.length} mã / 款</span></div>
+      state.selectedTargets.add(product.code);
+      host.innerHTML=`<div class="process-edit-group-heading"><span class="ui-dual-copy"><strong>Phạm vi áp dụng</strong><span>修改套用範圍</span></span><b>${safe(group.name||group.groupId)}</b><span>${members.length} mã / 款</span></div>
+        <div class="process-edit-scope-options">
+          <label class="process-edit-scope-option${state.applyMode==='current'?' is-selected':''}"><input type="radio" name="process-edit-apply-mode" value="current" data-process-apply-mode ${state.applyMode==='current'?'checked':''}><span class="ui-dual-copy"><strong>Chỉ sửa mã hiện tại</strong><span>只修改目前款號</span></span><small>${safe(product.code)}</small></label>
+          <label class="process-edit-scope-option${state.applyMode==='group'?' is-selected':''}"><input type="radio" name="process-edit-apply-mode" value="group" data-process-apply-mode ${state.applyMode==='group'?'checked':''}><span class="ui-dual-copy"><strong>Áp dụng thêm cho mã trong nhóm</strong><span>同步套用群組款號</span></span><small class="ui-bilingual"><span class="ui-text-vi">Chọn riêng mã cần áp dụng</span><span class="ui-text-zh">再勾選需要套用的款號</span></small></label>
+        </div>
+        <div class="process-edit-group-targets" ${state.applyMode==='group'?'':'hidden'}>
+        <div class="process-edit-group-note ui-bilingual"><span class="ui-text-vi">Mã hiện tại luôn được áp dụng. Chỉ đánh dấu thêm những mã thật sự cần dùng cùng tiêu chuẩn lần này.</span><span class="ui-text-zh">目前款號一定會修改；只需另外勾選本次確定要共用標準的款號。</span></div>
         <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-edit-target-table">
-          <thead><tr><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Áp dụng lần này</strong><span>本次套用</span></span></th><th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th></tr></thead>
+          <thead><tr><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Áp dụng lần này</strong><span>本次套用</span></span></th><th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th></tr></thead>
           <tbody>${members.map(item=>groupMemberRow(item,state.selectedTargets.has(item.code))).join('')}</tbody>
         </table></div></div>
-        <div class="process-edit-group-note ui-bilingual"><span class="ui-text-vi">Dấu chọn quyết định mã nào cùng áp dụng lần sửa này; nút “Sửa mã này” chỉ chuyển mã đang xem.</span><span class="ui-text-zh">勾選框決定本次要同步套用哪些款號；「編輯此款」只切換目前查看的款號。</span></div>`;
+        </div>`;
+      renderSaveSummary();
       return;
     }
+    state.applyMode='current';
     state.selectedTargets=new Set([product.code]);
     host.innerHTML=`<div class="process-edit-no-group"><div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Mã này chưa thuộc nhóm cùng sản phẩm</strong><span>此款號尚未加入同產品群組</span></span></div>
       <button type="button" class="ui-button" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở trang nhóm</strong><span>前往群組分頁</span></span></button></div>`;
+    renderSaveSummary();
+  }
+
+  function renderSaveSummary(){
+    const host=document.getElementById('process-edit-save-summary');
+    if(!host||!state.currentCode) return;
+    const targets=[...state.selectedTargets];
+    host.innerHTML=`<div><span class="ui-dual-copy"><strong>Mã sẽ được sửa</strong><span>本次修改款號</span></span><b>${safe(targets.join('、'))}</b></div>
+      <div><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序數量</span></span><b>${state.draft.length}</b></div>
+      <div><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span><b class="ui-bilingual"><span class="ui-text-vi">Chọn đồng bộ sau khi lưu</span><span class="ui-text-zh">正式儲存後另行選擇同步</span></b></div>`;
   }
 
   function renderOperations(product){
@@ -187,6 +208,7 @@
         <button type="button" data-process-action="delete" aria-label="Xóa / 刪除" class="is-danger"><i class="ti ti-trash"></i></button>
       </div></td>
     </tr>`).join('');
+    renderSaveSummary();
   }
 
   function markDirty(){ state.dirty=true; }
@@ -224,14 +246,9 @@
       });
       if(!discard) return false;
     }
-    const previousTargets=new Set(state.selectedTargets);
     state.currentCode=product.code;
-    const productGroup=store().groupForProduct(product.code);
-    const allowedTargets=new Set(productGroup?.memberCodes||[product.code]);
-    state.selectedTargets=options.preserveTargets===true
-      ? new Set([...previousTargets].filter(target=>allowedTargets.has(target)))
-      : new Set([product.code]);
-    if(!state.selectedTargets.size) state.selectedTargets.add(product.code);
+    state.applyMode='current';
+    state.selectedTargets=new Set([product.code]);
     state.draft=(product.ops||[]).map(window.PCMSProductModel.normalizeOperation);
     state.dirty=false;
     const input=document.getElementById('process-edit-product-input');
@@ -516,13 +533,21 @@
       changeRow(index,button.dataset.processAction);
     });
     document.getElementById('process-edit-group-area')?.addEventListener('change',event=>{
+      const mode=event.target?.dataset?.processApplyMode;
+      if(mode!==undefined){
+        state.applyMode=event.target.value==='group'?'group':'current';
+        if(state.applyMode==='current') state.selectedTargets=new Set([state.currentCode]);
+        else state.selectedTargets.add(state.currentCode);
+        renderGroup(productByCode(state.currentCode));
+        return;
+      }
       const code=event.target?.dataset?.processTarget;
       if(!code) return;
       if(event.target.checked) state.selectedTargets.add(code); else state.selectedTargets.delete(code);
+      state.selectedTargets.add(state.currentCode);
+      renderSaveSummary();
     });
     document.getElementById('process-edit-group-area')?.addEventListener('click',event=>{
-      const switchButton=event.target.closest('[data-process-switch]');
-      if(switchButton){ selectProduct(switchButton.dataset.processSwitch,{preserveTargets:true}); return; }
       if(event.target.closest('#process-edit-open-groups')) openGroupsPage();
     });
   }

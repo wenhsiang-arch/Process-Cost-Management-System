@@ -29,8 +29,8 @@
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-2',
-    productionProcessEdit:'js/production/process-edit.js?v=20260813-3',
-    productionProductGroups:'js/production/product-groups.js?v=20260813-1',
+    productionProcessEdit:'js/production/process-edit.js?v=20260813-4',
+    productionProductGroups:'js/production/product-groups.js?v=20260813-2',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
@@ -47,7 +47,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260813-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-3',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-4',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
