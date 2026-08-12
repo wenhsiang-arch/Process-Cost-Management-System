@@ -422,12 +422,12 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260812-1'/);
   assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260812-1'/);
   assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260812-1'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260810-7'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260813-1'/);
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-6'/);
   assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260812-1'/);
   assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-5'/);
   assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-13'/);
-  assert.match(html,/js\/features\.js\?v=20260812-5/);
+  assert.match(html,/js\/features\.js\?v=20260813-1/);
 });
 
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{

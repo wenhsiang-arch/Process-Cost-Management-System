@@ -94,7 +94,14 @@ function loadResizeHarness(){
       const element={
         tagName:String(tagName).toUpperCase(),dataset:{},style:style(),className:'',classList:classList(),children:[],attributes:{},parentElement:null,
         setAttribute(name,value){ this.attributes[name]=String(value); },
+        getAttribute(name){ return this.attributes[name]??null; },
         appendChild(child){ return appendChild(this,child); },
+        append(...children){ children.forEach(child=>appendChild(this,child)); },
+        replaceChildren(...children){
+          this.children.forEach(child=>{ child.parentElement=null; });
+          this.children=[];
+          children.forEach(child=>appendChild(this,child));
+        },
         insertBefore(child,reference){ return appendChild(this,child,Math.max(0,this.children.indexOf(reference))); },
         querySelector(selector){ return find(this,selector); },
         closest(selector){ return closest(this,selector); },
@@ -118,7 +125,14 @@ function loadResizeHarness(){
       tagName:String(tagName).toUpperCase(),dataset:{uiTableColumn:key},style:cellStyle,classList:classList(),className:'',children:[],attributes:{},
       textContent:text,scrollWidth,parentElement:null,
       setAttribute(name,value){ this.attributes[name]=String(value); },
+      getAttribute(name){ return this.attributes[name]??null; },
       appendChild(child){ return appendChild(this,child); },
+      append(...children){ children.forEach(child=>appendChild(this,child)); },
+      replaceChildren(...children){
+        this.children.forEach(child=>{ child.parentElement=null; });
+        this.children=[];
+        children.forEach(child=>appendChild(this,child));
+      },
       insertBefore(child,reference){ return appendChild(this,child,Math.max(0,this.children.indexOf(reference))); },
       getBoundingClientRect(){ return {width:Number.parseFloat(this.style.width)||width}; },
       querySelector(selector){ return find(this,selector); },
@@ -261,7 +275,11 @@ test('排序只由箭頭按鈕觸發，表頭文字及欄寬拖曳區不會排�
   const trigger=header.querySelector('[data-ui-table-sort-trigger]');
   const icon=header.querySelector('[data-ui-table-sort-icon]');
   const resizeHandle=header.querySelector('[data-ui-table-resize-handle]');
+  const vi=header.querySelector('.ui-text-vi');
+  const zh=header.querySelector('.ui-text-zh');
   assert.ok(trigger);
+  assert.equal(vi.textContent,'Mã hàng');
+  assert.equal(zh.textContent,'款號');
 
   fixture.table.dispatch('click',{target:header});
   fixture.table.dispatch('click',{target:resizeHandle});

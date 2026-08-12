@@ -63,7 +63,7 @@
   }
 
   function renderHeaderCell(field,{extra=false}={}){
-    return `<th class="cost-log-value-head${extra?' cost-log-extra':''}"><span>${safeText(field.vi)}</span><small>${safeText(field.zh)}</small></th>`;
+    return `<th class="cost-log-value-head${extra?' cost-log-extra':''}"><span class="ui-text-vi">${safeText(field.vi)}</span><small class="ui-text-zh">${safeText(field.zh)}</small></th>`;
   }
 
   function renderCostLogTable(logs){
@@ -75,8 +75,8 @@
     return `<div class="cost-log-table-scroll ui-table-scroll${expandedClass}" data-ui-floating-scroll="only">
       <table class="cost-log-table ui-table" id="cost-log-table" data-ui-table-layout="special" data-ui-table-sticky="original">
         <thead><tr>
-          <th class="cost-log-time-head"><span>Thời gian</span><small>時間</small></th>
-          <th class="cost-log-user-head"><span>Người thao tác</span><small>操作者</small></th>
+          <th class="cost-log-time-head"><span class="ui-text-vi">Thời gian</span><small class="ui-text-zh">時間</small></th>
+          <th class="cost-log-user-head"><span class="ui-text-vi">Người thao tác</span><small class="ui-text-zh">操作者</small></th>
           ${PRIMARY_FIELDS.map(field=>renderHeaderCell(field)).join('')}
           ${EXTRA_FIELDS.map(field=>renderHeaderCell(field,{extra:true})).join('')}
           <th class="cost-log-toggle-head"><button type="button" id="costlog-extra-toggle" class="cost-log-extra-toggle" aria-expanded="${extraExpanded}" aria-label="${safeText(label)}" title="${safeText(label)}" onclick="toggleCostLogExtraColumns()"><i class="ti ${arrow}"></i></button></th>
@@ -99,12 +99,12 @@
     const container=g('clog-list'); // container（成本變動表格容器）。
     if(!container) return;
     if(typeof canOpenPage==='function'&&!canOpenPage('costlog')){
-      container.innerHTML='<div class="cost-log-empty"><div>Không có quyền xem lịch sử chi phí</div><div>沒有查看成本歷史權限</div></div>';
+      container.innerHTML='<div class="cost-log-empty ui-language-sections"><div class="ui-language-section is-vi">Không có quyền xem lịch sử chi phí</div><div class="ui-language-section is-zh">沒有查看成本歷史權限</div></div>';
       return;
     }
     const logs=Array.isArray(window.cLog)?window.cLog:[]; // logs（目前載入的成本變動紀錄）。
     if(!logs.length){
-      container.innerHTML='<div class="cost-log-empty"><div>Chưa có lịch sử</div><div>尚無記錄</div></div>';
+      container.innerHTML='<div class="cost-log-empty ui-language-sections"><div class="ui-language-section is-vi">Chưa có lịch sử</div><div class="ui-language-section is-zh">尚無記錄</div></div>';
       return;
     }
     container.innerHTML=renderCostLogTable(logs);

@@ -89,6 +89,11 @@
     return Number.isInteger(capacity) && capacity > 0 ? capacity.toLocaleString() : '—';
   }
 
+  function setEntryLocalizedAttribute(target,attribute,vi,zh){
+    if(!target) return false;
+    return window.PCMSUIText.setLocalizedAttribute(target,attribute,{vi:String(vi || ''),zh:String(zh || '')});
+  }
+
   function setStatus(vi,zh,kind='info'){
     const host = element('production-entry-status');
     if(!host) return;
@@ -332,7 +337,7 @@
       progress.classList.remove('is-complete','is-over');
       if(overCopy) overCopy.hidden = true;
       value.textContent = `… / ${numberText(summary.orderQuantity)}`;
-      progress.title = 'Đang đọc số lượng đã ghi nhận / 正在讀取已登記數量';
+      setEntryLocalizedAttribute(progress,'title','Đang đọc số lượng đã ghi nhận','正在讀取已登記數量');
       return;
     }
     const over = summary.exceededQuantity > 0;
@@ -344,12 +349,18 @@
     if(overVi) overVi.textContent = `Vượt +${numberText(summary.exceededQuantity)}`;
     if(overZh) overZh.textContent = `超量 +${numberText(summary.exceededQuantity)}`;
     const detailHint = state.processRowsMode
-      ? 'Nhấn để trở về dữ liệu trong ngày / 點擊返回員工當日紀錄'
-      : 'Nhấn để chỉ xem đăng ký của công đoạn / 點擊只顯示此工序登記';
+      ? {vi:'Nhấn để trở về dữ liệu trong ngày',zh:'點擊返回員工當日紀錄'}
+      : {vi:'Nhấn để chỉ xem đăng ký của công đoạn',zh:'點擊只顯示此工序登記'};
     const quantityTitle = over
-      ? `Đã đăng ký ${numberText(summary.registeredQuantity)}, dự kiến vượt ${numberText(summary.exceededQuantity)} / 已登記 ${numberText(summary.registeredQuantity)}，預計超量 ${numberText(summary.exceededQuantity)}`
-      : `Đã đăng ký ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)} / 已登記 ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)}`;
-    progress.title = `${quantityTitle} · ${detailHint}`;
+      ? {
+        vi:`Đã đăng ký ${numberText(summary.registeredQuantity)}, dự kiến vượt ${numberText(summary.exceededQuantity)}`,
+        zh:`已登記 ${numberText(summary.registeredQuantity)}，預計超量 ${numberText(summary.exceededQuantity)}`
+      }
+      : {
+        vi:`Đã đăng ký ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)}`,
+        zh:`已登記 ${numberText(summary.registeredQuantity)} / ${numberText(summary.orderQuantity)}`
+      };
+    setEntryLocalizedAttribute(progress,'title',`${quantityTitle.vi} · ${detailHint.vi}`,`${quantityTitle.zh} · ${detailHint.zh}`);
   }
 
   async function loadQuantityProgress(process){
@@ -398,7 +409,7 @@
     const processVi = String(process?.processVi || '').trim();
     const processZh = String(process?.processZh || '').trim();
     host.value = processVi || processZh || '';
-    host.title = [processVi,processZh].filter(Boolean).join(' / ');
+    setEntryLocalizedAttribute(host,'title',processVi,processZh);
     scheduleEntryFieldLayout();
   }
 
@@ -415,15 +426,15 @@
     if(reasonInput){
       reasonInput.readOnly = !active;
       reasonInput.tabIndex = active ? 0 : -1;
-      reasonInput.placeholder = active ? 'Nhập lý do / 輸入原因' : '—';
-      reasonInput.title = active ? 'Lý do bổ sung giờ / 補充工時原因' : '';
+      setEntryLocalizedAttribute(reasonInput,'placeholder',active ? 'Nhập lý do' : '—',active ? '輸入原因' : '—');
+      setEntryLocalizedAttribute(reasonInput,'title',active ? 'Lý do bổ sung giờ' : '',active ? '補充工時原因' : '');
     }
     if(valueInput){
       valueInput.min = active ? '0.5' : '1';
       valueInput.max = active ? '24' : '';
       valueInput.step = active ? '0.5' : '1';
       valueInput.inputMode = active ? 'decimal' : 'numeric';
-      valueInput.placeholder = active ? '0.5–24 · Enter để lưu / Enter 儲存' : 'Enter để lưu / Enter 儲存';
+      setEntryLocalizedAttribute(valueInput,'placeholder',active ? '0.5–24 · Enter để lưu' : 'Enter để lưu','Enter 儲存');
     }
     const labelCopy = active
       ? {processVi:'Lý do',processZh:'原因',valueVi:'Giờ',valueZh:'小時'}
@@ -882,8 +893,8 @@
     button.type = 'button';
     button.tabIndex = -1;
     button.className = `production-row-button${kind ? ` is-${kind}` : ''}`;
-    button.title = `${vi} / ${zh}`;
-    button.setAttribute('aria-label',`${vi} / ${zh}`);
+    setEntryLocalizedAttribute(button,'title',vi,zh);
+    setEntryLocalizedAttribute(button,'aria-label',vi,zh);
     const icon = document.createElement('i');
     icon.className = `ti ${iconClass}`;
     button.appendChild(icon);

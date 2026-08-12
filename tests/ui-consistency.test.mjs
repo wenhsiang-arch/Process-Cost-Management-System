@@ -48,9 +48,9 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-section-header-min-height:\s*34px/);
   assert.match(core,/--ui-table-cell-padding-block:\s*5px/);
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
-  assert.match(html,/styles\/ui-core\.css\?v=20260810-10/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260813-1/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260812-5/);
+  assert.match(html,/js\/features\.js\?v=20260813-1/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260810-2'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260810-1'/);
@@ -74,7 +74,7 @@ test('超寬正式表格使用共用浮動水平捲軸且不建立第二條垂�
   const core=read('styles/ui-core.css');
   const specification=read('UI設計規範與參照/介面設計規範.md');
   const commonTableSources=[html,read('js/orders.js'),read('js/cost-log.js')].join('\n');
-  assert.match(html,/styles\/ui-core\.css\?v=20260810-10/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260813-1/);
   assert.match(html,/js\/ui-table\.js\?v=20260810-4/);
   assert.match(source,/TABLE_SCROLL_SELECTOR = '\.ui-table-scroll'/);
   assert.match(source,/function isManagedScroller\(element\)/);
@@ -300,7 +300,7 @@ test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇�
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;[\s\S]*?width: min\(340px, calc\(100vw - 32px\)\);[\s\S]*?max-height: min\(640px, calc\(100vh - 96px\)\);[\s\S]*?overflow-y: auto;/);
   assert.match(core,/\.ui-table-sort-heading \{[\s\S]*?display: flex;[\s\S]*?align-items: center;/);
   assert.match(core,/\.ui-table \.is-column-hidden \{[\s\S]*?display: none;/);
-  assert.match(features,/summary:'js\/summary\.js\?v=20260810-2'/);
+  assert.match(features,/summary:'js\/summary\.js\?v=20260813-1'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260810-1'/);
 });
 
@@ -330,7 +330,7 @@ test('第一批正式表格支援拖曳欄寬、雙擊自動符合及恢復預�
   assert.doesNotMatch(core,/\.ui-table-resize-handle::after/);
   assert.match(core,/\.ui-table-sort-trigger \{[\s\S]*?width: 20px;[\s\S]*?height: 20px;/);
   assert.match(core,/body\.is-ui-table-resizing,[\s\S]*?cursor: col-resize !important;/);
-  assert.match(features,/uiTableControls:'js\/ui-table-controls\.js\?v=20260810-4'/);
+  assert.match(features,/uiTableControls:'js\/ui-table-controls\.js\?v=20260813-1'/);
   assert.match(specification,/只有越文標題右側的排序箭頭可觸發排序/);
   assert.match(specification,/最小寬度以完整表頭為準/);
   assert.doesNotMatch(specification,/整個可排序表頭都能以滑鼠點擊/);

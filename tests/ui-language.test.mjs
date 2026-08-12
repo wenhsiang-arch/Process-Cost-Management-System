@@ -178,3 +178,31 @@ test('大型功能的動態狀態與空資料提示具有明確語言身分',()=
   assert.match(cutting,/cutting-status-vi ui-text-vi/);
   assert.match(monitor,/system-monitor-notice[\s\S]*?ui-text-vi[\s\S]*?ui-text-zh/);
 });
+
+test('單語模式全域相容摘要、設定、動態提示與舊表頭',()=>{
+  const text=read('js/ui-text.js');
+  const controls=read('js/ui-table-controls.js');
+  const summary=read('js/summary.js');
+  const orders=read('js/orders.js');
+  const accounts=read('js/accounts.js');
+  const costLog=read('js/cost-log.js');
+  const productionEntry=read('js/production/production-entry.js');
+  const analyses=[
+    read('js/production-analysis/employee-analysis.js'),
+    read('js/production-analysis/ie-analysis.js'),
+    read('js/production-analysis/department-analysis.js')
+  ];
+  assert.match(text,/LEGACY_TEXT_TARGETS[\s\S]*?\.ui-summary-label[\s\S]*?\.settings-summary-unit[\s\S]*?\.settings-matrix-unit[\s\S]*?\.settings-help-popover/);
+  assert.match(text,/function upgradeSummaryLabel\(/);
+  assert.match(text,/function upgradeHeaderSecondaryCopy\(/);
+  assert.match(text,/attributes:true[\s\S]*?attributeFilter:LOCALIZED_ATTRIBUTES/);
+  assert.match(controls,/function createSortLabel\([\s\S]*?ui-table-sort-label ui-bilingual/);
+  assert.match(controls,/function normalizeConfiguredHeader\(/);
+  assert.match(controls,/function refresh\(\)[\s\S]*?normalizeHeaderCopies\(\)/);
+  assert.doesNotMatch(summary,/Khách hàng \/ 客人:/);
+  assert.doesNotMatch(orders,/Ghi chú\.\.\. \/ 備註\.\.\./);
+  assert.doesNotMatch(accounts,/textContent='Tôi \/ 我'|textContent=a\.active\?'Đang bật \/ 已啟用'/);
+  assert.match(costLog,/cost-log-value-head[\s\S]*?ui-text-vi[\s\S]*?ui-text-zh/);
+  assert.match(productionEntry,/setEntryLocalizedAttribute\(progress,'title'/);
+  analyses.forEach(source=>assert.doesNotMatch(source,/class="ui-summary-label">[^$<]+<span>/));
+});

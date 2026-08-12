@@ -34,7 +34,7 @@
 
   const textScopes = new Map(); // textScopes（雙語文字範圍索引）
   const LOCALIZED_ATTRIBUTES = Object.freeze(['aria-label','title','placeholder']); // LOCALIZED_ATTRIBUTES（可跟隨語言模式更新的輔助文字屬性）
-  const LEGACY_TEXT_TARGETS = 'button,label,th,option,.sb-sec,.sb-sec-toggle > span,.logout-btn > span,.tg,.nt,.nt > div,.mt,.mt2,.at,.pwl,.psb,.production-section-count,.ui-empty-state,#lerr-text,#cut-pdf-tool-status > div'; // LEGACY_TEXT_TARGETS（只允許整理介面標籤，不掃描資料格或使用者輸入）
+  const LEGACY_TEXT_TARGETS = 'button,label,th,option,.sb-sec,.sb-sec-toggle > span,.logout-btn > span,.tg,.nt,.nt > div,.mt,.mt2,.mt2 > span,.at,.pwl,.psb,.production-section-count,.ui-empty-state,.ui-summary-label,.settings-summary-unit,.settings-matrix-unit,.settings-help-popover,.orders-state,.ml,.mvi,#lerr-text,#cut-pdf-tool-status > div'; // LEGACY_TEXT_TARGETS（只允許整理介面標籤，不掃描資料格或使用者輸入）
   let legacyObserver = null; // legacyObserver（舊介面文字新增觀察器）
 
   // normalizePair（正規化雙語文字）：缺少任一語言時保留空白，交由驗收找出，不以另一語言偷偷替代。
@@ -219,6 +219,60 @@
     return Array.from(target?.childNodes || []).filter(node=>node.nodeType === 3 && String(node.textContent || '').trim());
   }
 
+  function upgradeSummaryLabel(target){
+    if(!target?.matches?.('.ui-summary-label')) return false;
+    if(target.querySelector?.(':scope > .ui-text-vi') && target.querySelector?.(':scope > .ui-text-zh')) return true;
+    const zh = target.querySelector?.(':scope > span');
+    const nodes = directTextNodes(target);
+    const viText = nodes.map(node=>String(node.textContent || '').trim()).filter(Boolean).join(' ');
+    const zhText = String(zh?.textContent || '').trim();
+    if(!viText || !zhText || !/[A-Za-zÀ-ỹ]/.test(viText) || !/[\u3400-\u9fff]/.test(zhText)) return false;
+    const vi = document.createElement('span');
+    vi.className = 'ui-text-vi';
+    vi.textContent = viText;
+    nodes[0].replaceWith?.(vi);
+    nodes.slice(1).forEach(node=>node.remove?.());
+    zh.classList?.add('ui-text-zh');
+    return true;
+  }
+
+  function markNamedSiblingPair(target){
+    if(!target?.matches?.('.settings-summary-unit,.settings-matrix-unit,.settings-help-popover,.cost-log-value-head,.cost-log-time-head,.cost-log-user-head')) return false;
+    const blocks = Array.from(target.children || []).filter(child=>String(child.textContent || '').trim());
+    if(blocks.length !== 2) return false;
+    const viText = String(blocks[0].textContent || '').trim();
+    const zhText = String(blocks[1].textContent || '').trim();
+    if(!viText || !zhText || !/[A-Za-zÀ-ỹ%]/.test(viText)) return false;
+    blocks[0].classList?.add('ui-text-vi');
+    blocks[1].classList?.add('ui-text-zh');
+    return true;
+  }
+
+  function markKnownLanguageNode(target){
+    if(target?.matches?.('.ml')){
+      target.classList?.add('ui-text-vi');
+      return true;
+    }
+    if(target?.matches?.('.mvi')){
+      target.classList?.add('ui-text-zh');
+      return true;
+    }
+    return false;
+  }
+
+  function upgradeHeaderSecondaryCopy(target){
+    if(String(target?.tagName || '').toUpperCase() !== 'TH') return false;
+    if(target.closest?.('table[data-ui-table-controls="auto"]')) return false;
+    const secondary = target.querySelector?.(':scope > span, :scope > small');
+    if(!secondary || secondary.matches?.('.ui-bilingual,.ui-dual-copy,.ui-table-sort-heading')) return false;
+    const nodes = directTextNodes(target);
+    const vi = nodes.map(node=>String(node.textContent || '').trim()).filter(Boolean).join(' ');
+    const zh = String(secondary.textContent || '').trim();
+    if(!vi || !zh || !/[A-Za-zÀ-ỹ]/.test(vi) || !/[\u3400-\u9fff]/.test(zh)) return false;
+    target.replaceChildren(create({vi,zh}));
+    return true;
+  }
+
   function markStructuredPair(target){
     const vi = target?.querySelector?.(':scope > strong');
     const zh = target?.querySelector?.(':scope > span');
@@ -268,7 +322,11 @@
   function upgradeLegacyTextTarget(target){
     if(!target) return false;
     if(String(target.tagName || '').toUpperCase() === 'OPTION') return updateLegacyOption(target);
+    if(markKnownLanguageNode(target)) return true;
+    if(upgradeSummaryLabel(target)) return true;
+    if(markNamedSiblingPair(target)) return true;
     if(markStructuredPair(target)) return true;
+    if(upgradeHeaderSecondaryCopy(target)) return true;
     if(markBlockPair(target)) return true;
     if(upgradeBreakSeparatedCopy(target)) return true;
     if(upgradeSecondaryCopy(target)) return true;
@@ -282,14 +340,24 @@
     return changed;
   }
 
+  function upgradeLocalizedAttribute(target,attribute){
+    const prefix = localizedAttributePrefix(attribute);
+    if(!target || !prefix) return false;
+    const pair = parseLegacyPair(target.getAttribute?.(attribute));
+    if(!pair) return false;
+    const currentVi = target.getAttribute?.(`${prefix}-vi`);
+    const currentZh = target.getAttribute?.(`${prefix}-zh`);
+    if(currentVi === pair.vi && currentZh === pair.zh) return false;
+    return setLocalizedAttribute(target,attribute,pair);
+  }
+
   // upgradeLegacyMarkup（整理核准範圍內的舊介面文字）：不掃描 td（資料格）、input 值或一般內容節點。
   function upgradeLegacyMarkup(root=document){
     const attributeTargets = [];
     if(root?.nodeType === 1) attributeTargets.push(root);
     root?.querySelectorAll?.('[title],[aria-label],[placeholder]')?.forEach(target=>attributeTargets.push(target));
     attributeTargets.forEach(target=>LOCALIZED_ATTRIBUTES.forEach(attribute=>{
-      const pair = parseLegacyPair(target.getAttribute?.(attribute));
-      if(pair) setLocalizedAttribute(target,attribute,pair);
+      upgradeLocalizedAttribute(target,attribute);
     }));
 
     const textTargets = [];
@@ -304,6 +372,10 @@
     if(typeof MutationObserver !== 'function' || legacyObserver) return;
     legacyObserver = new MutationObserver(records=>{
       records.forEach(record=>{
+        if(record.type === 'attributes'){
+          upgradeLocalizedAttribute(record.target,record.attributeName);
+          return;
+        }
         record.addedNodes?.forEach(node=>{
           if(node?.nodeType === 1) upgradeLegacyMarkup(node);
           else if(node?.parentElement?.matches?.(LEGACY_TEXT_TARGETS)) upgradeLegacyTextTarget(node.parentElement);
@@ -313,7 +385,13 @@
         }
       });
     });
-    legacyObserver.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+    legacyObserver.observe(document.documentElement,{
+      subtree:true,
+      childList:true,
+      characterData:true,
+      attributes:true,
+      attributeFilter:LOCALIZED_ATTRIBUTES
+    });
   }
 
   register('common', COMMON_TEXT); // common（共用文字範圍）

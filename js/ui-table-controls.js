@@ -126,6 +126,62 @@
     return copy;
   }
 
+  function createSortLabel(label){
+    const copy = document.createElement('span');
+    copy.className = 'ui-table-sort-label ui-bilingual';
+    const vi = document.createElement('span');
+    vi.className = 'ui-text-vi';
+    vi.textContent = String(label?.vi || '');
+    const zh = document.createElement('span');
+    zh.className = 'ui-text-zh';
+    zh.textContent = String(label?.zh || '');
+    copy.append(vi,zh);
+    return copy;
+  }
+
+  function normalizeConfiguredHeader(header,column){
+    if(!header || !column) return false;
+    const sortKey = String(header.dataset?.uiTableSortKey || '');
+    if(sortKey){
+      const currentLabel = header.querySelector?.('.ui-table-sort-label');
+      const currentVi = currentLabel?.querySelector?.('.ui-text-vi');
+      const currentZh = currentLabel?.querySelector?.('.ui-text-zh');
+      if(currentVi && currentZh){
+        currentVi.textContent = column.label.vi;
+        currentZh.textContent = column.label.zh;
+        return true;
+      }
+      let icon = header.querySelector?.(SORT_ICON_SELECTOR);
+      if(!icon){
+        icon = document.createElement('i');
+        icon.className = 'ti ti-arrows-sort ui-table-sort-icon is-idle';
+        icon.dataset.uiTableSortIcon = 'true';
+        icon.setAttribute('aria-hidden','true');
+      }
+      const trigger = icon.closest?.(SORT_TRIGGER_SELECTOR);
+      const resizeHandles = Array.from(header.children || []).filter(child=>child?.dataset?.uiTableResizeHandle === 'true');
+      const heading = document.createElement('span');
+      heading.className = 'ui-table-sort-heading';
+      heading.append(createSortLabel(column.label),trigger || icon);
+      header.replaceChildren(heading,...resizeHandles);
+      header.classList?.add?.('ui-table-sortable-header');
+      header.setAttribute?.('aria-sort',header.getAttribute?.('aria-sort') || 'none');
+      return true;
+    }
+    const dual = header.querySelector?.(':scope > .ui-dual-copy');
+    if(dual){
+      const vi = dual.querySelector?.(':scope > strong');
+      const zh = dual.querySelector?.(':scope > span');
+      if(vi) vi.textContent = column.label.vi;
+      if(zh) zh.textContent = column.label.zh;
+      return true;
+    }
+    if(!header.querySelector?.(':scope > .tv, :scope > .lvi, :scope > .ui-bilingual')) return false;
+    const resizeHandles = Array.from(header.children || []).filter(child=>child?.dataset?.uiTableResizeHandle === 'true');
+    header.replaceChildren(createDualCopy(column.label),...resizeHandles);
+    return true;
+  }
+
   function create(options={}){
     const root = resolveElement(options.root) || document;
     const table = resolveElement(options.table,root);
@@ -175,6 +231,10 @@
     function cellsForColumn(key){
       return Array.from(table.querySelectorAll(COLUMN_CELL_SELECTOR))
         .filter(cell=>String(cell.dataset?.uiTableColumn || '') === String(key || ''));
+    }
+
+    function normalizeHeaderCopies(){
+      columns.forEach(column=>normalizeConfiguredHeader(headerForColumn(column.key),column));
     }
 
     function textWidth(text,element){
@@ -506,6 +566,7 @@
 
     function refresh(){
       if(destroyed) return false;
+      normalizeHeaderCopies();
       if(currentAvailabilitySignature() !== availabilitySignature) renderMenu();
       applyColumns();
       applySort();
@@ -689,15 +750,7 @@
     if(header.querySelector(SORT_ICON_SELECTOR)) return;
     const heading = document.createElement('span');
     heading.className = 'ui-table-sort-heading';
-    const label = document.createElement('span');
-    label.className = 'ui-table-sort-label ui-bilingual';
-    const vi = document.createElement('span');
-    vi.className = 'ui-text-vi';
-    vi.textContent = column.label.vi;
-    const zh = document.createElement('span');
-    zh.className = 'ui-text-zh';
-    zh.textContent = column.label.zh;
-    label.append(vi,zh);
+    const label = createSortLabel(column.label);
     const icon = document.createElement('i');
     icon.className = 'ti ti-arrows-sort ui-table-sort-icon is-idle';
     icon.dataset.uiTableSortIcon = 'true';

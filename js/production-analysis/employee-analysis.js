@@ -34,10 +34,10 @@
       </div>
       <div class="production-analysis-source" data-role="source"></div>
       <div class="ui-summary-row production-analysis-summary">
-        <div class="ui-summary-item"><div class="ui-summary-label">Số nhân viên<span>員工人數</span></div><div class="ui-summary-value" data-summary="employees">0</div></div>
-        <div class="ui-summary-item"><div class="ui-summary-label">Số ngày nhân viên<span>員工日數</span></div><div class="ui-summary-value" data-summary="rows">0</div></div>
-        <div class="ui-summary-item"><div class="ui-summary-label">Hiệu suất ngày tổng hợp<span>綜合當日效率</span></div><div class="ui-summary-value" data-summary="efficiency">—</div></div>
-        <div class="ui-summary-item is-warning"><div class="ui-summary-label">Thấp hơn lịch sử<span>低於歷史員工日</span></div><div class="ui-summary-value" data-summary="below">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Số nhân viên','員工人數')}</div><div class="ui-summary-value" data-summary="employees">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Số ngày nhân viên','員工日數')}</div><div class="ui-summary-value" data-summary="rows">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Hiệu suất ngày tổng hợp','綜合當日效率')}</div><div class="ui-summary-value" data-summary="efficiency">—</div></div>
+        <div class="ui-summary-item is-warning"><div class="ui-summary-label">${ui.dual('Thấp hơn lịch sử','低於歷史員工日')}</div><div class="ui-summary-value" data-summary="below">0</div></div>
       </div>
       <section class="ui-data-section">
         <div class="ui-section-header"><i class="ti ti-users"></i>${ui.dual('Tình trạng hiệu suất nhân viên','員工效率狀態')}</div>

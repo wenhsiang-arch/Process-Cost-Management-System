@@ -930,10 +930,17 @@ html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .ui-bilingu
   line-height: 1.25;
 }
 
-.ui-summary-label span {
+.ui-summary-label > .ui-text-zh {
   margin-top: 2px;
   color: var(--ui-color-text-muted);
   font-size: 10px;
+}
+
+.ui-summary-label > .ui-text-vi {
+  margin-top: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .ui-summary-value {

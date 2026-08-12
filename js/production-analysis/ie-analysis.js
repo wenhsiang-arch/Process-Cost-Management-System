@@ -34,10 +34,10 @@
       </div>
       <div class="production-analysis-source" data-role="source"></div>
       <div class="ui-summary-row production-analysis-summary">
-        <div class="ui-summary-item"><div class="ui-summary-label">Công đoạn bất thường<span>異常工序</span></div><div class="ui-summary-value" data-summary="rows">0</div></div>
-        <div class="ui-summary-item is-danger"><div class="ui-summary-label">Ưu tiên cao<span>高優先</span></div><div class="ui-summary-value" data-summary="high">0</div></div>
-        <div class="ui-summary-item"><div class="ui-summary-label">Giờ hiệu quả tích lũy<span>累積有效工時</span></div><div class="ui-summary-value" data-summary="hours">0 h</div></div>
-        <div class="ui-summary-item is-warning"><div class="ui-summary-label">Đã chọn để in<span>已選列印</span></div><div class="ui-summary-value" data-summary="selected">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Công đoạn bất thường','異常工序')}</div><div class="ui-summary-value" data-summary="rows">0</div></div>
+        <div class="ui-summary-item is-danger"><div class="ui-summary-label">${ui.dual('Ưu tiên cao','高優先')}</div><div class="ui-summary-value" data-summary="high">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Giờ hiệu quả tích lũy','累積有效工時')}</div><div class="ui-summary-value" data-summary="hours">0 h</div></div>
+        <div class="ui-summary-item is-warning"><div class="ui-summary-label">${ui.dual('Đã chọn để in','已選列印')}</div><div class="ui-summary-value" data-summary="selected">0</div></div>
       </div>
       <section class="ui-data-section">
         <div class="ui-section-header"><i class="ti ti-adjustments-exclamation"></i>${ui.dual('Danh sách kiểm tra sai lệch thời gian chuẩn','標準工時差異查核清單')}</div>

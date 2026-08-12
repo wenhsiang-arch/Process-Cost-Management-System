@@ -14,6 +14,14 @@ function accountUpdatedBy(){
   return String(window.cu?.user||window.firebaseAuthUser?.uid||'system').slice(0,100);
 }
 
+function setAccountPair(target,vi,zh){
+  if(!target) return target;
+  const pair={vi:String(vi||''),zh:String(zh||'')};
+  if(String(target.tagName||'').toUpperCase()==='TD') target.replaceChildren(window.PCMSUIText.create(pair));
+  else window.PCMSUIText.set(target,pair);
+  return target;
+}
+
 async function saveAccountOperationLog(action,account,note=''){
   try{
     await window.PCMSHistory?.saveOperationLog?.({
@@ -113,14 +121,15 @@ function rAcc(){
     const tr=document.createElement('tr');
 
     const emailText=a.email||(isMe?normalizeAccessEmail(window.cu?.email):'');
-    appendAccountCell(tr,emailText||'Chưa ghi nhận / 尚未記錄');
+    const emailCell=appendAccountCell(tr,emailText);
+    if(!emailText) setAccountPair(emailCell,'Chưa ghi nhận','尚未記錄');
 
     const userCell=appendAccountCell(tr,a.user||'-');
     if(isMe){
       const me=document.createElement('span');
       me.className='tg tb2';
       me.style.marginLeft='6px';
-      me.textContent='Tôi / 我';
+      setAccountPair(me,'Tôi','我');
       userCell.appendChild(me);
     }
 
@@ -134,28 +143,30 @@ function rAcc(){
     const statusCell=document.createElement('td');
     const statusTag=document.createElement('span');
     statusTag.className='tg '+(a.active?'tg2':'tr2');
-    statusTag.textContent=a.active?'Đang bật / 已啟用':'Đã tắt / 已停用';
+    setAccountPair(statusTag,a.active?'Đang bật':'Đã tắt',a.active?'已啟用':'已停用');
     statusCell.appendChild(statusTag);
     tr.appendChild(statusCell);
 
-    const uidText=a.authUid||'Chưa đăng nhập / 尚未登入'; // uidText（使用者識別碼顯示文字）
+    const uidText=a.authUid||''; // uidText（使用者識別碼顯示文字）
     const uidCell=appendAccountCell(tr,uidText);
+    if(!uidText) setAccountPair(uidCell,'Chưa đăng nhập','尚未登入');
     uidCell.className='accounts-uid';
-    uidCell.title=uidText;
+    if(uidText) uidCell.title=uidText;
+    else window.PCMSUIText.setLocalizedAttribute(uidCell,'title',{vi:'Chưa đăng nhập',zh:'尚未登入'});
 
     const actionCell=document.createElement('td');
     const actions=document.createElement('div');
     actions.className='account-row-actions';
     const editButton=document.createElement('button');
     editButton.className='btn bsm';
-    editButton.title='Chỉnh sửa / 編輯';
+    window.PCMSUIText.setLocalizedAttribute(editButton,'title',{vi:'Chỉnh sửa',zh:'編輯'});
     editButton.innerHTML='<i class="ti ti-edit"></i>';
     editButton.addEventListener('click',()=>oEacc(a.accessId));
     actions.appendChild(editButton);
     if(!isMe){
       const deleteButton=document.createElement('button');
       deleteButton.className='btn bsm bd2';
-      deleteButton.title='Xóa quyền truy cập / 刪除使用權限';
+      window.PCMSUIText.setLocalizedAttribute(deleteButton,'title',{vi:'Xóa quyền truy cập',zh:'刪除使用權限'});
       deleteButton.innerHTML='<i class="ti ti-trash"></i>';
       deleteButton.addEventListener('click',()=>delAcc(a.accessId));
       actions.appendChild(deleteButton);

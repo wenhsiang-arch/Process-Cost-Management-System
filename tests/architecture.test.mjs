@@ -31,7 +31,7 @@ test('共用表格操作只在使用功能開啟後按需載入',()=>{
   const productsEnd=source.indexOf("id:'cutting'",productsStart);
   const products=source.slice(productsStart,productsEnd);
   assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
-  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260812-5'/);
+  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260813-1'/);
   assert.match(products,/scripts:\['history','fileIo','productCache','uiTableControls','summary','data'\]/);
   assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });
@@ -102,7 +102,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const navigationHtml=read('index.html');
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260812-13/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260813-1/);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{

@@ -26,10 +26,10 @@
       </div>
       <div class="production-analysis-source" data-role="source"></div>
       <div class="ui-summary-row production-analysis-summary">
-        <div class="ui-summary-item"><div class="ui-summary-label">Số bộ phận<span>部門數</span></div><div class="ui-summary-value" data-summary="departments">0</div></div>
-        <div class="ui-summary-item"><div class="ui-summary-label">Số nhân viên<span>員工人數</span></div><div class="ui-summary-value" data-summary="employees">0</div></div>
-        <div class="ui-summary-item"><div class="ui-summary-label">Tổng giờ chấm công<span>總考勤工時</span></div><div class="ui-summary-value" data-summary="attendance">0 h</div></div>
-        <div class="ui-summary-item is-success"><div class="ui-summary-label">Hiệu suất tổng hợp<span>綜合部門效率</span></div><div class="ui-summary-value" data-summary="efficiency">—</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Số bộ phận','部門數')}</div><div class="ui-summary-value" data-summary="departments">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Số nhân viên','員工人數')}</div><div class="ui-summary-value" data-summary="employees">0</div></div>
+        <div class="ui-summary-item"><div class="ui-summary-label">${ui.dual('Tổng giờ chấm công','總考勤工時')}</div><div class="ui-summary-value" data-summary="attendance">0 h</div></div>
+        <div class="ui-summary-item is-success"><div class="ui-summary-label">${ui.dual('Hiệu suất tổng hợp','綜合部門效率')}</div><div class="ui-summary-value" data-summary="efficiency">—</div></div>
       </div>
       <section class="ui-data-section">
         <div class="ui-section-header"><i class="ti ti-building-factory-2"></i>${ui.dual('Hiệu suất theo bộ phận','各部門效率')}</div>

@@ -13,6 +13,7 @@ const SUMMARY_COLUMNS=Object.freeze([
   {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:88,preferred:96,maximum:120}
 ]); // SUMMARY_COLUMNS（款號欄位定義）：提供文字、既有權限與使用者拖曳時的合理寬度範圍。
 const summarySafeText=value=>window.PCMSSafe.text(value); // summarySafeText（款號畫面安全文字）
+const summaryPairHtml=(vi,zh)=>`<span class="ui-bilingual"><span class="ui-text-vi">${summarySafeText(vi)}</span><span class="ui-text-zh">${summarySafeText(zh)}</span></span>`; // summaryPairHtml（款號畫面可切換雙語文字）
 function summaryMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
 }
@@ -81,7 +82,7 @@ function renderSummaryDetail(d){
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
-      <span class="tg tn">Khách hàng / 客人: ${summarySafeText(d.client)}</span><span class="tg tn">Kích thước / 尺寸: ${summarySafeText(d.sz)}</span>
+      <span class="tg tn">${summaryPairHtml(`Khách hàng: ${d.client}`,`客人：${d.client}`)}</span><span class="tg tn">${summaryPairHtml(`Kích thước: ${d.sz}`,`尺寸：${d.sz}`)}</span>
       ${isA?`<span class="tg tg2">USD: ${summarySafeText(fU(total))}</span><span class="tg tb2">VND: ${summarySafeText(fV(total))}</span><span class="tg ta">TWD: ${summarySafeText(fT(total))}</span>`:''}
     </div>
     <div class="summary-detail-table-wrap"><table class="summary-detail-table ui-table" data-ui-table-layout="special">
@@ -97,7 +98,7 @@ function rSum(){
   const cf = (g('s-client')||{}).value||'';
   const isA = canViewCosts();
   const tableControl=ensureSummaryTableControl(); // tableControl（款號共用表格操作控制）
-  const th=(col,key,vi,zh,numeric=false)=>`<th class="ui-table-sortable-header${numeric?' ui-table-number-cell':''}" data-ui-table-column="${key}" data-ui-table-sort-key="${col}" aria-sort="none"><span class="ui-table-sort-heading"><span>${vi}</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">${zh}</span></th>`;
+  const th=(col,key,vi,zh,numeric=false)=>`<th class="ui-table-sortable-header${numeric?' ui-table-number-cell':''}" data-ui-table-column="${key}" data-ui-table-sort-key="${col}" aria-sort="none"><span class="ui-table-sort-heading"><span class="ui-table-sort-label ui-bilingual"><span class="ui-text-vi">${summarySafeText(vi)}</span><span class="ui-text-zh">${summarySafeText(zh)}</span></span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span></th>`;
   g('sh').innerHTML=`<th data-ui-table-column="index">#</th>${th('code','code','Mã hàng','款號')}${th('client','client','Khách hàng','客人')}${th('zh','zh','Tên Trung','中文名稱')}${th('vi','vi','Tên Việt','越文名稱')}${th('sz','size','Kích thước','尺寸')}${th('ops','ops','Số công đoạn','工序數',true)}`+(isA?th('cost','cost',`Tổng chi phí (${window.cur})`,'總工價',true):'')+`<th class="ui-table-center-cell summary-action-column" data-ui-table-column="action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>`;
   let fd=sortD().filter(d=>{
     const m=!q||(d.code+d.client+d.zh+d.vi).toLowerCase().includes(q.toLowerCase());

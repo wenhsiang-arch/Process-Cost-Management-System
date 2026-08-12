@@ -12,6 +12,7 @@ let ordersImportProgressController = null; // ordersImportProgressController（�
 const ordersSafeText=value=>window.PCMSSafe.text(value); // ordersSafeText（訂單畫面安全文字）
 const ordersSafeAttr=value=>window.PCMSSafe.attribute(value); // ordersSafeAttr（訂單畫面安全屬性）
 const ordersInlineArg=value=>window.PCMSSafe.inlineArgument(value); // ordersInlineArg（訂單行內事件安全參數）
+const ordersPairHtml=(vi,zh)=>`<span class="ui-bilingual"><span class="ui-text-vi">${ordersSafeText(vi)}</span><span class="ui-text-zh">${ordersSafeText(zh)}</span></span>`; // ordersPairHtml（訂單畫面可切換雙語文字）
 
 function ordersMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
@@ -536,13 +537,20 @@ function renderOrders(){
     const tr=document.createElement('tr');
     const idArg=ordersInlineArg(o.id);
     const orderArg=ordersInlineArg(o.orderId);
+    const statusPair=o.lifecycleStatus==='archived'
+      ? {vi:'Đã xóa (lưu trữ)',zh:'已刪除（封存）'}
+      : (o.lifecycleStatus==='deleting'
+        ? {vi:'Đang xóa vĩnh viễn',zh:'永久刪除中'}
+        : (o.importStatus==='failed'
+          ? {vi:'Nhập thất bại',zh:'匯入失敗'}
+          : (o.importStatus==='importing'?{vi:'Đang nhập',zh:'匯入中'}:{vi:'Đang sử dụng',zh:'使用中'})));
     tr.innerHTML=`
       <td><b style="color:var(--navy)">${ordersSafeText(o.orderId)}</b></td>
       <td>${o.itemCount||0}</td>
       <td>${(o.totalQty||0).toLocaleString()}</td>
       <td>${fmtVN(o.dueDate)}</td>
       <td style="min-width:120px">
-        <div class="orders-state${o.importStatus==='failed'||o.lifecycleStatus==='deleting'?' is-danger':''}">${o.lifecycleStatus==='archived'?'Đã xóa (lưu trữ) / 已刪除（封存）':o.lifecycleStatus==='deleting'?'Đang xóa vĩnh viễn / 永久刪除中':o.importStatus==='failed'?'Nhập thất bại / 匯入失敗':o.importStatus==='importing'?'Đang nhập / 匯入中':'Đang sử dụng / 使用中'}</div>
+        <div class="orders-state${o.importStatus==='failed'||o.lifecycleStatus==='deleting'?' is-danger':''}">${ordersPairHtml(statusPair.vi,statusPair.zh)}</div>
       </td>
       <td><div class="orders-row-actions">
         ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress(${idArg})"><i class="ti ti-chart-bar"></i></button>`:''}
@@ -796,14 +804,14 @@ async function renderProgress(){
     const thS='padding:6px 8px;text-align:left;background:var(--sf);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:11px;font-weight:500;color:var(--mu)';
     let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
     html+=`<th style="${thS};width:36px">No</th>`;
-    html+=`<th style="${thS};width:80px">Khách hàng<br><span style="font-size:10px;font-weight:400">客人</span></th>`;
-    html+=`<th style="${thS};width:110px">Số đơn hàng<br><span style="font-size:10px;font-weight:400">訂單號碼</span></th>`;
-    html+=`<th style="${thS};width:70px">Số lượng<br><span style="font-size:10px;font-weight:400">數量</span></th>`;
-    html+=`<th style="${thS};width:100px">Số công đoạn<br><span style="font-size:10px;font-weight:400">工序數</span></th>`;
-    html+=`<th style="${thS};width:90px">Theo PO<br><span style="font-size:10px;font-weight:400">出貨日期PO</span></th>`;
-    html+=`<th style="${thS};width:120px">Hoàn thành<br><span style="font-size:10px;font-weight:400">實際完成日</span></th>`;
-    html+=`<th style="${thS};width:120px">Xuất hàng<br><span style="font-size:10px;font-weight:400">實際出貨日</span></th>`;
-    html+=`<th style="${thS}">Ghi chú<br><span style="font-size:10px;font-weight:400">備註</span></th>`;
+    html+=`<th style="${thS};width:80px">${ordersPairHtml('Khách hàng','客人')}</th>`;
+    html+=`<th style="${thS};width:110px">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
+    html+=`<th style="${thS};width:70px">${ordersPairHtml('Số lượng','數量')}</th>`;
+    html+=`<th style="${thS};width:100px">${ordersPairHtml('Số công đoạn','工序數')}</th>`;
+    html+=`<th style="${thS};width:90px">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
+    html+=`<th style="${thS};width:120px">${ordersPairHtml('Hoàn thành','實際完成日')}</th>`;
+    html+=`<th style="${thS};width:120px">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
+    html+=`<th style="${thS}">${ordersPairHtml('Ghi chú','備註')}</th>`;
     html+=`<th style="${thS};width:60px"></th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
@@ -824,7 +832,7 @@ async function renderProgress(){
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualCompleteDateVal)}" onchange="saveProgField(${idArg},'actualCompleteDate',this.value)"></td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
-        <td onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" title="${remarkVal}" style="cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:12px;color:${o.remark?'var(--navy)':'var(--mu)'}">${ordersSafeText(o.remark||'Ghi chú... / 備註...')}</td>
+        <td onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" title="${remarkVal}" style="cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:12px;color:${o.remark?'var(--navy)':'var(--mu)'}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td style="padding:6px 8px" onclick="event.stopPropagation()">
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-trash"></i></button>
           ${window.cu?.role==='admin'?`<button class="btn bsm bd2" style="background:var(--errl);color:var(--err)" title="Xóa vĩnh viễn / 永久刪除" onclick="openOrderDeleteWarning('purge',${idArg},${orderArg})"><i class="ti ti-database-off"></i></button>`:''}
@@ -913,7 +921,7 @@ async function toggleProgDetail(ordId){
         <i id="${ordersSafeAttr(detailId)}-icon" class="ti ti-chevron-right" style="color:var(--accent)"></i>
         <b>${ordersSafeText(code)}</b><span style="font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:80px;max-width:240px">${ordersSafeText(cp[0].desc||'')} ${ordersSafeText(cp[0].color||'')}</span>
         <span style="margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--accent);min-width:0">
-          <span>${cp.length} công đoạn / ${cp.length} 道工序 · ${(cp[0].orderQty||0).toLocaleString()} sản phẩm / 件</span>
+          ${ordersPairHtml(`${cp.length} công đoạn · ${(cp[0].orderQty||0).toLocaleString()} sản phẩm`,`${cp.length} 道工序 · ${(cp[0].orderQty||0).toLocaleString()} 件`)}
           ${canManageOrders()?`<button class="btn bsm" title="Điều chỉnh SL / 調整數量" aria-label="Điều chỉnh SL / 調整數量" onclick="event.stopPropagation();openOrderQtyAdjust(${ordArg},${codeArg})"><i class="ti ti-edit"></i></button>`:''}
         </span>
       </div>
@@ -1026,7 +1034,7 @@ async function openOrderAdjustmentHistory(){
 function renderOrderAdjustmentHistory(rows){
   const body=g('order-adjust-history'); // body（訂單調整歷史表格內容）
   if(body){
-    body.innerHTML=rows.length?rows.map(r=>`<tr><td>${ordersSafeText(r.orderNo)}</td><td>${ordersSafeText(r.code)}</td><td>${r.oldQty?.toLocaleString()}</td><td>${r.newQty?.toLocaleString()}</td><td>${ordersSafeText(r.reason||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span style="font-size:10px;color:var(--mu)">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`).join(''):'<tr><td colspan="6"><div>Chưa có dữ liệu</div><div>尚無資料</div></td></tr>';
+    body.innerHTML=rows.length?rows.map(r=>`<tr><td>${ordersSafeText(r.orderNo)}</td><td>${ordersSafeText(r.code)}</td><td>${r.oldQty?.toLocaleString()}</td><td>${r.newQty?.toLocaleString()}</td><td>${ordersSafeText(r.reason||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span style="font-size:10px;color:var(--mu)">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`).join(''):'<tr><td colspan="6"><div class="ui-language-sections"><div class="ui-language-section is-vi">Chưa có dữ liệu</div><div class="ui-language-section is-zh">尚無資料</div></div></td></tr>';
   }
   const moreButton=g('order-adjust-history-more'); // moreButton（載入更多按鈕）
   if(moreButton) moreButton.hidden=!window.PCMSHistory?.hasMore?.(COL.orderAdjustments,{limit:50});
