@@ -1,6 +1,7 @@
 // ===== 匯入 =====
 let nItms=null, dups=[], detailImportFileName='', importClassification=null;
 let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
+let productFileDropTargetRegistered=false; // productFileDropTargetRegistered（款號全視窗匯入用途是否已登記）
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
 const EXPORT_PREVIEW_PAGE_SIZE=50; // EXPORT_PREVIEW_PAGE_SIZE（產品工價預覽每頁筆數）
 const EXPORT_PREVIEW_CURRENCIES=Object.freeze({
@@ -15,6 +16,43 @@ const dataSafeError=error=>window.PCMSSafe.errorMessage(error); // dataSafeError
 function dataMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
 }
+
+// showProductFileDropMessage（顯示款號拖曳結果）：格式或數量不符時沿用款號匯入視窗顯示雙語原因。
+function showProductFileDropMessage(detail){
+  const message=detail?.message||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
+  const pair=window.PCMSUIText?.resolve?.(message)||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // pair（拒絕原因雙語文字）
+  openDetailImportModal();
+  g('imp-err').style.display='flex';
+  setDataBilingual('imp-err-msg',pair.vi,pair.zh);
+  g('fi').value='';
+}
+
+// acceptProductImportFiles（接收款號檔案）：點擊選檔與全視窗拖曳共用同一個預覽流程。
+function acceptProductImportFiles(files){
+  const file=Array.from(files||[])[0];
+  if(!file) return false;
+  openDetailImportModal();
+  return processDetailImportFile(file);
+}
+
+// registerProductFileDropTarget（登記款號全視窗匯入）：只負責接收檔案，不改變款號內容判定或正式寫入。
+function registerProductFileDropTarget(){
+  const fileDrop=window.PCMSUIFileDrop; // fileDrop（全視窗拖曳共用介面）
+  if(!fileDrop||productFileDropTargetRegistered) return false;
+  fileDrop.register({
+    id:'product-import', // product-import（款號匯入用途）
+    page:'summary',
+    accept:['.xlsx','.xls'],
+    maxFiles:1,
+    text:{vi:'Thả tệp để nhập mã hàng',zh:'放開即可匯入款號'},
+    onDrop:acceptProductImportFiles,
+    onReject:showProductFileDropMessage,
+    onError:()=>showProductFileDropMessage({message:{vi:'Không thể xử lý tệp mã hàng',zh:'無法處理款號檔案'}})
+  });
+  productFileDropTargetRegistered=true;
+  return true;
+}
+registerProductFileDropTarget();
 function setDataBilingual(targetId,vi,zh){
   const target=g(targetId);
   if(!target) return;
@@ -189,24 +227,18 @@ function handleDetailImportDragLeave(event){
   g('detail-import-drop').classList.remove('dragging');
 }
 
-function handleDetailImportDrop(event){
+async function handleDetailImportDrop(event){
   event.preventDefault();
+  event.stopPropagation();
   g('detail-import-drop').classList.remove('dragging');
-  const file=event.dataTransfer.files[0];
-  if(!file) return;
-  openDetailImportModal();
-  if(!/\.(xlsx|xls)$/i.test(file.name)){
-    g('imp-err').style.display='flex';
-    setDataBilingual('imp-err-msg','Chỉ hỗ trợ tệp .xlsx hoặc .xls.','只支援 .xlsx 或 .xls 檔案。');
-    return;
-  }
-  processDetailImportFile(file);
+  registerProductFileDropTarget();
+  return window.PCMSUIFileDrop?.receiveFiles?.(event.dataTransfer?.files||[],{targetId:'product-import',source:'drop-zone'});
 }
 
-function hImport(input){
+async function hImport(input){
   const file=input.files[0]; if(!file) return;
-  openDetailImportModal();
-  processDetailImportFile(file);
+  registerProductFileDropTarget();
+  return window.PCMSUIFileDrop?.receiveFiles?.(input.files,{targetId:'product-import',source:'picker'});
 }
 
 async function processDetailImportFile(file){

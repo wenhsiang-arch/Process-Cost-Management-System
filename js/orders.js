@@ -9,6 +9,10 @@ let progressRenderSequence = 0;
 let progressRenderTimer = null;
 let legacyOrderCostCleanupPromise = null;
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
+let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（訂單全視窗匯入用途是否已登記）
+let orderImportFieldsBound = false; // orderImportFieldsBound（訂單必要資料自動接續檢查是否已綁定）
+let pendingOrderImportFile = null; // pendingOrderImportFile（等待必要資料完成的訂單檔案）
+let pendingOrderImportInput = null; // pendingOrderImportInput（本次訂單檔案選擇控制）
 const ordersSafeText=value=>window.PCMSSafe.text(value); // ordersSafeText（訂單畫面安全文字）
 const ordersSafeAttr=value=>window.PCMSSafe.attribute(value); // ordersSafeAttr（訂單畫面安全屬性）
 const ordersInlineArg=value=>window.PCMSSafe.inlineArgument(value); // ordersInlineArg（訂單行內事件安全參數）
@@ -32,6 +36,71 @@ function ordersSplitMessages(messages){
     return result;
   },{vi:[],zh:[]});
 }
+
+// showOrderFileDropMessage（顯示訂單拖曳結果）：格式或數量不符時顯示雙語原因。
+function showOrderFileDropMessage(detail){
+  const message=detail?.message||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
+  const pair=window.PCMSUIText?.resolve?.(message)||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // pair（拒絕原因雙語文字）
+  void ordersMessage(pair.vi,pair.zh,'warning');
+}
+
+function orderImportPrerequisitesComplete(){
+  return !!g('imp-ord-id')?.value.trim()&&!!g('imp-ord-client')?.value&&!!g('imp-ord-date')?.value;
+}
+
+// tryProcessPendingOrderImport（接續訂單檢查）：檔案先拖入時，等訂單資料填完整後才進入既有檢查。
+async function tryProcessPendingOrderImport(){
+  if(!pendingOrderImportFile||!orderImportPrerequisitesComplete()) return false;
+  const file=pendingOrderImportFile; // file（等待處理的訂單檔案）
+  const input=pendingOrderImportInput; // input（原始檔案選擇控制）
+  pendingOrderImportFile=null;
+  pendingOrderImportInput=null;
+  await processImportOrderFile(file,input);
+  return true;
+}
+
+async function queueOrderImportFile(file,input=null){
+  if(!file) return false;
+  pendingOrderImportFile=file;
+  pendingOrderImportInput=input;
+  const fileName=g('imp-filename');
+  if(fileName) fileName.textContent=String(file.name||'');
+  return tryProcessPendingOrderImport();
+}
+
+async function acceptOrderImportFiles(files){
+  const file=Array.from(files||[])[0];
+  if(!file) return false;
+  const modal=g('m-import-order'); // modal（訂單匯入視窗）
+  if(!modal?.classList.contains('open')) return openImportOrder({file});
+  return queueOrderImportFile(file);
+}
+
+// registerOrderFileDropTarget（登記訂單全視窗匯入）：檔案拖入後仍必須完成訂單資料及原有內容檢查。
+function registerOrderFileDropTarget(){
+  const fileDrop=window.PCMSUIFileDrop; // fileDrop（全視窗拖曳共用介面）
+  if(!fileDrop) return false;
+  if(!orderFileDropTargetRegistered){
+    fileDrop.register({
+      id:'order-import', // order-import（一般訂單匯入用途）
+      page:'progress',
+      accept:['.xlsx','.xls'],
+      maxFiles:1,
+      enabled:()=>canManageOrders(),
+      text:{vi:'Thả tệp để nhập đơn hàng',zh:'放開即可匯入訂單'},
+      onDrop:acceptOrderImportFiles,
+      onReject:showOrderFileDropMessage,
+      onError:()=>showOrderFileDropMessage({message:{vi:'Không thể xử lý tệp đơn hàng',zh:'無法處理訂單檔案'}})
+    });
+    orderFileDropTargetRegistered=true;
+  }
+  if(!orderImportFieldsBound){
+    ['imp-ord-id','imp-ord-client','imp-ord-date'].forEach(id=>g(id)?.addEventListener('change',()=>{ void tryProcessPendingOrderImport(); }));
+    orderImportFieldsBound=true;
+  }
+  return true;
+}
+registerOrderFileDropTarget();
 
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 function resetOrderRuntimeCache(){
@@ -173,7 +242,7 @@ function fillOrderSelects(){
 }
 
 // ===== 匯入訂單 =====
-async function openImportOrder(){
+async function openImportOrder(options={}){
   if(!canManageOrders()) return;
   closeOrdersImportProgress();
   if(window.ensureProductsLoaded){
@@ -187,6 +256,8 @@ async function openImportOrder(){
   g('imp-progress-wrap').style.display='none';
   g('imp-cleanup-btn').style.display='none';
   window._impData=null;
+  pendingOrderImportFile=null;
+  pendingOrderImportInput=null;
   const clientSel=g('imp-ord-client');
   if(clientSel){
     clientSel.innerHTML='<option value="">-- Chọn khách hàng / 選擇客戶 --</option>';
@@ -194,6 +265,7 @@ async function openImportOrder(){
     clients.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; clientSel.appendChild(o); });
   }
   om('m-import-order');
+  if(options.file) await queueOrderImportFile(options.file);
 }
 
 async function reloadOrders(options={}){
@@ -247,13 +319,17 @@ async function cleanupLegacyOrderCostSnapshots(){
 function closeImportOrder(){
   closeOrdersImportProgress();
   window._impData=null;
+  pendingOrderImportFile=null;
+  pendingOrderImportInput=null;
   g('imp-file').value='';
+  g('imp-filename').textContent='';
   cm('m-import-order');
 }
 
-function handleImportFile(input){
+async function handleImportFile(input){
   const file=input.files[0]; if(!file) return;
-  processImportOrderFile(file,input);
+  registerOrderFileDropTarget();
+  return window.PCMSUIFileDrop?.receiveFiles?.(input.files,{targetId:'order-import',source:'picker'});
 }
 
 async function processImportOrderFile(file,input){
