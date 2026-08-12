@@ -29,11 +29,11 @@
     {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:118,preferred:148,maximum:220,available:()=>state.processRowsMode},
     {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:130,preferred:150,maximum:240},
     {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:135,preferred:155,maximum:240},
+    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:110,preferred:120,maximum:160},
     {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:72,preferred:80,maximum:96},
     {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'},minimum:226,preferred:320,maximum:600},
     {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},minimum:110,preferred:120,maximum:160},
     {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'},minimum:110,preferred:120,maximum:160},
-    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:110,preferred:120,maximum:160},
     {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},minimum:90,preferred:100,maximum:130},
     {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},minimum:105,preferred:115,maximum:150},
     {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:100,preferred:116,maximum:140},
@@ -1121,11 +1121,11 @@
       appendCell(row,currentEmployee?.name || item.employeeName || '—','production-record-text-cell','employeeName');
       appendCell(row,item.orderNo || '—','', 'order');
       appendCell(row,item.productCode || '—','production-product-code-cell','product');
+      appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
       appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
       appendCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
       appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity','production-value-badge');
       appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
-      appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
       appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
       appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacitySnapshot),'production-number-cell','hourlyCapacity');
       const statusCell = document.createElement('td');

@@ -23,7 +23,7 @@
     productionEntryStore:'js/production/entry-store.js?v=20260812-1',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
-    productionEntry:'js/production/production-entry.js?v=20260810-7',
+    productionEntry:'js/production/production-entry.js?v=20260812-1',
     productionRecords:'js/production/production-records.js?v=20260810-6',
     productionAttendance:'js/production/production-attendance.js?v=20260812-2',
     productionEmployees:'js/production/production-employees.js?v=20260810-5',
