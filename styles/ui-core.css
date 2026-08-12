@@ -1315,11 +1315,24 @@ body.is-ui-table-resizing * {
 
 .ui-table-sort-label {
   min-width: 0;
+  max-width: calc(100% - var(--ui-table-sort-control-space));
+  flex: 0 1 auto;
   align-items: inherit;
+  overflow: hidden;
   text-align: inherit;
 }
 
+.ui-table-sort-label > .ui-text-vi,
+.ui-table-sort-label > .ui-text-zh {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .ui-table-sort-trigger {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   width: 20px;
   height: 20px;

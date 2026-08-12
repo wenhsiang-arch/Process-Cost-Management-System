@@ -767,11 +767,11 @@
 }
 
 .production-entry-table [data-production-column="orderQuantity"] {
-  width: 98px;
+  width: 104px;
 }
 
 .production-entry-table [data-production-column="processNo"] {
-  width: 68px;
+  width: 72px;
 }
 
 .production-entry-table [data-production-column="processName"] {
@@ -780,15 +780,15 @@
 
 .production-entry-table [data-production-column="quantity"],
 .production-entry-table [data-production-column="supplementHours"] {
-  width: 100px;
+  width: 106px;
 }
 
 .production-entry-table [data-production-column="processSeconds"] {
-  width: 76px;
+  width: 82px;
 }
 
 .production-entry-table [data-production-column="hourlyCapacity"] {
-  width: 86px;
+  width: 92px;
 }
 
 .production-entry-table [data-production-column="status"] {

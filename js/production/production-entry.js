@@ -29,13 +29,13 @@
     {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:110,preferred:128,maximum:180,available:()=>state.processRowsMode},
     {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:116,preferred:128,maximum:190},
     {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:96,preferred:108,maximum:160},
-    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:98,preferred:104,maximum:128},
-    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:68,preferred:72,maximum:84},
+    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},headerLabel:{vi:'SL đơn hàng',zh:'訂單數量'},minimum:98,preferred:104,maximum:128},
+    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},headerLabel:{vi:'Số CĐ',zh:'工序號'},minimum:68,preferred:72,maximum:84},
     {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'},minimum:190,preferred:240,maximum:420},
-    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},minimum:100,preferred:106,maximum:132},
+    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},headerLabel:{vi:'SL sản xuất',zh:'生產數量'},minimum:100,preferred:106,maximum:132},
     {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'},minimum:100,preferred:106,maximum:132},
-    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},minimum:76,preferred:82,maximum:100},
-    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},minimum:86,preferred:92,maximum:112},
+    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},headerLabel:{vi:'Giây',zh:'工序秒數'},minimum:76,preferred:82,maximum:100},
+    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},headerLabel:{vi:'SL/giờ',zh:'每小時數量'},minimum:86,preferred:92,maximum:112},
     {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:90,preferred:96,maximum:116},
     {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:106,preferred:112,maximum:128,available:()=>canManageRecords()}
   ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果與可拖曳寬度限制仍由產能功能提供。

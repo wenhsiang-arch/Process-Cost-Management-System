@@ -42,16 +42,24 @@
   }
 
   function normalizeColumns(columns){
-    return (Array.isArray(columns) ? columns : []).map(column=>Object.freeze({
-      key:String(column?.key || ''),
-      label:{vi:String(column?.label?.vi || ''),zh:String(column?.label?.zh || '')},
-      defaultVisible:column?.defaultVisible !== false,
-      available:column?.available,
-      minimum:positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH),
-      preferred:positiveWidth(column?.preferred,positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH)),
-      maximum:positiveWidth(column?.maximum,DEFAULT_MAXIMUM_WIDTH),
-      resizable:column?.resizable !== false
-    })).filter(column=>column.key);
+    return (Array.isArray(columns) ? columns : []).map(column=>{
+      const label = {vi:String(column?.label?.vi || ''),zh:String(column?.label?.zh || '')};
+      const headerLabel = {
+        vi:String(column?.headerLabel?.vi || label.vi),
+        zh:String(column?.headerLabel?.zh || label.zh)
+      }; // headerLabel（表頭顯示名稱）：允許緊湊表頭使用核准短名，欄位選單仍使用完整名稱。
+      return Object.freeze({
+        key:String(column?.key || ''),
+        label,
+        headerLabel,
+        defaultVisible:column?.defaultVisible !== false,
+        available:column?.available,
+        minimum:positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH),
+        preferred:positiveWidth(column?.preferred,positiveWidth(column?.minimum,DEFAULT_MINIMUM_WIDTH)),
+        maximum:positiveWidth(column?.maximum,DEFAULT_MAXIMUM_WIDTH),
+        resizable:column?.resizable !== false
+      });
+    }).filter(column=>column.key);
   }
 
   function positiveWidth(value,fallback){
@@ -141,14 +149,15 @@
 
   function normalizeConfiguredHeader(header,column){
     if(!header || !column) return false;
+    const visibleLabel = column.headerLabel || column.label; // visibleLabel（實際表頭文字）：不影響欄位選單的完整名稱。
     const sortKey = String(header.dataset?.uiTableSortKey || '');
     if(sortKey){
       const currentLabel = header.querySelector?.('.ui-table-sort-label');
       const currentVi = currentLabel?.querySelector?.('.ui-text-vi');
       const currentZh = currentLabel?.querySelector?.('.ui-text-zh');
       if(currentVi && currentZh){
-        currentVi.textContent = column.label.vi;
-        currentZh.textContent = column.label.zh;
+        currentVi.textContent = visibleLabel.vi;
+        currentZh.textContent = visibleLabel.zh;
         return true;
       }
       let icon = header.querySelector?.(SORT_ICON_SELECTOR);
@@ -162,7 +171,7 @@
       const resizeHandles = Array.from(header.children || []).filter(child=>child?.dataset?.uiTableResizeHandle === 'true');
       const heading = document.createElement('span');
       heading.className = 'ui-table-sort-heading';
-      heading.append(createSortLabel(column.label),trigger || icon);
+      heading.append(createSortLabel(visibleLabel),trigger || icon);
       header.replaceChildren(heading,...resizeHandles);
       header.classList?.add?.('ui-table-sortable-header');
       header.setAttribute?.('aria-sort',header.getAttribute?.('aria-sort') || 'none');
@@ -172,13 +181,13 @@
     if(dual){
       const vi = dual.querySelector?.(':scope > strong');
       const zh = dual.querySelector?.(':scope > span');
-      if(vi) vi.textContent = column.label.vi;
-      if(zh) zh.textContent = column.label.zh;
+      if(vi) vi.textContent = visibleLabel.vi;
+      if(zh) zh.textContent = visibleLabel.zh;
       return true;
     }
     if(!header.querySelector?.(':scope > .tv, :scope > .lvi, :scope > .ui-bilingual')) return false;
     const resizeHandles = Array.from(header.children || []).filter(child=>child?.dataset?.uiTableResizeHandle === 'true');
-    header.replaceChildren(createDualCopy(column.label),...resizeHandles);
+    header.replaceChildren(createDualCopy(visibleLabel),...resizeHandles);
     return true;
   }
 
@@ -266,8 +275,8 @@
       const headerStyle = window.getComputedStyle?.(header) || {};
       const gap = trigger ? positiveWidth(Number.parseFloat(headingStyle.columnGap || headingStyle.gap),3) : 0;
       const triggerWidth = trigger ? positiveWidth(trigger.getBoundingClientRect?.().width,20) : 0;
-      const viWidth = textWidth(label.vi || column?.label?.vi,viElement);
-      const zhWidth = textWidth(label.zh || column?.label?.zh,zhElement);
+      const viWidth = textWidth(label.vi || column?.headerLabel?.vi || column?.label?.vi,viElement);
+      const zhWidth = textWidth(label.zh || column?.headerLabel?.zh || column?.label?.zh,zhElement);
       const labelWidth = currentLanguageMode() === 'vi'
         ? viWidth
         : (currentLanguageMode() === 'zh' ? zhWidth : Math.max(viWidth,zhWidth));
