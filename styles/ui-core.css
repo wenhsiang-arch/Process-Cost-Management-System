@@ -41,6 +41,15 @@
   --hi: var(--ui-color-text-subtle); /* hi（舊提示文字色） */
 }
 
+:root[data-ui-language-mode="vi"],
+:root[data-ui-language-mode="zh"] {
+  --ui-control-height-bilingual: var(--ui-control-height-single); /* 單語按鈕不保留第二行高度，但維持 36 像素操作範圍。 */
+  --ui-tab-min-height: 40px; /* 單語分頁縮減雙語預留高度。 */
+  --ui-action-tile-height: 56px; /* 單語直向操作方塊仍保留圖示與安全點擊高度。 */
+  --ui-table-cell-padding-block: 4px; /* 單語表格只縮減一級上下內距。 */
+  --ui-table-cell-padding-inline: 8px; /* 單語表格減少雙語表頭的左右預留。 */
+}
+
 .ui-bilingual {
   display: inline-flex;
   min-width: 0;
@@ -383,6 +392,73 @@
   grid-template-columns: minmax(340px, 1fr) auto;
   align-items: stretch;
   border-radius: inherit;
+}
+
+/* ui-language-picker（全域語言選擇器）：登入後固定提供三種模式，不受目前顯示語言隱藏。 */
+.ui-language-picker {
+  display: inline-flex;
+  min-width: 0;
+  height: 32px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  border: var(--ui-border-width) solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text-muted);
+}
+
+.ui-language-picker > i {
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+.ui-language-picker > select {
+  min-width: 96px;
+  height: 30px;
+  padding: 0 22px 0 2px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ui-color-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 單語模式只隱藏具明確語言身分的節點；舊斜線字串須逐頁轉換，不進行猜測拆字。 */
+html[data-ui-language-mode="vi"] .ui-text-zh,
+html[data-ui-language-mode="vi"] .ui-dual-copy > span,
+html[data-ui-language-mode="vi"] .ui-language-section.is-zh,
+html[data-ui-language-mode="vi"] .ui-language-sections > .ui-language-section:nth-child(2):last-child,
+html[data-ui-language-mode="vi"] .nzh {
+  display: none !important;
+}
+
+html[data-ui-language-mode="zh"] .ui-text-vi,
+html[data-ui-language-mode="zh"] .ui-dual-copy > strong,
+html[data-ui-language-mode="zh"] .ui-language-section.is-vi,
+html[data-ui-language-mode="zh"] .ui-language-sections > .ui-language-section:first-child:nth-last-child(2),
+html[data-ui-language-mode="zh"] .nvi {
+  display: none !important;
+}
+
+html[data-ui-language-mode="vi"] .ui-text-vi,
+html[data-ui-language-mode="zh"] .ui-text-zh,
+html[data-ui-language-mode="zh"] .ui-dual-copy > span {
+  margin-top: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .ui-language-sections {
+  gap: 0;
+}
+
+html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .ui-dual-copy,
+html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .ui-bilingual {
+  line-height: 1.2;
 }
 
 .ui-context-grid {
@@ -1228,6 +1304,12 @@ body.is-ui-table-resizing * {
   align-items: center;
   gap: 3px;
   line-height: 1.2;
+}
+
+.ui-table-sort-label {
+  min-width: 0;
+  align-items: inherit;
+  text-align: inherit;
 }
 
 .ui-table-sort-trigger {

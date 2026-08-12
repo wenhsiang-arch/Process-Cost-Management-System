@@ -43,7 +43,9 @@
 
   function errorMessage(error,maxLength=500){
     const raw=String(error?.message ?? error ?? '');
-    return text(raw.slice(0,Math.max(0,Number(maxLength)||0)));
+    const pair=window.PCMSUIText?.parseLegacyPair?.(raw); // pair（既有雙語錯誤文字）：只改畫面顯示，不改 Error（錯誤物件）內容。
+    const visible=pair ? window.PCMSUIText.visibleText(pair) : raw; // visible（目前語言模式應顯示的錯誤文字）
+    return text(visible.slice(0,Math.max(0,Number(maxLength)||0)));
   }
 
   // inlineArgument（行內事件安全參數）：舊畫面逐步移除行內事件前，統一保護字串參數。

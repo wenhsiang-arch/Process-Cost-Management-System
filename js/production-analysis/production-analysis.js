@@ -177,6 +177,12 @@
     cell.textContent=String(value??'');
     return cell;
   }
+  function createDualCell(value,className=''){
+    const cell=document.createElement('td');
+    if(className) cell.className=className;
+    cell.appendChild(window.PCMSUIText.create(value));
+    return cell;
+  }
   function createDualButton(vi,zh,icon,className='ui-button is-bilingual'){
     const button=document.createElement('button');
     button.type='button';
@@ -195,6 +201,13 @@
     copy.append(viCopy,zhCopy);
     button.appendChild(copy);
     return button;
+  }
+  function setSourceLabel(target,metadata={}){
+    if(!target) return;
+    const local=metadata.source==='indexeddb'; // local（是否使用目前 UID 的本機快取）
+    window.PCMSUIText.set(target,local
+      ? {vi:'Nguồn dữ liệu: Bộ nhớ máy này',zh:'資料來源：本機快取'}
+      : {vi:'Nguồn dữ liệu: Dữ liệu đám mây',zh:'資料來源：雲端資料'});
   }
   function setTab(name){
     if(!controllers.has(name)) return;
@@ -254,7 +267,7 @@
 
   window.PCMSProductionAnalysisUI=Object.freeze({
     dual,format,percent,hours,seconds,integer,dateRangeLabel,uniqueSorted,fillSelect,
-    openExplanation,showError,refreshTableTools,latestDate,earliestDate,createCell,createDualButton,
+    openExplanation,showError,refreshTableTools,latestDate,earliestDate,createCell,createDualCell,createDualButton,setSourceLabel,
     dateField,bindDateControls,text
   });
   window.PCMSProductionAnalysis=Object.freeze({init:productionAnalysisInit,leave:productionAnalysisLeave,setTab});

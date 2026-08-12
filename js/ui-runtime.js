@@ -1,12 +1,23 @@
-// ui-runtime.js（共用介面執行控制）：集中主題與字型登記、套用、記憶及安全回復。
+// ui-runtime.js（共用介面執行控制）：集中主題、字型與語言顯示模式的登記、套用、記憶及安全回復。
 (function(){
   const DEFAULT_THEME_ID = 'default'; // DEFAULT_THEME_ID（預設主題識別碼）
   const DEFAULT_FONT_ID = 'default'; // DEFAULT_FONT_ID（預設字型識別碼）
+  const DEFAULT_LANGUAGE_MODE = 'bilingual'; // DEFAULT_LANGUAGE_MODE（未登入與偏好失效時固定使用雙語）
+  const LANGUAGE_PREFERENCE_SCOPE = 'uiLanguagePreference'; // LANGUAGE_PREFERENCE_SCOPE（依 UID 隔離的語言偏好快取範圍）
+  const LANGUAGE_PREFERENCE_VERSION = '1'; // LANGUAGE_PREFERENCE_VERSION（語言偏好資料格式版本）
   const THEME_STORAGE_KEY = 'pcms-ui-theme'; // THEME_STORAGE_KEY（主題選擇本機記憶鍵）
   const FONT_STORAGE_KEY = 'pcms-ui-font'; // FONT_STORAGE_KEY（字型選擇本機記憶鍵）
   const ID_PATTERN = /^[a-z0-9-]+$/; // ID_PATTERN（外觀識別碼允許格式）
+  const LANGUAGE_MODES = Object.freeze([
+    Object.freeze({id:'bilingual',vi:'Song ngữ',zh:'雙語'}),
+    Object.freeze({id:'vi',vi:'Tiếng Việt',zh:'越文'}),
+    Object.freeze({id:'zh',vi:'Tiếng Hoa',zh:'中文'})
+  ]); // LANGUAGE_MODES（全系統唯一語言顯示模式清單）
+  const LANGUAGE_MODE_IDS = new Set(LANGUAGE_MODES.map(option=>option.id)); // LANGUAGE_MODE_IDS（允許保存的語言模式）
   const themeRegistry = new Map(); // themeRegistry（可用主題清單）
   const fontRegistry = new Map(); // fontRegistry（可用字型清單）
+  let currentLanguageMode = DEFAULT_LANGUAGE_MODE; // currentLanguageMode（目前實際顯示模式）
+  let languageWritePromise = Promise.resolve(); // languageWritePromise（依使用者操作順序保存語言偏好）
 
   // normalizeOption（正規化外觀選項）：每個選項都保留越文與中文名稱。
   function normalizeOption(option){
@@ -67,6 +78,97 @@
     }catch(_){}
   }
 
+  // normalizeLanguageMode（正規化語言模式）：未知或損壞的值一律安全回到雙語。
+  function normalizeLanguageMode(mode){
+    const normalized = String(mode || '').trim().toLowerCase(); // normalized（正規化後的語言模式）
+    return LANGUAGE_MODE_IDS.has(normalized) ? normalized : DEFAULT_LANGUAGE_MODE;
+  }
+
+  // languageDocumentCode（頁面語言代碼）：單語時供瀏覽器及輔助工具辨識目前可見語言。
+  function languageDocumentCode(mode){
+    return mode === 'zh' ? 'zh-Hant' : 'vi';
+  }
+
+  // syncLanguagePicker（同步語言選擇器）：登入後的全域選擇器永遠反映目前模式。
+  function syncLanguagePicker(mode){
+    const picker = document.getElementById?.('ui-language-mode'); // picker（頂部語言選擇器）
+    if(picker && picker.value !== mode) picker.value = mode;
+  }
+
+  // notifyLanguageChange（通知版面更新）：共用表格及按需載入功能可由同一事件刷新尺寸。
+  function notifyLanguageChange(mode, previousMode){
+    if(mode === previousMode || typeof document.dispatchEvent !== 'function') return;
+    const EventConstructor = window.CustomEvent || globalThis.CustomEvent; // EventConstructor（自訂事件建構函式）
+    if(typeof EventConstructor !== 'function') return;
+    document.dispatchEvent(new EventConstructor('pcms:languagechange',{
+      detail:Object.freeze({mode,previousMode})
+    }));
+  }
+
+  // applyLanguageMode（套用語言顯示模式）：只改介面根節點，不讀寫業務資料。
+  function applyLanguageMode(mode, options = {}){
+    const selected = normalizeLanguageMode(mode); // selected（實際套用的語言模式）
+    const previousMode = currentLanguageMode; // previousMode（套用前模式）
+    currentLanguageMode = selected;
+    document.documentElement.dataset.uiLanguageMode = selected;
+    document.documentElement.setAttribute?.('lang',languageDocumentCode(selected));
+    syncLanguagePicker(selected);
+    if(options.notify !== false) notifyLanguageChange(selected,previousMode);
+    return selected;
+  }
+
+  // saveLanguagePreference（保存語言偏好）：沿用既有 IndexedDB 並由 data-cache 依可信任 UID 隔離。
+  function saveLanguagePreference(mode){
+    const expectedUid = String(window.cu?.authUid || ''); // expectedUid（本次保存所屬使用者）
+    if(!expectedUid || !window.pcmsDataCache?.write) return Promise.resolve(false);
+    languageWritePromise = languageWritePromise
+      .catch(()=>false)
+      .then(()=>{
+        if(String(window.cu?.authUid || '') !== expectedUid) return false;
+        return window.pcmsDataCache.write(
+          LANGUAGE_PREFERENCE_SCOPE,
+          LANGUAGE_PREFERENCE_VERSION,
+          {mode:normalizeLanguageMode(mode)}
+        );
+      });
+    return languageWritePromise;
+  }
+
+  // setLanguageMode（使用者切換語言）：畫面立即生效，本機保存失敗不阻止當次操作。
+  async function setLanguageMode(mode, options = {}){
+    const selected = applyLanguageMode(mode); // selected（使用者選擇後的模式）
+    if(options.persist !== false) await saveLanguagePreference(selected);
+    return selected;
+  }
+
+  // loadLanguagePreference（登入後載入偏好）：必須在已建立可信任 UID、主畫面尚未顯示時執行。
+  async function loadLanguagePreference(){
+    if(!window.cu?.authUid || !window.pcmsDataCache?.read) return applyLanguageMode(DEFAULT_LANGUAGE_MODE);
+    try{
+      const stored = await window.pcmsDataCache.read(LANGUAGE_PREFERENCE_SCOPE,LANGUAGE_PREFERENCE_VERSION); // stored（目前 UID 的語言偏好）
+      return applyLanguageMode(typeof stored === 'string' ? stored : stored?.mode);
+    }catch(_error){
+      return applyLanguageMode(DEFAULT_LANGUAGE_MODE);
+    }
+  }
+
+  // resetLanguageMode（清除工作階段顯示狀態）：登出不刪除該 UID 已保存的偏好。
+  function resetLanguageMode(){
+    return applyLanguageMode(DEFAULT_LANGUAGE_MODE);
+  }
+
+  // bindLanguagePicker（連接頂部選擇器）：相同節點只綁定一次，避免重新登入後重複保存。
+  function bindLanguagePicker(){
+    const picker = document.getElementById?.('ui-language-mode'); // picker（頂部語言選擇器）
+    if(!picker || picker.dataset.uiLanguageBound === 'true') return false;
+    picker.dataset.uiLanguageBound = 'true';
+    picker.addEventListener('change',event=>{
+      void setLanguageMode(event.currentTarget?.value);
+    });
+    syncLanguagePicker(currentLanguageMode);
+    return true;
+  }
+
   // readMarker（讀取樣式定義識別碼）：用來辨識登記存在但樣式檔遺失的情況。
   function readMarker(propertyName){
     return getComputedStyle(document.documentElement).getPropertyValue(propertyName).trim();
@@ -110,10 +212,12 @@
     return Array.from(fontRegistry.values(), item=>({...item}));
   }
 
-  // initialize（初始化外觀）：先套用已保存選擇，無效時自動回到預設值。
+  // initialize（初始化外觀）：未取得可信任 UID 前固定雙語，主題與字型沿用既有本機選擇。
   function initialize(){
     applyTheme(readStored(THEME_STORAGE_KEY));
     applyFont(readStored(FONT_STORAGE_KEY));
+    applyLanguageMode(DEFAULT_LANGUAGE_MODE,{notify:false});
+    bindLanguagePicker();
   }
 
   registerTheme({id:DEFAULT_THEME_ID, vi:'Mặc định xanh trắng xám', zh:'預設藍白灰'});
@@ -126,6 +230,12 @@
     unregisterFont,
     applyTheme,
     applyFont,
+    applyLanguageMode,
+    setLanguageMode,
+    loadLanguagePreference,
+    resetLanguageMode,
+    getLanguageMode:()=>currentLanguageMode,
+    listLanguageModes:()=>LANGUAGE_MODES.map(option=>({...option})),
     listThemes,
     listFonts,
     initialize

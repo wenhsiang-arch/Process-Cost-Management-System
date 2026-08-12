@@ -81,8 +81,14 @@
       const level={low:'Thấp / 低',medium:'Trung bình / 中',high:'Cao / 高'}[confidence?.level]||'—';
       return `${level}（≈${confidence?.displayPercent||'—'}）`;
     }
+    function confidencePair(confidence){
+      const level={low:{vi:'Thấp',zh:'低'},medium:{vi:'Trung bình',zh:'中'},high:{vi:'Cao',zh:'高'}}[confidence?.level]||{vi:'—',zh:'—'};
+      const percent=confidence?.displayPercent||'—';
+      return {vi:`${level.vi}（≈${percent}）`,zh:`${level.zh}（≈${percent}）`};
+    }
     function priority(row){ return Math.abs(row.differencePercent||0)>=30?'high':'medium'; }
     function priorityLabel(row){ return priority(row)==='high'?'Cao / 高':'Trung bình / 中'; }
+    function priorityPair(row){ return priority(row)==='high'?{vi:'Cao',zh:'高'}:{vi:'Trung bình',zh:'中'}; }
     function exportColumns(){
       return [
         {key:'productCode',vi:'Mã hàng',zh:'款號',width:16},{key:'processNo',vi:'Số công đoạn',zh:'工序號',width:12},
@@ -162,16 +168,16 @@
           ui.createCell(ui.hours(row.cumulativeStandardHours),'ui-table-number-cell'),
           ui.createCell(row.participantCount,'ui-table-number-cell')
         );
-        const confidenceCell=ui.createCell(confidenceLabel(row.confidence),'ui-table-center-cell');
+        const confidenceCell=ui.createDualCell(confidencePair(row.confidence),'ui-table-center-cell');
         confidenceCell.dataset.confidence=row.confidence.level;
-        const priorityCell=ui.createCell(priorityLabel(row),'ui-table-center-cell');
+        const priorityCell=ui.createDualCell(priorityPair(row),'ui-table-center-cell');
         priorityCell.dataset.priority=priority(row);
         tableRow.append(confidenceCell,priorityCell);
         body.appendChild(tableRow);
       });
       if(!filtered.length){
         const row=document.createElement('tr');
-        const cell=ui.createCell('Không có dữ liệu bất thường phù hợp. / 沒有符合條件的異常資料。','production-analysis-empty');
+        const cell=ui.createDualCell({vi:'Không có dữ liệu bất thường phù hợp.',zh:'沒有符合條件的異常資料。'},'production-analysis-empty');
         cell.colSpan=11;
         row.appendChild(cell);
         body.appendChild(row);
@@ -231,8 +237,7 @@
           initializedDates=true;
         }
         dateControls.sync();
-        const source=metadata.source==='indexeddb'?'Bộ nhớ máy này / 本機快取':'Dữ liệu đám mây / 雲端資料';
-        root.querySelector('[data-role="source"]').textContent=`Nguồn dữ liệu / 資料來源：${source}`;
+        ui.setSourceLabel(root.querySelector('[data-role="source"]'),metadata);
         render();
       },
       activate(){render();},leave(){}

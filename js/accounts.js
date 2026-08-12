@@ -241,8 +241,11 @@ function oEacc(accessId){
   if(!account) return;
   const isMe=isCurrentAccessAccount(account);
   g('ea-orig').value=account.accessId;
-  g('ea-email-view').value=account.email||(isMe?normalizeAccessEmail(window.cu?.email):'Chưa ghi nhận / 尚未記錄');
-  g('ea-uid-view').value=account.authUid||'Chưa đăng nhập / 尚未登入';
+  const emailValue=account.email||(isMe?normalizeAccessEmail(window.cu?.email):''); // emailValue（帳號目前可辨識的電子信箱）
+  if(emailValue) window.PCMSUIText.clearLocalizedValue(g('ea-email-view'),emailValue);
+  else window.PCMSUIText.setLocalizedValue(g('ea-email-view'),{vi:'Chưa ghi nhận',zh:'尚未記錄'});
+  if(account.authUid) window.PCMSUIText.clearLocalizedValue(g('ea-uid-view'),account.authUid);
+  else window.PCMSUIText.setLocalizedValue(g('ea-uid-view'),{vi:'Chưa đăng nhập',zh:'尚未登入'});
   g('ea-u').value=account.user;
   g('ea-r').value=account.role;
   g('ea-active').checked=account.active;

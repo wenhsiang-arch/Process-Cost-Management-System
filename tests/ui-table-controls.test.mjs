@@ -47,6 +47,7 @@ function style(){
 
 function loadResizeHarness(){
   const stored=new Map();
+  let languageMode='bilingual';
   const window=eventTarget({
     getComputedStyle(){
       return {font:'400 12px sans-serif',fontSize:'12px',fontWeight:'400',fontFamily:'sans-serif',paddingLeft:'10px',paddingRight:'10px',gap:'3px',columnGap:'3px'};
@@ -55,7 +56,8 @@ function loadResizeHarness(){
       getItem:key=>stored.get(key)||null,
       setItem:(key,value)=>stored.set(key,String(value)),
       removeItem:key=>stored.delete(key)
-    }
+    },
+    PCMSUIRuntime:{getLanguageMode:()=>languageMode}
   });
   const body={classList:classList()};
   function matches(node,selector){
@@ -151,7 +153,10 @@ function loadResizeHarness(){
     cells.forEach(cell=>{ cell.parentElement=table; });
     return {table,headers,cells};
   }
-  return {api:window.PCMSUITableControls,window,stored,makeTable};
+  return {
+    api:window.PCMSUITableControls,window,stored,makeTable,
+    setLanguageMode(mode){ languageMode=mode; document.dispatch('pcms:languagechange',{detail:{mode}}); }
+  };
 }
 
 test('共用排序依預設、遞增、遞減、預設循環',()=>{
@@ -212,6 +217,30 @@ test('試點表格可以拖曳、雙擊自動符合並保存與恢復欄寬',()=
   assert.ok(compactWidth>=56,'欄位不得縮到低於完整表頭所需寬度');
   harness.window.dispatch('pointerup',{preventDefault(){}});
   control.resetColumnWidths();
+  control.destroy();
+});
+
+test('語言切換只改目前顯示下限且不覆蓋使用者保存欄寬',()=>{
+  const harness=loadResizeHarness();
+  harness.setLanguageMode('vi');
+  const fixture=harness.makeTable('language-width-table');
+  const control=harness.api.create({
+    table:fixture.table,resizable:true,
+    columns:[
+      {key:'code',label:{vi:'Mã',zh:'非常非常長的中文表頭'},minimum:56,preferred:120,maximum:320},
+      {key:'name',label:{vi:'Tên',zh:'名稱'},minimum:56,preferred:160,maximum:260}
+    ]
+  });
+  const handle=fixture.headers[0].children[0];
+  fixture.table.dispatch('pointerdown',{target:handle,button:0,clientX:100,preventDefault(){},stopPropagation(){}});
+  harness.window.dispatch('pointermove',{clientX:-100,preventDefault(){}});
+  harness.window.dispatch('pointerup',{preventDefault(){}});
+  const saved=control.getColumnWidths().code;
+  harness.setLanguageMode('bilingual');
+  assert.equal(control.getColumnWidths().code,saved);
+  assert.ok(Number.parseFloat(fixture.headers[0].style.width)>saved);
+  harness.setLanguageMode('vi');
+  assert.equal(Number.parseFloat(fixture.headers[0].style.width),saved);
   control.destroy();
 });
 

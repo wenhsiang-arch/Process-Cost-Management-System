@@ -55,6 +55,20 @@
     return ui.alertDialog({message:{vi:String(vi || ''),zh:String(zh || '')},kind});
   }
 
+  function setCuttingSections(target,vi,zh){
+    if(!target) return;
+    target.replaceChildren(window.PCMSUIComponents.createLanguageSections({vi:String(vi||''),zh:String(zh||'')}));
+  }
+
+  function cuttingDialogPair(value){
+    if(typeof value !== 'string') return value;
+    return window.PCMSUIText.parseLegacyPair(value)||{vi:value,zh:value};
+  }
+
+  function cuttingDualHtml(vi,zh,tag='span'){
+    return `<${tag} class="ui-bilingual"><span class="ui-text-vi">${esc(vi)}</span><span class="ui-text-zh">${esc(zh)}</span></${tag}>`;
+  }
+
   // cuttingConfirm（裁帶共用確認）：不使用瀏覽器原生確認框。
   function cuttingConfirm(title, vi, zh){
     const ui = window.PCMSUIComponents; // ui（共用介面元件）
@@ -75,31 +89,39 @@
     }
     if(helper){
       helper.hidden = !!fileName;
-      helper.innerHTML = fileName
-        ? 'Nhấp để thay thế · Chỉ nhận cột A–K.<br>點擊可更換 · 僅接受 A–K 固定欄位。'
-        : 'Nhấp để chọn hoặc kéo tệp .xlsx.<br>點擊選擇或拖入 .xlsx 模板。';
+      setCuttingSections(helper,fileName
+        ? 'Nhấp để thay thế · Chỉ nhận cột A–K.'
+        : 'Nhấp để chọn hoặc kéo tệp .xlsx.',fileName
+        ? '點擊可更換 · 僅接受 A–K 固定欄位。'
+        : '點擊選擇或拖入 .xlsx 模板。');
     }
     picker?.classList.toggle('is-filled', !!fileName);
   }
 
   // setOrderFileDisplay（設定訂單檔案顯示）：檔案框同時提供選擇、拖入及更換檔案入口。
   function setOrderFileDisplay(value = ''){
-    const fileName = String(value || '').trim(); // fileName（訂單檔案顯示名稱）
+    const fileNamePair=typeof value==='object'
+      ? window.PCMSUIText.resolve(value)
+      : {vi:String(value||'').trim(),zh:String(value||'').trim()}; // fileNamePair（訂單檔案越文與中文顯示名稱）
+    const hasFileName=!!(fileNamePair.vi||fileNamePair.zh); // hasFileName（是否已有訂單檔案名稱）
     const target = g('cut-order-file-name'); // target（訂單檔名元件）
     const helper = g('cut-order-file-helper'); // helper（訂單檔案操作提示）
     const picker = g('cut-order-drop'); // picker（訂單檔案框）
     if(target){
-      target.textContent = fileName;
-      target.title = fileName;
-      target.hidden = !fileName;
+      if(fileNamePair.vi===fileNamePair.zh) target.textContent=fileNamePair.vi;
+      else window.PCMSUIText.set(target,fileNamePair);
+      window.PCMSUIText.setLocalizedAttribute(target,'title',fileNamePair);
+      target.hidden = !hasFileName;
     }
     if(helper){
-      helper.hidden = !!fileName;
-      helper.innerHTML = fileName
-        ? 'Nhấp để thay thế tệp.<br>點擊可更換檔案。'
-        : 'Nhấp để chọn hoặc kéo tệp .xlsx, .xls.<br>點擊選擇或拖入 .xlsx、.xls 訂單。';
+      helper.hidden = hasFileName;
+      setCuttingSections(helper,hasFileName
+        ? 'Nhấp để thay thế tệp.'
+        : 'Nhấp để chọn hoặc kéo tệp .xlsx, .xls.',hasFileName
+        ? '點擊可更換檔案。'
+        : '點擊選擇或拖入 .xlsx、.xls 訂單。');
     }
-    picker?.classList.toggle('is-filled', !!fileName);
+    picker?.classList.toggle('is-filled', hasFileName);
   }
 
   // showCuttingFileDropMessage（顯示裁帶拖曳結果）：格式或數量不符時提供雙語原因。
@@ -634,12 +656,12 @@
       body.className = 'cutting-template-dialog-content';
       body.innerHTML = options.body || '';
       ui.openDialog({
-        title:options.title || {vi:'Thông báo mẫu',zh:'模板訊息'},
+        title:cuttingDialogPair(options.title || {vi:'Thông báo mẫu',zh:'模板訊息'}),
         body,
         size:'large',
         closeOnBackdrop:false,
         actions:(options.buttons || []).map(button => ({
-          text:button.text,
+          text:cuttingDialogPair(button.text),
           kind:String(button.className||'').includes('bp')?'primary':'',
           value:button.value,
           onClick:()=>{ settled = true; resolve(button.value); }
@@ -653,7 +675,7 @@
   function templateIssuesHtml(book, limit = 20){
     const issues = Array.isArray(book?.issues) ? book.issues : [];
     if(!issues.length){
-      return '<div>Không xác định được vị trí lỗi. Vui lòng kiểm tra tiêu đề A–K trên từng sheet.<br>無法判斷錯誤位置，請檢查每個工作表的 A–K 表頭。</div>';
+      return '<div class="ui-language-sections"><div class="ui-language-section is-vi">Không xác định được vị trí lỗi. Vui lòng kiểm tra tiêu đề A–K trên từng sheet.</div><div class="ui-language-section is-zh">無法判斷錯誤位置，請檢查每個工作表的 A–K 表頭。</div></div>';
     }
     const rows = issues.slice(0, limit).map(issue => `
       <tr>
@@ -661,16 +683,16 @@
         <td><b>${esc(issue.cell || '-')}</b></td>
         <td>${issue.code ? `<b>${esc(issue.code)}</b>` : '-'}</td>
         <td>
-          <div>${esc(issue.viMessage || '')}</div>
-          <div class="tv" style="margin-top:3px">${esc(issue.zhMessage || '')}</div>
+          <div class="ui-text-vi">${esc(issue.viMessage || '')}</div>
+          <div class="ui-text-zh">${esc(issue.zhMessage || '')}</div>
         </td>
       </tr>
     `).join('');
     const remaining = issues.length - Math.min(issues.length, limit);
     return `
-      <div style="margin-bottom:10px">
-        Phát hiện ${fmtNum(issues.length)} lỗi. Vui lòng sửa đúng ô được liệt kê rồi nhập lại.<br>
-        發現 ${fmtNum(issues.length)} 個錯誤，請修改列出的儲存格後重新匯入。
+      <div class="ui-language-sections" style="margin-bottom:10px">
+        <div class="ui-language-section is-vi">Phát hiện ${fmtNum(issues.length)} lỗi. Vui lòng sửa đúng ô được liệt kê rồi nhập lại.</div>
+        <div class="ui-language-section is-zh">發現 ${fmtNum(issues.length)} 個錯誤，請修改列出的儲存格後重新匯入。</div>
       </div>
       <div class="to"><div class="ts" style="max-height:320px"><table class="ui-table" data-ui-table-layout="special" data-ui-table-sticky="container">
         <thead><tr>
@@ -681,7 +703,7 @@
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>
-      ${remaining > 0 ? `<div style="margin-top:8px;color:var(--mu)">Còn ${fmtNum(remaining)} lỗi chưa hiển thị. / 另有 ${fmtNum(remaining)} 個錯誤未顯示。</div>` : ''}
+      ${remaining > 0 ? cuttingDualHtml(`Còn ${fmtNum(remaining)} lỗi chưa hiển thị.`,`另有 ${fmtNum(remaining)} 個錯誤未顯示。`,'div') : ''}
     `;
   }
 
@@ -701,9 +723,8 @@
     const rows = notices.slice(0, limit).map(notice => {
       const detailLines = (notice.details || []).map(detail => `
         <div>
-          <b>${esc(detail.code || '-')}</b>
-          · ${esc(detail.cell || '-')}
-          · ${fmtNum(detail.pieces)} dây/SP / 每件 ${fmtNum(detail.pieces)} 條
+          <span class="ui-text-vi"><b>${esc(detail.code || '-')}</b> · ${esc(detail.cell || '-')} · ${fmtNum(detail.pieces)} dây/SP</span>
+          <span class="ui-text-zh"><b>${esc(detail.code || '-')}</b> · ${esc(detail.cell || '-')} · 每件 ${fmtNum(detail.pieces)} 條</span>
         </div>
       `).join('');
       return `
@@ -712,17 +733,17 @@
           <td>${fmtNum(notice.headerRowNumber)}</td>
           <td>${detailLines}</td>
           <td>
-            <div>${esc(notice.viMessage || '')}</div>
-            <div class="tv" style="margin-top:3px">${esc(notice.zhMessage || '')}</div>
+            <div class="ui-text-vi">${esc(notice.viMessage || '')}</div>
+            <div class="ui-text-zh">${esc(notice.zhMessage || '')}</div>
           </td>
         </tr>
       `;
     }).join('');
     const remaining = notices.length - Math.min(notices.length, limit);
     return `
-      <div style="margin-bottom:10px">
-        Đây là cảnh báo, vẫn có thể xác nhận và nhập mẫu.<br>
-        此項屬於提醒，仍可確認並匯入模板。
+      <div class="ui-language-sections" style="margin-bottom:10px">
+        <div class="ui-language-section is-vi">Đây là cảnh báo, vẫn có thể xác nhận và nhập mẫu.</div>
+        <div class="ui-language-section is-zh">此項屬於提醒，仍可確認並匯入模板。</div>
       </div>
       <div class="to"><div class="ts" style="max-height:320px"><table class="ui-table" data-ui-table-layout="special" data-ui-table-sticky="container">
         <thead><tr>
@@ -733,7 +754,7 @@
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div></div>
-      ${remaining > 0 ? `<div style="margin-top:8px;color:var(--mu)">Còn ${fmtNum(remaining)} cảnh báo chưa hiển thị. / 另有 ${fmtNum(remaining)} 個提醒未顯示。</div>` : ''}
+      ${remaining > 0 ? cuttingDualHtml(`Còn ${fmtNum(remaining)} cảnh báo chưa hiển thị.`,`另有 ${fmtNum(remaining)} 個提醒未顯示。`,'div') : ''}
     `;
   }
 
@@ -808,35 +829,35 @@
     const tb = g('cut-template-tb');
     if(!tb) return;
     if(!state.templates.length){
-      tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:18px">Chưa có mẫu / 尚無模板</td></tr>';
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--mu);padding:18px">${cuttingDualHtml('Chưa có mẫu','尚無模板')}</td></tr>`;
       return;
     }
     tb.innerHTML = state.templates.map(t => `
       <tr>
-        <td><b>${esc(t.fileName)}</b><div style="font-size:10px;color:var(--mu);margin-top:2px">Lưu nguyên file mẫu / 保留原始模板檔</div></td>
+        <td><b>${esc(t.fileName)}</b>${cuttingDualHtml('Lưu nguyên file mẫu','保留原始模板檔','div')}</td>
         <td style="text-align:right">${fmtNum(t.sheetCount)}</td>
         <td style="text-align:right">${fmtNum(t.itemCount)}</td>
         <td style="text-align:right">${fmtNum(t.rowCount)}</td>
         <td>${t.schemaVersion !== TEMPLATE_SCHEMA_VERSION
-          ? '<span class="tg ta">Mẫu cũ đã ngừng / 舊格式已停用</span>'
+          ? `<span class="tg ta">${cuttingDualHtml('Mẫu cũ đã ngừng','舊格式已停用')}</span>`
           : (t.analysisVersion !== TEMPLATE_ANALYSIS_VERSION
-            ? '<span class="tg ta">Cần nhập lại / 需要重新匯入</span>'
+            ? `<span class="tg ta">${cuttingDualHtml('Cần nhập lại','需要重新匯入')}</span>`
           : (t.status === 'confirmed'
             ? (t.warningCount
-              ? `<span class="tg ta">Có lỗi / 有錯誤</span>`
+              ? `<span class="tg ta">${cuttingDualHtml('Có lỗi','有錯誤')}</span>`
               : (t.noticeCount
-                ? `<span class="tg ta">Đã xác nhận, ${fmtNum(t.noticeCount)} cảnh báo / 已確認，${fmtNum(t.noticeCount)} 個提醒</span>`
-                : '<span class="tg tg2">Đã xác nhận / 已確認</span>'))
-            : '<span class="tg ta">Chưa xác nhận / 尚未確認</span>'))}</td>
+                ? `<span class="tg ta">${cuttingDualHtml(`Đã xác nhận, ${fmtNum(t.noticeCount)} cảnh báo`,`已確認，${fmtNum(t.noticeCount)} 個提醒`)}</span>`
+                : `<span class="tg tg2">${cuttingDualHtml('Đã xác nhận','已確認')}</span>`))
+            : `<span class="tg ta">${cuttingDualHtml('Chưa xác nhận','尚未確認')}</span>`))}</td>
         <td style="text-align:center">
           <div class="cut-template-actions">
             <button class="btn cut-template-action cut-template-download" onclick="cuttingDownloadTemplate(${inlineArg(t.id)}, this)">
               <i class="ti ti-file-download"></i>
-              <span class="cut-template-action-text"><span class="cut-template-action-vi">Tải file gốc</span><span class="cut-template-action-zh">下載原始檔</span></span>
+              <span class="cut-template-action-text"><span class="cut-template-action-vi ui-text-vi">Tải file gốc</span><span class="cut-template-action-zh ui-text-zh">下載原始檔</span></span>
             </button>
             <button class="btn cut-template-action bd2" onclick="cuttingDeleteTemplate(${inlineArg(t.id)})">
               <i class="ti ti-trash"></i>
-              <span class="cut-template-action-text"><span class="cut-template-action-vi">Xóa</span><span class="cut-template-action-zh">刪除</span></span>
+              <span class="cut-template-action-text"><span class="cut-template-action-vi ui-text-vi">Xóa</span><span class="cut-template-action-zh ui-text-zh">刪除</span></span>
             </button>
           </div>
         </td>
@@ -877,7 +898,7 @@
     const originalHtml = button?.innerHTML || ''; // originalHtml（按鈕原始內容）
     if(button){
       button.disabled = true;
-      button.innerHTML = '<i class="ti ti-loader-2"></i><span class="cut-template-action-text"><span class="cut-template-action-vi">Đang tải</span><span class="cut-template-action-zh">下載中</span></span>';
+      button.innerHTML = '<i class="ti ti-loader-2"></i><span class="cut-template-action-text"><span class="cut-template-action-vi ui-text-vi">Đang tải</span><span class="cut-template-action-zh ui-text-zh">下載中</span></span>';
     }
     try{
       const sourceFile = await cuttingStore.getTemplateFile(templateId); // sourceFile（原始模板檔）
@@ -1378,14 +1399,15 @@
   // quantityIssueText（訂單數量錯誤文字）：依空白、零、負數、小數或其他無效內容提供具體原因。
   function quantityIssueText(quantityResult){
     const rawText = quantityResult.rawText || ''; // rawText（錯誤數量原文）
-    const shownValue = rawText || '(trống / 空白)'; // shownValue（顯示用原始數量）
+    const shownValueVi = rawText || '(trống)'; // shownValueVi（越文顯示用原始數量）
+    const shownValueZh = rawText || '（空白）'; // shownValueZh（中文顯示用原始數量）
     const reasonMap = {
       blank:{vi:'Mã hàng có dữ liệu nhưng số lượng đơn hàng đang trống.',zh:'已有款號，但訂單數量空白。'},
       zero:{vi:'Số lượng đơn hàng bằng 0.',zh:'訂單數量為 0。'},
-      negative:{vi:`Số lượng đơn hàng là số âm: ${shownValue}.`,zh:`訂單數量為負數：${shownValue}。`},
-      decimal:{vi:`Số lượng đơn hàng có số thập phân: ${shownValue}.`,zh:`訂單數量含有小數：${shownValue}。`},
-      unsafe:{vi:`Số lượng đơn hàng vượt quá phạm vi an toàn: ${shownValue}.`,zh:`訂單數量超出安全範圍：${shownValue}。`},
-      invalid:{vi:`Số lượng đơn hàng không hợp lệ: ${shownValue}.`,zh:`訂單數量內容無效：${shownValue}。`}
+      negative:{vi:`Số lượng đơn hàng là số âm: ${shownValueVi}.`,zh:`訂單數量為負數：${shownValueZh}。`},
+      decimal:{vi:`Số lượng đơn hàng có số thập phân: ${shownValueVi}.`,zh:`訂單數量含有小數：${shownValueZh}。`},
+      unsafe:{vi:`Số lượng đơn hàng vượt quá phạm vi an toàn: ${shownValueVi}.`,zh:`訂單數量超出安全範圍：${shownValueZh}。`},
+      invalid:{vi:`Số lượng đơn hàng không hợp lệ: ${shownValueVi}.`,zh:`訂單數量內容無效：${shownValueZh}。`}
     }; // reasonMap（訂單數量錯誤原因）
     return reasonMap[quantityResult.kind] || reasonMap.invalid;
   }
@@ -1596,9 +1618,11 @@
     if(!input) return Promise.resolve(null);
     input.value = String(defaultValue || '');
     if(help){
-      help.innerHTML = input.value
-        ? 'Đã tự nhận diện số đơn hàng. Có thể sửa nội dung trước khi xuất.<br>已自動辨識訂單號碼，匯出前仍可修改內容。'
-        : 'Không nhận diện được số đơn hàng. Vui lòng tự nhập nội dung cần hiển thị.<br>未辨識到訂單號碼，請自行輸入要顯示的內容。';
+      setCuttingSections(help,input.value
+        ? 'Đã tự nhận diện số đơn hàng. Có thể sửa nội dung trước khi xuất.'
+        : 'Không nhận diện được số đơn hàng. Vui lòng tự nhập nội dung cần hiển thị.',input.value
+        ? '已自動辨識訂單號碼，匯出前仍可修改內容。'
+        : '未辨識到訂單號碼，請自行輸入要顯示的內容。');
     }
     if(error){ error.textContent = ''; error.style.display = 'none'; }
     input.onkeydown = event => {
@@ -1619,7 +1643,7 @@
     const value = String(input?.value || '').trim();
     if(!value){
       if(error){
-        error.textContent = 'Vui lòng nhập nội dung trước khi tạo PDF. / 請輸入內容後再產生 PDF。';
+        window.PCMSUIText.set(error,{vi:'Vui lòng nhập nội dung trước khi tạo PDF.',zh:'請輸入內容後再產生 PDF。'});
         error.style.display = 'block';
       }
       input?.focus();
@@ -1660,7 +1684,7 @@
           solutionVi:'Chọn tệp đơn hàng .xlsx hoặc .xls rồi nhập lại.',
           solutionZh:'請選擇 .xlsx 或 .xls 訂單檔案後重新匯入。'
         })];
-        setOrderFileDisplay(`${file.name}（định dạng không hợp lệ / 格式不符）`);
+        setOrderFileDisplay({vi:`${file.name}（định dạng không hợp lệ）`,zh:`${file.name}（格式不符）`});
         recomputeResults();
         return;
       }
@@ -1677,7 +1701,7 @@
           solutionVi:'Chỉ giữ một trang tính đơn hàng rồi nhập lại.',
           solutionZh:'請只保留一個訂單工作表後重新匯入。'
         })];
-        setOrderFileDisplay(`${file.name}（${sheetCount} trang tính, bị từ chối / 共 ${sheetCount} 個工作表，已禁止匯入）`);
+        setOrderFileDisplay({vi:`${file.name}（${sheetCount} trang tính, bị từ chối）`,zh:`${file.name}（共 ${sheetCount} 個工作表，已禁止匯入）`});
         recomputeResults();
         await cuttingMessage(
           `Tệp đơn hàng chỉ được có 1 trang tính.\nTệp hiện tại có ${sheetCount} trang tính: ${sheetNames}.\nVui lòng xóa các trang tính khác hoặc lưu riêng trang cần nhập rồi thử lại.`,
@@ -1704,7 +1728,7 @@
       state.orderErrors = all.flatMap(result => result.errors || []);
       state.orderCodeCount = all.reduce((sum, result) => sum + Number(result.codeCount || 0), 0);
       if(state.orderErrors.length){
-        setOrderFileDisplay(`${file.name}（${fmtNum(state.orderErrors.length)} lỗi / ${fmtNum(state.orderErrors.length)} 筆錯誤）`);
+        setOrderFileDisplay({vi:`${file.name}（${fmtNum(state.orderErrors.length)} lỗi）`,zh:`${file.name}（${fmtNum(state.orderErrors.length)} 筆錯誤）`});
       }
       recomputeResults();
     }catch(e){
@@ -1718,7 +1742,7 @@
         solutionVi:'Kiểm tra tệp có bị hỏng hay không, sau đó chọn lại tệp đơn hàng.',
         solutionZh:'請檢查檔案是否損壞，再重新選擇訂單檔案。'
       })];
-      setOrderFileDisplay(`${file.name}（đọc thất bại / 讀取失敗）`);
+      setOrderFileDisplay({vi:`${file.name}（đọc thất bại）`,zh:`${file.name}（讀取失敗）`});
       recomputeResults();
       await cuttingMessage(`Đọc đơn hàng thất bại.\n\n${e.message}`,`讀取訂單失敗。\n\n${e.message}`,'danger');
     }finally{
@@ -1800,7 +1824,7 @@
         const icon = total > 0 ? 'ti-circle-check' : 'ti-file-search'; // icon（空狀態圖示）
         const vi = total > 0 ? 'Không có mã hàng thiếu mẫu hoặc lỗi.' : 'Chưa có kết quả kiểm tra.'; // vi（越文空狀態文字）
         const zh = total > 0 ? '沒有缺少模板或錯誤。' : '尚無核對結果。'; // zh（中文空狀態文字）
-        resultsEmpty.innerHTML = `<i class="ti ${icon}" aria-hidden="true"></i><span class="cutting-results-empty-copy"><strong>${vi}</strong><span>${zh}</span></span>`;
+        resultsEmpty.innerHTML = `<i class="ti ${icon}" aria-hidden="true"></i><span class="cutting-results-empty-copy ui-dual-copy"><strong>${vi}</strong><span>${zh}</span></span>`;
       }
     }
 
@@ -1813,7 +1837,7 @@
             <td><span class="tg tr2">Thiếu mẫu<br><span class="tv">缺少模板</span></span></td>
             <td><b>${esc(r.code)}</b></td>
             <td style="text-align:right">${fmtNum(r.qty)}</td>
-            <td>Nhập mẫu có mã hàng này, sau đó chọn lại đơn hàng.<br><span class="tv">請先匯入包含此款號的模板，再重新選擇訂單。</span></td>
+            <td><span class="ui-text-vi">Nhập mẫu có mã hàng này, sau đó chọn lại đơn hàng.</span><span class="ui-text-zh">請先匯入包含此款號的模板，再重新選擇訂單。</span></td>
           </tr>
         `).join(''));
       } else {
@@ -1833,17 +1857,17 @@
           const reasonZh = result.detailReasonZh || result.reasonZh || '訂單資料無效。'; // reasonZh（中文原因文字）
           return `
             <tr>
-              <td><b>${esc(result.code || 'Trống / 空白')}</b></td>
+              <td><b>${result.code?esc(result.code):cuttingDualHtml('Trống','空白')}</b></td>
               <td>
                 <span class="ui-language-sections cutting-error-language-sections">
-                  <span class="ui-language-section cutting-error-language-section"><span>${esc(locationVi)}</span><span>${esc(reasonVi)}</span></span>
-                  <span class="ui-language-section cutting-error-language-section"><span>${esc(locationZh)}</span><span>${esc(reasonZh)}</span></span>
+                  <span class="ui-language-section is-vi cutting-error-language-section"><span>${esc(locationVi)}</span><span>${esc(reasonVi)}</span></span>
+                  <span class="ui-language-section is-zh cutting-error-language-section"><span>${esc(locationZh)}</span><span>${esc(reasonZh)}</span></span>
                 </span>
               </td>
               <td>
                 <span class="ui-language-sections cutting-error-language-sections">
-                  <span class="ui-language-section">${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}</span>
-                  <span class="ui-language-section">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span>
+                  <span class="ui-language-section is-vi">${esc(result.solutionVi || 'Kiểm tra và nhập lại đơn hàng.')}</span>
+                  <span class="ui-language-section is-zh">${esc(result.solutionZh || '請檢查並重新匯入訂單。')}</span>
                 </span>
               </td>
             </tr>
@@ -2068,8 +2092,8 @@
     };
     const item = map[status] || map.offline;
     box.className = item.cls;
-    box.title = `${item.vi}\n${item.zh}`;
-    box.innerHTML = `<i class="ti ${item.icon}"></i><div class="cutting-status-copy"><span class="cutting-status-vi">${item.vi}</span><span class="cutting-status-zh">${item.zh}</span></div>`;
+    window.PCMSUIText.setLocalizedAttribute(box,'title',{vi:item.vi,zh:item.zh});
+    box.innerHTML = `<i class="ti ${item.icon}"></i><div class="cutting-status-copy"><span class="cutting-status-vi ui-text-vi">${item.vi}</span><span class="cutting-status-zh ui-text-zh">${item.zh}</span></div>`;
   }
 
   // waitCuttingPdfToolDelay（等待本機 PDF 工具）：只供啟動後短暫輪詢使用。

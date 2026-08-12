@@ -30,3 +30,12 @@ test('errorMessage（錯誤訊息）會限制長度並安全顯示',()=>{
   const result=safe.errorMessage(new Error('<b>abcdef</b>'),5);
   assert.equal(result,'&lt;b&gt;ab');
 });
+
+test('errorMessage（錯誤訊息）依目前語言顯示既有雙語內容',()=>{
+  context.window.PCMSUIText={
+    parseLegacyPair:raw=>raw==='Lỗi / 錯誤'?{vi:'Lỗi',zh:'錯誤'}:null,
+    visibleText:pair=>pair.zh
+  };
+  assert.equal(safe.errorMessage(new Error('Lỗi / 錯誤')),'錯誤');
+  delete context.window.PCMSUIText;
+});

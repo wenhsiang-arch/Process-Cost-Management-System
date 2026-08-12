@@ -186,6 +186,7 @@ function clearSessionUi(){
   window.PCMSFeatures?.resetActivePage?.();
   window.PCMSFeatures?.resetPageDataStates?.();
   window.PCMSHistory?.clearSession?.();
+  window.PCMSUIRuntime?.resetLanguageMode?.();
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   window.cu=null;
   window.accs=[];
@@ -238,6 +239,7 @@ async function enterAuthorizedDeskSystem(user,access){
     error.code='role-no-functions';
     throw error;
   }
+  await window.PCMSUIRuntime?.loadLanguagePreference?.();
   await window.PCMSUsageMetrics?.startSession?.({
     uid:user.uid,username:window.cu.user,role:window.cu.role
   });
@@ -386,14 +388,16 @@ function showFeatureDataWarnings(warnings){
     toast.style.cssText='position:fixed;right:18px;bottom:18px;z-index:10020;max-width:390px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(15,23,42,.18);font-size:13px;line-height:1.55';
     document.body.appendChild(toast);
   }
-  const labels=[...new Map(rows.map(row=>[`${row.vi}|${row.zh}`,`${row.vi} / ${row.zh}`])).values()];
+  const labels=[...new Map(rows.map(row=>[`${row.vi}|${row.zh}`,{vi:String(row.vi||''),zh:String(row.zh||'')}])).values()];
   toast.replaceChildren();
   const title=document.createElement('strong');
-  title.textContent='Một số dữ liệu phụ chưa tải được / 部分附屬資料暫時無法載入';
-  const detail=document.createElement('div');
-  detail.textContent=labels.join('、');
+  window.PCMSUIText.set(title,{vi:'Một số dữ liệu phụ chưa tải được',zh:'部分附屬資料暫時無法載入'});
+  const detail=window.PCMSUIComponents.createLanguageSections({
+    vi:labels.map(label=>label.vi).filter(Boolean).join('、'),
+    zh:labels.map(label=>label.zh).filter(Boolean).join('、')
+  });
   const note=document.createElement('div');
-  note.textContent='Chức năng chính vẫn có thể sử dụng. / 主功能仍可正常使用。';
+  window.PCMSUIText.set(note,{vi:'Chức năng chính vẫn có thể sử dụng.',zh:'主功能仍可正常使用。'});
   note.style.marginTop='4px';
   toast.append(title,detail,note);
   toast.style.display='block';
@@ -451,7 +455,7 @@ async function sp(name){
     return true;
   }catch(error){
     console.error(`載入 ${name} 頁面資料失敗：`,error);
-    alert(featureLoadErrorMessage(error));
+    await window.PCMSUIComponents.alertDialog({kind:'danger',message:window.PCMSUIText.errorPair(featureLoadErrorMessage(error))});
     return false;
   }finally{
     if(blockingLoad) window.firebaseShowLoading?.(false);

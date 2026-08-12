@@ -16,6 +16,10 @@ function syncConfirmDialog(vi,zh){
   });
 }
 
+function syncPairHtml(vi,zh){
+  return `<span class="ui-bilingual"><span class="ui-text-vi">${syncSafeText(vi)}</span><span class="ui-text-zh">${syncSafeText(zh)}</span></span>`;
+}
+
 function syncInit(){
   const sel = g('sync-order');
   if(!sel) return;
@@ -76,8 +80,8 @@ function syncLoadTable(){
       <td style="padding:8px 10px;font-size:13px"><b>${syncSafeText(p.code)}</b></td>
       <td style="padding:8px 10px;font-size:13px">${syncSafeText(p.color||'-')}</td>
       <td style="padding:8px 10px;font-size:13px">${syncSafeText(p.sz||'-')}</td>
-      <td style="padding:8px 10px;text-align:right;font-size:13px">${p.workStdSec||p.processSec||0} giây / 秒</td>
-      <td style="padding:8px 10px;text-align:right;font-size:13px">${p.slPerHour||0} sản phẩm/giờ / 件/時</td>
+      <td style="padding:8px 10px;text-align:right;font-size:13px">${syncPairHtml(`${p.workStdSec||p.processSec||0} giây`,`${p.workStdSec||p.processSec||0} 秒`)}</td>
+      <td style="padding:8px 10px;text-align:right;font-size:13px">${syncPairHtml(`${p.slPerHour||0} sản phẩm/giờ`,`${p.slPerHour||0} 件/時`)}</td>
       <td style="padding:8px 10px;text-align:center">
         <input type="number" min="1" max="999" placeholder="Giây / 秒" id="sync-inp-${i}"
           data-proc-id="${syncSafeAttr(p.id)}" data-code="${syncSafeAttr(p.code)}" data-old-sec="${Number(p.workStdSec||p.processSec||0)}"
@@ -97,7 +101,7 @@ function syncUpdatePreview(i){
   const oldSec = parseInt(inp.dataset.oldSec)||0;
   if(val>0){
     const newSlph = Math.round((window.S?.ws||3000)/val);
-    prev.textContent = newSlph + ' sản phẩm/giờ / 件/時';
+    prev.replaceChildren(window.PCMSUIText.create({vi:`${newSlph} sản phẩm/giờ`,zh:`${newSlph} 件/時`}));
     prev.style.color = val<oldSec?'var(--ok)':val>oldSec?'var(--err)':'var(--accent)';
   } else {
     prev.textContent = '-';

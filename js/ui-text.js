@@ -33,6 +33,9 @@
   });
 
   const textScopes = new Map(); // textScopes（雙語文字範圍索引）
+  const LOCALIZED_ATTRIBUTES = Object.freeze(['aria-label','title','placeholder']); // LOCALIZED_ATTRIBUTES（可跟隨語言模式更新的輔助文字屬性）
+  const LEGACY_TEXT_TARGETS = 'button,label,th,option,.sb-sec,.sb-sec-toggle > span,.logout-btn > span,.tg,.nt,.nt > div,.mt,.mt2,.at,.pwl,.psb,.production-section-count,.ui-empty-state,#lerr-text,#cut-pdf-tool-status > div'; // LEGACY_TEXT_TARGETS（只允許整理介面標籤，不掃描資料格或使用者輸入）
+  let legacyObserver = null; // legacyObserver（舊介面文字新增觀察器）
 
   // normalizePair（正規化雙語文字）：缺少任一語言時保留空白，交由驗收找出，不以另一語言偷偷替代。
   function normalizePair(value){
@@ -68,6 +71,36 @@
     return typeof value === 'string' ? get(value) : normalizePair(value);
   }
 
+  // currentLanguageMode（取得目前語言模式）：共用執行控制尚未載入時固定使用雙語。
+  function currentLanguageMode(){
+    return window.PCMSUIRuntime?.getLanguageMode?.() || 'bilingual';
+  }
+
+  // visibleText（取得目前應顯示文字）：未知模式安全回傳雙語內容。
+  function visibleText(value,mode=currentLanguageMode()){
+    const pair = resolve(value); // pair（越文與中文文字對照）
+    if(mode === 'vi') return pair.vi;
+    if(mode === 'zh') return pair.zh;
+    return [pair.vi,pair.zh].filter(Boolean).join(' / ');
+  }
+
+  // parseLegacyPair（解析程式既有雙語字串）：只供已知介面標籤與程式錯誤，不得套用業務資料。
+  function parseLegacyPair(value){
+    const text = String(value ?? '').trim(); // text（程式既有介面文字）
+    const separator = text.indexOf(' / '); // separator（既有雙語分隔位置）
+    if(separator <= 0) return null;
+    const vi = text.slice(0,separator).trim();
+    const zh = text.slice(separator+3).trim();
+    if(!/[A-Za-zÀ-ỹ]/.test(vi) || !/[\u3400-\u9fff]/.test(zh)) return null;
+    return normalizePair({vi,zh});
+  }
+
+  // errorPair（建立錯誤顯示文字）：資料存取程式可保留既有 Error 訊息，由畫面入口統一轉換。
+  function errorPair(error,fallback={vi:'Không thể hoàn tất thao tác.',zh:'無法完成操作。'}){
+    const raw = String(error?.message ?? error ?? '').trim(); // raw（程式錯誤訊息）
+    return parseLegacyPair(raw) || resolve(fallback);
+  }
+
   // set（設定雙語文字元件）：使用文字節點建立兩行，不使用 innerHTML（直接插入網頁標記）。
   function set(target, value){
     if(!target) return null;
@@ -93,8 +126,194 @@
 
   // assistiveLabel（建立輔助名稱）：提供純圖示按鈕及系統原生輔助屬性使用。
   function assistiveLabel(value){
-    const pair = resolve(value); // pair（本次雙語文字）
-    return `${pair.vi} / ${pair.zh}`;
+    return visibleText(value);
+  }
+
+  // localizedAttributePrefix（語言屬性保存前綴）：只允許中央清單中的輔助文字屬性。
+  function localizedAttributePrefix(attribute){
+    const name = String(attribute || '').toLowerCase(); // name（準備更新的屬性名稱）
+    return LOCALIZED_ATTRIBUTES.includes(name) ? `data-ui-localized-${name}` : '';
+  }
+
+  // refreshLocalizedElement（刷新單一元件輔助文字）：不改變元件內容或業務資料。
+  function refreshLocalizedElement(target,attribute){
+    const prefix = localizedAttributePrefix(attribute); // prefix（語言屬性資料前綴）
+    if(!target || !prefix) return false;
+    const vi = target.getAttribute?.(`${prefix}-vi`) ?? '';
+    const zh = target.getAttribute?.(`${prefix}-zh`) ?? '';
+    target.setAttribute?.(attribute,visibleText({vi,zh}));
+    return true;
+  }
+
+  // setLocalizedAttribute（設定可切換輔助文字）：保存兩種語言並立即套用目前模式。
+  function setLocalizedAttribute(target,attribute,value){
+    const prefix = localizedAttributePrefix(attribute); // prefix（語言屬性資料前綴）
+    if(!target || !prefix) return false;
+    const pair = resolve(value); // pair（越文與中文文字對照）
+    target.setAttribute?.(`${prefix}-vi`,pair.vi);
+    target.setAttribute?.(`${prefix}-zh`,pair.zh);
+    return refreshLocalizedElement(target,attribute);
+  }
+
+  // refreshLocalizedAttributes（刷新頁面輔助文字）：語言切換時統一更新已登記元件。
+  function refreshLocalizedAttributes(root=document){
+    let updated = 0; // updated（本次更新元件數）
+    LOCALIZED_ATTRIBUTES.forEach(attribute=>{
+      const prefix = localizedAttributePrefix(attribute);
+      const selector = `[${prefix}-vi]`;
+      const targets = [];
+      if(root?.matches?.(selector)) targets.push(root);
+      root?.querySelectorAll?.(selector)?.forEach(target=>targets.push(target));
+      targets.forEach(target=>{ if(refreshLocalizedElement(target,attribute)) updated += 1; });
+    });
+    return updated;
+  }
+
+  function refreshLocalizedValues(root=document){
+    const targets=[];
+    const selector='[data-ui-localized-value-vi]';
+    if(root?.matches?.(selector)) targets.push(root);
+    root?.querySelectorAll?.(selector)?.forEach(target=>targets.push(target));
+    targets.forEach(target=>{
+      target.value=visibleText({
+        vi:target.getAttribute?.('data-ui-localized-value-vi')||'',
+        zh:target.getAttribute?.('data-ui-localized-value-zh')||''
+      });
+    });
+    return targets.length;
+  }
+
+  function setLocalizedValue(target,value){
+    if(!target) return false;
+    const pair=resolve(value);
+    target.setAttribute?.('data-ui-localized-value-vi',pair.vi);
+    target.setAttribute?.('data-ui-localized-value-zh',pair.zh);
+    refreshLocalizedValues(target);
+    return true;
+  }
+
+  function clearLocalizedValue(target,value=''){
+    if(!target) return false;
+    target.removeAttribute?.('data-ui-localized-value-vi');
+    target.removeAttribute?.('data-ui-localized-value-zh');
+    target.value=String(value??'');
+    return true;
+  }
+
+  function updateLegacyOption(option){
+    if(!option) return false;
+    const pair = parseLegacyPair(option.textContent);
+    if(pair){
+      option.setAttribute?.('data-ui-option-vi',pair.vi);
+      option.setAttribute?.('data-ui-option-zh',pair.zh);
+    }
+    const vi = option.getAttribute?.('data-ui-option-vi');
+    const zh = option.getAttribute?.('data-ui-option-zh');
+    if(vi === null || zh === null) return false;
+    const nextText = visibleText({vi,zh});
+    if(option.textContent !== nextText) option.textContent = nextText;
+    return true;
+  }
+
+  function directTextNodes(target){
+    return Array.from(target?.childNodes || []).filter(node=>node.nodeType === 3 && String(node.textContent || '').trim());
+  }
+
+  function markStructuredPair(target){
+    const vi = target?.querySelector?.(':scope > strong');
+    const zh = target?.querySelector?.(':scope > span');
+    if(!vi || !zh || !/[A-Za-zÀ-ỹ]/.test(vi.textContent || '') || !/[\u3400-\u9fff]/.test(zh.textContent || '')) return false;
+    target.classList?.add('ui-dual-copy');
+    return true;
+  }
+
+  function markBlockPair(target){
+    if(!target?.matches?.('.ui-empty-state')) return false;
+    const blocks = Array.from(target.children || []).filter(child=>{
+      if(child.matches?.('i,[aria-hidden="true"]')) return false;
+      return String(child.textContent || '').trim();
+    });
+    if(blocks.length !== 2) return false;
+    if(!/[A-Za-zÀ-ỹ]/.test(blocks[0].textContent || '') || !/[\u3400-\u9fff]/.test(blocks[1].textContent || '')) return false;
+    blocks[0].classList?.add('ui-text-vi');
+    blocks[1].classList?.add('ui-text-zh');
+    return true;
+  }
+
+  function upgradeBreakSeparatedCopy(target){
+    const nodes = Array.from(target?.childNodes || []);
+    if(nodes.some(node=>node.nodeType === 1 && String(node.tagName || '').toUpperCase() !== 'BR')) return false;
+    const breakIndex = nodes.findIndex(node=>String(node.tagName || '').toUpperCase() === 'BR');
+    if(breakIndex <= 0 || breakIndex >= nodes.length-1) return false;
+    const vi = nodes.slice(0,breakIndex).map(node=>node.textContent || '').join(' ').trim();
+    const zh = nodes.slice(breakIndex+1).map(node=>node.textContent || '').join(' ').trim();
+    const pair = parseLegacyPair(`${vi} / ${zh}`);
+    if(!pair) return false;
+    target.replaceChildren(create(pair));
+    return true;
+  }
+
+  function upgradeSecondaryCopy(target){
+    if(!target || target.closest?.('table[data-ui-table-controls="auto"]')) return false;
+    const secondary = target.querySelector?.(':scope > .tv, :scope > .lvi');
+    if(!secondary) return false;
+    const nodes = directTextNodes(target);
+    const vi = nodes.map(node=>node.textContent).join(' ').trim();
+    const zh = String(secondary.textContent || '').trim();
+    if(!vi || !zh) return false;
+    target.replaceChildren(create({vi,zh}));
+    return true;
+  }
+
+  function upgradeLegacyTextTarget(target){
+    if(!target) return false;
+    if(String(target.tagName || '').toUpperCase() === 'OPTION') return updateLegacyOption(target);
+    if(markStructuredPair(target)) return true;
+    if(markBlockPair(target)) return true;
+    if(upgradeBreakSeparatedCopy(target)) return true;
+    if(upgradeSecondaryCopy(target)) return true;
+    let changed = false;
+    directTextNodes(target).forEach(node=>{
+      const pair = parseLegacyPair(node.textContent);
+      if(!pair) return;
+      node.replaceWith?.(create(pair));
+      changed = true;
+    });
+    return changed;
+  }
+
+  // upgradeLegacyMarkup（整理核准範圍內的舊介面文字）：不掃描 td（資料格）、input 值或一般內容節點。
+  function upgradeLegacyMarkup(root=document){
+    const attributeTargets = [];
+    if(root?.nodeType === 1) attributeTargets.push(root);
+    root?.querySelectorAll?.('[title],[aria-label],[placeholder]')?.forEach(target=>attributeTargets.push(target));
+    attributeTargets.forEach(target=>LOCALIZED_ATTRIBUTES.forEach(attribute=>{
+      const pair = parseLegacyPair(target.getAttribute?.(attribute));
+      if(pair) setLocalizedAttribute(target,attribute,pair);
+    }));
+
+    const textTargets = [];
+    if(root?.matches?.(LEGACY_TEXT_TARGETS)) textTargets.push(root);
+    root?.querySelectorAll?.(LEGACY_TEXT_TARGETS)?.forEach(target=>textTargets.push(target));
+    textTargets.forEach(upgradeLegacyTextTarget);
+    return attributeTargets.length+textTargets.length;
+  }
+
+  function initializeLegacyMarkup(){
+    upgradeLegacyMarkup(document);
+    if(typeof MutationObserver !== 'function' || legacyObserver) return;
+    legacyObserver = new MutationObserver(records=>{
+      records.forEach(record=>{
+        record.addedNodes?.forEach(node=>{
+          if(node?.nodeType === 1) upgradeLegacyMarkup(node);
+          else if(node?.parentElement?.matches?.(LEGACY_TEXT_TARGETS)) upgradeLegacyTextTarget(node.parentElement);
+        });
+        if(record.type === 'characterData' && record.target?.parentElement?.matches?.(LEGACY_TEXT_TARGETS)){
+          upgradeLegacyTextTarget(record.target.parentElement);
+        }
+      });
+    });
+    legacyObserver.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
   }
 
   register('common', COMMON_TEXT); // common（共用文字範圍）
@@ -105,6 +324,24 @@
     resolve,
     set,
     create,
-    assistiveLabel
+    assistiveLabel,
+    visibleText,
+    parseLegacyPair,
+    errorPair,
+    setLocalizedAttribute,
+    refreshLocalizedAttributes,
+    setLocalizedValue,
+    clearLocalizedValue,
+    refreshLocalizedValues,
+    upgradeLegacyMarkup
   });
+
+  document.addEventListener?.('pcms:languagechange',()=>{
+    refreshLocalizedAttributes();
+    refreshLocalizedValues();
+    document.querySelectorAll?.('option[data-ui-option-vi]')?.forEach(updateLegacyOption);
+    upgradeLegacyMarkup(document);
+  });
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded',initializeLegacyMarkup,{once:true});
+  else initializeLegacyMarkup();
 })();

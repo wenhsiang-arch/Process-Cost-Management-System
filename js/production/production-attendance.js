@@ -62,11 +62,9 @@
   }
 
   async function showError(error){
-    const message = String(error?.message || 'Không thể hoàn tất thao tác. / 無法完成操作。');
-    const parts = message.split(' / ');
     await window.PCMSUIComponents.alertDialog({
       kind:'danger',
-      message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}
+      message:window.PCMSUIText.errorPair(error)
     });
   }
 

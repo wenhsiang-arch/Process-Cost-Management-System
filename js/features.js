@@ -4,36 +4,36 @@
     history:'js/history.js?v=20260812-1',
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
-    uiTableControls:'js/ui-table-controls.js?v=20260810-4',
+    uiTableControls:'js/ui-table-controls.js?v=20260812-5',
     productCache:'js/product-cache.js?v=20260806-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260810-2',
-    data:'js/data.js?v=20260809-2',
+    data:'js/data.js?v=20260812-3',
     costLog:'js/cost-log.js?v=20260810-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260810-3',
-    accounts:'js/accounts.js?v=20260812-1',
+    cutting:'js/cutting.js?v=20260812-5',
+    accounts:'js/accounts.js?v=20260812-2',
     orders:'js/orders.js?v=20260810-1',
-    sync:'js/sync.js?v=20260808-1',
+    sync:'js/sync.js?v=20260812-2',
     permissions:'js/permissions.js?v=20260812-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
-    systemMonitor:'js/system-monitor/system-monitor.js?v=20260812-2',
+    systemMonitor:'js/system-monitor/system-monitor.js?v=20260812-3',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
     productionChangeStore:'js/production/change-store.js?v=20260812-1',
     productionEntryStore:'js/production/entry-store.js?v=20260812-1',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
-    productionEntry:'js/production/production-entry.js?v=20260812-2',
-    productionRecords:'js/production/production-records.js?v=20260810-6',
-    productionAttendance:'js/production/production-attendance.js?v=20260812-2',
-    productionEmployees:'js/production/production-employees.js?v=20260810-5',
+    productionEntry:'js/production/production-entry.js?v=20260812-3',
+    productionRecords:'js/production/production-records.js?v=20260812-8',
+    productionAttendance:'js/production/production-attendance.js?v=20260812-3',
+    productionEmployees:'js/production/production-employees.js?v=20260812-8',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
-    productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260812-3',
-    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260812-3',
-    productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260812-3',
-    productionAnalysis:'js/production-analysis/production-analysis.js?v=20260812-2'
+    productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260812-5',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260812-5',
+    productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260812-5',
+    productionAnalysis:'js/production-analysis/production-analysis.js?v=20260812-4'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
@@ -45,7 +45,7 @@
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260812-1',
     productionAnalysis:'styles/features/production-analysis.css?v=20260812-4',
-    systemMonitor:'styles/features/system-monitor.css?v=20260812-3'
+    systemMonitor:'styles/features/system-monitor.css?v=20260812-4'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([

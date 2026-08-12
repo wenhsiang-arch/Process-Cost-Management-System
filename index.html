@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi" data-ui-theme="default" data-ui-font="default">
+<html lang="vi" data-ui-theme="default" data-ui-font="default" data-ui-language-mode="bilingual">
 <head>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#1a3558">
@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260810-14">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260812-15">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -266,6 +266,14 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <div class="tb">
       <div class="tb-title ui-bilingual" id="active-page-title" aria-live="polite" hidden></div>
       <div class="up" id="upill"><i class="ti ti-user"></i><span id="ulabel"></span></div>
+      <label class="ui-language-picker" for="ui-language-mode" title="Chế độ ngôn ngữ / 語言顯示模式">
+        <i class="ti ti-language" aria-hidden="true"></i>
+        <select id="ui-language-mode" aria-label="Chế độ ngôn ngữ / 語言顯示模式">
+          <option value="bilingual">Song ngữ / 雙語</option>
+          <option value="vi">Tiếng Việt</option>
+          <option value="zh">中文</option>
+        </select>
+      </label>
       <button class="logout-btn" onclick="doLogout()" title="Đăng xuất / 登出"><i class="ti ti-logout"></i><span>Đăng xuất / 登出</span></button>
     </div>
     <div class="idle-bar"><div class="idle-prog" id="idleprog" style="width:100%"></div></div>
@@ -1331,20 +1339,20 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 </div>
 
 <!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
-<script src="js/safe-dom.js?v=20260806-1"></script>
-<script src="js/ui-text.js?v=20260807-1"></script>
-<script src="js/ui-runtime.js?v=20260807-1"></script>
-<script src="js/ui-components.js?v=20260809-1"></script>
+<script src="js/safe-dom.js?v=20260812-2"></script>
+<script src="js/ui-text.js?v=20260812-4"></script>
+<script src="js/ui-runtime.js?v=20260812-2"></script>
+<script src="js/ui-components.js?v=20260812-2"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/ui-table.js?v=20260810-5"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-<script src="js/features.js?v=20260812-11"></script>
-<script src="js/auth.js?v=20260812-1"></script>
+<script src="js/features.js?v=20260812-13"></script>
+<script src="js/auth.js?v=20260812-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260812-2"></script>
+<script type="module" src="js/firebase.js?v=20260812-3"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

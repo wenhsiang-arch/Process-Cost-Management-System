@@ -201,16 +201,29 @@ function setSyncState(state) {
   window.syncState = state;
   const el = document.getElementById('sync-status');
   if(!el) return;
+  const time=new Date().toLocaleTimeString('zh-TW'); // time（本次同步狀態時間）
   const map = {
-    idle:    {text:''},
-    syncing: {text:'🟡 雲端同步中... / Đang đồng bộ...'},
-    success: {text:'🟢 雲端已同步 / Đã đồng bộ · '+new Date().toLocaleTimeString('zh-TW')},
-    failed:  {text:'🔴 Đồng bộ thất bại / 同步失敗，正式資料未更新'}
+    idle:    null,
+    syncing: {vi:'🟡 Đang đồng bộ đám mây...',zh:'🟡 雲端同步中...'},
+    success: {vi:`🟢 Đã đồng bộ đám mây · ${time}`,zh:`🟢 雲端已同步 · ${time}`},
+    failed:  {vi:'🔴 Đồng bộ thất bại, dữ liệu chính thức chưa cập nhật',zh:'🔴 同步失敗，正式資料未更新'}
   };
-  const m = map[state]||map.idle;
-  el.textContent = m.text;
+  const pair = map[state]||map.idle; // pair（同步狀態越文與中文）
+  if(pair) window.PCMSUIText.set(el,pair);
+  else el.replaceChildren();
   el.style.color = state==='failed'?'#dc2626':state==='success'?'#16a34a':state==='syncing'?'#f59e0b':'#94a3b8';
   el.style.display = state==='idle'?'none':'block';
+}
+
+function firebaseDisplayPair(message,fallback){
+  const raw=String(message||'').trim(); // raw（準備顯示的雲端錯誤文字）
+  const slashPair=window.PCMSUIText.parseLegacyPair(raw); // slashPair（舊斜線雙語錯誤）
+  if(slashPair) return slashPair;
+  const lines=raw.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+  if(lines.length>=2&&/[A-Za-zÀ-ỹ]/.test(lines[0])&&/[\u3400-\u9fff]/.test(lines[1])){
+    return {vi:lines[0],zh:lines.slice(1).join('\n')};
+  }
+  return fallback;
 }
 
 function showSyncError(message){
@@ -221,10 +234,14 @@ function showSyncError(message){
     el.style.cssText = 'position:fixed;bottom:60px;right:16px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;font-size:13px;z-index:999;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.1)';
     document.body.appendChild(el);
   }
-  const detail = message
-    ? String(message).split('\n').map(escapeHtml).join('<br>')
-    : 'Dữ liệu chính thức chưa cập nhật, vui lòng kiểm tra mạng rồi nhập lại file Excel<br>正式資料未更新，請確認網路後重新匯入 Excel（表格檔）';
-  el.innerHTML = `<b>⚠️ Đồng bộ thất bại / 同步失敗</b><br><span style="font-size:12px;color:#b91c1c">${detail}</span>`;
+  const fallback={
+    vi:'Dữ liệu chính thức chưa cập nhật, vui lòng kiểm tra mạng rồi nhập lại tệp Excel.',
+    zh:'正式資料未更新，請確認網路後重新匯入 Excel（表格檔）。'
+  }; // fallback（無法辨識錯誤內容時的安全雙語說明）
+  const title=window.PCMSUIText.create({vi:'⚠️ Đồng bộ thất bại',zh:'⚠️ 同步失敗'},{tagName:'b'});
+  const detail=window.PCMSUIComponents.createLanguageSections(firebaseDisplayPair(message,fallback));
+  detail.style.cssText='font-size:12px;color:#b91c1c;margin-top:6px';
+  el.replaceChildren(title,detail);
   el.style.display = 'block';
   clearTimeout(window._syncErrTimer);
   window._syncErrTimer = setTimeout(()=>{ el.style.display='none'; }, 6000);
@@ -236,7 +253,13 @@ function showLoading(show){
     el = document.createElement('div');
     el.id = 'fb-loading';
     el.style.cssText = 'position:fixed;inset:0;background:rgba(26,58,92,0.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px';
-    el.innerHTML = '<div style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite"></div><div style="color:#fff;font-size:15px">正在連接雲端 / Đang kết nối...</div><style>@keyframes spin{to{transform:rotate(360deg)}}</style>';
+    const spinner=document.createElement('div'); // spinner（雲端連線載入圖示）
+    spinner.style.cssText='width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite';
+    const copy=window.PCMSUIText.create({vi:'Đang kết nối đám mây...',zh:'正在連接雲端'});
+    copy.style.cssText='color:#fff;font-size:15px;text-align:center';
+    const animation=document.createElement('style');
+    animation.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+    el.replaceChildren(spinner,copy,animation);
     document.body.appendChild(el);
   }
   el.style.display = show ? 'flex' : 'none';

@@ -711,14 +711,20 @@ async function doBackup(){
 // ===== 匯入記錄 =====
 function rHist(){
   const el=g('hist-list'); if(!el) return;
-  if(!window.impHist.length){ el.innerHTML='<p style="color:var(--mu);font-size:13px">Chưa có lịch sử / 尚無記錄</p>'; return; }
+  if(!window.impHist.length){
+    const empty=document.createElement('p');
+    empty.style.cssText='color:var(--mu);font-size:13px';
+    window.PCMSUIText.set(empty,{vi:'Chưa có lịch sử',zh:'尚無記錄'});
+    el.replaceChildren(empty);
+    return;
+  }
   el.innerHTML=window.impHist.map(h=>{
     const time=h.createdAt?new Date(h.createdAt).toLocaleString('zh-TW'):h.t;
     const user=h.createdBy||h.u||'';
     const count=h.itemCount??h.c??0;
     const details=h.detailCount??h.o??0;
     const overwritten=h.overwriteCount??h.ow??0;
-    return`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${dataSafeText(time)}</span><span style="color:var(--mu)">${dataSafeText(user)}</span><span class="tg tb2">${Number(count)||0} mã/款號</span><span class="tg tg2">${Number(details)||0} CĐ/工序</span>${Number(overwritten)>0?`<span class="tg ta">Ghi đè/覆蓋 ${Number(overwritten)}</span>`:''}</div>`;
+    return`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${dataSafeText(time)}</span><span style="color:var(--mu)">${dataSafeText(user)}</span><span class="tg tb2"><span class="ui-text-vi">${Number(count)||0} mã</span><span class="ui-text-zh">${Number(count)||0} 款號</span></span><span class="tg tg2"><span class="ui-text-vi">${Number(details)||0} công đoạn</span><span class="ui-text-zh">${Number(details)||0} 工序</span></span>${Number(overwritten)>0?`<span class="tg ta"><span class="ui-text-vi">Ghi đè ${Number(overwritten)}</span><span class="ui-text-zh">覆蓋 ${Number(overwritten)}</span></span>`:''}</div>`;
   }).join('');
 }
 

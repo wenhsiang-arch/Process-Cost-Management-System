@@ -42,7 +42,7 @@
   };
   const COUNTER_KEYS=['queryCount','writeRequestCount','documentReads','documentWrites','cacheHits','cacheMisses','cacheWrites','fullLoads'];
   const state={
-    tab:'logs',loading:false,error:'',logs:[],logMore:false,usage:[],usageMore:false,local:null,expandedUsage:new Set(),
+    tab:'logs',loading:false,error:null,logs:[],logMore:false,usage:[],usageMore:false,local:null,expandedUsage:new Set(),
     loaded:{logs:false,calls:false,cache:false},
     logFilters:{from:localDate(),to:localDate(),user:'',feature:'',status:'',search:''},
     usageFilters:{from:localDate(daysAgo(6)),to:localDate(),user:''}
@@ -119,7 +119,7 @@
   function summaryCard(vi,zh,value,tone='blue'){
     return `<div class="system-monitor-summary-card is-${tone}">${dual(vi,zh,'div')}<b>${esc(value)}</b></div>`;
   }
-  function notice(vi,zh){ return `<div class="system-monitor-notice"><i class="ti ti-info-circle"></i><div><p>${esc(vi)}</p><p>${esc(zh)}</p></div></div>`; }
+  function notice(vi,zh){ return `<div class="system-monitor-notice"><i class="ti ti-info-circle"></i><div><p class="ui-text-vi">${esc(vi)}</p><p class="ui-text-zh">${esc(zh)}</p></div></div>`; }
   function filterLogs(){
     const user=state.logFilters.user.toLocaleLowerCase(),feature=state.logFilters.feature,search=state.logFilters.search.toLocaleLowerCase();
     return state.logs.filter(item=>{
@@ -153,8 +153,8 @@
         </tr></thead><tbody>${rows.length?rows.map(item=>{
           const action=actionLabel(item.action),status=statusLabel(item.status);
           const feature=featureLabel(item.feature||item.permissionKey);
-          return `<tr><td>${esc(dateTime(item.createdAt))}</td><td><b>${esc(item.createdBy||'—')}</b><small>${esc(item.createdByUid||'')}</small></td><td>${dual(feature[0],feature[1])}</td><td>${dual(action[0],action[1])}</td><td><span class="system-monitor-status is-${esc(item.status||'failed')}">${status[0]}<small>${status[1]}</small></span></td><td>${count(item.itemCount)}</td><td>${esc(item.note||item.fileName||'—')}</td></tr>`;
-        }).join(''):`<tr><td colspan="7" class="system-monitor-empty">Không có dữ liệu phù hợp / 沒有符合的資料</td></tr>`}</tbody></table></div>
+          return `<tr><td>${esc(dateTime(item.createdAt))}</td><td><b>${esc(item.createdBy||'—')}</b><small>${esc(item.createdByUid||'')}</small></td><td>${dual(feature[0],feature[1])}</td><td>${dual(action[0],action[1])}</td><td><span class="system-monitor-status is-${esc(item.status||'failed')}">${dual(status[0],status[1])}</span></td><td>${count(item.itemCount)}</td><td>${esc(item.note||item.fileName||'—')}</td></tr>`;
+        }).join(''):`<tr><td colspan="7" class="system-monitor-empty">${dual('Không có dữ liệu phù hợp','沒有符合的資料')}</td></tr>`}</tbody></table></div>
         ${state.logMore?`<button id="sm-log-more" class="ui-button system-monitor-more" type="button">${dual('Tải thêm 50 mục','再載入50筆')}</button>`:''}
       </section>`;
   }
@@ -223,30 +223,30 @@
     return rows.length?rows.map(item=>{
       const counter=metrics[item.scope]||{};
       const label=cacheLabel(item.scope);
-      const version=item.versions.size<=1?[...item.versions][0]||'—':`${item.versions.size} phiên bản / ${item.versions.size}版本`;
-      return `<tr><td>${dual(label[0],label[1])}<small>${count(item.scopeCount)} vùng đệm / ${count(item.scopeCount)}個快取區</small></td><td>${item.itemCountKnown?count(item.itemCount):'—'}</td><td>${bytes(item.byteSize)}</td><td>${esc(version)}</td><td>${dateTime(item.savedAt)}</td><td>${dateTime(item.lastAccessedAt)}</td><td>${count(counter.cacheHits)}</td><td>${count(counter.cacheMisses)}</td><td>${hitRate(counter.cacheHits,counter.cacheMisses)}</td></tr>`;
-    }).join(''):`<tr><td colspan="9" class="system-monitor-empty">Chưa có bộ nhớ đệm / 目前沒有快取</td></tr>`;
+      const version=item.versions.size<=1?esc([...item.versions][0]||'—'):dual(`${item.versions.size} phiên bản`,`${item.versions.size}版本`);
+      return `<tr><td>${dual(label[0],label[1])}${dual(`${count(item.scopeCount)} vùng đệm`,`${count(item.scopeCount)}個快取區`,'small')}</td><td>${item.itemCountKnown?count(item.itemCount):'—'}</td><td>${bytes(item.byteSize)}</td><td>${version}</td><td>${dateTime(item.savedAt)}</td><td>${dateTime(item.lastAccessedAt)}</td><td>${count(counter.cacheHits)}</td><td>${count(counter.cacheMisses)}</td><td>${hitRate(counter.cacheHits,counter.cacheMisses)}</td></tr>`;
+    }).join(''):`<tr><td colspan="9" class="system-monitor-empty">${dual('Chưa có bộ nhớ đệm','目前沒有快取')}</td></tr>`;
   }
   function comparisonCell(item){
-    if(item.legacy) return `<span>—</span><small>Dữ liệu cũ / 舊資料</small>`;
-    if(!item.comparison) return `<span>—</span><small>Cần 3 ngày trước / 需3個舊日</small>`;
+    if(item.legacy) return `<span>—</span>${dual('Dữ liệu cũ','舊資料','small')}`;
+    if(!item.comparison) return `<span>—</span>${dual('Cần 3 ngày trước','需3個舊日','small')}`;
     const direction=item.comparison.percent>=0?'+':'';
-    return `<b>${esc(`${direction}${item.comparison.percent.toFixed(0)}%`)}</b><small>TB ${count(Math.round(item.comparison.average))} / 平均${count(Math.round(item.comparison.average))}</small>`;
+    return `<b>${esc(`${direction}${item.comparison.percent.toFixed(0)}%`)}</b>${dual(`TB ${count(Math.round(item.comparison.average))}`,`平均${count(Math.round(item.comparison.average))}`,'small')}`;
   }
   function attentionCell(item){
     if(!item.comparison) return '—';
     return item.comparison.attention
-      ?`<span class="system-monitor-status is-attention">Cần chú ý<small>待關注</small></span>`
-      :`<span class="system-monitor-status is-normal">Bình thường<small>一般</small></span>`;
+      ?`<span class="system-monitor-status is-attention">${dual('Cần chú ý','待關注')}</span>`
+      :`<span class="system-monitor-status is-normal">${dual('Bình thường','一般')}</span>`;
   }
   function renderUsageDetails(item){
     const rows=item.pages;
     return `<tr class="system-monitor-detail-row"><td colspan="10"><div class="system-monitor-detail-card">
-      <div class="system-monitor-detail-title">${dual('Chi tiết theo chức năng','依功能明細','div')}<small>${count(item.sessionCount)} phiên đăng nhập / ${count(item.sessionCount)}個登入工作階段</small></div>
+      <div class="system-monitor-detail-title">${dual('Chi tiết theo chức năng','依功能明細','div')}${dual(`${count(item.sessionCount)} phiên đăng nhập`,`${count(item.sessionCount)}個登入工作階段`,'small')}</div>
       <div class="system-monitor-table-wrap"><table class="ui-table system-monitor-table is-detail"><thead><tr>
         <th>${dual('Chức năng','功能')}</th><th>${dual('Tổng lượt gọi','總呼叫')}</th><th>${dual('Lượt đọc','讀取呼叫')}</th><th>${dual('Lượt ghi','寫入呼叫')}</th>
         <th>${dual('Tài liệu đọc','讀取文件')}</th><th>${dual('Tài liệu ghi','寫入文件')}</th><th>${dual('Tải toàn bộ','完整載入')}</th>
-      </tr></thead><tbody>${rows.length?rows.map(page=>{const label=pageLabel(page.page);return `<tr><td>${dual(label[0],label[1])}</td><td class="system-monitor-call-total">${callDisplay(page)}</td><td>${count(page.totals.queryCount)}</td><td>${writeCallDisplay(page)}</td><td>${count(page.totals.documentReads)}</td><td>${count(page.totals.documentWrites)}</td><td>${count(page.totals.fullLoads)}</td></tr>`;}).join(''):`<tr><td colspan="7" class="system-monitor-empty">Không có chi tiết chức năng / 沒有功能明細</td></tr>`}</tbody></table></div>
+      </tr></thead><tbody>${rows.length?rows.map(page=>{const label=pageLabel(page.page);return `<tr><td>${dual(label[0],label[1])}</td><td class="system-monitor-call-total">${callDisplay(page)}</td><td>${count(page.totals.queryCount)}</td><td>${writeCallDisplay(page)}</td><td>${count(page.totals.documentReads)}</td><td>${count(page.totals.documentWrites)}</td><td>${count(page.totals.fullLoads)}</td></tr>`;}).join(''):`<tr><td colspan="7" class="system-monitor-empty">${dual('Không có chi tiết chức năng','沒有功能明細')}</td></tr>`}</tbody></table></div>
     </div></td></tr>`;
   }
   function renderCalls(){
@@ -270,7 +270,7 @@
         </div>
         ${notice('Tổng lượt gọi = lượt đọc + lượt ghi. Một lần ghi theo lô chỉ tính 1 lượt gọi; số tài liệu nằm trong phần mở rộng. Đây là số ước tính của trang web, chi phí thực tế vẫn theo Firebase.','總呼叫＝讀取呼叫＋寫入呼叫。一次批次寫入只算1次呼叫；文件數放在展開明細。這是網站估算值，實際計費仍以Firebase為準。')}
         ${hasLegacy?notice('Dữ liệu cũ chưa ghi riêng lượt gọi ghi nên hiển thị dấu ≥, không giả định thành số chính xác.','舊資料沒有獨立記錄寫入呼叫，因此以≥顯示，不假裝為精確數字。'):''}
-        <div class="system-monitor-table-wrap"><table class="ui-table system-monitor-table is-calls"><thead><tr><th></th><th>${dual('Ngày','日期')}</th><th>${dual('Người sử dụng','使用者')}</th><th>${dual('Vai trò','角色')}</th><th>${dual('Tổng lượt gọi','總呼叫')}</th><th>${dual('Lượt đọc','讀取呼叫')}</th><th>${dual('Lượt ghi','寫入呼叫')}</th><th>${dual('So với bình quân','與平均比較')}</th><th>${dual('Trạng thái','狀態')}</th><th>${dual('Cập nhật','更新時間')}</th></tr></thead><tbody>${rows.length?rows.map(item=>{const role=roleLabel(item.role),expanded=state.expandedUsage.has(item.key);return `<tr class="system-monitor-call-row"><td><button class="system-monitor-expand-button" type="button" data-sm-usage-key="${esc(item.key)}" aria-expanded="${expanded}" title="Mở chi tiết / 展開明細"><i class="ti ti-chevron-${expanded?'up':'down'}"></i></button></td><td>${esc(item.usageDate)}</td><td><b>${esc(item.username)}</b><small>${esc(item.uid)}</small></td><td>${dual(role[0],role[1])}</td><td class="system-monitor-call-total">${callDisplay(item)}</td><td>${count(item.totals.queryCount)}</td><td>${writeCallDisplay(item)}</td><td>${comparisonCell(item)}</td><td>${attentionCell(item)}</td><td>${dateTime(item.updatedAt)}</td></tr>${expanded?renderUsageDetails(item):''}`;}).join(''):`<tr><td colspan="10" class="system-monitor-empty">Chưa có dữ liệu lượt gọi / 目前沒有呼叫資料</td></tr>`}</tbody></table></div>
+        <div class="system-monitor-table-wrap"><table class="ui-table system-monitor-table is-calls"><thead><tr><th></th><th>${dual('Ngày','日期')}</th><th>${dual('Người sử dụng','使用者')}</th><th>${dual('Vai trò','角色')}</th><th>${dual('Tổng lượt gọi','總呼叫')}</th><th>${dual('Lượt đọc','讀取呼叫')}</th><th>${dual('Lượt ghi','寫入呼叫')}</th><th>${dual('So với bình quân','與平均比較')}</th><th>${dual('Trạng thái','狀態')}</th><th>${dual('Cập nhật','更新時間')}</th></tr></thead><tbody>${rows.length?rows.map(item=>{const role=roleLabel(item.role),expanded=state.expandedUsage.has(item.key);return `<tr class="system-monitor-call-row"><td><button class="system-monitor-expand-button" type="button" data-sm-usage-key="${esc(item.key)}" aria-expanded="${expanded}" title="Mở chi tiết / 展開明細"><i class="ti ti-chevron-${expanded?'up':'down'}"></i></button></td><td>${esc(item.usageDate)}</td><td><b>${esc(item.username)}</b><small>${esc(item.uid)}</small></td><td>${dual(role[0],role[1])}</td><td class="system-monitor-call-total">${callDisplay(item)}</td><td>${count(item.totals.queryCount)}</td><td>${writeCallDisplay(item)}</td><td>${comparisonCell(item)}</td><td>${attentionCell(item)}</td><td>${dateTime(item.updatedAt)}</td></tr>${expanded?renderUsageDetails(item):''}`;}).join(''):`<tr><td colspan="10" class="system-monitor-empty">${dual('Chưa có dữ liệu lượt gọi','目前沒有呼叫資料')}</td></tr>`}</tbody></table></div>
         ${state.usageMore?`<button id="sm-usage-more" class="ui-button system-monitor-more" type="button">${dual('Tải thêm 50 mục','再載入50筆')}</button>`:''}
       </section>`;
   }
@@ -288,7 +288,7 @@
       </div>
       ${notice('Bảng này chỉ hiển thị bộ nhớ đệm của tài khoản, máy tính và trình duyệt hiện tại; không phải tổng của toàn hệ thống.','此表只顯示目前帳號、電腦與瀏覽器的快取，不是全站總量。')}
       <div class="system-monitor-table-wrap"><table class="ui-table system-monitor-table is-cache"><thead><tr><th>${dual('Phạm vi','快取範圍')}</th><th>${dual('Số mục','資料筆數')}</th><th>${dual('Dung lượng','容量')}</th><th>${dual('Phiên bản','版本')}</th><th>${dual('Đã lưu','儲存時間')}</th><th>${dual('Dùng gần nhất','最近使用')}</th><th>${dual('Trúng','命中')}</th><th>${dual('Trượt','未命中')}</th><th>${dual('Tỷ lệ','命中率')}</th></tr></thead><tbody>${renderCacheRows()}</tbody></table></div>
-      <small class="system-monitor-cache-count">${count(cacheRows.length)} nhóm bộ nhớ đệm / ${count(cacheRows.length)}個快取群組</small>
+      <small class="system-monitor-cache-count">${dual(`${count(cacheRows.length)} nhóm bộ nhớ đệm`,`${count(cacheRows.length)}個快取群組`)}</small>
     </section>`;
   }
   function render(){
@@ -299,7 +299,7 @@
         <button type="button" data-sm-tab="calls" class="ui-tab ${state.tab==='calls'?'is-active':''}" role="tab" aria-selected="${state.tab==='calls'}">${dual('Giám sát lượt gọi','呼叫監控')}</button>
         <button type="button" data-sm-tab="cache" class="ui-tab ${state.tab==='cache'?'is-active':''}" role="tab" aria-selected="${state.tab==='cache'}">${dual('Tình trạng bộ nhớ đệm','快取狀況')}</button>
       </div>
-      ${state.error?`<div class="system-monitor-error">${esc(state.error)}</div>`:''}
+      ${state.error?`<div class="system-monitor-error">${dual(state.error.vi,state.error.zh,'div')}</div>`:''}
       ${state.loading?`<div class="system-monitor-loading"><i class="ti ti-loader-2"></i>${dual('Đang tải dữ liệu','正在載入資料')}</div>`:state.tab==='logs'?renderLogs():state.tab==='calls'?renderCalls():renderCache()}
     </div>`;
     bind();
@@ -336,9 +336,9 @@
     }
   }
   async function withLoading(worker){
-    state.loading=true; state.error=''; render();
+    state.loading=true; state.error=null; render();
     try{ await worker(); }
-    catch(error){ console.error('系統監控載入失敗：',error); state.error=error?.message||'Không thể tải dữ liệu / 無法載入資料'; }
+    catch(error){ console.error('系統監控載入失敗：',error); state.error=window.PCMSUIText.errorPair(error,{vi:'Không thể tải dữ liệu.',zh:'無法載入資料。'}); }
     finally{ state.loading=false; render(); }
   }
   async function loadLogs(force=false,loadMore=false){

@@ -113,7 +113,7 @@
       });
       if(!rows.length){
         const tableRow=document.createElement('tr');
-        const cell=ui.createCell('Không có dữ liệu phù hợp. / 沒有符合條件的資料。','production-analysis-empty');
+        const cell=ui.createDualCell({vi:'Không có dữ liệu phù hợp.',zh:'沒有符合條件的資料。'},'production-analysis-empty');
         cell.colSpan=8;
         tableRow.appendChild(cell);
         body.appendChild(tableRow);
@@ -162,8 +162,7 @@
           initializedDates=true;
         }
         dateControls.sync();
-        const source=metadata.source==='indexeddb'?'Bộ nhớ máy này / 本機快取':'Dữ liệu đám mây / 雲端資料';
-        root.querySelector('[data-role="source"]').textContent=`Nguồn dữ liệu / 資料來源：${source}`;
+        ui.setSourceLabel(root.querySelector('[data-role="source"]'),metadata);
         render();
       },
       activate(){render();},leave(){}

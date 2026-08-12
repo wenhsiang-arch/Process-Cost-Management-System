@@ -63,8 +63,8 @@
     button.className = `ui-button is-bilingual${kind ? ` is-${kind}` : ''}`;
     button.disabled = options.disabled === true;
     if(options.id) button.id = String(options.id);
-    if(options.title) button.title = textApi.assistiveLabel(options.title);
-    if(options.text) button.setAttribute('aria-label',textApi.assistiveLabel(options.text));
+    if(options.title) textApi.setLocalizedAttribute(button,'title',options.title);
+    if(options.text) textApi.setLocalizedAttribute(button,'aria-label',options.text);
     const icon = createIcon(options.icon); // icon（按鈕圖示）
     if(icon) button.appendChild(icon);
     if(options.text) button.appendChild(textApi.create(options.text));
@@ -324,7 +324,7 @@
       if(options.label) field.appendChild(textApi.create(options.label,{tagName:'label'}));
       if(input.tagName === 'INPUT') input.type = String(options.type || 'text');
       input.value = String(options.value ?? '');
-      if(options.placeholder) input.placeholder = textApi.assistiveLabel(options.placeholder);
+      if(options.placeholder) textApi.setLocalizedAttribute(input,'placeholder',options.placeholder);
       if(Number.isFinite(Number(options.maxLength))) input.maxLength = Number(options.maxLength);
       field.appendChild(input);
       openDialog({

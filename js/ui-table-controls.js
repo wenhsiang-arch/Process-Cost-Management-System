@@ -20,6 +20,21 @@
   let pageFrameId = 0; // pageFrameId（等待中的一般表格更新工作）
   let generatedTableId = 0; // generatedTableId（沒有識別碼表格的本機流水號）
 
+  function currentLanguageMode(){
+    return window.PCMSUIRuntime?.getLanguageMode?.() || 'bilingual';
+  }
+
+  function setLocalizedAttribute(target,attribute,value){
+    if(window.PCMSUIText?.setLocalizedAttribute){
+      window.PCMSUIText.setLocalizedAttribute(target,attribute,value);
+      return;
+    }
+    const pair = value || {};
+    const mode = currentLanguageMode();
+    const text = mode === 'vi' ? pair.vi : (mode === 'zh' ? pair.zh : [pair.vi,pair.zh].filter(Boolean).join(' / '));
+    target?.setAttribute?.(attribute,String(text || ''));
+  }
+
   function resolveElement(value,root=document){
     if(!value) return null;
     if(typeof value !== 'string') return value;
@@ -184,17 +199,20 @@
       if(!header) return Math.max(DEFAULT_MINIMUM_WIDTH,Math.min(configured,positiveWidth(column?.preferred,configured)));
       const label = headerLabel(header);
       const heading = header.querySelector?.('.ui-table-sort-heading');
-      const viElement = heading?.querySelector?.(':scope > span') || header.querySelector?.('.ui-dual-copy > strong') || header;
-      const zhElement = header.querySelector?.(':scope > .tv') || header.querySelector?.('.ui-dual-copy > span') || header;
+      const viElement = header.querySelector?.('.ui-table-sort-label .ui-text-vi') || heading?.querySelector?.(':scope > span') || header.querySelector?.('.ui-dual-copy > strong') || header;
+      const zhElement = header.querySelector?.('.ui-table-sort-label .ui-text-zh') || header.querySelector?.(':scope > .tv') || header.querySelector?.('.ui-dual-copy > span') || header;
       const trigger = header.querySelector?.(SORT_TRIGGER_SELECTOR);
       const headingStyle = window.getComputedStyle?.(heading || header) || {};
       const headerStyle = window.getComputedStyle?.(header) || {};
       const gap = trigger ? positiveWidth(Number.parseFloat(headingStyle.columnGap || headingStyle.gap),3) : 0;
       const triggerWidth = trigger ? positiveWidth(trigger.getBoundingClientRect?.().width,20) : 0;
-      const viWidth = textWidth(label.vi || column?.label?.vi,viElement)+triggerWidth+gap;
+      const viWidth = textWidth(label.vi || column?.label?.vi,viElement);
       const zhWidth = textWidth(label.zh || column?.label?.zh,zhElement);
+      const labelWidth = currentLanguageMode() === 'vi'
+        ? viWidth
+        : (currentLanguageMode() === 'zh' ? zhWidth : Math.max(viWidth,zhWidth));
       const horizontalPadding = (Number.parseFloat(headerStyle.paddingLeft) || 10)+(Number.parseFloat(headerStyle.paddingRight) || 10)+2;
-      return Math.max(DEFAULT_MINIMUM_WIDTH,Math.ceil(Math.max(viWidth,zhWidth)+horizontalPadding));
+      return Math.max(DEFAULT_MINIMUM_WIDTH,Math.ceil(labelWidth+triggerWidth+gap+horizontalPadding));
     }
 
     function clampWidth(value,column){
@@ -217,8 +235,8 @@
           icon.parentElement?.insertBefore?.(trigger,icon);
           trigger.appendChild?.(icon);
         }
-        trigger.title = 'Sắp xếp cột / 排序欄位';
-        trigger.setAttribute?.('aria-label','Sắp xếp cột / 排序欄位');
+        setLocalizedAttribute(trigger,'title',{vi:'Sắp xếp cột',zh:'排序欄位'});
+        setLocalizedAttribute(trigger,'aria-label',{vi:'Sắp xếp cột',zh:'排序欄位'});
       });
     }
 
@@ -235,7 +253,10 @@
         handle.className = 'ui-table-resize-handle';
         handle.dataset.uiTableResizeHandle = 'true';
         handle.setAttribute('aria-hidden','true');
-        handle.title = 'Kéo để đổi độ rộng; nhấp đúp để vừa nội dung / 拖曳調整欄寬；雙擊符合內容';
+        setLocalizedAttribute(handle,'title',{
+          vi:'Kéo để đổi độ rộng; nhấp đúp để vừa nội dung',
+          zh:'拖曳調整欄寬；雙擊符合內容'
+        });
         const icon = document.createElement('i');
         icon.className = 'ti ti-arrows-horizontal';
         icon.setAttribute('aria-hidden','true');
@@ -254,7 +275,6 @@
           if(hasWidth) cell.style.width = `${width}px`;
           else cell.style.removeProperty('width');
         });
-        if(hasWidth) resizeWidths[column.key] = width;
       });
       if(!resizedKeys.length){
         table.style.removeProperty('--ui-table-resized-min-width');
@@ -464,7 +484,8 @@
       options.onColumnsChanged?.({
         visibleKeys:[...keys],
         visibleCount:keys.length,
-        visibility:Object.freeze({...visibility})
+        visibility:Object.freeze({...visibility}),
+        minimumWidth:keys.reduce((total,key)=>total+headerMinimumWidth(columnMap.get(key)),0)
       });
       window.PCMSUITable?.refresh?.();
       return keys;
@@ -542,6 +563,10 @@
       if(event.key === 'Escape') closeMenu();
     }
 
+    function handleLanguageChange(){
+      refresh();
+    }
+
     function deactivate(deactivateOptions={}){
       finishResize(false);
       closeMenu();
@@ -561,6 +586,7 @@
       table.removeEventListener('dblclick',handleResizeDoubleClick);
       document.removeEventListener('click',handleDocumentClick);
       document.removeEventListener('keydown',handleDocumentKeydown);
+      document.removeEventListener('pcms:languagechange',handleLanguageChange);
       finishResize(false);
       headerCells().forEach(header=>Array.from(header.children || [])
         .filter(child=>child?.dataset?.uiTableResizeHandle === 'true')
@@ -579,6 +605,7 @@
     }
     document.addEventListener('click',handleDocumentClick);
     document.addEventListener('keydown',handleDocumentKeydown);
+    document.addEventListener('pcms:languagechange',handleLanguageChange);
     renderMenu();
     refresh();
 
@@ -599,11 +626,13 @@
 
   function headerLabel(header){
     const dual = header.querySelector?.('.ui-dual-copy');
-    const vi = dual?.querySelector?.('strong')?.textContent
+    const vi = header.querySelector?.('.ui-table-sort-label .ui-text-vi')?.textContent
+      || dual?.querySelector?.('strong')?.textContent
       || header.querySelector?.('.ui-table-sort-heading > span')?.textContent
       || Array.from(header.childNodes || []).filter(node=>node.nodeType === 3).map(node=>node.textContent).join(' ').trim()
       || String(header.textContent || '').trim();
-    const zh = dual?.querySelector?.(':scope > span:not(.ui-table-sort-heading)')?.textContent
+    const zh = header.querySelector?.('.ui-table-sort-label .ui-text-zh')?.textContent
+      || dual?.querySelector?.(':scope > span:not(.ui-table-sort-heading)')?.textContent
       || header.querySelector?.('.tv')?.textContent
       || '';
     return {vi:String(vi || '').trim(),zh:String(zh || '').trim()};
@@ -650,24 +679,31 @@
     header.classList.toggle('ui-table-number-cell',column.align === 'number');
     header.classList.toggle('ui-table-center-cell',column.align === 'center');
     if(column.ellipsis) header.classList.add('ui-table-ellipsis');
-    if(!column.sortable) return;
+    if(!column.sortable){
+      if(!header.querySelector?.('.ui-dual-copy')) header.replaceChildren(createDualCopy(column.label));
+      return;
+    }
     header.setAttribute('aria-sort','none');
     header.dataset.uiTableSortKey = column.key;
     header.classList.add('ui-table-sortable-header');
     if(header.querySelector(SORT_ICON_SELECTOR)) return;
     const heading = document.createElement('span');
     heading.className = 'ui-table-sort-heading';
+    const label = document.createElement('span');
+    label.className = 'ui-table-sort-label ui-bilingual';
     const vi = document.createElement('span');
+    vi.className = 'ui-text-vi';
     vi.textContent = column.label.vi;
+    const zh = document.createElement('span');
+    zh.className = 'ui-text-zh';
+    zh.textContent = column.label.zh;
+    label.append(vi,zh);
     const icon = document.createElement('i');
     icon.className = 'ti ti-arrows-sort ui-table-sort-icon is-idle';
     icon.dataset.uiTableSortIcon = 'true';
     icon.setAttribute('aria-hidden','true');
-    heading.append(vi,icon);
-    const zh = document.createElement('span');
-    zh.className = 'tv';
-    zh.textContent = column.label.zh;
-    header.replaceChildren(heading,zh);
+    heading.append(label,icon);
+    header.replaceChildren(heading);
   }
 
   function syncAutoCells(runtime){
@@ -740,9 +776,11 @@
     ordered.forEach(row=>body.appendChild(row));
   }
 
-  function updateAutoMinimumWidth(table,columns,visibleKeys){
+  function updateAutoMinimumWidth(table,columns,visibleKeys,minimumWidth){
     const visible = new Set(visibleKeys);
-    const minimum = columns.reduce((total,column)=>total+(visible.has(column.key) ? column.minimum : 0),0);
+    const minimum = Number.isFinite(Number(minimumWidth))
+      ? Number(minimumWidth)
+      : columns.reduce((total,column)=>total+(visible.has(column.key) ? column.minimum : 0),0);
     table.style.setProperty('--ui-table-visible-min-width',`${minimum}px`);
     table.querySelectorAll('tbody tr > td:only-child[colspan]').forEach(cell=>{
       cell.colSpan = Math.max(visibleKeys.length,1);
@@ -772,8 +810,8 @@
     button.type = 'button';
     button.tabIndex = -1;
     button.className = 'ui-table-column-settings-button';
-    button.setAttribute('aria-label','Chọn cột hiển thị / 選擇顯示欄位');
-    button.title = 'Chọn cột hiển thị / 選擇顯示欄位';
+    setLocalizedAttribute(button,'aria-label',{vi:'Chọn cột hiển thị',zh:'選擇顯示欄位'});
+    setLocalizedAttribute(button,'title',{vi:'Chọn cột hiển thị',zh:'選擇顯示欄位'});
     button.setAttribute('aria-expanded','false');
     button.dataset.uiTableColumnsButton = 'true';
     const icon = document.createElement('i');
@@ -783,7 +821,7 @@
     menu.className = 'ui-table-column-settings-menu';
     menu.hidden = true;
     menu.setAttribute('role','dialog');
-    menu.setAttribute('aria-label','Chọn cột hiển thị / 選擇顯示欄位');
+    setLocalizedAttribute(menu,'aria-label',{vi:'Chọn cột hiển thị',zh:'選擇顯示欄位'});
     menu.dataset.uiTableColumnsMenu = 'true';
     const menuId = `${id}-column-settings-menu`;
     menu.id = menuId;
@@ -848,7 +886,7 @@
       empty,
       columns,
       resizable:table.dataset.uiTableResizable === 'true',
-      onColumnsChanged:({visibleKeys})=>updateAutoMinimumWidth(table,columns,visibleKeys),
+      onColumnsChanged:({visibleKeys,minimumWidth})=>updateAutoMinimumWidth(table,columns,visibleKeys,minimumWidth),
       onSortChanged:()=>applyAutoSort(runtime)
     });
     autoRuntimes.set(table,runtime);

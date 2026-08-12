@@ -20,9 +20,7 @@
   }
 
   async function showError(error){
-    const message = String(error?.message || 'Không thể hoàn tất thao tác. / 無法完成操作。');
-    const parts = message.split(' / ');
-    await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
+    await window.PCMSUIComponents.alertDialog({kind:'danger',message:window.PCMSUIText.errorPair(error)});
   }
 
   function fillDepartmentSelect(select,selected='',options={}){
@@ -43,7 +41,11 @@
       option.value = department.name;
       option.textContent = department.active === true
         ? department.name
-        : `${department.name} · Ngừng dùng / 停用`;
+        : window.PCMSUIText.visibleText({vi:`${department.name} · Ngừng dùng`,zh:`${department.name} · 停用`});
+      if(department.active !== true){
+        option.setAttribute('data-ui-option-vi',`${department.name} · Ngừng dùng`);
+        option.setAttribute('data-ui-option-zh',`${department.name} · 停用`);
+      }
       select.appendChild(option);
     });
     if(options.includeManage === true){
@@ -258,7 +260,9 @@
       statusCell.className = 'production-center-cell';
       const badge = document.createElement('span');
       badge.className = `production-status ${department.active === true ? 'is-active' : 'is-voided'}`;
-      badge.textContent = department.active === true ? 'Đang dùng / 啟用' : 'Ngừng dùng / 停用';
+      window.PCMSUIText.set(badge,department.active === true
+        ? {vi:'Đang dùng',zh:'啟用'}
+        : {vi:'Ngừng dùng',zh:'停用'});
       statusCell.appendChild(badge);
       const actions = document.createElement('td');
       actions.className = 'production-row-actions';
@@ -384,7 +388,9 @@
       statusCell.className = 'production-center-cell';
       const badge = document.createElement('span');
       badge.className = `production-status ${employee.active === true ? 'is-active' : 'is-voided'}`;
-      badge.textContent = employee.active === true ? 'Đang dùng / 啟用' : 'Ngừng dùng / 停用';
+      window.PCMSUIText.set(badge,employee.active === true
+        ? {vi:'Đang dùng',zh:'啟用'}
+        : {vi:'Ngừng dùng',zh:'停用'});
       statusCell.appendChild(badge);
       const actionCell = document.createElement('td');
       actionCell.className = 'production-row-actions';

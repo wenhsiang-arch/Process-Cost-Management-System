@@ -71,9 +71,7 @@
   }
 
   async function showError(error){
-    const message = String(error?.message || 'Không thể hoàn tất thao tác. / 無法完成操作。');
-    const parts = message.split(' / ');
-    await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:parts[0] || message,zh:parts.slice(1).join(' / ') || message}});
+    await window.PCMSUIComponents.alertDialog({kind:'danger',message:window.PCMSUIText.errorPair(error)});
   }
 
   function rangeDates(from,to){
@@ -185,7 +183,7 @@
       const date = document.createElement('strong');
       const weekday = document.createElement('span');
       date.textContent = copy.date;
-      weekday.textContent = `${copy.vi} / ${copy.zh}`;
+      weekday.appendChild(window.PCMSUIText.create({vi:copy.vi,zh:copy.zh}));
       badge.append(date,weekday);
       cell.appendChild(badge);
     }else{

@@ -49,6 +49,8 @@
 .system-monitor-table.is-cache td:nth-child(4){max-width:220px;overflow:hidden;text-overflow:ellipsis}
 .system-monitor-status{display:inline-flex;flex-direction:column;padding:4px 9px;border-radius:999px;font-size:12px;line-height:1.15;background:#edf2f7;color:#56677e}
 .system-monitor-status small{font-size:10px;color:inherit;opacity:.8}
+.system-monitor-status>.ui-dual-copy>strong{font-size:12px}
+.system-monitor-status>.ui-dual-copy>span{font-size:10px;color:inherit;opacity:.8}
 .system-monitor-status.is-success{background:#e7f7ec;color:#287343}
 .system-monitor-status.is-partial{background:#fff4dd;color:#996219}
 .system-monitor-status.is-failed{background:#fdecec;color:#a43e3e}
