@@ -2,12 +2,14 @@
 (function(){
   'use strict';
 
-  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),dirty:false,initialized:false,languageBound:false,orderSyncContext:null};
+  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,orderSyncContext:null};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
   const store=()=>window.PCMSProcessEditStore;
+  const groupUI=()=>window.PCMSProcessGroupUI;
   const productByCode=code=>(window.D||[]).find(item=>String(item.code||'').trim()===String(code||'').trim())||null;
+  const canEdit=()=>typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();
 
   function setStatus(pair,kind='info'){
     const host=document.getElementById('process-edit-status');
@@ -144,34 +146,31 @@
       <div><span class="ui-dual-copy"><strong>Lần sửa chính thức</strong><span>正式修訂次數</span></span><b>${Number(product.standardRevision)||0}</b></div>`;
   }
 
-  function groupMemberRow(product,checked){
-    const current=product.code===state.currentCode;
-    return `<tr class="${current?'is-current':''}">
-      <td class="ui-table-center-cell"><input type="checkbox" data-process-target="${safe(product.code)}" ${checked?'checked':''} ${current?'disabled':''} aria-label="Áp dụng / 套用"></td>
-      <td><b>${safe(product.code)}</b></td>
-      <td>${safe(product.sz||'—')}</td>
-    </tr>`;
-  }
-
   function renderGroup(product){
     const host=document.getElementById('process-edit-group-area');
     if(!host) return;
+    state.groupSelector=null;
     const group=store().groupForProduct(product.code);
     if(group){
       const members=(group.memberCodes||[]).map(productByCode).filter(Boolean);
       state.selectedTargets.add(product.code);
-      host.innerHTML=`<div class="process-edit-group-heading"><span class="ui-dual-copy"><strong>Phạm vi áp dụng</strong><span>修改套用範圍</span></span><b>${safe(group.name||group.groupId)}</b><span>${members.length} mã / 款</span></div>
+      host.innerHTML=`<div class="process-edit-group-heading"><span class="ui-dual-copy"><strong>Phạm vi áp dụng</strong><span>修改套用範圍</span></span><b>${safe(group.name||group.groupId)}</b><span class="ui-dual-copy"><strong>${members.length} mã</strong><span>${members.length} 款</span></span></div>
         <div class="process-edit-scope-options">
           <label class="process-edit-scope-option${state.applyMode==='current'?' is-selected':''}"><input type="radio" name="process-edit-apply-mode" value="current" data-process-apply-mode ${state.applyMode==='current'?'checked':''}><span class="ui-dual-copy"><strong>Chỉ sửa mã hiện tại</strong><span>只修改目前款號</span></span><small>${safe(product.code)}</small></label>
           <label class="process-edit-scope-option${state.applyMode==='group'?' is-selected':''}"><input type="radio" name="process-edit-apply-mode" value="group" data-process-apply-mode ${state.applyMode==='group'?'checked':''}><span class="ui-dual-copy"><strong>Áp dụng thêm cho mã trong nhóm</strong><span>同步套用群組款號</span></span><small class="ui-bilingual"><span class="ui-text-vi">Chọn riêng mã cần áp dụng</span><span class="ui-text-zh">再勾選需要套用的款號</span></small></label>
         </div>
         <div class="process-edit-group-targets" ${state.applyMode==='group'?'':'hidden'}>
         <div class="process-edit-group-note ui-bilingual"><span class="ui-text-vi">Mã hiện tại luôn được áp dụng. Chỉ đánh dấu thêm những mã thật sự cần dùng cùng tiêu chuẩn lần này.</span><span class="ui-text-zh">目前款號一定會修改；只需另外勾選本次確定要共用標準的款號。</span></div>
-        <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-edit-target-table">
-          <thead><tr><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Áp dụng lần này</strong><span>本次套用</span></span></th><th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th></tr></thead>
-          <tbody>${members.map(item=>groupMemberRow(item,state.selectedTargets.has(item.code))).join('')}</tbody>
-        </table></div></div>
+        <div data-process-group-selector></div>
         </div>`;
+      if(state.applyMode==='group'){
+        state.groupSelector=groupUI().createMemberSelector({
+          products:members,currentCode:product.code,activeSize:product.sz,
+          selectedCodes:[...state.selectedTargets],requiredCodes:[product.code],selectable:canEdit(),
+          onChange:controller=>{ state.selectedTargets=new Set(controller.selectedCodes());renderSaveSummary(); }
+        });
+        host.querySelector('[data-process-group-selector]').appendChild(state.groupSelector.element);
+      }
       renderSaveSummary();
       return;
     }
@@ -196,16 +195,16 @@
     if(!body) return;
     body.innerHTML=state.draft.map((operation,index)=>`<tr data-process-index="${index}">
       <td class="ui-table-center-cell"><b>${index+1}</b></td>
-      <td><select data-process-field="category"><option value="BL" ${operation.category==='BL'?'selected':''}>BL</option><option value="SX" ${operation.category==='SX'?'selected':''}>SX</option><option value="QC" ${operation.category==='QC'?'selected':''}>QC</option><option value="DG" ${operation.category==='DG'?'selected':''}>DG</option></select></td>
-      <td><input type="text" maxlength="200" data-process-field="vi" value="${safe(operation.vi)}"></td>
-      <td><input type="text" maxlength="200" data-process-field="zh" value="${safe(operation.zh)}"></td>
+      <td><select data-process-field="category" ${canEdit()?'':'disabled'}><option value="BL" ${operation.category==='BL'?'selected':''}>BL</option><option value="SX" ${operation.category==='SX'?'selected':''}>SX</option><option value="QC" ${operation.category==='QC'?'selected':''}>QC</option><option value="DG" ${operation.category==='DG'?'selected':''}>DG</option></select></td>
+      <td><input type="text" maxlength="200" data-process-field="vi" value="${safe(operation.vi)}" ${canEdit()?'':'disabled'}></td>
+      <td><input type="text" maxlength="200" data-process-field="zh" value="${safe(operation.zh)}" ${canEdit()?'':'disabled'}></td>
       <td class="ui-table-number-cell">${safe(developmentSeconds(product,operation.no))}</td>
-      <td class="ui-table-number-cell"><input type="number" min="0.01" max="86400" step="0.01" data-process-field="sec" value="${safe(operation.sec)}"></td>
+      <td class="ui-table-number-cell"><input type="number" min="0.01" max="86400" step="0.01" data-process-field="sec" value="${safe(operation.sec)}" ${canEdit()?'':'disabled'}></td>
       <td class="ui-table-number-cell"><b>${hourlyCapacity(operation.sec)}</b></td>
       <td class="ui-table-center-cell"><div class="process-edit-row-actions">
-        <button type="button" data-process-action="up" aria-label="Lên / 上移" ${index===0?'disabled':''}><i class="ti ti-arrow-up"></i></button>
-        <button type="button" data-process-action="down" aria-label="Xuống / 下移" ${index===state.draft.length-1?'disabled':''}><i class="ti ti-arrow-down"></i></button>
-        <button type="button" data-process-action="delete" aria-label="Xóa / 刪除" class="is-danger"><i class="ti ti-trash"></i></button>
+        <button type="button" data-process-action="up" aria-label="Lên / 上移" ${index===0||!canEdit()?'disabled':''}><i class="ti ti-arrow-up"></i></button>
+        <button type="button" data-process-action="down" aria-label="Xuống / 下移" ${index===state.draft.length-1||!canEdit()?'disabled':''}><i class="ti ti-arrow-down"></i></button>
+        <button type="button" data-process-action="delete" aria-label="Xóa / 刪除" class="is-danger" ${canEdit()?'':'disabled'}><i class="ti ti-trash"></i></button>
       </div></td>
     </tr>`).join('');
     renderSaveSummary();
@@ -285,6 +284,7 @@
   }
 
   async function saveOfficial(){
+    if(!canEdit()){ setStatus({vi:'Bạn không có quyền nhạy cảm để sửa tiêu chuẩn chính thức.',zh:'你沒有修改正式工序標準的敏感權限。'},'warning');return; }
     const reason=String(document.getElementById('process-edit-reason')?.value||'').trim();
     const targetCodes=[...state.selectedTargets];
     let operations;
@@ -361,7 +361,7 @@
         copy.append(
           textApi().create({vi:action[0],zh:action[1]},{tagName:'b'}),
           Object.assign(document.createElement('span'),{textContent:new Date(Number(version.createdAt)||0).toLocaleString('zh-TW')}),
-          Object.assign(document.createElement('small'),{textContent:`${version.productCount||0} mã / 款 · ${version.opCount||0} công đoạn / 工序 · ${version.reason||''}`})
+          Object.assign(document.createElement('small'),{textContent:textApi().visibleText({vi:`${version.productCount||0} mã · ${version.opCount||0} công đoạn · ${version.reason||''}`,zh:`${version.productCount||0} 款 · ${version.opCount||0} 工序 · ${version.reason||''}`})})
         );
         const button=ui().createButton({text:{vi:'Xuất Excel',zh:'匯出 Excel'},icon:'ti-download'});
         button.addEventListener('click',()=>exportVersion(version));
@@ -457,6 +457,7 @@
   }
 
   async function saveOrderException(){
+    if(!canEdit()){ setStatus({vi:'Bạn không có quyền nhạy cảm để sửa tiêu chuẩn chính thức.',zh:'你沒有修改正式工序標準的敏感權限。'},'warning');return; }
     const product=productByCode(state.currentCode);
     if(!product) return;
     let operations;
@@ -537,15 +538,14 @@
       if(mode!==undefined){
         state.applyMode=event.target.value==='group'?'group':'current';
         if(state.applyMode==='current') state.selectedTargets=new Set([state.currentCode]);
-        else state.selectedTargets.add(state.currentCode);
+        else{
+          const group=store().groupForProduct(state.currentCode);
+          state.selectedTargets=new Set(group?.memberCodes||[state.currentCode]);
+          state.selectedTargets.add(state.currentCode);
+        }
         renderGroup(productByCode(state.currentCode));
         return;
       }
-      const code=event.target?.dataset?.processTarget;
-      if(!code) return;
-      if(event.target.checked) state.selectedTargets.add(code); else state.selectedTargets.delete(code);
-      state.selectedTargets.add(state.currentCode);
-      renderSaveSummary();
     });
     document.getElementById('process-edit-group-area')?.addEventListener('click',event=>{
       if(event.target.closest('#process-edit-open-groups')) openGroupsPage();
@@ -566,6 +566,9 @@
     if(!state.languageBound){ document.addEventListener('pcms:languagechange',handleLanguageChange); state.languageBound=true; }
     fillClientOptions();
     fillProductOptions();
+    const editingAllowed=canEdit();
+    ['process-edit-add-button','process-edit-save-button','process-edit-order-exception-button'].forEach(id=>{ const button=document.getElementById(id);if(button) button.disabled=!editingAllowed; });
+    const reason=document.getElementById('process-edit-reason');if(reason) reason.disabled=!editingAllowed;
     const pending=window.PCMSPendingProcessEditContext;
     if(pending?.code){
       await selectProduct(pending.code,{force:true});
@@ -576,6 +579,7 @@
     }else if(state.currentCode){
       await selectProduct(state.currentCode,{force:true});
     }
+    if(!editingAllowed) setStatus({vi:'Trang đang ở chế độ chỉ xem; quyền nhạy cảm sửa tiêu chuẩn chưa được mở.',zh:'目前為唯讀模式；尚未開啟修改正式標準的敏感權限。'},'warning');
   }
 
   function productionProcessEditLeave(){

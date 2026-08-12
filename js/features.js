@@ -24,18 +24,20 @@
     productionEntryStore:'js/production/entry-store.js?v=20260813-1',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
-    productionEntry:'js/production/production-entry.js?v=20260813-2',
+    productionEntry:'js/production/production-entry.js?v=20260813-3',
     productionRecords:'js/production/production-records.js?v=20260812-8',
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
-    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-2',
-    productionProcessEdit:'js/production/process-edit.js?v=20260813-4',
-    productionProductGroups:'js/production/product-groups.js?v=20260813-2',
+    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-3',
+    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-1',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-1',
+    productionProcessEdit:'js/production/process-edit.js?v=20260813-5',
+    productionProductGroups:'js/production/product-groups.js?v=20260813-3',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
     productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260813-2',
-    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260813-3',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260813-4',
     productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260813-1',
     productionAnalysis:'js/production-analysis/production-analysis.js?v=20260813-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
@@ -47,7 +49,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260813-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-4',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-5',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -90,14 +92,17 @@
         {
           page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
           styles:['productionProcessEdit'],
-          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessEdit'],
+          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessEdit'],
           dataScopes:['operationSettings','products','productGroups','productVersions','orders','orderProcesses','processEditJobs'],
-          dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave']
+          dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave'],
+          restrictions:[
+            {key:'processSecondsEdit',vi:'Sửa tiêu chuẩn công đoạn chính thức',zh:'修改正式工序標準（含秒數）'}
+          ]
         },
         {
           page:'product-groups',feature:'productionProcessEdit',permissionVisible:false,icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
           styles:['productionProcessEdit'],
-          scripts:['productCache','productModel','productionProcessEditStore','productionProductGroups'],
+          scripts:['productCache','productModel','productionProcessEditStore','productionProcessGroupUi','productionProductGroups'],
           dataScopes:['products','productGroups'],
           dataLoaders:['loadProductionProductGroupsData'],onOpen:['productionProductGroupsInit'],onLeave:['productionProductGroupsLeave']
         }
@@ -120,9 +125,9 @@
       pages:[
         {
           page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
-          styles:['production'],
-          scripts:['uiTableControls','orderProcessCache','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionEntry'],
-          dataScopes:['productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals','productionAttendance'],
+          styles:['production','productionProcessEdit'],
+          scripts:['productCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','uiTableControls','orderProcessCache','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionEntry'],
+          dataScopes:['products','productGroups','productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals','productionAttendance'],
           dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit'],onLeave:['productionEntryLeave']
         },
         {
@@ -154,13 +159,13 @@
       pages:[
         {
           page:'production-analysis',feature:'productionAnalysis',icon:'ti-chart-histogram',vi:'Phân tích sản xuất',zh:'生產分析',
-          styles:['productionAnalysis'],
+          styles:['productionAnalysis','productionProcessEdit'],
           scripts:[
-            'history','fileIo','uiTableControls','productionEmployeeStore','productionChangeStore',
+            'history','fileIo','productCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','uiTableControls','productionEmployeeStore','productionChangeStore',
             'productionAnalysisCalculations','productionAnalysisStore','productionAnalysisExport',
             'productionEmployeeAnalysis','productionIeAnalysis','productionDepartmentAnalysis','productionAnalysis'
           ],
-          dataScopes:['productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'],
+          dataScopes:['products','productGroups','productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'],
           dataLoaders:['loadProductionAnalysisData'],onOpen:['productionAnalysisInit'],onLeave:['productionAnalysisLeave']
         }
       ]
@@ -222,7 +227,7 @@
 
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','cutting',
-    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit',
+    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit','processSecondsEdit',
     'productionAnalysis','costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
@@ -285,7 +290,8 @@
     normalized.productsMain=normalized.productsMain===true
       ||normalized.summary===true
       ||normalized.costView===true
-      ||normalized.productionProcessEdit===true;
+      ||normalized.productionProcessEdit===true
+      ||normalized.processSecondsEdit===true;
     // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
     normalized.orderImport=normalized.progress===true;
     if(features&&typeof features.costMain!=='boolean'){

@@ -91,4 +91,34 @@
 .product-groups-wizard-source>span:last-child{margin-left:auto;color:var(--mu)}
 .product-groups-wizard-note{color:var(--mu);font-size:12px}
 .product-groups-wizard-actions,.product-groups-wizard-final{display:flex;align-items:center;justify-content:space-between;gap:10px}.product-groups-wizard-final>b{color:var(--accent)}
+
+/* process-size-selector（尺寸分組選擇器）：同產品為第一層，款號表尺寸為第二層。 */
+.process-size-selector{display:grid;gap:9px;min-width:0}
+.process-size-tabs{display:flex;align-items:stretch;gap:7px;overflow-x:auto;padding:2px 1px 5px}
+.process-size-tabs button{display:grid;grid-template-columns:auto auto;align-items:center;gap:3px 8px;min-width:116px;padding:9px 12px;border:1px solid var(--bd);border-radius:9px;background:#fff;color:var(--tx);cursor:pointer;text-align:left;white-space:nowrap}
+.process-size-tabs button span{font-weight:800}.process-size-tabs button small{grid-column:1/3;display:grid;color:var(--mu)}
+.process-size-tabs button.is-active{border-color:var(--accent);background:#eaf2ff;color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.process-size-toolbar{display:flex;align-items:center;gap:10px;min-height:38px;padding:7px 9px;border:1px solid #cfddf0;border-radius:8px;background:#f4f8ff}
+.process-size-toolbar>b{color:var(--accent)}.process-size-selection-count{margin-left:auto;color:var(--mu)}
+.process-size-select-all{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid var(--accent);border-radius:8px;background:#fff;color:var(--accent);cursor:pointer}
+.process-size-select-all[aria-pressed="true"]{background:var(--accent);color:#fff}.process-size-select-all.is-partial{background:#eef5ff}
+.process-size-member-table{min-width:1160px}.process-size-member-table th{position:static!important}
+.process-size-member-table th.is-select{width:86px}.process-size-member-table th.is-client{width:170px}.process-size-member-table th.is-code{width:150px}.process-size-member-table th.is-zh,.process-size-member-table th.is-vi{width:260px}.process-size-member-table th.is-size,.process-size-member-table th.is-seconds{width:130px}.process-size-member-table th.is-action{width:160px}
+.process-size-member-table tr.is-current{background:#eaf2ff}.process-size-member-table input[type="checkbox"]{width:18px;height:18px}.process-size-member-table input[type="checkbox"]:disabled{opacity:1;accent-color:var(--accent)}
+
+/* process-seconds-quick-edit（秒數快速修改視窗）。 */
+.process-seconds-quick-edit{display:grid;gap:12px;min-width:0}
+.process-seconds-edit-fields{display:grid;grid-template-columns:130px minmax(260px,1fr) 150px 180px;gap:10px;padding:12px;border:1px solid var(--bd);border-radius:10px;background:#f8fafc}
+.process-seconds-edit-fields>div,.process-seconds-edit-fields>label{display:grid;align-content:start;gap:5px}.process-seconds-edit-fields .is-name{min-width:0}.process-seconds-edit-fields .is-reason{grid-column:1/5}
+.process-seconds-edit-fields .ui-dual-copy{font-size:12px;color:var(--mu)}.process-seconds-edit-fields b{font-size:17px;overflow-wrap:anywhere}
+.process-seconds-edit-fields input,.process-seconds-edit-fields textarea{width:100%;border:1px solid var(--bd);border-radius:8px;background:#fff;padding:8px 10px}.process-seconds-edit-fields input{height:42px;text-align:right;font-size:17px;font-weight:800}.process-seconds-edit-fields textarea{resize:vertical}
+.process-seconds-group-section{display:grid;gap:9px;padding:12px;border:1px solid var(--bd);border-radius:10px}
+.process-seconds-group-heading{display:flex;align-items:center;gap:10px}.process-seconds-group-heading>b{color:var(--accent)}.process-seconds-group-heading .ui-button{margin-left:auto}
+.process-seconds-group-information{border:1px solid var(--bd);border-radius:10px;overflow:hidden}.process-seconds-group-facts{display:grid;grid-template-columns:repeat(4,1fr)}
+.process-seconds-group-facts>div{display:grid;gap:4px;padding:9px 11px;border-right:1px solid var(--bd)}.process-seconds-group-facts>div:last-child{border-right:0}.process-seconds-group-facts .ui-dual-copy{font-size:12px;color:var(--mu)}
+.process-seconds-group-note,.process-seconds-history-note{padding:9px 11px;color:var(--mu);font-size:12px;border-top:1px solid var(--bd)}
+.process-seconds-confirm-summary{display:grid;gap:10px}.process-seconds-confirm-summary dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}.process-seconds-confirm-summary dl>div{display:grid;gap:4px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px}.process-seconds-confirm-summary dt{color:var(--mu);font-size:12px}.process-seconds-confirm-summary dd{margin:0;font-weight:800;overflow-wrap:anywhere}
+.process-seconds-edit-button{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;min-width:76px;padding:5px 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.process-seconds-edit-button:not(:disabled):hover,.process-seconds-edit-button:not(:disabled):focus-visible{border-color:var(--accent);background:#eaf2ff;color:var(--accent)}.process-seconds-edit-button:disabled{cursor:default}.process-seconds-edit-button i{color:var(--accent);font-size:14px}
+.ui-dialog.is-xlarge{width:min(1400px,96vw)}
 html[data-ui-language-mode="vi"] .production-process-edit-page,html[data-ui-language-mode="zh"] .production-process-edit-page,html[data-ui-language-mode="vi"] .product-groups-page,html[data-ui-language-mode="zh"] .product-groups-page{gap:9px}

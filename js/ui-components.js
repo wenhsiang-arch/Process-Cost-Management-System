@@ -176,7 +176,8 @@
 
   // openDialog（開啟共用視窗）：同一時間只保留一個共用視窗，關閉後回到原焦點。
   function openDialog(options = {}){
-    if(activeDialog) activeDialog.close('replace'); // replace（由新視窗取代）
+    const coveredDialog = options.keepPrevious === true ? activeDialog : null; // coveredDialog（暫時被確認視窗覆蓋的原視窗）
+    if(activeDialog && !coveredDialog) activeDialog.close('replace'); // replace（由新視窗取代）
     const previousFocus = document.activeElement; // previousFocus（開啟前的焦點）
     const backdrop = document.createElement('div'); // backdrop（視窗遮罩）
     const dialog = document.createElement('section'); // dialog（視窗本體）
@@ -187,7 +188,8 @@
     let closed = false; // closed（視窗是否已關閉）
 
     backdrop.className = 'ui-dialog-backdrop';
-    dialog.className = `ui-dialog${options.size === 'large' ? ' is-large' : ''}`;
+    const sizeClass = options.size === 'xlarge' ? ' is-xlarge' : (options.size === 'large' ? ' is-large' : ''); // sizeClass（視窗寬度等級）
+    dialog.className = `ui-dialog${sizeClass}`;
     header.className = 'ui-dialog-header';
     body.className = 'ui-dialog-body';
     actions.className = 'ui-dialog-actions';
@@ -207,13 +209,14 @@
       closed = true;
       document.removeEventListener('keydown',handleKeydown,true);
       backdrop.remove();
-      if(activeDialog === controller) activeDialog = null;
+      if(activeDialog === controller) activeDialog = coveredDialog?.element?.isConnected ? coveredDialog : null;
       if(previousFocus && typeof previousFocus.focus === 'function' && previousFocus.isConnected) previousFocus.focus();
       if(typeof options.onClose === 'function') options.onClose(reason);
       return true;
     }
 
     function handleKeydown(event){
+      if(activeDialog !== controller) return;
       if(event.key === 'Escape' && options.closeOnEscape !== false){
         event.preventDefault();
         close('escape'); // escape（按下離開鍵）
@@ -285,9 +288,10 @@
         title:options.title || 'common.confirm',
         body:options.body || options.message,
         size:options.size,
+        keepPrevious:options.keepPrevious===true,
         actions:[
-          {text:'common.cancel',onClick:()=>{ settled = true; resolve(false); }},
-          {text:'common.confirm',kind:'primary',onClick:()=>{ settled = true; resolve(true); }}
+          {text:options.cancelText||'common.cancel',onClick:()=>{ settled = true; resolve(false); }},
+          {text:options.confirmText||'common.confirm',kind:options.kind==='danger'?'danger':'primary',onClick:()=>{ settled = true; resolve(true); }}
         ],
         onClose:()=>{ if(!settled) resolve(false); }
       });
@@ -308,6 +312,7 @@
         title:config.title || titleKeys[kind],
         body:message,
         size:config.size,
+        keepPrevious:config.keepPrevious===true,
         actions:[{text:'common.close',kind:kind === 'danger' ? 'danger' : '' ,onClick:()=>{ settled = true; resolve(true); }}],
         onClose:()=>{ if(!settled) resolve(true); }
       });

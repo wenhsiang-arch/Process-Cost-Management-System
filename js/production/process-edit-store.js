@@ -158,6 +158,56 @@
     return {items:updatedItems,operations,reason,logSaved};
   }
 
+  // saveOfficialSeconds（儲存正式秒數）：只改每個款號指定工序的秒數，不覆蓋其他工序內容。
+  async function saveOfficialSeconds(input={}){
+    const targetCodes=[...new Set((input.targetCodes||[]).map(normalizeCode).filter(Boolean))];
+    const processNo=String(input.processNo||'').trim();
+    const seconds=Number(input.seconds);
+    const reason=String(input.reason||'').trim();
+    if(!targetCodes.length) throw new Error('Chưa chọn mã hàng cần áp dụng. / 尚未選擇要套用的款號。');
+    if(!processNo) throw new Error('Thiếu số công đoạn. / 缺少工序號。');
+    if(!(seconds>0&&seconds<=86400)) throw new Error('Giây công đoạn phải lớn hơn 0. / 工序秒數必須大於0。');
+    if(reason.length<2||reason.length>500) throw new Error('Vui lòng nhập lý do sửa từ 2 đến 500 ký tự. / 請填寫2至500字的修改原因。');
+    const now=Date.now();
+    const userName=currentUserName();
+    const changes=[];
+    const updatedItems=targetCodes.map(code=>{
+      const current=productByCode(code);
+      if(!current) throw new Error(`Không tìm thấy mã hàng ${code}. / 找不到款號 ${code}。`);
+      let found=false;
+      const operations=(current.ops||[]).map(item=>{
+        const operation=window.PCMSProductModel.normalizeOperation(item);
+        if(String(operation.no)!==processNo) return operation;
+        found=true;
+        changes.push({code,processNo,before:Number(operation.sec)||0,after:seconds});
+        return {...operation,sec:seconds};
+      });
+      if(!found) throw new Error(`Mã ${code} không có công đoạn ${processNo}. / 款號 ${code} 沒有工序 ${processNo}。`);
+      return {
+        ...current,
+        ops:operations,
+        developmentOps:Array.isArray(current.developmentOps)&&current.developmentOps.length
+          ? current.developmentOps.map(item=>({...item}))
+          : (current.ops||[]).map(window.PCMSProductModel.normalizeOperation),
+        standardRevision:(Number(current.standardRevision)||0)+1,
+        officialUpdatedAt:now,
+        officialUpdatedBy:userName
+      };
+    });
+    const success=await window.saveProductItemsToFB(updatedItems,{allowExisting:true,action:'processEdit',reason});
+    if(!success) throw new Error(window.lastProductSyncError||'Không thể lưu giây công đoạn. / 無法儲存工序秒數。');
+    let logSaved=true;
+    try{
+      const result=await window.saveOperationLogToFB?.({
+        permissionKey:'productionProcessEdit',feature:'productionProcessEdit',action:'productProcessEdit',status:'success',
+        itemCount:targetCodes.length,detailCount:changes.length,changes:changes.slice(0,50),
+        note:`${reason}｜Công đoạn / 工序 ${processNo}｜${targetCodes.join(', ')}`
+      });
+      logSaved=result!==false;
+    }catch(error){ logSaved=false; console.error('Không thể lưu lịch sử sửa giây / 無法保存秒數修改紀錄',error); }
+    return {items:updatedItems,processNo,seconds,reason,changes,logSaved};
+  }
+
   async function loadVersions(maximum=100){
     return window.PCMSProductVersionStore.listVersions(maximum);
   }
@@ -353,7 +403,7 @@
 
   window.PCMSProcessEditStore=Object.freeze({
     loadGroups,listGroups,groupForProduct,findCandidates,createGroup,
-    validateOperations,saveOfficialProcesses,loadVersions,loadVersionSnapshot,
+    validateOperations,saveOfficialProcesses,saveOfficialSeconds,loadVersions,loadVersionSnapshot,
     loadOrders,activeOrdersForProducts,syncOrderSnapshot,retryOrderSnapshot,reset
   });
 })();

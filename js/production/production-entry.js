@@ -1075,6 +1075,7 @@
       cell.textContent = text;
     }
     row.appendChild(cell);
+    return cell;
   }
 
   function dailySortValue(item,key){
@@ -1135,7 +1136,13 @@
       appendCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
       appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity','production-value-badge');
       appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
-      appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
+      const secondsCell=appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
+      if(!supplement&&window.PCMSQuickProcessSeconds){
+        secondsCell.replaceChildren(window.PCMSQuickProcessSeconds.createButton({
+          value:numberText(item.processSecSnapshot),code:item.productCode,processNo:item.processNo,
+          processNameVi:item.processNameVi,displayedSeconds:Number(item.processSecSnapshot)||0,source:'productionEntry'
+        }));
+      }
       appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacitySnapshot),'production-number-cell','hourlyCapacity');
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';

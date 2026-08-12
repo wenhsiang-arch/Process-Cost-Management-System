@@ -159,11 +159,19 @@
           renderSummary();
         });
         selectCell.appendChild(checkbox);
+        const currentSecondsCell=ui.createCell('','ui-table-number-cell');
+        if(window.PCMSQuickProcessSeconds){
+          currentSecondsCell.appendChild(window.PCMSQuickProcessSeconds.createButton({
+            value:ui.seconds(row.currentSeconds),code:row.productCode,processNo:row.processNo,
+            processNameVi:row.processNameVi,displayedSeconds:Number(row.currentSeconds)||0,
+            recommendedSeconds:Number(row.suggestedSeconds)||0,source:'ieAnalysis'
+          }));
+        }else currentSecondsCell.textContent=ui.seconds(row.currentSeconds);
         tableRow.append(
           selectCell,
           ui.createCell(row.productCode||'—'),
           ui.createCell([row.processNo,row.processNameVi].filter(Boolean).join(' / ')||'—'),
-          ui.createCell(ui.seconds(row.currentSeconds),'ui-table-number-cell'),
+          currentSecondsCell,
           ui.createCell(ui.seconds(row.suggestedSeconds),'ui-table-number-cell'),
           ui.createCell(`${ui.seconds((row.suggestedSeconds??0)-(row.currentSeconds??0))}\n${ui.percent(row.differencePercent)}`,'ui-table-number-cell'),
           ui.createCell(ui.percent(row.rawEfficiency),'ui-table-number-cell'),
@@ -177,13 +185,13 @@
         priorityCell.dataset.priority=priority(row);
         const correctionCell=document.createElement('td');
         correctionCell.className='ui-table-center-cell';
-        if(typeof window.canOpenPage==='function'&&window.canOpenPage('production-process-edit')&&Number(row.suggestedSeconds)>0){
-          const button=window.PCMSUIComponents.createButton({text:{vi:'Mở sửa',zh:'前往修改'},icon:'ti-edit'});
+        if(window.PCMSQuickProcessSeconds?.allowed?.()&&Number(row.suggestedSeconds)>0){
+          const button=window.PCMSUIComponents.createButton({text:{vi:'Sửa nhanh',zh:'快速修改'},icon:'ti-edit'});
           button.addEventListener('click',()=>{
-            window.PCMSPendingProcessEditContext={
-              code:row.productCode,processNo:row.processNo,recommendedSeconds:Number(row.suggestedSeconds)
-            };
-            window.sp('production-process-edit');
+            window.PCMSQuickProcessSeconds.open({
+              code:row.productCode,processNo:row.processNo,processNameVi:row.processNameVi,
+              displayedSeconds:Number(row.currentSeconds)||0,recommendedSeconds:Number(row.suggestedSeconds)||0,source:'ieAnalysis'
+            });
           });
           correctionCell.appendChild(button);
         }else correctionCell.textContent='—';

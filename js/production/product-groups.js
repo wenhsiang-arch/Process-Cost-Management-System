@@ -2,11 +2,12 @@
 (function(){
   'use strict';
 
-  const state={initialized:false,languageBound:false,listClient:'',listQuery:'',selectedGroupId:'',dialog:null};
+  const state={initialized:false,languageBound:false,listClient:'',listQuery:'',selectedGroupId:'',detailSelector:null,dialog:null};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
   const store=()=>window.PCMSProcessEditStore;
+  const groupUI=()=>window.PCMSProcessGroupUI;
   const products=()=>Array.isArray(window.D)?window.D:[];
   const normalize=value=>String(value||'').trim();
   const productByCode=code=>products().find(item=>normalize(item.code)===normalize(code))||null;
@@ -112,9 +113,13 @@
     const host=document.getElementById('product-groups-detail');
     if(!host) return;
     const group=store().listGroups().find(item=>item.groupId===state.selectedGroupId);
+    state.detailSelector=null;
     if(!group){ host.hidden=true; host.replaceChildren(); return; }
     const members=groupMembers(group);
-    host.innerHTML=`<div class="product-groups-detail-header"><span class="ui-dual-copy"><strong>Thành viên nhóm</strong><span>群組成員</span></span><b>${safe(group.name||group.groupId)}</b><span>${members.length} mã / 款</span></div><div class="product-groups-member-grid">${members.map(member=>`<div class="product-groups-member-card"><div><b>${safe(member.code)}</b><span>${safe(member.sz||'—')}</span></div><button type="button" class="ui-button is-compact" data-product-group-edit="${safe(member.code)}"><span class="ui-dual-copy"><strong>Sửa công đoạn</strong><span>修改工序</span></span></button></div>`).join('')}</div>`;
+    const sizeCount=groupUI().groupBySize(members).length;
+    host.innerHTML=`<div class="product-groups-detail-header"><span class="ui-dual-copy"><strong>Thành viên nhóm theo kích thước</strong><span>依尺寸分類的群組成員</span></span><b>${safe(group.name||group.groupId)}</b><span class="ui-dual-copy"><strong>${sizeCount} kích thước · ${members.length} mã</strong><span>${sizeCount} 尺寸 · ${members.length} 款</span></span></div><div data-product-group-detail-selector></div>`;
+    state.detailSelector=groupUI().createMemberSelector({products:members,selectable:false,onEdit:code=>openProcessEdit(code)});
+    host.querySelector('[data-product-group-detail-selector]').appendChild(state.detailSelector.element);
     host.hidden=false;
   }
 
@@ -144,9 +149,18 @@
   function renderWizardCandidates(host,product){
     const panel=host.querySelector('[data-product-groups-panel="3"]');
     const candidates=store().findCandidates(product.code);
-    panel.innerHTML=`<div class="product-groups-wizard-source"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><b>${safe(product.code)}</b><span>${safe(product.sz||'—')}</span></div>
-      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Mã gốc luôn có trong nhóm. Bỏ dấu chọn ở những mã không muốn ghép chung.</span><span class="ui-text-zh">來源款號一定會加入；不需要同群組的候選請取消勾選。</span></div><div class="product-groups-candidate-grid"><label class="is-source"><input type="checkbox" checked disabled><b>${safe(product.code)}</b><span>${safe(product.sz||'—')}</span></label>${candidates.map(item=>`<label><input type="checkbox" data-product-group-candidate="${safe(item.code)}" checked><b>${safe(item.code)}</b><span>${safe(item.sz||'—')}</span></label>`).join('')}</div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
+    panel.innerHTML=`<div class="product-groups-wizard-source"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><b>${safe(product.code)}</b><span>${safe(product.client||'—')} · ${safe(product.zh||'—')} · ${safe(product.vi||'—')} · ${safe(product.sz||'—')}</span></div>
+      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Hệ thống tự khớp mã cùng sản phẩm. Danh sách đã chia theo kích thước; hãy kiểm tra khách hàng và tên sản phẩm trước khi tạo nhóm.</span><span class="ui-text-zh">系統已自動匹配同產品款號並依尺寸分組；建立前請確認客人及中越文品名。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
       :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã cùng cấu trúc để lập nhóm</strong><span>找不到結構相同、可建立群組的其他款號</span></span></div>'}`;
+    host._groupSelector=null;
+    if(candidates.length){
+      host._groupSelector=groupUI().createMemberSelector({
+        products:[product,...candidates],currentCode:product.code,activeSize:product.sz,
+        selectedCodes:[product,...candidates].map(item=>item.code),requiredCodes:[product.code],selectable:true,
+        onChange:()=>updateCreateCount(host)
+      });
+      panel.querySelector('[data-product-group-wizard-selector]').appendChild(host._groupSelector.element);
+    }
     updateCreateCount(host);
     setWizardStep(host,3);
   }
@@ -154,7 +168,7 @@
   function updateCreateCount(host){
     const count=host.querySelector('#product-groups-create-count');
     if(!count) return;
-    const selected=host.querySelectorAll('[data-product-group-candidate]:checked').length+1;
+    const selected=host._groupSelector?.selectedCodes().length||1;
     count.textContent=textApi().visibleText({vi:`Nhóm mới có ${selected} mã`,zh:`新群組共 ${selected} 個款號`});
   }
 
@@ -165,7 +179,7 @@
       <section data-product-groups-panel="1" class="product-groups-wizard-panel"><label class="product-groups-field"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><select id="product-groups-wizard-client"></select></label><button type="button" class="ui-button is-primary" id="product-groups-client-next"><span class="ui-dual-copy"><strong>Tiếp tục chọn mã hàng</strong><span>下一步選擇款號</span></span><i class="ti ti-arrow-right"></i></button></section>
       <section data-product-groups-panel="2" class="product-groups-wizard-panel" hidden><div class="product-groups-wizard-selected-client"></div><label class="product-groups-field is-product"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><input type="search" id="product-groups-wizard-source" list="product-groups-wizard-options" autocomplete="off"><datalist id="product-groups-wizard-options"></datalist></label><div class="product-groups-wizard-actions"><button type="button" class="ui-button" data-product-groups-back="1"><i class="ti ti-arrow-left"></i><span class="ui-dual-copy"><strong>Quay lại</strong><span>上一步</span></span></button><button type="button" class="ui-button is-primary" id="product-groups-source-next"><span class="ui-dual-copy"><strong>Tìm mã cùng sản phẩm</strong><span>尋找同產品款號</span></span><i class="ti ti-arrow-right"></i></button></div></section>
       <section data-product-groups-panel="3" class="product-groups-wizard-panel" hidden></section>`;
-    const dialog=ui().openDialog({title:{vi:'Tạo nhóm cùng sản phẩm mới',zh:'建立新的同產品群組'},body,size:'large',actions:[{text:{vi:'Đóng',zh:'關閉'},onClick:()=>true}]});
+    const dialog=ui().openDialog({title:{vi:'Tạo nhóm cùng sản phẩm mới',zh:'建立新的同產品群組'},body,size:'xlarge',actions:[{text:{vi:'Đóng',zh:'關閉'},onClick:()=>true}]});
     state.dialog=dialog;
     const clientSelect=body.querySelector('#product-groups-wizard-client');
     fillClientSelect(clientSelect,'',{requireClient:true});
@@ -219,7 +233,7 @@
   async function createGroupFromWizard(host,dialog){
     const product=productByCode(host.dataset.sourceCode);
     if(!product) return;
-    const memberCodes=[product.code,...Array.from(host.querySelectorAll('[data-product-group-candidate]:checked'),input=>input.dataset.productGroupCandidate)];
+    const memberCodes=host._groupSelector?.selectedCodes()||[product.code];
     if(memberCodes.length<2){ setWizardStatus(host,{vi:'Phải chọn ít nhất 2 mã hàng.',zh:'至少必須選擇2個款號。'},'warning'); return; }
     clearWizardStatus(host);
     try{
