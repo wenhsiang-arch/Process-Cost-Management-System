@@ -28,11 +28,11 @@
     productionRecords:'js/production/production-records.js?v=20260813-1',
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
-    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-4',
-    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-2',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-3',
-    productionProcessEdit:'js/production/process-edit.js?v=20260813-5',
-    productionProductGroups:'js/production/product-groups.js?v=20260813-4',
+    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-5',
+    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-3',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-4',
+    productionProcessEdit:'js/production/process-edit.js?v=20260813-7',
+    productionProductGroups:'js/production/product-groups.js?v=20260813-5',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
@@ -48,8 +48,8 @@
     products:'styles/features/products.css?v=20260810-1',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
-    production:'styles/features/production.css?v=20260813-2',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-7',
+    production:'styles/features/production.css?v=20260813-3',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-8',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -92,7 +92,7 @@
         {
           page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
           styles:['productionProcessEdit'],
-          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessEdit'],
+          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','uiTableControls','productionProcessEditStore','productionProcessGroupUi','productionProcessEdit'],
           dataScopes:['operationSettings','products','productGroups','productGroupMembers','productVersions','orders','orderProcesses','processEditJobs'],
           dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave'],
           restrictions:[
@@ -109,9 +109,9 @@
       ]
     },
     {
-      id:'cutting',navId:'cutting',navGroup:'primary',icon:'ti-scissors',mainKey:'cutting',
+      id:'preparation',navId:'preparation',navGroup:'primary',icon:'ti-package',mainKey:'preparationMain',
       usesInternalTabs:true, // usesInternalTabs（使用內部分頁）：裁帶已有三格正式抬頭，不重複產生外層單格。
-      vi:'Thống kê dây cắt',zh:'裁帶統計',
+      vi:'Chuẩn bị vật liệu',zh:'備料',
       pages:[
         {
           page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Thống kê dây cắt',zh:'裁帶統計',
@@ -226,7 +226,7 @@
   ]); // FEATURE_MODULES（中央功能清單）：權限頁與系統頁面共用同一份來源。
 
   const PERMISSION_KEYS = Object.freeze([
-    'progress','orderImport','productsMain','summary','costView','cutting',
+    'progress','orderImport','productsMain','summary','costView','preparationMain','cutting',
     'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit','processSecondsEdit',
     'productionAnalysis','costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
@@ -267,7 +267,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','production-process-edit','product-groups','production-entry','production-analysis','cutting','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','production-process-edit','product-groups','cutting','production-entry','production-analysis','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){

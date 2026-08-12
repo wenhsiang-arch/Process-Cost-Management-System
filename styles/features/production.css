@@ -973,15 +973,15 @@
 }
 
 .production-efficiency-badge.is-standard {
-  border-color: color-mix(in srgb, var(--ui-color-primary) 46%, var(--ui-color-border));
-  background: var(--ui-color-primary-soft);
-  color: var(--ui-color-primary);
-}
-
-.production-efficiency-badge.is-high {
   border-color: var(--ui-color-success-border);
   background: var(--ui-color-success-background);
   color: var(--ui-color-success-text);
+}
+
+.production-efficiency-badge.is-high {
+  border-color: color-mix(in srgb, var(--ui-color-primary) 46%, var(--ui-color-border));
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
 }
 
 .production-efficiency-status {

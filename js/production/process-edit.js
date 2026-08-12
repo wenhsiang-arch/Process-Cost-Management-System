@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,orderSyncContext:null};
+  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,dragIndex:-1};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -39,8 +39,19 @@
               <input type="search" id="process-edit-product-input" list="process-edit-product-options" autocomplete="off" placeholder="Nhập mã hàng / 輸入款號">
               <datalist id="process-edit-product-options"></datalist>
             </label>
+            <label class="process-edit-operation-field">
+              <span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span>
+              <input type="search" id="process-edit-operation-number" list="process-edit-operation-number-options" autocomplete="off" disabled>
+              <datalist id="process-edit-operation-number-options"></datalist>
+            </label>
+            <label class="process-edit-operation-name-field">
+              <span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>越文工序</span></span>
+              <input type="search" id="process-edit-operation-name" list="process-edit-operation-name-options" autocomplete="off" disabled>
+              <datalist id="process-edit-operation-name-options"></datalist>
+            </label>
             <button type="button" class="ui-button is-primary" id="process-edit-load-button"><i class="ti ti-search"></i><span class="ui-dual-copy"><strong>Mở mã hàng</strong><span>開啟款號</span></span></button>
             <button type="button" class="ui-button" id="process-edit-history-button"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử phiên bản</strong><span>款號版本歷史</span></span></button>
+            <div class="process-edit-toolbar-group" id="process-edit-toolbar-group"></div>
           </div>
         </section>
         <div id="process-edit-status" hidden></div>
@@ -56,36 +67,28 @@
           <section class="process-edit-operations ui-data-section">
             <div class="ui-section-header process-edit-section-header">
               <i class="ti ti-list-numbers"></i><span class="ui-dual-copy"><strong>Công đoạn chính thức</strong><span>目前正式工序</span></span>
+              <span class="process-edit-header-actions">
               <button type="button" class="ui-button" id="process-edit-add-button"><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm công đoạn</strong><span>新增工序</span></span></button>
+              <button type="button" class="ui-button" id="process-edit-reset-button"><i class="ti ti-restore"></i><span class="ui-dual-copy"><strong>Khôi phục chưa lưu</strong><span>還原未儲存修改</span></span></button>
+              <button type="button" class="ui-button is-primary" id="process-edit-save-button"><i class="ti ti-device-floppy"></i><span class="ui-dual-copy"><strong>Xác nhận sửa chính thức</strong><span>確認正式修改</span></span></button>
+              </span>
             </div>
             <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only">
-              <table class="ui-table process-edit-table" id="process-edit-table" data-ui-table-layout="custom" data-ui-table-sticky="none">
+              <table class="ui-table process-edit-table" id="process-edit-table" data-ui-table-layout="custom" data-ui-table-sticky="none" data-ui-table-controls="auto">
                 <thead><tr>
-                  <th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thứ tự</strong><span>順序</span></span></th>
-                  <th><span class="ui-dual-copy"><strong>Phân loại</strong><span>加工分類</span></span></th>
-                  <th><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文</span></span></th>
-                  <th><span class="ui-dual-copy"><strong>Tên công đoạn Trung</strong><span>工序中文</span></span></th>
-                  <th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Giây gốc</strong><span>開發原始秒數</span></span></th>
-                  <th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Giây chính thức</strong><span>目前正式秒數</span></span></th>
-                  <th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>SL/giờ</strong><span>每小時產能</span></span></th>
-                  <th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+                  <th class="ui-table-center-cell" data-ui-table-column="order"><span class="ui-dual-copy"><strong>Thứ tự</strong><span>順序</span></span></th>
+                  <th data-ui-table-column="category"><span class="ui-dual-copy"><strong>Phân loại</strong><span>加工分類</span></span></th>
+                  <th data-ui-table-column="vi"><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文</span></span></th>
+                  <th data-ui-table-column="zh" data-ui-table-default-visible="false"><span class="ui-dual-copy"><strong>Tên công đoạn Trung</strong><span>工序中文</span></span></th>
+                  <th class="ui-table-number-cell" data-ui-table-column="development"><span class="ui-dual-copy"><strong>Giây gốc</strong><span>開發原始秒數</span></span></th>
+                  <th class="ui-table-number-cell" data-ui-table-column="official"><span class="ui-dual-copy"><strong>Giây chính thức</strong><span>目前正式秒數</span></span></th>
+                  <th class="ui-table-number-cell" data-ui-table-column="capacity"><span class="ui-dual-copy"><strong>SL/giờ</strong><span>每小時產能</span></span></th>
+                  <th class="ui-table-center-cell" data-ui-table-column="action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
                 </tr></thead>
                 <tbody id="process-edit-table-body"></tbody>
               </table>
             </div></div>
           </section>
-          <section class="process-edit-save-panel ui-operation-panel">
-            <div class="process-edit-save-summary" id="process-edit-save-summary"></div>
-            <div class="process-edit-save-main">
-              <label class="process-edit-reason-field"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea id="process-edit-reason" maxlength="500" rows="2" placeholder="Ghi rõ lý do xác nhận của IE / 請填寫IE確認修改原因"></textarea></label>
-              <div class="process-edit-save-actions">
-                <button type="button" class="ui-button" id="process-edit-reset-button"><i class="ti ti-restore"></i><span class="ui-dual-copy"><strong>Khôi phục chưa lưu</strong><span>還原未儲存修改</span></span></button>
-                <button type="button" class="ui-button" id="process-edit-order-exception-button"><i class="ti ti-file-settings"></i><span class="ui-dual-copy"><strong>Ngoại lệ một đơn</strong><span>單張訂單例外</span></span></button>
-                <button type="button" class="ui-button is-primary" id="process-edit-save-button"><i class="ti ti-device-floppy"></i><span class="ui-dual-copy"><strong>Xác nhận sửa chính thức</strong><span>確認正式修改</span></span></button>
-              </div>
-            </div>
-          </section>
-          <section class="process-edit-order-sync ui-data-section" id="process-edit-order-sync" hidden></section>
         </div>
       </div>`;
   }
@@ -125,6 +128,39 @@
     }));
   }
 
+  function fillOperationOptions(product){
+    const numberInput=document.getElementById('process-edit-operation-number');
+    const nameInput=document.getElementById('process-edit-operation-name');
+    const numberList=document.getElementById('process-edit-operation-number-options');
+    const nameList=document.getElementById('process-edit-operation-name-options');
+    const operations=Array.isArray(product?.ops)?product.ops:[];
+    [numberInput,nameInput].forEach(input=>{ if(input){ input.disabled=!product;input.value=''; } });
+    if(numberList) numberList.replaceChildren(...operations.map(operation=>{
+      const option=document.createElement('option');option.value=String(operation.no||'');option.label=String(operation.vi||'');return option;
+    }));
+    if(nameList) nameList.replaceChildren(...operations.map(operation=>{
+      const option=document.createElement('option');option.value=String(operation.vi||'');option.label=String(operation.no||'');return option;
+    }));
+  }
+
+  function focusOperation(value,field){
+    const query=String(value||'').trim().toLocaleLowerCase();
+    if(!query) return;
+    const index=state.draft.findIndex(operation=>field==='no'
+      ? String(operation.no)===query
+      : String(operation.vi||'').trim().toLocaleLowerCase().includes(query));
+    if(index<0){ setStatus({vi:'Không tìm thấy công đoạn phù hợp.',zh:'找不到符合的工序。'},'warning'); return; }
+    const row=document.querySelector(`#process-edit-table-body [data-process-index="${index}"]`);
+    if(!row) return;
+    clearStatus();
+    row.classList.remove('is-located');
+    requestAnimationFrame(()=>{
+      row.classList.add('is-located');
+      row.scrollIntoView({behavior:'smooth',block:'center'});
+      window.setTimeout(()=>row.classList.remove('is-located'),1800);
+    });
+  }
+
   function developmentSeconds(product,operationNo){
     const source=Array.isArray(product?.developmentOps)&&product.developmentOps.length?product.developmentOps:product?.ops||[];
     return source.find(item=>String(item.no)===String(operationNo))?.sec??'—';
@@ -139,11 +175,19 @@
     const host=document.getElementById('process-edit-current-summary');
     if(!host) return;
     host.innerHTML=`
-      <div><span class="ui-dual-copy"><strong>Mã hàng hiện tại</strong><span>目前款號</span></span><b>${safe(product.code)}</b></div>
       <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(clientName(product)||'—')}</b></div>
+      <div><span class="ui-dual-copy"><strong>Mã hàng hiện tại</strong><span>目前款號</span></span><b>${safe(product.code)}</b></div>
       <div><span class="ui-dual-copy"><strong>Tên sản phẩm</strong><span>品名</span></span><b>${safe(product.vi||product.zh||'—')}</b><span>${safe(product.zh||'')}</span></div>
       <div><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span><b>${safe(product.sz||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Lần sửa chính thức</strong><span>正式修訂次數</span></span><b>${Number(product.standardRevision)||0}</b></div>`;
+  }
+
+  function renderToolbarGroup(product){
+    const host=document.getElementById('process-edit-toolbar-group');
+    if(!host) return;
+    if(!product){ host.replaceChildren(); return; }
+    const group=store().groupForProduct(product.code);
+    host.innerHTML=`<span class="ui-dual-copy"><strong>${group?'Nhóm hiện tại':'Chưa có nhóm'}</strong><span>${group?'目前群組':'未加入群組'}</span></span><b>${safe(group?.name||'—')}</b><button type="button" class="ui-button is-compact" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>`;
   }
 
   function renderGroup(product){
@@ -151,6 +195,7 @@
     if(!host) return;
     state.groupSelector=null;
     const group=store().groupForProduct(product.code);
+    renderToolbarGroup(product);
     if(group){
       const members=(group.memberCodes||[]).map(productByCode).filter(Boolean);
       state.selectedTargets.add(product.code);
@@ -167,47 +212,33 @@
         state.groupSelector=groupUI().createMemberSelector({
           products:members,currentCode:product.code,activeSize:product.sz,
           selectedCodes:[...state.selectedTargets],requiredCodes:[product.code],selectable:canEdit(),
-          onChange:controller=>{ state.selectedTargets=new Set(controller.selectedCodes());renderSaveSummary(); }
+          onChange:controller=>{ state.selectedTargets=new Set(controller.selectedCodes()); }
         });
         host.querySelector('[data-process-group-selector]').appendChild(state.groupSelector.element);
       }
-      renderSaveSummary();
       return;
     }
     state.applyMode='current';
     state.selectedTargets=new Set([product.code]);
-    host.innerHTML=`<div class="process-edit-no-group"><div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Mã này chưa thuộc nhóm cùng sản phẩm</strong><span>此款號尚未加入同產品群組</span></span></div>
-      <button type="button" class="ui-button" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở trang nhóm</strong><span>前往群組分頁</span></span></button></div>`;
-    renderSaveSummary();
-  }
-
-  function renderSaveSummary(){
-    const host=document.getElementById('process-edit-save-summary');
-    if(!host||!state.currentCode) return;
-    const targets=[...state.selectedTargets];
-    host.innerHTML=`<div><span class="ui-dual-copy"><strong>Mã sẽ được sửa</strong><span>本次修改款號</span></span><b>${safe(targets.join('、'))}</b></div>
-      <div><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序數量</span></span><b>${state.draft.length}</b></div>
-      <div><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span><b class="ui-bilingual"><span class="ui-text-vi">Chọn đồng bộ sau khi lưu</span><span class="ui-text-zh">正式儲存後另行選擇同步</span></b></div>`;
+    host.replaceChildren();
   }
 
   function renderOperations(product){
     const body=document.getElementById('process-edit-table-body');
     if(!body) return;
     body.innerHTML=state.draft.map((operation,index)=>`<tr data-process-index="${index}">
-      <td class="ui-table-center-cell"><b>${index+1}</b></td>
-      <td><select data-process-field="category" ${canEdit()?'':'disabled'}><option value="BL" ${operation.category==='BL'?'selected':''}>BL</option><option value="SX" ${operation.category==='SX'?'selected':''}>SX</option><option value="QC" ${operation.category==='QC'?'selected':''}>QC</option><option value="DG" ${operation.category==='DG'?'selected':''}>DG</option></select></td>
-      <td><input type="text" maxlength="200" data-process-field="vi" value="${safe(operation.vi)}" ${canEdit()?'':'disabled'}></td>
-      <td><input type="text" maxlength="200" data-process-field="zh" value="${safe(operation.zh)}" ${canEdit()?'':'disabled'}></td>
-      <td class="ui-table-number-cell">${safe(developmentSeconds(product,operation.no))}</td>
-      <td class="ui-table-number-cell"><input type="number" min="0.01" max="86400" step="0.01" data-process-field="sec" value="${safe(operation.sec)}" ${canEdit()?'':'disabled'}></td>
-      <td class="ui-table-number-cell"><b>${hourlyCapacity(operation.sec)}</b></td>
-      <td class="ui-table-center-cell"><div class="process-edit-row-actions">
-        <button type="button" data-process-action="up" aria-label="Lên / 上移" ${index===0||!canEdit()?'disabled':''}><i class="ti ti-arrow-up"></i></button>
-        <button type="button" data-process-action="down" aria-label="Xuống / 下移" ${index===state.draft.length-1||!canEdit()?'disabled':''}><i class="ti ti-arrow-down"></i></button>
+      <td class="ui-table-center-cell" data-ui-table-column="order"><button type="button" class="process-edit-drag-handle" draggable="${canEdit()?'true':'false'}" aria-label="Kéo để đổi thứ tự / 拖曳調整順序" ${canEdit()?'':'disabled'}><i class="ti ti-grip-vertical"></i><b>${index+1}</b></button></td>
+      <td data-ui-table-column="category"><select data-process-field="category" ${canEdit()?'':'disabled'}><option value="BL" ${operation.category==='BL'?'selected':''}>BL</option><option value="SX" ${operation.category==='SX'?'selected':''}>SX</option><option value="QC" ${operation.category==='QC'?'selected':''}>QC</option><option value="DG" ${operation.category==='DG'?'selected':''}>DG</option></select></td>
+      <td data-ui-table-column="vi"><input type="text" maxlength="200" data-process-field="vi" value="${safe(operation.vi)}" ${canEdit()?'':'disabled'}></td>
+      <td data-ui-table-column="zh"><input type="text" maxlength="200" data-process-field="zh" value="${safe(operation.zh)}" ${canEdit()?'':'disabled'}></td>
+      <td class="ui-table-number-cell" data-ui-table-column="development">${safe(developmentSeconds(product,operation.no))}</td>
+      <td class="ui-table-number-cell" data-ui-table-column="official"><input type="number" min="0.01" max="86400" step="0.01" data-process-field="sec" value="${safe(operation.sec)}" ${canEdit()?'':'disabled'}></td>
+      <td class="ui-table-number-cell" data-ui-table-column="capacity"><b>${hourlyCapacity(operation.sec)}</b></td>
+      <td class="ui-table-center-cell" data-ui-table-column="action"><div class="process-edit-row-actions">
         <button type="button" data-process-action="delete" aria-label="Xóa / 刪除" class="is-danger" ${canEdit()?'':'disabled'}><i class="ti ti-trash"></i></button>
       </div></td>
     </tr>`).join('');
-    renderSaveSummary();
+    window.PCMSUITableControls?.refreshPage?.();
   }
 
   function markDirty(){ state.dirty=true; }
@@ -216,8 +247,6 @@
     const product=productByCode(state.currentCode);
     state.draft=(product?.ops||[]).map(window.PCMSProductModel.normalizeOperation);
     state.dirty=false;
-    const reason=document.getElementById('process-edit-reason');
-    if(reason) reason.value='';
     if(product) renderOperations(product);
   }
 
@@ -258,19 +287,24 @@
     renderSummary(product);
     renderGroup(product);
     renderOperations(product);
+    fillOperationOptions(product);
     return true;
   }
 
   function changeRow(index,action){
-    if(action==='delete'){
-      if(state.draft.length<=1){ setStatus({vi:'Phải giữ lại ít nhất 1 công đoạn.',zh:'至少必須保留1道工序。'},'warning'); return; }
-      state.draft.splice(index,1);
-    }else{
-      const target=action==='up'?index-1:index+1;
-      if(target<0||target>=state.draft.length) return;
-      [state.draft[index],state.draft[target]]=[state.draft[target],state.draft[index]];
-    }
+    if(action!=='delete') return;
+    if(state.draft.length<=1){ setStatus({vi:'Phải giữ lại ít nhất 1 công đoạn.',zh:'至少必須保留1道工序。'},'warning'); return; }
+    state.draft.splice(index,1);
     state.draft.forEach((item,rowIndex)=>{ item.no=String(rowIndex+1); });
+    markDirty();
+    renderOperations(productByCode(state.currentCode));
+  }
+
+  function moveRow(fromIndex,toIndex){
+    if(!canEdit()||fromIndex===toIndex||fromIndex<0||toIndex<0||fromIndex>=state.draft.length||toIndex>=state.draft.length) return;
+    const [operation]=state.draft.splice(fromIndex,1);
+    state.draft.splice(toIndex,0,operation);
+    state.draft.forEach((item,index)=>{ item.no=String(index+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
   }
@@ -285,17 +319,19 @@
 
   async function saveOfficial(){
     if(!canEdit()){ setStatus({vi:'Bạn không có quyền nhạy cảm để sửa tiêu chuẩn chính thức.',zh:'你沒有修改正式工序標準的敏感權限。'},'warning');return; }
-    const reason=String(document.getElementById('process-edit-reason')?.value||'').trim();
+    const reason='Cập nhật công đoạn chính thức / 更新正式工序';
     const targetCodes=[...state.selectedTargets];
     let operations;
     try{ operations=store().validateOperations(state.draft); }
     catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
-    if(reason.length<2){ setStatus({vi:'Vui lòng nhập lý do sửa.',zh:'請填寫修改原因。'},'warning'); return; }
+    let orders=[];
+    try{ orders=await store().activeOrdersForProducts(targetCodes); }
+    catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
     const confirmed=await ui().confirmDialog({
       title:{vi:'Xác nhận sửa tiêu chuẩn chính thức',zh:'確認修改正式標準'},
       message:{
-        vi:`Sẽ cập nhật ${operations.length} công đoạn cho ${targetCodes.length} mã: ${targetCodes.join(', ')}. Tạo phiên bản Excel mới; đơn hàng đang sản xuất sẽ chọn đồng bộ ở bước kế tiếp.`,
-        zh:`將把 ${operations.length} 道工序套用到 ${targetCodes.length} 個款號：${targetCodes.join(', ')}。系統會建立新版 Excel 歷史；生產中訂單於下一步另行勾選同步。`
+        vi:`Sẽ cập nhật ${operations.length} công đoạn cho ${targetCodes.length} mã: ${targetCodes.join(', ')}; đồng thời tự động đồng bộ ${orders.length} đơn hàng đang sản xuất. Dữ liệu sản lượng lịch sử vẫn giữ ảnh chụp cũ.`,
+        zh:`將把 ${operations.length} 道工序套用到 ${targetCodes.length} 個款號：${targetCodes.join(', ')}，並自動同步 ${orders.length} 張生產中訂單；歷史產能仍保留原快照。`
       },
       confirmText:{vi:'Xác nhận sửa',zh:'確認修改'},cancelText:{vi:'Hủy',zh:'取消'},kind:'warning'
     });
@@ -303,12 +339,22 @@
     try{
       setStatus({vi:'Đang lưu phiên bản và công đoạn...',zh:'正在儲存版本與工序修改…'},'info');
       const result=await store().saveOfficialProcesses({targetCodes,operations,reason});
+      const failures=[];
+      for(let index=0;index<orders.length;index++){
+        const order=orders[index];
+        setStatus({vi:`Đã lưu mã hàng; đang đồng bộ đơn ${index+1}/${orders.length}...`,zh:`款號已儲存；正在同步訂單 ${index+1}/${orders.length}…`},'info');
+        try{
+          await store().syncOrderSnapshot({orderId:order.id,targetCodes:order.matchedCodes,operations,reason,mode:'official'});
+        }catch(error){ failures.push({order,error}); }
+      }
       state.dirty=false;
       await selectProduct(state.currentCode,{force:true});
-      setStatus(result.logSaved
-        ? {vi:'Đã lưu tiêu chuẩn chính thức và phiên bản mới.',zh:'正式標準與新版本已儲存。'}
+      if(failures.length){
+        const labels=failures.map(item=>`${item.order.orderId||item.order.id}${item.error?.processEditJobId?`（${item.error.processEditJobId}）`:''}`).join('、');
+        setStatus({vi:`Mã hàng đã lưu; ${failures.length} đơn đồng bộ thất bại: ${labels}. Công việc lỗi được giữ lại để kiểm tra và thử lại.`,zh:`款號已儲存；${failures.length} 張訂單同步失敗：${labels}。失敗工作已保留，可供檢查與重試。`},'warning');
+      }else setStatus(result.logSaved
+        ? {vi:`Đã lưu tiêu chuẩn và đồng bộ ${orders.length} đơn đang sản xuất.`,zh:`正式標準已儲存，並同步 ${orders.length} 張生產中訂單。`}
         : {vi:'Đã lưu tiêu chuẩn, nhưng lịch sử thao tác không lưu được.',zh:'正式標準已儲存，但操作紀錄保存失敗。'},result.logSaved?'success':'warning');
-      if(typeof window.renderProcessEditOrderSync==='function') await window.renderProcessEditOrderSync({targetCodes,reason,operations});
     }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); }
   }
 
@@ -336,7 +382,7 @@
       worksheet['!cols']=[{wch:16},{wch:14},{wch:22},{wch:22},{wch:10},{wch:9},{wch:10},{wch:24},{wch:24},{wch:10}];
       worksheet['!autofilter']={ref:'A1:J1'};
       const info=window.XLSX.utils.aoa_to_sheet([
-        ['版本識別碼',snapshot.version.versionId],['資料版本',snapshot.version.productVersion],['建立時間',new Date(snapshot.version.createdAt).toLocaleString('zh-TW')],['修改原因',snapshot.version.reason||'']
+        ['版本識別碼',snapshot.version.versionId],['資料版本',snapshot.version.productVersion],['建立時間',new Date(snapshot.version.createdAt).toLocaleString('zh-TW')]
       ]);
       const workbook=window.XLSX.utils.book_new();
       window.XLSX.utils.book_append_sheet(workbook,worksheet,'款號表');
@@ -361,7 +407,7 @@
         copy.append(
           textApi().create({vi:action[0],zh:action[1]},{tagName:'b'}),
           Object.assign(document.createElement('span'),{textContent:new Date(Number(version.createdAt)||0).toLocaleString('zh-TW')}),
-          Object.assign(document.createElement('small'),{textContent:textApi().visibleText({vi:`${version.productCount||0} mã · ${version.opCount||0} công đoạn · ${version.reason||''}`,zh:`${version.productCount||0} 款 · ${version.opCount||0} 工序 · ${version.reason||''}`})})
+          Object.assign(document.createElement('small'),{textContent:textApi().visibleText({vi:`${version.productCount||0} mã · ${version.opCount||0} công đoạn`,zh:`${version.productCount||0} 款 · ${version.opCount||0} 工序`})})
         );
         const button=ui().createButton({text:{vi:'Xuất Excel',zh:'匯出 Excel'},icon:'ti-download'});
         button.addEventListener('click',()=>exportVersion(version));
@@ -370,119 +416,6 @@
       });
       ui().openDialog({title:{vi:'Lịch sử phiên bản mã hàng',zh:'款號版本歷史'},body,size:'large',actions:[{text:{vi:'Đóng',zh:'關閉'}}]});
     }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); }
-  }
-
-  function orderDate(order){
-    const value=Number(order.actualShipDate||order.dueDate);
-    return value?new Date(value).toLocaleDateString('zh-TW'):'—';
-  }
-
-  async function renderProcessEditOrderSync(context={}){
-    const section=document.getElementById('process-edit-order-sync');
-    if(!section) return;
-    const orders=await store().activeOrdersForProducts(context.targetCodes||[]);
-    state.orderSyncContext={...context,orders};
-    section.hidden=false;
-    if(!orders.length){
-      section.innerHTML='<div class="ui-section-header"><i class="ti ti-file-check"></i><span class="ui-dual-copy"><strong>Không có đơn hàng đang sản xuất cần đồng bộ</strong><span>沒有需要同步的生產中訂單</span></span></div>';
-      return;
-    }
-    section.innerHTML=`<div class="ui-section-header"><i class="ti ti-files"></i><span class="ui-dual-copy"><strong>Chọn đơn hàng đang sản xuất cần đồng bộ</strong><span>選擇要同步的生產中訂單</span></span></div>
-      <div class="process-edit-order-warning ui-bilingual"><span class="ui-text-vi">Dữ liệu sản lượng đã đăng ký vẫn giữ giây cũ. Chỉ đăng ký mới sau khi đồng bộ dùng giây mới.</span><span class="ui-text-zh">已登記的產能紀錄保留舊秒數；同步完成後的新登記才使用新秒數。</span></div>
-      <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-edit-order-table"><thead><tr>
-        <th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></th>
-        <th><span class="ui-dual-copy"><strong>Số đơn hàng</strong><span>訂單號碼</span></span></th>
-        <th><span class="ui-dual-copy"><strong>Ngày giao</strong><span>出貨日期</span></span></th>
-        <th><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></th>
-        <th><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
-      </tr></thead><tbody>${orders.map(order=>`<tr data-order-sync-row="${safe(order.id)}"><td class="ui-table-center-cell"><input type="checkbox" data-order-sync="${safe(order.id)}"></td><td><b>${safe(order.orderId||order.id)}</b></td><td>${safe(orderDate(order))}</td><td>${safe(order.matchedCodes.join(', '))}</td><td data-order-sync-status>—</td></tr>`).join('')}</tbody></table></div></div>
-      <div class="process-edit-order-actions"><button type="button" class="ui-button" id="process-edit-order-skip"><span class="ui-dual-copy"><strong>Không đồng bộ lúc này</strong><span>暫不同步</span></span></button><button type="button" class="ui-button is-primary" id="process-edit-order-sync-button"><i class="ti ti-refresh"></i><span class="ui-dual-copy"><strong>Đồng bộ đơn đã chọn</strong><span>同步所選訂單</span></span></button></div>`;
-    section.querySelector('#process-edit-order-skip').addEventListener('click',()=>{ section.hidden=true; });
-    section.querySelector('#process-edit-order-sync-button').addEventListener('click',syncSelectedOrders);
-    section.scrollIntoView({behavior:'smooth',block:'start'});
-  }
-
-  async function syncSelectedOrders(){
-    const context=state.orderSyncContext;
-    const section=document.getElementById('process-edit-order-sync');
-    if(!context||!section) return;
-    const selected=Array.from(section.querySelectorAll('[data-order-sync]:checked'),input=>input.dataset.orderSync);
-    if(!selected.length){ setStatus({vi:'Vui lòng chọn ít nhất một đơn hàng.',zh:'請至少選擇一張訂單。'},'warning'); return; }
-    const button=section.querySelector('#process-edit-order-sync-button');
-    button.disabled=true;
-    for(const orderId of selected){
-      const order=context.orders.find(item=>item.id===orderId);
-      const row=section.querySelector(`[data-order-sync-row="${CSS.escape(orderId)}"]`);
-      const status=row?.querySelector('[data-order-sync-status]');
-      if(status) textApi().set(status,{vi:'Đang đồng bộ...',zh:'同步中…'});
-      try{
-        await store().syncOrderSnapshot({orderId,targetCodes:order.matchedCodes,operations:context.operations,reason:context.reason,mode:'official'});
-        if(status) textApi().set(status,{vi:'Hoàn tất',zh:'已完成'});
-        const checkbox=row?.querySelector('[data-order-sync]'); if(checkbox) checkbox.disabled=true;
-      }catch(error){
-        if(status){
-          status.replaceChildren(textApi().create({vi:'Thất bại',zh:'失敗'}));
-          if(error.processEditJobId){
-            const retry=ui().createButton({text:{vi:'Thử lại',zh:'重試'},icon:'ti-refresh'});
-            retry.addEventListener('click',async()=>{
-              retry.disabled=true;
-              try{ await store().retryOrderSnapshot(error.processEditJobId); textApi().set(status,{vi:'Hoàn tất',zh:'已完成'}); }
-              catch(retryError){ retry.disabled=false; setStatus({vi:String(retryError.message||retryError),zh:String(retryError.message||retryError)},'danger'); }
-            });
-            status.appendChild(retry);
-          }
-        }
-        setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger');
-      }
-    }
-    button.disabled=false;
-  }
-
-  function chooseExceptionOrder(orders){
-    return new Promise(resolve=>{
-      const field=document.createElement('div');
-      field.className='ui-dialog-field';
-      field.appendChild(textApi().create({vi:'Đơn hàng đang sản xuất',zh:'生產中訂單'},{tagName:'label'}));
-      const select=document.createElement('select');
-      orders.forEach(order=>{
-        const option=document.createElement('option');option.value=order.id;option.textContent=`${order.orderId||order.id} · ${orderDate(order)}`;select.appendChild(option);
-      });
-      field.appendChild(select);
-      let settled=false;
-      ui().openDialog({title:{vi:'Ngoại lệ một đơn hàng',zh:'單張訂單例外'},body:field,actions:[
-        {text:{vi:'Hủy',zh:'取消'},onClick:()=>{settled=true;resolve(null);}},
-        {text:{vi:'Chọn đơn hàng',zh:'選擇訂單'},kind:'primary',onClick:()=>{settled=true;resolve(select.value);}}
-      ],onClose:()=>{if(!settled) resolve(null);}});
-    });
-  }
-
-  async function saveOrderException(){
-    if(!canEdit()){ setStatus({vi:'Bạn không có quyền nhạy cảm để sửa tiêu chuẩn chính thức.',zh:'你沒有修改正式工序標準的敏感權限。'},'warning');return; }
-    const product=productByCode(state.currentCode);
-    if(!product) return;
-    let operations;
-    try{ operations=store().validateOperations(state.draft); }
-    catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
-    const reason=String(document.getElementById('process-edit-reason')?.value||'').trim();
-    if(reason.length<2){ setStatus({vi:'Vui lòng nhập lý do ngoại lệ.',zh:'請填寫單張訂單例外原因。'},'warning'); return; }
-    const orders=await store().activeOrdersForProducts([product.code]);
-    if(!orders.length){ setStatus({vi:'Không có đơn hàng đang sản xuất chứa mã này.',zh:'沒有包含此款號的生產中訂單。'},'warning'); return; }
-    const orderId=await chooseExceptionOrder(orders);
-    if(!orderId) return;
-    const order=orders.find(item=>item.id===orderId);
-    const confirmed=await ui().confirmDialog({title:{vi:'Xác nhận ngoại lệ đơn hàng',zh:'確認單張訂單例外'},message:{
-      vi:`Chỉ cập nhật ${product.code} trong đơn ${order.orderId||order.id}; không sửa tiêu chuẩn mã hàng và không ảnh hưởng đơn khác.`,
-      zh:`只修改訂單 ${order.orderId||order.id} 內的 ${product.code}；不修改款號正式標準，也不影響其他訂單。`
-    }});
-    if(!confirmed) return;
-    try{
-      setStatus({vi:'Đang cập nhật ngoại lệ đơn hàng...',zh:'正在更新單張訂單例外…'},'info');
-      await store().syncOrderSnapshot({orderId,targetCodes:[product.code],operations,reason,mode:'exception'});
-      state.dirty=false;
-      setStatus({vi:'Đã cập nhật ngoại lệ cho một đơn hàng.',zh:'單張訂單例外已更新。'},'success');
-    }catch(error){
-      setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger');
-    }
   }
 
   async function openGroupsPage(){
@@ -514,9 +447,12 @@
       fillProductOptions();
     });
     document.getElementById('process-edit-history-button')?.addEventListener('click',openVersionHistory);
+    document.getElementById('process-edit-operation-number')?.addEventListener('change',event=>focusOperation(event.currentTarget.value,'no'));
+    document.getElementById('process-edit-operation-name')?.addEventListener('change',event=>focusOperation(event.currentTarget.value,'vi'));
+    document.getElementById('process-edit-operation-number')?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault();focusOperation(event.currentTarget.value,'no'); } });
+    document.getElementById('process-edit-operation-name')?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault();focusOperation(event.currentTarget.value,'vi'); } });
     document.getElementById('process-edit-add-button')?.addEventListener('click',addOperation);
     document.getElementById('process-edit-reset-button')?.addEventListener('click',resetDraft);
-    document.getElementById('process-edit-order-exception-button')?.addEventListener('click',saveOrderException);
     document.getElementById('process-edit-save-button')?.addEventListener('click',saveOfficial);
     document.getElementById('process-edit-table-body')?.addEventListener('input',event=>{
       const field=event.target?.dataset?.processField;
@@ -525,13 +461,41 @@
       const index=Number(row.dataset.processIndex);
       state.draft[index][field]=field==='sec'?Number(event.target.value):event.target.value;
       markDirty();
-      if(field==='sec') row.querySelector('td:nth-child(7) b').textContent=String(hourlyCapacity(event.target.value));
+      if(field==='sec') row.querySelector('[data-ui-table-column="capacity"] b').textContent=String(hourlyCapacity(event.target.value));
     });
     document.getElementById('process-edit-table-body')?.addEventListener('click',event=>{
       const button=event.target.closest('[data-process-action]');
       if(!button) return;
       const index=Number(button.closest('[data-process-index]').dataset.processIndex);
       changeRow(index,button.dataset.processAction);
+    });
+    document.getElementById('process-edit-table-body')?.addEventListener('dragstart',event=>{
+      const handle=event.target.closest('.process-edit-drag-handle');
+      if(!handle||!canEdit()){ event.preventDefault();return; }
+      state.dragIndex=Number(handle.closest('[data-process-index]').dataset.processIndex);
+      event.dataTransfer.effectAllowed='move';
+      event.dataTransfer.setData('text/plain',String(state.dragIndex));
+      handle.closest('tr').classList.add('is-dragging');
+    });
+    document.getElementById('process-edit-table-body')?.addEventListener('dragover',event=>{
+      const row=event.target.closest('[data-process-index]');
+      if(!row||state.dragIndex<0) return;
+      event.preventDefault();event.dataTransfer.dropEffect='move';
+      document.querySelectorAll('#process-edit-table-body tr.is-drop-target').forEach(item=>item.classList.remove('is-drop-target'));
+      row.classList.add('is-drop-target');
+    });
+    document.getElementById('process-edit-table-body')?.addEventListener('drop',event=>{
+      const row=event.target.closest('[data-process-index]');
+      if(!row) return;
+      event.preventDefault();
+      const from=state.dragIndex;
+      const to=Number(row.dataset.processIndex);
+      state.dragIndex=-1;
+      moveRow(from,to);
+    });
+    document.getElementById('process-edit-table-body')?.addEventListener('dragend',()=>{
+      state.dragIndex=-1;
+      document.querySelectorAll('#process-edit-table-body tr.is-dragging,#process-edit-table-body tr.is-drop-target').forEach(item=>item.classList.remove('is-dragging','is-drop-target'));
     });
     document.getElementById('process-edit-group-area')?.addEventListener('change',event=>{
       const mode=event.target?.dataset?.processApplyMode;
@@ -547,9 +511,7 @@
         return;
       }
     });
-    document.getElementById('process-edit-group-area')?.addEventListener('click',event=>{
-      if(event.target.closest('#process-edit-open-groups')) openGroupsPage();
-    });
+    document.querySelector('.production-process-edit-page')?.addEventListener('click',event=>{ if(event.target.closest('#process-edit-open-groups')) openGroupsPage(); });
   }
 
   async function loadProductionProcessEditData(options={}){
@@ -567,8 +529,7 @@
     fillClientOptions();
     fillProductOptions();
     const editingAllowed=canEdit();
-    ['process-edit-add-button','process-edit-save-button','process-edit-order-exception-button'].forEach(id=>{ const button=document.getElementById(id);if(button) button.disabled=!editingAllowed; });
-    const reason=document.getElementById('process-edit-reason');if(reason) reason.disabled=!editingAllowed;
+    ['process-edit-add-button','process-edit-save-button','process-edit-reset-button'].forEach(id=>{ const button=document.getElementById(id);if(button) button.disabled=!editingAllowed; });
     const pending=window.PCMSPendingProcessEditContext;
     if(pending?.code){
       await selectProduct(pending.code,{force:true});
@@ -590,5 +551,4 @@
   window.loadProductionProcessEditData=loadProductionProcessEditData;
   window.productionProcessEditInit=productionProcessEditInit;
   window.productionProcessEditLeave=productionProcessEditLeave;
-  window.renderProcessEditOrderSync=renderProcessEditOrderSync;
 })();

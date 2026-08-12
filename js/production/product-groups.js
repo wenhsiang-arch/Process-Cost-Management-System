@@ -37,7 +37,7 @@
           <label class="product-groups-field is-search"><span class="ui-dual-copy"><strong>Tìm nhóm hoặc mã hàng</strong><span>搜尋群組或款號</span></span><input type="search" id="product-groups-search-input"></label>
         </div>
         <div class="ui-table-frame"><div class="ui-table-scroll product-groups-table-scroll"><table class="ui-table product-groups-table">
-          <thead><tr><th><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span></th><th><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th><th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số kích thước</strong><span>尺寸群組數</span></span></th><th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số mã</strong><span>款號數</span></span></th></tr></thead>
+          <thead><tr><th><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th><th><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span></th><th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số kích thước</strong><span>尺寸群組數</span></span></th><th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số mã</strong><span>款號數</span></span></th><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th></tr></thead>
           <tbody id="product-groups-table-body"></tbody>
         </table></div></div>
         <div class="product-groups-empty ui-empty-state" id="product-groups-empty" hidden><i class="ti ti-box-off"></i><span class="ui-dual-copy"><strong>Không tìm thấy nhóm phù hợp</strong><span>找不到符合條件的群組</span></span></div>
@@ -97,7 +97,7 @@
     body.innerHTML=groups.map(group=>{
       const members=groupMembers(group);
       const sizeCount=groupUI().groupBySize(members).length;
-      return `<tr data-product-group-row="${safe(group.groupId)}" class="${group.groupId===state.selectedGroupId?'is-selected':''}"><td><button type="button" class="product-group-name-button" data-product-group-view="${safe(group.groupId)}"><i class="ti ti-box-multiple"></i><b>${safe(group.name||group.groupId)}</b></button></td><td>${safe(groupClient(group))}</td><td class="ui-table-number-cell"><b>${sizeCount}</b></td><td class="ui-table-number-cell"><b>${members.length}</b></td></tr>`;
+      return `<tr data-product-group-row="${safe(group.groupId)}" class="${group.groupId===state.selectedGroupId?'is-selected':''}"><td>${safe(groupClient(group))}</td><td><button type="button" class="product-group-name-button" data-product-group-view="${safe(group.groupId)}"><i class="ti ti-box-multiple"></i><b>${safe(group.name||group.groupId)}</b></button></td><td class="ui-table-number-cell"><b>${sizeCount}</b></td><td class="ui-table-number-cell"><b>${members.length}</b></td><td class="ui-table-center-cell"><button type="button" class="ui-button is-compact is-danger product-group-delete-button" data-product-group-delete="${safe(group.groupId)}"><i class="ti ti-trash"></i><span class="ui-dual-copy"><strong>Xóa</strong><span>刪除</span></span></button></td></tr>`;
     }).join('');
     empty.hidden=groups.length>0;
     if(state.selectedGroupId&&!groups.some(group=>group.groupId===state.selectedGroupId)) state.selectedGroupId='';
@@ -123,15 +123,71 @@
     return {body,added,removed};
   }
 
-  function groupDetailCandidates(group,members){
-    const rows=new Map(members.map(item=>[normalize(item.code),item]));
-    products().forEach(item=>{
-      const code=normalize(item.code);
-      if(!code||rows.has(code)||store().groupForProduct(code)) return;
-      if(window.PCMSProductModel.groupSignature(item)===group.signature) rows.set(code,item);
+  async function deleteGroup(groupId){
+    const group=store().listGroups().find(item=>item.groupId===normalize(groupId));
+    if(!group) return;
+    const members=groupMembers(group);
+    const sizeCount=groupUI().groupBySize(members).length;
+    const confirmed=await ui().confirmDialog({
+      title:{vi:'Xác nhận xóa nhóm',zh:'確認刪除群組'},kind:'warning',
+      message:{
+        vi:`Xóa quan hệ nhóm “${group.name||group.groupId}” của khách ${groupClient(group)}; gồm ${sizeCount} nhóm kích thước và ${members.length} mã. Mã hàng, công đoạn và đơn hàng không bị xóa.`,
+        zh:`將刪除客人 ${groupClient(group)} 的群組「${group.name||group.groupId}」關係，共 ${sizeCount} 個尺寸群組、${members.length} 個款號；款號、工序與訂單資料不會刪除。`
+      },
+      confirmText:{vi:'Xóa quan hệ nhóm',zh:'刪除群組關係'},cancelText:{vi:'Hủy',zh:'取消'}
     });
-    return [...rows.values()].sort((a,b)=>normalize(a.sz).localeCompare(normalize(b.sz),undefined,{numeric:true,sensitivity:'base'})
+    if(!confirmed) return;
+    try{
+      const result=await store().deactivateGroup(group.groupId);
+      renderGroupList();
+      setStatus(result.logSaved?{vi:'Đã xóa quan hệ nhóm.',zh:'群組關係已刪除。'}:{vi:'Đã xóa nhóm nhưng nhật ký lưu thất bại.',zh:'群組已刪除，但操作紀錄保存失敗。'},result.logSaved?'success':'warning');
+    }catch(error){ setStatus(textApi().errorPair(error),'danger'); }
+  }
+
+  function groupDetailCandidates(group,members){
+    const memberCodes=new Set(members.map(item=>normalize(item.code)));
+    return products().filter(item=>{
+      const code=normalize(item.code);
+      return code&&!memberCodes.has(code)&&clientName(item)===groupClient(group)
+        &&window.PCMSProductModel.groupSignature(item)===group.signature;
+    }).sort((a,b)=>normalize(a.sz).localeCompare(normalize(b.sz),undefined,{numeric:true,sensitivity:'base'})
       ||normalize(a.code).localeCompare(normalize(b.code),undefined,{numeric:true,sensitivity:'base'}));
+  }
+
+  function openAddProducts(group,existingProducts,onAdd){
+    const existingCodes=new Set(existingProducts.map(item=>normalize(item.code)));
+    const candidates=groupDetailCandidates(group,existingProducts);
+    const chosen=new Set();
+    const body=document.createElement('div');
+    body.className='product-group-add-dialog';
+    body.innerHTML=`<label class="product-groups-field is-search"><span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span><input type="search" data-group-add-search></label><div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table"><thead><tr><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></th><th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th><th><span class="ui-dual-copy"><strong>Tên Việt</strong><span>越文名稱</span></span></th><th><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th><th><span class="ui-dual-copy"><strong>Nhóm hiện tại</strong><span>目前群組</span></span></th></tr></thead><tbody data-group-add-body></tbody></table></div></div></div>`;
+    const search=body.querySelector('[data-group-add-search]');
+    textApi().setLocalizedAttribute(search,'placeholder',{vi:'Nhập mã hàng hoặc tên sản phẩm',zh:'輸入款號或品名'});
+    function draw(){
+      const query=normalize(search.value).toLocaleLowerCase();
+      const rows=candidates.filter(item=>!query||[item.code,item.zh,item.vi,item.sz].map(normalize).join(' ').toLocaleLowerCase().includes(query));
+      body.querySelector('[data-group-add-body]').innerHTML=rows.length?rows.map(item=>{
+        const other=store().groupForProduct(item.code);
+        const disabled=!!other||existingCodes.has(normalize(item.code));
+        return `<tr><td class="ui-table-center-cell"><input type="checkbox" data-group-add-code="${safe(item.code)}" ${chosen.has(normalize(item.code))?'checked':''} ${disabled?'disabled':''}></td><td><b>${safe(item.code)}</b></td><td>${safe(item.zh||'—')}</td><td>${safe(item.vi||'—')}</td><td>${safe(item.sz||'—')}</td><td>${other?`<span class="product-group-blocked">${safe(other.name||other.groupId)}</span>`:'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未加入群組</span></span>'}</td></tr>`;
+      }).join(''):'<tr><td colspan="6" class="ui-table-empty"><span class="ui-dual-copy"><strong>Không có mã phù hợp để thêm</strong><span>沒有可新增的符合款號</span></span></td></tr>';
+    }
+    search.addEventListener('input',draw);
+    body.addEventListener('change',event=>{
+      const code=normalize(event.target?.dataset?.groupAddCode);
+      if(!code) return;
+      if(event.target.checked) chosen.add(code); else chosen.delete(code);
+    });
+    draw();
+    ui().openDialog({
+      title:{vi:'Thêm mã hàng vào nhóm',zh:'新增款號到群組'},body,size:'large',keepPrevious:true,
+      actions:[{text:{vi:'Hủy',zh:'取消'}},{text:{vi:'Thêm mã đã chọn',zh:'加入所選款號'},icon:'ti-plus',kind:'primary',onClick:()=>{
+        const added=candidates.filter(item=>chosen.has(normalize(item.code))&&!store().groupForProduct(item.code));
+        if(!added.length) return false;
+        onAdd(added);
+        return true;
+      }}]
+    });
   }
 
   function openGroupDetail(groupId){
@@ -140,15 +196,25 @@
     state.selectedGroupId=group.groupId;
     renderGroupList();
     const members=groupMembers(group);
-    const candidates=groupDetailCandidates(group,members);
     const body=document.createElement('div');
     body.className='product-group-detail-dialog';
-    body.innerHTML=`<div class="product-group-detail-facts"><div><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span><b>${safe(group.name||group.groupId)}</b></div><div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(groupClient(group))}</b></div><div><span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>操作方式</span></span><b class="ui-dual-copy"><strong>Chọn để thêm, bỏ chọn để xóa</strong><span>勾選新增，取消勾選移除</span></b></div></div><div data-product-group-detail-selector></div>`;
-    const selector=groupUI().createMemberSelector({
-      products:candidates,currentCode:members[0]?.code,activeSize:members[0]?.sz,compact:true,
-      selectedCodes:members.map(item=>item.code),selectable:true
-    });
-    body.querySelector('[data-product-group-detail-selector]').appendChild(selector.element);
+    body.innerHTML=`<div class="product-group-detail-heading"><span><span class="ui-dual-copy"><strong>Khách hàng:</strong><span>客人：</span></span><b>${safe(groupClient(group))}</b></span><span><span class="ui-dual-copy"><strong>Tên nhóm:</strong><span>群組名稱：</span></span><b>${safe(group.name||group.groupId)}</b></span><button type="button" class="ui-button is-primary" data-product-group-add><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm mã hàng</strong><span>新增款號</span></span></button></div><div data-product-group-detail-selector></div>`;
+    const selectorHost=body.querySelector('[data-product-group-detail-selector]');
+    let detailProducts=members.slice();
+    let selectedCodes=members.map(item=>item.code);
+    let activeSize=members[0]?.sz;
+    let selector;
+    function renderSelector(){
+      if(selector){ selectedCodes=selector.selectedCodes();activeSize=selector.activeSize(); }
+      selector=groupUI().createMemberSelector({products:detailProducts,currentCode:members[0]?.code,activeSize,compact:true,selectedCodes,selectable:true});
+      selectorHost.replaceChildren(selector.element);
+    }
+    renderSelector();
+    body.querySelector('[data-product-group-add]').addEventListener('click',()=>openAddProducts(group,detailProducts,added=>{
+      selectedCodes=selector.selectedCodes();
+      added.forEach(item=>{ if(!detailProducts.some(row=>normalize(row.code)===normalize(item.code))) detailProducts.push(item);selectedCodes.push(item.code); });
+      renderSelector();
+    }));
     const dialog=ui().openDialog({
       title:{vi:'Chi tiết nhóm cùng sản phẩm',zh:'同產品群組明細'},body,size:'xlarge',
       actions:[
@@ -310,6 +376,8 @@
     document.getElementById('product-groups-list-client')?.addEventListener('change',event=>{ state.listClient=normalize(event.currentTarget.value); renderGroupList(); });
     document.getElementById('product-groups-search-input')?.addEventListener('input',event=>{ state.listQuery=normalize(event.currentTarget.value); renderGroupList(); });
     document.getElementById('product-groups-table-body')?.addEventListener('click',event=>{
+      const deleteButton=event.target.closest('[data-product-group-delete]');
+      if(deleteButton){ deleteGroup(deleteButton.dataset.productGroupDelete);return; }
       const button=event.target.closest('[data-product-group-view]');
       if(button) openGroupDetail(button.dataset.productGroupView);
     });

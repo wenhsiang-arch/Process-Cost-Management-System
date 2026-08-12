@@ -34,20 +34,6 @@
     });
   }
 
-  function groupInformation(group,product,products,isCandidate){
-    const host=document.createElement('section');
-    host.className='process-seconds-group-information';
-    const sizes=groupUI().groupBySize(products);
-    host.innerHTML=`<div class="process-seconds-group-facts">
-      <div class="is-heading"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thông tin nhóm</strong><span>群組訊息</span></span></div>
-      <div><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span><b>${group?safe(group.name||group.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
-      <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(product.client||'—')}</b></div>
-      <div><span class="ui-dual-copy"><strong>Số kích thước</strong><span>尺寸群組數</span></span><b>${sizes.length}</b></div>
-      <div><span class="ui-dual-copy"><strong>Số mã</strong><span>款號數</span></span><b>${products.length}</b></div>
-    </div><div class="process-seconds-group-note ui-bilingual"><span class="ui-text-vi">${isCandidate?'Các mã dưới đây do hệ thống tự khớp theo khách hàng, tên sản phẩm và cấu trúc công đoạn; cần người dùng xác nhận.':'Đây là thành viên của nhóm cùng sản phẩm đã được xác nhận.'}</span><span class="ui-text-zh">${isCandidate?'下列款號由系統依客人、產品名稱與工序結構自動匹配，仍須人工確認。':'以下為已確認同產品群組的成員。'}</span></div>`;
-    return host;
-  }
-
   async function open(input={}){
     if(!allowed()){
       await ui().alertDialog({message:{vi:'Bạn không có quyền nhạy cảm để sửa giây công đoạn.',zh:'你沒有修改正式工序秒數的敏感權限。'},kind:'warning'});
@@ -83,6 +69,7 @@
     const initialState=sizeStates.get(initialSize)||{currentText:String(Number(operation.sec)),proposed:String(Number(operation.sec))};
     const displayed=Number(input.displayedSeconds);
     body.innerHTML=`<section class="process-seconds-edit-fields">
+      <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(product.client||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span><b>${safe(processNo)}</b></div>
       <div class="is-name"><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文名稱</span></span><b>${safe(operation.vi||input.processNameVi||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span><b data-quick-current-seconds>${safe(initialState.currentText)} s</b></div>
@@ -96,13 +83,6 @@
     let shownSize=initialSize;
     let selector;
     function activeSizeGroup(){ return sizeGroups.find(item=>item.key===selector?.activeSize())||sizeGroups[0]||{key:initialSize,labelPair:{vi:'—'},members:[]}; }
-    function updateActiveSelectionCount(){
-      const active=activeSizeGroup();
-      const selected=new Set(selector?.selectedCodes()||[]);
-      const count=active.members.filter(item=>selected.has(normalize(item.code))).length;
-      const host=body.querySelector('.process-size-selection-count');
-      if(host) host.innerHTML=`<strong>${count} đã chọn trong kích thước này</strong><span>此尺寸已選 ${count}</span>`;
-    }
     function refreshSizeSeconds(){
       const inputElement=body.querySelector('[data-quick-seconds]');
       const nextSize=selector?.activeSize()||initialSize;
@@ -115,7 +95,6 @@
       const currentHost=body.querySelector('[data-quick-current-seconds]');
       if(currentHost) currentHost.textContent=current.currentText?`${current.currentText} s`:'—';
       if(inputElement) inputElement.value=current.proposed;
-      updateActiveSelectionCount();
     }
     selector=groupUI().createMemberSelector({
       products:members,currentCode:product.code,activeSize:product.sz,compact:true,
@@ -128,7 +107,6 @@
       if(current) current.proposed=event.currentTarget.value;
     });
     refreshSizeSeconds();
-    body.appendChild(groupInformation(group,product,members,candidateMode));
     const saveGroupButton=body.querySelector('[data-save-new-group]');
     saveGroupButton?.addEventListener('click',()=>{
       saveNewGroup=!saveNewGroup;
@@ -138,7 +116,7 @@
     });
     let saved=false;
     ui().openDialog({
-      title:{vi:'Sửa nhanh giây công đoạn chính thức',zh:'快速修改正式工序秒數'},body,size:'xlarge',
+      title:{vi:'Sửa nhanh giây công đoạn chính thức',zh:'快速修改正式工序秒數'},body,size:'large',
       actions:[
         {text:{vi:'Hủy',zh:'取消'}},
         {text:{vi:'Xác nhận và lưu',zh:'確認並儲存'},icon:'ti-device-floppy',kind:'primary',onClick:async()=>{

@@ -170,6 +170,45 @@
     return {group:cloneGroup(current),added,removed,changed:true,logSaved};
   }
 
+  // deactivateGroup（停用群組）：保留群組稽核資料，只清空成員與唯一群組索引。
+  async function deactivateGroup(groupId){
+    const targetId=normalizeCode(groupId);
+    const current=groups.find(item=>item.groupId===targetId);
+    if(!current) throw new Error('Không tìm thấy nhóm cần xóa. / 找不到要刪除的群組。');
+    const previousCodes=[...new Set((current.memberCodes||[]).map(normalizeCode).filter(Boolean))];
+    const userId=currentUserId();
+    if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
+    const now=Date.now();
+    const groupReference=window._docRef(GROUP_COLLECTION,targetId);
+    await window._runTransaction(async transaction=>{
+      const snapshot=await transaction.get(groupReference);
+      if(!snapshot.exists()||snapshot.data().active===false) throw new Error('Nhóm không còn hiệu lực. / 群組已不存在或停用。');
+      const remoteCodes=[...new Set((snapshot.data().memberCodes||[]).map(normalizeCode).filter(Boolean))];
+      if(remoteCodes.length!==previousCodes.length||remoteCodes.some((code,index)=>code!==previousCodes[index])){
+        throw new Error('Nhóm đã được người khác cập nhật; vui lòng tải lại rồi thử lại. / 群組已由其他人更新，請重新載入後再試。');
+      }
+      for(const code of previousCodes){
+        const memberReference=window._docRef(MEMBER_COLLECTION,memberDocumentId(code));
+        const memberSnapshot=await transaction.get(memberReference);
+        if(memberSnapshot.exists()&&memberSnapshot.data().groupId!==targetId){
+          throw new Error(`Chỉ mục nhóm của mã ${code} không khớp. / 款號 ${code} 的群組索引不一致。`);
+        }
+      }
+      transaction.update(groupReference,{active:false,memberCodes:[],updatedAt:now,updatedByUid:userId});
+      previousCodes.forEach(code=>transaction.delete(window._docRef(MEMBER_COLLECTION,memberDocumentId(code))));
+    });
+    groups=groups.filter(item=>item.groupId!==targetId);
+    let logSaved=true;
+    try{
+      const result=await window.saveOperationLogToFB?.({
+        permissionKey:'productionProcessEdit',feature:'productionProcessEdit',action:'productGroupDelete',status:'success',
+        itemCount:previousCodes.length,detailCount:0,note:`${targetId}｜${current.name||targetId}`
+      });
+      logSaved=result!==false;
+    }catch(error){ logSaved=false; console.error('Không thể lưu lịch sử xóa nhóm / 無法保存群組刪除紀錄',error); }
+    return {group:cloneGroup(current),memberCodes:previousCodes,logSaved};
+  }
+
   function validateOperations(operations){
     const normalized=(Array.isArray(operations)?operations:[]).map(window.PCMSProductModel.normalizeOperation);
     if(!normalized.length) throw new Error('Phải giữ lại ít nhất 1 công đoạn. / 至少必須保留1道工序。');
@@ -450,7 +489,7 @@
       try{
         await window.saveOperationLogToFB?.({
           permissionKey:'productionProcessEdit',feature:'productionProcessEdit',
-          action:job.mode==='exception'?'orderProcessException':'orderProcessSnapshotSync',status:'success',
+          action:'orderProcessSnapshotSync',status:'success',
           itemCount:job.targetCodes.length,detailCount:prepared.writes.length,
           note:`${order.orderId||order.id}｜${job.reason}｜${job.targetCodes.join(', ')}`
         });
@@ -468,7 +507,7 @@
   function reset(){ groups=[]; loaded=false; loadPromise=null; orderRows=[];ordersLoaded=false;ordersPromise=null; }
 
   window.PCMSProcessEditStore=Object.freeze({
-    loadGroups,listGroups,groupForProduct,findCandidates,createGroup,updateGroupMembers,
+    loadGroups,listGroups,groupForProduct,findCandidates,createGroup,updateGroupMembers,deactivateGroup,
     validateOperations,saveOfficialProcesses,saveOfficialSeconds,loadVersions,loadVersionSnapshot,
     loadOrders,activeOrdersForProducts,syncOrderSnapshot,retryOrderSnapshot,reset
   });

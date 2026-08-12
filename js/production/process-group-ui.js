@@ -79,17 +79,11 @@
       const showAction=typeof options.onEdit==='function';
       root.innerHTML=`
         <div class="process-size-tabs" role="tablist" aria-label="Kích thước / 尺寸">
-          ${groups.map(group=>`<button type="button" role="tab" data-process-size="${safeAttribute(group.key)}" aria-selected="${group.key===active.key?'true':'false'}" class="${group.key===active.key?'is-active':''}"><span>${safe(group.labelPair.vi)}</span><small class="ui-dual-copy"><strong>${group.members.length} mã</strong><span>${group.members.length} 款</span></small></button>`).join('')}
-        </div>
-        <div class="process-size-toolbar">
-          <span class="ui-dual-copy"><strong>${options.compact===true?'Kích thước hiện tại':'Danh sách mã theo kích thước'}</strong><span>${options.compact===true?'目前尺寸':'尺寸款號清單'}</span></span>
-          <b>${safe(active.labelPair?.vi||sizePair(active.key).vi)}</b>
-          <span class="ui-dual-copy process-size-selection-count"><strong>${selectable?`${selected.size} đã chọn`:`${active.members.length} mã trong kích thước này`}</strong><span>${selectable?`已選 ${selected.size}`:`此尺寸 ${active.members.length} 款`}</span></span>
-          ${selectable?`<button type="button" class="process-size-select-all" data-process-select-all aria-pressed="${selection.all?'true':'false'}" title="Chọn tất cả / 全選"><i class="ti ${selection.all?'ti-checkbox':'ti-checks'}"></i><span class="ui-dual-copy"><strong>${selection.all?'Bỏ chọn tất cả':'Chọn tất cả'}</strong><span>${selection.all?'取消全選':'全選'}</span></span></button>`:''}
+          ${groups.map(group=>`<button type="button" role="tab" data-process-size="${safeAttribute(group.key)}" aria-selected="${group.key===active.key?'true':'false'}" class="${group.key===active.key?'is-active':''}"><span>${safe(group.labelPair.vi)}/${group.members.length}</span></button>`).join('')}
         </div>
         <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-size-member-table">
           <thead><tr>
-            ${selectable?'<th class="ui-table-center-cell is-select"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></th>':''}
+            ${selectable?`<th class="ui-table-center-cell is-select"><button type="button" class="process-size-select-heading${selection.partial?' is-partial':''}" data-process-select-all aria-pressed="${selection.all?'true':'false'}"><i class="ti ${selection.all?'ti-checkbox':'ti-square'}"></i><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></button></th>`:''}
             <th class="is-client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th>
             <th class="is-code"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
             <th class="is-zh"><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th>
@@ -110,7 +104,11 @@
           }).join('')}</tbody>
         </table></div></div>`;
       const selectAll=root.querySelector('[data-process-select-all]');
-      if(selectAll&&selection.partial) selectAll.classList.add('is-partial');
+      if(selectAll){
+        const copy=selection.all?{vi:'Bỏ chọn tất cả',zh:'取消全選'}:{vi:'Chọn tất cả',zh:'全選'};
+        selectAll.setAttribute('aria-label',`${copy.vi} / ${copy.zh}`);
+        selectAll.setAttribute('title',`${copy.vi} / ${copy.zh}`);
+      }
     }
 
     root.addEventListener('click',event=>{
