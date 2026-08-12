@@ -43,6 +43,7 @@ test('共用全視窗拖曳限制格式、數量並在離開頁面後停止接�
 test('款號與訂單匯入都登記全視窗用途並共用點擊選檔流程',()=>{
   const data=read('js/data.js');
   const orders=read('js/orders.js');
+  const cutting=read('js/cutting.js');
   const features=read('js/features.js');
   const html=read('index.html');
 
@@ -58,4 +59,14 @@ test('款號與訂單匯入都登記全視窗用途並共用點擊選檔流程',
   assert.match(features,/onOpen:\['renderProgress','renderOrders'\]/);
   assert.match(features,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
   assert.match(html,/id="imp-file-drop"[\s\S]*?onclick="g\('imp-file'\)\.click\(\)"/);
+
+  const fileInputs=Array.from(html.matchAll(/<input\b[^>]*\btype="file"[^>]*>/g),match=>match[0]); // fileInputs（全部正式檔案匯入入口）
+  assert.ok(fileInputs.length>0);
+  const registeredSources=`${cutting}\n${data}\n${orders}`; // registeredSources（功能頁全視窗用途登記來源）
+  fileInputs.forEach(input=>{
+    const inputId=input.match(/\bid="([^"]+)"/)?.[1]||''; // inputId（檔案入口識別碼）
+    const targetId=input.match(/\bdata-file-drop-target="([^"]+)"/)?.[1]||''; // targetId（對應全視窗用途識別碼）
+    assert.ok(targetId,`${inputId||'unknown'} 缺少全視窗拖曳用途`);
+    assert.match(registeredSources,new RegExp(`id:'${targetId.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}'`),`${inputId} 的全視窗拖曳用途尚未登記`);
+  });
 });

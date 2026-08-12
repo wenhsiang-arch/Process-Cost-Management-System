@@ -586,7 +586,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 </button>
               </div>
             </div>
-            <input type="file" id="cut-template-file" accept=".xlsx" style="display:none" onchange="cuttingHandleTemplateFile(this)">
+            <input type="file" id="cut-template-file" data-file-drop-target="cutting-template-import" accept=".xlsx" style="display:none" onchange="cuttingHandleTemplateFile(this)">
             <div class="pw cutting-progress" id="cut-template-progress-wrap" style="display:none">
               <div class="pwl" id="cut-template-progress-text">Đang chuẩn bị... / 準備中...</div>
               <div class="pbb"><div class="pbar" id="cut-template-progress-bar" style="width:0%"></div></div>
@@ -667,7 +667,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 </button>
               </div>
             </div>
-            <input type="file" id="cut-order-file" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
+            <input type="file" id="cut-order-file" data-file-drop-target="cutting-order-import" accept=".xlsx,.xls" style="display:none" onchange="cuttingHandleOrderFile(this)">
           </section>
 
           <div class="cutting-summary-row ui-summary-row">
@@ -758,7 +758,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <button type="button" class="products-command-action ui-command-action" onclick="rBk();om('m-backup')"><i class="ti ti-database-export"></i><span class="ui-dual-copy"><strong>Xuất dự phòng</strong><span>備份匯出</span></span></button>
               </div>
             </div>
-            <input type="file" id="fi" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
+            <input type="file" id="fi" data-file-drop-target="product-import" accept=".xlsx,.xls" style="display:none" onchange="hImport(this)">
           </section>
 
           <div class="products-summary-row ui-summary-row">
@@ -1195,7 +1195,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
           <div class="ui-bilingual" style="font-size:13px;font-weight:500"><span class="ui-text-vi">Chọn hoặc kéo tệp bảng tính</span><span class="ui-text-zh">點擊或拖曳表格檔案</span></div>
           <div id="imp-filename" style="font-size:11px;margin-top:6px;color:var(--accent)"></div>
         </div>
-        <input type="file" id="imp-file" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(this)">
+        <input type="file" id="imp-file" data-file-drop-target="order-import" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(this)">
       </div>
     </div>
     <div id="imp-step2" style="display:none">
