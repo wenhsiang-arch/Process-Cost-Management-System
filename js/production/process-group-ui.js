@@ -63,6 +63,8 @@
     let activeSize=groups.some(group=>group.key===preferredSize)?preferredSize:(groups[0]?.key||MISSING_SIZE);
     const root=document.createElement('div');
     root.className='process-size-selector';
+    root.classList.toggle('is-compact',options.compact===true);
+    root.style.setProperty('--process-size-count',String(Math.max(groups.length,1)));
 
     function notify(){
       if(typeof options.onChange==='function') options.onChange(controller);
@@ -80,7 +82,7 @@
           ${groups.map(group=>`<button type="button" role="tab" data-process-size="${safeAttribute(group.key)}" aria-selected="${group.key===active.key?'true':'false'}" class="${group.key===active.key?'is-active':''}"><span>${safe(group.labelPair.vi)}</span><small class="ui-dual-copy"><strong>${group.members.length} mã</strong><span>${group.members.length} 款</span></small></button>`).join('')}
         </div>
         <div class="process-size-toolbar">
-          <span class="ui-dual-copy"><strong>Danh sách mã theo kích thước</strong><span>尺寸款號清單</span></span>
+          <span class="ui-dual-copy"><strong>${options.compact===true?'Kích thước hiện tại':'Danh sách mã theo kích thước'}</strong><span>${options.compact===true?'目前尺寸':'尺寸款號清單'}</span></span>
           <b>${safe(active.labelPair?.vi||sizePair(active.key).vi)}</b>
           <span class="ui-dual-copy process-size-selection-count"><strong>${selectable?`${selected.size} đã chọn`:`${active.members.length} mã trong kích thước này`}</strong><span>${selectable?`已選 ${selected.size}`:`此尺寸 ${active.members.length} 款`}</span></span>
           ${selectable?`<button type="button" class="process-size-select-all" data-process-select-all aria-pressed="${selection.all?'true':'false'}" title="Chọn tất cả / 全選"><i class="ti ${selection.all?'ti-checkbox':'ti-checks'}"></i><span class="ui-dual-copy"><strong>${selection.all?'Bỏ chọn tất cả':'Chọn tất cả'}</strong><span>${selection.all?'取消全選':'全選'}</span></span></button>`:''}
@@ -101,7 +103,7 @@
             const operation=operationFor(product,options.processNo);
             return `<tr class="${code===normalize(options.currentCode)?'is-current':''}">
               ${selectable?`<td class="ui-table-center-cell"><input type="checkbox" data-process-member="${safeAttribute(code)}" ${selected.has(code)?'checked':''} ${required.has(code)?'disabled':''} aria-label="${safeAttribute(code)}"></td>`:''}
-              <td>${safe(product.client||'—')}</td><td><b>${safe(code)}</b></td><td>${safe(product.zh||'—')}</td><td>${safe(product.vi||'—')}</td><td>${safe(product.sz||'—')}</td>
+              <td title="${safeAttribute(product.client||'—')}">${safe(product.client||'—')}</td><td title="${safeAttribute(code)}"><b>${safe(code)}</b></td><td title="${safeAttribute(product.zh||'—')}">${safe(product.zh||'—')}</td><td title="${safeAttribute(product.vi||'—')}">${safe(product.vi||'—')}</td><td title="${safeAttribute(product.sz||'—')}">${safe(product.sz||'—')}</td>
               ${showSeconds?`<td class="ui-table-number-cell"><b>${operation&&Number(operation.sec)>0?safe(Number(operation.sec)):'—'}</b></td>`:''}
               ${showAction?`<td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-process-member-edit="${safeAttribute(code)}"><i class="ti ti-edit"></i><span class="ui-dual-copy"><strong>Sửa công đoạn</strong><span>修改工序</span></span></button></td>`:''}
             </tr>`;

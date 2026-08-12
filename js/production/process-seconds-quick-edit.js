@@ -1,4 +1,4 @@
-// process-seconds-quick-edit（工序秒數快速修改）：由生產登記與 IE 分析共用的正式秒數修改視窗。
+// process-seconds-quick-edit（工序秒數快速修改）：由生產登記與工序分析共用的正式秒數修改視窗。
 (function(){
   'use strict';
 
@@ -9,6 +9,7 @@
   const store=()=>window.PCMSProcessEditStore;
   const groupUI=()=>window.PCMSProcessGroupUI;
   const productByCode=code=>(window.D||[]).find(item=>normalize(item.code)===normalize(code))||null;
+  const QUICK_EDIT_REASON='Điều chỉnh nhanh giây công đoạn / 快速調整工序秒數';
 
   function allowed(){
     return typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();
@@ -38,9 +39,10 @@
     const host=document.createElement('section');
     host.className='process-seconds-group-information';
     const sizes=groupUI().groupBySize(products);
-    host.innerHTML=`<div class="ui-section-header"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thông tin nhóm</strong><span>群組訊息</span></span></div><div class="process-seconds-group-facts">
-      <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(product.client||'—')}</b></div>
+    host.innerHTML=`<div class="process-seconds-group-facts">
+      <div class="is-heading"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thông tin nhóm</strong><span>群組訊息</span></span></div>
       <div><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span><b>${group?safe(group.name||group.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
+      <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(product.client||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Số kích thước</strong><span>尺寸群組數</span></span><b>${sizes.length}</b></div>
       <div><span class="ui-dual-copy"><strong>Số mã</strong><span>款號數</span></span><b>${products.length}</b></div>
     </div><div class="process-seconds-group-note ui-bilingual"><span class="ui-text-vi">${isCandidate?'Các mã dưới đây do hệ thống tự khớp theo khách hàng, tên sản phẩm và cấu trúc công đoạn; cần người dùng xác nhận.':'Đây là thành viên của nhóm cùng sản phẩm đã được xác nhận.'}</span><span class="ui-text-zh">${isCandidate?'下列款號由系統依客人、產品名稱與工序結構自動匹配，仍須人工確認。':'以下為已確認同產品群組的成員。'}</span></div>`;
@@ -74,13 +76,15 @@
       <div><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span><b>${safe(processNo)}</b></div>
       <div class="is-name"><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文名稱</span></span><b>${safe(operation.vi||input.processNameVi||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span><b>${safe(Number(operation.sec))} s</b></div>
-      <label><span class="ui-dual-copy"><strong>Giây sau sửa</strong><span>修改後秒數</span></span><input type="number" min="0.01" max="86400" step="0.01" value="${safe(proposed)}" data-quick-seconds></label>
-      <label class="is-reason"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea maxlength="500" rows="2" data-quick-reason></textarea></label>
+      <span class="process-seconds-direction" aria-hidden="true"><i class="ti ti-arrow-right"></i></span>
+      <label class="is-seconds"><span class="ui-dual-copy"><strong>Giây sau sửa</strong><span>修改後秒數</span></span><input type="number" min="0.01" max="86400" step="0.01" value="${safe(proposed)}" data-quick-seconds></label>
+      <div class="is-group"><span class="ui-dual-copy"><strong>${group?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${group?'目前群組':'群組狀態'}</span></span><b>${group?safe(group.name||group.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
+      ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group aria-pressed="false"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
     </section>
     ${displayed>0&&displayed!==Number(operation.sec)?`<div class="ui-notice is-warning"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Dòng đã bấm là ảnh chụp ${safe(displayed)} giây; tiêu chuẩn hiện tại là ${safe(Number(operation.sec))} giây.</strong><span>點擊的紀錄為 ${safe(displayed)} 秒歷史快照；目前正式標準為 ${safe(Number(operation.sec))} 秒。</span></span></div>`:''}
-    <section class="process-seconds-group-section"><div class="process-seconds-group-heading"><span class="ui-dual-copy"><strong>${group?'Nhóm cùng sản phẩm':'Chưa có nhóm'}</strong><span>${group?'同產品群組':'未有群組'}</span></span><b>${safe(group?.name||'—')}</b>${candidateMode?'<button type="button" class="ui-button is-compact" data-save-new-group aria-pressed="false"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}</div><div data-quick-member-selector></div></section>`;
+    <section class="process-seconds-group-section"><div data-quick-member-selector></div></section>`;
     const selector=groupUI().createMemberSelector({
-      products:members,currentCode:product.code,activeSize:product.sz,processNo,
+      products:members,currentCode:product.code,activeSize:product.sz,compact:true,
       selectedCodes:members.map(item=>item.code),requiredCodes:[product.code],selectable:true
     });
     body.querySelector('[data-quick-member-selector]').appendChild(selector.element);
@@ -92,8 +96,6 @@
       saveGroupButton.classList.toggle('is-primary',saveNewGroup);
       saveGroupButton.querySelector('i').className=`ti ${saveNewGroup?'ti-checkbox':'ti-box-multiple'}`;
     });
-    textApi().setLocalizedAttribute(body.querySelector('[data-quick-reason]'),'placeholder',{vi:'Nhập lý do xác nhận của IE',zh:'填寫IE確認修改原因'});
-
     let saved=false;
     ui().openDialog({
       title:{vi:'Sửa nhanh giây công đoạn chính thức',zh:'快速修改正式工序秒數'},body,size:'xlarge',
@@ -101,10 +103,8 @@
         {text:{vi:'Hủy',zh:'取消'}},
         {text:{vi:'Xác nhận và lưu',zh:'確認並儲存'},icon:'ti-device-floppy',kind:'primary',onClick:async()=>{
           const seconds=Number(body.querySelector('[data-quick-seconds]')?.value);
-          const reason=normalize(body.querySelector('[data-quick-reason]')?.value);
           const targetProducts=selector.selectedProducts();
           if(!(seconds>0&&seconds<=86400)){ await ui().alertDialog({message:{vi:'Giây phải lớn hơn 0.',zh:'秒數必須大於0。'},kind:'warning',keepPrevious:true});return false; }
-          if(reason.length<2){ await ui().alertDialog({message:{vi:'Vui lòng nhập lý do sửa.',zh:'請填寫修改原因。'},kind:'warning',keepPrevious:true});return false; }
           if(!targetProducts.length){ await ui().alertDialog({message:{vi:'Chưa chọn mã hàng cần đồng bộ.',zh:'尚未選擇要同步的款號。'},kind:'warning',keepPrevious:true});return false; }
           if(saveNewGroup&&targetProducts.length<2){ await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 2 mã.',zh:'新群組至少需要2個款號。'},kind:'warning',keepPrevious:true});return false; }
           if(saveNewGroup&&!(await confirmGroupCreation(product,targetProducts))) return false;
@@ -114,7 +114,7 @@
           });
           if(!syncConfirmed) return false;
           if(saveNewGroup) await store().createGroup({memberCodes:targetProducts.map(item=>item.code),name:product.vi||product.zh||product.code});
-          const result=await store().saveOfficialSeconds({targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason});
+          const result=await store().saveOfficialSeconds({targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason:QUICK_EDIT_REASON});
           saved=true;
           ui().showToast({kind:result.logSaved?'success':'warning',text:result.logSaved
             ?{vi:'Đã cập nhật giây chính thức và bảng mã hàng.',zh:'正式秒數與目前款號表已更新。'}
@@ -135,7 +135,7 @@
     button.className='process-seconds-edit-button';
     button.disabled=!allowed();
     const value=input.value===undefined||input.value===null?'—':input.value;
-    button.innerHTML=`<span>${safe(value)}</span>${allowed()?'<i class="ti ti-edit" aria-hidden="true"></i>':''}`;
+    button.innerHTML=`<span>${safe(value)}</span>`;
     textApi().setLocalizedAttribute(button,'title',allowed()?{vi:'Bấm để sửa giây chính thức',zh:'點擊修改正式工序秒數'}:{vi:'Không có quyền sửa giây',zh:'沒有秒數修改權限'});
     if(allowed()) button.addEventListener('click',event=>{ event.preventDefault();event.stopPropagation();open(input); });
     return button;

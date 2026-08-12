@@ -29,15 +29,15 @@
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-3',
-    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-1',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-1',
+    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-2',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-2',
     productionProcessEdit:'js/production/process-edit.js?v=20260813-5',
     productionProductGroups:'js/production/product-groups.js?v=20260813-3',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
     productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260813-2',
-    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260813-4',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260813-5',
     productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260813-1',
     productionAnalysis:'js/production-analysis/production-analysis.js?v=20260813-1'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
@@ -49,7 +49,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260813-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-5',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-6',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

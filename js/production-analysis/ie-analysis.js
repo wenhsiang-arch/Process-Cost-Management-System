@@ -1,4 +1,4 @@
-// ie-analysis.js（IE 分析）：用全產線常規資料找出標準秒數差異，供現場優先查核。
+// ie-analysis.js（工序分析）：用全產線常規資料找出標準秒數差異，供現場優先查核。
 (function(){
   'use strict';
 
@@ -116,10 +116,10 @@
         {label:'常規效率',content:'先依人員彙整效率，再套用常規資料規則，用來降低極端強人或長期偏低人員對全線參考值的影響。'},
         {label:'常規資料',content:'1 人採該人資料；2～9 人取中位數；10 人以上排除最高與最低各 20%，平均中間 60%。'},
         {label:'差異',content:'差異秒數 = 回推建議秒數 − 目前標準秒數；差異率 = 差異秒數 ÷ 目前標準秒數 × 100%。正值代表回推時間較長，負值代表回推時間較短。'},
-        {label:'優先級',content:'差異率絕對值達 30% 為高優先，其餘符合目前篩選門檻的資料為中優先。只用來安排 IE 現場查核順序。'},
+        {label:'優先級',content:'差異率絕對值達 30% 為高優先，其餘符合目前篩選門檻的資料為中優先。只用來安排工序現場查核順序。'},
         {label:'可信度',content:'5 小時約 58%、10 小時約 70%、20 小時約 80%、30 小時約 85%、50 小時約 93%、100 小時約 97%、200 小時約 99%。這是落在實際值 ±10% 內的模擬機會，不是保證。'},
         {label:'樣本資料',content:'畫面同時呈現員工人數與累積有效工時；可信度只以累積有效工時判定，不以員工人數或生產天數限制是否顯示。'},
-        {label:'版本與使用限制',content:'建議秒數只供 IE 現場查核，不會自動修改款號表。標準秒數或每小時產能快照不同時會分開統計。'}
+        {label:'版本與使用限制',content:'建議秒數只供工序現場查核，不會自動修改款號表。標準秒數或每小時產能快照不同時會分開統計。'}
       ];
     }
     function applyFilters(){
@@ -221,23 +221,23 @@
     }
     function showGuide(){
       ui.openExplanation({
-        titleVi:'Cách dùng danh sách IE',titleZh:'IE 分析使用說明',
-        userVi:'Hệ thống dùng dữ liệu sản xuất toàn chuyền để tìm công đoạn có giây hồi tính chênh lệch lớn với giây tiêu chuẩn hiện tại. IE có thể lọc, chọn và in danh sách để kiểm tra tại chuyền. Kết quả chỉ là tham khảo ưu tiên, không tự động sửa giây.',
-        userZh:'系統用全產線歷史資料找出回推秒數與目前標準秒數差異較大的工序。IE 可篩選、勾選並列印到產線查核。結果只是除錯優先參考，不會自動修改標準工時。',
+        titleVi:'Cách dùng danh sách công đoạn',titleZh:'工序分析使用說明',
+        userVi:'Hệ thống dùng dữ liệu sản xuất toàn chuyền để tìm công đoạn có giây hồi tính chênh lệch lớn với giây tiêu chuẩn hiện tại. Người phụ trách có thể lọc, chọn và in danh sách để kiểm tra tại chuyền. Kết quả chỉ là tham khảo ưu tiên, không tự động sửa giây.',
+        userZh:'系統用全產線歷史資料找出回推秒數與目前標準秒數差異較大的工序。負責人員可篩選、勾選並列印到產線查核。結果只是除錯優先參考，不會自動修改標準工時。',
         formulaZh:explanationAppendix().map(item=>`${item.label}：${item.content}`).join('\n\n')
       });
     }
     async function exportRows(){
       const rows=selectedOrFiltered();
       await window.PCMSProductionAnalysisExport.exportWorkbook({
-        title:'Phân tích bất thường IE / IE 異常分析',filePrefix:'Phan_tich_IE_IE異常分析',
+        title:'Phân tích bất thường công đoạn / 工序異常分析',filePrefix:'Phan_tich_cong_doan_工序異常分析',
         rows,columns:exportColumns(),filterSummary:filterSummary(),explanations:explanationAppendix()
       });
     }
     async function printRows(){
       const rows=selectedOrFiltered();
       await window.PCMSProductionAnalysisExport.printRows({
-        title:'Danh sách IE kiểm tra tại chuyền / IE 產線查核表',rows,columns:exportColumns(),filterSummary:filterSummary(),
+        title:'Danh sách kiểm tra công đoạn tại chuyền / 工序產線查核表',rows,columns:exportColumns(),filterSummary:filterSummary(),
         handwritingColumns:[{vi:'Giây thực đo',zh:'實測秒數'},{vi:'Nguyên nhân',zh:'原因'},{vi:'Kiến nghị',zh:'建議'},{vi:'Người kiểm tra / ngày',zh:'查核人／日期'}],
         formulaAppendix:explanationAppendix().map(item=>`${item.label}：${item.content}`).join('\n')
       });
