@@ -18,7 +18,7 @@
     orders:'js/orders.js?v=20260813-1',
     permissions:'js/permissions.js?v=20260812-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
-    systemMonitor:'js/system-monitor/system-monitor.js?v=20260812-3',
+    systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
     productionChangeStore:'js/production/change-store.js?v=20260812-1',
     productionEntryStore:'js/production/entry-store.js?v=20260813-1',
@@ -48,7 +48,7 @@
     production:'styles/features/production.css?v=20260813-1',
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-2',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
-    systemMonitor:'styles/features/system-monitor.css?v=20260812-4'
+    systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([

@@ -41,6 +41,8 @@
     permissions:['Phân quyền','權限管理'],'system-monitor':['Giám sát hệ thống','系統監控'],other:['Khác','其他']
   };
   const COUNTER_KEYS=['queryCount','writeRequestCount','documentReads','documentWrites','cacheHits','cacheMisses','cacheWrites','fullLoads'];
+  const APP_CHECK_REFRESH_MS=30*60*1000;
+  const AVERAGE_MONTH_DAYS=365.25/12;
   const state={
     tab:'logs',loading:false,error:null,logs:[],logMore:false,usage:[],usageMore:false,local:null,expandedUsage:new Set(),
     loaded:{logs:false,calls:false,cache:false},
@@ -178,6 +180,28 @@
     const user=state.usageFilters.user.toLocaleLowerCase();
     return state.usage.filter(item=>!user||`${item.username||''} ${item.uid||''}`.toLocaleLowerCase().includes(user));
   }
+  function usageFilterDayCount(){
+    const parse=value=>{
+      const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return match?Date.UTC(Number(match[1]),Number(match[2])-1,Number(match[3])):NaN;
+    };
+    const from=parse(state.usageFilters.from),to=parse(state.usageFilters.to);
+    if(!Number.isFinite(from)||!Number.isFinite(to)||to<from) return 1;
+    return Math.floor((to-from)/(24*60*60*1000))+1;
+  }
+  function appCheckSessionEstimate(item){
+    const startedAt=millis(item?.startedAt);
+    const endedAt=millis(item?.endedAt)||millis(item?.updatedAt);
+    if(!startedAt||endedAt<startedAt) return 0;
+    return Math.max(1,Math.ceil((endedAt-startedAt)/APP_CHECK_REFRESH_MS));
+  }
+  function appCheckMonthlyEstimate(){
+    const sessions=filteredUsage();
+    if(!sessions.length) return null;
+    const periodEstimate=sessions.reduce((sum,item)=>sum+appCheckSessionEstimate(item),0);
+    if(!periodEstimate) return null;
+    return Math.max(1,Math.round(periodEstimate/usageFilterDayCount()*AVERAGE_MONTH_DAYS));
+  }
   function aggregateUsageRows(){
     const groups=new Map();
     filteredUsage().forEach(item=>{
@@ -253,6 +277,7 @@
     const rows=aggregateUsageRows(),totals=usageTotals(rows);
     const hasLegacy=rows.some(item=>item.legacy);
     const attention=rows.filter(item=>item.comparison?.attention).length;
+    const appCheckEstimate=appCheckMonthlyEstimate();
     return `
       <section class="system-monitor-panel">
         <div class="system-monitor-toolbar">
@@ -261,14 +286,16 @@
           <label class="is-wide">${dual('Người sử dụng','使用者')}<input id="sm-usage-user" type="search" value="${esc(state.usageFilters.user)}" placeholder="Tên hoặc UID / 姓名或UID"></label>
           <button id="sm-usage-refresh" class="ui-button ui-button-primary" type="button"><i class="ti ti-refresh"></i>${dual('Làm mới','重新整理')}</button>
         </div>
-        <div class="system-monitor-summary">
+        <div class="system-monitor-summary is-six">
           ${summaryCard('Tổng lượt gọi ước tính','估算總呼叫',`${hasLegacy?'≥':''}${count(totals.queryCount+totals.writeRequestCount)}`)}
           ${summaryCard('Lượt gọi đọc','讀取呼叫',count(totals.queryCount))}
           ${summaryCard('Lượt gọi ghi','寫入呼叫',`${hasLegacy?'≥':''}${count(totals.writeRequestCount)}`)}
           ${summaryCard('Ngày cần chú ý','待關注日數',count(attention),attention?'orange':'blue')}
           ${summaryCard('Tải lại toàn bộ','完整載入次數',count(totals.fullLoads),totals.fullLoads?'orange':'blue')}
+          ${summaryCard('Ước tính App Check nội bộ/tháng','內部App Check月估算',appCheckEstimate===null?'—':`${state.usageMore?'≥':''}${count(appCheckEstimate)}`)}
         </div>
         ${notice('Tổng lượt gọi = lượt đọc + lượt ghi. Một lần ghi theo lô chỉ tính 1 lượt gọi; số tài liệu nằm trong phần mở rộng. Đây là số ước tính của trang web, chi phí thực tế vẫn theo Firebase.','總呼叫＝讀取呼叫＋寫入呼叫。一次批次寫入只算1次呼叫；文件數放在展開明細。這是網站估算值，實際計費仍以Firebase為準。')}
+        ${notice('Ước tính App Check nội bộ dựa trên thời lượng phiên trong khoảng lọc: khoảng 1 lần mỗi 30 phút, sau đó quy đổi theo 30,44 ngày/tháng. Không bao gồm lượt truy cập chưa đăng nhập hoặc tấn công bên ngoài và không phải số chính thức của Google.','內部App Check月估算依篩選期間的工作階段時長計算：約每30分鐘1次，再換算為每月30.44天。不包含未登入瀏覽或外部攻擊，也不是Google正式統計。')}
         ${hasLegacy?notice('Dữ liệu cũ chưa ghi riêng lượt gọi ghi nên hiển thị dấu ≥, không giả định thành số chính xác.','舊資料沒有獨立記錄寫入呼叫，因此以≥顯示，不假裝為精確數字。'):''}
         <div class="system-monitor-table-wrap"><table class="ui-table system-monitor-table is-calls"><thead><tr><th></th><th>${dual('Ngày','日期')}</th><th>${dual('Người sử dụng','使用者')}</th><th>${dual('Vai trò','角色')}</th><th>${dual('Tổng lượt gọi','總呼叫')}</th><th>${dual('Lượt đọc','讀取呼叫')}</th><th>${dual('Lượt ghi','寫入呼叫')}</th><th>${dual('So với bình quân','與平均比較')}</th><th>${dual('Trạng thái','狀態')}</th><th>${dual('Cập nhật','更新時間')}</th></tr></thead><tbody>${rows.length?rows.map(item=>{const role=roleLabel(item.role),expanded=state.expandedUsage.has(item.key);return `<tr class="system-monitor-call-row"><td><button class="system-monitor-expand-button" type="button" data-sm-usage-key="${esc(item.key)}" aria-expanded="${expanded}" title="Mở chi tiết / 展開明細"><i class="ti ti-chevron-${expanded?'up':'down'}"></i></button></td><td>${esc(item.usageDate)}</td><td><b>${esc(item.username)}</b><small>${esc(item.uid)}</small></td><td>${dual(role[0],role[1])}</td><td class="system-monitor-call-total">${callDisplay(item)}</td><td>${count(item.totals.queryCount)}</td><td>${writeCallDisplay(item)}</td><td>${comparisonCell(item)}</td><td>${attentionCell(item)}</td><td>${dateTime(item.updatedAt)}</td></tr>${expanded?renderUsageDetails(item):''}`;}).join(''):`<tr><td colspan="10" class="system-monitor-empty">${dual('Chưa có dữ liệu lượt gọi','目前沒有呼叫資料')}</td></tr>`}</tbody></table></div>
         ${state.usageMore?`<button id="sm-usage-more" class="ui-button system-monitor-more" type="button">${dual('Tải thêm 50 mục','再載入50筆')}</button>`:''}

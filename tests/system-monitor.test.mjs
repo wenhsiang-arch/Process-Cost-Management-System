@@ -37,6 +37,7 @@ test('系統監控將全站日誌、呼叫監控與快取狀況分成三個內�
   assert.match(style,/\.system-monitor-tabs/);
   assert.match(style,/\.system-monitor-page\{width:100%;max-width:100%;min-width:0/);
   assert.match(style,/\.system-monitor-summary\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(style,/\.system-monitor-summary\.is-six\{[^}]*grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
   assert.match(style,/\.system-monitor-summary-card\{[^}]*flex-direction:column;align-items:flex-start/);
   assert.match(style,/\.system-monitor-summary-card>b\{[^}]*max-width:100%[^}]*white-space:nowrap/);
 });
@@ -70,6 +71,17 @@ test('呼叫監控以每日使用者彙整並以舊日平均標示異常',()=>{
   assert.match(source,/依功能明細/);
   assert.match(source,/讀取文件/);
   assert.match(source,/寫入文件/);
+});
+
+test('App Check月估算沿用登入工作階段且不新增雲端統計資料',()=>{
+  const source=read('js/system-monitor/system-monitor.js');
+  const usage=read('js/usage-metrics.js');
+  assert.match(source,/const APP_CHECK_REFRESH_MS=30\*60\*1000/);
+  assert.match(source,/const AVERAGE_MONTH_DAYS=365\.25\/12/);
+  assert.match(source,/Math\.ceil\(\(endedAt-startedAt\)\/APP_CHECK_REFRESH_MS\)/);
+  assert.match(source,/內部App Check月估算/);
+  assert.match(source,/不包含未登入瀏覽或外部攻擊，也不是Google正式統計/);
+  assert.doesNotMatch(usage,/appCheckEstimate|appCheckAssessment/);
 });
 
 test('全站日誌可依日期分頁且登入登出與帳號權限異動會記錄',()=>{

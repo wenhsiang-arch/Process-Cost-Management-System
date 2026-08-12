@@ -1,5 +1,6 @@
 // ===== Firebase 初始化 =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {
   getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
   setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,updateDoc as firestoreUpdateDoc,
@@ -18,6 +19,31 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const APP_CHECK_SITE_KEY = '6LcNi4ItAAAAAKK2DVNVNXmjxD5ZzuSV_c2AJIwx';
+const APP_CHECK_PRODUCTION_HOSTNAME = 'wenhsiang-arch.github.io';
+const isAppCheckProductionOrigin = (
+  location.protocol === 'https:'
+  && location.hostname === APP_CHECK_PRODUCTION_HOSTNAME
+); // isAppCheckProductionOrigin（是否為正式 App Check 網站來源）
+let appCheckInitialized = false;
+
+if(isAppCheckProductionOrigin){
+  try{
+    initializeAppCheck(app,{
+      provider:new ReCaptchaEnterpriseProvider(APP_CHECK_SITE_KEY),
+      isTokenAutoRefreshEnabled:true
+    });
+    appCheckInitialized = true;
+  }catch(error){
+    console.error('App Check（應用程式驗證）初始化失敗。',error);
+  }
+}
+
+window.firebaseAppCheckStatus = Object.freeze({
+  enabledForOrigin:isAppCheckProductionOrigin,
+  initialized:appCheckInitialized
+}); // firebaseAppCheckStatus（應用程式驗證初始化狀態）
+
 const db = getFirestore(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
