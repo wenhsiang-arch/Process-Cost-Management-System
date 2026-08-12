@@ -7,7 +7,8 @@
     records:[],
     drafts:new Map(),
     dirty:new Set(),
-    loading:false
+    loading:false,
+    pendingContext:null
   }; // state（考勤頁目前狀態）
 
   function element(id){ return document.getElementById(id); }
@@ -229,6 +230,7 @@
     body.replaceChildren();
     visible.forEach(draft=>{
       const row = document.createElement('tr');
+      row.dataset.employeeId = draft.employee.employeeId;
       addTextCell(row,draft.employee.employeeId,'production-record-text-cell');
       addTextCell(row,draft.employee.name,'production-record-text-cell');
       addTextCell(row,draft.employee.department,'production-record-text-cell');
@@ -372,15 +374,51 @@
     element('production-attendance-save-button').addEventListener('click',()=>void save());
   }
 
+  function setPendingContext(context={}){
+    state.pendingContext = {
+      employeeId:String(context.employeeId || '').trim(),
+      attendanceDate:String(context.attendanceDate || '').trim()
+    };
+  }
+
+  function applyPendingContext(){
+    const pending = state.pendingContext;
+    state.pendingContext = null;
+    if(!pending) return '';
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(pending.attendanceDate)
+      ? pending.attendanceDate
+      : today();
+    element('production-attendance-date').value = date > today() ? today() : date;
+    element('production-attendance-department').value = '';
+    element('production-attendance-search').value = pending.employeeId;
+    syncDateControl();
+    return pending.employeeId;
+  }
+
+  function focusPendingEmployee(employeeId){
+    if(!employeeId) return;
+    const row = [...element('production-attendance-table-body').querySelectorAll('tr')]
+      .find(item=>item.dataset.employeeId === employeeId);
+    if(!row) return;
+    row.scrollIntoView({block:'center'});
+    row.querySelector('.production-attendance-hours-input')?.focus({preventScroll:true});
+  }
+
   async function loadProductionAttendanceData(options={}){
     await window.PCMSProductionEmployees.load({revalidate:options.background === true});
     return true;
   }
 
-  async function productionAttendanceInit(){ init(); await load(); }
+  async function productionAttendanceInit(){
+    init();
+    const employeeId = applyPendingContext();
+    await load();
+    focusPendingEmployee(employeeId);
+  }
   function productionAttendanceLeave(){ setStatus('','','info'); }
 
   window.loadProductionAttendanceData = loadProductionAttendanceData;
   window.productionAttendanceInit = productionAttendanceInit;
   window.productionAttendanceLeave = productionAttendanceLeave;
+  window.PCMSProductionAttendancePage = Object.freeze({setPendingContext});
 })();

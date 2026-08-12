@@ -50,7 +50,6 @@
               <th class="ui-table-number-cell" data-ui-table-column="daily" data-ui-table-sortable="false">${ui.dual('Hiệu suất ngày','當日效率')}</th>
               <th class="ui-table-number-cell" data-ui-table-column="employeeHistory" data-ui-table-sortable="false">${ui.dual('Lịch sử cá nhân','個人歷史平均')}</th>
               <th data-ui-table-column="comparison" data-ui-table-sortable="false">${ui.dual('So với bình thường','與平常相比')}</th>
-              <th class="ui-table-center-cell" data-ui-table-column="explanation" data-ui-table-sortable="false">${ui.dual('Cách tính','算法說明')}</th>
             </tr></thead><tbody></tbody>
           </table>
         </div></div>
@@ -75,9 +74,6 @@
     function displayPercent(value){
       return value===null||value===undefined?'—':ui.percent(value);
     }
-    function displayNumber(value){
-      return value===null||value===undefined?'—':ui.format(value);
-    }
     function positionText(level){
       return {
         low:{vi:'Thấp',zh:'低'},middle:{vi:'Trung bình',zh:'中'},high:{vi:'Cao',zh:'高'},
@@ -87,9 +83,6 @@
     function positionLabel(level){
       const value=positionText(level);
       return `${value.vi} / ${value.zh}`;
-    }
-    function methodLabel(method){
-      return method==='trimmed-middle-60'?'排除最高與最低各 20%，平均中間 60%':method==='median'?'取所有人員效率的中位數':'目前僅一人，暫以該人資料呈現';
     }
     function statusText(group){
       return {
@@ -126,43 +119,45 @@
       else cell.textContent=value;
       return cell;
     }
-    function explanation(row){
-      if(!row.productCode&&!row.processNo) return 'Không có chi tiết công đoạn trong ngày. / 當日沒有工序產能明細。';
-      if(row.lineTypicalEfficiency===null) return 'Chưa có mức tham chiếu cùng công đoạn. / 該工序尚無全線參考值。';
-      if(row.level==='low') return 'Mức cá nhân thấp hơn mức thông thường của chuyền trên 10%. / 個人低於全線常規值超過 10%。';
-      if(row.level==='high') return 'Mức cá nhân cao hơn mức thông thường của chuyền trên 10%. / 個人高於全線常規值超過 10%。';
-      return 'Mức cá nhân nằm trong khoảng ±10% của mức thông thường. / 個人位於全線常規值 ±10% 內。';
+    function targetPageForStatus(status){
+      if(status==='attendance-invalid') return 'production-attendance';
+      if(status==='production-missing') return 'production-entry';
+      return '';
     }
-    function openDailyFormula(group){
-      const status=statusText(group);
-      const comparison=comparisonText(group);
-      const dailyResult=group.status==='ready'?displayPercent(group.dailyEfficiency):status.zh;
-      ui.openExplanation({
-        titleVi:'Giải thích hiệu suất ngày',titleZh:'當日效率計算說明',
-        userVi:`Ngày ${group.date}, ${group.employeeName||group.employeeId}: ${group.status==='ready'?comparison.vi:status.vi}.`,
-        userZh:`${group.date}，${group.employeeName||group.employeeId}：${group.status==='ready'?comparison.zh:status.zh}。展開此列可查看當日各工序明細。`,
-        formulaZh:[
-          `當日效率 =（當日標準有效工時 ${displayNumber(group.standardHours)} + 補充工時 ${displayNumber(group.supplementHours)}）÷ 考勤工時 ${displayNumber(group.attendanceHours)} × 100% = ${dailyResult}`,
-          `員工歷史平均 = 歷史累計有效工時 ${ui.format(group.employeeHistoryNumeratorHours)} ÷ 歷史累計考勤工時 ${ui.format(group.employeeHistoryAttendanceHours)} × 100% = ${displayPercent(group.employeeHistoryEfficiency)}`,
-          `與平常相比 = 當日效率 − 個人歷史平均；目前結果：${comparison.zh}。`,
-          group.status==='ready'?'當日資料已具備考勤與標準產能，可正常計算。':`本日顯示「${status.zh}」，因此不以 0% 代替，也不列入可比較效率。`
-        ].join('\n\n')
-      });
+    function canOpenTargetPage(pageName){
+      return !!pageName&&typeof window.canOpenPage==='function'&&window.canOpenPage(pageName)===true;
     }
-    function openProcessFormula(row){
-      const processName=[row.productCode,row.processNo,row.processNameZh||row.processNameVi].filter(Boolean).join(' / ');
-      ui.openExplanation({
-        titleVi:'Giải thích hiệu suất công đoạn',titleZh:'工序效率計算說明',
-        userVi:`Công đoạn ${processName||'không có dữ liệu'} được so sánh với lịch sử của nhân viên và mức thông thường cùng công đoạn trên toàn chuyền.`,
-        userZh:`工序 ${processName||'無資料'} 同時比較該員工的歷史與全產線同工序常規值。${explanation(row).split(' / ')[1]||''}`,
-        formulaZh:[
-          `當日工序效率 = 該工序標準有效工時 ${displayNumber(row.processStandardHours)} ÷ 後台分攤的加工時間 ${displayNumber(row.inferredHours)} × 100% = ${displayPercent(row.currentProcessEfficiency)}`,
-          `該工序個人歷史平均 = 個人該工序累計標準有效工時 ${ui.format(row.employeeProcessHistoryHours)} ÷ 累計回推加工時間 ${ui.format(row.employeeProcessHistoryInferredHours)} × 100% = ${displayPercent(row.employeeProcessHistoryEfficiency)}`,
-          `全線常規平均：${methodLabel(row.lineMethod)}；目前 ${row.lineParticipantCount} 人、累積標準有效工時 ${ui.hours(row.lineCumulativeStandardHours)}，結果 ${displayPercent(row.lineTypicalEfficiency)}。`,
-          '高低位置：低於全線常規值 90% 為低；介於 90%～110% 為中；高於 110% 為高。',
-          `資料版本：款號 ${row.productCode||'—'}、工序 ${row.processNo||'—'}、標準秒數 ${ui.seconds(row.currentSeconds)}。秒數版本不同會分開統計。`
-        ].join('\n\n')
-      });
+    async function openStatusTarget(group){
+      const pageName=targetPageForStatus(group.status);
+      if(!canOpenTargetPage(pageName)) return;
+      try{
+        await window.PCMSFeatures.ensurePageScripts(pageName);
+        if(pageName==='production-attendance'){
+          if(typeof window.PCMSProductionAttendancePage?.setPendingContext!=='function') throw new Error('Thiếu chức năng chuyển đến chấm công. / 缺少考勤跳轉功能。');
+          window.PCMSProductionAttendancePage.setPendingContext({employeeId:group.employeeId,attendanceDate:group.date});
+        }else{
+          if(typeof window.PCMSProductionEntry?.setPendingContext!=='function') throw new Error('Thiếu chức năng chuyển đến ghi nhận sản xuất. / 缺少生產登記跳轉功能。');
+          window.PCMSProductionEntry.setPendingContext({employeeId:group.employeeId,productionDate:group.date});
+        }
+        await window.sp(pageName);
+      }catch(error){ await ui.showError(error); }
+    }
+    function createStatusValue(group,status){
+      const pageName=targetPageForStatus(group.status);
+      if(!canOpenTargetPage(pageName)) return createDualValue(status.vi,status.zh,`is-${group.status}`);
+      const button=document.createElement('button');
+      button.type='button';
+      button.className=`production-analysis-dual-value employee-analysis-status-action is-${group.status}`;
+      const vi=document.createElement('span');
+      const zh=document.createElement('span');
+      vi.textContent=status.vi;
+      zh.textContent=status.zh;
+      button.append(vi,zh);
+      button.setAttribute('aria-label',pageName==='production-attendance'
+        ?`Mở chấm công ${group.date} của ${group.employeeId} / 開啟 ${group.employeeId} 在 ${group.date} 的考勤`
+        :`Mở ghi nhận sản xuất ${group.date} của ${group.employeeId} / 開啟 ${group.employeeId} 在 ${group.date} 的生產登記`);
+      button.addEventListener('click',()=>void openStatusTarget(group));
+      return button;
     }
     function exportColumns(){
       return [
@@ -177,8 +172,7 @@
         {vi:'Hiệu suất công đoạn ngày',zh:'當日工序效率',width:18,value:row=>displayPercent(row.currentProcessEfficiency)},
         {vi:'Lịch sử công đoạn cá nhân',zh:'該工序個人歷史平均',width:20,value:row=>displayPercent(row.employeeProcessHistoryEfficiency)},
         {vi:'Mức thông thường toàn chuyền',zh:'該工序全線常規平均',width:22,value:row=>displayPercent(row.lineTypicalEfficiency)},
-        {vi:'Vị trí',zh:'高／中／低',width:14,value:row=>positionLabel(row.level)},
-        {vi:'Giải thích',zh:'說明',width:42,value:explanation}
+        {vi:'Vị trí',zh:'高／中／低',width:14,value:row=>positionLabel(row.level)}
       ];
     }
     function explanationAppendix(){
@@ -186,8 +180,10 @@
         {label:'當日效率',content:'（當日標準有效工時 + 補充工時）÷ 當日考勤工時 × 100%。沒有產能、考勤或標準產能時顯示原因，不以 0% 代替。'},
         {label:'員工歷史平均',content:'歷史累計有效工時 ÷ 歷史累計考勤工時 × 100%，不是每天百分比直接平均。'},
         {label:'當日工序效率',content:'該工序標準有效工時 ÷ 後台依標準有效工時比例分攤的加工時間 × 100%。'},
+        {label:'該工序個人歷史平均',content:'個人該工序累計標準有效工時 ÷ 個人該工序累計回推加工時間 × 100%。只合併相同款號、工序及秒數／產能版本。'},
         {label:'全線常規平均',content:'1 人採該人資料；2～9 人取中位數；10 人以上排除最高與最低各 20%，平均中間 60%。'},
-        {label:'高／中／低',content:'低於全線常規值 90% 為低；90%～110% 為中；高於 110% 為高。'}
+        {label:'與平常相比',content:'當日效率 − 個人歷史平均；正值表示高於個人平常，負值表示低於個人平常。'},
+        {label:'高／中／低',content:'個人工序效率低於全線常規值 90% 為低；介於 90%～110% 為中；高於 110% 為高。'}
       ];
     }
     function applyFilters(){
@@ -235,7 +231,7 @@
       detailRow.className='employee-analysis-detail-row';
       detailRow.dataset.groupId=group.id;
       const detailCell=document.createElement('td');
-      detailCell.colSpan=7;
+      detailCell.colSpan=6;
       const panel=document.createElement('div');
       panel.className='employee-analysis-detail-panel';
       const heading=document.createElement('div');
@@ -254,25 +250,18 @@
           <th class="ui-table-number-cell">${ui.dual('Lịch sử cá nhân','該工序個人歷史平均')}</th>
           <th class="ui-table-number-cell">${ui.dual('Mức toàn chuyền','該工序全線常規平均')}</th>
           <th class="ui-table-center-cell">${ui.dual('Vị trí','高／中／低')}</th>
-          <th class="ui-table-center-cell">${ui.dual('Cách tính','算法說明')}</th>
         </tr></thead>`;
         const body=document.createElement('tbody');
         group.processes.forEach(row=>{
           const processRow=document.createElement('tr');
           const position=positionText(row.level);
-          const formulaCell=document.createElement('td');
-          formulaCell.className='ui-table-center-cell';
-          const formulaButton=ui.createDualButton('Xem cách tính','查看算法','ti-calculator','ui-button is-bilingual production-analysis-formula-button');
-          formulaButton.addEventListener('click',()=>openProcessFormula(row));
-          formulaCell.appendChild(formulaButton);
           processRow.append(
             ui.createCell([row.productCode,row.processNo,row.processNameZh||row.processNameVi].filter(Boolean).join(' / ')||'—'),
             ui.createCell(ui.format(row.quantity),'ui-table-number-cell'),
             ui.createCell(displayPercent(row.currentProcessEfficiency),'ui-table-number-cell'),
             ui.createCell(displayPercent(row.employeeProcessHistoryEfficiency),'ui-table-number-cell'),
             ui.createCell(displayPercent(row.lineTypicalEfficiency),'ui-table-number-cell'),
-            createValueCell(createDualValue(position.vi,position.zh,`is-${row.level}`),'ui-table-center-cell'),
-            formulaCell
+            createValueCell(createDualValue(position.vi,position.zh,`is-${row.level}`),'ui-table-center-cell')
           );
           body.appendChild(processRow);
         });
@@ -323,7 +312,7 @@
         if(group.status==='ready') dailyCell.textContent=displayPercent(group.dailyEfficiency);
         else{
           const status=statusText(group);
-          dailyCell.appendChild(createDualValue(status.vi,status.zh,`is-${group.status}`));
+          dailyCell.appendChild(createStatusValue(group,status));
         }
 
         const historyCell=document.createElement('td');
@@ -334,20 +323,14 @@
         const comparison=comparisonText(group);
         const comparisonCell=createValueCell(createDualValue(comparison.vi,comparison.zh,`is-${group.comparison}`),'employee-analysis-comparison-cell');
 
-        const formulaCell=document.createElement('td');
-        formulaCell.className='ui-table-center-cell';
-        const formulaButton=ui.createDualButton('Xem cách tính','查看算法','ti-calculator','ui-button is-bilingual production-analysis-formula-button');
-        formulaButton.addEventListener('click',()=>openDailyFormula(group));
-        formulaCell.appendChild(formulaButton);
-
-        tableRow.append(expandCell,ui.createCell(group.date),employeeCell,dailyCell,historyCell,comparisonCell,formulaCell);
+        tableRow.append(expandCell,ui.createCell(group.date),employeeCell,dailyCell,historyCell,comparisonCell);
         body.appendChild(tableRow);
         if(expanded) body.appendChild(createProcessDetail(group));
       });
       if(!filtered.length){
         const row=document.createElement('tr');
         const cell=ui.createCell('Không có dữ liệu phù hợp. / 沒有符合條件的資料。','production-analysis-empty');
-        cell.colSpan=7;
+        cell.colSpan=6;
         row.appendChild(cell);
         body.appendChild(row);
       }
@@ -370,7 +353,7 @@
         titleVi:'Cách đọc phân tích nhân viên',titleZh:'員工分析使用說明',
         userVi:'Mỗi dòng là kết quả của một nhân viên trong một ngày. Mở dòng để xem các công đoạn đã làm, hiệu suất công đoạn, lịch sử cá nhân và vị trí so với toàn chuyền. Nếu thiếu chấm công, sản lượng hoặc sản lượng tiêu chuẩn, hệ thống sẽ ghi rõ nguyên nhân thay vì hiển thị 0%.',
         userZh:'每一列代表一位員工一天的結果。展開後可查看當日各工序效率、個人工序歷史與全線位置。若缺少考勤、產能或標準產能，系統會直接顯示原因，不再用 0% 代替。每日工序回推加工時間只在後台計算，本頁不呈現。',
-        formulaZh:'當日效率 =（標準有效工時 + 補充工時）÷ 考勤工時 × 100%。\n\n個人歷史與同工序歷史都使用「累計工時相除」，不是把每天百分比直接平均。\n\n高／中／低直接與全線同工序常規效率比較：低於 90% 為低，90%～110% 為中，高於 110% 為高。'
+        formulaZh:explanationAppendix().map(item=>`${item.label}：${item.content}`).join('\n\n')
       });
     }
     async function exportRows(){

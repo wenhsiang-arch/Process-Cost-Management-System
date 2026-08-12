@@ -55,7 +55,6 @@
               <th class="ui-table-number-cell" data-ui-table-column="people" data-ui-table-sort-type="number">${ui.dual('Số nhân viên','員工人數')}</th>
               <th class="ui-table-center-cell" data-ui-table-column="confidence">${ui.dual('Độ tin cậy','可信度')}</th>
               <th class="ui-table-center-cell" data-ui-table-column="priority">${ui.dual('Ưu tiên','優先級')}</th>
-              <th data-ui-table-column="explanation" data-ui-table-sortable="false">${ui.dual('Giải thích','說明')}</th>
             </tr></thead><tbody></tbody>
           </table>
         </div></div>
@@ -84,36 +83,6 @@
     }
     function priority(row){ return Math.abs(row.differencePercent||0)>=30?'high':'medium'; }
     function priorityLabel(row){ return priority(row)==='high'?'Cao / 高':'Trung bình / 中'; }
-    function methodLabel(row){
-      return row.method==='trimmed-middle-60'
-        ?`排除最高與最低各 20%，平均中間 60%（${row.typicalEmployeeIds.length} 人）`
-        :row.method==='median'?`取 ${row.participantCount} 人的中位數`:'目前僅一人，暫以該人資料呈現';
-    }
-    function explanation(row){
-      if(row.differencePercent>0) return 'Thời gian thực tế ước tính dài hơn tiêu chuẩn hiện tại; nên kiểm tra thao tác hoặc giây tiêu chuẩn. / 預估實際加工時間較目前標準長，應查核操作或標準秒數。';
-      if(row.differencePercent<0) return 'Thời gian thực tế ước tính ngắn hơn tiêu chuẩn hiện tại; nên xác nhận lại tại chuyền. / 預估實際加工時間較目前標準短，應到產線確認。';
-      return 'Chưa thấy chênh lệch rõ. / 尚無明顯差異。';
-    }
-    function openFormula(row){
-      const difference=(row.suggestedSeconds??0)-(row.currentSeconds??0);
-      ui.openExplanation({
-        titleVi:'Giải thích giây hồi tính',titleZh:'回推秒數計算說明',
-        userVi:`Công đoạn ${row.productCode} / ${row.processNo} có giây tiêu chuẩn hiện tại là ${ui.seconds(row.currentSeconds)}, còn dữ liệu sản xuất thông thường ước tính khoảng ${ui.seconds(row.suggestedSeconds)}. Đây là thứ tự ưu tiên để IE kiểm tra tại chuyền, không phải kết luận tự động sửa giây.`,
-        userZh:`款號 ${row.productCode}／工序 ${row.processNo} 目前標準為 ${ui.seconds(row.currentSeconds)}，全線常規資料回推約 ${ui.seconds(row.suggestedSeconds)}。此結果只用來安排 IE 現場查核優先順序，不會自動修改款號表。`,
-        formulaZh:[
-          `單一員工每日可分配生產時間 = 考勤總工時 − 補充工時。`,
-          `該工序回推加工時間 = 可分配生產時間 × 該工序標準有效工時 ÷ 當日所有工序標準有效工時。每日回推時間只在後台使用，不在報表顯示。`,
-          `單筆回推秒數 = 回推加工時間 × 3,000 秒 ÷ 生產數量。採 3,000 秒是因款號表每小時產能以 50 分鐘有效生產時間計算。`,
-          `常規回推秒數：${methodLabel(row)}，結果 ${ui.seconds(row.suggestedSeconds)}。全部人員未排除前的回推秒數為 ${ui.seconds(row.rawSuggestedSeconds)}。`,
-          `差異秒數 = 建議秒數 ${ui.format(row.suggestedSeconds)} − 目前秒數 ${ui.format(row.currentSeconds)} = ${ui.format(difference)} 秒。`,
-          `差異率 =（建議秒數 ${ui.format(row.suggestedSeconds)} − 目前秒數 ${ui.format(row.currentSeconds)}）÷ 目前秒數 ${ui.format(row.currentSeconds)} × 100% = ${ui.percent(row.differencePercent)}。`,
-          `樣本：${row.participantCount} 人、${row.sampleCount} 筆員工日工序資料、生產量 ${ui.integer(row.totalQuantity)}、累積標準有效工時 ${ui.hours(row.cumulativeStandardHours)}。`,
-          `可信度 ${confidenceLabel(row.confidence)}：只依累積有效工時估算，代表模擬中落在實際值 ±10% 內的機會，不是正確率保證。`,
-          `可信度參考：5 小時約 58%、10 小時約 70%、20 小時約 80%、30 小時約 85%、50 小時約 93%、100 小時約 97%、200 小時約 99%。`,
-          `資料版本：標準秒數 ${ui.seconds(row.currentSeconds)}、每小時產能 ${ui.integer(row.hourlyCapacitySnapshot)}。秒數或產能快照不同會分開統計。`
-        ].join('\n\n')
-      });
-    }
     function exportColumns(){
       return [
         {key:'productCode',vi:'Mã hàng',zh:'款號',width:16},{key:'processNo',vi:'Số công đoạn',zh:'工序號',width:12},
@@ -127,16 +96,22 @@
         {vi:'Giờ hiệu quả tích lũy',zh:'累積有效工時',width:17,value:row=>ui.hours(row.cumulativeStandardHours)},
         {vi:'Số nhân viên',zh:'員工人數',width:12,value:row=>row.participantCount},
         {vi:'Độ tin cậy',zh:'可信度',width:18,value:row=>confidenceLabel(row.confidence)},
-        {vi:'Ưu tiên',zh:'優先級',width:14,value:priorityLabel},{vi:'Giải thích',zh:'說明',width:46,value:explanation}
+        {vi:'Ưu tiên',zh:'優先級',width:14,value:priorityLabel}
       ];
     }
     function explanationAppendix(){
       return [
+        {label:'可分配生產時間',content:'考勤總工時 − 補充工時。補充工時不分攤到工序。'},
         {label:'回推加工時間',content:'（考勤總工時 − 補充工時）× 該工序標準有效工時 ÷ 當日全部工序標準有效工時。'},
-        {label:'回推秒數',content:'回推加工時間 × 3,000 秒 ÷ 生產數量。每日回推時間只在後台計算。'},
+        {label:'回推秒數',content:'回推加工時間 × 3,000 秒 ÷ 生產數量。使用 3,000 秒，是因款號表每小時產能以 50 分鐘有效生產時間計算；每日回推時間只在後台計算。'},
+        {label:'全部綜合效率',content:'全部員工的標準有效工時合計 ÷ 回推加工時間合計 × 100%，不排除特別快或特別慢的人員。'},
+        {label:'常規效率',content:'先依人員彙整效率，再套用常規資料規則，用來降低極端強人或長期偏低人員對全線參考值的影響。'},
         {label:'常規資料',content:'1 人採該人資料；2～9 人取中位數；10 人以上排除最高與最低各 20%，平均中間 60%。'},
+        {label:'差異',content:'差異秒數 = 回推建議秒數 − 目前標準秒數；差異率 = 差異秒數 ÷ 目前標準秒數 × 100%。正值代表回推時間較長，負值代表回推時間較短。'},
+        {label:'優先級',content:'差異率絕對值達 30% 為高優先，其餘符合目前篩選門檻的資料為中優先。只用來安排 IE 現場查核順序。'},
         {label:'可信度',content:'5 小時約 58%、10 小時約 70%、20 小時約 80%、30 小時約 85%、50 小時約 93%、100 小時約 97%、200 小時約 99%。這是落在實際值 ±10% 內的模擬機會，不是保證。'},
-        {label:'使用限制',content:'建議秒數只供 IE 現場查核，不會自動修改款號表。秒數版本不同會分開統計。'}
+        {label:'樣本資料',content:'畫面同時呈現員工人數與累積有效工時；可信度只以累積有效工時判定，不以員工人數或生產天數限制是否顯示。'},
+        {label:'版本與使用限制',content:'建議秒數只供 IE 現場查核，不會自動修改款號表。標準秒數或每小時產能快照不同時會分開統計。'}
       ];
     }
     function applyFilters(){
@@ -191,20 +166,13 @@
         confidenceCell.dataset.confidence=row.confidence.level;
         const priorityCell=ui.createCell(priorityLabel(row),'ui-table-center-cell');
         priorityCell.dataset.priority=priority(row);
-        const explanationCell=document.createElement('td');
-        const copy=document.createElement('div');
-        copy.className='production-analysis-explanation';
-        copy.textContent=explanation(row);
-        const button=ui.createDualButton('Xem cách tính','查看算法','ti-calculator','ui-button is-bilingual production-analysis-formula-button');
-        button.addEventListener('click',()=>openFormula(row));
-        explanationCell.append(copy,button);
-        tableRow.append(confidenceCell,priorityCell,explanationCell);
+        tableRow.append(confidenceCell,priorityCell);
         body.appendChild(tableRow);
       });
       if(!filtered.length){
         const row=document.createElement('tr');
         const cell=ui.createCell('Không có dữ liệu bất thường phù hợp. / 沒有符合條件的異常資料。','production-analysis-empty');
-        cell.colSpan=12;
+        cell.colSpan=11;
         row.appendChild(cell);
         body.appendChild(row);
       }

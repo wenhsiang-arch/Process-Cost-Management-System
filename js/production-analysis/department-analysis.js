@@ -44,7 +44,6 @@
               <th class="ui-table-number-cell" data-ui-table-column="attendance" data-ui-table-sort-type="number">${ui.dual('Giờ chấm công','考勤工時')}</th>
               <th class="ui-table-number-cell" data-ui-table-column="standard" data-ui-table-sort-type="number">${ui.dual('Giờ tiêu chuẩn','標準有效工時')}</th>
               <th class="ui-table-number-cell" data-ui-table-column="supplement" data-ui-table-sort-type="number">${ui.dual('Giờ bổ sung','補充工時')}</th>
-              <th data-ui-table-column="explanation" data-ui-table-sortable="false">${ui.dual('Giải thích','說明')}</th>
             </tr></thead><tbody></tbody>
           </table>
         </div></div>
@@ -56,26 +55,6 @@
     function filters(){
       return {fromDate:filterElements.from.value,toDate:filterElements.to.value,department:filterElements.department.value};
     }
-    function explanation(row){
-      if(row.historicalEfficiency===null) return 'Chưa có dữ liệu trước kỳ này để so sánh. / 本期以前尚無歷史資料可比較。';
-      if(row.difference>0) return 'Hiệu suất bộ phận cao hơn lịch sử. / 部門效率高於歷史平均。';
-      if(row.difference<0) return 'Hiệu suất bộ phận thấp hơn lịch sử. / 部門效率低於歷史平均。';
-      return 'Hiệu suất bộ phận bằng mức lịch sử. / 部門效率與歷史平均相同。';
-    }
-    function openFormula(row){
-      ui.openExplanation({
-        titleVi:'Giải thích hiệu suất bộ phận',titleZh:'部門效率計算說明',
-        userVi:`Bộ phận ${row.department} có hiệu suất tổng hợp ${ui.percent(row.efficiency)} trong phạm vi đã chọn. Hệ thống cộng toàn bộ giờ trước rồi mới tính, nên nhân viên có thời gian làm việc khác nhau sẽ không bị tính ngang nhau.`,
-        userZh:`${row.department} 在所選期間的綜合效率為 ${ui.percent(row.efficiency)}。系統先加總所有工時再計算，不會把每個員工的百分比直接平均。`,
-        formulaZh:[
-          `本期部門效率 =（部門標準有效工時 ${ui.format(row.standardHours)} + 部門補充工時 ${ui.format(row.supplementHours)}）÷ 部門考勤工時 ${ui.format(row.attendanceHours)} × 100% = ${ui.percent(row.efficiency)}。`,
-          `歷史平均效率 = 所選開始日期以前，該部門累計有效工時 ÷ 累計考勤工時 × 100% = ${ui.percent(row.historicalEfficiency)}。`,
-          `與歷史差異 = 本期效率 ${ui.percent(row.efficiency)} − 歷史平均 ${ui.percent(row.historicalEfficiency)} = ${ui.percent(row.difference)}。`,
-          `本期包含 ${row.employeeCount} 名員工、${row.dayCount} 筆有效員工日。部門統計保留所有員工，不排除效率特別高或特別低的人員。`,
-          `部門頁不判定高／中／低，只呈現本期與歷史的差異。`
-        ].join('\n\n')
-      });
-    }
     function exportColumns(){
       return [
         {key:'department',vi:'Bộ phận',zh:'部門',width:20},
@@ -85,14 +64,15 @@
         {vi:'Số nhân viên',zh:'員工人數',width:12,value:row=>row.employeeCount},
         {vi:'Giờ chấm công',zh:'考勤工時',width:14,value:row=>ui.hours(row.attendanceHours)},
         {vi:'Giờ tiêu chuẩn',zh:'標準有效工時',width:16,value:row=>ui.hours(row.standardHours)},
-        {vi:'Giờ bổ sung',zh:'補充工時',width:14,value:row=>ui.hours(row.supplementHours)},
-        {vi:'Giải thích',zh:'說明',width:42,value:explanation}
+        {vi:'Giờ bổ sung',zh:'補充工時',width:14,value:row=>ui.hours(row.supplementHours)}
       ];
     }
     function explanationAppendix(){
       return [
         {label:'部門效率',content:'（部門標準有效工時合計 + 部門補充工時合計）÷ 部門考勤工時合計 × 100%。'},
         {label:'計算方式',content:'先加總所有員工工時再相除，不直接平均個人效率百分比。'},
+        {label:'歷史平均效率',content:'所選開始日期以前，該部門累計有效工時 ÷ 累計考勤工時 × 100%。'},
+        {label:'與歷史差異',content:'本期部門效率 − 歷史平均效率。正值代表本期高於歷史，負值代表本期低於歷史。'},
         {label:'資料範圍',content:'部門統計包含全部員工，不排除極高或極低效率人員；本頁不判定高／中／低。'}
       ];
     }
@@ -129,20 +109,12 @@
           ui.createCell(row.employeeCount,'ui-table-number-cell'),ui.createCell(ui.hours(row.attendanceHours),'ui-table-number-cell'),
           ui.createCell(ui.hours(row.standardHours),'ui-table-number-cell'),ui.createCell(ui.hours(row.supplementHours),'ui-table-number-cell')
         );
-        const explanationCell=document.createElement('td');
-        const copy=document.createElement('div');
-        copy.className='production-analysis-explanation';
-        copy.textContent=explanation(row);
-        const button=ui.createDualButton('Xem cách tính','查看算法','ti-calculator','ui-button is-bilingual production-analysis-formula-button');
-        button.addEventListener('click',()=>openFormula(row));
-        explanationCell.append(copy,button);
-        tableRow.appendChild(explanationCell);
         body.appendChild(tableRow);
       });
       if(!rows.length){
         const tableRow=document.createElement('tr');
         const cell=ui.createCell('Không có dữ liệu phù hợp. / 沒有符合條件的資料。','production-analysis-empty');
-        cell.colSpan=9;
+        cell.colSpan=8;
         tableRow.appendChild(cell);
         body.appendChild(tableRow);
       }

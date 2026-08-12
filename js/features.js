@@ -25,14 +25,14 @@
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
     productionEntry:'js/production/production-entry.js?v=20260810-7',
     productionRecords:'js/production/production-records.js?v=20260810-6',
-    productionAttendance:'js/production/production-attendance.js?v=20260812-1',
+    productionAttendance:'js/production/production-attendance.js?v=20260812-2',
     productionEmployees:'js/production/production-employees.js?v=20260810-5',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
-    productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260812-2',
-    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260812-2',
-    productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260812-2',
+    productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260812-3',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260812-3',
+    productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260812-3',
     productionAnalysis:'js/production-analysis/production-analysis.js?v=20260812-2'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
@@ -44,7 +44,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260810-13',
-    productionAnalysis:'styles/features/production-analysis.css?v=20260812-3',
+    productionAnalysis:'styles/features/production-analysis.css?v=20260812-4',
     systemMonitor:'styles/features/system-monitor.css?v=20260812-3'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 

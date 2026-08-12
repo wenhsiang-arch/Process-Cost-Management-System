@@ -170,15 +170,15 @@
 }
 
 .employee-analysis-table {
-  min-width: 1120px;
+  min-width: 920px;
 }
 
 .ie-analysis-table {
-  min-width: 1940px;
+  min-width: 1500px;
 }
 
 .department-analysis-table {
-  min-width: 1280px;
+  min-width: 1080px;
 }
 
 .production-analysis-table th,
@@ -191,8 +191,7 @@
 .employee-analysis-table > thead > tr > th:nth-child(3) { min-width: 180px; }
 .employee-analysis-table > thead > tr > th:nth-child(4) { width: 165px; min-width: 165px; }
 .employee-analysis-table > thead > tr > th:nth-child(5) { width: 155px; min-width: 155px; }
-.employee-analysis-table > thead > tr > th:nth-child(6) { width: 240px; min-width: 240px; }
-.employee-analysis-table > thead > tr > th:nth-child(7) { width: 125px; min-width: 125px; }
+.employee-analysis-table > thead > tr > th:nth-child(6) { width: 190px; min-width: 190px; }
 
 .employee-analysis-main-row.is-expanded > td {
   background: var(--ui-color-info-background);
@@ -241,14 +240,36 @@
 }
 
 .production-analysis-dual-value {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 12px;
   line-height: 1.35;
   white-space: normal;
 }
 
 .employee-analysis-daily-cell .production-analysis-dual-value,
 .employee-analysis-comparison-cell .production-analysis-dual-value {
-  padding: 5px 7px;
+  padding: 4px 8px;
   border-radius: var(--ui-radius-control);
+}
+
+.employee-analysis-status-action {
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.employee-analysis-status-action:hover {
+  filter: brightness(.97);
+}
+
+.employee-analysis-status-action:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 2px;
 }
 
 .production-analysis-dual-value.is-attendance-missing,
@@ -317,13 +338,12 @@
   transform: none;
 }
 
-.employee-analysis-process-table th:nth-child(1) { width: 24%; }
-.employee-analysis-process-table th:nth-child(2) { width: 9%; }
+.employee-analysis-process-table th:nth-child(1) { width: 27%; }
+.employee-analysis-process-table th:nth-child(2) { width: 10%; }
 .employee-analysis-process-table th:nth-child(3),
 .employee-analysis-process-table th:nth-child(4),
-.employee-analysis-process-table th:nth-child(5) { width: 15%; }
+.employee-analysis-process-table th:nth-child(5) { width: 18%; }
 .employee-analysis-process-table th:nth-child(6) { width: 9%; }
-.employee-analysis-process-table th:nth-child(7) { width: 13%; }
 
 .employee-analysis-process-table th,
 .employee-analysis-process-table td {
@@ -335,31 +355,9 @@
 .ie-analysis-table th:nth-child(n+3):nth-child(-n+9) { min-width: 130px; }
 .ie-analysis-table th:nth-child(10) { min-width: 155px; }
 .ie-analysis-table th:nth-child(11) { min-width: 100px; }
-.ie-analysis-table th:nth-child(12) { min-width: 350px; }
 
 .department-analysis-table th:nth-child(1) { min-width: 170px; }
 .department-analysis-table th:nth-child(n+2):nth-child(-n+8) { min-width: 130px; }
-.department-analysis-table th:nth-child(9) { min-width: 330px; }
-
-.production-analysis-explanation {
-  margin-bottom: 7px;
-  color: var(--ui-color-text);
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-.production-analysis-formula-button {
-  min-height: 38px;
-  padding: 4px 8px;
-}
-
-.production-analysis-formula-button .ui-dual-copy > strong {
-  font-size: 11px;
-}
-
-.production-analysis-formula-button .ui-dual-copy > span {
-  font-size: 9px;
-}
 
 .production-analysis-table td[data-level],
 .production-analysis-table td[data-confidence],
