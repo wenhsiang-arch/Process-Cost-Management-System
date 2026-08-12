@@ -15,12 +15,11 @@
     return typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();
   }
 
-  function selectedSummary(products,processNo,newSeconds){
+  function selectedSummary(products,processNo,currentSeconds,newSeconds,sizeLabel){
     const body=document.createElement('div');
     body.className='process-seconds-confirm-summary';
-    const sizes=groupUI().groupBySize(products).map(group=>group.labelPair.vi).join('、');
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Lần sửa này sẽ đồng bộ bảng mã hàng hiện tại.</strong><span>此次修改將同步目前的款號表。</span></span></div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Công đoạn</strong><span>工序</span></span></dt><dd>${safe(processNo)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây mới</strong><span>修改後秒數</span></span></dt><dd>${safe(newSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></dt><dd>${safe(sizes||'—')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></dt><dd>${safe(products.map(item=>item.code).join('、'))}</dd></div></dl>
+      <dl><div><dt><span class="ui-dual-copy"><strong>Công đoạn</strong><span>工序</span></span></dt><dd>${safe(processNo)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></dt><dd>${safe(sizeLabel||'—')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span></dt><dd>${safe(currentSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây mới</strong><span>修改後秒數</span></span></dt><dd>${safe(newSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></dt><dd>${safe(products.map(item=>item.code).join('、'))}</dd></div></dl>
       <div class="process-seconds-history-note ui-bilingual"><span class="ui-text-vi">Phiên bản lịch sử và giây chụp lúc ghi nhận sản xuất trước đây vẫn được giữ nguyên.</span><span class="ui-text-zh">歷史版本及過去生產登記秒數快照均會保留，不會被改寫。</span></div>`;
     return body;
   }
@@ -66,28 +65,69 @@
     const members=group
       ? (group.memberCodes||[]).map(productByCode).filter(Boolean)
       : [product,...store().findCandidates(product.code)];
+    const sizeGroups=groupUI().groupBySize(members);
+    const initialSize=groupUI().sizeKey(product);
+    const recommended=Number(input.recommendedSeconds);
+    const sizeStates=new Map(sizeGroups.map(sizeGroup=>{
+      const values=[...new Set(sizeGroup.members.map(item=>Number(groupUI().operationFor(item,processNo)?.sec)).filter(value=>value>0))];
+      return [sizeGroup.key,{
+        label:sizeGroup.labelPair.vi,
+        values,
+        currentText:values.length===1?String(values[0]):values.join(' / '),
+        proposed:sizeGroup.key===initialSize&&recommended>0?String(recommended):(values.length===1?String(values[0]):'')
+      }];
+    }));
     let saveNewGroup=false;
     const body=document.createElement('div');
     body.className='process-seconds-quick-edit';
-    const recommended=Number(input.recommendedSeconds);
-    const proposed=recommended>0?recommended:Number(operation.sec);
+    const initialState=sizeStates.get(initialSize)||{currentText:String(Number(operation.sec)),proposed:String(Number(operation.sec))};
     const displayed=Number(input.displayedSeconds);
     body.innerHTML=`<section class="process-seconds-edit-fields">
       <div><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span><b>${safe(processNo)}</b></div>
       <div class="is-name"><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文名稱</span></span><b>${safe(operation.vi||input.processNameVi||'—')}</b></div>
-      <div><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span><b>${safe(Number(operation.sec))} s</b></div>
+      <div><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span><b data-quick-current-seconds>${safe(initialState.currentText)} s</b></div>
       <span class="process-seconds-direction" aria-hidden="true"><i class="ti ti-arrow-right"></i></span>
-      <label class="is-seconds"><span class="ui-dual-copy"><strong>Giây sau sửa</strong><span>修改後秒數</span></span><input type="number" min="0.01" max="86400" step="0.01" value="${safe(proposed)}" data-quick-seconds></label>
+      <label class="is-seconds"><span class="ui-dual-copy"><strong>Giây sau sửa</strong><span>修改後秒數</span></span><input type="number" min="0.01" max="86400" step="0.01" value="${safe(initialState.proposed)}" data-quick-seconds></label>
       <div class="is-group"><span class="ui-dual-copy"><strong>${group?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${group?'目前群組':'群組狀態'}</span></span><b>${group?safe(group.name||group.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
       ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group aria-pressed="false"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
     </section>
     ${displayed>0&&displayed!==Number(operation.sec)?`<div class="ui-notice is-warning"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Dòng đã bấm là ảnh chụp ${safe(displayed)} giây; tiêu chuẩn hiện tại là ${safe(Number(operation.sec))} giây.</strong><span>點擊的紀錄為 ${safe(displayed)} 秒歷史快照；目前正式標準為 ${safe(Number(operation.sec))} 秒。</span></span></div>`:''}
     <section class="process-seconds-group-section"><div data-quick-member-selector></div></section>`;
-    const selector=groupUI().createMemberSelector({
+    let shownSize=initialSize;
+    let selector;
+    function activeSizeGroup(){ return sizeGroups.find(item=>item.key===selector?.activeSize())||sizeGroups[0]||{key:initialSize,labelPair:{vi:'—'},members:[]}; }
+    function updateActiveSelectionCount(){
+      const active=activeSizeGroup();
+      const selected=new Set(selector?.selectedCodes()||[]);
+      const count=active.members.filter(item=>selected.has(normalize(item.code))).length;
+      const host=body.querySelector('.process-size-selection-count');
+      if(host) host.innerHTML=`<strong>${count} đã chọn trong kích thước này</strong><span>此尺寸已選 ${count}</span>`;
+    }
+    function refreshSizeSeconds(){
+      const inputElement=body.querySelector('[data-quick-seconds]');
+      const nextSize=selector?.activeSize()||initialSize;
+      if(inputElement&&shownSize&&shownSize!==nextSize){
+        const previous=sizeStates.get(shownSize);
+        if(previous) previous.proposed=inputElement.value;
+      }
+      shownSize=nextSize;
+      const current=sizeStates.get(nextSize)||{currentText:'—',proposed:''};
+      const currentHost=body.querySelector('[data-quick-current-seconds]');
+      if(currentHost) currentHost.textContent=current.currentText?`${current.currentText} s`:'—';
+      if(inputElement) inputElement.value=current.proposed;
+      updateActiveSelectionCount();
+    }
+    selector=groupUI().createMemberSelector({
       products:members,currentCode:product.code,activeSize:product.sz,compact:true,
-      selectedCodes:members.map(item=>item.code),requiredCodes:[product.code],selectable:true
+      selectedCodes:members.map(item=>item.code),requiredCodes:[product.code],selectable:true,
+      onChange:refreshSizeSeconds
     });
     body.querySelector('[data-quick-member-selector]').appendChild(selector.element);
+    body.querySelector('[data-quick-seconds]')?.addEventListener('input',event=>{
+      const current=sizeStates.get(selector.activeSize());
+      if(current) current.proposed=event.currentTarget.value;
+    });
+    refreshSizeSeconds();
     body.appendChild(groupInformation(group,product,members,candidateMode));
     const saveGroupButton=body.querySelector('[data-save-new-group]');
     saveGroupButton?.addEventListener('click',()=>{
@@ -103,17 +143,21 @@
         {text:{vi:'Hủy',zh:'取消'}},
         {text:{vi:'Xác nhận và lưu',zh:'確認並儲存'},icon:'ti-device-floppy',kind:'primary',onClick:async()=>{
           const seconds=Number(body.querySelector('[data-quick-seconds]')?.value);
-          const targetProducts=selector.selectedProducts();
+          const active=activeSizeGroup();
+          const selectedCodes=new Set(selector.selectedCodes());
+          const targetProducts=active.members.filter(item=>selectedCodes.has(normalize(item.code)));
+          const groupProducts=selector.selectedProducts();
+          const currentState=sizeStates.get(active.key)||{currentText:'—'};
           if(!(seconds>0&&seconds<=86400)){ await ui().alertDialog({message:{vi:'Giây phải lớn hơn 0.',zh:'秒數必須大於0。'},kind:'warning',keepPrevious:true});return false; }
-          if(!targetProducts.length){ await ui().alertDialog({message:{vi:'Chưa chọn mã hàng cần đồng bộ.',zh:'尚未選擇要同步的款號。'},kind:'warning',keepPrevious:true});return false; }
-          if(saveNewGroup&&targetProducts.length<2){ await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 2 mã.',zh:'新群組至少需要2個款號。'},kind:'warning',keepPrevious:true});return false; }
-          if(saveNewGroup&&!(await confirmGroupCreation(product,targetProducts))) return false;
+          if(!targetProducts.length){ await ui().alertDialog({message:{vi:'Chưa chọn mã hàng trong kích thước hiện tại.',zh:'目前尺寸尚未選擇要同步的款號。'},kind:'warning',keepPrevious:true});return false; }
+          if(saveNewGroup&&groupProducts.length<2){ await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 2 mã.',zh:'新群組至少需要2個款號。'},kind:'warning',keepPrevious:true});return false; }
+          if(saveNewGroup&&!(await confirmGroupCreation(product,groupProducts))) return false;
           const syncConfirmed=await ui().confirmDialog({
-            title:{vi:'Xác nhận đồng bộ bảng mã hàng',zh:'確認同步目前款號表'},body:selectedSummary(targetProducts,processNo,seconds),keepPrevious:true,
+            title:{vi:'Xác nhận đồng bộ bảng mã hàng',zh:'確認同步目前款號表'},body:selectedSummary(targetProducts,processNo,currentState.currentText,seconds,active.labelPair.vi),keepPrevious:true,
             confirmText:{vi:'Đồng bộ và lưu',zh:'同步並儲存'},cancelText:{vi:'Quay lại',zh:'返回'},kind:'warning'
           });
           if(!syncConfirmed) return false;
-          if(saveNewGroup) await store().createGroup({memberCodes:targetProducts.map(item=>item.code),name:product.vi||product.zh||product.code});
+          if(saveNewGroup) await store().createGroup({memberCodes:groupProducts.map(item=>item.code),name:product.vi||product.zh||product.code});
           const result=await store().saveOfficialSeconds({targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason:QUICK_EDIT_REASON});
           saved=true;
           ui().showToast({kind:result.logSaved?'success':'warning',text:result.logSaved

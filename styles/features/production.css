@@ -951,6 +951,39 @@
   font-weight: 700;
 }
 
+.production-efficiency-badge {
+  display: inline-flex;
+  min-width: 58px;
+  min-height: 28px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-control);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.production-efficiency-badge.is-low {
+  border-color: var(--ui-color-danger-border);
+  background: var(--ui-color-danger-background);
+  color: var(--ui-color-danger-text);
+}
+
+.production-efficiency-badge.is-standard {
+  border-color: color-mix(in srgb, var(--ui-color-primary) 46%, var(--ui-color-border));
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+}
+
+.production-efficiency-badge.is-high {
+  border-color: var(--ui-color-success-border);
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+}
+
 .production-efficiency-status {
   align-items: center;
   color: var(--ui-color-text-muted);

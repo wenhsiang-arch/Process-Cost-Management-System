@@ -25,14 +25,14 @@
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
     productionEntry:'js/production/production-entry.js?v=20260813-3',
-    productionRecords:'js/production/production-records.js?v=20260812-8',
+    productionRecords:'js/production/production-records.js?v=20260813-1',
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
-    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-3',
+    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-4',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-2',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-2',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-3',
     productionProcessEdit:'js/production/process-edit.js?v=20260813-5',
-    productionProductGroups:'js/production/product-groups.js?v=20260813-3',
+    productionProductGroups:'js/production/product-groups.js?v=20260813-4',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
@@ -48,8 +48,8 @@
     products:'styles/features/products.css?v=20260810-1',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
-    production:'styles/features/production.css?v=20260813-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-6',
+    production:'styles/features/production.css?v=20260813-2',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-7',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -93,7 +93,7 @@
           page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
           styles:['productionProcessEdit'],
           scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessEdit'],
-          dataScopes:['operationSettings','products','productGroups','productVersions','orders','orderProcesses','processEditJobs'],
+          dataScopes:['operationSettings','products','productGroups','productGroupMembers','productVersions','orders','orderProcesses','processEditJobs'],
           dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave'],
           restrictions:[
             {key:'processSecondsEdit',vi:'Sửa tiêu chuẩn công đoạn chính thức',zh:'修改正式工序標準（含秒數）'}
@@ -103,7 +103,7 @@
           page:'product-groups',feature:'productionProcessEdit',permissionVisible:false,icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
           styles:['productionProcessEdit'],
           scripts:['productCache','productModel','productionProcessEditStore','productionProcessGroupUi','productionProductGroups'],
-          dataScopes:['products','productGroups'],
+          dataScopes:['products','productGroups','productGroupMembers'],
           dataLoaders:['loadProductionProductGroupsData'],onOpen:['productionProductGroupsInit'],onLeave:['productionProductGroupsLeave']
         }
       ]

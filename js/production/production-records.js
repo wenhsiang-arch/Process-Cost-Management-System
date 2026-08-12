@@ -172,6 +172,21 @@
     return cell;
   }
 
+  function addEfficiencyCell(row,value){
+    const percentage=Number(value);
+    const cell=document.createElement('td');
+    cell.className='production-number-cell production-efficiency-cell';
+    if(Number.isFinite(percentage)){
+      cell.dataset.uiTableSortValue=String(percentage);
+      const badge=document.createElement('span');
+      badge.className=`production-efficiency-badge ${percentage<70?'is-low':percentage<=100?'is-standard':'is-high'}`;
+      badge.textContent=percentageText(percentage);
+      cell.appendChild(badge);
+    }else cell.textContent='—';
+    row.appendChild(cell);
+    return cell;
+  }
+
   function addDateCell(row,value,showBadge){
     const cell = document.createElement('td');
     cell.className = 'production-date-cell';
@@ -260,7 +275,7 @@
       addTextCell(row,item.workedHours == null ? '—' : hoursText(item.workedHours),'production-number-cell',item.workedHours ?? '');
       addTextCell(row,hoursText(item.standardHours),'production-number-cell',item.standardHours);
       addTextCell(row,hoursText(item.supplementHours),'production-number-cell',item.supplementHours);
-      addTextCell(row,item.percentage == null ? '—' : percentageText(item.percentage),'production-number-cell',item.percentage ?? '');
+      addEfficiencyCell(row,item.percentage);
       addTextCell(row,'—','production-number-cell production-bonus-cell');
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';

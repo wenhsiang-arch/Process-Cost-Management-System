@@ -60,13 +60,20 @@
     }).sort((a,b)=>String(a.sz||'').localeCompare(String(b.sz||''),'zh-Hant',{numeric:true,sensitivity:'base'}));
   }
 
-  async function createGroup(input={}){
-    const memberCodes=[...new Set((input.memberCodes||[]).map(normalizeCode).filter(Boolean))];
-    if(memberCodes.length<2) throw new Error('Nhóm phải có ít nhất 2 mã hàng. / 群組至少需要2個款號。');
-    const memberProducts=memberCodes.map(productByCode);
+  function validateGroupMembers(memberCodes){
+    const normalized=[...new Set((memberCodes||[]).map(normalizeCode).filter(Boolean))];
+    if(normalized.length<2) throw new Error('Nhóm phải có ít nhất 2 mã hàng. / 群組至少需要2個款號。');
+    if(normalized.length>200) throw new Error('Nhóm chỉ được có tối đa 200 mã hàng. / 群組最多只能有200個款號。');
+    const memberProducts=normalized.map(productByCode);
     if(memberProducts.some(item=>!item)) throw new Error('Có mã hàng không tồn tại. / 群組內有不存在的款號。');
     const signatures=new Set(memberProducts.map(window.PCMSProductModel.groupSignature));
     if(signatures.size!==1) throw new Error('Tên và công đoạn của các mã hàng không giống nhau, không thể lập nhóm. / 款號的品名或工序結構不同，不能建立同產品群組。');
+    return {memberCodes:normalized,memberProducts,signature:[...signatures][0]};
+  }
+
+  async function createGroup(input={}){
+    const validated=validateGroupMembers(input.memberCodes);
+    const {memberCodes,memberProducts,signature}=validated;
     const groupReference=window._newDocRef(GROUP_COLLECTION);
     const now=Date.now();
     const userId=currentUserId();
@@ -74,7 +81,7 @@
     const group={
       groupId:groupReference.id,
       name:String(input.name||memberProducts[0].vi||memberProducts[0].zh||memberProducts[0].code).trim().slice(0,200),
-      signature:[...signatures][0],
+      signature,
       memberCodes,
       active:true,
       createdAt:now,
@@ -102,6 +109,65 @@
       });
     }catch(error){ console.error('Không thể lưu lịch sử nhóm / 無法保存群組操作紀錄',error); }
     return cloneGroup(group);
+  }
+
+  // updateGroupMembers（更新群組成員）：在同一交易中同步群組清單及款號唯一群組索引。
+  async function updateGroupMembers(input={}){
+    const groupId=normalizeCode(input.groupId);
+    const current=groups.find(item=>item.groupId===groupId);
+    if(!current) throw new Error('Không tìm thấy nhóm cần sửa. / 找不到要修改的群組。');
+    const validated=validateGroupMembers(input.memberCodes);
+    if(validated.signature!==current.signature) throw new Error('Mã hàng được chọn không thuộc cùng sản phẩm của nhóm này. / 所選款號不屬於此群組的同一產品。');
+    const previousCodes=[...new Set((current.memberCodes||[]).map(normalizeCode).filter(Boolean))];
+    const previousSet=new Set(previousCodes);
+    const nextSet=new Set(validated.memberCodes);
+    const added=validated.memberCodes.filter(code=>!previousSet.has(code));
+    const removed=previousCodes.filter(code=>!nextSet.has(code));
+    if(!added.length&&!removed.length) return {group:cloneGroup(current),added,removed,changed:false,logSaved:true};
+    const userId=currentUserId();
+    if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
+    const now=Date.now();
+    const groupReference=window._docRef(GROUP_COLLECTION,groupId);
+    await window._runTransaction(async transaction=>{
+      const groupSnapshot=await transaction.get(groupReference);
+      if(!groupSnapshot.exists()||groupSnapshot.data().active===false) throw new Error('Nhóm không còn hiệu lực. / 群組已不存在或停用。');
+      const remoteCodes=[...new Set((groupSnapshot.data().memberCodes||[]).map(normalizeCode).filter(Boolean))];
+      if(remoteCodes.length!==previousCodes.length||remoteCodes.some((code,index)=>code!==previousCodes[index])){
+        throw new Error('Nhóm đã được người khác cập nhật; vui lòng mở lại rồi thử lại. / 群組已由其他人更新，請重新開啟後再試。');
+      }
+      for(const code of added){
+        const memberReference=window._docRef(MEMBER_COLLECTION,memberDocumentId(code));
+        const memberSnapshot=await transaction.get(memberReference);
+        if(memberSnapshot.exists()&&memberSnapshot.data().groupId!==groupId){
+          throw new Error(`Mã hàng ${code} đã thuộc nhóm khác. / 款號 ${code} 已屬於其他群組。`);
+        }
+      }
+      for(const code of removed){
+        const memberReference=window._docRef(MEMBER_COLLECTION,memberDocumentId(code));
+        const memberSnapshot=await transaction.get(memberReference);
+        if(memberSnapshot.exists()&&memberSnapshot.data().groupId!==groupId){
+          throw new Error(`Chỉ mục nhóm của mã ${code} không khớp. / 款號 ${code} 的群組索引不一致。`);
+        }
+      }
+      transaction.update(groupReference,{memberCodes:validated.memberCodes,updatedAt:now,updatedByUid:userId});
+      added.forEach(code=>transaction.set(window._docRef(MEMBER_COLLECTION,memberDocumentId(code)),{
+        code,groupId,createdAt:now,createdByUid:userId
+      }));
+      removed.forEach(code=>transaction.delete(window._docRef(MEMBER_COLLECTION,memberDocumentId(code))));
+    });
+    current.memberCodes=validated.memberCodes.slice();
+    current.updatedAt=now;
+    current.updatedByUid=userId;
+    let logSaved=true;
+    try{
+      const result=await window.saveOperationLogToFB?.({
+        permissionKey:'productionProcessEdit',feature:'productionProcessEdit',action:'productGroupMembersUpdate',status:'success',
+        itemCount:validated.memberCodes.length,detailCount:added.length+removed.length,
+        note:`${groupId}｜Thêm / 新增: ${added.join(', ')||'—'}｜Xóa / 移除: ${removed.join(', ')||'—'}`
+      });
+      logSaved=result!==false;
+    }catch(error){ logSaved=false; console.error('Không thể lưu lịch sử sửa thành viên nhóm / 無法保存群組成員修改紀錄',error); }
+    return {group:cloneGroup(current),added,removed,changed:true,logSaved};
   }
 
   function validateOperations(operations){
@@ -402,7 +468,7 @@
   function reset(){ groups=[]; loaded=false; loadPromise=null; orderRows=[];ordersLoaded=false;ordersPromise=null; }
 
   window.PCMSProcessEditStore=Object.freeze({
-    loadGroups,listGroups,groupForProduct,findCandidates,createGroup,
+    loadGroups,listGroups,groupForProduct,findCandidates,createGroup,updateGroupMembers,
     validateOperations,saveOfficialProcesses,saveOfficialSeconds,loadVersions,loadVersionSnapshot,
     loadOrders,activeOrdersForProducts,syncOrderSnapshot,retryOrderSnapshot,reset
   });
