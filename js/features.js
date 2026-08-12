@@ -6,32 +6,35 @@
     settings:'js/settings.js?v=20260809-3',
     uiTableControls:'js/ui-table-controls.js?v=20260813-1',
     productCache:'js/product-cache.js?v=20260806-1',
+    productModel:'js/product-model.js?v=20260813-1',
+    productVersionStore:'js/product-version-store.js?v=20260813-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260813-1',
-    data:'js/data.js?v=20260812-3',
+    data:'js/data.js?v=20260813-1',
     costLog:'js/cost-log.js?v=20260813-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260812-5',
     accounts:'js/accounts.js?v=20260813-1',
     orders:'js/orders.js?v=20260813-1',
-    sync:'js/sync.js?v=20260812-2',
     permissions:'js/permissions.js?v=20260812-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260812-3',
     productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
     productionChangeStore:'js/production/change-store.js?v=20260812-1',
-    productionEntryStore:'js/production/entry-store.js?v=20260812-1',
+    productionEntryStore:'js/production/entry-store.js?v=20260813-1',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
     productionEntry:'js/production/production-entry.js?v=20260813-1',
     productionRecords:'js/production/production-records.js?v=20260812-8',
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
+    productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-2',
+    productionProcessEdit:'js/production/process-edit.js?v=20260813-2',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260811-1',
     productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260813-1',
-    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260813-1',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260813-2',
     productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260813-1',
     productionAnalysis:'js/production-analysis/production-analysis.js?v=20260812-4'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
@@ -40,10 +43,10 @@
     cutting:'styles/features/cutting.css?v=20260810-3',
     orders:'styles/features/orders.css?v=20260810-2',
     products:'styles/features/products.css?v=20260810-1',
-    sync:'styles/features/sync.css?v=20260810-2',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260812-1',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-2',
     productionAnalysis:'styles/features/production-analysis.css?v=20260812-4',
     systemMonitor:'styles/features/system-monitor.css?v=20260812-4'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -71,7 +74,7 @@
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
           styles:['products'],
-          scripts:['history','fileIo','productCache','uiTableControls','summary','data'],
+          scripts:['history','fileIo','productCache','productModel','productVersionStore','uiTableControls','summary','data'],
           dataScopes:['operationSettings','costSettings','products'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
@@ -126,6 +129,13 @@
           styles:['production'],
           scripts:['uiTableControls','productionEmployeeStore','productionEmployees'],
           dataScopes:['productionEmployees','productionDepartments'],dataLoaders:['loadProductionEmployeesData'],onOpen:['productionEmployeesInit']
+        },
+        {
+          page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
+          styles:['productionProcessEdit'],
+          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','productionProcessEditStore','productionProcessEdit'],
+          dataScopes:['operationSettings','products','productGroups','productVersions','orders','orderProcesses','processEditJobs'],
+          dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave']
         }
       ]
     },
@@ -144,20 +154,6 @@
           ],
           dataScopes:['productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'],
           dataLoaders:['loadProductionAnalysisData'],onOpen:['productionAnalysisInit'],onLeave:['productionAnalysisLeave']
-        }
-      ]
-    },
-    {
-      id:'sync',navId:'sync',navGroup:'management',icon:'ti-refresh',mainKey:'sync',
-      vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步',
-      pages:[
-        {
-          page:'sync',feature:'sync',icon:'ti-refresh',vi:'Đồng bộ giây công đoạn',zh:'工序秒數同步',
-          styles:['sync'],
-          scripts:['uiTableControls','orderProcessCache','orders','sync'],
-          dataScopes:['operationSettings','orders','orderProcesses'],
-          dataLoaders:['ensureOperationSettingsLoaded','reloadOrders'],
-          onOpen:['syncInit']
         }
       ]
     },
@@ -217,8 +213,8 @@
   ]); // FEATURE_MODULES（中央功能清單）：權限頁與系統頁面共用同一份來源。
 
   const PERMISSION_KEYS = Object.freeze([
-    'progress','orderImport','productsMain','summary','costView','cutting','sync',
-    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees',
+    'progress','orderImport','productsMain','summary','costView','cutting',
+    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit',
     'productionAnalysis','costMain','settings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
@@ -258,7 +254,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','production-entry','production-analysis','cutting','sync','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','production-entry','production-process-edit','production-analysis','cutting','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){
@@ -289,7 +285,8 @@
       normalized.productionMain=normalized.productionEntry===true
         ||normalized.productionRecords===true
         ||normalized.productionAttendance===true
-        ||normalized.productionEmployees===true;
+        ||normalized.productionEmployees===true
+        ||normalized.productionProcessEdit===true;
     }
     normalized.accounts=false;
     return normalized;

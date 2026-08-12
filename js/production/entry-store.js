@@ -109,7 +109,7 @@
         rows = snapshot.docs.map(item=>({id:item.id,...item.data()}));
         await window.PCMSOrderProcessCache?.write?.(target,version,rows);
       }
-      const sorted = sortProcesses(rows);
+      const sorted = sortProcesses(rows.filter(item=>item.active!==false));
       processRows.set(target,{version,rows:sorted});
       return sorted.map(item=>({...item}));
     })().finally(()=>{ processPromises.delete(target); });
@@ -237,8 +237,10 @@
       const totalSnapshot = await transaction.get(totalReference);
       if(!employeeSnapshot.exists() || employeeSnapshot.data().active !== true) throw new Error('Nhân viên không tồn tại hoặc đã ngừng sử dụng. / 員工不存在或已停用。');
       if(!orderSnapshot.exists() || !usableOrder(orderSnapshot.data())) throw new Error('Đơn hàng không còn sử dụng được. / 訂單目前不可使用。');
+      if(orderSnapshot.data().processEditJobId) throw new Error('Đơn hàng đang đồng bộ công đoạn, vui lòng thao tác lại sau. / 訂單正在同步工序，請稍後再登記。');
       if(!processSnapshot.exists()) throw new Error('Dữ liệu công đoạn đã thay đổi. / 工序資料已變更。');
       const liveProcess = processSnapshot.data();
+      if(liveProcess.active===false) throw new Error('Công đoạn đã ngừng sử dụng. / 此工序已停用。');
       if(liveProcess.orderId !== normalized.orderId || normalizedText(liveProcess.code) !== normalized.productCode || normalizedText(liveProcess.processNo) !== normalized.processNo){
         throw new Error('Công đoạn không khớp đơn hàng và mã hàng. / 工序與訂單、款號不相符。');
       }

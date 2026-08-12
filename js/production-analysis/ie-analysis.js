@@ -55,6 +55,7 @@
               <th class="ui-table-number-cell" data-ui-table-column="people" data-ui-table-sort-type="number">${ui.dual('Số nhân viên','員工人數')}</th>
               <th class="ui-table-center-cell" data-ui-table-column="confidence">${ui.dual('Độ tin cậy','可信度')}</th>
               <th class="ui-table-center-cell" data-ui-table-column="priority">${ui.dual('Ưu tiên','優先級')}</th>
+              <th class="ui-table-center-cell" data-ui-table-column="correct" data-ui-table-sortable="false">${ui.dual('Xác nhận sửa','確認修正')}</th>
             </tr></thead><tbody></tbody>
           </table>
         </div></div>
@@ -172,13 +173,25 @@
         confidenceCell.dataset.confidence=row.confidence.level;
         const priorityCell=ui.createDualCell(priorityPair(row),'ui-table-center-cell');
         priorityCell.dataset.priority=priority(row);
-        tableRow.append(confidenceCell,priorityCell);
+        const correctionCell=document.createElement('td');
+        correctionCell.className='ui-table-center-cell';
+        if(typeof window.canOpenPage==='function'&&window.canOpenPage('production-process-edit')&&Number(row.suggestedSeconds)>0){
+          const button=window.PCMSUIComponents.createButton({text:{vi:'Mở sửa',zh:'前往修改'},icon:'ti-edit'});
+          button.addEventListener('click',()=>{
+            window.PCMSPendingProcessEditContext={
+              code:row.productCode,processNo:row.processNo,recommendedSeconds:Number(row.suggestedSeconds)
+            };
+            window.sp('production-process-edit');
+          });
+          correctionCell.appendChild(button);
+        }else correctionCell.textContent='—';
+        tableRow.append(confidenceCell,priorityCell,correctionCell);
         body.appendChild(tableRow);
       });
       if(!filtered.length){
         const row=document.createElement('tr');
         const cell=ui.createDualCell({vi:'Không có dữ liệu bất thường phù hợp.',zh:'沒有符合條件的異常資料。'},'production-analysis-empty');
-        cell.colSpan=11;
+        cell.colSpan=12;
         row.appendChild(cell);
         body.appendChild(row);
       }

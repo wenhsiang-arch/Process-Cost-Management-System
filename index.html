@@ -258,7 +258,6 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       <div class="ni" id="nv-cost" onclick="openModule('cost')"><i class="ti ti-currency-dollar"></i><div class="nl"><span class="nvi">Quản lý chi phí</span><span class="nzh">成本管理</span></div></div>
       <div class="ni" id="nv-accounts" onclick="openModule('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
       <div class="ni" id="nv-system-monitor" onclick="sp('system-monitor')"><i class="ti ti-activity-heartbeat"></i><div class="nl"><span class="nvi">Giám sát hệ thống</span><span class="nzh">系統監控</span></div></div>
-      <div class="ni locked" id="nv-sync" onclick="sp('sync')"><i class="ti ti-refresh"></i><div class="nl"><span class="nvi">Đồng bộ giây công đoạn</span><span class="nzh">工序秒數同步</span></div></div>
     </div>
     <div class="sb-ft"><div class="sb-ft-t">M9</div><div id="idle-info" style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px"></div></div>
   </div>
@@ -546,83 +545,9 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         <div id="production-analysis-root"></div>
       </div>
 
-      <!-- 工序秒數同步 -->
-      <div class="pg ui-page" id="pg-sync">
-        <div class="sync-page ui-work-panel">
-          <section class="sync-operation-panel ui-operation-panel">
-            <div class="sync-command-row ui-command-row">
-              <div class="sync-context-grid ui-context-grid">
-                <label class="sync-context-item ui-context-item" for="sync-order">
-                  <i class="ti ti-file-invoice"></i>
-                  <div>
-                    <span class="ui-dual-copy"><strong>Số đơn hàng</strong><span>訂單號碼</span></span>
-                    <select id="sync-order" onchange="syncLoadProcs()">
-                      <option value="">-- Chọn đơn hàng / 選擇訂單 --</option>
-                    </select>
-                  </div>
-                </label>
-                <label class="sync-context-item ui-context-item" for="sync-proc">
-                  <i class="ti ti-list-numbers"></i>
-                  <div>
-                    <span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span>
-                    <select id="sync-proc" onchange="syncLoadTable()">
-                      <option value="">-- Chọn công đoạn / 選擇工序 --</option>
-                    </select>
-                  </div>
-                </label>
-              </div>
-            </div>
-          </section>
-
-          <div class="ui-notice is-warning sync-guide">
-            <i class="ti ti-alert-triangle" aria-hidden="true"></i>
-            <div class="ui-language-sections">
-              <div class="ui-language-section"><b>Lưu ý</b>
-· Chỉ cập nhật đơn hàng đã chọn, không ảnh hưởng đơn hàng khác
-· Cập nhật toàn bộ giây và SL/giờ của đơn hàng + công đoạn đã chọn
-· Ô để trống sẽ không cập nhật</div>
-              <div class="ui-language-section"><b>注意</b>
-· 只更新所選訂單，不影響其他訂單
-· 更新所選「訂單＋工序號」的全部秒數與標準產量/時
-· 空白欄位不會更新，只有填入新秒數的款號才會被同步</div>
-            </div>
-          </div>
-
-          <section id="sync-table-wrap" class="sync-data-section ui-data-section" style="display:none">
-            <div class="sync-section-header ui-section-header">
-              <i class="ti ti-table"></i>
-              <span class="ui-dual-copy"><strong>Danh sách mã hàng</strong><span>款號列表</span></span>
-              <div id="sync-count" class="ui-bilingual"><span class="ui-text-vi">Chưa nhập giây mới</span><span class="ui-text-zh">尚未輸入新秒數</span></div>
-              <div class="sync-actions ui-command-actions">
-                <button type="button" class="sync-command-action ui-command-action" onclick="syncClear()"><i class="ti ti-x"></i><span class="ui-dual-copy"><strong>Xóa</strong><span>清除</span></span></button>
-                <button type="button" class="sync-command-action ui-command-action is-primary" onclick="syncConfirm()"><i class="ti ti-refresh"></i><span class="ui-dual-copy"><strong>Xác nhận đồng bộ</strong><span>確認同步</span></span></button>
-              </div>
-            </div>
-            <div id="sync-progress-wrap" class="nt ns" style="display:none;margin-bottom:12px;line-height:1.7">
-              <div id="sync-progress-text"></div>
-              <div style="height:8px;background:var(--bd);border-radius:99px;overflow:hidden;margin-top:8px"><div id="sync-progress-bar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div></div>
-              <button class="btn bd2" id="sync-retry-btn" style="display:none;margin-top:10px" onclick="syncRetry()"><i class="ti ti-refresh"></i>Tiếp tục đồng bộ / 繼續同步</button>
-            </div>
-            <div class="sync-table-frame ui-table-frame">
-              <div class="sync-table-scroll ui-table-scroll" data-ui-floating-scroll="only">
-              <table class="ui-table" id="sync-table" data-ui-table-controls="auto" data-ui-table-sticky="original">
-                <thead>
-                  <tr>
-                    <th data-ui-table-column="product" data-ui-table-min-width="140" data-ui-table-width="180" data-ui-table-max-width="260" data-ui-table-ellipsis="true">Mã hàng<br><span class="tv">款號</span></th>
-                    <th data-ui-table-column="color" data-ui-table-min-width="120" data-ui-table-width="150" data-ui-table-max-width="220" data-ui-table-ellipsis="true">Màu sắc<br><span class="tv">顏色</span></th>
-                    <th data-ui-table-column="size" data-ui-table-min-width="100" data-ui-table-width="120" data-ui-table-max-width="160">Kích thước<br><span class="tv">尺寸</span></th>
-                    <th class="ui-table-number-cell" data-ui-table-column="currentSeconds" data-ui-table-sort-type="number" data-ui-table-min-width="120" data-ui-table-width="140" data-ui-table-max-width="170">Giây hiện tại<br><span class="tv">現有秒數</span></th>
-                    <th class="ui-table-number-cell" data-ui-table-column="currentHourly" data-ui-table-sort-type="number" data-ui-table-min-width="150" data-ui-table-width="170" data-ui-table-max-width="200">SL/giờ hiện tại<br><span class="tv">現有產量/時</span></th>
-                    <th class="ui-table-center-cell" data-ui-table-column="newSeconds" data-ui-table-sort-type="number" data-ui-table-min-width="130" data-ui-table-width="150" data-ui-table-max-width="170">Nhập giây mới<br><span class="tv">輸入新秒數</span></th>
-                    <th class="ui-table-number-cell" data-ui-table-column="newHourly" data-ui-table-sort-type="number" data-ui-table-min-width="150" data-ui-table-width="170" data-ui-table-max-width="200">SL/giờ mới<br><span class="tv">預覽新產量/時</span></th>
-                  </tr>
-                </thead>
-                <tbody id="sync-tb"></tbody>
-              </table>
-              </div>
-            </div>
-          </section>
-        </div>
+      <!-- 工序修改：屬於產能主功能的獨立分頁，不放入生產登記畫面。 -->
+      <div class="pg ui-page" id="pg-production-process-edit">
+        <div id="production-process-edit-root"></div>
       </div>
 
       <!-- 款號總成本 -->
@@ -1156,13 +1081,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     </div>
     <div id="imp-err" style="display:none" class="nt nd"><i class="ti ti-alert-triangle"></i><div id="imp-err-msg"></div></div>
     <div id="dup-warn" style="display:none">
-      <div class="nt nd" style="margin-bottom:8px"><i class="ti ti-alert-triangle"></i>發現重複款號：</div>
+      <div class="nt nw" style="margin-bottom:8px"><i class="ti ti-alert-triangle"></i><div id="dup-summary"></div></div>
       <div class="dl" id="dup-list"></div>
       <div class="br" style="margin-top:10px">
-        <button class="btn bp" onclick="cImp('ov')"><i class="ti ti-replace"></i>全部覆蓋</button>
-        <button class="btn" onclick="cImp('sk')"><i class="ti ti-circle-minus"></i>跳過重複</button>
-        <button class="btn" onclick="cImp('al')"><i class="ti ti-check"></i>全部匯入</button>
-        <button class="btn bd2" onclick="xImp()"><i class="ti ti-x"></i>取消</button>
+        <button class="btn bp" id="dup-import-new-btn" onclick="cImp()"><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Nhập mã mới</strong><span>匯入新款號</span></span></button>
+        <button class="btn bd2" onclick="xImp()"><i class="ti ti-x"></i><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button>
       </div>
     </div>
     <div id="imp-prev" style="display:none">
@@ -1348,11 +1271,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-<script src="js/features.js?v=20260813-1"></script>
+<script src="js/features.js?v=20260813-2"></script>
 <script src="js/auth.js?v=20260812-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260812-3"></script>
+<script type="module" src="js/firebase.js?v=20260813-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

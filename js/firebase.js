@@ -270,7 +270,8 @@ const PRODUCTS_COL = 'products';
 const PRODUCTS_META_KEY = 'productsMeta';
 const PRODUCT_CHANGES_COL = 'productChanges';
 const PRODUCTS_SCHEMA_VERSION = 2;
-const PRODUCTS_MAX_BATCH_ITEMS = 498;
+// 每次版本會連同完整款號快照一起寫入，保留交易寫入數量給版本與變更文件。
+const PRODUCTS_MAX_BATCH_ITEMS = 400;
 const PRODUCT_CHANGE_PAGE_SIZE = 100;
 const PRODUCT_QUERY_CHUNK_SIZE = 30;
 const PRODUCT_META_MEMORY_MS = 15000;
@@ -296,7 +297,7 @@ function publishProductReadMetrics(metrics,meta){
 }
 
 const PRODUCT_SYNC_MESSAGES = {
-  tooMany: 'Số mã hàng nhập một lần vượt quá giới hạn an toàn 498 mã. Vui lòng chia nhỏ file Excel để nhập.\n一次匯入款號數超過安全限制 498 款。請分批拆分 Excel（表格檔）後匯入。',
+  tooMany: 'Số mã hàng nhập một lần vượt quá giới hạn an toàn 400 mã. Vui lòng chia nhỏ file Excel để nhập.\n一次匯入款號數超過安全限制 400 款。請分批拆分 Excel（表格檔）後匯入。',
   versionChanged: 'Dữ liệu mã hàng đã được máy khác cập nhật, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n款號資料已被其他電腦更新，請按 F5（重新整理）或重新打開頁面後再操作。',
   missingMeta: 'Thiếu dữ liệu phiên bản mã hàng, vui lòng liên hệ quản trị viên khởi tạo.\n缺少款號版本資料，請聯絡管理員初始化後再操作。',
   localDataMismatch: 'Dữ liệu mã hàng trên máy này không khớp dữ liệu phiên bản, vui lòng nhấn F5 hoặc mở lại trang rồi thao tác.\n本機款號資料與版本資料不一致，請按 F5（重新整理）或重新打開頁面後再操作。'
@@ -761,10 +762,10 @@ async function ensureProductsLoaded(options=false){
   return productsLoadPromise;
 }
 
-async function saveProductItemsToCollection(items){
+async function saveProductItemsToCollection(items,options={}){
   const rows=[...new Map((Array.isArray(items)?items:[])
     .filter(item=>String(item?.code||'').trim())
-    .map(item=>[String(item.code).trim(),item])).values()];
+    .map(item=>[String(item.code).trim(),window.PCMSProductModel?.normalizeProduct?.(item)||item])).values()];
   if(!rows.length) return true;
   window.lastProductSyncError = '';
   setSyncState('syncing');
@@ -773,6 +774,16 @@ async function saveProductItemsToCollection(items){
     const currentUserUid=String(auth.currentUser?.uid||'');
     if(!currentUserUid) throw new Error('Vui lòng đăng nhập lại / 請重新登入');
     const base=getProductsBase();
+    const existingCodes=new Set(base.map(item=>String(item.code||'').trim()));
+    if(options.allowExisting!==true){
+      const blocked=rows.filter(item=>existingCodes.has(String(item.code||'').trim())).map(item=>item.code);
+      if(blocked.length){
+        throw new Error(`Không được ghi đè mã hàng đã tồn tại: ${blocked.slice(0,10).join(', ')} / 禁止覆蓋既有款號：${blocked.slice(0,10).join(', ')}`);
+      }
+    }
+    const checkedMeta=await verifyProductsVersionBeforeWrite(base);
+    if(!window.PCMSProductVersionStore) throw new Error('Chức năng lịch sử phiên bản chưa sẵn sàng. / 款號版本歷史功能尚未載入。');
+    await window.PCMSProductVersionStore.ensureBaseline(base,checkedMeta);
     const merged=mergeProducts(base,rows);
     const metaRef=doc(db,'system',PRODUCTS_META_KEY);
     const changeRef=doc(collection(db,PRODUCT_CHANGES_COL));
@@ -784,8 +795,23 @@ async function saveProductItemsToCollection(items){
         : null;
       verifyProductsMetaVersion(currentMeta);
       verifyProductsMetaCounts(currentMeta,base);
-      meta=buildProductsMeta(merged,'import',currentMeta);
+      const action=String(options.action||'import').slice(0,50);
+      meta=buildProductsMeta(merged,action,currentMeta);
       const changedAt=Date.now();
+      const versionId=`version-${meta.changeSequence}-${meta.version}`;
+      const historySnapshot=window.PCMSProductVersionStore.buildSnapshot(versionId,merged,{
+        sequence:meta.changeSequence,
+        productVersion:meta.version,
+        action,
+        reason:String(options.reason||''),
+        fileName:String(options.fileName||''),
+        createdAt:changedAt,
+        createdByUid:currentUserUid,
+        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
+      });
+      const writeCount=rows.length+historySnapshot.chunks.length+4;
+      if(writeCount>499) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
+      meta.historyVersionId=versionId;
       rows.forEach(item=>{
         const code=String(item.code).trim();
         transaction.set(doc(db,PRODUCTS_COL,productDocId(code)),{
@@ -802,10 +828,13 @@ async function saveProductItemsToCollection(items){
         toVersion:String(meta.version),
         changedCodes:rows.map(item=>String(item.code).trim()),
         deletedCodes:[],
+        versionId,
         createdAt:changedAt,
         createdByUid:currentUserUid,
         createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
       });
+      transaction.set(doc(db,'productVersions',versionId),historySnapshot.record);
+      historySnapshot.chunks.forEach(chunk=>transaction.set(doc(db,'productVersionChunks',chunk.chunkId),chunk));
       transaction.set(metaRef,{data:JSON.stringify(meta)});
     });
     await saveProductsCache(merged,meta);
@@ -833,6 +862,9 @@ async function deleteProductDoc(code){
     if(!normalizedCode) throw new Error('Thiếu mã hàng / 缺少款號');
     const base=getProductsBase();
     const kept=removeProductFromList(base,normalizedCode);
+    const checkedMeta=await verifyProductsVersionBeforeWrite(base);
+    if(!window.PCMSProductVersionStore) throw new Error('Chức năng lịch sử phiên bản chưa sẵn sàng. / 款號版本歷史功能尚未載入。');
+    await window.PCMSProductVersionStore.ensureBaseline(base,checkedMeta);
     const metaRef=doc(db,'system',PRODUCTS_META_KEY);
     const changeRef=doc(collection(db,PRODUCT_CHANGES_COL));
     let meta=null;
@@ -845,6 +877,17 @@ async function deleteProductDoc(code){
       verifyProductsMetaCounts(currentMeta,base);
       meta=buildProductsMeta(kept,'delete',currentMeta);
       const changedAt=Date.now();
+      const versionId=`version-${meta.changeSequence}-${meta.version}`;
+      const historySnapshot=window.PCMSProductVersionStore.buildSnapshot(versionId,kept,{
+        sequence:meta.changeSequence,
+        productVersion:meta.version,
+        action:'delete',
+        reason:`Xóa mã hàng ${normalizedCode} / 刪除款號 ${normalizedCode}`,
+        createdAt:changedAt,
+        createdByUid:currentUserUid,
+        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
+      });
+      meta.historyVersionId=versionId;
       transaction.delete(doc(db,PRODUCTS_COL,productDocId(normalizedCode)));
       transaction.set(changeRef,{
         sequence:meta.changeSequence,
@@ -852,10 +895,13 @@ async function deleteProductDoc(code){
         toVersion:String(meta.version),
         changedCodes:[],
         deletedCodes:[normalizedCode],
+        versionId,
         createdAt:changedAt,
         createdByUid:currentUserUid,
         createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
       });
+      transaction.set(doc(db,'productVersions',versionId),historySnapshot.record);
+      historySnapshot.chunks.forEach(chunk=>transaction.set(doc(db,'productVersionChunks',chunk.chunkId),chunk));
       transaction.set(metaRef,{data:JSON.stringify(meta)});
     });
     await saveProductsCache(kept,meta);
@@ -878,6 +924,7 @@ window.loadProductsData = loadProductsData;
 window.refreshProductsFromCloud = refreshProductsFromCloud;
 window.ensureProductsLoaded = ensureProductsLoaded;
 window.verifyProductsVersionForOrderImport = verifyProductsVersionForOrderImport;
+window.getProductsMetaForFeature = (force=false) => loadProductsMeta(null,force===true);
 window.saveProductItemsToFB = saveProductItemsToCollection;
 window.deleteProductFromFB = deleteProductDoc;
 const OPERATION_SETTING_KEYS = ['usd','twd','ws','eff']; // OPERATION_SETTING_KEYS（一般運算設定欄位）。
