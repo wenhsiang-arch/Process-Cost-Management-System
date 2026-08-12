@@ -23,7 +23,7 @@
     productionEntryStore:'js/production/entry-store.js?v=20260812-1',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
-    productionEntry:'js/production/production-entry.js?v=20260812-1',
+    productionEntry:'js/production/production-entry.js?v=20260812-2',
     productionRecords:'js/production/production-records.js?v=20260810-6',
     productionAttendance:'js/production/production-attendance.js?v=20260812-2',
     productionEmployees:'js/production/production-employees.js?v=20260810-5',
@@ -43,7 +43,7 @@
     sync:'styles/features/sync.css?v=20260810-2',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
-    production:'styles/features/production.css?v=20260810-13',
+    production:'styles/features/production.css?v=20260812-1',
     productionAnalysis:'styles/features/production-analysis.css?v=20260812-4',
     systemMonitor:'styles/features/system-monitor.css?v=20260812-3'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

@@ -744,7 +744,7 @@
 
 .production-entry-table {
   width: 100%;
-  min-width: max(100%, var(--ui-table-visible-min-width, 1160px));
+  min-width: max(100%, var(--ui-table-visible-min-width, 1100px));
   max-width: none;
   table-layout: fixed;
 }
@@ -753,16 +753,25 @@
   box-sizing: border-box;
 }
 
+.production-entry-table th,
+.production-entry-table td {
+  padding: 4px 6px;
+}
+
 .production-entry-table [data-production-column="order"] {
-  width: 130px;
+  width: 116px;
 }
 
 .production-entry-table [data-production-column="product"] {
-  width: 135px;
+  width: 96px;
+}
+
+.production-entry-table [data-production-column="orderQuantity"] {
+  width: 98px;
 }
 
 .production-entry-table [data-production-column="processNo"] {
-  width: 72px;
+  width: 68px;
 }
 
 .production-entry-table [data-production-column="processName"] {
@@ -770,25 +779,24 @@
 }
 
 .production-entry-table [data-production-column="quantity"],
-.production-entry-table [data-production-column="supplementHours"],
-.production-entry-table [data-production-column="orderQuantity"] {
-  width: 110px;
-}
-
-.production-entry-table [data-production-column="processSeconds"] {
-  width: 90px;
-}
-
-.production-entry-table [data-production-column="hourlyCapacity"] {
-  width: 105px;
-}
-
-.production-entry-table [data-production-column="status"] {
+.production-entry-table [data-production-column="supplementHours"] {
   width: 100px;
 }
 
+.production-entry-table [data-production-column="processSeconds"] {
+  width: 76px;
+}
+
+.production-entry-table [data-production-column="hourlyCapacity"] {
+  width: 86px;
+}
+
+.production-entry-table [data-production-column="status"] {
+  width: 90px;
+}
+
 .production-entry-table [data-production-column="action"] {
-  width: 122px;
+  width: 106px;
 }
 
 .production-entry-table td[data-production-column="order"],
@@ -841,11 +849,11 @@
 
 .production-value-badge {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 24px;
   align-items: center;
   justify-content: center;
-  padding: 3px 9px;
-  border-radius: 9px;
+  padding: 2px 7px;
+  border-radius: 8px;
   background: var(--ui-color-primary-soft);
   color: var(--ui-color-primary);
   font-weight: 600;
@@ -1288,6 +1296,16 @@
   min-width: 0;
   text-align: center;
   vertical-align: middle;
+}
+
+.production-entry-table .production-status {
+  min-height: 22px;
+  padding: 2px 7px;
+}
+
+.production-entry-table .production-row-button {
+  width: 30px;
+  height: 30px;
 }
 
 .production-row-button {

@@ -24,20 +24,20 @@
   }; // state（登記頁目前狀態）
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
-    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:96,preferred:108,maximum:132,available:()=>state.processRowsMode},
-    {key:'employeeId',label:{vi:'Mã nhân viên',zh:'員工工號'},minimum:96,preferred:112,maximum:148,available:()=>state.processRowsMode},
-    {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:118,preferred:148,maximum:220,available:()=>state.processRowsMode},
-    {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:130,preferred:150,maximum:240},
-    {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:135,preferred:155,maximum:240},
-    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:110,preferred:120,maximum:160},
-    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:72,preferred:80,maximum:96},
-    {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'},minimum:226,preferred:320,maximum:600},
-    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},minimum:110,preferred:120,maximum:160},
-    {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'},minimum:110,preferred:120,maximum:160},
-    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},minimum:90,preferred:100,maximum:130},
-    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},minimum:105,preferred:115,maximum:150},
-    {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:100,preferred:116,maximum:140},
-    {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:122,preferred:142,maximum:176,available:()=>canManageRecords()}
+    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:90,preferred:96,maximum:112,available:()=>state.processRowsMode},
+    {key:'employeeId',label:{vi:'Mã nhân viên',zh:'員工工號'},minimum:92,preferred:100,maximum:124,available:()=>state.processRowsMode},
+    {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:110,preferred:128,maximum:180,available:()=>state.processRowsMode},
+    {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:116,preferred:128,maximum:190},
+    {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:96,preferred:108,maximum:160},
+    {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},minimum:98,preferred:104,maximum:128},
+    {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:68,preferred:72,maximum:84},
+    {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'},minimum:190,preferred:240,maximum:420},
+    {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},minimum:100,preferred:106,maximum:132},
+    {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'},minimum:100,preferred:106,maximum:132},
+    {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},minimum:76,preferred:82,maximum:100},
+    {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},minimum:86,preferred:92,maximum:112},
+    {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:90,preferred:96,maximum:116},
+    {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:106,preferred:112,maximum:128,available:()=>canManageRecords()}
   ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果與可拖曳寬度限制仍由產能功能提供。
 
   const ENTRY_INPUT_IDS = Object.freeze([
