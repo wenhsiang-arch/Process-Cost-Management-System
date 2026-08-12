@@ -45,7 +45,8 @@
           <table class="ui-table production-analysis-table ie-analysis-table" data-ui-table-controls="auto" data-ui-table-sticky="original">
             <thead><tr>
               <th class="ui-table-center-cell" data-ui-table-column="select" data-ui-table-sortable="false">${ui.dual('Chọn','選取')}</th>
-              <th data-ui-table-column="process">${ui.dual('Mã hàng / công đoạn','款號／工序')}</th>
+              <th data-ui-table-column="product">${ui.dual('Mã hàng','款號')}</th>
+              <th data-ui-table-column="process">${ui.dual('Công đoạn','工序')}</th>
               <th class="ui-table-number-cell" data-ui-table-column="currentSeconds" data-ui-table-sort-type="number">${ui.dual('Giây tiêu chuẩn hiện tại','目前標準秒數')}</th>
               <th class="ui-table-number-cell" data-ui-table-column="suggestedSeconds" data-ui-table-sort-type="number">${ui.dual('Giây hồi tính đề nghị','回推建議秒數')}</th>
               <th class="ui-table-number-cell" data-ui-table-column="difference" data-ui-table-sort-type="number">${ui.dual('Chênh lệch','差異')}</th>
@@ -160,7 +161,8 @@
         selectCell.appendChild(checkbox);
         tableRow.append(
           selectCell,
-          ui.createCell([row.productCode,row.processNo,row.processNameZh||row.processNameVi].filter(Boolean).join(' / ')),
+          ui.createCell(row.productCode||'—'),
+          ui.createCell([row.processNo,row.processNameVi].filter(Boolean).join(' / ')||'—'),
           ui.createCell(ui.seconds(row.currentSeconds),'ui-table-number-cell'),
           ui.createCell(ui.seconds(row.suggestedSeconds),'ui-table-number-cell'),
           ui.createCell(`${ui.seconds((row.suggestedSeconds??0)-(row.currentSeconds??0))}\n${ui.percent(row.differencePercent)}`,'ui-table-number-cell'),
@@ -191,7 +193,7 @@
       if(!filtered.length){
         const row=document.createElement('tr');
         const cell=ui.createDualCell({vi:'Không có dữ liệu bất thường phù hợp.',zh:'沒有符合條件的異常資料。'},'production-analysis-empty');
-        cell.colSpan=12;
+        cell.colSpan=13;
         row.appendChild(cell);
         body.appendChild(row);
       }

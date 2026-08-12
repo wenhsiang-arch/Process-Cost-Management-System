@@ -31,7 +31,7 @@
 }
 
 .employee-analysis-filter-grid {
-  grid-template-columns: repeat(3,minmax(180px,1fr));
+  grid-template-columns: minmax(135px,.85fr) minmax(135px,.85fr) minmax(260px,1.5fr) minmax(140px,.9fr) minmax(140px,.9fr);
 }
 
 .production-analysis-filter-grid .ui-form-field {
@@ -174,7 +174,7 @@
 }
 
 .ie-analysis-table {
-  min-width: 1500px;
+  min-width: 1640px;
 }
 
 .department-analysis-table {
@@ -351,10 +351,12 @@
 }
 
 .ie-analysis-table th:nth-child(1) { min-width: 70px; }
-.ie-analysis-table th:nth-child(2) { min-width: 245px; }
-.ie-analysis-table th:nth-child(n+3):nth-child(-n+9) { min-width: 130px; }
-.ie-analysis-table th:nth-child(10) { min-width: 155px; }
-.ie-analysis-table th:nth-child(11) { min-width: 100px; }
+.ie-analysis-table th:nth-child(2) { min-width: 160px; }
+.ie-analysis-table th:nth-child(3) { min-width: 220px; }
+.ie-analysis-table th:nth-child(n+4):nth-child(-n+10) { min-width: 130px; }
+.ie-analysis-table th:nth-child(11) { min-width: 155px; }
+.ie-analysis-table th:nth-child(12) { min-width: 100px; }
+.ie-analysis-table th:nth-child(13) { min-width: 120px; }
 
 .department-analysis-table th:nth-child(1) { min-width: 170px; }
 .department-analysis-table th:nth-child(n+2):nth-child(-n+8) { min-width: 130px; }

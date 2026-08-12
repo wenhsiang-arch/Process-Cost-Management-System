@@ -20,8 +20,7 @@
           <div class="production-analysis-filter-grid employee-analysis-filter-grid">
             ${ui.dateField('employee','from','Từ ngày','開始日期')}
             ${ui.dateField('employee','to','Đến ngày','結束日期')}
-            <div class="ui-form-field"><label>${ui.dual('Nhân viên','員工')}</label><input type="search" data-filter="employee" placeholder="Mã hoặc tên / 工號或姓名"></div>
-            <div class="ui-form-field"><label>${ui.dual('Mã hàng hoặc công đoạn','款號或工序')}</label><input type="search" data-filter="process" placeholder="Nhập từ khóa / 輸入關鍵字"></div>
+            <div class="ui-form-field"><label>${ui.dual('Nhân viên / mã hàng / công đoạn','員工／款號／工序')}</label><input type="search" data-filter="search" placeholder="Nhập từ khóa / 輸入關鍵字"></div>
             <div class="ui-form-field"><label>${ui.dual('So với lịch sử','與歷史比較')}</label><select data-filter="comparison"><option value="">Tất cả / 全部</option><option value="below">Thấp hơn lịch sử / 低於歷史</option></select></div>
             <div class="ui-form-field"><label>${ui.dual('Vị trí trên chuyền','全線位置')}</label><select data-filter="level"><option value="">Tất cả / 全部</option><option value="low">Thấp / 低</option><option value="middle">Trung bình / 中</option><option value="high">Cao / 高</option></select></div>
           </div>
@@ -66,8 +65,7 @@
     function filters(){
       return {
         fromDate:filterElements.from.value,toDate:filterElements.to.value,
-        employee:filterElements.employee.value.trim().toLocaleLowerCase(),
-        process:filterElements.process.value.trim().toLocaleLowerCase(),
+        search:filterElements.search.value.trim().toLocaleLowerCase(),
         comparison:filterElements.comparison.value,level:filterElements.level.value
       };
     }
@@ -193,23 +191,23 @@
     function applyFilters(){
       if(!dataset) return [];
       const current=filters();
-      const rows=calc.employeeAnalysisRows(dataset,current).filter(row=>{
-        const employeeText=`${row.employeeId} ${row.employeeName}`.toLocaleLowerCase();
-        return !current.employee||employeeText.includes(current.employee);
-      });
+      const rows=calc.employeeAnalysisRows(dataset,current);
       return calc.employeeDailyAnalysisGroups(rows).map(group=>{
+        const employeeText=`${group.employeeId} ${group.employeeName}`.toLocaleLowerCase();
+        const employeeMatches=!current.search||employeeText.includes(current.search);
         const processes=group.processes.filter(row=>{
           const processText=`${row.productCode} ${row.processNo} ${row.processNameVi} ${row.processNameZh}`.toLocaleLowerCase();
-          if(current.process&&!processText.includes(current.process)) return false;
+          if(!employeeMatches&&current.search&&!processText.includes(current.search)) return false;
           if(current.level&&row.level!==current.level) return false;
           return true;
         });
-        return {...group,processes};
-      }).filter(group=>{
-        if((current.process||current.level)&&!group.processes.length) return false;
+        return {group:{...group,processes},employeeMatches};
+      }).filter(({group,employeeMatches})=>{
+        if(current.search&&!employeeMatches&&!group.processes.length) return false;
+        if(current.level&&!group.processes.length) return false;
         if(current.comparison==='below'&&group.comparison!=='below') return false;
         return true;
-      });
+      }).map(({group})=>group);
     }
     function exportRowsData(){
       return filtered.flatMap(group=>{
@@ -260,7 +258,7 @@
           const processRow=document.createElement('tr');
           const position=positionText(row.level);
           processRow.append(
-            ui.createCell([row.productCode,row.processNo,row.processNameZh||row.processNameVi].filter(Boolean).join(' / ')||'—'),
+            ui.createCell([row.productCode,row.processNo,row.processNameVi].filter(Boolean).join(' / ')||'—'),
             ui.createCell(ui.format(row.quantity),'ui-table-number-cell'),
             ui.createCell(displayPercent(row.currentProcessEfficiency),'ui-table-number-cell'),
             ui.createCell(displayPercent(row.employeeProcessHistoryEfficiency),'ui-table-number-cell'),
@@ -350,7 +348,7 @@
     }
     function filterSummary(){
       const current=filters();
-      return `${ui.dateRangeLabel(current.fromDate,current.toDate)}；Nhân viên / 員工：${filterElements.employee.value||'Tất cả / 全部'}；Mã hàng hoặc công đoạn / 款號或工序：${filterElements.process.value||'Tất cả / 全部'}`;
+      return `${ui.dateRangeLabel(current.fromDate,current.toDate)}；Tìm kiếm / 搜尋：${filterElements.search.value||'Tất cả / 全部'}`;
     }
     function showGuide(){
       ui.openExplanation({

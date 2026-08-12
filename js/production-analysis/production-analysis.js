@@ -229,7 +229,7 @@
       <div class="production-analysis-page ui-work-panel">
         <div class="ui-tabs ui-page-tabs production-analysis-tabs" id="production-analysis-tabs" role="tablist" aria-label="Phân tích sản xuất / 生產分析">
           <button type="button" class="ui-tab is-active" data-analysis-tab="employee" role="tab" aria-selected="true">${dual('Phân tích nhân viên','員工分析')}</button>
-          <button type="button" class="ui-tab" data-analysis-tab="ie" role="tab" aria-selected="false">${dual('Phân tích IE','IE 分析')}</button>
+          <button type="button" class="ui-tab" data-analysis-tab="ie" role="tab" aria-selected="false">${dual('Phân tích công đoạn','工序分析')}</button>
           <button type="button" class="ui-tab" data-analysis-tab="department" role="tab" aria-selected="false">${dual('Hiệu suất bộ phận','部門效率')}</button>
         </div>
         <section data-analysis-view="employee" id="production-analysis-employee-view"></section>
