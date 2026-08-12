@@ -18,8 +18,8 @@
       <div class="ui-operation-panel production-analysis-operation-panel">
         <div class="ui-command-row">
           <div class="production-analysis-filter-grid employee-analysis-filter-grid">
-            <div class="ui-form-field"><label>${ui.dual('Từ ngày','開始日期')}</label><input type="date" data-filter="from"></div>
-            <div class="ui-form-field"><label>${ui.dual('Đến ngày','結束日期')}</label><input type="date" data-filter="to"></div>
+            ${ui.dateField('employee','from','Từ ngày','開始日期')}
+            ${ui.dateField('employee','to','Đến ngày','結束日期')}
             <div class="ui-form-field"><label>${ui.dual('Nhân viên','員工')}</label><input type="search" data-filter="employee" placeholder="Mã hoặc tên / 工號或姓名"></div>
             <div class="ui-form-field"><label>${ui.dual('Mã hàng hoặc công đoạn','款號或工序')}</label><input type="search" data-filter="process" placeholder="Nhập từ khóa / 輸入關鍵字"></div>
             <div class="ui-form-field"><label>${ui.dual('So với lịch sử','與歷史比較')}</label><select data-filter="comparison"><option value="">Tất cả / 全部</option><option value="below">Thấp hơn lịch sử / 低於歷史</option></select></div>
@@ -62,6 +62,7 @@
       </div>`;
 
     const filterElements=Object.fromEntries([...root.querySelectorAll('[data-filter]')].map(element=>[element.dataset.filter,element]));
+    const dateControls=ui.bindDateControls(root);
 
     function filters(){
       return {
@@ -402,6 +403,7 @@
           filterElements.to.value=latest;
           initializedDates=true;
         }
+        dateControls.sync();
         const source=metadata.source==='indexeddb'?'Bộ nhớ máy này / 本機快取':'Dữ liệu đám mây / 雲端資料';
         root.querySelector('[data-role="source"]').textContent=`Nguồn dữ liệu / 資料來源：${source}`;
         render();

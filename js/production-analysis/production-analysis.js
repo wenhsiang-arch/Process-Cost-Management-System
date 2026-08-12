@@ -13,6 +13,85 @@
   function dual(vi,zh){
     return `<span class="ui-dual-copy"><strong>${vi}</strong><span>${zh}</span></span>`;
   }
+  function localDateString(value){
+    const date=value instanceof Date?value:new Date(value);
+    if(!Number.isFinite(date.getTime())) return '';
+    const year=date.getFullYear();
+    const month=String(date.getMonth()+1).padStart(2,'0');
+    const day=String(date.getDate()).padStart(2,'0');
+    return `${year}-${month}-${day}`;
+  }
+  function dateObject(value){
+    const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!match) return null;
+    const date=new Date(Number(match[1]),Number(match[2])-1,Number(match[3]),12);
+    return date.getFullYear()===Number(match[1])&&date.getMonth()===Number(match[2])-1&&date.getDate()===Number(match[3])?date:null;
+  }
+  function dateField(scope,filter,vi,zh){
+    const id=`production-analysis-${scope}-${filter}`;
+    const maximum=localDateString(new Date());
+    return `<div class="ui-form-field production-analysis-date-field">
+      <div class="production-analysis-date-label-row">
+        <label for="${id}">${dual(vi,zh)}</label>
+        <button type="button" tabindex="-1" class="production-analysis-calendar-button" data-analysis-date-calendar aria-label="Mở lịch ${vi} / 開啟${zh}" title="Mở lịch ${vi} / 開啟${zh}"><i class="ti ti-calendar-time" aria-hidden="true"></i></button>
+      </div>
+      <div class="production-analysis-date-control">
+        <input type="date" id="${id}" data-filter="${filter}" data-analysis-date-input max="${maximum}">
+        <div class="production-analysis-date-stepper" aria-label="Chuyển ${vi} / 切換${zh}">
+          <button type="button" tabindex="-1" data-analysis-date-step="previous" aria-label="Ngày trước / 前一天" title="Ngày trước / 前一天"><i class="ti ti-chevron-up" aria-hidden="true"></i></button>
+          <button type="button" tabindex="-1" data-analysis-date-step="next" aria-label="Ngày sau / 後一天" title="Ngày sau / 後一天"><i class="ti ti-chevron-down" aria-hidden="true"></i></button>
+        </div>
+      </div>
+    </div>`;
+  }
+  function bindDateControls(root){
+    const fields=[...root.querySelectorAll('.production-analysis-date-field')];
+    function sync(){
+      const maximum=localDateString(new Date());
+      fields.forEach(field=>{
+        const input=field.querySelector('[data-analysis-date-input]');
+        const next=field.querySelector('[data-analysis-date-step="next"]');
+        if(!input) return;
+        input.max=maximum;
+        if(input.value>maximum) input.value=maximum;
+        if(next) next.disabled=!input.value||input.value>=maximum;
+      });
+    }
+    function shift(field,days){
+      const input=field.querySelector('[data-analysis-date-input]');
+      if(!input) return;
+      const maximum=localDateString(new Date());
+      const value=dateObject(input.value||maximum);
+      if(!value) return;
+      value.setDate(value.getDate()+days);
+      const nextValue=localDateString(value);
+      if(days>0&&nextValue>maximum) return;
+      input.value=nextValue;
+      sync();
+      input.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    fields.forEach(field=>{
+      const input=field.querySelector('[data-analysis-date-input]');
+      const calendar=field.querySelector('[data-analysis-date-calendar]');
+      const previous=field.querySelector('[data-analysis-date-step="previous"]');
+      const next=field.querySelector('[data-analysis-date-step="next"]');
+      calendar?.addEventListener('click',()=>{
+        input?.focus({preventScroll:true});
+        if(typeof input?.showPicker==='function') input.showPicker();
+        else input?.click();
+      });
+      previous?.addEventListener('click',()=>shift(field,-1));
+      next?.addEventListener('click',()=>shift(field,1));
+      input?.addEventListener('input',sync);
+      input?.addEventListener('keydown',event=>{
+        if(event.key!=='ArrowUp'&&event.key!=='ArrowDown') return;
+        event.preventDefault();
+        shift(field,event.key==='ArrowUp'?-1:1);
+      });
+    });
+    sync();
+    return Object.freeze({sync});
+  }
   function format(value,digits=2,suffix=''){
     const result=number(value);
     return result===null?'—':`${result.toLocaleString('zh-TW',{minimumFractionDigits:digits,maximumFractionDigits:digits})}${suffix}`;
@@ -175,7 +254,8 @@
 
   window.PCMSProductionAnalysisUI=Object.freeze({
     dual,format,percent,hours,seconds,integer,dateRangeLabel,uniqueSorted,fillSelect,
-    openExplanation,showError,refreshTableTools,latestDate,earliestDate,createCell,createDualButton,text
+    openExplanation,showError,refreshTableTools,latestDate,earliestDate,createCell,createDualButton,
+    dateField,bindDateControls,text
   });
   window.PCMSProductionAnalysis=Object.freeze({init:productionAnalysisInit,leave:productionAnalysisLeave,setTab});
   window.productionAnalysisInit=productionAnalysisInit;

@@ -285,6 +285,7 @@
     return [...groupBy(Array.isArray(rows)?rows:[],row=>`${row.employeeId}||${row.date}`).values()].map(items=>{
       const first=items[0]||{};
       const activityHours=number(first.standardHours)+number(first.supplementHours);
+      if(first.attendanceHours!==null&&number(first.attendanceHours)<=0&&activityHours<=0) return null;
       let status='ready';
       if(first.attendanceHours===null) status='attendance-missing';
       else if(number(first.attendanceHours)<=0) status='attendance-invalid';
@@ -304,7 +305,7 @@
         status,comparison,difference,
         processes:items.filter(item=>item.productCode||item.processNo)
       };
-    });
+    }).filter(Boolean);
   }
 
   function ieAnalysisRows(dataset,filters={}){

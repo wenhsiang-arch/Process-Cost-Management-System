@@ -42,6 +42,90 @@
   min-height: 28px;
 }
 
+.production-analysis-date-label-row {
+  display: flex;
+  min-height: 28px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.production-analysis-date-label-row > label {
+  min-width: 0;
+}
+
+.production-analysis-calendar-button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.production-analysis-calendar-button:hover,
+.production-analysis-calendar-button:focus-visible {
+  background: var(--ui-color-primary-soft);
+}
+
+.production-analysis-calendar-button:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-analysis-date-control {
+  position: relative;
+  min-width: 0;
+}
+
+.production-analysis-date-control input {
+  padding-right: 28px;
+}
+
+.production-analysis-date-control input::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.production-analysis-date-stepper {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: grid;
+  width: 16px;
+  height: 28px;
+  grid-template-rows: 1fr 1fr;
+  transform: translateY(-50%);
+}
+
+.production-analysis-date-stepper button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.production-analysis-date-stepper button:hover:not(:disabled) {
+  color: var(--ui-color-primary);
+}
+
+.production-analysis-date-stepper button:disabled {
+  color: var(--ui-color-text-subtle);
+  cursor: default;
+}
+
 .production-analysis-filter-grid .ui-dual-copy > strong {
   font-size: 11px;
 }
@@ -223,6 +307,14 @@
   width: 100%;
   table-layout: fixed;
   background: var(--ui-color-surface);
+}
+
+/* 展開明細是外層員工表的子表，不跟隨外層原表頭凍結。 */
+.employee-analysis-table[data-ui-table-sticky="original"] .employee-analysis-process-table > thead {
+  position: static;
+  top: auto;
+  z-index: auto;
+  transform: none;
 }
 
 .employee-analysis-process-table th:nth-child(1) { width: 24%; }

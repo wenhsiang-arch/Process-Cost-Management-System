@@ -17,8 +17,8 @@
       <div class="ui-operation-panel production-analysis-operation-panel">
         <div class="ui-command-row">
           <div class="production-analysis-filter-grid">
-            <div class="ui-form-field"><label>${ui.dual('Từ ngày','開始日期')}</label><input type="date" data-filter="from"></div>
-            <div class="ui-form-field"><label>${ui.dual('Đến ngày','結束日期')}</label><input type="date" data-filter="to"></div>
+            ${ui.dateField('ie','from','Từ ngày','開始日期')}
+            ${ui.dateField('ie','to','Đến ngày','結束日期')}
             <div class="ui-form-field"><label>${ui.dual('Bộ phận','部門')}</label><select data-filter="department"></select></div>
             <div class="ui-form-field"><label>${ui.dual('Mã hàng hoặc công đoạn','款號或工序')}</label><input type="search" data-filter="search" placeholder="Nhập từ khóa / 輸入關鍵字"></div>
             <div class="ui-form-field"><label>${ui.dual('Chênh lệch ít nhất','最小差異')}</label><div class="production-analysis-suffix-input"><input type="number" min="0" max="300" step="1" value="15" data-filter="threshold"><span>%</span></div></div>
@@ -67,6 +67,7 @@
       </div>`;
 
     const filterElements=Object.fromEntries([...root.querySelectorAll('[data-filter]')].map(element=>[element.dataset.filter,element]));
+    const dateControls=ui.bindDateControls(root);
 
     function filters(){
       return {
@@ -261,6 +262,7 @@
           filterElements.to.value=ui.latestDate(dataset);
           initializedDates=true;
         }
+        dateControls.sync();
         const source=metadata.source==='indexeddb'?'Bộ nhớ máy này / 本機快取':'Dữ liệu đám mây / 雲端資料';
         root.querySelector('[data-role="source"]').textContent=`Nguồn dữ liệu / 資料來源：${source}`;
         render();

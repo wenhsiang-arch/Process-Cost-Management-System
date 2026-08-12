@@ -13,8 +13,8 @@
       <div class="ui-operation-panel production-analysis-operation-panel">
         <div class="ui-command-row">
           <div class="production-analysis-filter-grid production-analysis-department-filters">
-            <div class="ui-form-field"><label>${ui.dual('Từ ngày','開始日期')}</label><input type="date" data-filter="from"></div>
-            <div class="ui-form-field"><label>${ui.dual('Đến ngày','結束日期')}</label><input type="date" data-filter="to"></div>
+            ${ui.dateField('department','from','Từ ngày','開始日期')}
+            ${ui.dateField('department','to','Đến ngày','結束日期')}
             <div class="ui-form-field"><label>${ui.dual('Bộ phận','部門')}</label><select data-filter="department"></select></div>
           </div>
           <div class="ui-command-actions">
@@ -51,6 +51,7 @@
       </section>`;
 
     const filterElements=Object.fromEntries([...root.querySelectorAll('[data-filter]')].map(element=>[element.dataset.filter,element]));
+    const dateControls=ui.bindDateControls(root);
 
     function filters(){
       return {fromDate:filterElements.from.value,toDate:filterElements.to.value,department:filterElements.department.value};
@@ -188,6 +189,7 @@
           filterElements.to.value=latest;
           initializedDates=true;
         }
+        dateControls.sync();
         const source=metadata.source==='indexeddb'?'Bộ nhớ máy này / 本機快取':'Dữ liệu đám mây / 雲端資料';
         root.querySelector('[data-role="source"]').textContent=`Nguồn dữ liệu / 資料來源：${source}`;
         render();
