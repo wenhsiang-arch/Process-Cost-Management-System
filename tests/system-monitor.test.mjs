@@ -22,18 +22,23 @@ test('系統監控位於管理分類且只有管理員可開啟',()=>{
   assert.match(html,/id="pg-system-monitor"[\s\S]*?id="system-monitor-root"/);
 });
 
-test('系統監控使用全站日誌與快取呼叫兩個內部分頁',()=>{
+test('系統監控將全站日誌、呼叫監控與快取狀況分成三個內部分頁',()=>{
   const source=read('js/system-monitor/system-monitor.js');
   const style=read('styles/features/system-monitor.css');
   assert.match(source,/Nhật ký toàn hệ thống','全站日誌/);
-  assert.match(source,/Bộ nhớ đệm & lượt gọi','快取與呼叫/);
+  assert.match(source,/Giám sát lượt gọi','呼叫監控/);
+  assert.match(source,/Tình trạng bộ nhớ đệm','快取狀況/);
+  assert.match(source,/data-sm-tab="logs"[\s\S]*data-sm-tab="calls"[\s\S]*data-sm-tab="cache"/);
   assert.match(source,/Firebase為準/);
-  assert.match(source,/目前帳號、電腦與瀏覽器/);
+  assert.match(source,/目前帳號、電腦與瀏覽器的快取，不是全站總量/);
   assert.match(source,/system-monitor-page ui-work-panel/);
   assert.match(source,/system-monitor-tabs ui-tabs ui-page-tabs/);
   assert.match(source,/class="ui-tab/);
   assert.match(style,/\.system-monitor-tabs/);
   assert.match(style,/\.system-monitor-page\{width:100%;max-width:100%;min-width:0/);
+  assert.match(style,/\.system-monitor-summary\{[^}]*grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(style,/\.system-monitor-summary-card\{[^}]*flex-direction:column;align-items:flex-start/);
+  assert.match(style,/\.system-monitor-summary-card>b\{[^}]*max-width:100%[^}]*white-space:nowrap/);
 });
 
 test('呼叫統計只保存數量且有十五分鐘同步限制',()=>{
@@ -42,13 +47,29 @@ test('呼叫統計只保存數量且有十五分鐘同步限制',()=>{
   const firebase=read('js/firebase.js');
   assert.match(usage,/const FLUSH_INTERVAL_MS=15\*60\*1000/);
   assert.match(usage,/Date\.now\(\)-session\.lastFlushedAt<FLUSH_INTERVAL_MS/);
-  assert.match(usage,/queryCount:0,documentReads:0,documentWrites:0/);
+  assert.match(usage,/queryCount:0,writeRequestCount:0,documentReads:0,documentWrites:0/);
+  assert.match(usage,/schemaVersion:2/);
   assert.match(usage,/systemUsageSessions/);
   assert.doesNotMatch(usage,/queryCondition|employeeName|productionQuantity/);
   assert.match(cache,/async function inspect\(\)/);
   assert.match(cache,/只回傳目前 UID 的中繼資料，不回傳業務資料內容/);
   assert.match(firebase,/recordCloudRead/);
   assert.match(firebase,/recordCloudWrite/);
+  assert.match(firebase,/writeCount>0[^\n]*recordCloudWrite[^\n]*writeRequestCount:1,documentWrites:writeCount/);
+  assert.match(firebase,/committedWrites>0[^\n]*recordCloudWrite[^\n]*writeRequestCount:1,documentWrites:committedWrites/);
+});
+
+test('呼叫監控以每日使用者彙整並以舊日平均標示異常',()=>{
+  const source=read('js/system-monitor/system-monitor.js');
+  assert.match(source,/const key=`\$\{item\.usageDate\|\|'unknown'\}__\$\{identity\}`/);
+  assert.match(source,/history\.length<3/);
+  assert.match(source,/attention:current>average\*2/);
+  assert.match(source,/總呼叫＝讀取呼叫＋寫入呼叫/);
+  assert.match(source,/一次批次寫入只算1次呼叫/);
+  assert.match(source,/舊資料沒有獨立記錄寫入呼叫，因此以≥顯示/);
+  assert.match(source,/依功能明細/);
+  assert.match(source,/讀取文件/);
+  assert.match(source,/寫入文件/);
 });
 
 test('全站日誌可依日期分頁且登入登出與帳號權限異動會記錄',()=>{

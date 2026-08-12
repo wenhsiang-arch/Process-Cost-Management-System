@@ -5,7 +5,7 @@
   const FLUSH_INTERVAL_MS=15*60*1000;
   const STORAGE_KEY='pcms-usage-session-v1';
   const EMPTY_COUNTERS=Object.freeze({
-    queryCount:0,documentReads:0,documentWrites:0,
+    queryCount:0,writeRequestCount:0,documentReads:0,documentWrites:0,
     cacheHits:0,cacheMisses:0,cacheWrites:0,fullLoads:0
   });
   let identity=null;
@@ -60,7 +60,7 @@
   function loadStored(uid){
     try{
       const parsed=JSON.parse(sessionStorage.getItem(STORAGE_KEY)||'null');
-      if(parsed?.uid===uid&&parsed?.usageDate===today()&&parsed?.sessionId){
+      if(parsed?.uid===uid&&parsed?.usageDate===today()&&parsed?.sessionId&&parsed?.schemaVersion===2){
         return {
           ...parsed,
           totals:counters(parsed.totals),
@@ -90,6 +90,7 @@
     record('documentReads',Math.max(0,Number(input.documentReads)||0),input.page);
   }
   function recordCloudWrite(input={}){
+    record('writeRequestCount',Math.max(1,Number(input.writeRequestCount)||1),input.page);
     record('documentWrites',Math.max(1,Number(input.documentWrites)||1),input.page);
   }
   function recordCache(input={}){
@@ -118,7 +119,7 @@
       totals:counters(session.totals),
       pages:Object.fromEntries(Object.entries(session.pages).slice(0,30).map(([key,value])=>[safeKey(key),counters(value)])),
       cacheScopes:Object.fromEntries(Object.entries(session.cacheScopes).slice(0,30).map(([key,value])=>[safeKey(key),counters(value)])),
-      schemaVersion:1
+      schemaVersion:2
     };
   }
   async function flush(options={}){
@@ -165,7 +166,7 @@
     identity={uid,username:text(input.username||uid),role:text(input.role)};
     session=loadStored(uid)||{
       sessionId:sessionId(),usageDate:today(),uid,startedAt:Date.now(),lastFlushedAt:0,
-      loginLogged:false,totals:counters(),pages:{},cacheScopes:{}
+      loginLogged:false,totals:counters(),pages:{},cacheScopes:{},schemaVersion:2
     };
     activePage='home';
     dirty=true;

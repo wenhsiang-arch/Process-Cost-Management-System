@@ -43,17 +43,17 @@ async function setDoc(reference,data,options){
   const result=options===undefined
     ? await firestoreSetDoc(reference,data)
     : await firestoreSetDoc(reference,data,options);
-  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:1});
+  window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:1});
   return result;
 }
 async function updateDoc(reference,data){
   const result=await firestoreUpdateDoc(reference,data);
-  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:1});
+  window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:1});
   return result;
 }
 async function deleteDoc(reference){
   const result=await firestoreDeleteDoc(reference);
-  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:1});
+  window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:1});
   return result;
 }
 function writeBatch(database){
@@ -65,7 +65,7 @@ function writeBatch(database){
     delete(reference){ writeCount+=1; raw.delete(reference); return wrapped; },
     async commit(){
       const result=await raw.commit();
-      window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:writeCount});
+      if(writeCount>0) window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:writeCount});
       return result;
     }
   };
@@ -89,7 +89,7 @@ async function runTransaction(database,worker){
     committedWrites=attemptWrites;
     return value;
   });
-  window.PCMSUsageMetrics?.recordCloudWrite?.({documentWrites:committedWrites});
+  if(committedWrites>0) window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:committedWrites});
   return result;
 }
 
