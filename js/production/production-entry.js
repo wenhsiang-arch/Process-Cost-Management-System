@@ -7,6 +7,7 @@
     dateAuto:true,
     dateTimer:null,
     employee:null,
+    allEmployees:false,
     order:null,
     orderReady:false,
     product:null,
@@ -28,11 +29,12 @@
   }; // state（登記頁目前狀態）
 
   const RECORD_PAGE_SIZE = 50; // RECORD_PAGE_SIZE（產能登記表格每頁筆數）
+  const ALL_EMPLOYEES_OPTION = Object.freeze({allEmployees:true,employeeId:'Tất cả / 全部',name:'',department:''});
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
-    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:90,preferred:96,maximum:112,available:()=>state.processRowsMode},
-    {key:'employeeId',label:{vi:'Mã nhân viên',zh:'員工工號'},minimum:92,preferred:100,maximum:124,available:()=>state.processRowsMode},
-    {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:110,preferred:128,maximum:180,available:()=>state.processRowsMode},
+    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:90,preferred:96,maximum:112,available:()=>state.processRowsMode||state.allEmployees},
+    {key:'employeeId',label:{vi:'Mã nhân viên',zh:'員工工號'},minimum:92,preferred:100,maximum:124,available:()=>state.processRowsMode||state.allEmployees},
+    {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:110,preferred:128,maximum:180,available:()=>state.processRowsMode||state.allEmployees},
     {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:116,preferred:128,maximum:190},
     {key:'product',label:{vi:'Mã hàng',zh:'款號'},minimum:96,preferred:108,maximum:160},
     {key:'orderQuantity',label:{vi:'Số lượng đơn hàng',zh:'訂單數量'},headerLabel:{vi:'SL đơn hàng',zh:'訂單數量'},minimum:98,preferred:104,maximum:128},
@@ -154,14 +156,18 @@
     const exactDate = Boolean(state.recordDateFilter);
     if(titleVi) titleVi.textContent = processMode
       ? 'Đăng ký của công đoạn'
-      : (exactDate ? 'Bản ghi của nhân viên theo ngày' : 'Bản ghi của nhân viên trong tháng');
+      : (state.allEmployees
+        ? (exactDate ? 'Bản ghi của tất cả nhân viên theo ngày' : 'Bản ghi của tất cả nhân viên trong tháng')
+        : (exactDate ? 'Bản ghi của nhân viên theo ngày' : 'Bản ghi của nhân viên trong tháng'));
     if(titleZh) titleZh.textContent = processMode
       ? '工序登記明細'
-      : (exactDate ? '員工指定日期生產紀錄' : '員工本月生產紀錄');
+      : (state.allEmployees
+        ? (exactDate ? '全部員工指定日期生產紀錄' : '全部員工本月生產紀錄')
+        : (exactDate ? '員工指定日期生產紀錄' : '員工本月生產紀錄'));
     if(empty){
       let copy;
       if(processMode) copy = {vi:'Không có đăng ký hiệu lực cho công đoạn này',zh:'這個工序尚無有效登記'};
-      else if(!state.employee) copy = {vi:'Chọn nhân viên để xem bản ghi trong tháng',zh:'選擇員工後顯示本月紀錄'};
+      else if(!state.employee&&!state.allEmployees) copy = {vi:'Chọn nhân viên để xem bản ghi trong tháng',zh:'選擇員工後顯示本月紀錄'};
       else if(state.recordStatusFilter === 'voided') copy = {vi:'Không có bản ghi đã hủy phù hợp',zh:'沒有符合條件的已作廢紀錄'};
       else if(state.recordStatusFilter === 'active') copy = {vi:'Không có bản ghi hiệu lực phù hợp',zh:'沒有符合條件的有效紀錄'};
       else copy = {vi:'Không có bản ghi phù hợp',zh:'沒有符合條件的紀錄'};
@@ -233,10 +239,18 @@
   }
 
   function syncDropdownAvailability(){
+    const allEmployees = state.allEmployees === true;
+    const orderInput = element('production-order-input');
+    const orderToggle = element('production-order-toggle');
     const productToggle = element('production-product-toggle');
     const processToggle = element('production-process-toggle');
-    if(productToggle) productToggle.disabled = !state.order || !state.orderReady;
-    if(processToggle) processToggle.disabled = state.supplementMode || !state.orderReady || !state.product;
+    if(orderInput) orderInput.disabled = allEmployees;
+    if(orderToggle) orderToggle.disabled = allEmployees;
+    if(element('production-product-input')) element('production-product-input').disabled = allEmployees;
+    if(element('production-process-input')) element('production-process-input').disabled = allEmployees;
+    if(element('production-quantity-input')) element('production-quantity-input').disabled = allEmployees;
+    if(productToggle) productToggle.disabled = allEmployees || !state.order || !state.orderReady;
+    if(processToggle) processToggle.disabled = allEmployees || state.supplementMode || !state.orderReady || !state.product;
   }
 
   function resetQuantityProgress(){
@@ -332,6 +346,7 @@
   }
 
   function employeeIdOptionCopy(item){
+    if(item?.allEmployees) return {primary:'Tất cả',secondary:'全部員工'};
     return {primary:item.employeeId,secondary:[item.name,item.department].filter(Boolean).join(' · ')};
   }
 
@@ -401,6 +416,7 @@
 
   function clearEmployee(options={}){
     state.employee = null;
+    state.allEmployees = false;
     state.recordDateFilter = '';
     state.recordPage = 1;
     state.recordRequest += 1;
@@ -413,6 +429,7 @@
     setAttendanceSummary('Chưa chọn','尚未選擇');
     state.attendanceRequest += 1;
     setProcessRowsMode(false);
+    syncDropdownAvailability();
     renderDailyRows([]);
   }
 
@@ -430,6 +447,10 @@
     const requestId = ++state.attendanceRequest;
     const employeeId = state.employee?.employeeId;
     const productionDate = element('production-date-input')?.value;
+    if(state.allEmployees){
+      setAttendanceSummary('—','');
+      return;
+    }
     if(!employeeId || !productionDate){
       setAttendanceSummary('Chưa chọn','尚未選擇');
       return;
@@ -452,7 +473,9 @@
   }
 
   function selectEmployee(employee){
+    if(employee?.allEmployees){ selectAllEmployees(); return; }
     state.employee = employee;
+    state.allEmployees = false;
     state.recordDateFilter = '';
     state.recordPage = 1;
     element('production-employee-input').value = employee.employeeId;
@@ -461,8 +484,29 @@
     closeDropdown('production-employee-options');
     closeDropdown('production-employee-name-options');
     setStatus('','','info');
+    syncDropdownAvailability();
     void loadDailyRows();
     void refreshAttendanceSummary();
+  }
+
+  function selectAllEmployees(){
+    state.employee = null;
+    state.allEmployees = true;
+    state.recordDateFilter = '';
+    state.recordPage = 1;
+    setProcessRowsMode(false);
+    clearOrder();
+    element('production-order-input').value = '';
+    element('production-employee-input').value = ALL_EMPLOYEES_OPTION.employeeId;
+    element('production-entry-employee-name-input').value = '';
+    element('production-employee-department').textContent = 'Tất cả / 全部';
+    setAttendanceSummary('—','');
+    state.attendanceRequest += 1;
+    closeDropdown('production-employee-options');
+    closeDropdown('production-employee-name-options');
+    syncDropdownAvailability();
+    setStatus('Đang hiển thị bản ghi của tất cả nhân viên.','目前顯示全部員工紀錄。','info');
+    void loadDailyRows();
   }
 
   function employeeDropdownConfig(optionsId){
@@ -482,7 +526,8 @@
     const config=employeeDropdownConfig(optionsId);
     const input = element(config.inputId);
     const value = input.value.trim();
-    if(state.employee&&!employeeValueMatches(state.employee,optionsId)) clearEmployee(config);
+    if(state.allEmployees&&value!==ALL_EMPLOYEES_OPTION.employeeId) clearEmployee(config);
+    else if(state.employee&&!employeeValueMatches(state.employee,optionsId)) clearEmployee(config);
     return Boolean(value);
   }
 
@@ -702,6 +747,7 @@
   function initializeSearchDropdowns(){
     if(dropdownControllers.size) return;
     const employeeItems=()=>window.PCMSProductionEmployees.list({activeOnly:true});
+    const employeeIdItems=()=>[ALL_EMPLOYEES_OPTION,...employeeItems()];
     const employeeFields=[
       {value:item=>item.employeeId,mode:'code',weight:0},
       {value:item=>item.name,mode:'text',weight:10},
@@ -709,7 +755,7 @@
     ];
     registerDropdown('production-employee-options',{
       inputId:'production-employee-input',toggleId:'production-employee-toggle',
-      getItems:employeeItems,fields:employeeFields,renderItem:employeeIdOptionCopy,onSelect:selectEmployee,
+      getItems:employeeIdItems,fields:employeeFields,renderItem:employeeIdOptionCopy,onSelect:selectEmployee,
       onInput:()=>handleEmployeeInput('production-employee-options'),
       onConfirm:()=>confirmEmployeeInput('production-employee-options')
     });
@@ -996,6 +1042,11 @@
   }
 
   async function saveEntry(){
+    if(state.allEmployees){
+      setStatus('Vui lòng chọn một nhân viên trước khi ghi nhận sản xuất.','新增產能前請先選擇一位員工。','warning');
+      element('production-employee-input')?.focus({preventScroll:true});
+      return null;
+    }
     const supplement = state.supplementMode;
     if(!supplement && state.processTotalLoading){
       setStatus('Đang kiểm tra số lượng đã ghi nhận.','正在確認目前已登記數量。','info');
@@ -1180,18 +1231,16 @@
 
   async function loadDailyRows(){
     setProcessRowsMode(false);
-    if(!state.employee){ renderDailyRows([]); return; }
+    if(!state.employee&&!state.allEmployees){ renderDailyRows([]); return; }
     const request = ++state.recordRequest;
-    const employeeId = state.employee.employeeId;
+    const allEmployees = state.allEmployees === true;
+    const employeeId = state.employee?.employeeId || '';
     const range = recordDateRange();
     try{
-      const rows = await window.PCMSProductionReports.loadEmployeeRange(
-        employeeId,
-        range.from,
-        range.to,
-        {activeOnly:false}
-      );
-      if(request !== state.recordRequest || state.employee?.employeeId !== employeeId) return;
+      const rows = allEmployees
+        ? await window.PCMSProductionReports.loadRange(range.from,range.to,{activeOnly:false})
+        : await window.PCMSProductionReports.loadEmployeeRange(employeeId,range.from,range.to,{activeOnly:false});
+      if(request !== state.recordRequest || state.allEmployees !== allEmployees || (!allEmployees&&state.employee?.employeeId !== employeeId)) return;
       renderDailyRows(rows);
     }catch(error){
       if(request !== state.recordRequest) return;
@@ -1388,11 +1437,13 @@
       return true;
     }
     state.employee = employee;
+    state.allEmployees = false;
     element('production-employee-input').value = employee.employeeId;
     element('production-entry-employee-name-input').value = employee.name || '';
     element('production-employee-department').textContent = employee.department || '—';
     closeDropdown('production-employee-options');
     closeDropdown('production-employee-name-options');
+    syncDropdownAvailability();
     syncEntryTableMode();
     await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
     const targetProcess=Boolean(pending.orderId||pending.orderNo||pending.code||pending.processNo);
@@ -1432,7 +1483,7 @@
     if(state.dateAuto) element('production-date-input').value = today();
     syncDateControls();
     startDateTimer();
-    if(state.employee) await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
+    if(state.employee||state.allEmployees) await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
   }
 
   function productionEntryLeave(){
