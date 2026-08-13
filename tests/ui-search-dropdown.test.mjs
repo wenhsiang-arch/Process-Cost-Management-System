@@ -26,13 +26,19 @@ test('代碼智慧搜尋支援連續數字及依序字元並維持符合度排�
   const rows=[
     {code:'BLU-21-10'},
     {code:'BLU-11-20'},
-    {code:'B20'}
+    {code:'B20'},
+    {code:'HA0102-A'}
   ];
   const match=query=>api.matchItems(rows,query,{
     fields:[{value:item=>item.code,mode:'code'}],limit:20
   }).items.map(item=>item.code);
   assert.deepEqual(Array.from(match('1120')),['BLU-11-20']);
   assert.deepEqual(Array.from(match('B20')),['B20','BLU-11-20','BLU-21-10']);
+  assert.deepEqual(Array.from(match('H1')),['HA0102-A']);
+  assert.deepEqual(Array.from(match('A1')),[]);
+  assert.equal(api.matchItems([{code:'HXA0102'}],'HA',{
+    fields:[{value:item=>item.code,mode:'code'}]
+  }).items.length,0);
 });
 
 test('文字與數字欄位不使用過度模糊的代碼比對',()=>{

@@ -34,6 +34,12 @@
     return queryIndex === query.length ? gapScore : Number.POSITIVE_INFINITY;
   }
 
+  function shortLetterDigitCodeScore(query,target){
+    if(!/^\p{L}\p{N}$/u.test(query) || target[0] !== query[0]) return Number.POSITIVE_INFINITY;
+    const digitIndex = target.indexOf(query[1],1); // digitIndex（數字位置）：H1 可找到以 H 開頭且後段含 1 的款號。
+    return digitIndex >= 1 ? digitIndex : Number.POSITIVE_INFINITY;
+  }
+
   function scoreText(query,value,mode='text'){
     const needle = normalizeSearchText(query);
     const candidate = normalizeSearchText(value);
@@ -52,6 +58,10 @@
     if(compactCandidate.startsWith(compactNeedle)) return 400+compactCandidate.length-compactNeedle.length;
     const compactIndex = compactCandidate.indexOf(compactNeedle);
     if(compactIndex >= 0) return 500+compactIndex;
+    if(mode === 'code' && compactNeedle.length === 2){
+      const shortCodeScore = shortLetterDigitCodeScore(compactNeedle,compactCandidate);
+      if(Number.isFinite(shortCodeScore)) return 580+shortCodeScore;
+    }
     if(mode !== 'code' || compactNeedle.length < 3) return Number.POSITIVE_INFINITY;
     const sequenceScore = orderedSubsequenceScore(compactNeedle,compactCandidate);
     if(!Number.isFinite(sequenceScore)) return Number.POSITIVE_INFINITY;
