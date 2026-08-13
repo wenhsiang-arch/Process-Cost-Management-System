@@ -19,7 +19,7 @@
     permissions:'js/permissions.js?v=20260812-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
-    productionEmployeeStore:'js/production/employee-store.js?v=20260809-3',
+    productionEmployeeStore:'js/production/employee-store.js?v=20260813-1',
     productionChangeStore:'js/production/change-store.js?v=20260812-1',
     productionEntryStore:'js/production/entry-store.js?v=20260813-2',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
