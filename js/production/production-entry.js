@@ -966,39 +966,6 @@
     return actionButton('ti-trash','Xóa vĩnh viễn','永久刪除',()=>void deleteDailyRecord(item),'danger');
   }
 
-  async function editDailyRecord(item){
-    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
-    const valueText = await window.PCMSUIComponents.promptDialog({
-      title:supplement
-        ? {vi:'Chỉnh sửa giờ bổ sung',zh:'修改補充工時'}
-        : {vi:'Chỉnh sửa số lượng sản xuất',zh:'修改生產數量'},
-      label:supplement
-        ? {vi:'Giờ mới (0,5–24)',zh:'新補充工時（0.5～24）'}
-        : {vi:'Số lượng mới',zh:'新生產數量'},
-      type:'number',
-      value:supplement ? item.supplementHours : item.quantity,
-      validate:value=>supplement
-        ? window.PCMSProductionEntryStore.isValidSupplementHours(value)
-        : Number.isInteger(Number(value)) && Number(value) > 0
-    });
-    if(valueText === null) return;
-    const reason = await window.PCMSUIComponents.promptDialog({
-      title:{vi:'Lý do chỉnh sửa',zh:'修改原因'},
-      label:{vi:'Nhập lý do',zh:'輸入原因'},
-      multiline:true,
-      maxLength:500,
-      validate:value=>String(value || '').trim().length > 0
-    });
-    if(reason === null) return;
-    try{
-      if(supplement) await window.PCMSProductionEntryStore.updateSupplementHours(item.id,Number(valueText),reason);
-      else await window.PCMSProductionEntryStore.updateQuantity(item.id,Number(valueText),reason);
-      await loadDailyRows();
-      if(state.process && !supplement) void loadQuantityProgress(state.process);
-      setStatus('Đã lưu nội dung chỉnh sửa.','修改內容已儲存。','success');
-    }catch(error){ await showError(error); }
-  }
-
   async function voidDailyRecord(item){
     const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
     const reason = await window.PCMSUIComponents.promptDialog({
@@ -1223,13 +1190,7 @@
         actionCell.dataset.productionColumn = 'action';
         actionCell.dataset.uiTableColumn = 'action';
         if(item.status !== 'voided'){
-          actionCell.append(
-            actionButton(
-              'ti-edit',
-              supplement ? 'Chỉnh sửa giờ bổ sung' : 'Chỉnh sửa số lượng',
-              supplement ? '修改補充工時' : '修改數量',
-              ()=>void editDailyRecord(item)
-            ),
+          actionCell.appendChild(
             actionButton('ti-ban','Hủy bản ghi','作廢紀錄',()=>void voidDailyRecord(item),'danger')
           );
         }

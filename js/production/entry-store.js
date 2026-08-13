@@ -372,69 +372,6 @@
       : createStandardEntry(normalized);
   }
 
-  async function updateQuantity(entryId,newQuantity,reason){
-    const quantity = Number(newQuantity);
-    const note = normalizedText(reason);
-    if(!isPositiveInteger(quantity)) throw new Error('Số lượng sản xuất phải là số nguyên dương. / 生產數量必須是正整數。');
-    if(!note) throw new Error('Vui lòng nhập lý do chỉnh sửa. / 請輸入修改原因。');
-    const entryReference = window._docRef(COLLECTIONS.entries,normalizedText(entryId));
-    const logReference = window._newDocRef(COLLECTIONS.logs);
-    const now = Date.now();
-    let saved;
-    await window._runTransaction(async transaction=>{
-      const entrySnapshot = await transaction.get(entryReference);
-      if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi sản xuất. / 找不到生產紀錄。');
-      const current = entrySnapshot.data();
-      if(current.status !== 'active') throw new Error('Bản ghi đã hủy không thể chỉnh sửa. / 已作廢紀錄不能修改。');
-      if(isSupplementEntry(current)) throw new Error('Vui lòng dùng chức năng chỉnh sửa giờ bổ sung. / 請使用補充工時修改功能。');
-      const processReference = window._docRef(COLLECTIONS.processes,current.orderProcessId);
-      const totalReference = window._docRef(COLLECTIONS.totals,current.orderProcessId);
-      const processSnapshot = await transaction.get(processReference);
-      const totalSnapshot = await transaction.get(totalReference);
-      if(!processSnapshot.exists() || !totalSnapshot.exists()) throw new Error('Thiếu dữ liệu tổng hợp công đoạn. / 缺少工序累計資料。');
-      const orderQuantity = Number(processSnapshot.data().orderQty);
-      const delta = quantity - Number(current.quantity);
-      const nextRegistered = Number(totalSnapshot.data().registeredQty) + delta;
-      if(nextRegistered < 0 || (delta > 0 && nextRegistered > orderQuantity)){
-        throw new Error(`Số lượng vượt quá phần còn lại ${(orderQuantity-Number(totalSnapshot.data().registeredQty)).toLocaleString()}. / 數量超過剩餘可登記數量 ${(orderQuantity-Number(totalSnapshot.data().registeredQty)).toLocaleString()}。`);
-      }
-      saved = {...current,quantity,revision:Number(current.revision||1)+1,updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName()};
-      transaction.set(entryReference,saved);
-      transaction.set(totalReference,{
-        ...totalSnapshot.data(),orderQty:orderQuantity,registeredQty:nextRegistered,
-        updatedAt:now,updatedByUid:currentUserId(),lastEntryId:entryReference.id,lastMutation:'update',lastDelta:delta
-      });
-      transaction.set(logReference,operationLogData('productionEntryUpdate',note,[{field:'quantity',before:current.quantity,after:quantity}],now));
-    });
-    const result={id:entryReference.id,...saved};
-    await markAnalysisChange(result);
-    return result;
-  }
-
-  async function updateSupplementHours(entryId,newHours,reason){
-    const supplementHours = Number(newHours);
-    const note = normalizedText(reason);
-    if(!isValidSupplementHours(supplementHours)) throw new Error('Giờ bổ sung phải từ 0,5 đến 24 giờ và tăng theo mỗi 0,5 giờ. / 補充工時必須為0.5至24小時，並以0.5小時為單位。');
-    if(!note) throw new Error('Vui lòng nhập lý do chỉnh sửa. / 請輸入修改原因。');
-    const entryReference = window._docRef(COLLECTIONS.entries,normalizedText(entryId));
-    const logReference = window._newDocRef(COLLECTIONS.logs);
-    const now = Date.now();
-    let saved;
-    await window._runTransaction(async transaction=>{
-      const entrySnapshot = await transaction.get(entryReference);
-      if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi bổ sung giờ. / 找不到補充工時紀錄。');
-      const current = entrySnapshot.data();
-      if(!isSupplementEntry(current)) throw new Error('Bản ghi không phải là giờ bổ sung. / 此紀錄不是補充工時。');
-      if(current.status !== 'active') throw new Error('Bản ghi đã hủy không thể chỉnh sửa. / 已作廢紀錄不能修改。');
-      saved = {...current,supplementHours,revision:Number(current.revision||1)+1,updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName()};
-      transaction.set(entryReference,saved);
-      transaction.set(logReference,operationLogData('productionEntryUpdate',note,[{field:'supplementHours',before:current.supplementHours,after:supplementHours}],now));
-    });
-    const result={id:entryReference.id,...saved};
-    await markAnalysisChange(result);
-    return result;
-  }
-
   async function voidEntry(entryId,reason){
     const note = normalizedText(reason);
     if(!note) throw new Error('Vui lòng nhập lý do hủy. / 請輸入作廢原因。');
@@ -533,7 +470,7 @@
 
   window.PCMSProductionEntryStore = Object.freeze({
     loadOrders,listOrders,searchOrders,findOrder,loadProcesses,getLoadedProcesses,
-    productsForOrder,searchProducts,findProcess,loadProcessTotal,createEntry,updateQuantity,updateSupplementHours,
-    voidEntry,deleteEntry,reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
+    productsForOrder,searchProducts,findProcess,loadProcessTotal,createEntry,voidEntry,deleteEntry,
+    reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
   });
 })();
