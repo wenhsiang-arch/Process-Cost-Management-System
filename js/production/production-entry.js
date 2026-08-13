@@ -1339,7 +1339,11 @@
   function setPendingContext(context={}){
     state.pendingContext = {
       employeeId:String(context.employeeId || '').trim().toUpperCase(),
-      productionDate:String(context.productionDate || '').trim()
+      productionDate:String(context.productionDate || '').trim(),
+      orderId:String(context.orderId || '').trim(),
+      orderNo:String(context.orderNo || '').trim(),
+      code:String(context.code || '').trim(),
+      processNo:String(context.processNo || '').trim()
     };
   }
 
@@ -1376,6 +1380,25 @@
     element('production-employee-department').textContent = employee.department || '—';
     closeDropdown('production-employee-options');
     await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
+    if(pending.orderId||pending.orderNo){
+      const order=window.PCMSProductionEntryStore.listOrders().find(item=>String(item.id)===pending.orderId
+        ||String(item.orderId||'')===pending.orderNo);
+      if(order){
+        await selectOrder(order);
+        if(pending.code){
+          const product=window.PCMSProductionEntryStore.productsForOrder(order.id)
+            .find(item=>String(item.code||'')===pending.code);
+          if(product){
+            selectProduct(product);
+            if(pending.processNo){
+              const process=window.PCMSProductionEntryStore.getLoadedProcesses(order.id)
+                .find(item=>String(item.code||'')===pending.code&&String(item.processNo||'')===pending.processNo);
+              if(process) selectProcess(process);
+            }
+          }
+        }
+      }
+    }
     element('production-process-input')?.focus({preventScroll:true});
     return true;
   }

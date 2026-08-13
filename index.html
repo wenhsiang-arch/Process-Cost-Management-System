@@ -324,6 +324,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                       <span id="production-entry-attendance-summary-zh">尚未選擇</span>
                     </span>
                   </div>
+                  <button type="button" class="production-anomaly-filter-card" id="production-anomaly-filter-button" aria-pressed="false" disabled>
+                    <i class="ti ti-alert-triangle"></i>
+                    <span class="ui-dual-copy"><strong>Lọc bất thường</strong><span>異常篩選</span></span>
+                    <b id="production-anomaly-filter-count">0</b>
+                  </button>
                   <button type="button" tabindex="-1" class="production-supplement-help" id="production-supplement-help-button" aria-label="Hướng dẫn công đoạn 0 / 工序0使用說明">
                     <i class="ti ti-help-circle"></i>
                     <span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>說明</span></span>
@@ -382,7 +387,20 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               </div>
             </section>
           </div>
-          <section class="production-data-section ui-data-section">
+          <section class="production-anomaly-panel ui-data-section" id="production-anomaly-panel" hidden>
+            <div class="ui-section-header"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Danh sách bất thường</strong><span>異常清單</span></span><b id="production-anomaly-panel-count">0</b></div>
+            <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-anomaly-table">
+              <thead><tr>
+                <th><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Nhân viên</strong><span>員工</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Tình trạng</strong><span>異常狀態</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Thông tin liên quan</strong><span>相關資料</span></span></th>
+                <th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+              </tr></thead>
+              <tbody id="production-anomaly-table-body"></tbody>
+            </table></div></div>
+          </section>
+          <section class="production-data-section ui-data-section" id="production-entry-data-section">
             <div class="ui-section-header production-entry-table-header">
               <div class="ui-table-column-settings" id="production-column-settings">
                 <button type="button" tabindex="-1" class="ui-table-column-settings-button" id="production-column-settings-button" aria-label="Chọn cột hiển thị / 選擇顯示欄位" title="Chọn cột hiển thị / 選擇顯示欄位" aria-controls="production-column-settings-menu" aria-expanded="false" data-ui-table-columns-button><i class="ti ti-list-check"></i></button>

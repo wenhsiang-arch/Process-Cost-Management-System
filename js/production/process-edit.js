@@ -39,16 +39,6 @@
               <input type="search" id="process-edit-product-input" list="process-edit-product-options" autocomplete="off" placeholder="Nhập mã hàng / 輸入款號">
               <datalist id="process-edit-product-options"></datalist>
             </label>
-            <label class="process-edit-operation-field">
-              <span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span>
-              <input type="search" id="process-edit-operation-number" list="process-edit-operation-number-options" autocomplete="off" disabled>
-              <datalist id="process-edit-operation-number-options"></datalist>
-            </label>
-            <label class="process-edit-operation-name-field">
-              <span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>越文工序</span></span>
-              <input type="search" id="process-edit-operation-name" list="process-edit-operation-name-options" autocomplete="off" disabled>
-              <datalist id="process-edit-operation-name-options"></datalist>
-            </label>
             <button type="button" class="ui-button is-primary" id="process-edit-load-button"><i class="ti ti-search"></i><span class="ui-dual-copy"><strong>Mở mã hàng</strong><span>開啟款號</span></span></button>
             <button type="button" class="ui-button" id="process-edit-history-button"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử phiên bản</strong><span>款號版本歷史</span></span></button>
             <div class="process-edit-toolbar-group" id="process-edit-toolbar-group"></div>
@@ -79,7 +69,7 @@
                   <th class="ui-table-center-cell" data-ui-table-column="order"><span class="ui-dual-copy"><strong>Thứ tự</strong><span>順序</span></span></th>
                   <th data-ui-table-column="category"><span class="ui-dual-copy"><strong>Phân loại</strong><span>加工分類</span></span></th>
                   <th data-ui-table-column="vi"><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文</span></span></th>
-                  <th data-ui-table-column="zh" data-ui-table-default-visible="false"><span class="ui-dual-copy"><strong>Tên công đoạn Trung</strong><span>工序中文</span></span></th>
+                  <th class="is-column-hidden" data-ui-table-column="zh" data-ui-table-default-visible="false"><span class="ui-dual-copy"><strong>Tên công đoạn Trung</strong><span>工序中文</span></span></th>
                   <th class="ui-table-number-cell" data-ui-table-column="development"><span class="ui-dual-copy"><strong>Giây gốc</strong><span>開發原始秒數</span></span></th>
                   <th class="ui-table-number-cell" data-ui-table-column="official"><span class="ui-dual-copy"><strong>Giây chính thức</strong><span>目前正式秒數</span></span></th>
                   <th class="ui-table-number-cell" data-ui-table-column="capacity"><span class="ui-dual-copy"><strong>SL/giờ</strong><span>每小時產能</span></span></th>
@@ -187,7 +177,9 @@
     if(!host) return;
     if(!product){ host.replaceChildren(); return; }
     const group=store().groupForProduct(product.code);
-    host.innerHTML=`<span class="ui-dual-copy"><strong>${group?'Nhóm hiện tại':'Chưa có nhóm'}</strong><span>${group?'目前群組':'未加入群組'}</span></span><b>${safe(group?.name||'—')}</b><button type="button" class="ui-button is-compact" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>`;
+    host.innerHTML=group
+      ? `<span class="ui-dual-copy"><strong>Nhóm hiện tại</strong><span>目前群組</span></span><b>${safe(group.name||group.groupId)}</b><button type="button" class="ui-button is-compact" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>`
+      : `<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span><button type="button" class="ui-button is-compact" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>`;
   }
 
   function renderGroup(product){
@@ -230,9 +222,9 @@
       <td class="ui-table-center-cell" data-ui-table-column="order"><button type="button" class="process-edit-drag-handle" draggable="${canEdit()?'true':'false'}" aria-label="Kéo để đổi thứ tự / 拖曳調整順序" ${canEdit()?'':'disabled'}><i class="ti ti-grip-vertical"></i><b>${index+1}</b></button></td>
       <td data-ui-table-column="category"><select data-process-field="category" ${canEdit()?'':'disabled'}><option value="BL" ${operation.category==='BL'?'selected':''}>BL</option><option value="SX" ${operation.category==='SX'?'selected':''}>SX</option><option value="QC" ${operation.category==='QC'?'selected':''}>QC</option><option value="DG" ${operation.category==='DG'?'selected':''}>DG</option></select></td>
       <td data-ui-table-column="vi"><input type="text" maxlength="200" data-process-field="vi" value="${safe(operation.vi)}" ${canEdit()?'':'disabled'}></td>
-      <td data-ui-table-column="zh"><input type="text" maxlength="200" data-process-field="zh" value="${safe(operation.zh)}" ${canEdit()?'':'disabled'}></td>
+      <td class="is-column-hidden" data-ui-table-column="zh"><input type="text" maxlength="200" data-process-field="zh" value="${safe(operation.zh)}" ${canEdit()?'':'disabled'}></td>
       <td class="ui-table-number-cell" data-ui-table-column="development">${safe(developmentSeconds(product,operation.no))}</td>
-      <td class="ui-table-number-cell" data-ui-table-column="official"><input type="number" min="0.01" max="86400" step="0.01" data-process-field="sec" value="${safe(operation.sec)}" ${canEdit()?'':'disabled'}></td>
+      <td class="ui-table-number-cell" data-ui-table-column="official"><input type="number" min="1" max="86400" step="1" inputmode="numeric" data-process-field="sec" value="${safe(Math.round(Number(operation.sec)||0))}" ${canEdit()?'':'disabled'}></td>
       <td class="ui-table-number-cell" data-ui-table-column="capacity"><b>${hourlyCapacity(operation.sec)}</b></td>
       <td class="ui-table-center-cell" data-ui-table-column="action"><div class="process-edit-row-actions">
         <button type="button" data-process-action="delete" aria-label="Xóa / 刪除" class="is-danger" ${canEdit()?'':'disabled'}><i class="ti ti-trash"></i></button>
@@ -245,7 +237,7 @@
 
   function resetDraft(){
     const product=productByCode(state.currentCode);
-    state.draft=(product?.ops||[]).map(window.PCMSProductModel.normalizeOperation);
+    state.draft=normalizedOperations(product?.ops||[]);
     state.dirty=false;
     if(product) renderOperations(product);
   }
@@ -277,7 +269,7 @@
     state.currentCode=product.code;
     state.applyMode='current';
     state.selectedTargets=new Set([product.code]);
-    state.draft=(product.ops||[]).map(window.PCMSProductModel.normalizeOperation);
+    state.draft=normalizedOperations(product.ops||[]);
     state.dirty=false;
     const input=document.getElementById('process-edit-product-input');
     if(input) input.value=product.code;
@@ -287,7 +279,6 @@
     renderSummary(product);
     renderGroup(product);
     renderOperations(product);
-    fillOperationOptions(product);
     return true;
   }
 
@@ -309,30 +300,97 @@
     renderOperations(productByCode(state.currentCode));
   }
 
-  function addOperation(){
+  async function addOperation(){
     const next=state.draft.length+1;
     if(next>99){ setStatus({vi:'Tối đa 99 công đoạn.',zh:'最多99道工序。'},'warning'); return; }
-    state.draft.push({no:String(next),category:'SX',vi:'',zh:'',sec:1});
+    const value=await ui().promptDialog({
+      title:{vi:'Chèn công đoạn mới',zh:'插入新工序'},
+      label:{vi:`Vị trí chèn (1–${next})`,zh:`插入順序（1～${next}）`},
+      type:'number',value:String(next),
+      validate:(input,control)=>{
+        const position=Number(input);
+        const valid=Number.isInteger(position)&&position>=1&&position<=next;
+        control.min='1';control.max=String(next);control.step='1';
+        control.setCustomValidity(valid?'':'Vị trí phải là số nguyên trong phạm vi. / 順序必須是範圍內的整數。');
+        if(!valid) control.reportValidity();
+        return valid;
+      }
+    });
+    if(value===null) return;
+    const position=Number(value);
+    state.draft.splice(position-1,0,{no:String(position),category:'SX',vi:'',zh:'',sec:1});
+    state.draft.forEach((item,index)=>{ item.no=String(index+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
+    requestAnimationFrame(()=>document.querySelector(`#process-edit-table-body [data-process-index="${position-1}"] [data-process-field="vi"]`)?.focus());
+  }
+
+  function normalizedOperations(value){
+    return (Array.isArray(value)?value:[]).map(window.PCMSProductModel.normalizeOperation)
+      .map(item=>({...item,sec:Math.round(Number(item.sec)||0)}));
+  }
+
+  function operationsEqual(left,right){
+    const before=normalizedOperations(left);
+    const after=normalizedOperations(right);
+    return before.length===after.length&&before.every((item,index)=>{
+      const next=after[index];
+      return next&&item.no===next.no&&item.category===next.category&&item.vi===next.vi&&item.zh===next.zh&&item.sec===next.sec;
+    });
+  }
+
+  function operationChangeLines(beforeValue,afterValue){
+    const before=normalizedOperations(beforeValue);
+    const after=normalizedOperations(afterValue);
+    const lines=[];
+    if(after.length>before.length) lines.push(`+ ${after.length-before.length} công đoạn / 新增 ${after.length-before.length} 道工序`);
+    if(before.length>after.length) lines.push(`− ${before.length-after.length} công đoạn / 刪除 ${before.length-after.length} 道工序`);
+    const beforeOrder=before.map(item=>`${item.category}|${item.vi}|${item.zh}|${item.sec}`);
+    const afterOrder=after.map(item=>`${item.category}|${item.vi}|${item.zh}|${item.sec}`);
+    if(beforeOrder.length===afterOrder.length
+      &&beforeOrder.slice().sort().join('\n')===afterOrder.slice().sort().join('\n')
+      &&beforeOrder.join('\n')!==afterOrder.join('\n')) lines.push('Đã đổi thứ tự / 已調整順序');
+    const fieldNames={category:'Phân loại / 分類',vi:'Tên Việt / 越文名稱',zh:'Tên Trung / 中文名稱',sec:'Giây / 秒數'};
+    for(let index=0;index<Math.min(before.length,after.length);index++){
+      ['category','vi','zh','sec'].forEach(field=>{
+        if(before[index][field]!==after[index][field]) lines.push(`#${index+1} ${fieldNames[field]}: ${before[index][field]||'—'} → ${after[index][field]||'—'}`);
+      });
+    }
+    return lines;
+  }
+
+  function officialChangeSummary(targetCodes,operations,orders){
+    const body=document.createElement('div');
+    body.className='process-edit-change-summary';
+    const orderLabels=orders.map(item=>item.orderId||item.id);
+    const productSections=targetCodes.map(code=>{
+      const lines=operationChangeLines(productByCode(code)?.ops,operations);
+      return `<section><b>${safe(code)}</b><ul>${lines.map(line=>`<li>${safe(line)}</li>`).join('')}</ul></section>`;
+    }).join('');
+    body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Kiểm tra nội dung thay đổi trước khi lưu.</strong><span>儲存前請確認實際修改內容。</span></span></div>
+      <div class="process-edit-change-products">${productSections}</div>
+      <dl><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>Giữ ảnh chụp cũ</strong><span>保留原快照</span></span></dd></div></dl>`;
+    return body;
   }
 
   async function saveOfficial(){
     if(!canEdit()){ setStatus({vi:'Bạn không có quyền nhạy cảm để sửa tiêu chuẩn chính thức.',zh:'你沒有修改正式工序標準的敏感權限。'},'warning');return; }
     const reason='Cập nhật công đoạn chính thức / 更新正式工序';
-    const targetCodes=[...state.selectedTargets];
+    const selectedCodes=[...state.selectedTargets];
     let operations;
     try{ operations=store().validateOperations(state.draft); }
     catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
+    const targetCodes=selectedCodes.filter(code=>!operationsEqual(productByCode(code)?.ops,operations));
+    if(!targetCodes.length){
+      setStatus({vi:'Không có thay đổi; hệ thống không lưu phiên bản và không đồng bộ đơn hàng.',zh:'內容完全相同，未建立版本、未寫入資料，也未同步訂單。'},'info');
+      return;
+    }
     let orders=[];
     try{ orders=await store().activeOrdersForProducts(targetCodes); }
     catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
     const confirmed=await ui().confirmDialog({
       title:{vi:'Xác nhận sửa tiêu chuẩn chính thức',zh:'確認修改正式標準'},
-      message:{
-        vi:`Sẽ cập nhật ${operations.length} công đoạn cho ${targetCodes.length} mã: ${targetCodes.join(', ')}; đồng thời tự động đồng bộ ${orders.length} đơn hàng đang sản xuất. Dữ liệu sản lượng lịch sử vẫn giữ ảnh chụp cũ.`,
-        zh:`將把 ${operations.length} 道工序套用到 ${targetCodes.length} 個款號：${targetCodes.join(', ')}，並自動同步 ${orders.length} 張生產中訂單；歷史產能仍保留原快照。`
-      },
+      body:officialChangeSummary(targetCodes,operations,orders),size:'large',
       confirmText:{vi:'Xác nhận sửa',zh:'確認修改'},cancelText:{vi:'Hủy',zh:'取消'},kind:'warning'
     });
     if(!confirmed) return;
@@ -447,10 +505,6 @@
       fillProductOptions();
     });
     document.getElementById('process-edit-history-button')?.addEventListener('click',openVersionHistory);
-    document.getElementById('process-edit-operation-number')?.addEventListener('change',event=>focusOperation(event.currentTarget.value,'no'));
-    document.getElementById('process-edit-operation-name')?.addEventListener('change',event=>focusOperation(event.currentTarget.value,'vi'));
-    document.getElementById('process-edit-operation-number')?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault();focusOperation(event.currentTarget.value,'no'); } });
-    document.getElementById('process-edit-operation-name')?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault();focusOperation(event.currentTarget.value,'vi'); } });
     document.getElementById('process-edit-add-button')?.addEventListener('click',addOperation);
     document.getElementById('process-edit-reset-button')?.addEventListener('click',resetDraft);
     document.getElementById('process-edit-save-button')?.addEventListener('click',saveOfficial);
@@ -459,7 +513,14 @@
       const row=event.target?.closest?.('[data-process-index]');
       if(!field||!row) return;
       const index=Number(row.dataset.processIndex);
-      state.draft[index][field]=field==='sec'?Number(event.target.value):event.target.value;
+      if(field==='sec'){
+        const value=Number(event.target.value);
+        if(Number.isFinite(value)&&event.target.value!==''){
+          const rounded=Math.max(1,Math.min(86400,Math.round(value)));
+          event.target.value=String(rounded);
+          state.draft[index][field]=rounded;
+        }else state.draft[index][field]=value;
+      }else state.draft[index][field]=event.target.value;
       markDirty();
       if(field==='sec') row.querySelector('[data-ui-table-column="capacity"] b').textContent=String(hourlyCapacity(event.target.value));
     });
@@ -535,7 +596,7 @@
       await selectProduct(pending.code,{force:true});
       const seconds=Number(pending.recommendedSeconds);
       const operation=state.draft.find(item=>String(item.no)===String(pending.processNo));
-      if(operation&&seconds>0){ operation.sec=seconds; markDirty(); renderOperations(productByCode(state.currentCode)); }
+      if(operation&&seconds>0){ operation.sec=Math.round(seconds); markDirty(); renderOperations(productByCode(state.currentCode)); }
       window.PCMSPendingProcessEditContext=null;
     }else if(state.currentCode){
       await selectProduct(state.currentCode,{force:true});

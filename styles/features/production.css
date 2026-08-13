@@ -44,7 +44,7 @@
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-  grid-template-columns: minmax(210px, 1.15fr) minmax(150px, 1fr) minmax(110px, .7fr) minmax(150px, .9fr) minmax(68px, 86px);
+  grid-template-columns: minmax(210px, 1.15fr) minmax(150px, 1fr) minmax(110px, .7fr) minmax(150px, .9fr) minmax(104px, .68fr) minmax(68px, 86px);
   gap: clamp(4px, .65vw, 12px);
   align-items: center;
   margin: 0;
@@ -100,6 +100,52 @@
 
 .production-supplement-help .ui-dual-copy span {
   font-size: 9px;
+}
+
+.production-anomaly-filter-card {
+  display: grid;
+  min-width: 0;
+  min-height: 40px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-muted);
+  color: var(--ui-color-text-muted);
+  cursor: default;
+  font: inherit;
+}
+
+.production-anomaly-filter-card .ui-dual-copy {
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.08;
+}
+
+.production-anomaly-filter-card > b {
+  min-width: 22px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.production-anomaly-filter-card.has-anomaly {
+  border-color: var(--ui-color-warning-border);
+  background: var(--ui-color-warning-background);
+  color: var(--ui-color-warning-text);
+  cursor: pointer;
+}
+
+.production-anomaly-filter-card.has-anomaly:hover,
+.production-anomaly-filter-card.has-anomaly:focus-visible,
+.production-anomaly-filter-card.has-anomaly[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-color-warning-border) 44%, transparent);
+  outline: none;
+}
+
+.production-anomaly-filter-card:disabled {
+  opacity: 1;
 }
 
 .production-employee-inline-field {
@@ -749,6 +795,37 @@
   table-layout: fixed;
 }
 
+.production-anomaly-panel {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: var(--ui-space-2);
+}
+
+.production-anomaly-panel[hidden],
+.production-data-section[hidden] {
+  display: none !important;
+}
+
+.production-anomaly-panel .ui-section-header > b {
+  margin-left: auto;
+  color: var(--ui-color-warning-text);
+}
+
+.production-anomaly-table {
+  min-width: 760px;
+}
+
+.production-anomaly-table th:nth-child(1) { width: 120px; }
+.production-anomaly-table th:nth-child(2) { width: 260px; }
+.production-anomaly-table th:nth-child(3) { width: 180px; }
+.production-anomaly-table th:nth-child(5) { width: 170px; }
+
+.production-anomaly-status-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+
 .production-entry-table [data-production-column] {
   box-sizing: border-box;
 }
@@ -964,6 +1041,13 @@
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   white-space: nowrap;
+  cursor: pointer;
+  font: inherit;
+}
+
+.production-efficiency-badge:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
 }
 
 .production-efficiency-badge.is-low {
@@ -1040,37 +1124,6 @@
 
 .production-employee-detail-cell {
   padding-block: 6px;
-}
-
-.production-employee-detail-button {
-  display: block;
-  width: 100%;
-  min-width: 0;
-  min-height: 40px;
-  box-sizing: border-box;
-  overflow: hidden;
-  padding: 7px 10px;
-  border: 1px dashed color-mix(in srgb, var(--ui-color-primary) 72%, var(--ui-color-border));
-  border-radius: var(--ui-radius-control);
-  background: color-mix(in srgb, var(--ui-color-primary-soft) 68%, transparent);
-  color: var(--ui-color-primary);
-  backdrop-filter: blur(5px) saturate(115%);
-  cursor: pointer;
-  font: inherit;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: border-color var(--ui-motion-fast), background var(--ui-motion-fast), box-shadow var(--ui-motion-fast);
-}
-
-.production-employee-detail-button:hover,
-.production-employee-detail-button:focus-visible {
-  border-color: var(--ui-color-primary);
-  background: var(--ui-color-primary-soft);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--ui-color-primary) 14%, transparent);
-  outline: none;
 }
 
 .production-date-badge strong {
@@ -1315,6 +1368,15 @@
 .production-status.is-pending {
   background: var(--ui-color-primary-soft);
   color: var(--ui-color-primary);
+}
+
+.production-status.is-navigable {
+  cursor: pointer;
+}
+
+.production-status.is-navigable:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
 }
 
 .production-row-actions {

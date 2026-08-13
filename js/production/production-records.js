@@ -135,6 +135,26 @@
         const supplement = item.recordType === 'supplement' || String(item.processNo || '') === '0';
         return total+(supplement ? Number(item.supplementHours || 0) : 0);
       },0);
+      const invalidContexts=group.entries.filter(item=>{
+        if(item?.status!=='active'||item.recordType==='supplement'||String(item.processNo||'')==='0') return false;
+        const quantity=Number(item.quantity);
+        const capacity=Number(item.hourlyCapacitySnapshot);
+        return Number.isFinite(quantity)&&quantity>0&&!(Number.isFinite(capacity)&&capacity>0);
+      }).map(item=>({
+        orderId:String(item.orderId||''),
+        orderNo:String(item.orderNo||''),
+        code:String(item.productCode||item.code||''),
+        processNo:String(item.processNo||'')
+      }));
+      const hasProduction=group.entries.some(item=>item?.status==='active'
+        &&item.recordType!=='supplement'&&String(item.processNo||'')!=='0'&&Number(item.quantity)>0);
+      const attendanceHours=group.attendance
+        ? Number(group.attendance.normalHours||0)+Number(group.attendance.overtimeHours||0)
+        : null;
+      const attendanceStatus=!group.attendance
+        ? (hasProduction?'missing-attendance':'')
+        : (hasProduction&&attendanceHours<=0?'invalid-attendance':'');
+      const contextSource=invalidContexts[0]||group.entries[0]||null;
       return {
         productionDate:group.productionDate,
         employeeId:group.employeeId,
@@ -145,7 +165,15 @@
         standardHours:result.standardHours,
         supplementHours,
         percentage:result.percentage,
-        status:result.status
+        status:result.status,
+        attendanceStatus,
+        invalidContexts,
+        context:contextSource?{
+          orderId:String(contextSource.orderId||''),
+          orderNo:String(contextSource.orderNo||''),
+          code:String(contextSource.productCode||contextSource.code||''),
+          processNo:String(contextSource.processNo||'')
+        }:null
       };
     }).sort((left,right)=>String(right.productionDate).localeCompare(String(left.productionDate))
       || String(left.employeeId).localeCompare(String(right.employeeId),'en',{numeric:true,sensitivity:'base'}));
@@ -172,15 +200,18 @@
     return cell;
   }
 
-  function addEfficiencyCell(row,value){
-    const percentage=Number(value);
+  function addEfficiencyCell(row,item){
+    const percentage=Number(item.percentage);
     const cell=document.createElement('td');
     cell.className='production-number-cell production-efficiency-cell';
     if(Number.isFinite(percentage)){
       cell.dataset.uiTableSortValue=String(percentage);
-      const badge=document.createElement('span');
+      const badge=document.createElement('button');
+      badge.type='button';
       badge.className=`production-efficiency-badge ${percentage<70?'is-low':percentage<=100?'is-standard':'is-high'}`;
       badge.textContent=percentageText(percentage);
+      badge.title='Mở chi tiết công đoạn / 開啟工序明細';
+      badge.addEventListener('click',()=>void openEmployeeRegistration(item));
       cell.appendChild(badge);
     }else cell.textContent='—';
     row.appendChild(cell);
@@ -211,14 +242,7 @@
     const cell = document.createElement('td');
     cell.className = 'production-record-text-cell production-employee-detail-cell';
     cell.dataset.uiTableSortValue = String(item.employeeName || '');
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'production-employee-detail-button';
-    button.textContent = String(item.employeeName || '—');
-    button.title = 'Mở chi tiết công đoạn của nhân viên / 開啟員工工序明細';
-    button.setAttribute('aria-label',`${item.employeeName || item.employeeId} · ${dateText(item.productionDate)} · Mở chi tiết công đoạn / 開啟工序明細`);
-    button.addEventListener('click',()=>void openEmployeeRegistration(item));
-    cell.appendChild(button);
+    cell.textContent = String(item.employeeName || '—');
     row.appendChild(cell);
   }
 
@@ -245,7 +269,28 @@
       zh.textContent = '考勤未登記';
     }
     badge.append(vi,zh);
+    if(item.status!=='ready'){
+      badge.classList.add('is-navigable');
+      badge.tabIndex=0;
+      badge.setAttribute('role','button');
+      badge.title=item.status==='invalid-capacity'
+        ? 'Bổ sung dữ liệu công đoạn / 補充工序資料'
+        : 'Bổ sung dữ liệu chấm công / 補充考勤資料';
+      const open=()=>void openAbnormalDetail(item);
+      badge.addEventListener('click',open);
+      badge.addEventListener('keydown',event=>{ if(event.key==='Enter'||event.key===' '){ event.preventDefault();open(); } });
+    }
     return badge;
+  }
+
+  async function openAbnormalDetail(item){
+    if(item.status==='invalid-capacity') return openEmployeeRegistration(item);
+    if(typeof window.canOpenPage==='function'&&!window.canOpenPage('production-attendance')) return;
+    try{
+      await window.PCMSFeatures?.ensurePageScripts?.('production-attendance');
+      window.PCMSProductionAttendancePage?.setPendingContext?.({employeeId:item.employeeId,attendanceDate:item.productionDate});
+      if(typeof window.sp==='function') await window.sp('production-attendance');
+    }catch(error){ await showError(error); }
   }
 
   async function openEmployeeRegistration(item){
@@ -254,7 +299,11 @@
       await window.PCMSFeatures?.ensurePageScripts?.('production-entry');
       window.PCMSProductionEntry?.setPendingContext?.({
         employeeId:item.employeeId,
-        productionDate:item.productionDate
+        productionDate:item.productionDate,
+        orderId:item.context?.orderId,
+        orderNo:item.context?.orderNo,
+        code:item.context?.code,
+        processNo:item.context?.processNo
       });
       if(typeof window.sp === 'function') await window.sp('production-entry');
     }catch(error){ await showError(error); }
@@ -275,7 +324,7 @@
       addTextCell(row,item.workedHours == null ? '—' : hoursText(item.workedHours),'production-number-cell',item.workedHours ?? '');
       addTextCell(row,hoursText(item.standardHours),'production-number-cell',item.standardHours);
       addTextCell(row,hoursText(item.supplementHours),'production-number-cell',item.supplementHours);
-      addEfficiencyCell(row,item.percentage);
+      addEfficiencyCell(row,item);
       addTextCell(row,'—','production-number-cell production-bonus-cell');
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
@@ -319,6 +368,15 @@
         if(searchButton) searchButton.disabled = false;
       }
     }
+  }
+
+  async function loadPerformanceRange(from,to){
+    const dates=rangeDates(from,to);
+    const [entries,...attendanceDays]=await Promise.all([
+      window.PCMSProductionReports.loadRange(from,to,{activeOnly:true}),
+      ...dates.map(date=>window.PCMSProductionAttendance.loadDay(date))
+    ]);
+    return aggregatePerformance(entries,new Map(dates.map((date,index)=>[date,attendanceDays[index]])));
   }
 
   function clearFilters(){
@@ -373,4 +431,5 @@
   window.loadProductionRecordsData = loadProductionRecordsData;
   window.productionRecordsInit = productionRecordsInit;
   window.productionRecordsLeave = productionRecordsLeave;
+  window.PCMSProductionPerformance=Object.freeze({aggregatePerformance,loadPerformanceRange});
 })();

@@ -129,19 +129,78 @@
     const members=groupMembers(group);
     const sizeCount=groupUI().groupBySize(members).length;
     const confirmed=await ui().confirmDialog({
-      title:{vi:'Xác nhận xóa nhóm',zh:'確認刪除群組'},kind:'warning',
+      title:{vi:'Xác nhận xóa vĩnh viễn nhóm',zh:'確認永久刪除群組'},kind:'danger',
       message:{
-        vi:`Xóa quan hệ nhóm “${group.name||group.groupId}” của khách ${groupClient(group)}; gồm ${sizeCount} nhóm kích thước và ${members.length} mã. Mã hàng, công đoạn và đơn hàng không bị xóa.`,
-        zh:`將刪除客人 ${groupClient(group)} 的群組「${group.name||group.groupId}」關係，共 ${sizeCount} 個尺寸群組、${members.length} 個款號；款號、工序與訂單資料不會刪除。`
+        vi:`Sẽ xóa sạch nhóm “${group.name||group.groupId}” và ${members.length} chỉ mục thành viên trong Firebase; gồm ${sizeCount} nhóm kích thước. Mã hàng, công đoạn, giây, đơn hàng và sản lượng không bị xóa.`,
+        zh:`將從 Firebase（雲端資料庫）完整刪除群組「${group.name||group.groupId}」及 ${members.length} 筆成員索引，共 ${sizeCount} 個尺寸群組；款號、工序、秒數、訂單與產能資料不會刪除。`
       },
-      confirmText:{vi:'Xóa quan hệ nhóm',zh:'刪除群組關係'},cancelText:{vi:'Hủy',zh:'取消'}
+      confirmText:{vi:'Tiếp tục xóa',zh:'繼續刪除'},cancelText:{vi:'Hủy',zh:'取消'}
     });
     if(!confirmed) return;
+    const finalConfirmed=await ui().confirmDialog({
+      title:{vi:'Không thể khôi phục sau khi xóa',zh:'刪除後無法復原'},kind:'danger',
+      message:{
+        vi:`Xác nhận xóa vĩnh viễn nhóm “${group.name||group.groupId}”? Nhật ký thao tác vẫn được giữ.`,
+        zh:`確定永久刪除群組「${group.name||group.groupId}」？不可修改的操作紀錄仍會保留。`
+      },
+      confirmText:{vi:'Xóa vĩnh viễn',zh:'永久刪除'},cancelText:{vi:'Quay lại',zh:'返回'}
+    });
+    if(!finalConfirmed) return;
     try{
-      const result=await store().deactivateGroup(group.groupId);
+      await store().deleteGroup(group.groupId);
       renderGroupList();
-      setStatus(result.logSaved?{vi:'Đã xóa quan hệ nhóm.',zh:'群組關係已刪除。'}:{vi:'Đã xóa nhóm nhưng nhật ký lưu thất bại.',zh:'群組已刪除，但操作紀錄保存失敗。'},result.logSaved?'success':'warning');
+      setStatus({vi:'Đã xóa vĩnh viễn nhóm và chỉ mục thành viên.',zh:'群組及成員索引已永久刪除。'},'success');
     }catch(error){ setStatus(textApi().errorPair(error),'danger'); }
+  }
+
+  async function renameGroup(group,onRenamed){
+    const previousName=normalize(group.name||group.groupId);
+    const value=await new Promise(resolve=>{
+      let settled=false;
+      const field=document.createElement('label');
+      field.className='ui-dialog-field';
+      field.appendChild(textApi().create({vi:'Tên nhóm mới',zh:'新群組名稱'}));
+      const input=document.createElement('input');
+      input.type='text';input.maxLength=200;input.value=previousName;
+      field.appendChild(input);
+      ui().openDialog({
+        title:{vi:'Đổi tên nhóm',zh:'修改群組名稱'},body:field,keepPrevious:true,
+        actions:[
+          {text:{vi:'Hủy',zh:'取消'},onClick:()=>{ settled=true;resolve(null); }},
+          {text:{vi:'Tiếp tục',zh:'繼續'},kind:'primary',onClick:()=>{
+            const name=normalize(input.value);
+            const duplicate=store().listGroups().some(item=>item.groupId!==group.groupId
+              &&groupClient(item)===groupClient(group)
+              &&normalize(item.name||item.groupId).toLocaleLowerCase()===name.toLocaleLowerCase());
+            input.setCustomValidity(!name?'Vui lòng nhập tên nhóm. / 請輸入群組名稱。':duplicate?'Tên nhóm của khách hàng này đã tồn tại. / 此客人的群組名稱已存在。':'');
+            if(!input.checkValidity()){ input.reportValidity();return false; }
+            settled=true;resolve(input.value);return true;
+          }}
+        ],
+        onClose:()=>{ if(!settled) resolve(null); }
+      });
+      setTimeout(()=>{ input.focus();input.select(); },0);
+    });
+    if(value===null) return false;
+    const nextName=normalize(value);
+    if(nextName===previousName){
+      await ui().alertDialog({message:{vi:'Tên nhóm không thay đổi.',zh:'群組名稱沒有變更。'},kind:'info',keepPrevious:true});
+      return false;
+    }
+    const confirmed=await ui().confirmDialog({
+      title:{vi:'Xác nhận đổi tên nhóm',zh:'確認修改群組名稱'},keepPrevious:true,
+      message:{vi:`${previousName} → ${nextName}`,zh:`${previousName} → ${nextName}`},
+      confirmText:{vi:'Lưu tên mới',zh:'儲存新名稱'},cancelText:{vi:'Quay lại',zh:'返回'}
+    });
+    if(!confirmed) return false;
+    const result=await store().renameGroup({groupId:group.groupId,name:nextName});
+    if(result.changed){
+      group.name=result.name;
+      renderGroupList();
+      onRenamed?.(result.name);
+      ui().showToast({kind:'success',text:{vi:'Đã đổi tên nhóm.',zh:'群組名稱已修改。'}});
+    }
+    return result.changed;
   }
 
   function groupDetailCandidates(group,members){
@@ -198,7 +257,7 @@
     const members=groupMembers(group);
     const body=document.createElement('div');
     body.className='product-group-detail-dialog';
-    body.innerHTML=`<div class="product-group-detail-heading"><span><span class="ui-dual-copy"><strong>Khách hàng:</strong><span>客人：</span></span><b>${safe(groupClient(group))}</b></span><span><span class="ui-dual-copy"><strong>Tên nhóm:</strong><span>群組名稱：</span></span><b>${safe(group.name||group.groupId)}</b></span><button type="button" class="ui-button is-primary" data-product-group-add><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm mã hàng</strong><span>新增款號</span></span></button></div><div data-product-group-detail-selector></div>`;
+    body.innerHTML=`<div class="product-group-detail-heading"><span><span class="ui-dual-copy"><strong>Khách hàng:</strong><span>客人：</span></span><b>${safe(groupClient(group))}</b></span><button type="button" class="product-group-detail-name" data-product-group-rename><span class="ui-dual-copy"><strong>Tên nhóm:</strong><span>群組名稱：</span></span><b data-product-group-name>${safe(group.name||group.groupId)}</b><i class="ti ti-edit"></i></button><button type="button" class="ui-button is-primary" data-product-group-add><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm mã hàng</strong><span>新增款號</span></span></button></div><div data-product-group-detail-selector></div>`;
     const selectorHost=body.querySelector('[data-product-group-detail-selector]');
     let detailProducts=members.slice();
     let selectedCodes=members.map(item=>item.code);
@@ -210,6 +269,10 @@
       selectorHost.replaceChildren(selector.element);
     }
     renderSelector();
+    body.querySelector('[data-product-group-rename]').addEventListener('click',()=>void renameGroup(group,name=>{
+      const host=body.querySelector('[data-product-group-name]');
+      if(host) host.textContent=name;
+    }));
     body.querySelector('[data-product-group-add]').addEventListener('click',()=>openAddProducts(group,detailProducts,added=>{
       selectedCodes=selector.selectedCodes();
       added.forEach(item=>{ if(!detailProducts.some(row=>normalize(row.code)===normalize(item.code))) detailProducts.push(item);selectedCodes.push(item.code); });

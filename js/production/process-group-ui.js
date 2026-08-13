@@ -83,7 +83,7 @@
         </div>
         <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-size-member-table">
           <thead><tr>
-            ${selectable?`<th class="ui-table-center-cell is-select"><button type="button" class="process-size-select-heading${selection.partial?' is-partial':''}" data-process-select-all aria-pressed="${selection.all?'true':'false'}"><i class="ti ${selection.all?'ti-checkbox':'ti-square'}"></i><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></button></th>`:''}
+            ${selectable?`<th class="ui-table-center-cell is-select"><button type="button" class="process-size-select-heading${selection.partial?' is-partial':''}" data-process-select-all aria-pressed="${selection.all?'true':'false'}"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></button></th>`:''}
             <th class="is-client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th>
             <th class="is-code"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
             <th class="is-zh"><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th>
@@ -98,7 +98,7 @@
             return `<tr class="${code===normalize(options.currentCode)?'is-current':''}">
               ${selectable?`<td class="ui-table-center-cell"><input type="checkbox" data-process-member="${safeAttribute(code)}" ${selected.has(code)?'checked':''} ${required.has(code)?'disabled':''} aria-label="${safeAttribute(code)}"></td>`:''}
               <td title="${safeAttribute(product.client||'—')}">${safe(product.client||'—')}</td><td title="${safeAttribute(code)}"><b>${safe(code)}</b></td><td title="${safeAttribute(product.zh||'—')}">${safe(product.zh||'—')}</td><td title="${safeAttribute(product.vi||'—')}">${safe(product.vi||'—')}</td><td title="${safeAttribute(product.sz||'—')}">${safe(product.sz||'—')}</td>
-              ${showSeconds?`<td class="ui-table-number-cell"><b>${operation&&Number(operation.sec)>0?safe(Number(operation.sec)):'—'}</b></td>`:''}
+              ${showSeconds?`<td class="ui-table-number-cell"><b>${operation&&Number(operation.sec)>0?safe(Math.round(Number(operation.sec))):'—'}</b></td>`:''}
               ${showAction?`<td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-process-member-edit="${safeAttribute(code)}"><i class="ti ti-edit"></i><span class="ui-dual-copy"><strong>Sửa công đoạn</strong><span>修改工序</span></span></button></td>`:''}
             </tr>`;
           }).join('')}</tbody>

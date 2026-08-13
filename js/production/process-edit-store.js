@@ -7,6 +7,7 @@
   const ORDER_COLLECTION='orders';
   const ORDER_PROCESS_COLLECTION='orderProcesses';
   const EDIT_JOB_COLLECTION='processEditJobs';
+  const LOG_COLLECTION='operationLogs';
   const ALLOWED_CATEGORIES=new Set(['BL','SX','QC','DG']);
   let groups=[];
   let loaded=false;
@@ -27,6 +28,15 @@
   }
 
   function cloneGroup(group){ return {...group,memberCodes:[...(group.memberCodes||[])]}; }
+
+  function operationLogData({action,itemCount=0,detailCount=0,note=''}){
+    const userId=currentUserId();
+    return {
+      permissionKey:'productionProcessEdit',feature:'productionProcessEdit',action,status:'success',
+      createdAt:Date.now(),createdByUid:userId,createdBy:(currentUserName()||userId).slice(0,200),
+      itemCount,detailCount,note:String(note||'').slice(0,500)
+    };
+  }
 
   async function loadGroups(options={}){
     if(loaded&&options.force!==true) return groups.map(cloneGroup);
@@ -170,16 +180,48 @@
     return {group:cloneGroup(current),added,removed,changed:true,logSaved};
   }
 
-  // deactivateGroup（停用群組）：保留群組稽核資料，只清空成員與唯一群組索引。
-  async function deactivateGroup(groupId){
+  // renameGroup（修改群組名稱）：只修改顯示名稱，群組身分、成員及產品資料不變。
+  async function renameGroup(input={}){
+    const groupId=normalizeCode(input.groupId);
+    const nextName=String(input.name||'').trim();
+    const current=groups.find(item=>item.groupId===groupId);
+    if(!current) throw new Error('Không tìm thấy nhóm cần đổi tên. / 找不到要改名的群組。');
+    if(!nextName||nextName.length>200) throw new Error('Tên nhóm phải từ 1 đến 200 ký tự. / 群組名稱須為1～200字。');
+    const previousName=String(current.name||current.groupId);
+    if(nextName===previousName) return {group:cloneGroup(current),changed:false};
+    const userId=currentUserId();
+    if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
+    const now=Date.now();
+    const groupReference=window._docRef(GROUP_COLLECTION,groupId);
+    const logReference=window._newDocRef(LOG_COLLECTION);
+    await window._runTransaction(async transaction=>{
+      const snapshot=await transaction.get(groupReference);
+      if(!snapshot.exists()||snapshot.data().active===false) throw new Error('Nhóm không còn hiệu lực. / 群組已不存在或停用。');
+      if(String(snapshot.data().name||snapshot.id)!==previousName){
+        throw new Error('Tên nhóm đã được người khác cập nhật; vui lòng mở lại. / 群組名稱已由其他人修改，請重新開啟。');
+      }
+      transaction.update(groupReference,{name:nextName,updatedAt:now,updatedByUid:userId});
+      transaction.set(logReference,operationLogData({
+        action:'productGroupRename',itemCount:1,detailCount:1,
+        note:`${groupId}｜${previousName} → ${nextName}`
+      }));
+    });
+    current.name=nextName;
+    current.updatedAt=now;
+    current.updatedByUid=userId;
+    return {group:cloneGroup(current),previousName,name:nextName,changed:true};
+  }
+
+  // deleteGroup（永久刪除群組）：同一交易刪除群組、成員索引並建立不可修改的操作紀錄。
+  async function deleteGroup(groupId){
     const targetId=normalizeCode(groupId);
     const current=groups.find(item=>item.groupId===targetId);
     if(!current) throw new Error('Không tìm thấy nhóm cần xóa. / 找不到要刪除的群組。');
     const previousCodes=[...new Set((current.memberCodes||[]).map(normalizeCode).filter(Boolean))];
     const userId=currentUserId();
     if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
-    const now=Date.now();
     const groupReference=window._docRef(GROUP_COLLECTION,targetId);
+    const logReference=window._newDocRef(LOG_COLLECTION);
     await window._runTransaction(async transaction=>{
       const snapshot=await transaction.get(groupReference);
       if(!snapshot.exists()||snapshot.data().active===false) throw new Error('Nhóm không còn hiệu lực. / 群組已不存在或停用。');
@@ -194,19 +236,15 @@
           throw new Error(`Chỉ mục nhóm của mã ${code} không khớp. / 款號 ${code} 的群組索引不一致。`);
         }
       }
-      transaction.update(groupReference,{active:false,memberCodes:[],updatedAt:now,updatedByUid:userId});
       previousCodes.forEach(code=>transaction.delete(window._docRef(MEMBER_COLLECTION,memberDocumentId(code))));
+      transaction.delete(groupReference);
+      transaction.set(logReference,operationLogData({
+        action:'productGroupDelete',itemCount:previousCodes.length,detailCount:previousCodes.length+1,
+        note:`${targetId}｜${current.name||targetId}｜${previousCodes.join(', ')}`
+      }));
     });
     groups=groups.filter(item=>item.groupId!==targetId);
-    let logSaved=true;
-    try{
-      const result=await window.saveOperationLogToFB?.({
-        permissionKey:'productionProcessEdit',feature:'productionProcessEdit',action:'productGroupDelete',status:'success',
-        itemCount:previousCodes.length,detailCount:0,note:`${targetId}｜${current.name||targetId}`
-      });
-      logSaved=result!==false;
-    }catch(error){ logSaved=false; console.error('Không thể lưu lịch sử xóa nhóm / 無法保存群組刪除紀錄',error); }
-    return {group:cloneGroup(current),memberCodes:previousCodes,logSaved};
+    return {group:cloneGroup(current),memberCodes:previousCodes,logSaved:true};
   }
 
   function validateOperations(operations){
@@ -219,7 +257,7 @@
       if(operation.no!==expected) throw new Error(`Số công đoạn phải liên tục từ 1; thiếu hoặc trùng số ${expected}. / 工序號必須從1連續排列，缺少或重複 ${expected}。`);
       if(!ALLOWED_CATEGORIES.has(operation.category)) throw new Error(`Phân loại công đoạn ${expected} không hợp lệ. / 工序 ${expected} 的加工分類錯誤。`);
       if(!operation.vi||operation.vi.length>200||operation.zh.length>200) throw new Error(`Tên công đoạn ${expected} không hợp lệ. / 工序 ${expected} 的名稱不正確。`);
-      if(!(operation.sec>0&&operation.sec<=86400)) throw new Error(`Giây công đoạn ${expected} phải lớn hơn 0. / 工序 ${expected} 秒數必須大於0。`);
+      if(!(Number.isInteger(operation.sec)&&operation.sec>0&&operation.sec<=86400)) throw new Error(`Giây công đoạn ${expected} phải là số nguyên lớn hơn 0. / 工序 ${expected} 秒數必須是大於0的整數。`);
     });
     return normalized;
   }
@@ -271,7 +309,7 @@
     const reason=String(input.reason||'').trim();
     if(!targetCodes.length) throw new Error('Chưa chọn mã hàng cần áp dụng. / 尚未選擇要套用的款號。');
     if(!processNo) throw new Error('Thiếu số công đoạn. / 缺少工序號。');
-    if(!(seconds>0&&seconds<=86400)) throw new Error('Giây công đoạn phải lớn hơn 0. / 工序秒數必須大於0。');
+    if(!(Number.isInteger(seconds)&&seconds>0&&seconds<=86400)) throw new Error('Giây công đoạn phải là số nguyên lớn hơn 0. / 工序秒數必須是大於0的整數。');
     if(reason.length<2||reason.length>500) throw new Error('Vui lòng nhập lý do sửa từ 2 đến 500 ký tự. / 請填寫2至500字的修改原因。');
     const now=Date.now();
     const userName=currentUserName();
@@ -507,7 +545,7 @@
   function reset(){ groups=[]; loaded=false; loadPromise=null; orderRows=[];ordersLoaded=false;ordersPromise=null; }
 
   window.PCMSProcessEditStore=Object.freeze({
-    loadGroups,listGroups,groupForProduct,findCandidates,createGroup,updateGroupMembers,deactivateGroup,
+    loadGroups,listGroups,groupForProduct,findCandidates,createGroup,updateGroupMembers,renameGroup,deleteGroup,
     validateOperations,saveOfficialProcesses,saveOfficialSeconds,loadVersions,loadVersionSnapshot,
     loadOrders,activeOrdersForProducts,syncOrderSnapshot,retryOrderSnapshot,reset
   });
