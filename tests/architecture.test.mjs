@@ -235,6 +235,13 @@ test('裁帶操作區使用頁面捲動、可辨識結果框與內嵌側欄開�
   assert.match(style,/\.cutting-command-action\.is-primary:disabled \{/);
 });
 
+test('側邊導覽只保留畫面按鈕，不再使用反引號快捷鍵',()=>{
+  const html=read('index.html');
+  assert.match(html,/id="primary-sidebar-toggle"[\s\S]*?onclick="togglePrimarySidebar\(\)"/);
+  assert.doesNotMatch(html,/function handlePrimarySidebarShortcut/);
+  assert.doesNotMatch(html,/addEventListener\('keydown',handlePrimarySidebarShortcut\)/);
+});
+
 test('停用主要操作與全域拖曳提示維持可辨識及可讀狀態',()=>{
   const coreStyle=read('styles/ui-core.css'); // coreStyle（共用介面核心樣式）
   const cuttingStyle=read('styles/features/cutting.css'); // cuttingStyle（裁帶專屬樣式）

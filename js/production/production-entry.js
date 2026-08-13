@@ -685,23 +685,26 @@
   }
 
   function handleEntryTab(event,currentId){
-    if(event.key !== 'Tab') return;
+    const reverseShortcut=event.code === 'Backquote'
+      && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && !event.repeat;
+    if(event.key !== 'Tab' && !reverseShortcut) return;
+    const movingBackward=event.shiftKey || reverseShortcut;
     const employeeOptionsId=currentId === 'production-employee-input'
       ? 'production-employee-options'
       : (currentId === 'production-entry-employee-name-input' ? 'production-employee-name-options' : '');
-    if(!event.shiftKey && employeeOptionsId && String(element(currentId)?.value || '').trim() && !confirmEmployeeInput(employeeOptionsId)){
+    if(!movingBackward && employeeOptionsId && String(element(currentId)?.value || '').trim() && !confirmEmployeeInput(employeeOptionsId)){
       event.preventDefault();
       return;
     }
-    if(!event.shiftKey && currentId === 'production-order-input'){
+    if(!movingBackward && currentId === 'production-order-input'){
       const result=confirmOrderInput({focusNext:true});
       if(result!==true){ event.preventDefault(); return; }
     }
-    if(!event.shiftKey && currentId === 'production-product-input'){
+    if(!movingBackward && currentId === 'production-product-input'){
       const result=confirmProductInput({focusNext:true});
       if(result!==true){ event.preventDefault(); return; }
     }
-    if(!event.shiftKey && currentId === 'production-process-input'){
+    if(!movingBackward && currentId === 'production-process-input'){
       const result=confirmProcessInput({focusNext:true});
       if(result!==true){ event.preventDefault(); return; }
     }
@@ -709,8 +712,8 @@
     closeAllDropdowns();
     const inputIds = entryInputIds();
     const currentIndex = Math.max(0,inputIds.indexOf(currentId));
-    const offset = event.shiftKey ? -1 : 1;
-    const skipLinkedEmployeeName=!event.shiftKey && currentId === 'production-employee-input' && Boolean(state.employee);
+    const offset = movingBackward ? -1 : 1;
+    const skipLinkedEmployeeName=!movingBackward && currentId === 'production-employee-input' && Boolean(state.employee);
     const targetIndex = (currentIndex + offset + (skipLinkedEmployeeName ? 1 : 0) + inputIds.length) % inputIds.length;
     element(inputIds[targetIndex])?.focus({preventScroll:true});
   }

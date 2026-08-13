@@ -325,6 +325,10 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
   assert.doesNotMatch(entryPage,/addEventListener\('mouseleave'|function renderDropdown|function toggleDropdown/);
   assert.match(entryPage,/function confirmOrderInput\(options=\{\}\)/);
   assert.match(entryPage,/function confirmProductInput\(options=\{\}\)/);
+  assert.match(entryPage,/const reverseShortcut=event\.code === 'Backquote'/);
+  assert.match(entryPage,/if\(event\.key !== 'Tab' && !reverseShortcut\) return/);
+  assert.match(entryPage,/const movingBackward=event\.shiftKey \|\| reverseShortcut/);
+  assert.match(entryPage,/const offset = movingBackward \? -1 : 1/);
 });
 
 test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
@@ -455,7 +459,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260813-3'/);
   assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260812-1'/);
   assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260812-1'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260813-7'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260814-1'/);
   assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260813-2'/);
   assert.match(features,/productionAnomalyFilter:'js\/production\/production-anomaly-filter\.js\?v=20260813-1'/);
   assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260812-3'/);

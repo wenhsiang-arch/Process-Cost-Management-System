@@ -25,7 +25,7 @@
     productionEntryStore:'js/production/entry-store.js?v=20260813-3',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260814-1',
-    productionEntry:'js/production/production-entry.js?v=20260813-7',
+    productionEntry:'js/production/production-entry.js?v=20260814-1',
     productionRecords:'js/production/production-records.js?v=20260813-2',
     productionAnomalyFilter:'js/production/production-anomaly-filter.js?v=20260813-1',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
