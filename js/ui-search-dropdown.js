@@ -153,6 +153,7 @@
     let activeIndex = -1;
     let destroyed = false;
     let controller;
+    let selectAllOnClick = false; // selectAllOnClick（本次點擊是否全選）：第一次點擊方便直接取代，再次點擊可放置游標。
 
     const listen = (target,type,handler,settings)=>{
       target.addEventListener(type,handler,settings);
@@ -262,6 +263,20 @@
       if(text(input.value)) render();
     }
 
+    function handleInputMouseDown(event){
+      const value = String(input.value || '');
+      const alreadyFullySelected = document.activeElement === input
+        && input.selectionStart === 0 && input.selectionEnd === value.length;
+      selectAllOnClick = event.button === 0 && Boolean(text(value)) && !alreadyFullySelected;
+    }
+
+    function handleInputClick(event){
+      const shouldSelect = selectAllOnClick;
+      selectAllOnClick = false;
+      if(event.button !== 0 || !shouldSelect) return;
+      input.select();
+    }
+
     function handleToggle(){
       const wasOpen = list.hidden === false;
       input.focus({preventScroll:true});
@@ -316,6 +331,8 @@
 
     listen(input,'input',handleInput);
     listen(input,'focus',handleFocus);
+    listen(input,'mousedown',handleInputMouseDown);
+    listen(input,'click',handleInputClick);
     listen(input,'keydown',handleKeydown);
     listen(toggle,'click',handleToggle);
     listen(document,'click',event=>{

@@ -63,3 +63,13 @@ test('共用控制器只在選取、外部點擊或 Esc 關閉，不使用滑鼠
   assert.match(source,/if\(text\(input\.value\)\) render\(\)/);
   assert.match(source,/render\(\{showAll:!text\(input\.value\)\}\)/);
 });
+
+test('共用搜尋框第一次點擊既有文字時全選，再次點擊可放置游標',()=>{
+  const source=read('js/ui-search-dropdown.js');
+  assert.match(source,/function handleInputMouseDown\(event\)/);
+  assert.match(source,/document\.activeElement === input[\s\S]*?input\.selectionStart === 0[\s\S]*?input\.selectionEnd === value\.length/);
+  assert.match(source,/selectAllOnClick = event\.button === 0 && Boolean\(text\(value\)\) && !alreadyFullySelected/);
+  assert.match(source,/function handleInputClick\(event\)[\s\S]*?input\.select\(\)/);
+  assert.match(source,/listen\(input,'mousedown',handleInputMouseDown\)/);
+  assert.match(source,/listen\(input,'click',handleInputClick\)/);
+});

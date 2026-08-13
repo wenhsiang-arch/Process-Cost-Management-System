@@ -5,7 +5,7 @@
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
     uiTableControls:'js/ui-table-controls.js?v=20260813-2',
-    uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-1',
+    uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-2',
     productCache:'js/product-cache.js?v=20260806-1',
     productModel:'js/product-model.js?v=20260813-1',
     productVersionStore:'js/product-version-store.js?v=20260813-1',

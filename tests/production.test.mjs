@@ -337,7 +337,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/uiSearchDropdown:'js\/ui-search-dropdown\.js\?v=20260814-1'/);
+  assert.match(features,/uiSearchDropdown:'js\/ui-search-dropdown\.js\?v=20260814-2'/);
   assert.match(features,/production:'styles\/features\/production\.css\?v=20260813-6'/);
 });
 
