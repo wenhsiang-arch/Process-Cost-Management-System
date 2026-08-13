@@ -41,7 +41,7 @@
 
   async function readDataVersion(force=false){
     if(window.firebaseReadDataVersions){
-      const versionState=await window.firebaseReadDataVersions(force);
+      const versionState=await window.firebaseReadDataVersions([CACHE_VERSION_KEY],force);
       return String(versionState?.data?.[CACHE_VERSION_KEY]||'0');
     }
     const snapshot=await window._getDoc(window._docRef('system','dataVersions'));

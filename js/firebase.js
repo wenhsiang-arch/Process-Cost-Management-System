@@ -121,15 +121,22 @@ async function runTransaction(database,worker){
 
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
+const DATA_VERSION_COLLECTION = 'dataVersions'; // DATA_VERSION_COLLECTION（分範圍資料版本集合）：新舊版本並行期間使用。
+const DATA_VERSION_SCHEMA_VERSION = 1;
 const CACHEABLE_COLLECTIONS = new Set([
   'orders','orderProcesses','productionEmployees','productionDepartments','productionEntries',
   'performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths'
 ]); // CACHEABLE_COLLECTIONS（允許使用資料版本快取的集合）
 const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','performanceBonusSettings']);
 const DATA_VERSION_MEMORY_MS = 15000;
+const DATA_VERSION_CAPABILITY_RETRY_MS = 60000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
 let dataVersionsPromise = null;
+const scopedDataVersionReadAt = new Map(); // scopedDataVersionReadAt（各資料範圍最近確認時間）
+const scopedDataVersionPromises = new Map(); // scopedDataVersionPromises（避免同範圍重複讀取）
+let scopedDataVersionCapability = 'unknown'; // scopedDataVersionCapability（新版分範圍規則是否已可用）
+let scopedDataVersionProbeAt = 0;
 
 window.firebaseAuthUser = null;
 window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
@@ -341,7 +348,7 @@ function cacheScopeForReference(reference){
   return CACHEABLE_COLLECTIONS.has(parts[0])?parts[0]:'';
 }
 
-async function readDataVersions(force=false){
+async function readLegacyDataVersions(force=false){
   const now=Date.now();
   if(!force&&dataVersionsMemory&&now-dataVersionsReadAt<DATA_VERSION_MEMORY_MS){
     return {online:true,data:dataVersionsMemory};
@@ -367,17 +374,105 @@ async function readDataVersions(force=false){
   return dataVersionsPromise;
 }
 
-function createDataVersionChange(scopes){
-  const unique=[...new Set((scopes||[]).filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
-  const updates={updatedAt:Date.now(),updatedBy:window.firebaseAuthUser?.uid||''};
-  unique.forEach(scope=>{ updates[scope]=dataVersionToken(); });
-  return {scopes:unique,updates};
+function normalizeDataVersionScopes(value){
+  const list=Array.isArray(value)?value:(typeof value==='string'?[value]:[]);
+  return [...new Set(list.filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
 }
 
-function appendDataVersionWrite(writer,scopes){
-  const change=createDataVersionChange(scopes); // change（本次資料版本異動）
+function shouldProbeScopedDataVersions(force=false){
+  return force===true
+    || scopedDataVersionCapability!=='legacy'
+    || Date.now()-scopedDataVersionProbeAt>=DATA_VERSION_CAPABILITY_RETRY_MS;
+}
+
+async function readScopedDataVersion(scope,force=false){
+  const now=Date.now();
+  if(!force&&dataVersionsMemory&&Object.hasOwn(dataVersionsMemory,scope)
+    && now-(scopedDataVersionReadAt.get(scope)||0)<DATA_VERSION_MEMORY_MS){
+    return {online:true,allowOfflineCache:false,scope,version:String(dataVersionsMemory[scope]||'0'),source:'memory'};
+  }
+  if(scopedDataVersionPromises.has(scope)) return scopedDataVersionPromises.get(scope);
+  const promise=(async()=>{
+    const legacyPromise=readLegacyDataVersions(force);
+    let scopedSnapshot=null;
+    let scopedError=null;
+    if(shouldProbeScopedDataVersions(force)){
+      try{
+        scopedSnapshot=await getDocFromServer(doc(db,DATA_VERSION_COLLECTION,scope));
+        scopedDataVersionCapability='available';
+        scopedDataVersionProbeAt=Date.now();
+      }catch(error){
+        scopedError=error;
+        if(error?.code==='permission-denied'){
+          scopedDataVersionCapability='legacy';
+          scopedDataVersionProbeAt=Date.now();
+        }
+      }
+    }
+    const legacyState=await legacyPromise;
+    const legacyVersion=String(legacyState.data?.[scope]||'0');
+    const legacyUpdatedAt=Number(legacyState.data?.updatedAt)||0;
+    const scopedData=scopedSnapshot?.exists()?scopedSnapshot.data():null;
+    const scopedVersion=String(scopedData?.version||'0');
+    const scopedUpdatedAt=Number(scopedData?.updatedAt)||0;
+    const useScoped=!!scopedData
+      && (!legacyState.online||scopedVersion===legacyVersion||scopedUpdatedAt>=legacyUpdatedAt);
+    const online=!!scopedSnapshot||legacyState.online===true;
+    const version=useScoped?scopedVersion:legacyVersion;
+    if(online){
+      dataVersionsMemory={...(dataVersionsMemory||{}),[scope]:version};
+      scopedDataVersionReadAt.set(scope,Date.now());
+    }
+    if(scopedError&&scopedError?.code!=='permission-denied'&&legacyState.online!==true){
+      console.warn(`dataVersions/${scope}（分範圍資料版本）無法從雲端讀取：`,scopedError);
+    }
+    return {
+      online,
+      allowOfflineCache:!online&&(legacyState.allowOfflineCache===true||scopedError?.code==='unavailable'),
+      scope,version,source:useScoped?'scoped':'legacy'
+    };
+  })().finally(()=>scopedDataVersionPromises.delete(scope));
+  scopedDataVersionPromises.set(scope,promise);
+  return promise;
+}
+
+async function readDataVersions(scopesOrForce=false,maybeForce=false){
+  const scopes=normalizeDataVersionScopes(scopesOrForce);
+  if(!scopes.length){
+    const force=typeof scopesOrForce==='boolean'?scopesOrForce:maybeForce===true;
+    return readLegacyDataVersions(force);
+  }
+  const force=maybeForce===true;
+  const results=await Promise.all(scopes.map(scope=>readScopedDataVersion(scope,force)));
+  return {
+    online:results.every(item=>item.online===true),
+    allowOfflineCache:results.some(item=>item.allowOfflineCache===true),
+    data:Object.fromEntries(results.map(item=>[item.scope,item.version])),
+    sources:Object.fromEntries(results.map(item=>[item.scope,item.source]))
+  };
+}
+
+function createDataVersionChange(scopes){
+  const unique=[...new Set((scopes||[]).filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
+  const updatedAt=Date.now();
+  const updatedBy=window.firebaseAuthUser?.uid||'';
+  const updates={updatedAt,updatedBy};
+  unique.forEach(scope=>{ updates[scope]=dataVersionToken(); });
+  const documents=unique.map(scope=>({
+    scope,version:updates[scope],updatedAt,updatedBy,schemaVersion:DATA_VERSION_SCHEMA_VERSION
+  })); // documents（分範圍版本文件）：與舊總表使用相同版本代碼。
+  return {scopes:unique,updates,documents};
+}
+
+function appendDataVersionWrite(writer,scopesOrChange){
+  const change=Array.isArray(scopesOrChange)
+    ?createDataVersionChange(scopesOrChange)
+    :scopesOrChange; // change（本次資料版本異動）：可沿用已建立的同一組版本代碼。
   if(change.scopes.length){
     writer.set(doc(db,'system',DATA_VERSIONS_KEY),change.updates,{merge:true});
+    if(scopedDataVersionCapability==='available'){
+      change.documents.forEach(item=>writer.set(doc(db,DATA_VERSION_COLLECTION,item.scope),item));
+    }
   }
   return change;
 }
@@ -386,6 +481,7 @@ async function finishDataVersionChange(change){
   if(!change?.scopes?.length) return change?.updates||{};
   dataVersionsMemory={...(dataVersionsMemory||{}),...change.updates};
   dataVersionsReadAt=Date.now();
+  change.scopes.forEach(scope=>scopedDataVersionReadAt.set(scope,Date.now()));
   window.PCMSFeatures?.invalidateDataScopes?.(change.scopes);
   const results=await Promise.allSettled(change.scopes.map(scope=>window.pcmsDataCache?.remove(scope)));
   results.forEach(result=>{
@@ -398,7 +494,9 @@ async function touchDataVersions(scopes){
   const change=createDataVersionChange(scopes); // change（獨立資料版本異動）
   if(!change.scopes.length) return {};
   try{
-    await setDoc(doc(db,'system',DATA_VERSIONS_KEY),change.updates,{merge:true});
+    const batch=writeBatch(db);
+    appendDataVersionWrite(batch,change);
+    await batch.commit();
   }catch(error){
     dataVersionsMemory=null;
     dataVersionsReadAt=0;
@@ -409,7 +507,7 @@ async function touchDataVersions(scopes){
 }
 
 async function readCachedScope(scope){
-  const versionState=await readDataVersions();
+  const versionState=await readDataVersions([scope]);
   const expectedVersion=versionState.online?String(versionState.data?.[scope]||'0'):undefined;
   const mayUseCache=versionState.online||versionState.allowOfflineCache===true;
   const data=mayUseCache?await window.pcmsDataCache?.read(scope,expectedVersion):null;
@@ -1226,6 +1324,10 @@ window.resetAuthorizedFirebaseInit = () => {
   dataVersionsMemory=null;
   dataVersionsReadAt=0;
   dataVersionsPromise=null;
+  scopedDataVersionReadAt.clear();
+  scopedDataVersionPromises.clear();
+  scopedDataVersionCapability='unknown';
+  scopedDataVersionProbeAt=0;
   productsLoadPromise=null;
   runtimeProductsVersion='';
   runtimeProductsSequence=0;

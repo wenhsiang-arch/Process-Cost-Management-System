@@ -28,7 +28,9 @@
   }
   async function readVersions(force=false){
     if(window.firebaseReadDataVersions){
-      const versionState=await window.firebaseReadDataVersions(force);
+      const versionState=await window.firebaseReadDataVersions([
+        'productionEntries','productionAttendance','productionEmployees'
+      ],force);
       return versionState?.data||{};
     }
     const snapshot=await window._getDoc(window._docRef('system','dataVersions'));

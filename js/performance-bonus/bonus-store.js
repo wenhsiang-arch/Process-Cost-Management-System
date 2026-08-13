@@ -43,8 +43,8 @@
   function employeeCollection(month){ return `${MONTH_COLLECTION}/${requireMonth(month)}/employees`; }
   function employeeRef(month,employeeId){ return window._docRef(employeeCollection(month),String(employeeId||'').trim()); }
   function versionToken(){ return `${now()}-${uid().slice(0,12)}`; }
-  async function versions(force=false){
-    return window.firebaseReadDataVersions?window.firebaseReadDataVersions(force):{data:{}};
+  async function versions(scopes,force=false){
+    return window.firebaseReadDataVersions?window.firebaseReadDataVersions(scopes,force):{data:{}};
   }
   function snapshotData(snapshot){ return snapshot?.exists?.()?{id:snapshot.id,...snapshot.data()}:null; }
   function logData(action,itemCount=0,detailCount=0,note='',changes=[],extra={}){
@@ -62,7 +62,7 @@
     };
   }
   async function cachedRead(scope,versionKey,loader,options={}){
-    const state=await versions(options.force===true);
+    const state=await versions([versionKey],options.force===true);
     const version=String(state?.data?.[versionKey]||'0');
     if(options.force!==true){
       const cached=await window.pcmsDataCache?.read(scope,version);
@@ -166,7 +166,7 @@
     if(operations.length>446){
       throw new Error('Số nhân viên thay đổi vượt quá giới hạn an toàn 446 bản ghi. Vui lòng liên hệ quản trị viên. / 員工變更超過安全上限446筆，請聯絡管理員。');
     }
-    const versionState=await versions(true);
+    const versionState=await versions(['productionEntries','productionAttendance'],true);
     const finalBatch=window._writeBatch();
     operations.forEach(operation=>{
       if(operation.type==='delete') finalBatch.delete(operation.reference);

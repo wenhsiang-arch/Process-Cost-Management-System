@@ -43,12 +43,9 @@
   function dayCacheScope(productionDate){ return `${CACHE_DAY_PREFIX}${normalizeDate(productionDate)}`; }
   function recordCacheScope(employeeId,productionDate){ return `${CACHE_RECORD_PREFIX}${cacheKey(employeeId,productionDate)}`; }
   function clone(value){ return value ? {...value} : null; }
-  function dataVersionToken(){
-    return `${Date.now()}-${currentUserId().slice(0,12)}-${Math.random().toString(36).slice(2,8)}`;
-  }
   async function readDataVersion(force=false){
     if(window.firebaseReadDataVersions){
-      const versionState=await window.firebaseReadDataVersions(force);
+      const versionState=await window.firebaseReadDataVersions([CACHE_SCOPE],force);
       return String(versionState?.data?.[CACHE_SCOPE]||'0');
     }
     const snapshot = await window._getDoc(window._docRef('system','dataVersions'));
@@ -203,7 +200,6 @@
   async function saveChunk(inputs){
     const now = Date.now();
     const logReference = window._newDocRef(LOG_COLLECTION_NAME);
-    const versionReference = window._docRef('system','dataVersions');
     const references = inputs.map(input=>({
       input,
       employeeReference:window._docRef('productionEmployees',input.employeeId),
@@ -252,11 +248,6 @@
         savedRows.map(row=>({field:'attendanceId',before:null,after:row.attendanceId})),
         now
       ));
-      transaction.set(versionReference,{
-        updatedAt:now,
-        updatedBy:currentUserId(),
-        productionAttendance:dataVersionToken()
-      },{merge:true});
     });
     return savedRows;
   }
@@ -320,7 +311,6 @@
     if(window.cu?.role !== 'admin') throw new Error('Chỉ quản trị viên mới được xóa chấm công. / 只有管理員可以刪除考勤。');
     const reference = window._docRef(COLLECTION_NAME,normalizeText(attendanceId));
     const logReference = window._newDocRef(LOG_COLLECTION_NAME);
-    const versionReference = window._docRef('system','dataVersions');
     let deleted = null;
     const now = Date.now();
     await window._runTransaction(async transaction=>{
@@ -332,11 +322,6 @@
         'productionAttendanceDelete',1,deleted.attendanceId,
         [{field:'attendanceId',before:deleted.attendanceId,after:null}],now
       ));
-      transaction.set(versionReference,{
-        updatedAt:now,
-        updatedBy:currentUserId(),
-        productionAttendance:dataVersionToken()
-      },{merge:true});
     });
     await invalidate(deleted.attendanceDate,[deleted.employeeId]);
     await window.PCMSProductionChanges?.markSafely?.([deleted]);
