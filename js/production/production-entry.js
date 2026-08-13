@@ -45,30 +45,12 @@
     'production-product-input','production-process-input','production-process-name','production-quantity-input'
   ]); // ENTRY_INPUT_IDS（生產登記鍵盤輸入順序）
 
-  const ENTRY_FIELD_LAYOUT_RULES = Object.freeze([
-    {inputId:'production-order-input',minimum:118,maximum:240,extra:52,emptyShrink:1.35,filledShrink:.35},
-    {inputId:'production-product-input',minimum:110,maximum:220,extra:52,emptyShrink:1.35,filledShrink:.35},
-    {inputId:'production-process-input',minimum:76,maximum:96,extra:50,emptyShrink:1.2,filledShrink:.25},
-    {inputId:'production-process-name',minimum:142,maximum:420,extra:24,emptyShrink:1.45,filledShrink:.8},
-    {inputId:'production-quantity-input',minimum:198,maximum:260,extra:24,emptyShrink:1.25,filledShrink:.35}
-  ]); // ENTRY_FIELD_LAYOUT_RULES（單列欄位依實際內容調整寬度的規則）
-
   const ENTRY_TABLE_COLUMN_MINIMUMS = Object.freeze(Object.fromEntries(
     PRODUCTION_TABLE_COLUMNS.map(column=>[column.key,column.minimum])
   )); // ENTRY_TABLE_COLUMN_MINIMUMS（由正式欄位定義建立的各可見欄位最低可讀寬度）
 
-  const DROPDOWN_BINDINGS = Object.freeze({
-    'production-employee-options':{inputId:'production-employee-input',toggleId:'production-employee-toggle'},
-    'production-employee-name-options':{inputId:'production-entry-employee-name-input',toggleId:'production-employee-name-toggle'},
-    'production-order-options':{inputId:'production-order-input',toggleId:'production-order-toggle'},
-    'production-product-options':{inputId:'production-product-input',toggleId:'production-product-toggle'},
-    'production-process-options':{inputId:'production-process-input',toggleId:'production-process-toggle'}
-  }); // DROPDOWN_BINDINGS（搜尋下拉欄位對應關係）
-
-  const DROPDOWN_OPTION_IDS = Object.freeze(Object.keys(DROPDOWN_BINDINGS)); // DROPDOWN_OPTION_IDS（全部搜尋下拉選單識別碼）
-  const dropdownInteractions = new Map(); // dropdownInteractions（搜尋下拉目前鍵盤選取狀態）
+  const dropdownControllers = new Map(); // dropdownControllers（產能登記使用的共用搜尋下拉控制器）
   let productionTableControl = null; // productionTableControl（當日表格共用操作控制）
-  let entryFieldLayoutFrame = 0; // entryFieldLayoutFrame（等待中的單列欄位寬度更新）
 
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
@@ -135,33 +117,6 @@
     if(state.processRowsMode) void loadDailyRows();
   }
 
-  function entryFieldPreferredWidth(value,rule){
-    const contentLength = Array.from(String(value || '').trim()).length;
-    const measured = Math.ceil(contentLength*8 + rule.extra);
-    return Math.max(rule.minimum,Math.min(rule.maximum,measured));
-  }
-
-  function updateEntryFieldLayout(){
-    entryFieldLayoutFrame = 0;
-    ENTRY_FIELD_LAYOUT_RULES.forEach(rule=>{
-      const input = element(rule.inputId);
-      const field = input?.closest('.production-field');
-      if(!input || !field) return;
-      const value = String(input.value || '').trim();
-      field.style.setProperty('--production-field-basis',`${entryFieldPreferredWidth(value,rule)}px`);
-      field.style.setProperty('--production-field-shrink',String(value ? rule.filledShrink : rule.emptyShrink));
-      if(rule.inputId === 'production-order-input' || rule.inputId === 'production-product-input'){
-        if(value) input.title = value;
-        else input.removeAttribute('title');
-      }
-    });
-  }
-
-  function scheduleEntryFieldLayout(){
-    if(entryFieldLayoutFrame) return;
-    entryFieldLayoutFrame = window.requestAnimationFrame(updateEntryFieldLayout);
-  }
-
   function updateEntryTableMinimumWidth(table,visibleColumns=productionTableControl?.getVisibleKeys?.() || []){
     const minimumWidth = visibleColumns.reduce((total,key)=>total+(ENTRY_TABLE_COLUMN_MINIMUMS[key] || 0),0);
     table.style.setProperty('--ui-table-visible-min-width',`${minimumWidth}px`);
@@ -199,91 +154,11 @@
   }
 
   function closeDropdown(id){
-    const host = element(id);
-    if(host){ host.hidden = true; host.replaceChildren(); delete host.dataset.dropdownMode; }
-    dropdownInteractions.delete(id);
-    const binding = DROPDOWN_BINDINGS[id]; // binding（目前搜尋下拉欄位對應）
-    element(binding?.inputId)?.setAttribute('aria-expanded','false');
-    element(binding?.toggleId)?.setAttribute('aria-expanded','false');
+    dropdownControllers.get(id)?.close();
   }
 
-  function closeOtherDropdowns(activeId){
-    DROPDOWN_OPTION_IDS.filter(id=>id !== activeId).forEach(closeDropdown);
-  }
-
-  function isDropdownOpen(id){
-    const host = element(id);
-    return Boolean(host && host.hidden === false);
-  }
-
-  function renderDropdown(id,items,render,onSelect,mode='search'){
-    const host = element(id);
-    if(!host) return;
-    closeOtherDropdowns(id);
-    host.replaceChildren();
-    items.forEach((item,index)=>{
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.tabIndex = -1;
-      button.className = 'production-option';
-      button.setAttribute('role','option');
-      button.setAttribute('aria-selected','false');
-      button.dataset.optionIndex = String(index);
-      const copy = render(item);
-      const primary = document.createElement('strong');
-      primary.textContent = String(copy.primary || '');
-      button.appendChild(primary);
-      if(copy.secondary){
-        const secondary = document.createElement('span');
-        secondary.textContent = String(copy.secondary);
-        button.appendChild(secondary);
-      }else{
-        button.classList.add('is-single-line');
-      }
-      button.addEventListener('mousedown',event=>event.preventDefault());
-      button.addEventListener('click',()=>void Promise.resolve(onSelect(item)));
-      host.appendChild(button);
-    });
-    const expanded = items.length > 0; // expanded（選單是否展開）
-    host.hidden = !expanded;
-    if(expanded) host.dataset.dropdownMode = mode; // dropdownMode（搜尋結果或完整清單模式）
-    else delete host.dataset.dropdownMode;
-    const binding = DROPDOWN_BINDINGS[id];
-    element(binding?.inputId)?.setAttribute('aria-expanded',String(expanded));
-    element(binding?.toggleId)?.setAttribute('aria-expanded',String(expanded));
-    if(expanded) dropdownInteractions.set(id,{items:items.slice(),onSelect,activeIndex:-1});
-    else dropdownInteractions.delete(id);
-  }
-
-  function setDropdownActive(id,index){
-    const host = element(id);
-    const interaction = dropdownInteractions.get(id);
-    if(!host || !interaction || !interaction.items.length) return;
-    const nextIndex = Math.max(0,Math.min(index,interaction.items.length-1));
-    interaction.activeIndex = nextIndex;
-    host.querySelectorAll('.production-option').forEach((button,buttonIndex)=>{
-      const active = buttonIndex === nextIndex;
-      button.classList.toggle('is-keyboard-active',active);
-      button.setAttribute('aria-selected',String(active));
-      if(active) button.scrollIntoView({block:'nearest'});
-    });
-  }
-
-  function selectDropdownActive(id){
-    const interaction = dropdownInteractions.get(id);
-    if(!interaction || interaction.activeIndex < 0) return false;
-    const item = interaction.items[interaction.activeIndex];
-    if(!item) return false;
-    void Promise.resolve(interaction.onSelect(item));
-    return true;
-  }
-
-  function toggleDropdown(id,items,render,onSelect){
-    const host = element(id);
-    if(isDropdownOpen(id) && host?.dataset.dropdownMode === 'all'){ closeDropdown(id); return; }
-    renderDropdown(id,items,render,onSelect,'all');
-    const binding = DROPDOWN_BINDINGS[id];
-    element(binding?.inputId)?.focus({preventScroll:true});
+  function closeAllDropdowns(){
+    dropdownControllers.forEach(controller=>controller.close());
   }
 
   function syncDropdownAvailability(){
@@ -415,7 +290,6 @@
     const processZh = String(process?.processZh || '').trim();
     host.value = processVi || processZh || '';
     setEntryLocalizedAttribute(host,'title',processVi,processZh);
-    scheduleEntryFieldLayout();
   }
 
   function setSupplementMode(enabled,options={}){
@@ -452,7 +326,6 @@
     resetQuantityProgress();
     closeDropdown('production-process-options');
     syncDropdownAvailability();
-    scheduleEntryFieldLayout();
   }
 
   function clearEmployee(options={}){
@@ -518,15 +391,15 @@
 
   function employeeDropdownConfig(optionsId){
     return optionsId==='production-employee-name-options'
-      ? {inputId:'production-entry-employee-name-input',copy:employeeNameOptionCopy,keepName:true}
-      : {inputId:'production-employee-input',copy:employeeIdOptionCopy,keepId:true};
+      ? {inputId:'production-entry-employee-name-input',keepName:true}
+      : {inputId:'production-employee-input',keepId:true};
   }
 
   function employeeValueMatches(employee,optionsId){
     const config=employeeDropdownConfig(optionsId);
-    const value=String(element(config.inputId)?.value||'').trim().toLocaleLowerCase();
-    const expected=String(optionsId==='production-employee-name-options'?employee?.name:employee?.employeeId||'').trim().toLocaleLowerCase();
-    return Boolean(value&&expected&&value===expected);
+    const value=element(config.inputId)?.value;
+    const expected=optionsId==='production-employee-name-options'?employee?.name:employee?.employeeId;
+    return window.PCMSUISearchDropdown.isExact(value,expected);
   }
 
   function handleEmployeeInput(optionsId){
@@ -534,22 +407,10 @@
     const input = element(config.inputId);
     const value = input.value.trim();
     if(state.employee&&!employeeValueMatches(state.employee,optionsId)) clearEmployee(config);
-    if(!value){ closeDropdown(optionsId); return; }
-    const matches = window.PCMSProductionEmployees.search(value,{activeOnly:true,limit:20});
-    renderDropdown(optionsId,matches,config.copy,selectEmployee);
+    return Boolean(value);
   }
 
-  function toggleEmployeeDropdown(optionsId='production-employee-options'){
-    const config=employeeDropdownConfig(optionsId);
-    toggleDropdown(
-      optionsId,
-      window.PCMSProductionEmployees.list({activeOnly:true}),
-      config.copy,
-      selectEmployee
-    );
-  }
-
-  // confirmEmployeeInput（確認員工輸入）：忽略大小寫與首尾空白；唯一結果可由 Tab 或 Enter 直接選取。
+  // confirmEmployeeInput（確認員工輸入）：目前智慧篩選只剩一筆時可由 Tab 或 Enter 選取。
   function confirmEmployeeInput(optionsId){
     const config=employeeDropdownConfig(optionsId);
     const input=element(config.inputId);
@@ -559,13 +420,14 @@
       selectEmployee(state.employee);
       return true;
     }
-    const matches=window.PCMSProductionEmployees.search(value,{activeOnly:true,limit:50});
+    const controller=dropdownControllers.get(optionsId);
+    const matches=controller?.matches(value,100)||[];
     if(matches.length===1){ selectEmployee(matches[0]);return true; }
     if(matches.length===0){
       closeDropdown(optionsId);
       setStatus('Không tìm thấy nhân viên phù hợp.','找不到符合的員工。','danger');
     }else{
-      renderDropdown(optionsId,matches,config.copy,selectEmployee);
+      controller?.open();
       setStatus('Có nhiều nhân viên phù hợp. Vui lòng chọn một người.','找到多位符合的員工，請選擇一位。','warning');
     }
     input?.focus({preventScroll:true});
@@ -586,7 +448,7 @@
     syncDropdownAvailability();
   }
 
-  async function selectOrder(order){
+  async function selectOrder(order,options={}){
     state.order = order;
     state.orderReady = false;
     state.product = null;
@@ -606,6 +468,7 @@
       state.orderReady = true;
       syncDropdownAvailability();
       setStatus('Đã tải công đoạn. Có thể nhập mã hàng.','工序已載入，可以輸入款號。','success');
+      if(options.focusProduct === true) element('production-product-input')?.focus({preventScroll:true});
     }catch(error){
       if(state.order?.id !== order.id) return;
       clearOrder();
@@ -618,18 +481,9 @@
     const input = element('production-order-input');
     const value = input.value.trim();
     if(state.order && value !== (state.order.orderId || state.order.id)) clearOrder();
-    if(!value){ closeDropdown('production-order-options'); return; }
-    const matches = window.PCMSProductionEntryStore.searchOrders(value,20);
-    renderDropdown('production-order-options',matches,orderOptionCopy,item=>void selectOrder(item));
-  }
-
-  function toggleOrderDropdown(){
-    toggleDropdown(
-      'production-order-options',
-      window.PCMSProductionEntryStore.listOrders(),
-      orderOptionCopy,
-      item=>void selectOrder(item)
-    );
+    if(value) input.title=value;
+    else input.removeAttribute('title');
+    return Boolean(value);
   }
 
   function clearProduct(){
@@ -642,7 +496,7 @@
     syncDropdownAvailability();
   }
 
-  function selectProduct(product){
+  function selectProduct(product,options={}){
     state.product = product;
     setSupplementMode(false);
     element('production-product-input').value = product.code;
@@ -650,26 +504,17 @@
     setProcessName(null);
     closeDropdown('production-product-options');
     syncDropdownAvailability();
+    if(options.focusProcess === true) element('production-process-input')?.focus({preventScroll:true});
   }
 
   function handleProductInput(){
-    if(!state.order || !state.orderReady){ closeDropdown('production-product-options'); return; }
+    if(!state.order || !state.orderReady){ closeDropdown('production-product-options'); return false; }
     const input = element('production-product-input');
     const value = input.value.trim();
     if(state.product && value !== state.product.code) clearProduct();
-    if(!value){ closeDropdown('production-product-options'); return; }
-    const matches = window.PCMSProductionEntryStore.searchProducts(state.order.id,value,20);
-    renderDropdown('production-product-options',matches,productOptionCopy,selectProduct);
-  }
-
-  function toggleProductDropdown(){
-    if(!state.order || !state.orderReady) return;
-    toggleDropdown(
-      'production-product-options',
-      window.PCMSProductionEntryStore.productsForOrder(state.order.id),
-      productOptionCopy,
-      selectProduct
-    );
+    if(value) input.title=value;
+    else input.removeAttribute('title');
+    return Boolean(value);
   }
 
   function selectProcess(process,options={}){
@@ -693,23 +538,11 @@
     if(value === '0'){
       setSupplementMode(true);
       setStatus('Đã bật chế độ bổ sung giờ.','已啟動補充工時模式。','info');
-      return;
+      return false;
     }
     if(state.supplementMode) setSupplementMode(false);
-    if(!state.orderReady || !state.product){ closeDropdown('production-process-options'); return; }
-    if(!value){ closeDropdown('production-process-options'); return; }
-    const possible = window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
-      .filter(item=>String(item.code || '') === state.product.code)
-      .filter(item=>!value || String(item.processNo || '').includes(value))
-      .slice(0,20);
-    renderDropdown('production-process-options',possible,processOptionCopy,selectProcess);
-  }
-
-  function toggleProcessDropdown(){
-    if(!state.orderReady || !state.product) return;
-    const processes = window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
-      .filter(item=>String(item.code || '') === state.product.code);
-    toggleDropdown('production-process-options',processes,processOptionCopy,selectProcess);
+    if(!state.orderReady || !state.product){ closeDropdown('production-process-options'); return false; }
+    return Boolean(value);
   }
 
   function processForExactInput(){
@@ -721,87 +554,134 @@
     );
   }
 
-  function openDropdownForInput(id){
-    if(id === 'production-employee-options' || id === 'production-employee-name-options') toggleEmployeeDropdown(id);
-    else if(id === 'production-order-options') toggleOrderDropdown();
-    else if(id === 'production-product-options') toggleProductDropdown();
-    else if(id === 'production-process-options') toggleProcessDropdown();
+  function orderForExactInput(){
+    const value=element('production-order-input')?.value;
+    return window.PCMSProductionEntryStore.listOrders().find(item=>
+      window.PCMSUISearchDropdown.isExact(value,item.orderId||item.id)
+      || window.PCMSUISearchDropdown.isExact(value,item.id)
+    )||null;
   }
 
-  function handleDropdownKeyboard(event,id){
-    if(event.key === 'Escape'){
-      closeDropdown(id);
-      return;
+  function productForExactInput(){
+    if(!state.orderReady||!state.order) return null;
+    const value=element('production-product-input')?.value;
+    return window.PCMSProductionEntryStore.productsForOrder(state.order.id)
+      .find(item=>window.PCMSUISearchDropdown.isExact(value,item.code))||null;
+  }
+
+  function confirmOrderInput(options={}){
+    const exact=orderForExactInput();
+    if(!exact){
+      dropdownControllers.get('production-order-options')?.open();
+      setStatus('Vui lòng chọn đúng số đơn hàng trong danh sách.','請從清單選擇正確的訂單號碼。','warning');
+      return false;
     }
-    if(event.key === 'Enter' && selectDropdownActive(id)){
-      event.preventDefault();
-      return;
+    if(state.order?.id === exact.id && state.orderReady) return true;
+    void selectOrder(exact,{focusProduct:options.focusNext===true});
+    return options.focusNext===true?'handled':true;
+  }
+
+  function confirmProductInput(options={}){
+    const exact=productForExactInput();
+    if(!exact){
+      dropdownControllers.get('production-product-options')?.open();
+      setStatus('Vui lòng chọn đúng mã hàng trong danh sách.','請從清單選擇正確的款號。','warning');
+      return false;
     }
-    if(event.key === 'Enter' && (id === 'production-employee-options' || id === 'production-employee-name-options')){
-      event.preventDefault();
-      confirmEmployeeInput(id);
-      return;
+    if(state.product?.code !== exact.code) selectProduct(exact,{focusProcess:options.focusNext===true});
+    else if(options.focusNext===true) element('production-process-input')?.focus({preventScroll:true});
+    return options.focusNext===true?'handled':true;
+  }
+
+  function confirmProcessInput(options={}){
+    const value=element('production-process-input')?.value.trim()||'';
+    if(value==='0'){
+      setSupplementMode(true,{clearValues:false});
+      if(options.focusNext===true) element('production-process-name')?.focus({preventScroll:true});
+      return options.focusNext===true?'handled':true;
     }
-    if(event.key === 'Enter' && id === 'production-process-options'){
-      if(element('production-process-input').value.trim() === '0'){
-        event.preventDefault();
-        setSupplementMode(true,{clearValues:false});
-        element('production-process-name')?.focus({preventScroll:true});
-        return;
-      }
-      const exact = processForExactInput();
-      if(exact){
-        event.preventDefault();
-        selectProcess(exact,{focusQuantity:true});
-        return;
-      }
-    }
-    if(event.key === 'ArrowDown' || event.key === 'ArrowUp'){
-      event.preventDefault();
-      if(!isDropdownOpen(id)) openDropdownForInput(id);
-      const interaction = dropdownInteractions.get(id);
-      if(!interaction) return;
-      const nextIndex = interaction.activeIndex < 0
-        ? (event.key === 'ArrowDown' ? 0 : interaction.items.length-1)
-        : interaction.activeIndex + (event.key === 'ArrowDown' ? 1 : -1);
-      setDropdownActive(id,nextIndex);
-      return;
-    }
-    if(event.key !== 'Enter') return;
-    if(id === 'production-process-options' && element('production-process-input').value.trim()){
-      event.preventDefault();
+    const exact=processForExactInput();
+    if(!exact){
+      dropdownControllers.get('production-process-options')?.open();
       setStatus('Không tìm thấy số công đoạn chính xác.','找不到完全相符的工序號。','danger');
+      return false;
     }
+    selectProcess(exact,{focusQuantity:options.focusNext===true});
+    return options.focusNext===true?'handled':true;
+  }
+
+  function registerDropdown(optionsId,options){
+    const controller=window.PCMSUISearchDropdown.create({
+      root:element(options.inputId)?.closest('.ui-search-dropdown-control'),
+      input:element(options.inputId),
+      toggle:element(options.toggleId),
+      list:element(optionsId),
+      limit:20,
+      ...options
+    });
+    dropdownControllers.set(optionsId,controller);
+    return controller;
+  }
+
+  function initializeSearchDropdowns(){
+    if(dropdownControllers.size) return;
+    const employeeItems=()=>window.PCMSProductionEmployees.list({activeOnly:true});
+    const employeeFields=[
+      {value:item=>item.employeeId,mode:'code',weight:0},
+      {value:item=>item.name,mode:'text',weight:10},
+      {value:item=>item.department,mode:'text',weight:20}
+    ];
+    registerDropdown('production-employee-options',{
+      inputId:'production-employee-input',toggleId:'production-employee-toggle',
+      getItems:employeeItems,fields:employeeFields,renderItem:employeeIdOptionCopy,onSelect:selectEmployee,
+      onInput:()=>handleEmployeeInput('production-employee-options'),
+      onConfirm:()=>confirmEmployeeInput('production-employee-options')
+    });
+    registerDropdown('production-employee-name-options',{
+      inputId:'production-entry-employee-name-input',toggleId:'production-employee-name-toggle',
+      getItems:employeeItems,
+      fields:[employeeFields[1],employeeFields[0],employeeFields[2]],
+      renderItem:employeeNameOptionCopy,onSelect:selectEmployee,
+      onInput:()=>handleEmployeeInput('production-employee-name-options'),
+      onConfirm:()=>confirmEmployeeInput('production-employee-name-options')
+    });
+    registerDropdown('production-order-options',{
+      inputId:'production-order-input',toggleId:'production-order-toggle',
+      getItems:()=>window.PCMSProductionEntryStore.listOrders(),
+      fields:[
+        {value:item=>item.orderId||item.id,mode:'code',weight:0},
+        {value:item=>item.client,mode:'text',weight:10}
+      ],
+      renderItem:orderOptionCopy,onSelect:item=>void selectOrder(item),onInput:handleOrderInput,
+      onConfirm:()=>confirmOrderInput({focusNext:true})
+    });
+    registerDropdown('production-product-options',{
+      inputId:'production-product-input',toggleId:'production-product-toggle',
+      isEnabled:()=>Boolean(state.orderReady&&state.order),
+      getItems:()=>state.order?window.PCMSProductionEntryStore.productsForOrder(state.order.id):[],
+      fields:[
+        {value:item=>item.code,mode:'code',weight:0},
+        {value:item=>item.desc,mode:'text',weight:10},
+        {value:item=>item.color,mode:'text',weight:20},
+        {value:item=>item.size,mode:'text',weight:20},
+        {value:item=>item.nameZh,mode:'text',weight:20}
+      ],
+      renderItem:productOptionCopy,onSelect:selectProduct,onInput:handleProductInput,
+      onConfirm:()=>confirmProductInput({focusNext:true})
+    });
+    registerDropdown('production-process-options',{
+      inputId:'production-process-input',toggleId:'production-process-toggle',mode:'numeric',
+      isEnabled:()=>Boolean(!state.supplementMode&&state.orderReady&&state.product),
+      getItems:()=>state.order?window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
+        .filter(item=>String(item.code||'')===String(state.product?.code||'')):[],
+      fields:[{value:item=>item.processNo,mode:'numeric'}],
+      renderItem:processOptionCopy,onSelect:selectProcess,onInput:handleProcessInput,
+      onConfirm:()=>confirmProcessInput({focusNext:true})
+    });
   }
 
   function entryInputIds(){
     return ENTRY_INPUT_IDS.filter(id=>id !== 'production-process-name' || state.supplementMode);
-  }
-
-  function confirmProcessForForwardTab(){
-    const input = element('production-process-input');
-    const value = input?.value.trim() || '';
-    if(value === '0'){
-      setSupplementMode(true,{clearValues:false});
-      setStatus('Đã bật chế độ bổ sung giờ.','已啟動補充工時模式。','info');
-      return true;
-    }
-    const exact = processForExactInput();
-    if(!exact){
-      setStatus('Không tìm thấy số công đoạn chính xác.','找不到完全相符的工序號。','danger');
-      input?.focus({preventScroll:true});
-      return false;
-    }
-    const sameProcess = Boolean(state.process)
-      && String(state.process.id || '') === String(exact.id || '')
-      && String(state.process.processNo || '') === String(exact.processNo || '')
-      && String(state.process.code || '') === String(exact.code || '');
-    if(!sameProcess) selectProcess(exact);
-    else{
-      closeDropdown('production-process-options');
-      setStatus('','','info');
-    }
-    return true;
   }
 
   function handleEntryTab(event,currentId){
@@ -813,12 +693,20 @@
       event.preventDefault();
       return;
     }
-    if(!event.shiftKey && currentId === 'production-process-input' && !confirmProcessForForwardTab()){
-      event.preventDefault();
-      return;
+    if(!event.shiftKey && currentId === 'production-order-input'){
+      const result=confirmOrderInput({focusNext:true});
+      if(result!==true){ event.preventDefault(); return; }
+    }
+    if(!event.shiftKey && currentId === 'production-product-input'){
+      const result=confirmProductInput({focusNext:true});
+      if(result!==true){ event.preventDefault(); return; }
+    }
+    if(!event.shiftKey && currentId === 'production-process-input'){
+      const result=confirmProcessInput({focusNext:true});
+      if(result!==true){ event.preventDefault(); return; }
     }
     event.preventDefault();
-    DROPDOWN_OPTION_IDS.forEach(closeDropdown);
+    closeAllDropdowns();
     const inputIds = entryInputIds();
     const currentIndex = Math.max(0,inputIds.indexOf(currentId));
     const offset = event.shiftKey ? -1 : 1;
@@ -1236,7 +1124,6 @@
     date.max = maximum;
     if(date.value > maximum) date.value = maximum;
     if(next) next.disabled = !date.value || date.value >= maximum;
-    scheduleEntryFieldLayout();
   }
 
   function setProductionDate(value,{auto=false}={}){
@@ -1300,13 +1187,8 @@
     element('production-calendar-button').addEventListener('click',openProductionCalendar);
     element('production-date-previous').addEventListener('click',()=>shiftProductionDate(-1));
     element('production-date-next').addEventListener('click',()=>shiftProductionDate(1));
-    element('production-employee-input').addEventListener('input',()=>handleEmployeeInput('production-employee-options'));
-    element('production-entry-employee-name-input').addEventListener('input',()=>handleEmployeeInput('production-employee-name-options'));
-    element('production-order-input').addEventListener('input',handleOrderInput);
-    element('production-product-input').addEventListener('input',handleProductInput);
-    element('production-process-input').addEventListener('input',handleProcessInput);
+    initializeSearchDropdowns();
     element('production-quantity-input').addEventListener('input',renderQuantityProgress);
-    ENTRY_FIELD_LAYOUT_RULES.forEach(rule=>element(rule.inputId)?.addEventListener('input',scheduleEntryFieldLayout));
     element('production-process-name').addEventListener('keydown',event=>{
       if(event.key !== 'Enter' || !state.supplementMode) return;
       event.preventDefault();
@@ -1317,38 +1199,14 @@
       event.preventDefault();
       void saveEntry();
     });
-    element('production-employee-toggle').addEventListener('click',()=>toggleEmployeeDropdown('production-employee-options'));
-    element('production-employee-name-toggle').addEventListener('click',()=>toggleEmployeeDropdown('production-employee-name-options'));
-    element('production-order-toggle').addEventListener('click',toggleOrderDropdown);
-    element('production-product-toggle').addEventListener('click',toggleProductDropdown);
-    element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
     element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
     element('production-quantity-progress').addEventListener('click',()=>void toggleSelectedProcessRows());
-    document.querySelectorAll('#pg-production-entry .production-combobox').forEach(host=>{
-      host.addEventListener('mouseleave',()=>{
-        const options = host.querySelector('.production-options'); // options（目前欄位的搜尋選單）
-        if(options?.id) closeDropdown(options.id);
-      });
-    });
-    Object.entries(DROPDOWN_BINDINGS).forEach(([optionsId,binding])=>{
-      element(binding.inputId)?.addEventListener('keydown',event=>handleDropdownKeyboard(event,optionsId));
-    });
     ENTRY_INPUT_IDS.forEach(id=>{
       element(id)?.addEventListener('keydown',event=>handleEntryTab(event,id));
-    });
-    document.addEventListener('click',event=>{
-      if(!event.target.closest('.production-combobox')){
-        DROPDOWN_OPTION_IDS.forEach(closeDropdown);
-      }
-    });
-    document.addEventListener('keydown',event=>{
-      if(event.key !== 'Escape') return;
-      DROPDOWN_OPTION_IDS.forEach(closeDropdown);
     });
     syncDropdownAvailability();
     ensureActionColumn();
     ensureProductionTableControl();
-    scheduleEntryFieldLayout();
   }
 
   async function loadProductionEntryData(options={}){
@@ -1429,13 +1287,11 @@
   async function productionEntryInit(){
     init();
     if(await applyPendingContext()){
-      scheduleEntryFieldLayout();
       startDateTimer();
       return;
     }
     if(state.dateAuto) element('production-date-input').value = today();
     syncDateControls();
-    scheduleEntryFieldLayout();
     startDateTimer();
     if(state.employee) await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
   }
@@ -1443,9 +1299,7 @@
   function productionEntryLeave(){
     stopDateTimer();
     productionTableControl?.deactivate?.({resetSort:true});
-    if(entryFieldLayoutFrame) window.cancelAnimationFrame(entryFieldLayoutFrame);
-    entryFieldLayoutFrame = 0;
-    DROPDOWN_OPTION_IDS.forEach(closeDropdown);
+    closeAllDropdowns();
   }
 
   window.loadProductionEntryData = loadProductionEntryData;

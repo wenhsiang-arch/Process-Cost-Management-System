@@ -133,7 +133,7 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
   vm.runInContext(source,context);
   const scriptFiles={
     history:'js/history.js',fileIo:'js/file-io.js',costLog:'js/cost-log.js',
-    settings:'js/settings.js',uiTableControls:'js/ui-table-controls.js',
+    settings:'js/settings.js',uiTableControls:'js/ui-table-controls.js',uiSearchDropdown:'js/ui-search-dropdown.js',
     productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js',

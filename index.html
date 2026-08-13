@@ -12,7 +12,7 @@
 <title>M9</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260813-2">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260813-3">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <style>
@@ -306,7 +306,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-employee-input" maxlength="30" autocomplete="off" placeholder="M91234 / 1234" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-employee-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-employee-toggle" aria-label="Mở danh sách nhân viên / 展開員工清單" aria-controls="production-employee-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
-                      <div class="production-options" id="production-employee-options" role="listbox" hidden></div>
+                      <div class="ui-search-dropdown-options" id="production-employee-options" role="listbox" hidden></div>
                     </div>
                   </div>
                   <div class="production-employee-inline-field production-employee-name-field production-combobox">
@@ -314,7 +314,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-entry-employee-name-input" maxlength="100" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-employee-name-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-employee-name-toggle" aria-label="Mở danh sách tên nhân viên / 展開員工姓名清單" aria-controls="production-employee-name-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
-                      <div class="production-options" id="production-employee-name-options" role="listbox" hidden></div>
+                      <div class="ui-search-dropdown-options" id="production-employee-name-options" role="listbox" hidden></div>
                     </div>
                   </div>
                   <div class="production-employee-inline-copy" title="Bộ phận / 部門">
@@ -360,7 +360,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-order-input" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-order-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-order-toggle" aria-label="Mở danh sách đơn hàng / 展開訂單清單" aria-controls="production-order-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
-                      <div class="production-options" id="production-order-options" role="listbox" hidden></div>
+                      <div class="ui-search-dropdown-options" id="production-order-options" role="listbox" hidden></div>
                     </div>
                   </div>
                   <div class="production-field production-combobox production-product-field">
@@ -368,7 +368,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-product-input" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-product-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-product-toggle" aria-label="Mở danh sách mã hàng / 展開款號清單" aria-controls="production-product-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
-                      <div class="production-options" id="production-product-options" role="listbox" hidden></div>
+                      <div class="ui-search-dropdown-options" id="production-product-options" role="listbox" hidden></div>
                     </div>
                   </div>
                   <div class="production-field production-combobox production-process-field">
@@ -376,7 +376,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-process-input" maxlength="2" inputmode="numeric" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-process-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-process-toggle" aria-label="Mở danh sách công đoạn / 展開工序清單" aria-controls="production-process-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
-                      <div class="production-options" id="production-process-options" role="listbox" hidden></div>
+                      <div class="ui-search-dropdown-options" id="production-process-options" role="listbox" hidden></div>
                     </div>
                   </div>
                   <div class="production-field production-process-name-field">

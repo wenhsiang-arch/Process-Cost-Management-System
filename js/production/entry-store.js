@@ -21,7 +21,6 @@
   function currentUserId(){ return String(window.firebaseAuthUser?.uid || ''); }
   function currentUserName(){ return String(window.cu?.user || window.cu?.username || ''); }
   function normalizedText(value){ return String(value || '').trim(); }
-  function lower(value){ return normalizedText(value).toLocaleLowerCase(); }
   function isPositiveInteger(value){ return Number.isInteger(value) && value > 0; }
   function isValidSupplementHours(value){
     const hours = Number(value);
@@ -75,14 +74,6 @@
 
   function listOrders(){ return orders.map(item=>({...item})); }
 
-  function searchOrders(term,maximum=20){
-    const needle = lower(term);
-    const source = needle ? orders.filter(item=>[
-      item.orderId,item.client,item.id
-    ].some(value=>lower(value).includes(needle))) : orders;
-    return source.slice(0,Math.max(1,Math.min(Number(maximum)||20,50))).map(item=>({...item}));
-  }
-
   function findOrder(orderId){
     const normalized = normalizedText(orderId);
     return orders.find(item=>item.id === normalized) || null;
@@ -135,14 +126,6 @@
       });
     });
     return Array.from(unique.values()).sort((a,b)=>a.code.localeCompare(b.code,'en',{numeric:true,sensitivity:'base'}));
-  }
-
-  function searchProducts(orderId,term,maximum=20){
-    const needle = lower(term);
-    const source = productsForOrder(orderId);
-    return (needle ? source.filter(item=>[
-      item.code,item.desc,item.color,item.size,item.nameZh
-    ].some(value=>lower(value).includes(needle))) : source).slice(0,Math.max(1,Math.min(Number(maximum)||20,50)));
   }
 
   function findProcess(orderId,productCode,processNo){
@@ -469,8 +452,8 @@
   }
 
   window.PCMSProductionEntryStore = Object.freeze({
-    loadOrders,listOrders,searchOrders,findOrder,loadProcesses,getLoadedProcesses,
-    productsForOrder,searchProducts,findProcess,loadProcessTotal,createEntry,voidEntry,deleteEntry,
+    loadOrders,listOrders,findOrder,loadProcesses,getLoadedProcesses,
+    productsForOrder,findProcess,loadProcessTotal,createEntry,voidEntry,deleteEntry,
     reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
   });
 })();

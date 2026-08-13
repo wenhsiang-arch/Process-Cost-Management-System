@@ -9,7 +9,9 @@ const read=file=>fs.readFileSync(new URL(file,root),'utf8');
 function createProductionContext(){
   const employeeDocuments=[
     {id:'M91234',data:()=>({employeeId:'M91234',name:'Nguyễn An',department:'May',active:true})},
-    {id:'A55678',data:()=>({employeeId:'A55678',name:'Trần Bình',department:'Đóng gói',active:true})}
+    {id:'A55678',data:()=>({employeeId:'A55678',name:'Trần Bình',department:'Đóng gói',active:true})},
+    {id:'M05713',data:()=>({employeeId:'M05713',name:'TRẦN THỊ CÚC',department:'May',active:true})},
+    {id:'M09999',data:()=>({employeeId:'M09999',name:'ĐỖ THỊ HOA',department:'May',active:true})}
   ]; // employeeDocuments（員工測試資料）
   const orderProcesses=[
     {id:'PROCESS-1',orderId:'ORDER-ABC-2026',orderNo:'OD-7788',code:'STYLE-500',desc:'Áo khoác',color:'Đen',sz:'M',processNo:'1',processVi:'May thân',processZh:'車身',orderQty:1000,workStdSec:48,processSec:48,slPerHour:63},
@@ -40,6 +42,7 @@ function createProductionContext(){
   };
   const context={window,console,Map,Object,Array,String,Number,Math,Date,Error,RegExp};
   vm.createContext(context);
+  vm.runInContext(read('js/ui-search-dropdown.js'),context);
   vm.runInContext(read('js/production/employee-store.js'),context);
   vm.runInContext(read('js/production/entry-store.js'),context);
   return window;
@@ -74,9 +77,20 @@ function createEmployeeMutationContext(){
 test('員工工號、姓名及部門可用整段任意文字搜尋',async()=>{
   const window=createProductionContext();
   await window.PCMSProductionEmployees.load();
-  assert.equal(window.PCMSProductionEmployees.search('1234')[0].employeeId,'M91234');
-  assert.equal(window.PCMSProductionEmployees.search('uyễn')[0].employeeId,'M91234');
-  assert.equal(window.PCMSProductionEmployees.search('gói')[0].employeeId,'A55678');
+  const employees=window.PCMSProductionEmployees.list({activeOnly:true});
+  const match=query=>window.PCMSUISearchDropdown.matchItems(employees,query,{
+    fields:[
+      {value:item=>item.employeeId,mode:'code'},
+      {value:item=>item.name,mode:'text'},
+      {value:item=>item.department,mode:'text'}
+    ]
+  }).items;
+  assert.equal(match('1234')[0].employeeId,'M91234');
+  assert.equal(match('uyễn')[0].employeeId,'M91234');
+  assert.equal(match('gói')[0].employeeId,'A55678');
+  assert.equal(match('CUC')[0].employeeId,'M05713');
+  assert.equal(match('tran thi cuc')[0].employeeId,'M05713');
+  assert.equal(match('do thi hoa')[0].employeeId,'M09999');
   assert.equal(window.PCMSProductionEmployees.validateEmployee({employeeId:'m91234',name:'A',department:'B'}).employeeId,'M91234');
 });
 
@@ -114,17 +128,25 @@ test('新增既有工號必須拒絕且只有編輯流程可以更新',async()=>
 test('訂單、款號及工序只在目前訂單範圍內搜尋',async()=>{
   const window=createProductionContext();
   await window.PCMSProductionEntryStore.loadOrders();
-  assert.equal(window.PCMSProductionEntryStore.searchOrders('')[0].id,'ORDER-ABC-2026');
-  assert.equal(window.PCMSProductionEntryStore.searchOrders('ABC')[0].id,'ORDER-ABC-2026');
-  assert.equal(window.PCMSProductionEntryStore.searchOrders('Khách A')[0].id,'ORDER-ABC-2026');
-  assert.equal(window.PCMSProductionEntryStore.searchOrders('OLD').length,0);
+  const orders=window.PCMSProductionEntryStore.listOrders();
+  const orderMatch=query=>window.PCMSUISearchDropdown.matchItems(orders,query,{
+    fields:[{value:item=>item.orderId,mode:'code'},{value:item=>item.client,mode:'text'}]
+  }).items;
+  assert.equal(orderMatch('')[0].id,'ORDER-ABC-2026');
+  assert.equal(orderMatch('ABC')[0].id,'ORDER-ABC-2026');
+  assert.equal(orderMatch('Khách A')[0].id,'ORDER-ABC-2026');
+  assert.equal(orderMatch('OLD').length,0);
   await window.PCMSProductionEntryStore.loadProcesses('ORDER-ABC-2026');
+  const products=window.PCMSProductionEntryStore.productsForOrder('ORDER-ABC-2026');
+  const productMatch=query=>window.PCMSUISearchDropdown.matchItems(products,query,{
+    fields:[{value:item=>item.code,mode:'code'},{value:item=>item.desc,mode:'text'}]
+  }).items;
   assert.deepEqual(
-    Array.from(window.PCMSProductionEntryStore.searchProducts('ORDER-ABC-2026','')).map(item=>item.code),
+    Array.from(productMatch('')).map(item=>item.code),
     ['STYLE-500','STYLE-900']
   );
   assert.deepEqual(
-    Array.from(window.PCMSProductionEntryStore.searchProducts('ORDER-ABC-2026','500')).map(item=>item.code),
+    Array.from(productMatch('500')).map(item=>item.code),
     ['STYLE-500']
   );
   assert.equal(window.PCMSProductionEntryStore.findProcess('ORDER-ABC-2026','STYLE-500','1').id,'PROCESS-1');
@@ -289,26 +311,30 @@ test('重複工號拒絕覆蓋、部門使用下拉管理且搜尋下拉只由�
     assert.match(html,new RegExp(`id="production-${name}-input"[\\s\\S]*?id="production-${name}-toggle"`));
     assert.match(html,new RegExp(`<div class="ui-search-dropdown-control">[\\s\\S]*?id="production-${name}-input"[\\s\\S]*?id="production-${name}-toggle"[\\s\\S]*?id="production-${name}-options"[\\s\\S]*?</div>`));
   });
-  assert.match(entryPage,/production-employee-toggle'\)\.addEventListener\('click',toggleEmployeeDropdown\)/);
-  assert.match(entryPage,/production-order-toggle'\)\.addEventListener\('click',toggleOrderDropdown\)/);
-  assert.match(entryPage,/production-product-toggle'\)\.addEventListener\('click',toggleProductDropdown\)/);
-  assert.match(entryPage,/production-process-toggle'\)\.addEventListener\('click',toggleProcessDropdown\)/);
+  assert.match(html,/id="production-entry-employee-name-input"[\s\S]*?id="production-employee-name-toggle"[\s\S]*?id="production-employee-name-options"/);
+  assert.match(entryPage,/function initializeSearchDropdowns\(\)/);
+  assert.match(entryPage,/PCMSUISearchDropdown\.create\(\{/);
+  assert.match(entryPage,/registerDropdown\('production-employee-options'/);
+  assert.match(entryPage,/registerDropdown\('production-employee-name-options'/);
+  assert.match(entryPage,/registerDropdown\('production-order-options'/);
+  assert.match(entryPage,/registerDropdown\('production-product-options'/);
+  assert.match(entryPage,/registerDropdown\('production-process-options'/);
   assert.match(entryPage,/PCMSProductionEmployees\.list\(\{activeOnly:true\}\)/);
   assert.match(entryPage,/PCMSProductionEntryStore\.listOrders\(\)/);
   assert.match(entryPage,/PCMSProductionEntryStore\.productsForOrder\(state\.order\.id\)/);
-  assert.match(entryPage,/dataset\.dropdownMode === 'all'[\s\S]*?renderDropdown\(id,items,render,onSelect,'all'\)/);
-  assert.match(entryPage,/addEventListener\('mouseleave'/);
-  assert.doesNotMatch(entryPage,/latest\.length === 1|if\(exact\) selectProcess\(exact\)/);
-  assert.doesNotMatch(entryPage,/production-(?:order|product)-input'\)\.addEventListener\('(?:focus|click)'/);
+  assert.doesNotMatch(entryPage,/addEventListener\('mouseleave'|function renderDropdown|function toggleDropdown/);
+  assert.match(entryPage,/function confirmOrderInput\(options=\{\}\)/);
+  assert.match(entryPage,/function confirmProductInput\(options=\{\}\)/);
 });
 
 test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
-  const style=read('styles/features/production.css'); // style（產能介面樣式）
+  const style=read('styles/ui-core.css'); // style（共用搜尋下拉樣式）
   const features=read('js/features.js'); // features（中央功能載入設定）
-  assert.match(style,/\.production-options \{[\s\S]*?top: calc\(100% - 1px\);/);
-  assert.match(style,/\.production-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
-  assert.doesNotMatch(style,/\.production-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-13'/);
+  assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% - 1px\);/);
+  assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
+  assert.doesNotMatch(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
+  assert.match(features,/uiSearchDropdown:'js\/ui-search-dropdown\.js\?v=20260813-1'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260813-6'/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
@@ -319,6 +345,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   const core=read('styles/ui-core.css');
   const controls=read('js/ui-table-controls.js');
   const features=read('js/features.js');
+  const searchDropdown=read('js/ui-search-dropdown.js');
   const pageStart=html.indexOf('id="pg-production-entry"');
   const pageEnd=html.indexOf('<div class="pg',pageStart+1);
   const markup=html.slice(pageStart,pageEnd);
@@ -352,11 +379,11 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(controls,/selectAll\.indeterminate = selected > 0 && selected < toggles\.length/);
   assert.match(controls,/resetColumns\(\)/);
   assert.match(source,/const ENTRY_INPUT_IDS = Object\.freeze\(\[/);
-  assert.match(source,/function confirmProcessForForwardTab\(\)/);
+  assert.match(source,/function confirmProcessInput\(options=\{\}\)/);
   assert.match(source,/function handleEntryTab\(event,currentId\)/);
-  assert.match(source,/!event\.shiftKey && currentId === 'production-process-input' && !confirmProcessForForwardTab\(\)/);
-  assert.match(source,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
-  assert.match(source,/selectProcess\(exact,\{focusQuantity:true\}\)/);
+  assert.match(source,/currentId === 'production-process-input'[\s\S]*?confirmProcessInput\(\{focusNext:true\}\)/);
+  assert.match(read('js/ui-search-dropdown.js'),/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
+  assert.match(source,/selectProcess\(exact,\{focusQuantity:options\.focusNext===true\}\)/);
   assert.match(source,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
   assert.match(source,/const quantityInput = element\('production-quantity-input'\)[\s\S]*?controls:supplement \? \[reasonInput,quantityInput\] : \[quantityInput\]/);
   assert.match(source,/function setSupplementMode\(enabled,options=\{\}\)/);
@@ -377,7 +404,12 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/loadProcessTotal\(process\?\.id\)/);
   assert.match(source,/preview\?\.exceededQuantity > 0/);
   assert.match(source,/value\.textContent = `\$\{numberText\(summary\.registeredQuantity\)\} \/ \$\{numberText\(summary\.orderQuantity\)\}`/);
-  assert.match(source,/function employeeOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId,secondary:''/);
+  assert.match(source,/function employeeIdOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId/);
+  assert.match(source,/function employeeNameOptionCopy\(item\)\{[\s\S]*?primary:item\.name\|\|item\.employeeId/);
+  assert.match(source,/function confirmEmployeeInput\(optionsId\)[\s\S]*?matches\.length===1[\s\S]*?selectEmployee\(matches\[0\]\)/);
+  assert.match(searchDropdown,/normalize\('NFD'\)/);
+  assert.match(searchDropdown,/toLocaleLowerCase\(\)/);
+  assert.match(source,/employeeOptionsId[\s\S]*?confirmEmployeeInput\(employeeOptionsId\)/);
   assert.match(source,/function setProcessName\(process\)/);
   assert.match(source,/async function loadSelectedProcessRows\(\)/);
   assert.match(source,/PCMSProductionReports\.loadProcess\(processId,\{activeOnly:true\}\)/);
@@ -392,7 +424,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(records,/PCMSProductionEntry\?\.setPendingContext/);
   assert.match(source,/window\.PCMSProductionEntry = Object\.freeze\(\{setPendingContext\}\)/);
   assert.match(source,/dataset\.productionColumn/);
-  assert.match(source,/event\.key !== 'Escape'/);
+  assert.match(searchDropdown,/event\.key === 'Escape'/);
   assert.match(style,/\.production-entry-fields \{[\s\S]*?display: flex;[\s\S]*?width: 100%;[\s\S]*?flex-wrap: nowrap;[\s\S]*?gap: clamp\(5px, \.65vw, 10px\);/);
   assert.match(style,/\.production-process-field \.ui-search-dropdown-control \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100%;/);
   assert.match(style,/\.production-registration-header \{[\s\S]*?width: 100%;[\s\S]*?grid-template-columns: minmax\(0, 1fr\);[\s\S]*?background: var\(--ui-color-table-header\);/);
@@ -419,15 +451,17 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog \{[\s\S]*?--production-dialog-center-x/);
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;/);
   assert.match(features,/productionChangeStore:'js\/production\/change-store\.js\?v=20260812-1'/);
-  assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260812-1'/);
+  assert.match(features,/productionEmployeeStore:'js\/production\/employee-store\.js\?v=20260813-2'/);
+  assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260813-3'/);
   assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260812-1'/);
   assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260812-1'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260813-1'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260810-6'/);
-  assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260812-1'/);
-  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260810-5'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-13'/);
-  assert.match(html,/js\/features\.js\?v=20260813-1/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260813-7'/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260813-2'/);
+  assert.match(features,/productionAnomalyFilter:'js\/production\/production-anomaly-filter\.js\?v=20260813-1'/);
+  assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260812-3'/);
+  assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260812-8'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260813-6'/);
+  assert.match(html,/js\/features\.js\?v=20260813-9/);
 });
 
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{

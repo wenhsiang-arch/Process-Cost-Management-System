@@ -35,15 +35,6 @@
     return String(value || '').trim().replace(/\s+/g,' ');
   }
 
-  // normalizeSearchText（搜尋比對文字）：只供搜尋使用，不改寫正式姓名或部門資料。
-  function normalizeSearchText(value){
-    return normalizeText(value)
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g,'')
-      .replace(/[Đđ]/g,'d')
-      .toLocaleLowerCase();
-  }
-
   function employeeDocumentId(employeeId){
     return normalizeEmployeeId(employeeId);
   }
@@ -139,17 +130,6 @@
   function find(employeeId){
     const normalized = normalizeEmployeeId(employeeId);
     return rows.find(item=>item.employeeId === normalized) || null;
-  }
-
-  function search(term,options={}){
-    const needle = normalizeSearchText(term);
-    const maximum = Math.max(1,Math.min(Number(options.limit) || 20,50));
-    const activeOnly = options.activeOnly !== false;
-    const source = rows.filter(item=>!activeOnly || item.active === true);
-    if(!needle) return source.slice(0,maximum).map(item=>({...item}));
-    return source.filter(item=>[
-      item.employeeId,item.name,item.department
-    ].some(value=>normalizeSearchText(value).includes(needle))).slice(0,maximum).map(item=>({...item}));
   }
 
   async function createEmployee(input){
@@ -448,7 +428,7 @@
   }
 
   window.PCMSProductionEmployees = Object.freeze({
-    load,list,find,search,createEmployee,updateEmployee,setActive,deleteEmployee,
+    load,list,find,createEmployee,updateEmployee,setActive,deleteEmployee,
     loadDepartments,listDepartments,findDepartment,createDepartment,renameDepartment,setDepartmentActive,deleteDepartment,
     reset,normalizeEmployeeId,validateEmployee,validateDepartmentName
   });

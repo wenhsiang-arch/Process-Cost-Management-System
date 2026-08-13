@@ -48,7 +48,7 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-section-header-min-height:\s*34px/);
   assert.match(core,/--ui-table-cell-padding-block:\s*5px/);
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
-  assert.match(html,/styles\/ui-core\.css\?v=20260813-1/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
   assert.match(html,/js\/features\.js\?v=20260813-1/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260810-2'/);
@@ -57,7 +57,7 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(features,/sync:'styles\/features\/sync\.css\?v=20260810-2'/);
   assert.match(features,/cost:'styles\/features\/cost\.css\?v=20260810-2'/);
   assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260810-2'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260810-9'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260813-6'/);
   assert.match(accounts,/\.permission-matrix-table tbody td \{[\s\S]*?height: 38px;[\s\S]*?padding: 4px 7px;/);
   assert.match(cost,/\.cost-log-table th \{[\s\S]*?height: 52px;/);
   assert.match(cost,/\.cost-log-table td \{[\s\S]*?height: 54px;/);
@@ -198,12 +198,14 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   const html=read('index.html');
   const core=read('styles/ui-core.css');
   const style=read('styles/features/production.css');
+  const searchDropdown=read('js/ui-search-dropdown.js');
   const entrySource=read('js/production/production-entry.js');
   const recordSource=read('js/production/production-records.js');
   const pageStart=html.indexOf('id="pg-production-entry"');
   const pageEnd=html.indexOf('<div class="pg',pageStart+1);
   const markup=html.slice(pageStart,pageEnd);
   assert.match(markup,/id="production-employee-input"[\s\S]*?placeholder="M91234 \/ 1234"/);
+  assert.match(markup,/id="production-entry-employee-name-input"[\s\S]*?id="production-employee-name-toggle"[\s\S]*?id="production-employee-name-options"/);
   assert.match(markup,/id="production-order-input"[\s\S]*?id="production-product-input"[\s\S]*?id="production-process-input"/);
   ['employee','order','product','process'].forEach(name=>{
     assert.match(markup,new RegExp(`class="ui-search-dropdown-input"[^>]*id="production-${name}-input"[\\s\\S]*?class="ui-search-dropdown-toggle"[^>]*id="production-${name}-toggle"`));
@@ -212,16 +214,15 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.doesNotMatch(markup,/Hiệu suất|效率/);
   assert.match(core,/\.ui-search-dropdown-control \{[\s\S]*?position: relative;/);
   assert.match(core,/\.ui-search-dropdown-toggle \{[\s\S]*?position: absolute;[\s\S]*?right: 1px;/);
-  assert.match(style,/\.production-options \{[\s\S]*?max-height: 260px;[\s\S]*?overflow-y: auto;/);
-  assert.match(entrySource,/function toggleDropdown\([\s\S]*?focus\(\{preventScroll:true\}\)/);
-  assert.match(entrySource,/addEventListener\('mouseleave'/);
-  assert.doesNotMatch(entrySource,/latest\.length === 1|if\(exact\) selectProcess\(exact\)/);
-  assert.doesNotMatch(entrySource,/production-(?:order|product)-input'\)\.addEventListener\('(?:focus|click)'/);
-  assert.match(entrySource,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
-  assert.match(entrySource,/selectProcess\(exact,\{focusQuantity:true\}\)/);
+  assert.match(core,/\.ui-search-dropdown-options \{[\s\S]*?max-height: 260px;[\s\S]*?overflow-y: auto;/);
+  assert.match(searchDropdown,/function handleToggle\(\)[\s\S]*?input\.focus\(\{preventScroll:true\}\)/);
+  assert.doesNotMatch(searchDropdown,/mouseleave|mouseout/);
+  assert.match(entrySource,/function initializeSearchDropdowns\(\)/);
+  assert.match(searchDropdown,/event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'/);
+  assert.match(entrySource,/selectProcess\(exact,\{focusQuantity:options\.focusNext===true\}\)/);
   assert.match(entrySource,/production-quantity-input'\)\.addEventListener\('keydown'[\s\S]*?void saveEntry\(\)/);
   assert.match(entrySource,/function handleEntryTab\(event,currentId\)/);
-  assert.match(entrySource,/function confirmProcessForForwardTab\(\)[\s\S]*?Không tìm thấy số công đoạn chính xác/);
+  assert.match(entrySource,/function confirmProcessInput\(options=\{\}\)[\s\S]*?Không tìm thấy số công đoạn chính xác/);
   assert.doesNotMatch(recordSource,/\b(?:alert|confirm|prompt)\s*\(/);
   assert.match(markup,/class="production-entry-panels"/);
   assert.match(markup,/production-registration-context[\s\S]*?production-registration-header[\s\S]*?production-employee-inline-panel/);
@@ -251,7 +252,9 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(entrySource,/production-product-code-cell/);
   assert.match(style,/\.production-entry-table td\.production-product-code-cell\s*\{[\s\S]*?font-weight:\s*700;/);
   assert.match(entrySource,/function ensureProductionTableControl\(\)/);
-  assert.match(entrySource,/function employeeOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId,secondary:''/);
+  assert.match(entrySource,/function employeeIdOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId/);
+  assert.match(entrySource,/function employeeNameOptionCopy\(item\)\{[\s\S]*?primary:item\.name\|\|item\.employeeId/);
+  assert.match(entrySource,/function confirmEmployeeInput\(optionsId\)[\s\S]*?matches\.length===1/);
   assert.match(style,/\.production-records-table \.production-date-cell\s*\{/);
   assert.match(style,/\.production-data-section \.ui-table-frame\s*\{[\s\S]*?overflow:\s*hidden;/);
   assert.match(style,/\.production-data-section \.ui-table-scroll\s*\{[\s\S]*?overflow-x:\s*auto;/);
