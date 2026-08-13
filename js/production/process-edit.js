@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,dragIndex:-1};
+  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,pendingChecked:false,dragIndex:-1};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -376,23 +376,73 @@
     return lines;
   }
 
-  function officialChangeSummary(targetCodes,operations,orders){
+  function sameOperationStructure(beforeValue,afterValue){
+    const before=normalizedOperations(beforeValue);
+    const after=normalizedOperations(afterValue);
+    return before.length===after.length&&before.every((item,index)=>{
+      const next=after[index];
+      return next&&item.no===next.no&&item.category===next.category&&item.vi===next.vi&&item.zh===next.zh;
+    });
+  }
+
+  function openModificationSettings(structuralChange){
+    return new Promise(resolve=>{
+      let settled=false;
+      const body=document.createElement('div');
+      body.className='process-edit-mode-dialog';
+      body.innerHTML=`<div class="process-edit-mode-selector">
+        <label class="process-edit-mode-option"><input type="radio" name="official-process-edit-mode" value="processOptimization" checked><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên bản ghi sản xuất cũ; tiêu chuẩn mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊產能登記完全不變；同步完成後才使用新標準。</span></small></label>
+        <label class="process-edit-mode-option${structuralChange?' is-disabled':''}"><input type="radio" name="official-process-edit-mode" value="standardCorrection" ${structuralChange?'disabled':''}><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa giây và hiệu suất của bản ghi cũ, đồng thời giữ giây gốc.</span><span class="ui-text-zh">訂正舊登記秒數與效率，同時保留原始秒數。</span></small></label>
+      </div>
+      ${structuralChange?'<div class="ui-notice is-info"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thêm, xóa, đổi tên hoặc đổi thứ tự chỉ được áp dụng từ bây giờ.</strong><span>新增、刪除、改名或調整順序只能從現在起生效。</span></span></div>':''}
+      <label class="process-edit-reason"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea rows="3" maxlength="500" data-process-edit-reason>Cập nhật công đoạn chính thức / 更新正式工序</textarea></label>`;
+      ui().openDialog({
+        title:{vi:'Chọn cách áp dụng thay đổi',zh:'選擇修改套用方式'},body,size:'large',
+        actions:[
+          {text:{vi:'Hủy',zh:'取消'},onClick:()=>{ settled=true;resolve(null); }},
+          {text:{vi:'Tiếp tục kiểm tra',zh:'繼續確認'},kind:'primary',onClick:()=>{
+            const reason=String(body.querySelector('[data-process-edit-reason]')?.value||'').trim();
+            if(reason.length<2){ body.querySelector('[data-process-edit-reason]')?.focus();return false; }
+            settled=true;
+            resolve({mode:store().normalizeMode(body.querySelector('input[name="official-process-edit-mode"]:checked')?.value),reason});
+            return true;
+          }}
+        ],
+        onClose:()=>{ if(!settled) resolve(null); }
+      });
+    });
+  }
+
+  function officialChangeSummary(targetCodes,operations,impact,mode){
     const body=document.createElement('div');
     body.className='process-edit-change-summary';
-    const orderLabels=orders.map(item=>item.orderId||item.id);
+    const correction=mode===store().EDIT_MODES.STANDARD_CORRECTION;
+    const orderLabels=impact.orders.map(item=>item.orderId||item.id);
     const productSections=targetCodes.map(code=>{
       const lines=operationChangeLines(productByCode(code)?.ops,operations);
       return `<section><b>${safe(code)}</b><ul>${lines.map(line=>`<li>${safe(line)}</li>`).join('')}</ul></section>`;
     }).join('');
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Kiểm tra nội dung thay đổi trước khi lưu.</strong><span>儲存前請確認實際修改內容。</span></span></div>
       <div class="process-edit-change-products">${productSections}</div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>Giữ ảnh chụp cũ</strong><span>保留原快照</span></span></dd></div></dl>`;
+      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact.entryCount)||0):0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Giữ bản gốc và thêm kết quả sửa':'Giữ nguyên ảnh chụp cũ'}</strong><span>${correction?'保留原始值並另存訂正結果':'舊快照完全不變'}</span></span></dd></div></dl>`;
     return body;
+  }
+
+  function updateModificationProgress(controller,progress){
+    const total=Math.max(1,Number(progress?.total)||1);
+    const completed=Math.max(0,Number(progress?.completed)||0);
+    const entries=progress?.phase==='entries';
+    controller?.update({
+      value:completed/total*100,
+      text:entries
+        ?{vi:`Đang sửa bản ghi sản xuất ${completed}/${total}...`,zh:`正在訂正產能紀錄 ${completed}/${total}…`}
+        :{vi:`Đang đồng bộ đơn hàng ${completed}/${total}...`,zh:`正在同步訂單 ${completed}/${total}…`},
+      detail:progress?.current?{vi:`Đơn hiện tại: ${progress.current}`,zh:`目前訂單：${progress.current}`}:{vi:'Vui lòng không đóng trang trong lúc xử lý.',zh:'處理期間請勿關閉頁面。'}
+    });
   }
 
   async function saveOfficial(){
     if(!canEdit()){ setStatus({vi:'Bạn không có quyền nhạy cảm để sửa tiêu chuẩn chính thức.',zh:'你沒有修改正式工序標準的敏感權限。'},'warning');return; }
-    const reason='Cập nhật công đoạn chính thức / 更新正式工序';
     const selectedCodes=[...state.selectedTargets];
     let operations;
     try{ operations=store().validateOperations(state.draft); }
@@ -402,35 +452,52 @@
       setStatus({vi:'Không có thay đổi; hệ thống không lưu phiên bản và không đồng bộ đơn hàng.',zh:'內容完全相同，未建立版本、未寫入資料，也未同步訂單。'},'info');
       return;
     }
-    let orders=[];
-    try{ orders=await store().activeOrdersForProducts(targetCodes); }
-    catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
+    const structuralChange=targetCodes.some(code=>!sameOperationStructure(productByCode(code)?.ops,operations));
+    const settings=await openModificationSettings(structuralChange);
+    if(!settings) return;
+    let impact;
+    try{
+      const operationsByCode=Object.fromEntries(targetCodes.map(code=>[code,operations]));
+      setStatus({vi:'Đang kiểm tra đơn hàng và dữ liệu bị ảnh hưởng...',zh:'正在檢查受影響訂單與資料…'},'info');
+      impact=await store().analyzeImpact({targetCodes,operationsByCode,mode:settings.mode});
+    }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
     const confirmed=await ui().confirmDialog({
       title:{vi:'Xác nhận sửa tiêu chuẩn chính thức',zh:'確認修改正式標準'},
-      body:officialChangeSummary(targetCodes,operations,orders),size:'large',
+      body:officialChangeSummary(targetCodes,operations,impact,settings.mode),size:'large',
       confirmText:{vi:'Xác nhận sửa',zh:'確認修改'},cancelText:{vi:'Hủy',zh:'取消'},kind:'warning'
     });
     if(!confirmed) return;
+    const progress=ui().progressDialog({
+      title:{vi:'Tiến độ sửa công đoạn',zh:'工序修改進度'},value:0,
+      text:{vi:'Đang lưu tiêu chuẩn mã hàng...',zh:'正在儲存款號標準…'},
+      detail:{vi:`Ảnh hưởng ${impact.orderCount} đơn và ${impact.entryCount} bản ghi.`,zh:`影響 ${impact.orderCount} 張訂單與 ${impact.entryCount} 筆產能紀錄。`}
+    });
     try{
       setStatus({vi:'Đang lưu phiên bản và công đoạn...',zh:'正在儲存版本與工序修改…'},'info');
-      const result=await store().saveOfficialProcesses({targetCodes,operations,reason});
-      const failures=[];
-      for(let index=0;index<orders.length;index++){
-        const order=orders[index];
-        setStatus({vi:`Đã lưu mã hàng; đang đồng bộ đơn ${index+1}/${orders.length}...`,zh:`款號已儲存；正在同步訂單 ${index+1}/${orders.length}…`},'info');
-        try{
-          await store().syncOrderSnapshot({orderId:order.id,targetCodes:order.matchedCodes,operations,reason,mode:'official'});
-        }catch(error){ failures.push({order,error}); }
-      }
+      const result=await store().saveOfficialProcesses({
+        targetCodes,operations,reason:settings.reason,mode:settings.mode,
+        orders:impact.orders,entryCount:impact.entryCount,
+        onProgress:item=>updateModificationProgress(progress,item)
+      });
       state.dirty=false;
       await selectProduct(state.currentCode,{force:true});
-      if(failures.length){
-        const labels=failures.map(item=>`${item.order.orderId||item.order.id}${item.error?.processEditJobId?`（${item.error.processEditJobId}）`:''}`).join('、');
-        setStatus({vi:`Mã hàng đã lưu; ${failures.length} đơn đồng bộ thất bại: ${labels}. Công việc lỗi được giữ lại để kiểm tra và thử lại.`,zh:`款號已儲存；${failures.length} 張訂單同步失敗：${labels}。失敗工作已保留，可供檢查與重試。`},'warning');
-      }else setStatus(result.logSaved
-        ? {vi:`Đã lưu tiêu chuẩn và đồng bộ ${orders.length} đơn đang sản xuất.`,zh:`正式標準已儲存，並同步 ${orders.length} 張生產中訂單。`}
+      if(result.sync?.status==='partial'){
+        progress.fail({vi:'Một số đơn đồng bộ thất bại; công việc đã được giữ để thử lại.',zh:'部分訂單同步失敗；工作已保留，可稍後重試。'},
+          {vi:`Mã công việc: ${result.jobId}`,zh:`工作編號：${result.jobId}`});
+        setStatus({vi:`Tiêu chuẩn đã lưu nhưng còn ${result.sync.failures.length} đơn chưa đồng bộ. Mã công việc: ${result.jobId}.`,zh:`標準已儲存，但仍有 ${result.sync.failures.length} 張訂單未同步。工作編號：${result.jobId}。`},'warning');
+      }else{
+        progress.complete({vi:'Đã hoàn tất toàn bộ thay đổi.',zh:'全部修改已完成。'});
+        setStatus(result.logSaved
+        ? {vi:`Đã lưu tiêu chuẩn và đồng bộ ${impact.orderCount} đơn đang sản xuất.`,zh:`正式標準已儲存，並同步 ${impact.orderCount} 張生產中訂單。`}
         : {vi:'Đã lưu tiêu chuẩn, nhưng lịch sử thao tác không lưu được.',zh:'正式標準已儲存，但操作紀錄保存失敗。'},result.logSaved?'success':'warning');
-    }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); }
+      }
+      window.setTimeout(()=>progress.close(),1000);
+    }catch(error){
+      progress.fail({vi:'Không thể hoàn tất thay đổi; trạng thái công việc đã được giữ lại.',zh:'無法完成修改；工作狀態已保留。'},
+        {vi:`Mã công việc: ${error.processEditJobId||'—'}`,zh:`工作編號：${error.processEditJobId||'—'}`});
+      window.setTimeout(()=>progress.close(),1300);
+      setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger');
+    }
   }
 
   function versionActionLabel(action){
@@ -509,6 +576,44 @@
   function handleLanguageChange(){
     fillClientOptions();
     fillProductOptions();
+  }
+
+  async function promptPendingModification(){
+    if(state.pendingChecked) return;
+    state.pendingChecked=true;
+    let pending=[];
+    try{ pending=await store().loadPendingModificationJobs(10); }
+    catch(error){ console.error('Không thể đọc công việc sửa công đoạn đang chờ / 無法讀取待處理工序修改工作',error);return; }
+    const job=pending.find(item=>item.phase!=='product');
+    if(!job) return;
+    const confirmed=await ui().confirmDialog({
+      title:{vi:'Có công việc sửa chưa hoàn tất',zh:'有尚未完成的工序修改工作'},
+      message:{
+        vi:`Công việc ${job.jobId} đang ở bước ${job.phase}. Bạn có muốn tiếp tục ngay không?`,
+        zh:`工作 ${job.jobId} 目前停在「${job.phase}」階段，是否現在繼續？`
+      },
+      confirmText:{vi:'Tiếp tục công việc',zh:'繼續工作'},cancelText:{vi:'Để sau',zh:'稍後處理'}
+    });
+    if(!confirmed) return;
+    const progress=ui().progressDialog({
+      title:{vi:'Tiếp tục sửa công đoạn',zh:'繼續工序修改'},value:0,
+      text:{vi:'Đang khôi phục trạng thái công việc...',zh:'正在恢復工作狀態…'}
+    });
+    try{
+      const result=await store().resumeModificationJob(job.jobId,{onProgress:item=>updateModificationProgress(progress,item)});
+      if(result.status==='ready'){
+        progress.complete({vi:'Công việc đã hoàn tất.',zh:'工作已完成。'});
+        setStatus({vi:'Đã tiếp tục và hoàn tất công việc sửa trước đó.',zh:'先前的修改工作已繼續並完成。'},'success');
+      }else{
+        progress.fail({vi:'Vẫn còn đơn hàng đồng bộ thất bại.',zh:'仍有訂單同步失敗。'},
+          {vi:`Mã công việc: ${job.jobId}`,zh:`工作編號：${job.jobId}`});
+        setStatus({vi:`Công việc ${job.jobId} vẫn chưa hoàn tất.`,zh:`工作 ${job.jobId} 仍未完成。`},'warning');
+      }
+    }catch(error){
+      progress.fail({vi:'Không thể tiếp tục công việc.',zh:'無法繼續工作。'},
+        {vi:`Mã công việc: ${job.jobId}`,zh:`工作編號：${job.jobId}`});
+      setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger');
+    }finally{ window.setTimeout(()=>progress.close(),1200); }
   }
 
   function bindEvents(){
@@ -619,6 +724,7 @@
       await selectProduct(state.currentCode,{force:true});
     }
     if(!editingAllowed) setStatus({vi:'Trang đang ở chế độ chỉ xem; quyền nhạy cảm sửa tiêu chuẩn chưa được mở.',zh:'目前為唯讀模式；尚未開啟修改正式標準的敏感權限。'},'warning');
+    else await promptPendingModification();
   }
 
   function productionProcessEditLeave(){

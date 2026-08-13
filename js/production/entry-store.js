@@ -258,6 +258,7 @@
         processNo:normalized.processNo,
         processNameVi:normalizedText(liveProcess.processVi),
         processNameZh:normalizedText(liveProcess.processZh),
+        processVersionSnapshot:orderVersion(orderSnapshot.data()),
         processSecSnapshot:processSeconds,
         hourlyCapacitySnapshot:capacity,
         orderQtySnapshot:orderQuantity,

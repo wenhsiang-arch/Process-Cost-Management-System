@@ -15,13 +15,33 @@
     return typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();
   }
 
-  function selectedSummary(products,processNo,currentSeconds,newSeconds,sizeLabel){
+  function selectedSummary(products,processNo,currentSeconds,newSeconds,sizeLabel,mode,impact){
     const body=document.createElement('div');
     body.className='process-seconds-confirm-summary';
+    const correction=mode===store().EDIT_MODES.STANDARD_CORRECTION;
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Lần sửa này sẽ đồng bộ bảng mã hàng hiện tại.</strong><span>此次修改將同步目前的款號表。</span></span></div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Công đoạn</strong><span>工序</span></span></dt><dd>${safe(processNo)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></dt><dd>${safe(sizeLabel||'—')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span></dt><dd>${safe(currentSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây mới</strong><span>修改後秒數</span></span></dt><dd>${safe(newSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></dt><dd>${safe(products.map(item=>item.code).join('、'))}</dd></div></dl>
-      <div class="process-seconds-history-note ui-bilingual"><span class="ui-text-vi">Phiên bản lịch sử và giây chụp lúc ghi nhận sản xuất trước đây vẫn được giữ nguyên.</span><span class="ui-text-zh">歷史版本及過去生產登記秒數快照均會保留，不會被改寫。</span></div>`;
+      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Công đoạn</strong><span>工序</span></span></dt><dd>${safe(processNo)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></dt><dd>${safe(sizeLabel||'—')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span></dt><dd>${safe(currentSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây mới</strong><span>修改後秒數</span></span></dt><dd>${safe(newSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></dt><dd>${safe(products.map(item=>item.code).join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${Number(impact?.orderCount)||0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact?.entryCount)||0):0}</dd></div></dl>
+      <div class="process-seconds-history-note ui-bilingual"><span class="ui-text-vi">${correction?'Bản ghi cũ sẽ giữ giây gốc và thêm kết quả sửa để tính lại hiệu suất.':'Bản ghi cũ giữ nguyên; chỉ lần ghi nhận sau khi đồng bộ hoàn tất mới dùng giây mới.'}</span><span class="ui-text-zh">${correction?'舊紀錄會保留原始秒數，另存訂正結果並重新計算效率。':'舊紀錄完全不變；同步完成後的新登記才使用新秒數。'}</span></div>`;
     return body;
+  }
+
+  function previewOperations(product,processNo,seconds){
+    return (product.ops||[]).map(item=>{
+      const operation=window.PCMSProductModel.normalizeOperation(item);
+      return String(operation.no)===String(processNo)?{...operation,sec:seconds}:operation;
+    });
+  }
+
+  function progressText(progress){
+    if(progress?.phase==='entries') return {
+      vi:`Đang sửa bản ghi sản xuất ${progress.completed}/${progress.total}...`,
+      zh:`正在訂正產能紀錄 ${progress.completed}/${progress.total}…`
+    };
+    if(progress?.phase==='complete') return {vi:'Đã hoàn tất toàn bộ thay đổi.',zh:'全部修改已完成。'};
+    return {
+      vi:`Đang đồng bộ đơn hàng ${progress?.completed||0}/${progress?.total||0}...`,
+      zh:`正在同步訂單 ${progress?.completed||0}/${progress?.total||0}…`
+    };
   }
 
   // openGroupCreation（開啟群組建立頁）：獨立選擇、確認並儲存群組，不讀寫工序秒數。
@@ -105,6 +125,11 @@
       <div class="is-group"><span class="ui-dual-copy" data-quick-group-label><strong>${currentGroup?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${currentGroup?'目前群組':'群組狀態'}</span></span><b data-quick-group-value>${currentGroup?safe(currentGroup.name||currentGroup.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
       ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
     </section>
+    <section class="process-edit-mode-selector" data-quick-mode-selector>
+      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="processOptimization" checked><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên toàn bộ bản ghi cũ; giây mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊登記完全不變；同步完成後才使用新秒數。</span></small></label>
+      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="standardCorrection"><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa lại giây và hiệu suất của bản ghi cũ, nhưng vẫn giữ giây gốc.</span><span class="ui-text-zh">訂正舊登記秒數與效率，並保留原始秒數。</span></small></label>
+      <label class="process-edit-reason"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea rows="2" maxlength="500" data-quick-reason>${safe(QUICK_EDIT_REASON)}</textarea></label>
+    </section>
     ${displayed>0&&displayed!==officialSeconds?`<div class="ui-notice is-warning"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Dòng đã bấm là ảnh chụp ${safe(displayed)} giây; tiêu chuẩn hiện tại là ${safe(officialSeconds)} giây.</strong><span>點擊的紀錄為 ${safe(displayed)} 秒歷史快照；目前正式標準為 ${safe(officialSeconds)} 秒。</span></span></div>`:''}
     <section class="process-seconds-group-section"><div data-quick-member-selector></div></section>`;
     let shownSize=initialSize;
@@ -180,16 +205,47 @@
             });
             if(setupGroup&&!(await createIndependentGroup())) return false;
           }
-          const syncConfirmed=await ui().confirmDialog({
-            title:{vi:'Xác nhận đồng bộ bảng mã hàng',zh:'確認同步目前款號表'},body:selectedSummary(targetProducts,processNo,currentState.currentText,seconds,active.labelPair.vi),keepPrevious:true,
-            confirmText:{vi:'Đồng bộ và lưu',zh:'同步並儲存'},cancelText:{vi:'Quay lại',zh:'返回'},kind:'warning'
-          });
-          if(!syncConfirmed) return false;
-          const result=await store().saveOfficialSeconds({targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason:QUICK_EDIT_REASON});
-          saved=true;
-          ui().showToast({kind:result.logSaved?'success':'warning',text:result.logSaved
-            ?{vi:'Đã cập nhật giây chính thức và bảng mã hàng.',zh:'正式秒數與目前款號表已更新。'}
-            :{vi:'Đã cập nhật giây, nhưng nhật ký thao tác lưu thất bại.',zh:'秒數已更新，但操作紀錄保存失敗。'}});
+           const mode=store().normalizeMode(body.querySelector('input[name="quick-process-edit-mode"]:checked')?.value);
+           const reason=normalize(body.querySelector('[data-quick-reason]')?.value);
+           if(reason.length<2){ await ui().alertDialog({message:{vi:'Vui lòng nhập lý do sửa.',zh:'請輸入修改原因。'},kind:'warning',keepPrevious:true});return false; }
+           const operationsByCode=Object.fromEntries(targetProducts.map(item=>[item.code,previewOperations(item,processNo,seconds)]));
+           const impact=await store().analyzeImpact({targetCodes:targetProducts.map(item=>item.code),operationsByCode,mode});
+           const syncConfirmed=await ui().confirmDialog({
+             title:{vi:'Xác nhận đồng bộ bảng mã hàng',zh:'確認同步目前款號表'},body:selectedSummary(targetProducts,processNo,currentState.currentText,seconds,active.labelPair.vi,mode,impact),keepPrevious:true,
+             confirmText:{vi:'Đồng bộ và lưu',zh:'同步並儲存'},cancelText:{vi:'Quay lại',zh:'返回'},kind:'warning'
+           });
+           if(!syncConfirmed) return false;
+           saved=true;
+           const progress=ui().progressDialog({
+             title:{vi:'Tiến độ sửa giây công đoạn',zh:'工序秒數修改進度'},value:0,
+             text:{vi:'Đang lưu tiêu chuẩn mã hàng...',zh:'正在儲存款號標準…'},
+             detail:{vi:`Ảnh hưởng ${impact.orderCount} đơn và ${impact.entryCount} bản ghi.`,zh:`影響 ${impact.orderCount} 張訂單與 ${impact.entryCount} 筆產能紀錄。`}
+           });
+           let result;
+           try{
+             result=await store().saveOfficialSeconds({
+               targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason,mode,
+               orders:impact.orders,entryCount:impact.entryCount,
+               onProgress:item=>progress.update({value:item.total?item.completed/item.total*100:0,text:progressText(item)})
+             });
+           }catch(error){
+             progress.fail({vi:'Không thể hoàn tất thay đổi; trạng thái công việc đã được giữ lại.',zh:'無法完成修改；工作狀態已保留。'},
+               {vi:`Mã công việc: ${error.processEditJobId||'—'}`,zh:`工作編號：${error.processEditJobId||'—'}`});
+             window.setTimeout(()=>progress.close(),1200);
+             throw error;
+           }
+           if(result.sync?.status==='partial'){
+             progress.fail({vi:'Một số đơn đồng bộ thất bại; công việc đã được giữ để thử lại.',zh:'部分訂單同步失敗；工作已保留，可稍後重試。'},
+               {vi:`Mã công việc: ${result.jobId}`,zh:`工作編號：${result.jobId}`});
+             window.setTimeout(()=>progress.close(),1200);
+             ui().showToast({kind:'warning',text:{vi:'Chưa hoàn tất toàn bộ thay đổi.',zh:'修改尚未全部完成。'}});
+           }else{
+             progress.complete({vi:'Đã hoàn tất sửa giây công đoạn.',zh:'工序秒數修改已全部完成。'});
+             window.setTimeout(()=>progress.close(),800);
+             ui().showToast({kind:result.logSaved?'success':'warning',text:result.logSaved
+               ?{vi:'Đã cập nhật giây, đơn hàng và dữ liệu theo chế độ đã chọn.',zh:'秒數、訂單與資料已依所選模式完成更新。'}
+               :{vi:'Đã cập nhật dữ liệu, nhưng nhật ký thao tác lưu thất bại.',zh:'資料已更新，但操作紀錄保存失敗。'}});
+           }
           if(typeof input.onSaved==='function') await input.onSaved(result);
           return true;
         }}

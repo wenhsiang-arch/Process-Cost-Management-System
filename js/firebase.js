@@ -869,6 +869,7 @@ async function saveProductItemsToCollection(items,options={}){
     productsMetaMemory=meta;
     productsMetaReadAt=Date.now();
     replaceRuntimeProducts(merged);
+    renderProductViews();
     setSyncState('success');
     return true;
   }catch(e){
