@@ -20,8 +20,14 @@
     processRowsMode:false,
     processRowsProcessId:'',
     dailyRows:[],
+    recordDateFilter:'',
+    recordStatusFilter:'active',
+    recordPage:1,
+    recordRequest:0,
     pendingContext:null
   }; // state（登記頁目前狀態）
+
+  const RECORD_PAGE_SIZE = 50; // RECORD_PAGE_SIZE（產能登記表格每頁筆數）
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
     {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:90,preferred:96,maximum:112,available:()=>state.processRowsMode},
@@ -58,6 +64,15 @@
     return isAdmin() || typeof window.canOpenPage !== 'function' || window.canOpenPage('production-records');
   }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
+  function currentMonthRange(){
+    const current = today();
+    return {from:`${current.slice(0,7)}-01`,to:current};
+  }
+  function recordDateRange(){
+    return state.recordDateFilter
+      ? {from:state.recordDateFilter,to:state.recordDateFilter}
+      : currentMonthRange();
+  }
   function dateText(value){
     const parts = String(value || '').split('-');
     return parts.length === 3 ? `${parts[0]}/${parts[1]}/${parts[2]}` : String(value || '—');
@@ -70,6 +85,47 @@
   function hourlyCapacityText(value){
     const capacity = Number(value);
     return Number.isInteger(capacity) && capacity > 0 ? capacity.toLocaleString() : '—';
+  }
+
+  function filteredDailyRows(){
+    if(state.processRowsMode || state.recordStatusFilter === 'all') return [...state.dailyRows];
+    return state.dailyRows.filter(item=>item.status === state.recordStatusFilter);
+  }
+
+  function syncRecordFilterCopy(){
+    const filters = element('production-entry-table-filters');
+    const dateInput = element('production-record-date-filter-input');
+    const dateVi = element('production-record-date-filter-vi');
+    const dateZh = element('production-record-date-filter-zh');
+    const clear = element('production-record-date-filter-clear');
+    const status = element('production-entry-record-status-filter');
+    if(filters) filters.hidden = state.processRowsMode;
+    if(dateInput){
+      dateInput.max = today();
+      dateInput.value = state.recordDateFilter;
+    }
+    if(dateVi) dateVi.textContent = state.recordDateFilter
+      ? `Ngày ${dateText(state.recordDateFilter).replaceAll('/','-')}`
+      : 'Tháng này';
+    if(dateZh) dateZh.textContent = state.recordDateFilter
+      ? dateText(state.recordDateFilter)
+      : '本月';
+    if(clear) clear.hidden = !state.recordDateFilter;
+    if(status) status.value = state.recordStatusFilter;
+  }
+
+  function syncRecordPagination(totalRows){
+    const host = element('production-entry-pagination');
+    const previous = element('production-entry-page-previous');
+    const next = element('production-entry-page-next');
+    const indicator = element('production-entry-page-indicator');
+    const totalPages = Math.max(1,Math.ceil(totalRows/RECORD_PAGE_SIZE));
+    state.recordPage = Math.max(1,Math.min(state.recordPage,totalPages));
+    if(host) host.hidden = totalRows <= RECORD_PAGE_SIZE;
+    if(previous) previous.disabled = state.recordPage <= 1;
+    if(next) next.disabled = state.recordPage >= totalPages;
+    if(indicator) indicator.textContent = `${state.recordPage} / ${totalPages}`;
+    return totalPages;
   }
 
   function setEntryLocalizedAttribute(target,attribute,vi,zh){
@@ -95,13 +151,23 @@
     const titleVi = element('production-entry-table-title-vi');
     const titleZh = element('production-entry-table-title-zh');
     const empty = element('production-entry-empty');
-    if(titleVi) titleVi.textContent = processMode ? 'Đăng ký của công đoạn' : 'Sản lượng của nhân viên trong ngày';
-    if(titleZh) titleZh.textContent = processMode ? '工序登記明細' : '員工當日生產紀錄';
+    const exactDate = Boolean(state.recordDateFilter);
+    if(titleVi) titleVi.textContent = processMode
+      ? 'Đăng ký của công đoạn'
+      : (exactDate ? 'Bản ghi của nhân viên theo ngày' : 'Bản ghi của nhân viên trong tháng');
+    if(titleZh) titleZh.textContent = processMode
+      ? '工序登記明細'
+      : (exactDate ? '員工指定日期生產紀錄' : '員工本月生產紀錄');
     if(empty){
-      window.PCMSUIText?.set?.(empty,processMode
-        ? {vi:'Không có đăng ký hiệu lực cho công đoạn này',zh:'這個工序尚無有效登記'}
-        : {vi:'Chọn nhân viên để xem dữ liệu trong ngày',zh:'選擇員工後顯示當日紀錄'});
+      let copy;
+      if(processMode) copy = {vi:'Không có đăng ký hiệu lực cho công đoạn này',zh:'這個工序尚無有效登記'};
+      else if(!state.employee) copy = {vi:'Chọn nhân viên để xem bản ghi trong tháng',zh:'選擇員工後顯示本月紀錄'};
+      else if(state.recordStatusFilter === 'voided') copy = {vi:'Không có bản ghi đã hủy phù hợp',zh:'沒有符合條件的已作廢紀錄'};
+      else if(state.recordStatusFilter === 'active') copy = {vi:'Không có bản ghi hiệu lực phù hợp',zh:'沒有符合條件的有效紀錄'};
+      else copy = {vi:'Không có bản ghi phù hợp',zh:'沒有符合條件的紀錄'};
+      window.PCMSUIText?.set?.(empty,copy);
     }
+    syncRecordFilterCopy();
     productionTableControl?.refresh?.();
     renderQuantityProgress();
   }
@@ -109,6 +175,8 @@
   function setProcessRowsMode(active,processId=''){
     state.processRowsMode = active === true;
     state.processRowsProcessId = state.processRowsMode ? String(processId || '') : '';
+    state.recordPage = 1;
+    if(state.processRowsMode) state.recordRequest += 1;
     if(!state.processRowsMode) state.processRowsRequest += 1;
     syncEntryTableMode();
   }
@@ -148,7 +216,10 @@
         updateEntryTableMinimumWidth(element('production-entry-table'),visibleKeys);
         syncProductionEmptyState(visibleCount);
       },
-      onSortChanged:()=>renderDailyRows(state.dailyRows,{store:false})
+      onSortChanged:()=>{
+        state.recordPage = 1;
+        renderDailyRows(state.dailyRows,{store:false});
+      }
     });
     return productionTableControl;
   }
@@ -225,7 +296,7 @@
     if(overVi) overVi.textContent = `Vượt +${numberText(summary.exceededQuantity)}`;
     if(overZh) overZh.textContent = `超量 +${numberText(summary.exceededQuantity)}`;
     const detailHint = state.processRowsMode
-      ? {vi:'Nhấn để trở về dữ liệu trong ngày',zh:'點擊返回員工當日紀錄'}
+      ? {vi:'Nhấn để trở về bản ghi của nhân viên',zh:'點擊返回員工紀錄'}
       : {vi:'Nhấn để chỉ xem đăng ký của công đoạn',zh:'點擊只顯示此工序登記'};
     const quantityTitle = over
       ? {
@@ -330,6 +401,9 @@
 
   function clearEmployee(options={}){
     state.employee = null;
+    state.recordDateFilter = '';
+    state.recordPage = 1;
+    state.recordRequest += 1;
     const employeeIdInput=element('production-employee-input');
     const employeeNameInput=element('production-entry-employee-name-input');
     const department = element('production-employee-department');
@@ -379,6 +453,8 @@
 
   function selectEmployee(employee){
     state.employee = employee;
+    state.recordDateFilter = '';
+    state.recordPage = 1;
     element('production-employee-input').value = employee.employeeId;
     element('production-entry-employee-name-input').value = employee.name || '';
     element('production-employee-department').textContent = employee.department || '—';
@@ -730,8 +806,8 @@
       if(request !== state.processRowsRequest || state.process?.id !== processId) return;
       renderDailyRows(rows);
       setStatus(
-        `Chỉ hiển thị ${rows.length} đăng ký hiệu lực của công đoạn này. Nhấn lại khung số lượng để trở về dữ liệu trong ngày.`,
-        `目前只顯示此工序的 ${rows.length} 筆有效登記；再次點擊數量框可返回員工當日紀錄。`,
+        `Chỉ hiển thị ${rows.length} đăng ký hiệu lực của công đoạn này. Nhấn lại khung số lượng để trở về bản ghi của nhân viên.`,
+        `目前只顯示此工序的 ${rows.length} 筆有效登記；再次點擊數量框可返回員工紀錄。`,
         'info'
       );
     }catch(error){
@@ -746,7 +822,7 @@
     const processId = String(state.process?.id || '');
     if(state.processRowsMode && processId && state.processRowsProcessId === processId){
       await loadDailyRows();
-      setStatus('Đã trở về dữ liệu trong ngày của nhân viên.','已返回員工當日生產紀錄。','info');
+      setStatus('Đã trở về bản ghi của nhân viên.','已返回員工生產紀錄。','info');
       return;
     }
     await loadSelectedProcessRows();
@@ -1039,7 +1115,11 @@
     if(store) state.dailyRows = [...rows];
     ensureActionColumn();
     body.replaceChildren();
-    sortedDailyRows(state.dailyRows).forEach(item=>{
+    const filteredRows = sortedDailyRows(filteredDailyRows());
+    syncRecordPagination(filteredRows.length);
+    const pageStart = (state.recordPage-1)*RECORD_PAGE_SIZE;
+    const visibleRows = filteredRows.slice(pageStart,pageStart+RECORD_PAGE_SIZE);
+    visibleRows.forEach(item=>{
       const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
       const currentEmployee = window.PCMSProductionEmployees?.find?.(item.employeeId);
       const row = document.createElement('tr');
@@ -1091,26 +1171,67 @@
       }
       body.appendChild(row);
     });
+    syncEntryTableMode();
     const control = ensureProductionTableControl();
     control.refresh();
-    if(empty) empty.hidden = control.getVisibleKeys().length === 0 || state.dailyRows.length > 0;
+    if(empty) empty.hidden = control.getVisibleKeys().length === 0 || filteredRows.length > 0;
     window.PCMSUITable?.refresh?.();
   }
 
   async function loadDailyRows(){
     setProcessRowsMode(false);
     if(!state.employee){ renderDailyRows([]); return; }
+    const request = ++state.recordRequest;
+    const employeeId = state.employee.employeeId;
+    const range = recordDateRange();
     try{
-      const rows = await window.PCMSProductionReports.loadDaily(
-        state.employee.employeeId,
-        element('production-date-input').value,
+      const rows = await window.PCMSProductionReports.loadEmployeeRange(
+        employeeId,
+        range.from,
+        range.to,
         {activeOnly:false}
       );
+      if(request !== state.recordRequest || state.employee?.employeeId !== employeeId) return;
       renderDailyRows(rows);
     }catch(error){
+      if(request !== state.recordRequest) return;
       renderDailyRows([]);
       await showError(error);
     }
+  }
+
+  function setRecordDateFilter(value=''){
+    const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '';
+    state.recordDateFilter = normalized && normalized <= today() ? normalized : '';
+    state.recordPage = 1;
+    syncEntryTableMode();
+    void loadDailyRows();
+  }
+
+  function openRecordDateFilter(){
+    const input = element('production-record-date-filter-input');
+    if(!input) return;
+    input.max = today();
+    input.value = state.recordDateFilter || element('production-date-input')?.value || today();
+    input.focus({preventScroll:true});
+    if(typeof input.showPicker === 'function') input.showPicker();
+    else input.click();
+  }
+
+  function setRecordStatusFilter(value){
+    state.recordStatusFilter = ['active','voided','all'].includes(value) ? value : 'active';
+    state.recordPage = 1;
+    syncEntryTableMode();
+    renderDailyRows(state.dailyRows,{store:false});
+  }
+
+  function shiftRecordPage(offset){
+    const filteredCount = filteredDailyRows().length;
+    const totalPages = Math.max(1,Math.ceil(filteredCount/RECORD_PAGE_SIZE));
+    const nextPage = Math.max(1,Math.min(state.recordPage+offset,totalPages));
+    if(nextPage === state.recordPage) return;
+    state.recordPage = nextPage;
+    renderDailyRows(state.dailyRows,{store:false});
   }
 
   function dateObject(value){
@@ -1136,7 +1257,6 @@
     date.value = value > maximum ? maximum : value;
     state.dateAuto = auto || date.value === maximum;
     syncDateControls();
-    void loadDailyRows();
     void refreshAttendanceSummary();
   }
 
@@ -1164,7 +1284,7 @@
       if(element('production-date-input').value !== current){
         element('production-date-input').value = current;
         syncDateControls();
-        void loadDailyRows();
+        if(!state.recordDateFilter) void loadDailyRows();
         void refreshAttendanceSummary();
       }
     },30000);
@@ -1190,6 +1310,12 @@
     element('production-calendar-button').addEventListener('click',openProductionCalendar);
     element('production-date-previous').addEventListener('click',()=>shiftProductionDate(-1));
     element('production-date-next').addEventListener('click',()=>shiftProductionDate(1));
+    element('production-record-date-filter-button').addEventListener('click',openRecordDateFilter);
+    element('production-record-date-filter-input').addEventListener('change',event=>setRecordDateFilter(event.target.value));
+    element('production-record-date-filter-clear').addEventListener('click',()=>setRecordDateFilter(''));
+    element('production-entry-record-status-filter').addEventListener('change',event=>setRecordStatusFilter(event.target.value));
+    element('production-entry-page-previous').addEventListener('click',()=>shiftRecordPage(-1));
+    element('production-entry-page-next').addEventListener('click',()=>shiftRecordPage(1));
     initializeSearchDropdowns();
     element('production-quantity-input').addEventListener('input',renderQuantityProgress);
     element('production-process-name').addEventListener('keydown',event=>{
@@ -1208,6 +1334,7 @@
       element(id)?.addEventListener('keydown',event=>handleEntryTab(event,id));
     });
     syncDropdownAvailability();
+    syncRecordFilterCopy();
     ensureActionColumn();
     ensureProductionTableControl();
   }
@@ -1241,6 +1368,8 @@
     const productionDate = requestedDate > today() ? today() : requestedDate;
     element('production-date-input').value = productionDate;
     state.dateAuto = productionDate === today();
+    state.recordDateFilter = /^\d{4}-\d{2}-\d{2}$/.test(pending.productionDate || '') ? productionDate : '';
+    state.recordPage = 1;
     syncDateControls();
     clearOrder();
     element('production-order-input').value = '';
@@ -1263,6 +1392,7 @@
     element('production-employee-department').textContent = employee.department || '—';
     closeDropdown('production-employee-options');
     closeDropdown('production-employee-name-options');
+    syncEntryTableMode();
     await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
     if(pending.orderId||pending.orderNo){
       const order=window.PCMSProductionEntryStore.listOrders().find(item=>String(item.id)===pending.orderId

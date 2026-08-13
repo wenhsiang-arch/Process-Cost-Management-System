@@ -101,6 +101,22 @@
     return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
   }
 
+  async function loadEmployeeRange(employeeId,fromValue,toValue,options={}){
+    const normalizedEmployeeId = normalizeEmployeeId(employeeId);
+    const from = normalizeDate(fromValue);
+    const to = normalizeDate(toValue);
+    if(!normalizedEmployeeId || !from || !to || from > to){
+      throw new Error('Khoảng ngày của nhân viên không hợp lệ. / 員工日期範圍不正確。');
+    }
+    const rows = await loadExactRows(`employeeRange:${normalizedEmployeeId}:${from}:${to}`,[
+      window._where('employeeId','==',normalizedEmployeeId),
+      window._where('productionDate','>=',from),
+      window._where('productionDate','<=',to),
+      window._orderBy('productionDate','desc')
+    ],options);
+    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+  }
+
   async function loadDay(productionDate,options={}){
     const normalizedDate = normalizeDate(productionDate);
     if(!normalizedDate) return [];
@@ -184,5 +200,5 @@
 
   function reset(){ historyCursor = null; historySignature = ''; exactPromises.clear(); exactCache.clear(); }
 
-  window.PCMSProductionReports = Object.freeze({loadDaily,loadDay,loadProcess,loadRange,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
+  window.PCMSProductionReports = Object.freeze({loadDaily,loadEmployeeRange,loadDay,loadProcess,loadRange,loadHistory,filterRows,reset,pageSize:PAGE_SIZE});
 })();

@@ -50,14 +50,14 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
   assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260813-1/);
+  assert.match(html,/js\/features\.js\?v=20260814-5/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260810-2'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260810-1'/);
   assert.match(features,/sync:'styles\/features\/sync\.css\?v=20260810-2'/);
   assert.match(features,/cost:'styles\/features\/cost\.css\?v=20260810-2'/);
   assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260810-2'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260813-6'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260814-1'/);
   assert.match(accounts,/\.permission-matrix-table tbody td \{[\s\S]*?height: 38px;[\s\S]*?padding: 4px 7px;/);
   assert.match(cost,/\.cost-log-table th \{[\s\S]*?height: 52px;/);
   assert.match(cost,/\.cost-log-table td \{[\s\S]*?height: 54px;/);
@@ -235,7 +235,7 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(markup,/id="production-supplement-help-button"[\s\S]*?Hướng dẫn[\s\S]*?說明/);
   assert.match(entrySource,/key:'supplementHours'/);
   assert.match(markup,/Giờ bổ sung[\s\S]*?補充工時/);
-  assert.match(markup,/Sản lượng của nhân viên trong ngày[\s\S]*?id="production-quantity-progress"[\s\S]*?已登記數量 \/ 訂單數量上限/);
+  assert.match(markup,/Bản ghi của nhân viên trong tháng[\s\S]*?id="production-quantity-progress"[\s\S]*?已登記數量 \/ 訂單數量上限/);
   assert.match(style,/\.production-entry-command,[\s\S]*?\.production-employee-command\s*\{[\s\S]*?height:\s*auto;/);
   assert.match(style,/\.production-employee-inline-panel\s*\{[\s\S]*?width:\s*100%;[\s\S]*?grid-template-columns:\s*minmax\(210px, 1\.15fr\)[\s\S]*?minmax\(68px, 86px\);[\s\S]*?background:\s*var\(--ui-color-table-header\)/);
   assert.match(style,/\.production-employee-inline-field input\s*\{[\s\S]*?height:\s*36px;[\s\S]*?border:\s*1px solid/);

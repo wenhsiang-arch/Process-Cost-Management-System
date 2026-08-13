@@ -713,12 +713,185 @@
 .production-entry-table-header {
   position: relative;
   min-height: 44px;
-  flex-wrap: wrap;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  flex-wrap: nowrap;
 }
 
 .production-entry-table-header > .ui-dual-copy {
   min-width: 0;
-  flex: 1 1 220px;
+  flex: 1 1 150px;
+  overflow: hidden;
+}
+
+.production-entry-table-filters {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.production-entry-table-filters[hidden] {
+  display: none;
+}
+
+.production-entry-table-filter {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.production-entry-table-filter-label {
+  min-width: 42px;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  line-height: 1.05;
+}
+
+.production-entry-table-filter-label > strong {
+  font-size: 10px;
+}
+
+.production-entry-table-filter-label > span {
+  font-size: 9px;
+}
+
+.production-record-date-filter {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.production-record-date-filter-button,
+.production-entry-table-filter select {
+  height: 36px;
+  box-sizing: border-box;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+}
+
+.production-record-date-filter-button {
+  display: flex;
+  min-width: 118px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 3px 30px 3px 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.production-record-date-filter-button > i {
+  flex: 0 0 auto;
+  color: var(--ui-color-primary);
+  font-size: 16px;
+}
+
+.production-record-date-filter-button > .ui-dual-copy {
+  min-width: 0;
+  align-items: flex-start;
+  line-height: 1.05;
+}
+
+.production-record-date-filter-button > .ui-dual-copy > strong {
+  font-size: 11px;
+}
+
+.production-record-date-filter-button > .ui-dual-copy > span {
+  font-size: 9px;
+}
+
+#production-record-date-filter-input {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 36px;
+  height: 36px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.production-record-date-filter-clear {
+  position: absolute;
+  right: 3px;
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-color-text-muted);
+  cursor: pointer;
+}
+
+.production-record-date-filter-clear[hidden] {
+  display: none;
+}
+
+.production-entry-table-filter select {
+  min-width: 116px;
+  padding: 0 26px 0 8px;
+  font-size: 11px;
+}
+
+.production-record-date-filter-button:hover,
+.production-record-date-filter-clear:hover,
+.production-entry-table-filter select:hover {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+}
+
+.production-record-date-filter-button:focus-visible,
+.production-record-date-filter-clear:focus-visible,
+.production-entry-table-filter select:focus-visible {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-entry-pagination {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+}
+
+.production-entry-pagination[hidden] {
+  display: none;
+}
+
+.production-entry-pagination button {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--ui-color-border);
+  border-radius: 6px;
+  background: var(--ui-color-surface);
+  color: var(--ui-color-primary);
+  cursor: pointer;
+}
+
+.production-entry-pagination button:disabled {
+  color: var(--ui-color-text-subtle);
+  cursor: default;
+}
+
+#production-entry-page-indicator {
+  min-width: 34px;
+  color: var(--ui-color-text-muted);
+  font-size: 10px;
+  text-align: center;
 }
 
 .production-entry-table {
