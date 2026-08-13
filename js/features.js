@@ -32,7 +32,7 @@
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-6',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-4',
     productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-5',
-    productionProcessEdit:'js/production/process-edit.js?v=20260813-9',
+    productionProcessEdit:'js/production/process-edit.js?v=20260813-10',
     productionProductGroups:'js/production/product-groups.js?v=20260813-6',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
@@ -50,7 +50,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260810-2',
     production:'styles/features/production.css?v=20260813-4',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-10',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-11',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

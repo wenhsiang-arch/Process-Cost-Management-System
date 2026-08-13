@@ -1,13 +1,13 @@
 .production-process-edit-page,.product-groups-page{display:flex;flex-direction:column;gap:12px;min-width:0;width:100%}
 .production-process-edit-page>*,.product-groups-page>*{min-width:0}
 .process-edit-empty[hidden],#process-edit-workspace[hidden]{display:none!important}
-.process-edit-toolbar,.process-edit-save-panel{padding:9px 10px}
-.process-edit-command{display:grid;grid-template-columns:minmax(150px,.75fr) minmax(240px,1.25fr) auto auto minmax(260px,1fr);align-items:end;gap:8px}
-.process-edit-client-field,.process-edit-product-field{display:grid;gap:5px;min-width:0}
-.process-edit-client-field>span,.process-edit-product-field>span{font-weight:700}
+.process-edit-save-panel{padding:9px 10px}
+.process-edit-context-grid{grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr) minmax(0,1fr)}
+.process-edit-client-field>div,.process-edit-product-field>div,.process-edit-toolbar-group>div{display:grid;gap:4px;min-width:0}
+.process-edit-client-field .ui-dual-copy,.process-edit-product-field .ui-dual-copy{font-weight:700}
 .process-edit-client-field select,.process-edit-product-field input,.product-groups-field input,.product-groups-field select{box-sizing:border-box;width:100%;min-width:0;height:var(--ui-control-height-single);padding:7px 10px;border:var(--ui-border-width) solid var(--ui-color-border);border-radius:var(--ui-radius-control);background:var(--ui-color-surface);color:var(--ui-color-text);font:inherit;font-size:13px}
 .process-edit-client-field select:focus,.process-edit-product-field input:focus,.product-groups-field input:focus,.product-groups-field select:focus{border-color:var(--ui-color-primary);outline:3px solid var(--ui-color-focus-ring);outline-offset:1px}
-.process-edit-toolbar-group{display:flex;gap:8px;align-items:center;min-width:0;min-height:var(--ui-control-height-bilingual);padding:5px 7px;border:var(--ui-border-width) solid var(--ui-color-border);border-radius:var(--ui-radius-control);background:var(--ui-color-surface)}.process-edit-toolbar-group:empty{display:none}.process-edit-toolbar-group>.ui-dual-copy{color:var(--mu);font-size:11px;flex:0 0 auto}.process-edit-toolbar-group>b{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.process-edit-toolbar-group>.ui-button{flex:0 0 auto}
+.process-edit-toolbar-group .ui-dual-copy{color:var(--ui-color-text-muted);font-size:11px}.process-edit-toolbar-group-value{display:block;min-width:0;overflow:hidden;color:var(--ui-color-text);font-size:13px;text-overflow:ellipsis;white-space:nowrap}.process-edit-toolbar-group.is-empty .process-edit-toolbar-group-value{color:var(--ui-color-text-muted)}
 .process-edit-empty{min-height:220px}
 .process-edit-current-summary{display:grid;grid-template-columns:.8fr 1fr 1.5fr .7fr .7fr;border-bottom:1px solid var(--bd)}
 .process-edit-current-summary>div{display:grid;gap:2px;padding:7px 10px;border-right:1px solid var(--bd)}

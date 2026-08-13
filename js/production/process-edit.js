@@ -30,18 +30,32 @@
       <div class="production-process-edit-page ui-work-panel">
         <section class="process-edit-toolbar ui-operation-panel">
           <div class="process-edit-command ui-command-row">
-            <label class="process-edit-client-field">
-              <span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span>
-              <select id="process-edit-client-select"></select>
-            </label>
-            <label class="process-edit-product-field">
-              <span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span>
-              <input type="search" id="process-edit-product-input" list="process-edit-product-options" autocomplete="off" placeholder="Nhập mã hàng / 輸入款號">
-              <datalist id="process-edit-product-options"></datalist>
-            </label>
-            <button type="button" class="ui-button is-primary" id="process-edit-load-button"><i class="ti ti-search"></i><span class="ui-dual-copy"><strong>Mở mã hàng</strong><span>開啟款號</span></span></button>
-            <button type="button" class="ui-button" id="process-edit-history-button"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử phiên bản</strong><span>款號版本歷史</span></span></button>
-            <div class="process-edit-toolbar-group" id="process-edit-toolbar-group"></div>
+            <div class="process-edit-context-grid ui-context-grid">
+              <label class="process-edit-client-field ui-context-item">
+                <i class="ti ti-users" aria-hidden="true"></i>
+                <div>
+                  <span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span>
+                  <select id="process-edit-client-select"></select>
+                </div>
+              </label>
+              <label class="process-edit-product-field ui-context-item">
+                <i class="ti ti-tag" aria-hidden="true"></i>
+                <div>
+                  <span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span>
+                  <input type="search" id="process-edit-product-input" list="process-edit-product-options" autocomplete="off" placeholder="Nhập mã hàng / 輸入款號">
+                  <datalist id="process-edit-product-options"></datalist>
+                </div>
+              </label>
+              <div class="process-edit-toolbar-group ui-context-item is-empty" id="process-edit-toolbar-group" aria-live="polite">
+                <i class="ti ti-box-multiple" aria-hidden="true"></i>
+                <div><span class="ui-dual-copy"><strong>Nhóm cùng sản phẩm</strong><span>同產品群組</span></span><b class="process-edit-toolbar-group-value">—</b></div>
+              </div>
+            </div>
+            <div class="process-edit-command-actions ui-command-actions">
+              <button type="button" class="process-edit-command-action ui-command-action is-primary" id="process-edit-load-button"><i class="ti ti-search"></i><span class="ui-dual-copy"><strong>Mở mã hàng</strong><span>開啟款號</span></span></button>
+              <button type="button" class="process-edit-command-action ui-command-action" id="process-edit-history-button"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử phiên bản</strong><span>款號版本歷史</span></span></button>
+              <button type="button" class="process-edit-command-action ui-command-action" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>
+            </div>
           </div>
         </section>
         <div id="process-edit-status" hidden></div>
@@ -175,11 +189,14 @@
   function renderToolbarGroup(product){
     const host=document.getElementById('process-edit-toolbar-group');
     if(!host) return;
-    if(!product){ host.replaceChildren(); return; }
-    const group=store().groupForProduct(product.code);
-    host.innerHTML=group
-      ? `<span class="ui-dual-copy"><strong>Nhóm hiện tại</strong><span>目前群組</span></span><b>${safe(group.name||group.groupId)}</b><button type="button" class="ui-button is-compact" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>`
-      : `<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span><button type="button" class="ui-button is-compact" id="process-edit-open-groups"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Mở nhóm</strong><span>群組管理</span></span></button>`;
+    const group=product?store().groupForProduct(product.code):null;
+    const value=group
+      ? safe(group.name||group.groupId)
+      : product
+        ? '<span class="ui-bilingual"><span class="ui-text-vi">Chưa có nhóm</span><span class="ui-text-zh">未有群組</span></span>'
+        : '—';
+    host.classList.toggle('is-empty',!group);
+    host.innerHTML=`<i class="ti ti-box-multiple" aria-hidden="true"></i><div><span class="ui-dual-copy"><strong>Nhóm cùng sản phẩm</strong><span>同產品群組</span></span><b class="process-edit-toolbar-group-value">${value}</b></div>`;
   }
 
   function renderGroup(product){
