@@ -366,6 +366,32 @@
   padding: 4px 8px;
 }
 
+#cutting-template-table tbody td {
+  vertical-align: middle;
+}
+
+.cut-template-file-cell {
+  min-width: 0;
+}
+
+.cut-template-file-name {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.cut-template-file-note {
+  margin-top: 6px;
+  color: var(--ui-color-text-subtle);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
 .cut-template-actions {
   display: flex;
   min-width: 180px;

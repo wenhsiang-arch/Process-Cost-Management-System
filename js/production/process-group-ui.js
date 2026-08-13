@@ -3,6 +3,8 @@
   'use strict';
 
   const MISSING_SIZE='__pcms_missing_size__';
+  const STANDARD_SIZE_ORDER=Object.freeze(['XXS','XS','S','M','L','XL','XXL','XXXL']);
+  const STANDARD_SIZE_RANK=new Map(STANDARD_SIZE_ORDER.map((size,index)=>[size,index]));
   const normalize=value=>String(value??'').trim();
   const safe=value=>window.PCMSSafe.text(value);
   const safeAttribute=value=>window.PCMSSafe.attribute(value);
@@ -14,6 +16,31 @@
     return key===MISSING_SIZE
       ? {vi:'Chưa đặt kích thước',zh:'未設定尺寸'}
       : {vi:sizeText(key),zh:sizeText(key)};
+  }
+
+  // compareSizeKeys（比較尺寸）：數字由小到大，英文常規尺寸依服裝順序，其餘採自然排序，缺失尺寸固定最後。
+  function compareSizeKeys(leftKey,rightKey){
+    if(leftKey===MISSING_SIZE) return rightKey===MISSING_SIZE?0:1;
+    if(rightKey===MISSING_SIZE) return -1;
+    const left=normalize(leftKey).normalize('NFKC').toUpperCase().replace(/\s+/g,'');
+    const right=normalize(rightKey).normalize('NFKC').toUpperCase().replace(/\s+/g,'');
+    const numericPattern=/^(?:\d+(?:\.\d+)?|\.\d+)$/;
+    const leftNumber=numericPattern.test(left)?Number(left):null;
+    const rightNumber=numericPattern.test(right)?Number(right):null;
+    if(leftNumber!==null||rightNumber!==null){
+      if(leftNumber===null) return 1;
+      if(rightNumber===null) return -1;
+      if(leftNumber!==rightNumber) return leftNumber-rightNumber;
+      return left.localeCompare(right,undefined,{numeric:true,sensitivity:'base'});
+    }
+    const leftRank=STANDARD_SIZE_RANK.get(left);
+    const rightRank=STANDARD_SIZE_RANK.get(right);
+    if(leftRank!==undefined||rightRank!==undefined){
+      if(leftRank===undefined) return 1;
+      if(rightRank===undefined) return -1;
+      return leftRank-rightRank;
+    }
+    return left.localeCompare(right,undefined,{numeric:true,sensitivity:'base'});
   }
 
   function operationFor(product,processNo){
@@ -33,11 +60,7 @@
       label:sizeText(key),
       labelPair:sizePair(key),
       members:members.slice().sort((a,b)=>productCode(a).localeCompare(productCode(b),undefined,{numeric:true,sensitivity:'base'}))
-    })).sort((a,b)=>{
-      if(a.key===MISSING_SIZE) return 1;
-      if(b.key===MISSING_SIZE) return -1;
-      return a.label.localeCompare(b.label,undefined,{numeric:true,sensitivity:'base'});
-    });
+    })).sort((a,b)=>compareSizeKeys(a.key,b.key));
   }
 
   function allSelectionState(codes,selected){
@@ -149,6 +172,6 @@
 
   window.PCMSProcessGroupUI=Object.freeze({
     missingSizeKey:MISSING_SIZE,
-    sizeKey,sizePair,groupBySize,operationFor,createMemberSelector
+    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,createMemberSelector
   });
 })();

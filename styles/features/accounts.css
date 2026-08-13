@@ -55,6 +55,27 @@
   white-space: normal;
 }
 
+#pg-accounts .accounts-user-cell {
+  vertical-align: middle;
+}
+
+#pg-accounts .account-name-content {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+
+#pg-accounts .account-name-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+#pg-accounts .account-name-content .tg {
+  flex: 0 0 auto;
+}
+
 #pg-accounts .account-row-actions {
   display: flex;
   align-items: center;

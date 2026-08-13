@@ -41,7 +41,7 @@
   ]); // PRODUCTION_TABLE_COLUMNS（當日表格欄位）：權限結果與可拖曳寬度限制仍由產能功能提供。
 
   const ENTRY_INPUT_IDS = Object.freeze([
-    'production-employee-input','production-date-input','production-order-input',
+    'production-employee-input','production-entry-employee-name-input','production-date-input','production-order-input',
     'production-product-input','production-process-input','production-process-name','production-quantity-input'
   ]); // ENTRY_INPUT_IDS（生產登記鍵盤輸入順序）
 
@@ -59,6 +59,7 @@
 
   const DROPDOWN_BINDINGS = Object.freeze({
     'production-employee-options':{inputId:'production-employee-input',toggleId:'production-employee-toggle'},
+    'production-employee-name-options':{inputId:'production-entry-employee-name-input',toggleId:'production-employee-name-toggle'},
     'production-order-options':{inputId:'production-order-input',toggleId:'production-order-toggle'},
     'production-product-options':{inputId:'production-product-input',toggleId:'production-product-toggle'},
     'production-process-options':{inputId:'production-process-input',toggleId:'production-process-toggle'}
@@ -384,8 +385,12 @@
     }
   }
 
-  function employeeOptionCopy(item){
-    return {primary:item.employeeId,secondary:''};
+  function employeeIdOptionCopy(item){
+    return {primary:item.employeeId,secondary:[item.name,item.department].filter(Boolean).join(' · ')};
+  }
+
+  function employeeNameOptionCopy(item){
+    return {primary:item.name||item.employeeId,secondary:[item.employeeId,item.department].filter(Boolean).join(' · ')};
   }
 
   function orderOptionCopy(item){
@@ -450,11 +455,13 @@
     scheduleEntryFieldLayout();
   }
 
-  function clearEmployee(){
+  function clearEmployee(options={}){
     state.employee = null;
-    const name = element('production-employee-name');
+    const employeeIdInput=element('production-employee-input');
+    const employeeNameInput=element('production-entry-employee-name-input');
     const department = element('production-employee-department');
-    if(name) name.textContent = '—';
+    if(employeeIdInput&&options.keepId!==true) employeeIdInput.value='';
+    if(employeeNameInput&&options.keepName!==true) employeeNameInput.value='';
     if(department) department.textContent = '—';
     setAttendanceSummary('Chưa chọn','尚未選擇');
     state.attendanceRequest += 1;
@@ -500,29 +507,69 @@
   function selectEmployee(employee){
     state.employee = employee;
     element('production-employee-input').value = employee.employeeId;
-    element('production-employee-name').textContent = employee.name || '—';
+    element('production-entry-employee-name-input').value = employee.name || '';
     element('production-employee-department').textContent = employee.department || '—';
     closeDropdown('production-employee-options');
+    closeDropdown('production-employee-name-options');
+    setStatus('','','info');
     void loadDailyRows();
     void refreshAttendanceSummary();
   }
 
-  function handleEmployeeInput(){
-    const input = element('production-employee-input');
-    const value = input.value.trim();
-    if(state.employee && value.toUpperCase() !== state.employee.employeeId) clearEmployee();
-    if(!value){ closeDropdown('production-employee-options'); return; }
-    const matches = window.PCMSProductionEmployees.search(value,{activeOnly:true,limit:20});
-    renderDropdown('production-employee-options',matches,employeeOptionCopy,selectEmployee);
+  function employeeDropdownConfig(optionsId){
+    return optionsId==='production-employee-name-options'
+      ? {inputId:'production-entry-employee-name-input',copy:employeeNameOptionCopy,keepName:true}
+      : {inputId:'production-employee-input',copy:employeeIdOptionCopy,keepId:true};
   }
 
-  function toggleEmployeeDropdown(){
+  function employeeValueMatches(employee,optionsId){
+    const config=employeeDropdownConfig(optionsId);
+    const value=String(element(config.inputId)?.value||'').trim().toLocaleLowerCase();
+    const expected=String(optionsId==='production-employee-name-options'?employee?.name:employee?.employeeId||'').trim().toLocaleLowerCase();
+    return Boolean(value&&expected&&value===expected);
+  }
+
+  function handleEmployeeInput(optionsId){
+    const config=employeeDropdownConfig(optionsId);
+    const input = element(config.inputId);
+    const value = input.value.trim();
+    if(state.employee&&!employeeValueMatches(state.employee,optionsId)) clearEmployee(config);
+    if(!value){ closeDropdown(optionsId); return; }
+    const matches = window.PCMSProductionEmployees.search(value,{activeOnly:true,limit:20});
+    renderDropdown(optionsId,matches,config.copy,selectEmployee);
+  }
+
+  function toggleEmployeeDropdown(optionsId='production-employee-options'){
+    const config=employeeDropdownConfig(optionsId);
     toggleDropdown(
-      'production-employee-options',
+      optionsId,
       window.PCMSProductionEmployees.list({activeOnly:true}),
-      employeeOptionCopy,
+      config.copy,
       selectEmployee
     );
+  }
+
+  // confirmEmployeeInput（確認員工輸入）：忽略大小寫與首尾空白；唯一結果可由 Tab 或 Enter 直接選取。
+  function confirmEmployeeInput(optionsId){
+    const config=employeeDropdownConfig(optionsId);
+    const input=element(config.inputId);
+    const value=String(input?.value||'').trim();
+    if(!value){ closeDropdown(optionsId);return true; }
+    if(state.employee&&employeeValueMatches(state.employee,optionsId)){
+      selectEmployee(state.employee);
+      return true;
+    }
+    const matches=window.PCMSProductionEmployees.search(value,{activeOnly:true,limit:50});
+    if(matches.length===1){ selectEmployee(matches[0]);return true; }
+    if(matches.length===0){
+      closeDropdown(optionsId);
+      setStatus('Không tìm thấy nhân viên phù hợp.','找不到符合的員工。','danger');
+    }else{
+      renderDropdown(optionsId,matches,config.copy,selectEmployee);
+      setStatus('Có nhiều nhân viên phù hợp. Vui lòng chọn một người.','找到多位符合的員工，請選擇一位。','warning');
+    }
+    input?.focus({preventScroll:true});
+    return false;
   }
 
   function clearOrder(){
@@ -675,7 +722,7 @@
   }
 
   function openDropdownForInput(id){
-    if(id === 'production-employee-options') toggleEmployeeDropdown();
+    if(id === 'production-employee-options' || id === 'production-employee-name-options') toggleEmployeeDropdown(id);
     else if(id === 'production-order-options') toggleOrderDropdown();
     else if(id === 'production-product-options') toggleProductDropdown();
     else if(id === 'production-process-options') toggleProcessDropdown();
@@ -688,6 +735,11 @@
     }
     if(event.key === 'Enter' && selectDropdownActive(id)){
       event.preventDefault();
+      return;
+    }
+    if(event.key === 'Enter' && (id === 'production-employee-options' || id === 'production-employee-name-options')){
+      event.preventDefault();
+      confirmEmployeeInput(id);
       return;
     }
     if(event.key === 'Enter' && id === 'production-process-options'){
@@ -754,6 +806,13 @@
 
   function handleEntryTab(event,currentId){
     if(event.key !== 'Tab') return;
+    const employeeOptionsId=currentId === 'production-employee-input'
+      ? 'production-employee-options'
+      : (currentId === 'production-entry-employee-name-input' ? 'production-employee-name-options' : '');
+    if(!event.shiftKey && employeeOptionsId && String(element(currentId)?.value || '').trim() && !confirmEmployeeInput(employeeOptionsId)){
+      event.preventDefault();
+      return;
+    }
     if(!event.shiftKey && currentId === 'production-process-input' && !confirmProcessForForwardTab()){
       event.preventDefault();
       return;
@@ -763,7 +822,8 @@
     const inputIds = entryInputIds();
     const currentIndex = Math.max(0,inputIds.indexOf(currentId));
     const offset = event.shiftKey ? -1 : 1;
-    const targetIndex = (currentIndex + offset + inputIds.length) % inputIds.length;
+    const skipLinkedEmployeeName=!event.shiftKey && currentId === 'production-employee-input' && Boolean(state.employee);
+    const targetIndex = (currentIndex + offset + (skipLinkedEmployeeName ? 1 : 0) + inputIds.length) % inputIds.length;
     element(inputIds[targetIndex])?.focus({preventScroll:true});
   }
 
@@ -1279,7 +1339,8 @@
     element('production-calendar-button').addEventListener('click',openProductionCalendar);
     element('production-date-previous').addEventListener('click',()=>shiftProductionDate(-1));
     element('production-date-next').addEventListener('click',()=>shiftProductionDate(1));
-    element('production-employee-input').addEventListener('input',handleEmployeeInput);
+    element('production-employee-input').addEventListener('input',()=>handleEmployeeInput('production-employee-options'));
+    element('production-entry-employee-name-input').addEventListener('input',()=>handleEmployeeInput('production-employee-name-options'));
     element('production-order-input').addEventListener('input',handleOrderInput);
     element('production-product-input').addEventListener('input',handleProductInput);
     element('production-process-input').addEventListener('input',handleProcessInput);
@@ -1295,7 +1356,8 @@
       event.preventDefault();
       void saveEntry();
     });
-    element('production-employee-toggle').addEventListener('click',toggleEmployeeDropdown);
+    element('production-employee-toggle').addEventListener('click',()=>toggleEmployeeDropdown('production-employee-options'));
+    element('production-employee-name-toggle').addEventListener('click',()=>toggleEmployeeDropdown('production-employee-name-options'));
     element('production-order-toggle').addEventListener('click',toggleOrderDropdown);
     element('production-product-toggle').addEventListener('click',toggleProductDropdown);
     element('production-process-toggle').addEventListener('click',toggleProcessDropdown);
@@ -1363,7 +1425,6 @@
     element('production-quantity-input').value = '';
     if(!pending.employeeId){
       clearEmployee();
-      element('production-employee-input').value = '';
       element('production-employee-input')?.focus({preventScroll:true});
       return true;
     }
@@ -1376,9 +1437,10 @@
     }
     state.employee = employee;
     element('production-employee-input').value = employee.employeeId;
-    element('production-employee-name').textContent = employee.name || '—';
+    element('production-entry-employee-name-input').value = employee.name || '';
     element('production-employee-department').textContent = employee.department || '—';
     closeDropdown('production-employee-options');
+    closeDropdown('production-employee-name-options');
     await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
     if(pending.orderId||pending.orderNo){
       const order=window.PCMSProductionEntryStore.listOrders().find(item=>String(item.id)===pending.orderId

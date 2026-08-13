@@ -177,6 +177,10 @@
     return window.PCMSSafe.text(value);
   }
 
+  function attr(value){
+    return window.PCMSSafe.attribute(value);
+  }
+
   function inlineArg(value){
     return window.PCMSSafe.inlineArgument(value);
   }
@@ -834,7 +838,10 @@
     }
     tb.innerHTML = state.templates.map(t => `
       <tr>
-        <td><b>${esc(t.fileName)}</b>${cuttingDualHtml('Lưu nguyên file mẫu','保留原始模板檔','div')}</td>
+        <td class="cut-template-file-cell">
+          <div class="cut-template-file-name" title="${attr(t.fileName)}"><b>${esc(t.fileName)}</b></div>
+          <div class="cut-template-file-note">${cuttingDualHtml('Lưu nguyên file mẫu','保留原始模板檔')}</div>
+        </td>
         <td style="text-align:right">${fmtNum(t.sheetCount)}</td>
         <td style="text-align:right">${fmtNum(t.itemCount)}</td>
         <td style="text-align:right">${fmtNum(t.rowCount)}</td>

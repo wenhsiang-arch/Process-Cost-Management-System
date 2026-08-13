@@ -247,8 +247,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Dữ liệu đơn hàng</span><span class="nzh">訂單資料</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="openModule('products')" id="nv-products"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Quản lý mã hàng</span><span class="nzh">款號管理</span></div></div>
-    <div class="sb-sec">Chuẩn bị vật liệu / 備料</div>
-    <div class="ni" onclick="openModule('preparation')" id="nv-preparation"><i class="ti ti-package"></i><div class="nl"><span class="nvi">Chuẩn bị vật liệu</span><span class="nzh">備料</span></div></div>
+    <div class="sb-sec">Thống kê dây cắt / 裁帶統計</div>
+    <div class="ni" onclick="openModule('preparation')" id="nv-preparation"><i class="ti ti-package"></i><div class="nl"><span class="nvi">Thống kê dây cắt</span><span class="nzh">裁帶統計</span></div></div>
     <div class="sb-sec">Sản lượng / 產能</div>
     <div class="ni locked" onclick="openModule('production')" id="nv-production"><i class="ti ti-clipboard-data"></i><div class="nl"><span class="nvi">Ghi nhận sản lượng</span><span class="nzh">產能登記</span></div></div>
     <div class="ni locked" onclick="openModule('production-analysis')" id="nv-production-analysis"><i class="ti ti-chart-histogram"></i><div class="nl"><span class="nvi">Phân tích sản xuất</span><span class="nzh">生產分析</span></div></div>
@@ -309,9 +309,13 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                       <div class="production-options" id="production-employee-options" role="listbox" hidden></div>
                     </div>
                   </div>
-                  <div class="production-employee-inline-copy" title="Tên nhân viên / 姓名">
-                    <span class="production-inline-label"><strong>Tên nhân viên</strong><span>姓名</span></span>
-                    <span class="production-inline-value" id="production-employee-name">—</span>
+                  <div class="production-employee-inline-field production-employee-name-field production-combobox">
+                    <label class="ui-dual-copy" for="production-entry-employee-name-input"><strong>Tên nhân viên</strong><span>姓名</span></label>
+                    <div class="ui-search-dropdown-control">
+                      <input class="ui-search-dropdown-input" type="text" id="production-entry-employee-name-input" maxlength="100" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-employee-name-options" aria-expanded="false">
+                      <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-employee-name-toggle" aria-label="Mở danh sách tên nhân viên / 展開員工姓名清單" aria-controls="production-employee-name-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
+                      <div class="production-options" id="production-employee-name-options" role="listbox" hidden></div>
+                    </div>
                   </div>
                   <div class="production-employee-inline-copy" title="Bộ phận / 部門">
                     <span class="production-inline-label"><strong>Bộ phận</strong><span>部門</span></span>
@@ -1293,7 +1297,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-<script src="js/features.js?v=20260813-8"></script>
+<script src="js/features.js?v=20260813-9"></script>
 <script src="js/auth.js?v=20260813-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

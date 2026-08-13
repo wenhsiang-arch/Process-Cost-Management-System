@@ -13,8 +13,8 @@
     data:'js/data.js?v=20260813-2',
     costLog:'js/cost-log.js?v=20260813-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
-    cutting:'js/cutting.js?v=20260812-5',
-    accounts:'js/accounts.js?v=20260813-1',
+    cutting:'js/cutting.js?v=20260813-1',
+    accounts:'js/accounts.js?v=20260813-2',
     orders:'js/orders.js?v=20260813-2',
     permissions:'js/permissions.js?v=20260812-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
@@ -24,14 +24,14 @@
     productionEntryStore:'js/production/entry-store.js?v=20260813-1',
     productionReportStore:'js/production/report-store.js?v=20260812-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260812-1',
-    productionEntry:'js/production/production-entry.js?v=20260813-4',
+    productionEntry:'js/production/production-entry.js?v=20260813-5',
     productionRecords:'js/production/production-records.js?v=20260813-2',
     productionAnomalyFilter:'js/production/production-anomaly-filter.js?v=20260813-1',
     productionAttendance:'js/production/production-attendance.js?v=20260812-3',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260813-6',
-    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-4',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-5',
+    productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-5',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260813-6',
     productionProcessEdit:'js/production/process-edit.js?v=20260813-10',
     productionProductGroups:'js/production/product-groups.js?v=20260813-6',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
@@ -44,13 +44,13 @@
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
-    cutting:'styles/features/cutting.css?v=20260810-3',
+    cutting:'styles/features/cutting.css?v=20260813-1',
     orders:'styles/features/orders.css?v=20260810-2',
     products:'styles/features/products.css?v=20260810-1',
     cost:'styles/features/cost.css?v=20260810-4',
-    accounts:'styles/features/accounts.css?v=20260810-2',
-    production:'styles/features/production.css?v=20260813-4',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-11',
+    accounts:'styles/features/accounts.css?v=20260813-1',
+    production:'styles/features/production.css?v=20260813-5',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260813-12',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -112,7 +112,7 @@
     {
       id:'preparation',navId:'preparation',navGroup:'primary',icon:'ti-package',mainKey:'preparationMain',
       usesInternalTabs:true, // usesInternalTabs（使用內部分頁）：裁帶已有三格正式抬頭，不重複產生外層單格。
-      vi:'Chuẩn bị vật liệu',zh:'備料',
+      vi:'Thống kê dây cắt',zh:'裁帶統計',
       pages:[
         {
           page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Thống kê dây cắt',zh:'裁帶統計',

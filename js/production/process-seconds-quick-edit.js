@@ -24,13 +24,40 @@
     return body;
   }
 
-  async function confirmGroupCreation(product,products){
-    const body=document.createElement('div');
-    body.className='process-seconds-confirm-summary';
-    body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Tạo nhóm mới từ các mã đã chọn?</strong><span>是否以所選款號建立新的同產品群組？</span></span></div><p>${safe(products.map(item=>`${item.code}（${item.sz||'—'}）`).join('、'))}</p>`;
-    return ui().confirmDialog({
-      title:{vi:'Xác nhận tạo nhóm mới',zh:'確認建立新群組'},body,keepPrevious:true,
-      confirmText:{vi:'Tạo nhóm mới',zh:'建立新群組'},cancelText:{vi:'Quay lại',zh:'返回'}
+  // openGroupCreation（開啟群組建立頁）：獨立選擇、確認並儲存群組，不讀寫工序秒數。
+  function openGroupCreation(product,products,selectedCodes){
+    return new Promise(resolve=>{
+      let settled=false;
+      const body=document.createElement('div');
+      body.className='process-seconds-group-create product-group-detail-dialog';
+      const heading=document.createElement('div');
+      heading.className='ui-notice is-info';
+      heading.innerHTML='<i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Chọn mã hàng để lưu thành một nhóm độc lập.</strong><span>選擇款號後獨立儲存群組，不會修改工序秒數。</span></span>';
+      const selector=groupUI().createMemberSelector({
+        products,currentCode:product.code,activeSize:product.sz,compact:true,
+        selectedCodes,requiredCodes:[product.code],selectable:true
+      });
+      body.append(heading,selector.element);
+      ui().openDialog({
+        title:{vi:'Thiết lập nhóm mã hàng',zh:'設定款號群組'},body,size:'large',keepPrevious:true,
+        actions:[
+          {text:{vi:'Hủy',zh:'取消'},onClick:()=>{ settled=true;resolve(null); }},
+          {text:{vi:'Xác nhận lưu nhóm',zh:'確認儲存群組'},icon:'ti-device-floppy',kind:'primary',onClick:async()=>{
+            const memberCodes=selector.selectedCodes();
+            if(memberCodes.length<2){
+              await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 2 mã hàng.',zh:'新群組至少需要2個款號。'},kind:'warning',keepPrevious:true});
+              return false;
+            }
+            const created=await store().createGroup({memberCodes,name:product.vi||product.zh||product.code});
+            settled=true;
+            resolve(created);
+            ui().showToast({kind:'success',text:{vi:'Đã lưu nhóm mã hàng.',zh:'款號群組已儲存。'}});
+            return true;
+          }}
+        ],
+        onError:error=>ui().alertDialog({message:textApi().errorPair(error),kind:'danger',keepPrevious:true}),
+        onClose:()=>{ if(!settled) resolve(null); }
+      });
     });
   }
 
@@ -46,10 +73,10 @@
     const processNo=normalize(input.processNo);
     const operation=groupUI().operationFor(product,processNo);
     if(!operation){ await ui().alertDialog({message:{vi:'Không tìm thấy công đoạn trong bảng mã hàng hiện tại.',zh:'目前款號表找不到這道工序。'},kind:'danger'});return false; }
-    const group=store().groupForProduct(product.code);
-    const candidateMode=!group;
-    const members=group
-      ? (group.memberCodes||[]).map(productByCode).filter(Boolean)
+    let currentGroup=store().groupForProduct(product.code);
+    const candidateMode=!currentGroup;
+    const members=currentGroup
+      ? (currentGroup.memberCodes||[]).map(productByCode).filter(Boolean)
       : [product,...store().findCandidates(product.code)];
     const sizeGroups=groupUI().groupBySize(members);
     const initialSize=groupUI().sizeKey(product);
@@ -63,7 +90,6 @@
         proposed:sizeGroup.key===initialSize&&recommended>0?String(recommended):(values.length===1?String(values[0]):'')
       }];
     }));
-    let saveNewGroup=false;
     const body=document.createElement('div');
     body.className='process-seconds-quick-edit';
     const officialSeconds=Math.round(Number(operation.sec)||0);
@@ -76,8 +102,8 @@
       <div><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span><b data-quick-current-seconds>${safe(initialState.currentText)} s</b></div>
       <span class="process-seconds-direction" aria-hidden="true"><i class="ti ti-arrow-right"></i></span>
       <label class="is-seconds"><span class="ui-dual-copy"><strong>Giây sau sửa</strong><span>修改後秒數</span></span><input type="number" min="1" max="86400" step="1" inputmode="numeric" value="${safe(initialState.proposed)}" data-quick-seconds></label>
-      <div class="is-group"><span class="ui-dual-copy"><strong>${group?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${group?'目前群組':'群組狀態'}</span></span><b>${group?safe(group.name||group.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
-      ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group aria-pressed="false"><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
+      <div class="is-group"><span class="ui-dual-copy" data-quick-group-label><strong>${currentGroup?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${currentGroup?'目前群組':'群組狀態'}</span></span><b data-quick-group-value>${currentGroup?safe(currentGroup.name||currentGroup.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
+      ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
     </section>
     ${displayed>0&&displayed!==officialSeconds?`<div class="ui-notice is-warning"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Dòng đã bấm là ảnh chụp ${safe(displayed)} giây; tiêu chuẩn hiện tại là ${safe(officialSeconds)} giây.</strong><span>點擊的紀錄為 ${safe(displayed)} 秒歷史快照；目前正式標準為 ${safe(officialSeconds)} 秒。</span></span></div>`:''}
     <section class="process-seconds-group-section"><div data-quick-member-selector></div></section>`;
@@ -111,12 +137,24 @@
     });
     refreshSizeSeconds();
     const saveGroupButton=body.querySelector('[data-save-new-group]');
-    saveGroupButton?.addEventListener('click',()=>{
-      saveNewGroup=!saveNewGroup;
-      saveGroupButton.setAttribute('aria-pressed',String(saveNewGroup));
-      saveGroupButton.classList.toggle('is-primary',saveNewGroup);
-      saveGroupButton.querySelector('i').className=`ti ${saveNewGroup?'ti-checkbox':'ti-box-multiple'}`;
-    });
+    function renderGroupStatus(){
+      if(!currentGroup) return;
+      const label=body.querySelector('[data-quick-group-label]');
+      const value=body.querySelector('[data-quick-group-value]');
+      if(label) label.innerHTML='<strong>Nhóm hiện tại</strong><span>目前群組</span>';
+      if(value) value.textContent=currentGroup.name||currentGroup.groupId;
+      if(saveGroupButton) saveGroupButton.hidden=true;
+    }
+    async function createIndependentGroup(){
+      if(currentGroup) return currentGroup;
+      const created=await openGroupCreation(product,members,selector.selectedCodes());
+      if(!created) return null;
+      currentGroup=created;
+      selector.setSelectedCodes(created.memberCodes||[]);
+      renderGroupStatus();
+      return created;
+    }
+    saveGroupButton?.addEventListener('click',()=>{ void createIndependentGroup(); });
     let saved=false;
     ui().openDialog({
       title:{vi:'Sửa nhanh giây công đoạn chính thức',zh:'快速修改正式工序秒數'},body,size:'large',
@@ -128,19 +166,25 @@
           const selectedCodes=new Set(selector.selectedCodes());
           const selectedProducts=active.members.filter(item=>selectedCodes.has(normalize(item.code)));
           const targetProducts=selectedProducts.filter(item=>Math.round(Number(groupUI().operationFor(item,processNo)?.sec)||0)!==seconds);
-          const groupProducts=selector.selectedProducts();
           const currentState=sizeStates.get(active.key)||{currentText:'—'};
           if(!(seconds>0&&seconds<=86400)){ await ui().alertDialog({message:{vi:'Giây phải lớn hơn 0.',zh:'秒數必須大於0。'},kind:'warning',keepPrevious:true});return false; }
           if(!selectedProducts.length){ await ui().alertDialog({message:{vi:'Chưa chọn mã hàng trong kích thước hiện tại.',zh:'目前尺寸尚未選擇要同步的款號。'},kind:'warning',keepPrevious:true});return false; }
           if(!targetProducts.length){ await ui().alertDialog({message:{vi:'Giây mới giống dữ liệu hiện tại; hệ thống không ghi dữ liệu.',zh:'新秒數與目前資料相同，系統不會寫入資料。'},kind:'info',keepPrevious:true});return false; }
-          if(saveNewGroup&&groupProducts.length<2){ await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 2 mã.',zh:'新群組至少需要2個款號。'},kind:'warning',keepPrevious:true});return false; }
-          if(saveNewGroup&&!(await confirmGroupCreation(product,groupProducts))) return false;
+          if(!currentGroup){
+            const setupGroup=await ui().confirmDialog({
+              title:{vi:'Mã hàng chưa có nhóm',zh:'款號尚未建立群組'},
+              body:{vi:'Mã hàng này chưa có nhóm. Bạn có muốn thiết lập ngay không? Chọn Bỏ qua để chỉ lưu giây.',zh:'該款號沒有群組，是否現在設定？選擇略過只會儲存秒數。'},
+              keepPrevious:true,
+              confirmText:{vi:'Thiết lập nhóm',zh:'設定群組'},
+              cancelText:{vi:'Bỏ qua',zh:'略過'}
+            });
+            if(setupGroup&&!(await createIndependentGroup())) return false;
+          }
           const syncConfirmed=await ui().confirmDialog({
             title:{vi:'Xác nhận đồng bộ bảng mã hàng',zh:'確認同步目前款號表'},body:selectedSummary(targetProducts,processNo,currentState.currentText,seconds,active.labelPair.vi),keepPrevious:true,
             confirmText:{vi:'Đồng bộ và lưu',zh:'同步並儲存'},cancelText:{vi:'Quay lại',zh:'返回'},kind:'warning'
           });
           if(!syncConfirmed) return false;
-          if(saveNewGroup) await store().createGroup({memberCodes:groupProducts.map(item=>item.code),name:product.vi||product.zh||product.code});
           const result=await store().saveOfficialSeconds({targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason:QUICK_EDIT_REASON});
           saved=true;
           ui().showToast({kind:result.logSaved?'success':'warning',text:result.logSaved

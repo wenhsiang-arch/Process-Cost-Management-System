@@ -124,14 +124,21 @@ function rAcc(){
     const emailCell=appendAccountCell(tr,emailText);
     if(!emailText) setAccountPair(emailCell,'Chưa ghi nhận','尚未記錄');
 
-    const userCell=appendAccountCell(tr,a.user||'-');
+    const userCell=appendAccountCell(tr,'');
+    userCell.classList.add('accounts-user-cell');
+    const userContent=document.createElement('span');
+    userContent.className='account-name-content';
+    const userName=document.createElement('span');
+    userName.className='account-name-text';
+    userName.textContent=a.user||'-';
+    userContent.appendChild(userName);
     if(isMe){
       const me=document.createElement('span');
       me.className='tg tb2';
-      me.style.marginLeft='6px';
       setAccountPair(me,'Tôi','我');
-      userCell.appendChild(me);
+      userContent.appendChild(me);
     }
+    userCell.appendChild(userContent);
 
     const roleCell=document.createElement('td');
     const roleTag=document.createElement('span');
