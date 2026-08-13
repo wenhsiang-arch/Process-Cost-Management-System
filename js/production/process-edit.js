@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,pendingChecked:false,dragIndex:-1};
+  const state={currentCode:'',selectedClient:'',applyMode:'current',editMode:'standardCorrection',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,pendingChecked:false,dragIndex:-1};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -67,6 +67,14 @@
             <div class="ui-section-header"><i class="ti ti-box"></i><span class="ui-dual-copy"><strong>Mã hàng và nhóm cùng sản phẩm</strong><span>款號與同產品群組</span></span></div>
             <div class="process-edit-current-summary" id="process-edit-current-summary"></div>
             <div class="process-edit-group-area" id="process-edit-group-area"></div>
+          </section>
+          <section class="process-edit-mode-panel ui-data-section" id="process-edit-mode-panel">
+            <div class="ui-section-header"><i class="ti ti-adjustments"></i><span class="ui-dual-copy"><strong>Chế độ sửa chính thức</strong><span>正式修改模式</span></span></div>
+            <div class="process-edit-mode-selector">
+              <label class="process-edit-mode-option"><input type="radio" name="official-process-edit-mode" value="standardCorrection" checked><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa giây và hiệu suất của bản ghi cũ; vẫn lưu giây trong bảng mã hàng trước khi sửa.</span><span class="ui-text-zh">訂正舊登記秒數與效率，並保留修改前的款號表秒數。</span></small></label>
+              <label class="process-edit-mode-option"><input type="radio" name="official-process-edit-mode" value="processOptimization"><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên bản ghi cũ; tiêu chuẩn mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊產能登記完全不變；同步完成後才使用新標準。</span></small></label>
+            </div>
+            <div class="ui-notice is-info" id="process-edit-mode-structural-note" hidden><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thêm, xóa, đổi tên hoặc đổi thứ tự sẽ tự động dùng chế độ tối ưu công đoạn.</strong><span>新增、刪除、改名或調整順序時，系統會自動改用工序優化。</span></span></div>
           </section>
           <section class="process-edit-operations ui-data-section">
             <div class="ui-section-header process-edit-section-header">
@@ -256,7 +264,9 @@
     const product=productByCode(state.currentCode);
     state.draft=normalizedOperations(product?.ops||[]);
     state.dirty=false;
+    state.editMode=store().EDIT_MODES.STANDARD_CORRECTION;
     if(product) renderOperations(product);
+    syncModificationMode(false);
   }
 
   async function selectProduct(code,options={}){
@@ -285,6 +295,7 @@
     }
     state.currentCode=product.code;
     state.applyMode='current';
+    state.editMode=store().EDIT_MODES.STANDARD_CORRECTION;
     state.selectedTargets=new Set([product.code]);
     state.draft=normalizedOperations(product.ops||[]);
     state.dirty=false;
@@ -296,6 +307,7 @@
     renderSummary(product);
     renderGroup(product);
     renderOperations(product);
+    syncModificationMode(false);
     return true;
   }
 
@@ -306,6 +318,7 @@
     state.draft.forEach((item,rowIndex)=>{ item.no=String(rowIndex+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
+    syncModificationMode(true);
   }
 
   function moveRow(fromIndex,toIndex){
@@ -315,6 +328,7 @@
     state.draft.forEach((item,index)=>{ item.no=String(index+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
+    syncModificationMode(true);
   }
 
   async function addOperation(){
@@ -339,6 +353,7 @@
     state.draft.forEach((item,index)=>{ item.no=String(index+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
+    syncModificationMode(true);
     requestAnimationFrame(()=>document.querySelector(`#process-edit-table-body [data-process-index="${position-1}"] [data-process-field="vi"]`)?.focus());
   }
 
@@ -385,32 +400,26 @@
     });
   }
 
-  function openModificationSettings(structuralChange){
-    return new Promise(resolve=>{
-      let settled=false;
-      const body=document.createElement('div');
-      body.className='process-edit-mode-dialog';
-      body.innerHTML=`<div class="process-edit-mode-selector">
-        <label class="process-edit-mode-option"><input type="radio" name="official-process-edit-mode" value="processOptimization" checked><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên bản ghi sản xuất cũ; tiêu chuẩn mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊產能登記完全不變；同步完成後才使用新標準。</span></small></label>
-        <label class="process-edit-mode-option${structuralChange?' is-disabled':''}"><input type="radio" name="official-process-edit-mode" value="standardCorrection" ${structuralChange?'disabled':''}><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa giây và hiệu suất của bản ghi cũ, đồng thời giữ giây gốc.</span><span class="ui-text-zh">訂正舊登記秒數與效率，同時保留原始秒數。</span></small></label>
-      </div>
-      ${structuralChange?'<div class="ui-notice is-info"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thêm, xóa, đổi tên hoặc đổi thứ tự chỉ được áp dụng từ bây giờ.</strong><span>新增、刪除、改名或調整順序只能從現在起生效。</span></span></div>':''}
-      <label class="process-edit-reason"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea rows="3" maxlength="500" data-process-edit-reason>Cập nhật công đoạn chính thức / 更新正式工序</textarea></label>`;
-      ui().openDialog({
-        title:{vi:'Chọn cách áp dụng thay đổi',zh:'選擇修改套用方式'},body,size:'large',
-        actions:[
-          {text:{vi:'Hủy',zh:'取消'},onClick:()=>{ settled=true;resolve(null); }},
-          {text:{vi:'Tiếp tục kiểm tra',zh:'繼續確認'},kind:'primary',onClick:()=>{
-            const reason=String(body.querySelector('[data-process-edit-reason]')?.value||'').trim();
-            if(reason.length<2){ body.querySelector('[data-process-edit-reason]')?.focus();return false; }
-            settled=true;
-            resolve({mode:store().normalizeMode(body.querySelector('input[name="official-process-edit-mode"]:checked')?.value),reason});
-            return true;
-          }}
-        ],
-        onClose:()=>{ if(!settled) resolve(null); }
-      });
-    });
+  function syncModificationMode(structuralChangeOverride){
+    const product=productByCode(state.currentCode);
+    const structuralChange=typeof structuralChangeOverride==='boolean'
+      ? structuralChangeOverride
+      : Boolean(product&&!sameOperationStructure(product.ops||[],state.draft));
+    if(structuralChange) state.editMode=store().EDIT_MODES.PROCESS_OPTIMIZATION;
+    const panel=document.getElementById('process-edit-mode-panel');
+    const correction=panel?.querySelector('input[value="standardCorrection"]');
+    const optimization=panel?.querySelector('input[value="processOptimization"]');
+    const note=document.getElementById('process-edit-mode-structural-note');
+    if(correction){
+      correction.disabled=structuralChange||!canEdit();
+      correction.closest('.process-edit-mode-option')?.classList.toggle('is-disabled',correction.disabled);
+      correction.checked=state.editMode===store().EDIT_MODES.STANDARD_CORRECTION;
+    }
+    if(optimization){
+      optimization.disabled=!canEdit();
+      optimization.checked=state.editMode===store().EDIT_MODES.PROCESS_OPTIMIZATION;
+    }
+    if(note) note.hidden=!structuralChange;
   }
 
   function officialChangeSummary(targetCodes,operations,impact,mode){
@@ -424,7 +433,7 @@
     }).join('');
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Kiểm tra nội dung thay đổi trước khi lưu.</strong><span>儲存前請確認實際修改內容。</span></span></div>
       <div class="process-edit-change-products">${productSections}</div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact.entryCount)||0):0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Giữ bản gốc và thêm kết quả sửa':'Giữ nguyên ảnh chụp cũ'}</strong><span>${correction?'保留原始值並另存訂正結果':'舊快照完全不變'}</span></span></dd></div></dl>`;
+      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact.entryCount)||0):0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Lưu giây bảng mã hàng trước khi sửa':'Giữ nguyên ảnh chụp cũ'}</strong><span>${correction?'保留修改前的款號表秒數並另存訂正結果':'舊快照完全不變'}</span></span></dd></div></dl>`;
     return body;
   }
 
@@ -453,17 +462,17 @@
       return;
     }
     const structuralChange=targetCodes.some(code=>!sameOperationStructure(productByCode(code)?.ops,operations));
-    const settings=await openModificationSettings(structuralChange);
-    if(!settings) return;
+    syncModificationMode(structuralChange);
+    const mode=store().normalizeMode(state.editMode);
     let impact;
     try{
       const operationsByCode=Object.fromEntries(targetCodes.map(code=>[code,operations]));
       setStatus({vi:'Đang kiểm tra đơn hàng và dữ liệu bị ảnh hưởng...',zh:'正在檢查受影響訂單與資料…'},'info');
-      impact=await store().analyzeImpact({targetCodes,operationsByCode,mode:settings.mode});
+      impact=await store().analyzeImpact({targetCodes,operationsByCode,mode});
     }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
     const confirmed=await ui().confirmDialog({
       title:{vi:'Xác nhận sửa tiêu chuẩn chính thức',zh:'確認修改正式標準'},
-      body:officialChangeSummary(targetCodes,operations,impact,settings.mode),size:'large',
+      body:officialChangeSummary(targetCodes,operations,impact,mode),size:'large',
       confirmText:{vi:'Xác nhận sửa',zh:'確認修改'},cancelText:{vi:'Hủy',zh:'取消'},kind:'warning'
     });
     if(!confirmed) return;
@@ -475,7 +484,7 @@
     try{
       setStatus({vi:'Đang lưu phiên bản và công đoạn...',zh:'正在儲存版本與工序修改…'},'info');
       const result=await store().saveOfficialProcesses({
-        targetCodes,operations,reason:settings.reason,mode:settings.mode,
+        targetCodes,operations,mode,
         orders:impact.orders,entryCount:impact.entryCount,
         onProgress:item=>updateModificationProgress(progress,item)
       });
@@ -645,6 +654,7 @@
       }else state.draft[index][field]=event.target.value;
       markDirty();
       if(field==='sec') row.querySelector('[data-ui-table-column="capacity"] b').textContent=String(hourlyCapacity(event.target.value));
+      syncModificationMode();
     });
     document.getElementById('process-edit-table-body')?.addEventListener('click',event=>{
       const button=event.target.closest('[data-process-action]');
@@ -694,6 +704,11 @@
         return;
       }
     });
+    document.getElementById('process-edit-mode-panel')?.addEventListener('change',event=>{
+      if(event.target?.name!=='official-process-edit-mode'||event.target.disabled) return;
+      state.editMode=store().normalizeMode(event.target.value);
+      syncModificationMode();
+    });
     document.querySelector('.production-process-edit-page')?.addEventListener('click',event=>{ if(event.target.closest('#process-edit-open-groups')) openGroupsPage(); });
   }
 
@@ -718,7 +733,7 @@
       await selectProduct(pending.code,{force:true});
       const seconds=Number(pending.recommendedSeconds);
       const operation=state.draft.find(item=>String(item.no)===String(pending.processNo));
-      if(operation&&seconds>0){ operation.sec=Math.round(seconds); markDirty(); renderOperations(productByCode(state.currentCode)); }
+      if(operation&&seconds>0){ operation.sec=Math.round(seconds); markDirty(); renderOperations(productByCode(state.currentCode));syncModificationMode(); }
       window.PCMSPendingProcessEditContext=null;
     }else if(state.currentCode){
       await selectProduct(state.currentCode,{force:true});

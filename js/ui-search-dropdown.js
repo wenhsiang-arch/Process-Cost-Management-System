@@ -300,11 +300,20 @@
         setActive(next);
         return;
       }
-      if(event.key !== 'Enter') return;
-      if(activeIndex >= 0 && selectItem(currentMatches[activeIndex])){
+      const forwardTab = event.key === 'Tab' && !event.shiftKey;
+      if(event.key !== 'Enter' && !forwardTab) return;
+      if(event.key === 'Enter' && activeIndex >= 0 && selectItem(currentMatches[activeIndex])){
         event.preventDefault();
         return;
       }
+      const query = text(input.value);
+      const uniqueResult = query ? resultFor(query,2) : {items:[],total:0};
+      if(uniqueResult.total === 1 && selectItem(uniqueResult.items[0])){
+        // Tab（定位鍵）保留瀏覽器或功能頁既有的往後移動；Enter（確認鍵）只完成本次唯一選項。
+        if(event.key === 'Enter') event.preventDefault();
+        return;
+      }
+      if(forwardTab) return;
       if(typeof options.onConfirm === 'function'){
         const confirmed = options.onConfirm(controller,event);
         if(confirmed !== false) event.preventDefault();

@@ -37,8 +37,9 @@
     return date.getFullYear() === year && date.getMonth() === month-1 && date.getDate() === day;
   }
 
-  function orderVersion(order){
-    return String(order?.processVersion || `legacy-${order?.importCompletedAt || order?.createdAt || 0}`);
+  function orderVersion(order,orderId=''){
+    const explicit = normalizedText(order?.processVersion);
+    return explicit || `legacy-${normalizedText(orderId || order?.id)}`;
   }
 
   function usableOrder(order){
@@ -162,7 +163,6 @@
       const supplementReason = normalizedText(input?.supplementReason);
       const supplementHours = Number(input?.supplementHours);
       if(Boolean(orderId) !== Boolean(productCode)) throw new Error('Đơn hàng và mã hàng phải được chọn cùng nhau hoặc để trống cùng nhau. / 訂單與款號必須一起選擇，或一起留空。');
-      if(!supplementReason) throw new Error('Vui lòng nhập lý do bổ sung giờ. / 請輸入補充工時原因。');
       if(supplementReason.length > 200) throw new Error('Lý do bổ sung giờ không được vượt quá 200 ký tự. / 補充工時原因不得超過200字。');
       if(!isValidSupplementHours(supplementHours)) throw new Error('Giờ bổ sung phải từ 0,5 đến 24 giờ và tăng theo mỗi 0,5 giờ. / 補充工時必須為0.5至24小時，並以0.5小時為單位。');
       return {recordType:'supplement',productionDate,employeeId,orderId,productCode,processNo,supplementReason,supplementHours};
@@ -258,7 +258,7 @@
         processNo:normalized.processNo,
         processNameVi:normalizedText(liveProcess.processVi),
         processNameZh:normalizedText(liveProcess.processZh),
-        processVersionSnapshot:orderVersion(orderSnapshot.data()),
+        processVersionSnapshot:orderVersion(orderSnapshot.data(),normalized.orderId),
         processSecSnapshot:processSeconds,
         hourlyCapacitySnapshot:capacity,
         orderQtySnapshot:orderQuantity,
@@ -358,7 +358,7 @@
 
   async function voidEntry(entryId,reason){
     const note = normalizedText(reason);
-    if(!note) throw new Error('Vui lòng nhập lý do hủy. / 請輸入作廢原因。');
+    if(note.length > 500) throw new Error('Lý do hủy không được vượt quá 500 ký tự. / 作廢原因不得超過500字。');
     const entryReference = window._docRef(COLLECTIONS.entries,normalizedText(entryId));
     const logReference = window._newDocRef(COLLECTIONS.logs);
     const now = Date.now();

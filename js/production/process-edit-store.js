@@ -30,6 +30,11 @@
       ? EDIT_MODES.STANDARD_CORRECTION
       : EDIT_MODES.PROCESS_OPTIMIZATION;
   }
+  function modificationReason(mode){
+    return normalizeMode(mode)===EDIT_MODES.STANDARD_CORRECTION
+      ? 'Sửa lỗi tiêu chuẩn / 標準錯誤訂正'
+      : 'Tối ưu công đoạn / 工序優化';
+  }
   function chunks(values,size=QUERY_CODE_CHUNK){
     const result=[];
     for(let index=0;index<values.length;index+=size) result.push(values.slice(index,index+size));
@@ -366,9 +371,8 @@
 
   async function saveOfficialProcesses(input={}){
     const targetCodes=[...new Set((input.targetCodes||[]).map(normalizeCode).filter(Boolean))];
-    const reason=String(input.reason||'').trim();
+    const reason=modificationReason(input.mode);
     if(!targetCodes.length) throw new Error('Chưa chọn mã hàng cần áp dụng. / 尚未選擇要套用的款號。');
-    if(reason.length<2||reason.length>500) throw new Error('Vui lòng nhập lý do sửa từ 2 đến 500 ký tự. / 請輸入2～500字的修改原因。');
     const operations=validateOperations(input.operations);
     const now=Date.now();
     const userName=currentUserName();
@@ -396,11 +400,10 @@
     const targetCodes=[...new Set((input.targetCodes||[]).map(normalizeCode).filter(Boolean))];
     const processNo=String(input.processNo||'').trim();
     const seconds=Number(input.seconds);
-    const reason=String(input.reason||'').trim();
+    const reason=modificationReason(input.mode);
     if(!targetCodes.length) throw new Error('Chưa chọn mã hàng cần áp dụng. / 尚未選擇要套用的款號。');
     if(!processNo) throw new Error('Thiếu số công đoạn. / 缺少工序號。');
     if(!(Number.isInteger(seconds)&&seconds>0&&seconds<=86400)) throw new Error('Giây công đoạn phải là số nguyên lớn hơn 0. / 工序秒數必須是大於0的整數。');
-    if(reason.length<2||reason.length>500) throw new Error('Vui lòng nhập lý do sửa từ 2 đến 500 ký tự. / 請填寫2至500字的修改原因。');
     const now=Date.now();
     const userName=currentUserName();
     const changes=[];
@@ -441,7 +444,7 @@
   }
 
   function orderVersion(order){
-    return String(order?.processVersion||`legacy-${order?.importCompletedAt||order?.createdAt||0}`);
+    return String(order?.processVersion||`legacy-${normalizeCode(order?.id)}`);
   }
 
   function usableOrder(order){
@@ -822,7 +825,7 @@
 
   window.PCMSProcessEditStore=Object.freeze({
     loadGroups,listGroups,groupForProduct,findCandidates,createGroup,updateGroupMembers,renameGroup,deleteGroup,
-    EDIT_MODES,normalizeMode,validateOperations,saveOfficialProcesses,saveOfficialSeconds,loadVersions,loadVersionSnapshot,
+    EDIT_MODES,normalizeMode,modificationReason,validateOperations,saveOfficialProcesses,saveOfficialSeconds,loadVersions,loadVersionSnapshot,
     activeOrdersForProducts,analyzeImpact,loadModificationJob,loadPendingModificationJobs,
     syncOrderSnapshot,retryOrderSnapshot,resumeModificationJob,reset
   });

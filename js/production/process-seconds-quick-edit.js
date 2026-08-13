@@ -9,7 +9,6 @@
   const store=()=>window.PCMSProcessEditStore;
   const groupUI=()=>window.PCMSProcessGroupUI;
   const productByCode=code=>(window.D||[]).find(item=>normalize(item.code)===normalize(code))||null;
-  const QUICK_EDIT_REASON='Điều chỉnh nhanh giây công đoạn / 快速調整工序秒數';
 
   function allowed(){
     return typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();
@@ -20,8 +19,8 @@
     body.className='process-seconds-confirm-summary';
     const correction=mode===store().EDIT_MODES.STANDARD_CORRECTION;
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Lần sửa này sẽ đồng bộ bảng mã hàng hiện tại.</strong><span>此次修改將同步目前的款號表。</span></span></div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Công đoạn</strong><span>工序</span></span></dt><dd>${safe(processNo)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></dt><dd>${safe(sizeLabel||'—')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span></dt><dd>${safe(currentSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây mới</strong><span>修改後秒數</span></span></dt><dd>${safe(newSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></dt><dd>${safe(products.map(item=>item.code).join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${Number(impact?.orderCount)||0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact?.entryCount)||0):0}</dd></div></dl>
-      <div class="process-seconds-history-note ui-bilingual"><span class="ui-text-vi">${correction?'Bản ghi cũ sẽ giữ giây gốc và thêm kết quả sửa để tính lại hiệu suất.':'Bản ghi cũ giữ nguyên; chỉ lần ghi nhận sau khi đồng bộ hoàn tất mới dùng giây mới.'}</span><span class="ui-text-zh">${correction?'舊紀錄會保留原始秒數，另存訂正結果並重新計算效率。':'舊紀錄完全不變；同步完成後的新登記才使用新秒數。'}</span></div>`;
+      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Công đoạn</strong><span>工序</span></span></dt><dd>${safe(processNo)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></dt><dd>${safe(sizeLabel||'—')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây bảng mã hàng</strong><span>款號表秒數</span></span></dt><dd>${safe(currentSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Giây mới</strong><span>修改後秒數</span></span></dt><dd>${safe(newSeconds)} s</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></dt><dd>${safe(products.map(item=>item.code).join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${Number(impact?.orderCount)||0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact?.entryCount)||0):0}</dd></div></dl>
+      <div class="process-seconds-history-note ui-bilingual"><span class="ui-text-vi">${correction?'Bản ghi cũ sẽ lưu giây trong bảng mã hàng trước khi sửa và thêm kết quả sửa để tính lại hiệu suất.':'Bản ghi cũ giữ nguyên; chỉ lần ghi nhận sau khi đồng bộ hoàn tất mới dùng giây mới.'}</span><span class="ui-text-zh">${correction?'舊紀錄會保留修改前的款號表秒數，另存訂正結果並重新計算效率。':'舊紀錄完全不變；同步完成後的新登記才使用新秒數。'}</span></div>`;
     return body;
   }
 
@@ -119,16 +118,15 @@
       <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(product.client||'—')}</b></div>
       <div><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span><b>${safe(processNo)}</b></div>
       <div class="is-name"><span class="ui-dual-copy"><strong>Tên công đoạn Việt</strong><span>工序越文名稱</span></span><b>${safe(operation.vi||input.processNameVi||'—')}</b></div>
-      <div><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>原本秒數</span></span><b data-quick-current-seconds>${safe(initialState.currentText)} s</b></div>
+      <div><span class="ui-dual-copy"><strong>Giây bảng mã hàng</strong><span>款號表秒數</span></span><b data-quick-current-seconds>${safe(initialState.currentText)} s</b></div>
       <span class="process-seconds-direction" aria-hidden="true"><i class="ti ti-arrow-right"></i></span>
       <label class="is-seconds"><span class="ui-dual-copy"><strong>Giây sau sửa</strong><span>修改後秒數</span></span><input type="number" min="1" max="86400" step="1" inputmode="numeric" value="${safe(initialState.proposed)}" data-quick-seconds></label>
       <div class="is-group"><span class="ui-dual-copy" data-quick-group-label><strong>${currentGroup?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${currentGroup?'目前群組':'群組狀態'}</span></span><b data-quick-group-value>${currentGroup?safe(currentGroup.name||currentGroup.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
       ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
     </section>
     <section class="process-edit-mode-selector" data-quick-mode-selector>
-      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="processOptimization" checked><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên toàn bộ bản ghi cũ; giây mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊登記完全不變；同步完成後才使用新秒數。</span></small></label>
-      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="standardCorrection"><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa lại giây và hiệu suất của bản ghi cũ, nhưng vẫn giữ giây gốc.</span><span class="ui-text-zh">訂正舊登記秒數與效率，並保留原始秒數。</span></small></label>
-      <label class="process-edit-reason"><span class="ui-dual-copy"><strong>Lý do sửa</strong><span>修改原因</span></span><textarea rows="2" maxlength="500" data-quick-reason>${safe(QUICK_EDIT_REASON)}</textarea></label>
+      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="standardCorrection" checked><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa lại giây và hiệu suất của bản ghi cũ; vẫn lưu giây trong bảng mã hàng trước khi sửa.</span><span class="ui-text-zh">訂正舊登記秒數與效率，並保留修改前的款號表秒數。</span></small></label>
+      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="processOptimization"><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên toàn bộ bản ghi cũ; giây mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊登記完全不變；同步完成後才使用新秒數。</span></small></label>
     </section>
     ${displayed>0&&displayed!==officialSeconds?`<div class="ui-notice is-warning"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Dòng đã bấm là ảnh chụp ${safe(displayed)} giây; tiêu chuẩn hiện tại là ${safe(officialSeconds)} giây.</strong><span>點擊的紀錄為 ${safe(displayed)} 秒歷史快照；目前正式標準為 ${safe(officialSeconds)} 秒。</span></span></div>`:''}
     <section class="process-seconds-group-section"><div data-quick-member-selector></div></section>`;
@@ -206,8 +204,6 @@
             if(setupGroup&&!(await createIndependentGroup())) return false;
           }
            const mode=store().normalizeMode(body.querySelector('input[name="quick-process-edit-mode"]:checked')?.value);
-           const reason=normalize(body.querySelector('[data-quick-reason]')?.value);
-           if(reason.length<2){ await ui().alertDialog({message:{vi:'Vui lòng nhập lý do sửa.',zh:'請輸入修改原因。'},kind:'warning',keepPrevious:true});return false; }
            const operationsByCode=Object.fromEntries(targetProducts.map(item=>[item.code,previewOperations(item,processNo,seconds)]));
            const impact=await store().analyzeImpact({targetCodes:targetProducts.map(item=>item.code),operationsByCode,mode});
            const syncConfirmed=await ui().confirmDialog({
@@ -224,7 +220,7 @@
            let result;
            try{
              result=await store().saveOfficialSeconds({
-               targetCodes:targetProducts.map(item=>item.code),processNo,seconds,reason,mode,
+               targetCodes:targetProducts.map(item=>item.code),processNo,seconds,mode,
                orders:impact.orders,entryCount:impact.entryCount,
                onProgress:item=>progress.update({value:item.total?item.completed/item.total*100:0,text:progressText(item)})
              });

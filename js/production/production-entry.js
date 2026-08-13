@@ -32,7 +32,7 @@
   const ALL_EMPLOYEES_OPTION = Object.freeze({allEmployees:true,employeeId:'Tất cả / 全部',name:'',department:''});
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
-    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:90,preferred:96,maximum:112,available:()=>state.processRowsMode||state.allEmployees},
+    {key:'date',label:{vi:'Ngày',zh:'日期'},minimum:90,preferred:96,maximum:112},
     {key:'employeeId',label:{vi:'Mã nhân viên',zh:'員工工號'},minimum:92,preferred:100,maximum:124,available:()=>state.processRowsMode||state.allEmployees},
     {key:'employeeName',label:{vi:'Tên nhân viên',zh:'員工姓名'},minimum:110,preferred:128,maximum:180,available:()=>state.processRowsMode||state.allEmployees},
     {key:'order',label:{vi:'Đơn hàng',zh:'訂單'},minimum:116,preferred:128,maximum:190},
@@ -78,6 +78,18 @@
   function dateText(value){
     const parts = String(value || '').split('-');
     return parts.length === 3 ? `${parts[0]}/${parts[1]}/${parts[2]}` : String(value || '—');
+  }
+  function dateBadgeText(value){
+    const parts = String(value || '').split('-').map(Number);
+    if(parts.length !== 3 || parts.some(part=>!Number.isFinite(part))) return {date:dateText(value),vi:'',zh:''};
+    const date = new Date(parts[0],parts[1]-1,parts[2]);
+    const viDays = ['Chủ nhật','Thứ hai','Thứ ba','Thứ tư','Thứ năm','Thứ sáu','Thứ bảy'];
+    const zhDays = ['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+    return {
+      date:`${String(parts[2]).padStart(2,'0')}/${String(parts[1]).padStart(2,'0')}`,
+      vi:viDays[date.getDay()],
+      zh:zhDays[date.getDay()]
+    };
   }
   function numberText(value){ return Number(value || 0).toLocaleString(); }
   function hoursText(value){
@@ -391,8 +403,8 @@
     if(reasonInput){
       reasonInput.readOnly = !active;
       reasonInput.tabIndex = active ? 0 : -1;
-      setEntryLocalizedAttribute(reasonInput,'placeholder',active ? 'Nhập lý do' : '—',active ? '輸入原因' : '—');
-      setEntryLocalizedAttribute(reasonInput,'title',active ? 'Lý do bổ sung giờ' : '',active ? '補充工時原因' : '');
+      setEntryLocalizedAttribute(reasonInput,'placeholder',active ? 'Không bắt buộc' : '—',active ? '選填' : '—');
+      setEntryLocalizedAttribute(reasonInput,'title',active ? 'Lý do bổ sung giờ (không bắt buộc)' : '',active ? '補充工時原因（選填）' : '');
     }
     if(valueInput){
       valueInput.min = active ? '0.5' : '1';
@@ -402,7 +414,7 @@
       setEntryLocalizedAttribute(valueInput,'placeholder',active ? '0.5–24 · Enter để lưu' : 'Enter để lưu','Enter 儲存');
     }
     const labelCopy = active
-      ? {processVi:'Lý do',processZh:'原因',valueVi:'Giờ',valueZh:'小時'}
+      ? {processVi:'Lý do (không bắt buộc)',processZh:'原因（選填）',valueVi:'Giờ',valueZh:'小時'}
       : {processVi:'Công đoạn',processZh:'工序',valueVi:'Số lượng',valueZh:'數量'};
     element('production-process-name-label-vi').textContent = labelCopy.processVi;
     element('production-process-name-label-zh').textContent = labelCopy.processZh;
@@ -983,10 +995,9 @@
     const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
     const reason = await window.PCMSUIComponents.promptDialog({
       title:{vi:'Lý do hủy bản ghi',zh:'作廢原因'},
-      label:{vi:'Nhập lý do',zh:'輸入原因'},
+      label:{vi:'Lý do (không bắt buộc)',zh:'原因（選填）'},
       multiline:true,
-      maxLength:500,
-      validate:value=>String(value || '').trim().length > 0
+      maxLength:500
     });
     if(reason === null) return;
     const confirmed = await window.PCMSUIComponents.confirmDialog({
@@ -1080,10 +1091,10 @@
         setSupplementMode(false);
         setStatus(
           supplement
-            ? `Đã lưu ${hoursText(saved.supplementHours)} giờ bổ sung: ${saved.supplementReason}.`
+            ? `Đã lưu ${hoursText(saved.supplementHours)} giờ bổ sung${saved.supplementReason ? `: ${saved.supplementReason}` : ''}.`
             : `Đã lưu ${numberText(saved.quantity)} sản phẩm cho công đoạn ${saved.processNo}.`,
           supplement
-            ? `已儲存 ${hoursText(saved.supplementHours)} 小時補充工時：${saved.supplementReason}。`
+            ? `已儲存 ${hoursText(saved.supplementHours)} 小時補充工時${saved.supplementReason ? `：${saved.supplementReason}` : ''}。`
             : `已儲存工序 ${saved.processNo} 的 ${numberText(saved.quantity)} 件生產數量。`,
           'success'
         );
@@ -1123,6 +1134,26 @@
     return cell;
   }
 
+  function appendDateCell(row,value,showBadge){
+    const cell=document.createElement('td');
+    cell.className='production-date-cell';
+    cell.dataset.productionColumn='date';
+    cell.dataset.uiTableColumn='date';
+    cell.dataset.uiTableSortValue=String(value||'');
+    if(showBadge){
+      const copy=dateBadgeText(value);
+      const badge=document.createElement('span');
+      badge.className='production-date-badge';
+      const date=document.createElement('strong');
+      const weekday=document.createElement('span');
+      date.textContent=copy.date;
+      weekday.appendChild(window.PCMSUIText.create({vi:copy.vi,zh:copy.zh}));
+      badge.append(date,weekday);
+      cell.appendChild(badge);
+    }else cell.setAttribute('aria-label',dateText(value));
+    row.appendChild(cell);
+  }
+
   function dailySortValue(item,key){
     const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
     const currentEmployee = window.PCMSProductionEmployees?.find?.(item.employeeId);
@@ -1133,7 +1164,7 @@
       order:item.orderNo || '',
       product:item.productCode || '',
       processNo:Number(item.processNo || 0),
-      processName:supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || ''),
+      processName:supplement ? (item.supplementReason || '—') : (item.processNameVi || item.processNameZh || ''),
       quantity:supplement ? null : Number(item.quantity || 0),
       supplementHours:supplement ? Number(item.supplementHours || 0) : null,
       orderQuantity:supplement ? null : Number(item.orderQtySnapshot || 0),
@@ -1170,19 +1201,21 @@
     syncRecordPagination(filteredRows.length);
     const pageStart = (state.recordPage-1)*RECORD_PAGE_SIZE;
     const visibleRows = filteredRows.slice(pageStart,pageStart+RECORD_PAGE_SIZE);
-    visibleRows.forEach(item=>{
+    visibleRows.forEach((item,index)=>{
       const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
       const currentEmployee = window.PCMSProductionEmployees?.find?.(item.employeeId);
       const row = document.createElement('tr');
+      const groupStart=index===0||visibleRows[index-1]?.productionDate!==item.productionDate;
+      if(groupStart) row.classList.add('production-date-group-start');
       row.dataset.orderProcessId = String(item.orderProcessId || '');
-      appendCell(row,dateText(item.productionDate),'production-record-text-cell','date');
+      appendDateCell(row,item.productionDate,groupStart);
       appendCell(row,item.employeeId || '—','production-record-text-cell','employeeId');
       appendCell(row,currentEmployee?.name || item.employeeName || '—','production-record-text-cell','employeeName');
       appendCell(row,item.orderNo || '—','', 'order');
       appendCell(row,item.productCode || '—','production-product-code-cell','product');
       appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
       appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
-      appendCell(row,supplement ? item.supplementReason : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
+      appendCell(row,supplement ? (item.supplementReason || '—') : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
       appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity','production-value-badge');
       appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
       const secondsCell=appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
