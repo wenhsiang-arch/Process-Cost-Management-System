@@ -16,27 +16,34 @@
     productionAttendanceDelete:['Xóa chấm công','刪除考勤'],productionEmployeeDelete:['Xóa nhân viên','刪除員工'],
     productionDepartmentCreate:['Thêm bộ phận','新增部門'],productionDepartmentRename:['Đổi tên bộ phận','部門改名'],
     productionDepartmentStatus:['Đổi trạng thái bộ phận','變更部門狀態'],productionDepartmentDelete:['Xóa bộ phận','刪除部門'],
-    productionAnalysisExport:['Xuất phân tích','匯出分析'],productionAnalysisPrint:['In phân tích','列印分析']
+    productionAnalysisExport:['Xuất phân tích','匯出分析'],productionAnalysisPrint:['In phân tích','列印分析'],
+    performanceBonusSettingsUpdate:['Lưu tham số thưởng','儲存獎金參數'],performanceBonusCalculate:['Tính thưởng tháng','計算月份獎金'],
+    performanceBonusAdjustment:['Điều chỉnh thưởng','人工調整獎金'],performanceBonusLock:['Khóa tháng thưởng','鎖定獎金月份'],
+    performanceBonusExport:['Xuất thưởng tháng','匯出月份獎金'],performanceBonusPaid:['Xác nhận đã phát','確認已發放'],
+    performanceBonusUnlock:['Mở khóa tháng thưởng','解除獎金月份鎖定']
   };
   const FEATURE_LABELS={
     systemMonitor:['Giám sát hệ thống','系統監控'],accounts:['Quản lý tài khoản','帳號管理'],
     products:['Quản lý mã hàng','款號管理'],orders:['Dữ liệu đơn hàng','訂單資料'],
     production:['Ghi nhận sản lượng','產能登記'],productionAnalysis:['Phân tích sản xuất','生產分析'],
-    cost:['Quản lý chi phí','成本管理'],cutting:['Thống kê dây cắt','裁帶統計']
+    cost:['Quản lý chi phí','成本管理'],cutting:['Thống kê dây cắt','裁帶統計'],
+    performanceBonus:['Thưởng hiệu suất','績效獎金'],performanceBonusSettings:['Tham số thưởng','獎金參數']
   };
   const CACHE_LABELS={
     productionEntries:['Dữ liệu sản lượng','產能資料'],productionAttendance:['Dữ liệu chấm công','考勤資料'],
     productionAnalysis:['Dữ liệu phân tích','分析資料'],productionEmployees:['Dữ liệu nhân viên','員工資料'],
     productionDepartments:['Dữ liệu bộ phận','部門資料'],orders:['Dữ liệu đơn hàng','訂單資料'],
     orderProcesses:['Công đoạn đơn hàng','訂單工序'],products:['Dữ liệu mã hàng','款號資料'],
-    operationSettings:['Cài đặt vận hành','運算設定'],costSettings:['Cài đặt chi phí','成本設定']
+    operationSettings:['Cài đặt vận hành','運算設定'],costSettings:['Cài đặt chi phí','成本設定'],
+    performanceBonusSettings:['Tham số thưởng','獎金參數'],performanceBonusTables:['Bảng đối chiếu thưởng','獎金對照表'],
+    performanceBonusMonths:['Kết quả thưởng tháng','月份獎金結果'],performanceBonusPrivateMonths:['Lãi lỗ hiệu suất','效率損益']
   };
   const PAGE_LABELS={
     home:['Trang chủ','首頁'],progress:['Dữ liệu đơn hàng','訂單資料'],summary:['Tổng hợp mã hàng','款號總表'],
     cutting:['Thống kê dây cắt','裁帶統計'],'production-entry':['Ghi nhận sản lượng','生產登記'],
     'production-records':['Hiệu suất nhân viên','員工績效'],'production-attendance':['Chấm công','考勤'],
-    'production-employees':['Dữ liệu nhân viên','員工資料'],'production-analysis':['Phân tích sản xuất','生產分析'],
-    sync:['Đồng bộ giây công đoạn','工序秒數同步'],settings:['Cài đặt chi phí','成本設定'],
+    'production-employees':['Dữ liệu nhân viên','員工資料'],'production-bonus':['Thưởng hiệu suất tháng','月績效獎金'],'production-analysis':['Phân tích sản xuất','生產分析'],
+    productionProcessEdit:['Chỉnh sửa công đoạn','工序修改'],settings:['Cài đặt chi phí','成本設定'],'performance-bonus-settings':['Tham số thưởng hiệu suất','績效獎金參數'],
     costlog:['Lịch sử chi phí','成本紀錄'],export:['Xuất giá công','產品工價匯出'],accounts:['Quản lý tài khoản','帳號管理'],
     permissions:['Phân quyền','權限管理'],'system-monitor':['Giám sát hệ thống','系統監控'],other:['Khác','其他']
   };

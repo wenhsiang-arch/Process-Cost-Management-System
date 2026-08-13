@@ -26,7 +26,11 @@
     productionReportStore:'js/production/report-store.js?v=20260814-1',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260814-2',
     productionEntry:'js/production/production-entry.js?v=20260814-5',
-    productionRecords:'js/production/production-records.js?v=20260814-1',
+    productionRecords:'js/production/production-records.js?v=20260814-2',
+    performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260814-1',
+    performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260814-1',
+    performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260814-1',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260814-1',
     productionAnomalyFilter:'js/production/production-anomaly-filter.js?v=20260813-1',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
@@ -53,6 +57,7 @@
     production:'styles/features/production.css?v=20260814-2',
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260814-3',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
+    performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
@@ -135,9 +140,19 @@
         {
           page:'production-records',feature:'productionRecords',icon:'ti-chart-bar',vi:'Hiệu suất nhân viên',zh:'員工績效',
           styles:['production'],
-          scripts:['uiTableControls','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords'],
-          dataScopes:['productionEmployees','productionEntries','productionProcessTotals','productionAttendance'],
+          scripts:['uiTableControls','uiSearchDropdown','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','performanceBonusCalculations','performanceBonusStore','productionRecords'],
+          dataScopes:['productionEmployees','productionEntries','productionProcessTotals','productionAttendance','performanceBonusMonths'],
           dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
+        },
+        {
+          page:'production-bonus',feature:'performanceBonus',icon:'ti-award',vi:'Thưởng hiệu suất tháng',zh:'月績效獎金',
+          styles:['production','performanceBonus'],
+          scripts:['fileIo','uiTableControls','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusStore','performanceBonusMonthlyPage'],
+          dataScopes:['performanceBonusTables','performanceBonusMonths'],
+          dataLoaders:['loadPerformanceBonusData'],onOpen:['performanceBonusInit'],onLeave:['performanceBonusLeave'],
+          restrictions:[
+            {key:'performanceBonusUnlock',vi:'Mở khóa tháng đã chốt',zh:'解除已結算月份鎖定'}
+          ]
         },
         {
           page:'production-attendance',feature:'productionAttendance',icon:'ti-calendar-time',vi:'Chấm công',zh:'考勤',
@@ -185,6 +200,13 @@
           onOpen:['rAll']
         },
         {
+          page:'performance-bonus-settings',feature:'performanceBonusSettings',icon:'ti-adjustments-dollar',vi:'Tham số thưởng hiệu suất',zh:'績效獎金參數',
+          styles:['production','performanceBonus'],
+          scripts:['uiTableControls','productionEmployeeStore','productionChangeStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusStore','performanceBonusSettingsPage'],
+          dataScopes:['performanceBonusSettings','performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths','productionEmployees','productionEntries','productionAttendance'],
+          dataLoaders:['loadPerformanceBonusSettingsData'],onOpen:['performanceBonusSettingsInit'],onLeave:['performanceBonusSettingsLeave']
+        },
+        {
           page:'costlog',feature:'costlog',icon:'ti-file-analytics',vi:'Lịch sử chi phí',zh:'成本變動記錄',
           styles:['cost'],scripts:['history','costLog'],dataScopes:['operationLogs:costlog'],dataLoaders:['ensureCostLogLoaded'],onOpen:['rClog']
         },
@@ -230,7 +252,8 @@
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','preparationMain','cutting',
     'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit','processSecondsEdit',
-    'productionAnalysis','costMain','settings','costlog','export','accounts'
+    'productionAnalysis','performanceBonus','performanceBonusUnlock',
+    'costMain','settings','performanceBonusSettings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
 
   const pageMap = new Map(); // pageMap（頁面設定索引）
@@ -269,7 +292,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','production-process-edit','product-groups','cutting','production-entry','production-analysis','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','production-process-edit','product-groups','cutting','production-entry','production-bonus','production-analysis','performance-bonus-settings','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){
@@ -297,14 +320,16 @@
     // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
     normalized.orderImport=normalized.progress===true;
     if(features&&typeof features.costMain!=='boolean'){
-      normalized.costMain=normalized.settings===true||normalized.costlog===true||normalized.export===true;
+      normalized.costMain=normalized.settings===true||normalized.performanceBonusSettings===true||normalized.costlog===true||normalized.export===true;
     }
     if(features&&typeof features.productionMain!=='boolean'){
       normalized.productionMain=normalized.productionEntry===true
         ||normalized.productionRecords===true
+        ||normalized.performanceBonus===true
         ||normalized.productionAttendance===true
         ||normalized.productionEmployees===true;
     }
+    normalized.performanceBonusUnlock=normalized.performanceBonus===true&&normalized.performanceBonusUnlock===true;
     normalized.accounts=false;
     return normalized;
   }

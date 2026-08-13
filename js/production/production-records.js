@@ -3,10 +3,12 @@
   'use strict';
 
   const MAX_RANGE_DAYS = 31; // MAX_RANGE_DAYS（每日績效單次最多查詢天數）
-  const state = {initialized:false,rows:[],filtered:[],loading:false,loadRequest:0}; // state（每日績效頁狀態）
+  const state = {
+    initialized:false,rows:[],filtered:[],loading:false,loadRequest:0,
+    selectedEmployeeId:'',searchDropdown:null,pendingContext:null
+  }; // state（每日績效頁狀態）
 
   function element(id){ return document.getElementById(id); }
-  function normalize(value){ return String(value || '').trim().toLocaleLowerCase(); }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
   function shiftDate(days){
     const value = new Date();
@@ -98,7 +100,8 @@
     return {
       from:element('production-record-from').value,
       to:element('production-record-to').value,
-      search:normalize(element('production-record-search').value),
+      search:element('production-record-search').value,
+      employeeId:state.selectedEmployeeId,
       status:element('production-record-status-filter').value
     };
   }
@@ -194,12 +197,22 @@
 
   function filteredRows(){
     const current = filters();
+    let matchedEmployeeIds=null;
+    if(!current.employeeId&&String(current.search||'').trim()){
+      const matches=window.PCMSUISearchDropdown?.matchItems?.(
+        window.PCMSProductionEmployees?.list?.()||[],current.search,
+        {limit:100,fields:[
+          {key:'employeeId',mode:'code',weight:0},
+          {key:'name',mode:'text',weight:10},
+          {key:'department',mode:'text',weight:20}
+        ]}
+      );
+      matchedEmployeeIds=new Set((matches?.items||[]).map(item=>String(item.employeeId)));
+    }
     return state.rows.filter(item=>{
       if(current.status && item.status !== current.status) return false;
-      if(current.search){
-        const searchable = normalize([item.employeeId,item.employeeName,item.department].join(' '));
-        if(!searchable.includes(current.search)) return false;
-      }
+      if(current.employeeId&&item.employeeId!==current.employeeId) return false;
+      if(matchedEmployeeIds&&!matchedEmployeeIds.has(item.employeeId)) return false;
       return true;
     });
   }
@@ -343,7 +356,12 @@
       addTextCell(row,hoursText(item.standardHours),'production-number-cell',item.standardHours);
       addTextCell(row,hoursText(item.supplementHours),'production-number-cell',item.supplementHours);
       addEfficiencyCell(row,item);
-      addTextCell(row,'—','production-number-cell production-bonus-cell');
+      addTextCell(
+        row,
+        Number.isFinite(Number(item.bonusAmount))?`${Math.round(Number(item.bonusAmount)).toLocaleString('vi-VN')} VND`:'—',
+        'production-number-cell production-bonus-cell',
+        Number.isFinite(Number(item.bonusAmount))?Number(item.bonusAmount):''
+      );
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
       statusCell.appendChild(statusBadge(item));
@@ -374,6 +392,16 @@
       if(request !== state.loadRequest) return;
       const attendanceByDate = new Map(dates.map((date,index)=>[date,attendanceDays[index]]));
       state.rows = aggregatePerformance(entries,attendanceByDate);
+      if(window.canOpenPage?.('production-bonus')===true&&window.PCMSPerformanceBonusStore){
+        const months=[...new Set(dates.map(date=>date.slice(0,7)))];
+        const bonusMonths=await Promise.all(months.map(month=>window.PCMSPerformanceBonusStore.loadMonth(month)));
+        const bonusByDay=new Map();
+        bonusMonths.forEach(result=>(result.employees||[]).forEach(employee=>(employee.days||[]).forEach(day=>{
+          bonusByDay.set(`${employee.employeeId}|${day.date}`,Number(day.bonus)||0);
+        })));
+        state.rows=state.rows.map(item=>({...item,bonusAmount:bonusByDay.get(`${item.employeeId}|${item.productionDate}`)}));
+      }
+      if(request !== state.loadRequest) return;
       render();
     }catch(error){
       if(request !== state.loadRequest) return;
@@ -403,6 +431,8 @@
     syncDateControl('production-record-from','production-record-from-next');
     syncDateControl('production-record-to','production-record-to-next');
     element('production-record-search').value = '';
+    state.selectedEmployeeId='';
+    state.searchDropdown?.close?.();
     element('production-record-status-filter').value = '';
     void load();
   }
@@ -430,7 +460,22 @@
     });
     element('production-record-search-button').addEventListener('click',()=>void load());
     element('production-record-clear-button').addEventListener('click',clearFilters);
-    element('production-record-search').addEventListener('input',render);
+    state.searchDropdown=window.PCMSUISearchDropdown.create({
+      input:'#production-record-search',toggle:'#production-record-search-toggle',list:'#production-record-search-options',
+      getItems:()=>window.PCMSProductionEmployees?.list?.()||[],
+      fields:[
+        {key:'employeeId',mode:'code',weight:0},
+        {key:'name',mode:'text',weight:10},
+        {key:'department',mode:'text',weight:20}
+      ],
+      renderItem:item=>({primary:String(item.name||item.employeeId),secondary:[item.employeeId,item.department].filter(Boolean).join(' · ')}),
+      onInput:()=>{ state.selectedEmployeeId=''; render(); },
+      onSelect:item=>{
+        state.selectedEmployeeId=String(item.employeeId||'');
+        element('production-record-search').value=String(item.name||item.employeeId||'');
+        render();
+      }
+    });
     element('production-record-status-filter').addEventListener('change',render);
   }
 
@@ -439,7 +484,19 @@
     return true;
   }
 
-  async function productionRecordsInit(){ init(); await load(); }
+  function applyPendingContext(){
+    const context=state.pendingContext;
+    if(!context) return;
+    state.pendingContext=null;
+    if(context.from) element('production-record-from').value=context.from;
+    if(context.to) element('production-record-to').value=context.to;
+    state.selectedEmployeeId=String(context.employeeId||'');
+    element('production-record-search').value=String(context.employeeName||context.employeeId||'');
+    element('production-record-status-filter').value='';
+    syncDateControl('production-record-from','production-record-from-next');
+    syncDateControl('production-record-to','production-record-to-next');
+  }
+  async function productionRecordsInit(){ init(); applyPendingContext(); await load(); }
   function productionRecordsLeave(){
     state.loadRequest += 1;
     state.loading = false;
@@ -449,5 +506,8 @@
   window.loadProductionRecordsData = loadProductionRecordsData;
   window.productionRecordsInit = productionRecordsInit;
   window.productionRecordsLeave = productionRecordsLeave;
-  window.PCMSProductionPerformance=Object.freeze({aggregatePerformance,loadPerformanceRange});
+  window.PCMSProductionPerformance=Object.freeze({
+    aggregatePerformance,loadPerformanceRange,
+    setPendingContext:context=>{ state.pendingContext={...(context||{})}; }
+  });
 })();

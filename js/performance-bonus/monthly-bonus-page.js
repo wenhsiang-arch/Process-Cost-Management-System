@@ -1,0 +1,255 @@
+// monthly-bonus-page（月績效獎金頁）：只顯示已發布的員工結果，不讀取保密參數。
+(function(){
+  'use strict';
+
+  const state={initialized:false,request:0,month:'',metadata:null,employees:[],reference:null};
+
+  function el(id){ return document.getElementById(id); }
+  function ui(){ return window.PCMSUIComponents; }
+  function store(){ return window.PCMSPerformanceBonusStore; }
+  function money(value){ return Math.round(Number(value)||0).toLocaleString('vi-VN'); }
+  function statusPair(status){
+    return ({
+      draft:{vi:'Đang thử tính',zh:'試算中'},
+      locked:{vi:'Đã khóa',zh:'已鎖定'},
+      exported:{vi:'Đã xuất',zh:'已匯出'},
+      paid:{vi:'Đã phát',zh:'已發放'}
+    })[status]||{vi:'Chưa có dữ liệu',zh:'尚無資料'};
+  }
+  function showError(error){ return ui().alertDialog({kind:'danger',message:window.PCMSUIText.errorPair(error)}); }
+  function renderShell(){
+    const root=el('performance-bonus-monthly-root');
+    if(!root||root.dataset.ready==='true') return;
+    root.dataset.ready='true';
+    root.innerHTML=`
+      <div class="performance-bonus-page ui-work-panel">
+        <section class="performance-bonus-monthly-panel ui-operation-panel">
+          <div class="performance-bonus-month-command ui-command-row">
+            <label class="performance-bonus-field"><span class="ui-dual-copy"><strong>Tháng thưởng</strong><span>獎金月份</span></span><input type="month" id="performance-bonus-month"></label>
+            <div class="performance-bonus-month-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>結算狀態</span></span><span id="performance-bonus-status"><span class="ui-dual-copy"><strong>—</strong><span>—</span></span></span></div>
+            <button type="button" class="ui-button" id="performance-bonus-reference"><i class="ti ti-table"></i><span class="ui-dual-copy"><strong>Bảng đối chiếu</strong><span>獎金對照表</span></span></button>
+            <button type="button" class="ui-button is-primary" id="performance-bonus-export"><i class="ti ti-file-spreadsheet"></i><span class="ui-dual-copy"><strong>Khóa và xuất Excel</strong><span>鎖定並匯出 Excel</span></span></button>
+            <button type="button" class="ui-button" id="performance-bonus-paid" hidden><i class="ti ti-cash-banknote"></i><span class="ui-dual-copy"><strong>Đánh dấu đã phát</strong><span>標記已發放</span></span></button>
+            <button type="button" class="ui-button is-danger" id="performance-bonus-unlock" hidden><i class="ti ti-lock-open"></i><span class="ui-dual-copy"><strong>Mở khóa tháng</strong><span>解除月份鎖定</span></span></button>
+          </div>
+          <div class="ui-notice" id="performance-bonus-month-note" hidden></div>
+        </section>
+        <section class="performance-bonus-list-section ui-data-section">
+          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count"><span id="performance-bonus-count">0</span> người / 人</span></div>
+          <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table performance-bonus-table" id="performance-bonus-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
+            <thead><tr>
+              <th data-ui-table-column="employeeId"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
+              <th data-ui-table-column="employeeName"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+              <th data-ui-table-column="department"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+              <th class="ui-table-number-cell" data-ui-table-column="bonus"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+            </tr></thead><tbody id="performance-bonus-table-body"></tbody>
+          </table></div></div>
+          <div class="performance-bonus-empty ui-language-sections" id="performance-bonus-empty"><div class="ui-language-section is-vi">Chưa có kết quả thưởng của tháng này.</div><div class="ui-language-section is-zh">此月份尚無獎金結果。</div></div>
+        </section>
+      </div>`;
+  }
+  function createCell(row,text,className=''){
+    const cell=document.createElement('td');
+    cell.textContent=String(text??'');
+    if(className) cell.className=className;
+    row.appendChild(cell);
+    return cell;
+  }
+  function render(){
+    const status=statusPair(state.metadata?.status);
+    el('performance-bonus-status').replaceChildren(window.PCMSUIText.create(status));
+    const note=el('performance-bonus-month-note');
+    note.hidden=false;
+    note.replaceChildren(window.PCMSUIText.create(state.metadata
+      ?{vi:`Cập nhật lần cuối: ${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('vi-VN')}`,zh:`最後更新：${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('zh-TW')}`}
+      :{vi:'Quản lý chi phí cần tính và công bố tháng này trước.',zh:'需先由成本管理計算並發布此月份。'}));
+    const draft=state.metadata?.status==='draft';
+    const exportButton=el('performance-bonus-export');
+    exportButton.disabled=!state.metadata;
+    exportButton.querySelector('.ui-dual-copy strong').textContent=draft?'Khóa và xuất Excel':'Xuất lại Excel';
+    exportButton.querySelector('.ui-dual-copy span').textContent=draft?'鎖定並匯出 Excel':'重新匯出 Excel';
+    el('performance-bonus-paid').hidden=state.metadata?.status!=='exported';
+    el('performance-bonus-unlock').hidden=!state.metadata||draft||!store().canUnlock();
+    const body=el('performance-bonus-table-body');
+    body.replaceChildren();
+    state.employees.forEach(employee=>{
+      const row=document.createElement('tr');
+      createCell(row,employee.employeeId);
+      createCell(row,employee.employeeName);
+      createCell(row,employee.department||'—');
+      const bonusCell=createCell(row,'','ui-table-number-cell');
+      const amount=document.createElement('button');
+      amount.type='button';
+      amount.className='performance-bonus-amount';
+      amount.textContent=`${money(employee.finalBonus)} VND`;
+      amount.title='Xem hiệu suất hằng ngày / 查看每日績效';
+      amount.addEventListener('click',()=>void openDaily(employee));
+      bonusCell.appendChild(amount);
+      const action=createCell(row,'','ui-table-center-cell');
+      if(draft){
+        const adjust=document.createElement('button');
+        adjust.type='button';
+        adjust.className='ui-button performance-bonus-row-button';
+        adjust.appendChild(window.PCMSUIText.create({vi:'Điều chỉnh',zh:'人工調整'}));
+        adjust.addEventListener('click',()=>void adjustEmployee(employee));
+        action.appendChild(adjust);
+      }else action.textContent='—';
+      body.appendChild(row);
+    });
+    el('performance-bonus-count').textContent=String(state.employees.length);
+    el('performance-bonus-empty').hidden=state.employees.length>0;
+    window.PCMSUITableControls?.refreshPage?.();
+  }
+  async function loadMonth(){
+    state.month=el('performance-bonus-month').value||store().currentMonth();
+    const request=++state.request;
+    try{
+      const result=await store().loadMonth(state.month,{force:true});
+      if(request!==state.request) return;
+      state.metadata=result.metadata;
+      state.employees=result.employees.filter(item=>Number(item.finalBonus)>0);
+      render();
+    }catch(error){ if(request===state.request) await showError(error); }
+  }
+  function monthDates(month){
+    const [year,number]=month.split('-').map(Number);
+    const from=`${month}-01`;
+    const last=new Date(year,number,0).getDate();
+    let to=`${month}-${String(last).padStart(2,'0')}`;
+    const today=typeof window.formatLocalDate==='function'?window.formatLocalDate(new Date()):new Date().toISOString().slice(0,10);
+    if(month===today.slice(0,7)&&to>today) to=today;
+    return {from,to};
+  }
+  async function openDaily(employee){
+    const range=monthDates(state.month);
+    window.PCMSProductionPerformance?.setPendingContext?.({employeeId:employee.employeeId,employeeName:employee.employeeName,...range});
+    await window.sp?.('production-records');
+  }
+  async function adjustEmployee(employee){
+    const value=await ui().promptDialog({
+      title:{vi:'Điều chỉnh thưởng tháng',zh:'人工調整月獎金'},
+      label:{vi:'Số tiền cộng hoặc trừ (VND)',zh:'增加或扣除金額（VND）'},
+      type:'number',value:String(Number(employee.adjustmentAmount)||0),
+      validate:(input,field)=>{
+        const valid=Number.isFinite(Number(input))&&Number.isInteger(Number(input));
+        field.setCustomValidity(valid?'':'Chỉ nhập số nguyên / 僅可輸入整數');
+        field.reportValidity();
+        return valid;
+      }
+    });
+    if(value===null) return;
+    try{
+      await store().adjustEmployee(state.month,employee.employeeId,Number(value));
+      ui().showToast({kind:'success',message:{vi:'Đã lưu điều chỉnh thưởng.',zh:'人工獎金調整已儲存。'}});
+      await loadMonth();
+    }catch(error){ await showError(error); }
+  }
+  function openReference(){
+    const rows=Array.isArray(state.reference?.rows)?state.reference.rows:[];
+    if(!rows.length){ void ui().alertDialog({kind:'warning',message:{vi:'Chưa có bảng đối chiếu.',zh:'尚無獎金對照表。'}}); return; }
+    const frame=document.createElement('div');
+    frame.className='ui-table-frame performance-bonus-reference-frame';
+    const scroll=document.createElement('div');
+    scroll.className='ui-table-scroll';
+    const table=document.createElement('table');
+    table.className='ui-table performance-bonus-reference-table';
+    const head=document.createElement('thead');
+    const headRow=document.createElement('tr');
+    [
+      {vi:'Hiệu suất',zh:'效率'},
+      {vi:'8 giờ',zh:'8 小時'},
+      {vi:'11,5 giờ',zh:'11.5 小時'}
+    ].forEach(copy=>{ const th=document.createElement('th'); th.appendChild(window.PCMSUIText.create(copy)); headRow.appendChild(th); });
+    head.appendChild(headRow);
+    const body=document.createElement('tbody');
+    rows.forEach(item=>{
+      const row=document.createElement('tr');
+      createCell(row,`${item.efficiency}%`);
+      createCell(row,`${money(item.hours8)} VND`,'ui-table-number-cell');
+      createCell(row,`${money(item.hours115)} VND`,'ui-table-number-cell');
+      body.appendChild(row);
+    });
+    table.append(head,body); scroll.appendChild(table); frame.appendChild(scroll);
+    ui().openDialog({title:{vi:'Bảng đối chiếu thưởng hiệu suất',zh:'績效獎金對照表'},body:frame,size:'large',actions:[{text:'common.close'}]});
+  }
+  function safeSpreadsheetValue(value){ return typeof value==='string'&&/^[=+\-@]/.test(value)?`'${value}`:value; }
+  async function exportMonth(){
+    if(!state.metadata) return;
+    const draft=state.metadata.status==='draft';
+    const confirmed=await ui().confirmDialog({
+      title:draft?{vi:'Xác nhận khóa và xuất',zh:'確認鎖定並匯出'}:{vi:'Xác nhận xuất lại',zh:'確認重新匯出'},
+      body:ui().createLanguageSections(draft
+        ?{vi:'Sau khi chọn vị trí lưu, hệ thống sẽ khóa toàn bộ tháng rồi xuất Excel. Muốn sửa lại phải dùng quyền mở khóa.',zh:'選擇儲存位置後，系統會鎖定整個月份再匯出 Excel；如需修改，必須使用解除鎖定權限。'}
+        :{vi:'Hệ thống sẽ xuất lại kết quả đã khóa của tháng này.',zh:'系統將重新匯出此月份已鎖定的結果。'}),
+      confirmText:{vi:'Tiếp tục',zh:'繼續'}
+    });
+    if(!confirmed) return;
+    const suggestedName=`Thuong_hieu_suat_${state.month}.xlsx`;
+    const handle=await window.PCMSFileIO.chooseSaveHandle({
+      suggestedName,types:[window.PCMSFileIO.spreadsheetFileType],
+      onUnsupported:()=>ui().alertDialog({kind:'danger',message:{vi:'Trình duyệt không hỗ trợ chọn vị trí lưu. Đã dừng xuất.',zh:'瀏覽器不支援選擇儲存位置，已停止匯出。'}})
+    });
+    if(!handle) return;
+    return ui().runActionOnce(`performanceBonus.export.${state.month}`,async()=>{
+      try{
+        if(draft) await store().lockMonth(state.month);
+        const spreadsheet=await window.PCMSFeatures.ensureSpreadsheetTool();
+        const rows=state.employees.filter(item=>Number(item.finalBonus)>0).map(item=>[
+          safeSpreadsheetValue(item.employeeId),safeSpreadsheetValue(item.employeeName),Math.round(Number(item.finalBonus)||0)
+        ]);
+        const sheet=spreadsheet.utils.aoa_to_sheet([
+          ['Mã nhân viên / 員工工號','Tên nhân viên / 員工姓名','Tổng thưởng / 獎金總額'],...rows
+        ]);
+        sheet['!cols']=[{wch:18},{wch:34},{wch:20}];
+        const workbook=spreadsheet.utils.book_new();
+        spreadsheet.utils.book_append_sheet(workbook,sheet,'Thuong_績效獎金');
+        await window.PCMSFileIO.writeWorkbookToHandle(handle,workbook,spreadsheet);
+        await store().markExported(state.month,handle.name||suggestedName);
+        ui().showToast({kind:'success',message:{vi:'Đã khóa tháng và xuất Excel.',zh:'月份已鎖定並匯出 Excel。'}});
+      }catch(error){ await showError(error); }
+      finally{ await loadMonth(); }
+    });
+  }
+  async function markPaid(){
+    const confirmed=await ui().confirmDialog({
+      title:{vi:'Xác nhận đã phát thưởng',zh:'確認獎金已發放'},
+      body:ui().createLanguageSections({vi:'Đánh dấu toàn bộ tháng này là đã phát thưởng?',zh:'確定將整個月份標記為獎金已發放？'})
+    });
+    if(!confirmed) return;
+    try{ await store().markPaid(state.month); await loadMonth(); }
+    catch(error){ await showError(error); }
+  }
+  async function unlockMonth(){
+    const confirmed=await ui().confirmDialog({
+      title:{vi:'Cảnh báo mở khóa tháng',zh:'解除月份鎖定警告'},kind:'danger',
+      body:ui().createLanguageSections({vi:'Đây là thao tác nhạy cảm. Kết quả đã xuất hoặc đã phát sẽ trở lại trạng thái thử tính và có thể thay đổi.',zh:'這是敏感操作；已匯出或已發放的結果將回到試算狀態，之後可能發生變動。'}),
+      confirmText:{vi:'Mở khóa',zh:'確認解除鎖定'}
+    });
+    if(!confirmed) return;
+    try{ await store().unlockMonth(state.month); await loadMonth(); }
+    catch(error){ await showError(error); }
+  }
+  function bind(){
+    el('performance-bonus-month').addEventListener('change',()=>void loadMonth());
+    el('performance-bonus-reference').addEventListener('click',openReference);
+    el('performance-bonus-export').addEventListener('click',()=>void exportMonth());
+    el('performance-bonus-paid').addEventListener('click',()=>void markPaid());
+    el('performance-bonus-unlock').addEventListener('click',()=>void unlockMonth());
+  }
+  async function loadPerformanceBonusData(){ return true; }
+  async function performanceBonusInit(){
+    renderShell();
+    if(!state.initialized){ state.initialized=true; bind(); }
+    el('performance-bonus-month').value=state.month||store().currentMonth();
+    try{
+      state.reference=await store().loadReferenceTable({force:true});
+      await loadMonth();
+    }catch(error){ await showError(error); }
+  }
+  function performanceBonusLeave(){ state.request+=1; }
+
+  window.loadPerformanceBonusData=loadPerformanceBonusData;
+  window.performanceBonusInit=performanceBonusInit;
+  window.performanceBonusLeave=performanceBonusLeave;
+})();

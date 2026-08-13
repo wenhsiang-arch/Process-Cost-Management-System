@@ -122,9 +122,10 @@ async function runTransaction(database,worker){
 // dataVersions（資料版本）只保存版本代碼，不保存業務資料。
 const DATA_VERSIONS_KEY = 'dataVersions';
 const CACHEABLE_COLLECTIONS = new Set([
-  'orders','orderProcesses','productionEmployees','productionDepartments','productionEntries'
+  'orders','orderProcesses','productionEmployees','productionDepartments','productionEntries',
+  'performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths'
 ]); // CACHEABLE_COLLECTIONS（允許使用資料版本快取的集合）
-const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings']);
+const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','performanceBonusSettings']);
 const DATA_VERSION_MEMORY_MS = 15000;
 let dataVersionsMemory = null;
 let dataVersionsReadAt = 0;
@@ -1202,7 +1203,7 @@ async function fbInitForAuthorizedUser(){
       window.cLog=[];
       await window.pcmsDataCache?.remove('cLog');
     }
-    const canReadProductionEmployees = ['production-entry','production-records','production-employees','production-analysis']
+    const canReadProductionEmployees = ['production-entry','production-records','production-employees','production-analysis','performance-bonus-settings']
       .some(pageName=>window.canOpenPage?.(pageName) === true); // canReadProductionEmployees（目前帳號可讀取產能員工）
     if(!canReadProductionEmployees) await window.pcmsDataCache?.remove('productionEmployees');
     if(window.canOpenPage?.('production-employees') !== true){

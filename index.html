@@ -482,7 +482,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <div class="production-field-label-row"><label class="production-field-label" for="production-record-to"><strong>Đến ngày</strong><span>結束日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-record-to-calendar" aria-label="Mở lịch kết thúc / 開啟結束日期" title="Mở lịch kết thúc / 開啟結束日期"><i class="ti ti-calendar-time"></i></button></div>
                 <div class="production-date-control"><input type="date" id="production-record-to"><div class="production-date-stepper" aria-label="Chuyển ngày kết thúc / 切換結束日期"><button type="button" tabindex="-1" id="production-record-to-previous" aria-label="Ngày trước / 前一天" title="Ngày trước / 前一天"><i class="ti ti-chevron-up"></i></button><button type="button" tabindex="-1" id="production-record-to-next" aria-label="Ngày sau / 後一天" title="Ngày sau / 後一天"><i class="ti ti-chevron-down"></i></button></div></div>
               </div>
-              <div class="production-field production-record-search-field"><label for="production-record-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><input type="search" id="production-record-search" autocomplete="off" placeholder="Mã, tên, bộ phận / 工號、姓名、部門"></div>
+              <div class="production-field production-record-search-field"><label for="production-record-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><div class="ui-search-dropdown-control"><input class="ui-search-dropdown-input" type="text" id="production-record-search" autocomplete="off" placeholder="Mã, tên, bộ phận / 工號、姓名、部門" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-record-search-options" aria-expanded="false"><button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-record-search-toggle" aria-label="Mở danh sách nhân viên / 展開員工清單" aria-controls="production-record-search-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button><div class="ui-search-dropdown-options" id="production-record-search-options" role="listbox" hidden></div></div></div>
               <div class="production-field"><label for="production-record-status-filter"><strong>Tình trạng hiệu suất</strong><span>績效狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="ready">Đã tính / 已計算</option><option value="missing-attendance">Chưa chấm công / 考勤未登記</option><option value="invalid-attendance">Giờ bất thường / 考勤時數異常</option><option value="invalid-capacity">Thiếu chuẩn giờ / 缺少標準產能</option></select></div>
               <div class="production-filter-actions">
                 <button type="button" class="ui-button is-primary production-filter-button" id="production-record-search-button"><span class="ui-dual-copy"><strong>Tìm kiếm</strong><span>搜尋</span></span></button>
@@ -510,6 +510,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
             <div class="production-empty" id="production-records-empty"><span class="ui-dual-copy"><strong>Chưa có hiệu suất trong phạm vi đã chọn</strong><span>所選範圍尚無每日績效</span></span></div>
           </section>
         </div>
+      </div>
+
+      <!-- 月績效獎金 -->
+      <div class="pg ui-page" id="pg-production-bonus">
+        <div id="performance-bonus-monthly-root"></div>
       </div>
 
       <!-- 產能考勤 -->
@@ -981,6 +986,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 匯入記錄 -->
+      <!-- 績效獎金參數 -->
+      <div class="pg ui-page" id="pg-performance-bonus-settings">
+        <div id="performance-bonus-settings-root"></div>
+      </div>
+
       <!-- 成本變動 -->
       <div class="pg ui-page" id="pg-costlog">
         <div class="costlog-page ui-work-panel">
@@ -1324,7 +1334,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-<script src="js/features.js?v=20260814-9"></script>
+<script src="js/features.js?v=20260814-10"></script>
 <script src="js/auth.js?v=20260813-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
