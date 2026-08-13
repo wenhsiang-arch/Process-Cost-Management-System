@@ -8,7 +8,7 @@
   const CACHE_DAY_PREFIX = 'productionAttendanceDay:'; // CACHE_DAY_PREFIX（依日期分開保存的考勤快取）
   const CACHE_RECORD_PREFIX = 'productionAttendanceRecord:'; // CACHE_RECORD_PREFIX（單筆考勤快取）
   const PAGE_SIZE = 200; // PAGE_SIZE（單一日期分頁讀取筆數）
-  const MAX_TRANSACTION_ITEMS = 150; // MAX_TRANSACTION_ITEMS（單次交易最多考勤筆數）
+  const MAX_TRANSACTION_ITEMS = 10; // MAX_TRANSACTION_ITEMS（單次交易最多考勤筆數）：保留安全規則文件存取餘量。
   const dayCache = new Map(); // dayCache（目前工作階段日期快取）
   const dayCacheVersions = new Map(); // dayCacheVersions（日期快取使用的資料版本）
   const dayPromises = new Map(); // dayPromises（避免同日期重複查詢）
@@ -261,7 +261,33 @@
     return savedRows;
   }
 
-  async function saveMany(items){
+  function reportSaveProgress(options,payload){
+    if(typeof options?.onProgress !== 'function') return;
+    try{ options.onProgress({...payload}); }
+    catch(error){ console.error('考勤批次儲存進度回報失敗：',error); }
+  }
+
+  async function invalidateSafely(attendanceDate,employeeIds=[]){
+    try{ await invalidate(attendanceDate,employeeIds); }
+    catch(error){ console.warn('考勤正式資料已寫入，但本機快取清除失敗，下次開啟將重新檢查資料版本：',error); }
+  }
+
+  function createBatchSaveError(error,savedRows,pendingInputs,totalCount){
+    const message = normalizeText(error?.message)
+      || 'Không thể hoàn tất lưu chấm công hàng loạt. / 無法完成考勤批次儲存。';
+    const failure = new Error(message); // failure（批次儲存錯誤）：保留已完成與待重試範圍。
+    failure.name = 'ProductionAttendanceBatchError';
+    failure.code = normalizeText(error?.code) || 'production-attendance-batch-failed';
+    failure.cause = error;
+    failure.savedRows = savedRows.map(item=>({...item}));
+    failure.pendingInputs = pendingInputs.map(item=>({...item}));
+    failure.savedCount = savedRows.length;
+    failure.remainingCount = pendingInputs.length;
+    failure.totalCount = totalCount;
+    return failure;
+  }
+
+  async function saveMany(items,options={}){
     const inputs = (Array.isArray(items) ? items : []).map(validateAttendanceInput);
     if(!inputs.length) return [];
     if(!currentUserId()) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
@@ -269,10 +295,24 @@
     if(dates.size !== 1) throw new Error('Chỉ được lưu một ngày chấm công mỗi lần. / 每次只能儲存一個考勤日期。');
     const saved = [];
     for(let index=0;index<inputs.length;index+=MAX_TRANSACTION_ITEMS){
-      saved.push(...await saveChunk(inputs.slice(index,index+MAX_TRANSACTION_ITEMS)));
+      const chunk = inputs.slice(index,index+MAX_TRANSACTION_ITEMS); // chunk（安全批次）：避免單次交易超過規則文件存取上限。
+      let chunkRows = [];
+      try{
+        chunkRows = await saveChunk(chunk);
+      }catch(error){
+        await invalidateSafely(inputs[0].attendanceDate,saved.map(item=>item.employeeId));
+        throw createBatchSaveError(error,saved,inputs.slice(index),inputs.length);
+      }
+      saved.push(...chunkRows);
+      await window.PCMSProductionChanges?.markSafely?.(chunkRows);
+      reportSaveProgress(options,{
+        completed:saved.length,
+        total:inputs.length,
+        chunkSize:chunkRows.length,
+        remaining:Math.max(0,inputs.length-saved.length)
+      });
     }
-    await invalidate(inputs[0].attendanceDate,inputs.map(item=>item.employeeId));
-    await window.PCMSProductionChanges?.markSafely?.(saved);
+    await invalidateSafely(inputs[0].attendanceDate,inputs.map(item=>item.employeeId));
     return saved.map(item=>({...item}));
   }
 

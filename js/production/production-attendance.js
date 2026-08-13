@@ -61,10 +61,10 @@
     window.PCMSUIText?.set?.(host,{vi:String(vi || ''),zh:String(zh || '')});
   }
 
-  async function showError(error){
+  async function showError(error,message=null){
     await window.PCMSUIComponents.alertDialog({
       kind:'danger',
-      message:window.PCMSUIText.errorPair(error)
+      message:message || window.PCMSUIText.errorPair(error)
     });
   }
 
@@ -294,6 +294,79 @@
     return {normalHours,overtimeHours};
   }
 
+  function applySavedRows(rows){
+    const savedRows = Array.isArray(rows) ? rows : [];
+    if(!savedRows.length) return;
+    const savedByEmployee = new Map(savedRows.map(item=>[String(item.employeeId || ''),{...item}]));
+    state.records = state.records
+      .filter(item=>!savedByEmployee.has(String(item.employeeId || '')))
+      .concat([...savedByEmployee.values()]);
+    savedByEmployee.forEach((record,employeeId)=>{
+      const draft = state.drafts.get(employeeId);
+      if(draft){
+        draft.record = record;
+        draft.normalHours = Number(record.normalHours || 0);
+        draft.overtimeHours = Number(record.overtimeHours || 0);
+        draft.note = String(record.note || '');
+      }
+      state.dirty.delete(employeeId);
+    });
+    render();
+  }
+
+  function saveFailurePair(error,totalCount){
+    const savedCount = Number(error?.savedCount || 0);
+    const remainingCount = Number(error?.remainingCount || Math.max(0,totalCount-savedCount));
+    if(savedCount > 0){
+      return {
+        vi:`Đã lưu ${savedCount}/${totalCount} nhân viên. Còn ${remainingCount} nhân viên chưa lưu; bấm Lưu thay đổi để thử lại.`,
+        zh:`已儲存 ${savedCount}/${totalCount} 位員工，尚有 ${remainingCount} 位未儲存；請再次點擊儲存修改重試。`
+      };
+    }
+    const code = String(error?.code || error?.cause?.code || '').toLowerCase();
+    if(code.includes('permission-denied')){
+      return {
+        vi:'Lô chấm công chưa vượt qua kiểm tra quyền hoặc dữ liệu. Lô này chưa được ghi; vui lòng thử lại hoặc liên hệ quản trị viên.',
+        zh:'考勤批次未通過權限或資料驗證，本批尚未寫入；請重試或聯絡管理員。'
+      };
+    }
+    return window.PCMSUIText.errorPair(error,{
+      vi:'Không thể lưu thay đổi chấm công. Dữ liệu chưa lưu vẫn được giữ để thử lại.',
+      zh:'無法儲存考勤修改，尚未儲存的資料已保留，可再次重試。'
+    });
+  }
+
+  async function confirmSave(inputs){
+    const attendanceDate = element('production-attendance-date').value;
+    return window.PCMSUIComponents.confirmDialog({
+      title:{vi:'Lưu thay đổi chấm công',zh:'儲存考勤修改'},
+      message:{
+        vi:`Lưu thay đổi chấm công ngày ${attendanceDate} cho ${inputs.length} nhân viên?`,
+        zh:`確定儲存 ${attendanceDate} 的 ${inputs.length} 位員工考勤修改？`
+      },
+      confirmText:{vi:'Lưu thay đổi',zh:'儲存修改'}
+    });
+  }
+
+  function openSaveProgress(total){
+    return window.PCMSUIComponents.progressDialog({
+      title:{vi:'Tiến độ lưu chấm công',zh:'考勤儲存進度'},
+      value:0,
+      text:{vi:`Đang lưu 0/${total} nhân viên...`,zh:`正在儲存 0/${total} 位員工…`},
+      detail:{vi:'Hệ thống tự động lưu tối đa 10 nhân viên mỗi lượt.',zh:'系統每批最多自動儲存10位員工。'}
+    });
+  }
+
+  function updateSaveProgress(controller,progress){
+    const completed = Math.max(0,Number(progress?.completed || 0));
+    const total = Math.max(1,Number(progress?.total || 0));
+    controller?.update({
+      value:completed/total*100,
+      text:{vi:`Đang lưu ${completed}/${total} nhân viên...`,zh:`正在儲存 ${completed}/${total} 位員工…`},
+      detail:{vi:`Còn ${Math.max(0,total-completed)} nhân viên.`,zh:`剩餘 ${Math.max(0,total-completed)} 位員工。`}
+    });
+  }
+
   async function applyBatch(){
     try{
       const values = batchValues();
@@ -321,17 +394,26 @@
         if(draft && draft.employee.missing !== true) inputs.push(validateDraft(draft));
       });
     }catch(error){ await showError(error); return; }
+    if(!await confirmSave(inputs)) return;
     state.loading = true;
     updateSaveButton();
     setStatus('Đang lưu dữ liệu chấm công...','正在儲存考勤資料…','info');
+    let progressController = openSaveProgress(inputs.length);
     try{
-      await window.PCMSProductionAttendance.saveMany(inputs);
-      state.loading = false;
-      await load();
+      const savedRows = await window.PCMSProductionAttendance.saveMany(inputs,{
+        onProgress:progress=>updateSaveProgress(progressController,progress)
+      });
+      progressController.close('program');
+      progressController = null;
+      applySavedRows(savedRows);
       setStatus(`Đã lưu ${inputs.length} nhân viên.`,`已儲存 ${inputs.length} 位員工的考勤。`,'success');
     }catch(error){
-      setStatus('Chưa lưu dữ liệu chấm công.','考勤資料尚未儲存。','danger');
-      await showError(error);
+      progressController?.close('program');
+      progressController = null;
+      applySavedRows(error?.savedRows);
+      const message = saveFailurePair(error,inputs.length);
+      setStatus(message.vi,message.zh,'danger');
+      await showError(error,message);
     }finally{
       state.loading = false;
       updateSaveButton();
