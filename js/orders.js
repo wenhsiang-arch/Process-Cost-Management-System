@@ -242,6 +242,217 @@ function fillOrderSelects(){
 }
 
 // ===== 匯入訂單 =====
+const ORDER_IMPORT_CODE_HEADERS=new Set([
+  'ITEMNO','ITEMNUMBER','ITEM','SKU','STYLE','MODEL','MAHANG','款號','货号'
+]); // ORDER_IMPORT_CODE_HEADERS（訂單款號表頭）：與裁帶訂單使用相同核准名稱。
+const ORDER_IMPORT_QTY_HEADERS=new Set([
+  'QTY','QUANTITY','ORDERQTY','PCS','SLPOPCS','SOLUONG','SOLUONGPCS','SL','數量','数量','訂單數量'
+]); // ORDER_IMPORT_QTY_HEADERS（訂單數量表頭）：PCS 是表頭名稱，不是數量內容。
+const ORDER_IMPORT_TOTAL_LABELS=new Set([
+  'TOTAL','TOTALQTY','TOTALQUANTITY','GRANDTOTAL','TONG','TONGCONG','TONGSOLUONG','總計','合計','總數量'
+]); // ORDER_IMPORT_TOTAL_LABELS（訂單總數量標示）
+const ORDER_IMPORT_DESC_HEADERS=new Set(['DESC','DESCRIPTION','MOTA','說明','描述']); // ORDER_IMPORT_DESC_HEADERS（訂單說明表頭）
+const ORDER_IMPORT_COLOR_HEADERS=new Set(['COLOR','COLOUR','MAU','顏色','颜色']); // ORDER_IMPORT_COLOR_HEADERS（訂單顏色表頭）
+
+function normalizeOrderImportHeader(value){
+  return String(value??'').trim().replace(/\s+/g,'').toUpperCase().normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'').replace(/[^A-Z0-9\u4E00-\u9FFF]/g,'');
+}
+
+function normalizeOrderImportCode(value){ return String(value??'').trim().toUpperCase(); }
+
+function orderImportHeaderParts(value){
+  return String(value??'').split(/[\r\n\/|｜]+/).map(normalizeOrderImportHeader).filter(Boolean);
+}
+
+function matchesOrderImportHeader(value,accepted){
+  return orderImportHeaderParts(value).some(part=>accepted.has(part));
+}
+
+function findGeneralOrderHeader(rows){
+  for(let rowIndex=0;rowIndex<Math.min(rows.length,35);rowIndex++){
+    const row=rows[rowIndex]||[];
+    const codeIndexes=[];
+    const qtyIndexes=[];
+    row.forEach((value,cellIndex)=>{
+      if(matchesOrderImportHeader(value,ORDER_IMPORT_CODE_HEADERS)) codeIndexes.push(cellIndex);
+      if(matchesOrderImportHeader(value,ORDER_IMPORT_QTY_HEADERS)) qtyIndexes.push(cellIndex);
+    });
+    if(codeIndexes.length&&qtyIndexes.length){
+      if(codeIndexes.length===1&&qtyIndexes.length===1&&codeIndexes[0]!==qtyIndexes[0]){
+        return {ok:true,row:rowIndex,codeIdx:codeIndexes[0],qtyIdx:qtyIndexes[0]};
+      }
+      return {
+        ok:false,
+        error:'Không thể xác định duy nhất tiêu đề mã hàng và số lượng đơn hàng. / 無法唯一確認款號與訂單數量表頭。'
+      };
+    }
+  }
+  return {
+    ok:false,
+    error:'Không tìm thấy tiêu đề mã hàng và số lượng đơn hàng. / 找不到款號與訂單數量表頭，請確認 ITEM、STYLE、PCS 或訂單數量等表頭。'
+  };
+}
+
+function parseGeneralOrderQuantity(value){
+  const rawText=String(value??'').trim();
+  if(rawText==='') return {ok:false,kind:'blank',rawText};
+  if(typeof value==='number'){
+    if(!Number.isFinite(value)) return {ok:false,kind:'invalid',rawText};
+    if(value===0) return {ok:false,kind:'zero',rawText};
+    if(value<0) return {ok:false,kind:'negative',rawText};
+    if(!Number.isInteger(value)) return {ok:false,kind:'decimal',rawText};
+    if(!Number.isSafeInteger(value)) return {ok:false,kind:'unsafe',rawText};
+    return {ok:true,value,rawText};
+  }
+  if(!/^\d+$/.test(rawText)){
+    const numericValue=Number(rawText);
+    if(Number.isFinite(numericValue)&&numericValue<0) return {ok:false,kind:'negative',rawText};
+    if(Number.isFinite(numericValue)&&!Number.isInteger(numericValue)) return {ok:false,kind:'decimal',rawText};
+    return {ok:false,kind:'invalid',rawText};
+  }
+  const integerValue=Number(rawText);
+  if(integerValue===0) return {ok:false,kind:'zero',rawText};
+  if(!Number.isSafeInteger(integerValue)) return {ok:false,kind:'unsafe',rawText};
+  return {ok:true,value:integerValue,rawText};
+}
+
+function generalOrderQuantityReason(result){
+  const shown=result.rawText||'（空白）';
+  const reasons={
+    blank:`Số lượng đơn hàng đang trống. / 訂單數量空白。`,
+    zero:`Số lượng đơn hàng bằng 0. / 訂單數量為 0。`,
+    negative:`Số lượng đơn hàng là số âm: ${shown}. / 訂單數量為負數：${shown}。`,
+    decimal:`Số lượng đơn hàng có số thập phân: ${shown}. / 訂單數量含有小數：${shown}。`,
+    unsafe:`Số lượng đơn hàng vượt quá phạm vi an toàn: ${shown}. / 訂單數量超出安全範圍：${shown}。`,
+    invalid:`Số lượng đơn hàng không hợp lệ: ${shown}. / 訂單數量內容無效：${shown}。`
+  };
+  return reasons[result.kind]||reasons.invalid;
+}
+
+function generalOrderError(sheetName,rowNumber,message){
+  const separator=String(message||'').lastIndexOf(' / ');
+  const vi=separator>=0?message.slice(0,separator):message;
+  const zh=separator>=0?message.slice(separator+3):message;
+  const viLocation=rowNumber?`Trang tính ${sheetName}, dòng ${rowNumber}`:`Trang tính ${sheetName}`;
+  const zhLocation=rowNumber?`工作表 ${sheetName}，第 ${rowNumber} 列`:`工作表 ${sheetName}`;
+  return `${viLocation}: ${vi} / ${zhLocation}：${zh}`;
+}
+
+function generalOrderFormulaAt(formulaRows,rowIndex,columnIndex){
+  return String(formulaRows?.[rowIndex]?.[columnIndex]||'').trim();
+}
+
+function generalOrderExcelColumnIndex(letters){
+  let value=0;
+  for(const letter of String(letters||'').toUpperCase()){
+    const code=letter.charCodeAt(0)-64;
+    if(code<1||code>26) return -1;
+    value=value*26+code;
+  }
+  return value-1;
+}
+
+function isGeneralOrderTotalFormula(formula,qtyColumnIndex,headerRowIndex,totalRowIndex){
+  const compact=String(formula||'').replace(/\s+/g,'');
+  const match=compact.match(/^=?SUM\((?:(?:'[^']+'|[^!(),]+)!)?\$?([A-Z]+)\$?(\d+):(?:(?:'[^']+'|[^!(),]+)!)?\$?([A-Z]+)\$?(\d+)\)$/i);
+  if(!match) return false;
+  return generalOrderExcelColumnIndex(match[1])===qtyColumnIndex
+    &&generalOrderExcelColumnIndex(match[3])===qtyColumnIndex
+    &&Number(match[2])>=headerRowIndex+2
+    &&Number(match[2])<=Number(match[4])
+    &&Number(match[4])===totalRowIndex;
+}
+
+function generalOrderRowHasTotalLabel(row,qtyColumnIndex){
+  return (row||[]).some((value,columnIndex)=>columnIndex!==qtyColumnIndex
+    &&ORDER_IMPORT_TOTAL_LABELS.has(normalizeOrderImportHeader(value)));
+}
+
+function parseGeneralOrderRows(rows,sheetName='-',options={}){
+  const header=findGeneralOrderHeader(rows);
+  if(!header.ok) return {items:[],errors:[generalOrderError(sheetName,0,header.error)],header:null,totalQuantity:null};
+  const formulaRows=Array.isArray(options.formulaRows)?options.formulaRows:[];
+  const candidates=[];
+  const errors=[];
+  const codeRows=new Map();
+  let totalRowNumber=0;
+  let totalQuantity=null;
+  for(let rowIndex=header.row+1;rowIndex<rows.length;rowIndex++){
+    const row=rows[rowIndex]||[];
+    const rawCode=row[header.codeIdx];
+    const rawQty=row[header.qtyIdx];
+    const code=normalizeOrderImportCode(rawCode);
+    const quantityText=String(rawQty??'').trim();
+    if(!code&&!quantityText) continue;
+    const rowNumber=rowIndex+1;
+    if(matchesOrderImportHeader(rawCode,ORDER_IMPORT_CODE_HEADERS)
+      &&matchesOrderImportHeader(rawQty,ORDER_IMPORT_QTY_HEADERS)) continue;
+    const totalFormula=generalOrderFormulaAt(formulaRows,rowIndex,header.qtyIdx);
+    const codeIsTotal=ORDER_IMPORT_TOTAL_LABELS.has(normalizeOrderImportHeader(rawCode));
+    const hasTotalLabel=generalOrderRowHasTotalLabel(row,header.qtyIdx);
+    const hasTotalFormula=isGeneralOrderTotalFormula(totalFormula,header.qtyIdx,header.row,rowIndex);
+    const isTotalRow=(hasTotalFormula&&(!code||codeIsTotal))||(!code&&hasTotalLabel);
+    if(isTotalRow){
+      if(totalRowNumber){
+        errors.push(generalOrderError(sheetName,rowNumber,`Tệp có nhiều dòng tổng số lượng. / 訂單檔案出現多個總數量列。`));
+        continue;
+      }
+      totalRowNumber=rowNumber;
+      const quantityResult=parseGeneralOrderQuantity(rawQty);
+      if(!quantityResult.ok){
+        errors.push(generalOrderError(sheetName,rowNumber,`Dòng tổng số lượng không hợp lệ. / 總數量列的數量無效。`));
+        continue;
+      }
+      totalQuantity=quantityResult.value;
+      const detailTotal=candidates.reduce((sum,item)=>sum+item.qty,0);
+      if(totalQuantity!==detailTotal){
+        errors.push(generalOrderError(sheetName,rowNumber,
+          `Tổng số lượng là ${totalQuantity}, nhưng tổng chi tiết là ${detailTotal}. / 總數量為 ${totalQuantity}，但款號明細加總為 ${detailTotal}。`));
+      }
+      continue;
+    }
+    if(totalRowNumber){
+      errors.push(generalOrderError(sheetName,rowNumber,`Vẫn còn dữ liệu sau dòng tổng số lượng. / 總數量列後面仍有訂單資料。`));
+      continue;
+    }
+    if(!code){
+      errors.push(generalOrderError(sheetName,rowNumber,
+        `Có số lượng ${quantityText} nhưng mã hàng đang trống. / 有訂單數量「${quantityText}」，但款號空白。`));
+      continue;
+    }
+    if(!codeRows.has(code)) codeRows.set(code,[]);
+    codeRows.get(code).push(rowNumber);
+    const quantityResult=parseGeneralOrderQuantity(rawQty);
+    if(!quantityResult.ok){
+      errors.push(generalOrderError(sheetName,rowNumber,generalOrderQuantityReason(quantityResult)));
+      continue;
+    }
+    candidates.push({code,qty:quantityResult.value,rowIndex,rowNumber});
+  }
+  const duplicates=new Set();
+  codeRows.forEach((rowNumbers,code)=>{
+    if(rowNumbers.length<=1) return;
+    duplicates.add(code);
+    errors.push(generalOrderError(sheetName,rowNumbers[0],
+      `Mã hàng ${code} bị trùng ở các dòng ${rowNumbers.join(', ')}. / 款號 ${code} 重複出現在第 ${rowNumbers.join(', ')} 列。`));
+  });
+  const items=candidates.filter(item=>!duplicates.has(item.code));
+  if(!items.length&&!errors.length){
+    errors.push(generalOrderError(sheetName,0,`Không tìm thấy dữ liệu mã hàng và số lượng. / 找不到款號與訂單數量資料。`));
+  }
+  return {items,errors,header,totalQuantity};
+}
+
+function findGeneralOrderOptionalHeader(headerRow,accepted){
+  return (headerRow||[]).findIndex(value=>matchesOrderImportHeader(value,accepted));
+}
+
+window.PCMSOrderImportValidation=Object.freeze({
+  parseRows:parseGeneralOrderRows,
+  parseQuantity:parseGeneralOrderQuantity
+}); // PCMSOrderImportValidation（一般訂單辨識檢查介面）：供獨立測試驗收。
+
 async function openImportOrder(options={}){
   if(!canManageOrders()) return;
   closeOrdersImportProgress();
@@ -339,6 +550,11 @@ async function processImportOrderFile(file,input){
   if(!ordId){ await ordersMessage('Vui lòng nhập số đơn hàng.','請先填寫訂單編號。','warning'); if(input) input.value=''; return; }
   if(!client){ await ordersMessage('Vui lòng chọn khách hàng.','請先選擇客戶。','warning'); if(input) input.value=''; return; }
   if(!dueDate){ await ordersMessage('Vui lòng nhập ngày xuất hàng.','請先填寫出貨日期。','warning'); if(input) input.value=''; return; }
+  if(!/\.(xlsx|xls)$/i.test(String(file?.name||''))){
+    await ordersMessage('Chỉ hỗ trợ tệp đơn hàng .xlsx hoặc .xls.','訂單只支援 .xlsx 或 .xls 表格檔。','warning');
+    if(input) input.value='';
+    return;
+  }
   try{
     await window.PCMSFeatures.ensureSpreadsheetTool();
   }catch(error){
@@ -351,32 +567,42 @@ async function processImportOrderFile(file,input){
   reader.onload=async function(e){
     try{
       const wb=XLSX.read(e.target.result,{type:'binary'});
+      if(!Array.isArray(wb.SheetNames)||wb.SheetNames.length!==1){
+        await ordersMessage(
+          `Tệp đơn hàng phải có đúng 1 trang tính; hiện có ${wb.SheetNames?.length||0}.`,
+          `訂單檔案只能有 1 個工作表；目前有 ${wb.SheetNames?.length||0} 個。`,
+          'danger'
+        );
+        window._impData=null;
+        return;
+      }
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      let hRow=-1;
-      for(let i=0;i<Math.min(10,rows.length);i++){
-        const r=rows[i].map(c=>String(c).toUpperCase());
-        if(r.some(c=>c.includes('ITEM')||c.includes('款號'))){ hRow=i; break; }
-      }
-      if(hRow<0){ await ordersMessage('Không tìm thấy dòng tiêu đề có cột mã hàng.','找不到包含款號欄位的標題列。','warning'); return; }
-      const headers=rows[hRow].map(c=>String(c).toUpperCase().trim());
-      const iItem=headers.findIndex(h=>h.includes('ITEM'));
-      const iDesc=headers.findIndex(h=>h.includes('DESC'));
-      const iColor=headers.findIndex(h=>h.includes('COLOR')||h.includes('顏色'));
-      const iQty=headers.findIndex(h=>h.includes("Q'TY")||h.includes('QTY')||h.includes('數量'));
-      const matched=[], skipped=[], errors=[], seenCodes=new Map();
-      rows.slice(hRow+1).forEach((r,rowIndex)=>{
-        const code=String(r[iItem]||'').trim();
-        if(!code) return;
-        const excelRow=hRow+2+rowIndex;
-        const rawQty=String(r[iQty]??'').trim(), qty=Number(rawQty);
-        if(seenCodes.has(code)){ errors.push(`Dòng ${excelRow}: mã hàng ${code} bị trùng / 第 ${excelRow} 列：款號 ${code} 重複`); return; }
-        seenCodes.set(code,excelRow);
-        if(!Number.isInteger(qty)||qty<=0){ errors.push(`Dòng ${excelRow}: số lượng không hợp lệ / 第 ${excelRow} 列：數量必須為正整數`); return; }
-        const prod=window.D.find(p=>p.code===code);
+      const formulaRows=rows.map((row,rowIndex)=>(row||[]).map((_,columnIndex)=>{
+        const address=XLSX.utils.encode_cell({r:rowIndex,c:columnIndex});
+        return String(ws[address]?.f||'');
+      }));
+      const parsed=parseGeneralOrderRows(rows,wb.SheetNames[0],{formulaRows});
+      const matched=[], skipped=[], errors=[...parsed.errors];
+      const headerRow=parsed.header?rows[parsed.header.row]||[]:[];
+      const iDesc=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_DESC_HEADERS);
+      const iColor=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_COLOR_HEADERS);
+      const productsByCode=new Map((window.D||[]).map(product=>[normalizeOrderImportCode(product.code),product]));
+      parsed.items.forEach(item=>{
+        const sourceRow=rows[item.rowIndex]||[];
+        const prod=productsByCode.get(item.code);
         if(prod){
-          matched.push({code,desc:String(r[iDesc]||'').trim(),color:String(r[iColor]||'').trim(),qty,ops:prod.ops||[],zh:prod.zh||'',sz:prod.sz||''});
-        } else { errors.push(`Không tìm thấy mã hàng ${code} trong bảng công đoạn / 工序總表找不到款號 ${code}`); }
+          matched.push({
+            code:item.code,
+            desc:iDesc>=0?String(sourceRow[iDesc]||'').trim():'',
+            color:iColor>=0?String(sourceRow[iColor]||'').trim():'',
+            qty:item.qty,
+            ops:prod.ops||[],zh:prod.zh||'',sz:prod.sz||''
+          });
+        }else{
+          errors.push(generalOrderError(wb.SheetNames[0],item.rowNumber,
+            `Không tìm thấy mã hàng ${item.code} trong bảng công đoạn. / 工序總表找不到款號 ${item.code}。`));
+        }
       });
       if(errors.length){
         const grouped=ordersSplitMessages(errors.slice(0,15));

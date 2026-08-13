@@ -1369,6 +1369,7 @@
     element('production-date-input').value = productionDate;
     state.dateAuto = productionDate === today();
     state.recordDateFilter = /^\d{4}-\d{2}-\d{2}$/.test(pending.productionDate || '') ? productionDate : '';
+    state.recordStatusFilter = 'active';
     state.recordPage = 1;
     syncDateControls();
     clearOrder();
@@ -1394,6 +1395,7 @@
     closeDropdown('production-employee-name-options');
     syncEntryTableMode();
     await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
+    const targetProcess=Boolean(pending.orderId||pending.orderNo||pending.code||pending.processNo);
     if(pending.orderId||pending.orderNo){
       const order=window.PCMSProductionEntryStore.listOrders().find(item=>String(item.id)===pending.orderId
         ||String(item.orderId||'')===pending.orderNo);
@@ -1413,7 +1415,11 @@
         }
       }
     }
-    element('production-process-input')?.focus({preventScroll:true});
+    if(targetProcess){
+      element('production-process-input')?.focus({preventScroll:true});
+    }else{
+      requestAnimationFrame(()=>element('production-entry-data-section')?.scrollIntoView({block:'start'}));
+    }
     return true;
   }
 

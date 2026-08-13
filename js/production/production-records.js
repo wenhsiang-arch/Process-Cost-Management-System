@@ -175,8 +175,21 @@
           processNo:String(contextSource.processNo||'')
         }:null
       };
-    }).sort((left,right)=>String(right.productionDate).localeCompare(String(left.productionDate))
-      || String(left.employeeId).localeCompare(String(right.employeeId),'en',{numeric:true,sensitivity:'base'}));
+    }).filter(item=>item.status!=='absent').sort((left,right)=>{
+      const dateOrder=String(right.productionDate).localeCompare(String(left.productionDate));
+      if(dateOrder) return dateOrder;
+      const leftPercentage=Number(itemPercentage(left));
+      const rightPercentage=Number(itemPercentage(right));
+      const leftReady=Number.isFinite(leftPercentage);
+      const rightReady=Number.isFinite(rightPercentage);
+      if(leftReady!==rightReady) return leftReady?-1:1;
+      if(leftReady&&rightReady&&rightPercentage!==leftPercentage) return rightPercentage-leftPercentage;
+      return String(left.employeeId).localeCompare(String(right.employeeId),'en',{numeric:true,sensitivity:'base'});
+    });
+  }
+
+  function itemPercentage(item){
+    return item?.percentage == null ? Number.NaN : Number(item.percentage);
   }
 
   function filteredRows(){
@@ -210,8 +223,8 @@
       badge.type='button';
       badge.className=`production-efficiency-badge ${percentage<70?'is-low':percentage<=100?'is-standard':'is-high'}`;
       badge.textContent=percentageText(percentage);
-      badge.title='Mở chi tiết công đoạn / 開啟工序明細';
-      badge.addEventListener('click',()=>void openEmployeeRegistration(item));
+      badge.title='Mở bản ghi trong ngày / 開啟當日生產紀錄';
+      badge.addEventListener('click',()=>void openEmployeeRegistration(item,{targetProcess:false}));
       cell.appendChild(badge);
     }else cell.textContent='—';
     row.appendChild(cell);
@@ -284,7 +297,7 @@
   }
 
   async function openAbnormalDetail(item){
-    if(item.status==='invalid-capacity') return openEmployeeRegistration(item);
+    if(item.status==='invalid-capacity') return openEmployeeRegistration(item,{targetProcess:true});
     if(typeof window.canOpenPage==='function'&&!window.canOpenPage('production-attendance')) return;
     try{
       await window.PCMSFeatures?.ensurePageScripts?.('production-attendance');
@@ -293,18 +306,23 @@
     }catch(error){ await showError(error); }
   }
 
-  async function openEmployeeRegistration(item){
+  async function openEmployeeRegistration(item,options={}){
     if(typeof window.canOpenPage === 'function' && !window.canOpenPage('production-entry')) return;
     try{
       await window.PCMSFeatures?.ensurePageScripts?.('production-entry');
-      window.PCMSProductionEntry?.setPendingContext?.({
+      const context={
         employeeId:item.employeeId,
-        productionDate:item.productionDate,
-        orderId:item.context?.orderId,
-        orderNo:item.context?.orderNo,
-        code:item.context?.code,
-        processNo:item.context?.processNo
-      });
+        productionDate:item.productionDate
+      };
+      if(options.targetProcess===true){
+        Object.assign(context,{
+          orderId:item.context?.orderId,
+          orderNo:item.context?.orderNo,
+          code:item.context?.code,
+          processNo:item.context?.processNo
+        });
+      }
+      window.PCMSProductionEntry?.setPendingContext?.(context);
       if(typeof window.sp === 'function') await window.sp('production-entry');
     }catch(error){ await showError(error); }
   }

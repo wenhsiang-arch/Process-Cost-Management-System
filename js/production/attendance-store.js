@@ -366,7 +366,7 @@
     if(workedHours <= 0){
       return standardHours > 0
         ? {status:'invalid-attendance',standardHours,workedHours,percentage:null}
-        : {status:'ready',standardHours:0,workedHours:0,percentage:0};
+        : {status:'absent',standardHours:0,workedHours:0,percentage:null};
     }
     return {status:'ready',standardHours,workedHours,percentage:(standardHours/workedHours)*100};
   }
