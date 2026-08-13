@@ -32,8 +32,8 @@
     productionEmployees:'js/production/production-employees.js?v=20260812-8',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260814-2',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-5',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260814-2',
-    productionProcessEdit:'js/production/process-edit.js?v=20260814-2',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260814-3',
+    productionProcessEdit:'js/production/process-edit.js?v=20260814-3',
     productionProductGroups:'js/production/product-groups.js?v=20260813-6',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260812-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260812-1',
@@ -51,7 +51,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260813-1',
     production:'styles/features/production.css?v=20260814-2',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260814-2',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260814-3',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
@@ -94,7 +94,7 @@
         {
           page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
           styles:['productionProcessEdit'],
-          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','uiTableControls','productionProcessEditStore','productionProcessGroupUi','productionProcessEdit'],
+          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','uiTableControls','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','productionProcessEdit'],
           dataScopes:['operationSettings','products','productGroups','productGroupMembers','productVersions','orders','orderProcesses','processEditJobs'],
           dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave'],
           restrictions:[

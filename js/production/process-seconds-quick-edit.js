@@ -14,6 +14,41 @@
     return typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();
   }
 
+  // chooseEditMode（選擇正式修改模式）：快速修改與正式工序頁共用，儲存前不預選任何模式。
+  function chooseEditMode(options={}){
+    const structuralChange=options.structuralChange===true;
+    const body=document.createElement('div');
+    body.className='process-edit-mode-dialog';
+    body.innerHTML=`${structuralChange?'<div class="ui-notice is-info"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thay đổi cấu trúc chỉ có thể dùng chế độ tối ưu công đoạn.</strong><span>本次包含工序結構變更，只能使用工序優化。</span></span></div>':''}
+      <div class="process-edit-mode-selector">
+        <label class="process-edit-mode-option${structuralChange?' is-disabled':''}"><input type="radio" name="process-edit-save-mode" value="standardCorrection" ${structuralChange?'disabled':''}><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">${structuralChange?'Không áp dụng khi thêm, xóa, đổi tên hoặc đổi thứ tự công đoạn.':'Sửa giây và hiệu suất của bản ghi cũ; vẫn lưu giây trong bảng mã hàng trước khi sửa.'}</span><span class="ui-text-zh">${structuralChange?'新增、刪除、改名或調整順序時不能使用。':'訂正舊登記秒數與效率，並保留修改前的款號表秒數。'}</span></small></label>
+        <label class="process-edit-mode-option"><input type="radio" name="process-edit-save-mode" value="processOptimization"><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên toàn bộ bản ghi cũ; tiêu chuẩn mới dùng sau khi đồng bộ xong.</span><span class="ui-text-zh">舊產能登記完全不變；同步完成後的新登記才使用新標準。</span></small></label>
+      </div>`;
+    return new Promise(resolve=>{
+      let settled=false;
+      let selectedMode='';
+      const controller=ui().openDialog({
+        title:{vi:'Chọn cách lưu thay đổi',zh:'選擇修改方式'},body,keepPrevious:options.keepPrevious===true,
+        actions:[
+          {text:{vi:'Quay lại',zh:'返回'},onClick:()=>{ settled=true;resolve(null); }},
+          {text:{vi:'Tiếp tục',zh:'繼續'},kind:'primary',disabled:true,onClick:()=>{
+            if(!selectedMode) return false;
+            settled=true;
+            resolve(store().normalizeMode(selectedMode));
+            return true;
+          }}
+        ],
+        onClose:()=>{ if(!settled) resolve(null); }
+      });
+      const confirmButton=controller.dialog.querySelector('.ui-dialog-actions button:last-child');
+      body.addEventListener('change',event=>{
+        if(event.target?.name!=='process-edit-save-mode'||event.target.disabled) return;
+        selectedMode=event.target.value;
+        if(confirmButton) confirmButton.disabled=false;
+      });
+    });
+  }
+
   function selectedSummary(products,processNo,currentSeconds,newSeconds,sizeLabel,mode,impact){
     const body=document.createElement('div');
     body.className='process-seconds-confirm-summary';
@@ -124,10 +159,6 @@
       <div class="is-group"><span class="ui-dual-copy" data-quick-group-label><strong>${currentGroup?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${currentGroup?'目前群組':'群組狀態'}</span></span><b data-quick-group-value>${currentGroup?safe(currentGroup.name||currentGroup.groupId):'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未有群組</span></span>'}</b></div>
       ${candidateMode?'<button type="button" class="ui-button is-compact process-seconds-save-group" data-save-new-group><i class="ti ti-box-multiple"></i><span class="ui-dual-copy"><strong>Lưu thành nhóm</strong><span>儲存全組</span></span></button>':''}
     </section>
-    <section class="process-edit-mode-selector" data-quick-mode-selector>
-      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="standardCorrection" checked><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa lại giây và hiệu suất của bản ghi cũ; vẫn lưu giây trong bảng mã hàng trước khi sửa.</span><span class="ui-text-zh">訂正舊登記秒數與效率，並保留修改前的款號表秒數。</span></small></label>
-      <label class="process-edit-mode-option"><input type="radio" name="quick-process-edit-mode" value="processOptimization"><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên toàn bộ bản ghi cũ; giây mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊登記完全不變；同步完成後才使用新秒數。</span></small></label>
-    </section>
     ${displayed>0&&displayed!==officialSeconds?`<div class="ui-notice is-warning"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Dòng đã bấm là ảnh chụp ${safe(displayed)} giây; tiêu chuẩn hiện tại là ${safe(officialSeconds)} giây.</strong><span>點擊的紀錄為 ${safe(displayed)} 秒歷史快照；目前正式標準為 ${safe(officialSeconds)} 秒。</span></span></div>`:''}
     <section class="process-seconds-group-section"><div data-quick-member-selector></div></section>`;
     let shownSize=initialSize;
@@ -203,7 +234,8 @@
             });
             if(setupGroup&&!(await createIndependentGroup())) return false;
           }
-           const mode=store().normalizeMode(body.querySelector('input[name="quick-process-edit-mode"]:checked')?.value);
+           const mode=await chooseEditMode({keepPrevious:true});
+           if(!mode) return false;
            const operationsByCode=Object.fromEntries(targetProducts.map(item=>[item.code,previewOperations(item,processNo,seconds)]));
            const impact=await store().analyzeImpact({targetCodes:targetProducts.map(item=>item.code),operationsByCode,mode});
            const syncConfirmed=await ui().confirmDialog({
@@ -264,5 +296,5 @@
     return button;
   }
 
-  window.PCMSQuickProcessSeconds=Object.freeze({open,createButton,allowed});
+  window.PCMSQuickProcessSeconds=Object.freeze({open,createButton,allowed,chooseEditMode});
 })();

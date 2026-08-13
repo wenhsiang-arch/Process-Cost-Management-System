@@ -160,7 +160,8 @@ test('兩種秒數修改模式只查詢受影響的生產中訂單並使用可�
   assert.match(store,/typeof window\.saveOperationLogToFB!=='function'/);
   assert.match(store,/if\(logResult===false\)/);
   assert.match(entryStore,/processSecSnapshot:processSeconds/);
-  assert.match(entryStore,/processVersionSnapshot:orderVersion\(orderSnapshot\.data\(\)\)/);
+  assert.match(entryStore,/processVersionSnapshot:orderVersion\(orderSnapshot\.data\(\),normalized\.orderId\)/);
+  assert.match(entryStore,/`legacy-\$\{normalizedText\(orderId \|\| order\?\.id\)\}`/);
   assert.match(entryStore,/liveProcess\.active===false/);
   assert.match(page,/Giữ nguyên ảnh chụp cũ/);
   assert.match(page,/store\(\)\.analyzeImpact/);
@@ -209,11 +210,17 @@ test('工序建議會開啟共用快速修改視窗，但不會由分析頁直�
   assert.doesNotMatch(ie,/IE 分析使用說明|Danh sách IE|IE 異常分析|IE 產線查核表/);
   assert.match(quick,/recommendedSeconds/);
   assert.match(quick,/saveOfficialSeconds/);
-  assert.match(quick,/QUICK_EDIT_REASON/);
+  assert.doesNotMatch(quick,/QUICK_EDIT_REASON/);
   assert.match(quick,/compact:true/);
-  assert.match(quick,/data-quick-reason/);
+  assert.doesNotMatch(quick,/data-quick-reason/);
   assert.match(quick,/standardCorrection/);
   assert.match(quick,/processOptimization/);
+  assert.match(quick,/function chooseEditMode\(options=\{\}\)/);
+  assert.doesNotMatch(quick,/value="standardCorrection" checked/);
+  assert.match(quick,/kind:'primary',disabled:true/);
+  assert.match(quick,/const mode=await chooseEditMode\(\{keepPrevious:true\}\)/);
+  assert.match(quick,/Giây bảng mã hàng/);
+  assert.match(quick,/款號表秒數/);
   assert.match(quick,/store\(\)\.analyzeImpact/);
   assert.match(quick,/ui\(\)\.progressDialog/);
   assert.match(groupUi,/data-process-select-all/);
@@ -221,6 +228,23 @@ test('工序建議會開啟共用快速修改視窗，但不會由分析頁直�
   assert.match(style,/\.process-seconds-quick-edit \.process-size-tabs\{grid-template-columns:repeat\(auto-fit,minmax\(62px,1fr\)\)/);
   assert.match(style,/\.process-seconds-quick-edit \.ui-table-scroll\{[^}]*max-height:none;overflow:visible/);
   assert.match(style,/\.process-seconds-quick-edit \.process-size-member-table\{[^}]*table-layout:fixed/);
+});
+
+test('正式工序頁與快速修改都在儲存後要求選擇模式且不預選',()=>{
+  const page=read('js/production/process-edit.js');
+  const quick=read('js/production/process-seconds-quick-edit.js');
+  const features=read('js/features.js');
+  const store=read('js/production/process-edit-store.js');
+  assert.doesNotMatch(page,/id="process-edit-mode-panel"|official-process-edit-mode|syncModificationMode/);
+  assert.match(page,/chooseEditMode\(\{structuralChange\}\)/);
+  assert.match(quick,/name="process-edit-save-mode" value="standardCorrection"/);
+  assert.match(quick,/name="process-edit-save-mode" value="processOptimization"/);
+  assert.match(quick,/structuralChange\?'disabled':''/);
+  assert.match(quick,/if\(!selectedMode\) return false/);
+  assert.match(features,/productionProcessGroupUi','productionProcessSecondsQuickEdit','productionProcessEdit'/);
+  assert.doesNotMatch(page,/data-process-edit-reason|openModificationSettings/);
+  assert.match(store,/function modificationReason\(mode\)/);
+  assert.doesNotMatch(store,/reason\.length<2/);
 });
 
 test('群組獨立儲存且秒數儲存只在缺少群組時提供接續設定',()=>{
@@ -239,8 +263,8 @@ test('群組獨立儲存且秒數儲存只在缺少群組時提供接續設定',
   assert.match(quick,/data-save-new-group/);
   assert.doesNotMatch(quick,/aria-pressed="false"[^\n]*data-save-new-group|saveNewGroup=!saveNewGroup/);
   assert.match(quick,/此次修改將同步目前的款號表/);
-  assert.match(quick,/舊登記完全不變；同步完成後才使用新秒數/);
-  assert.match(quick,/訂正舊登記秒數與效率，並保留原始秒數/);
+  assert.match(quick,/舊產能登記完全不變；同步完成後的新登記才使用新標準/);
+  assert.match(quick,/訂正舊登記秒數與效率，並保留修改前的款號表秒數/);
 });
 
 test('尺寸卡依數字及常規英文尺寸由左至右排序',()=>{

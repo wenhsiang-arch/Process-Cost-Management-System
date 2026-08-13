@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state={currentCode:'',selectedClient:'',applyMode:'current',editMode:'standardCorrection',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,pendingChecked:false,dragIndex:-1};
+  const state={currentCode:'',selectedClient:'',applyMode:'current',draft:[],selectedTargets:new Set(),groupSelector:null,dirty:false,initialized:false,languageBound:false,pendingChecked:false,dragIndex:-1};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -67,14 +67,6 @@
             <div class="ui-section-header"><i class="ti ti-box"></i><span class="ui-dual-copy"><strong>Mã hàng và nhóm cùng sản phẩm</strong><span>款號與同產品群組</span></span></div>
             <div class="process-edit-current-summary" id="process-edit-current-summary"></div>
             <div class="process-edit-group-area" id="process-edit-group-area"></div>
-          </section>
-          <section class="process-edit-mode-panel ui-data-section" id="process-edit-mode-panel">
-            <div class="ui-section-header"><i class="ti ti-adjustments"></i><span class="ui-dual-copy"><strong>Chế độ sửa chính thức</strong><span>正式修改模式</span></span></div>
-            <div class="process-edit-mode-selector">
-              <label class="process-edit-mode-option"><input type="radio" name="official-process-edit-mode" value="standardCorrection" checked><span class="ui-dual-copy"><strong>Sửa lỗi tiêu chuẩn</strong><span>標準錯誤訂正</span></span><small class="ui-bilingual"><span class="ui-text-vi">Sửa giây và hiệu suất của bản ghi cũ; vẫn lưu giây trong bảng mã hàng trước khi sửa.</span><span class="ui-text-zh">訂正舊登記秒數與效率，並保留修改前的款號表秒數。</span></small></label>
-              <label class="process-edit-mode-option"><input type="radio" name="official-process-edit-mode" value="processOptimization"><span class="ui-dual-copy"><strong>Tối ưu công đoạn</strong><span>工序優化</span></span><small class="ui-bilingual"><span class="ui-text-vi">Giữ nguyên bản ghi cũ; tiêu chuẩn mới dùng từ khi đồng bộ xong.</span><span class="ui-text-zh">舊產能登記完全不變；同步完成後才使用新標準。</span></small></label>
-            </div>
-            <div class="ui-notice is-info" id="process-edit-mode-structural-note" hidden><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Thêm, xóa, đổi tên hoặc đổi thứ tự sẽ tự động dùng chế độ tối ưu công đoạn.</strong><span>新增、刪除、改名或調整順序時，系統會自動改用工序優化。</span></span></div>
           </section>
           <section class="process-edit-operations ui-data-section">
             <div class="ui-section-header process-edit-section-header">
@@ -264,9 +256,7 @@
     const product=productByCode(state.currentCode);
     state.draft=normalizedOperations(product?.ops||[]);
     state.dirty=false;
-    state.editMode=store().EDIT_MODES.STANDARD_CORRECTION;
     if(product) renderOperations(product);
-    syncModificationMode(false);
   }
 
   async function selectProduct(code,options={}){
@@ -295,7 +285,6 @@
     }
     state.currentCode=product.code;
     state.applyMode='current';
-    state.editMode=store().EDIT_MODES.STANDARD_CORRECTION;
     state.selectedTargets=new Set([product.code]);
     state.draft=normalizedOperations(product.ops||[]);
     state.dirty=false;
@@ -307,7 +296,6 @@
     renderSummary(product);
     renderGroup(product);
     renderOperations(product);
-    syncModificationMode(false);
     return true;
   }
 
@@ -318,7 +306,6 @@
     state.draft.forEach((item,rowIndex)=>{ item.no=String(rowIndex+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
-    syncModificationMode(true);
   }
 
   function moveRow(fromIndex,toIndex){
@@ -328,7 +315,6 @@
     state.draft.forEach((item,index)=>{ item.no=String(index+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
-    syncModificationMode(true);
   }
 
   async function addOperation(){
@@ -353,7 +339,6 @@
     state.draft.forEach((item,index)=>{ item.no=String(index+1); });
     markDirty();
     renderOperations(productByCode(state.currentCode));
-    syncModificationMode(true);
     requestAnimationFrame(()=>document.querySelector(`#process-edit-table-body [data-process-index="${position-1}"] [data-process-field="vi"]`)?.focus());
   }
 
@@ -400,28 +385,6 @@
     });
   }
 
-  function syncModificationMode(structuralChangeOverride){
-    const product=productByCode(state.currentCode);
-    const structuralChange=typeof structuralChangeOverride==='boolean'
-      ? structuralChangeOverride
-      : Boolean(product&&!sameOperationStructure(product.ops||[],state.draft));
-    if(structuralChange) state.editMode=store().EDIT_MODES.PROCESS_OPTIMIZATION;
-    const panel=document.getElementById('process-edit-mode-panel');
-    const correction=panel?.querySelector('input[value="standardCorrection"]');
-    const optimization=panel?.querySelector('input[value="processOptimization"]');
-    const note=document.getElementById('process-edit-mode-structural-note');
-    if(correction){
-      correction.disabled=structuralChange||!canEdit();
-      correction.closest('.process-edit-mode-option')?.classList.toggle('is-disabled',correction.disabled);
-      correction.checked=state.editMode===store().EDIT_MODES.STANDARD_CORRECTION;
-    }
-    if(optimization){
-      optimization.disabled=!canEdit();
-      optimization.checked=state.editMode===store().EDIT_MODES.PROCESS_OPTIMIZATION;
-    }
-    if(note) note.hidden=!structuralChange;
-  }
-
   function officialChangeSummary(targetCodes,operations,impact,mode){
     const body=document.createElement('div');
     body.className='process-edit-change-summary';
@@ -462,8 +425,8 @@
       return;
     }
     const structuralChange=targetCodes.some(code=>!sameOperationStructure(productByCode(code)?.ops,operations));
-    syncModificationMode(structuralChange);
-    const mode=store().normalizeMode(state.editMode);
+    const mode=await window.PCMSQuickProcessSeconds?.chooseEditMode({structuralChange});
+    if(!mode) return;
     let impact;
     try{
       const operationsByCode=Object.fromEntries(targetCodes.map(code=>[code,operations]));
@@ -654,7 +617,6 @@
       }else state.draft[index][field]=event.target.value;
       markDirty();
       if(field==='sec') row.querySelector('[data-ui-table-column="capacity"] b').textContent=String(hourlyCapacity(event.target.value));
-      syncModificationMode();
     });
     document.getElementById('process-edit-table-body')?.addEventListener('click',event=>{
       const button=event.target.closest('[data-process-action]');
@@ -704,11 +666,6 @@
         return;
       }
     });
-    document.getElementById('process-edit-mode-panel')?.addEventListener('change',event=>{
-      if(event.target?.name!=='official-process-edit-mode'||event.target.disabled) return;
-      state.editMode=store().normalizeMode(event.target.value);
-      syncModificationMode();
-    });
     document.querySelector('.production-process-edit-page')?.addEventListener('click',event=>{ if(event.target.closest('#process-edit-open-groups')) openGroupsPage(); });
   }
 
@@ -733,7 +690,7 @@
       await selectProduct(pending.code,{force:true});
       const seconds=Number(pending.recommendedSeconds);
       const operation=state.draft.find(item=>String(item.no)===String(pending.processNo));
-      if(operation&&seconds>0){ operation.sec=Math.round(seconds); markDirty(); renderOperations(productByCode(state.currentCode));syncModificationMode(); }
+      if(operation&&seconds>0){ operation.sec=Math.round(seconds); markDirty(); renderOperations(productByCode(state.currentCode)); }
       window.PCMSPendingProcessEditContext=null;
     }else if(state.currentCode){
       await selectProduct(state.currentCode,{force:true});
