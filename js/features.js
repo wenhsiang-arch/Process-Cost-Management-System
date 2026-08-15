@@ -134,7 +134,7 @@
         {
           page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
           styles:['production','productionProcessEdit'],
-          scripts:['productCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','uiTableControls','uiSearchDropdown','orderProcessCache','productionEmployeeStore','productionChangeStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionEntry','productionAnomalyFilter'],
+          scripts:['history','productCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','uiTableControls','uiSearchDropdown','orderProcessCache','productionEmployeeStore','productionChangeStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionEntry','productionAnomalyFilter'],
           dataScopes:['products','productGroups','productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals','productionAttendance'],
           dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit','productionAnomalyFilterInit'],onLeave:['productionAnomalyFilterLeave','productionEntryLeave']
         },

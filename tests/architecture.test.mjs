@@ -91,6 +91,9 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.deepEqual(Array.from(production.pages).map(page=>page.page),[
     'production-entry','production-records','production-bonus','production-attendance','production-employees'
   ]);
+  const productionEntry=production.pages.find(page=>page.page==='production-entry');
+  assert.equal(productionEntry.scripts.includes('history'),true);
+  assert.equal(productionEntry.scripts.indexOf('history')<productionEntry.scripts.indexOf('productionProcessEditStore'),true);
   assert.equal(production.pages.every(page=>page.scripts.some(name=>name.startsWith('production'))),true);
   assert.equal(context.window.normalizeFeaturePermissions({productionEntry:true}).productionMain,true);
   const productionAnalysis=context.window.PCMSFeatures.getModule('production-analysis');
