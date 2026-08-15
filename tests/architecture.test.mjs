@@ -28,11 +28,11 @@ test('共用表格操作只在使用功能開啟後按需載入',()=>{
   const html=read('index.html');
   const source=read('js/features.js');
   const productsStart=source.indexOf("id:'products'");
-  const productsEnd=source.indexOf("id:'cutting'",productsStart);
+  const productsEnd=source.indexOf("id:'preparation'",productsStart);
   const products=source.slice(productsStart,productsEnd);
   assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
-  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260813-1'/);
-  assert.match(products,/scripts:\['history','fileIo','productCache','uiTableControls','summary','data'\]/);
+  assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260813-2'/);
+  assert.match(products,/scripts:\['history','fileIo','productCache','productModel','productVersionStore','uiTableControls','summary','data'\]/);
   assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });
 
@@ -63,8 +63,8 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','permissions','production-analysis',
-    'production-attendance','production-employees','production-entry','production-records','progress','settings','summary','sync','system-monitor'
+    'accounts','costlog','cutting','export','performance-bonus-settings','permissions','product-groups',
+    'production-analysis','production-attendance','production-bonus','production-employees','production-entry','production-process-edit','production-records','progress','settings','summary','system-monitor'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
   assert.match(read('index.html'),/value="sales">Kinh doanh \/ 業務/);
@@ -80,14 +80,16 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const settings=feature.getPage('settings');
   assert.equal(orders.restrictions?.length||0,0);
   assert.deepEqual(Array.from(products.pages[0].restrictions||[]).map(item=>item.key),['costView']);
+  assert.deepEqual(Array.from(products.pages[1].restrictions||[]).map(item=>item.key),['processSecondsEdit']);
   assert.equal(settings.feature,'settings');
   assert.equal(settings.adminOnly===true,false);
+  assert.deepEqual(Array.from(settings.scripts),['history','uiTableControls','summary','data','settings']);
   const normalized=context.window.normalizeFeaturePermissions({progress:true});
   assert.equal(normalized.progress,true);
   assert.equal(normalized.orderImport,true);
   const production=context.window.PCMSFeatures.getModule('production');
   assert.deepEqual(Array.from(production.pages).map(page=>page.page),[
-    'production-entry','production-records','production-attendance','production-employees'
+    'production-entry','production-records','production-bonus','production-attendance','production-employees'
   ]);
   assert.equal(production.pages.every(page=>page.scripts.some(name=>name.startsWith('production'))),true);
   assert.equal(context.window.normalizeFeaturePermissions({productionEntry:true}).productionMain,true);
@@ -96,13 +98,18 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.equal(productionAnalysis.usesInternalTabs,true);
   assert.deepEqual(Array.from(productionAnalysis.pages).map(page=>page.page),['production-analysis']);
   assert.deepEqual(Array.from(productionAnalysis.pages[0].dataScopes),[
-    'productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'
+    'products','productGroups','productionEmployees','productionEntries','productionAttendance','operationLogs:productionAnalysis'
   ]);
   assert.equal(context.window.PCMSFeatures.defaultPermissions.manager.productionAnalysis,false);
+  const preparation=context.window.PCMSFeatures.getModule('preparation');
+  assert.equal(preparation.mainKey,'preparationMain');
+  assert.deepEqual(Array.from(preparation.pages).map(page=>page.page),['cutting']);
+  assert.equal(context.window.PCMSFeatures.defaultPermissions.manager.preparationMain,false);
+  assert.equal(context.window.normalizeFeaturePermissions({cutting:true}).preparationMain,false);
   const navigationHtml=read('index.html');
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260814-9/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260815-2/);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
@@ -136,16 +143,28 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     settings:'js/settings.js',uiTableControls:'js/ui-table-controls.js',uiSearchDropdown:'js/ui-search-dropdown.js',
     productCache:'js/product-cache.js',orderProcessCache:'js/order-process-cache.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
-    accounts:'js/accounts.js',orders:'js/orders.js',sync:'js/sync.js',permissions:'js/permissions.js',
+    accounts:'js/accounts.js',orders:'js/orders.js',permissions:'js/permissions.js',
+    productModel:'js/product-model.js',productVersionStore:'js/product-version-store.js',
     productionEmployeeStore:'js/production/employee-store.js',
     productionChangeStore:'js/production/change-store.js',
+    productionGuardStore:'js/production/production-guard-store.js',
     productionEntryStore:'js/production/entry-store.js',
     productionReportStore:'js/production/report-store.js',
     productionAttendanceStore:'js/production/attendance-store.js',
     productionEntry:'js/production/production-entry.js',
     productionRecords:'js/production/production-records.js',
+    performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js',
+    performanceBonusStore:'js/performance-bonus/bonus-store.js',
+    performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js',
+    productionAnomalyFilter:'js/production/production-anomaly-filter.js',
     productionAttendance:'js/production/production-attendance.js',
     productionEmployees:'js/production/production-employees.js',
+    productionProcessEditStore:'js/production/process-edit-store.js',
+    productionProcessGroupUi:'js/production/process-group-ui.js',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js',
+    productionProcessEdit:'js/production/process-edit.js',
+    productionProductGroups:'js/production/product-groups.js',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js',
     productionAnalysisStore:'js/production-analysis/analysis-store.js',
     productionAnalysisExport:'js/production-analysis/analysis-export.js',
@@ -191,6 +210,20 @@ test('操作歷史查詢所需複合索引已登記',()=>{
   assert.deepEqual(productionEntryIndex?.fields,[
     {fieldPath:'employeeId',order:'ASCENDING'},
     {fieldPath:'productionDate',order:'DESCENDING'}
+  ]);
+  const correctionIndex=indexes.indexes.find(item=>item.collectionGroup==='productionEntries'
+    && item.fields.some(field=>field.fieldPath==='productCode'));
+  assert.deepEqual(correctionIndex?.fields,[
+    {fieldPath:'productCode',order:'ASCENDING'},
+    {fieldPath:'processNo',order:'ASCENDING'},
+    {fieldPath:'createdAt',order:'ASCENDING'}
+  ]);
+  const pendingJobIndex=indexes.indexes.find(item=>item.collectionGroup==='processEditJobs');
+  assert.deepEqual(pendingJobIndex?.fields,[
+    {fieldPath:'createdByUid',order:'ASCENDING'},
+    {fieldPath:'jobType',order:'ASCENDING'},
+    {fieldPath:'status',order:'ASCENDING'},
+    {fieldPath:'createdAt',order:'DESCENDING'}
   ]);
 });
 
@@ -353,7 +386,7 @@ test('功能頁重複切換使用工作階段資料並在背景檢查',()=>{
   assert.match(cuttingSource,/if\(!state\.initialized\)/);
 });
 
-test('資料與 dataVersions（資料版本）使用同一批次或交易寫入',()=>{
+test('一般資料版本同批完成，產能快取版本於核心交易成功後自動通知',()=>{
   const source=read('js/firebase.js');
   assert.match(source,/CACHEABLE_COLLECTIONS = new Set\(\[[\s\S]*?'productionEmployees'[\s\S]*?'productionDepartments'/);
   assert.match(source,/firebaseAuthLogout = \(\) => signOut\(auth\)/);
@@ -361,9 +394,49 @@ test('資料與 dataVersions（資料版本）使用同一批次或交易寫入'
   const cacheSource=read('js/data-cache.js'); // cacheSource（共用資料快取程式內容）
   assert.match(cacheSource,/async function removeForUser\(userId,scope\)/);
   assert.match(source,/appendDataVersionWrite\(batch,\[scope\]\)[\s\S]*?await batch\.commit\(\)/);
-  assert.match(source,/committedVersionChange=appendDataVersionWrite\(rawTransaction,\[\.\.\.scopes\]\)/);
-  assert.match(source,/const versionChange=appendDataVersionWrite\(rawBatch,\[\.\.\.scopes\]\)[\s\S]*?await rawBatch\.commit\(\)/);
-  assert.doesNotMatch(source,/await rawBatch\.commit\(\);\s*await touchDataVersions/);
+  assert.match(source,/committedVersionChange=createDataVersionChange\(skipDataVersions\?\[\]:\[\.\.\.scopes\]\)/);
+  assert.match(source,/appendDataVersionWrite\(rawTransaction,\[\.\.\.scopes\]\.filter\(scope=>scope!=='productionEntries'\)\)/);
+  assert.match(source,/await touchDataVersions\(\['productionEntries'\]\)/);
+  assert.match(source,/const versionChange=createDataVersionChange\(skipDataVersions\?\[\]:\[\.\.\.scopes\]\)[\s\S]*?await rawBatch\.commit\(\)/);
+  assert.match(source,/options\?\.skipDataVersions===true/);
+  assert.doesNotMatch(source,/persistDeferredDataVersionScopes/);
+});
+
+test('dataVersions（資料版本）按範圍讀取並保留舊總表回退',()=>{
+  const source=read('js/firebase.js');
+  const attendanceSource=read('js/production/attendance-store.js');
+  const reportSource=read('js/production/report-store.js');
+  const analysisSource=read('js/production-analysis/analysis-store.js');
+  const bonusSource=read('js/performance-bonus/bonus-store.js');
+  assert.match(source,/const DATA_VERSION_COLLECTION = 'dataVersions'/);
+  assert.match(source,/async function readLegacyDataVersions/);
+  assert.match(source,/async function readScopedDataVersion/);
+  assert.match(source,/getDocFromServer\(doc\(db,DATA_VERSION_COLLECTION,scope\)\)/);
+  assert.match(source,/scopedDataVersionCapability='available'/);
+  assert.match(source,/scopedDataVersionCapability='legacy'/);
+  assert.match(source,/writer\.set\(doc\(db,DATA_VERSION_COLLECTION,item\.scope\),item\)/);
+  assert.match(source,/readDataVersions\(\[scope\]\)/);
+  assert.match(attendanceSource,/firebaseReadDataVersions\(\[CACHE_SCOPE\],force\)/);
+  assert.doesNotMatch(attendanceSource,/const versionReference = window\._docRef\('system','dataVersions'\)/);
+  assert.doesNotMatch(attendanceSource,/transaction\.set\(versionReference/);
+  assert.match(reportSource,/firebaseReadDataVersions\(\[CACHE_VERSION_KEY\],force\)/);
+  assert.match(analysisSource,/firebaseReadDataVersions\(\[\s*'productionEntries','productionAttendance','productionEmployees'/);
+  assert.match(bonusSource,/versions\(\[versionKey\],options\.force===true\)/);
+});
+
+test('績效獎金使用開頁核對與分段完成重算，不再依賴雲端函式或發布流程',()=>{
+  const browserSource=read('js/performance-bonus/bonus-store.js');
+  const firebaseConfig=read('firebase.json');
+  assert.match(browserSource,/async function calculateAndPersistMonth/);
+  assert.match(browserSource,/MAX_EMPLOYEES_PER_CALCULATION=440/);
+  assert.match(browserSource,/EMPLOYEE_WRITE_CHUNK_SIZE=5/);
+  assert.match(browserSource,/skipDataVersions:true/);
+  assert.match(browserSource,/firebaseTouchDataVersions/);
+  assert.match(browserSource,/forceRecalculate:true/);
+  assert.match(browserSource,/loadStablePerformance/);
+  assert.doesNotMatch(browserSource,/calculateAndPublishMonth|writeChunks/);
+  assert.doesNotMatch(browserSource,/waitForSettingsApplied|performanceBonusRuns/);
+  assert.doesNotMatch(firebaseConfig,/"functions"/);
 });
 
 test('訂單調整歷史使用五十筆游標分頁',()=>{

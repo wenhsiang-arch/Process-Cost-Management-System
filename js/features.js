@@ -195,7 +195,7 @@
         {
           page:'settings',feature:'settings',icon:'ti-settings',vi:'Cài đặt chi phí',zh:'成本設定',
           styles:['cost'],
-          scripts:['history','summary','data','settings'],
+          scripts:['history','uiTableControls','summary','data','settings'],
           dataScopes:['operationSettings','costSettings'],
           dataLoaders:['loadCostSettingsPageData'],
           onOpen:['rAll']
