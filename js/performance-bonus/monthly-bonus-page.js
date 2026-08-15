@@ -1,4 +1,4 @@
-// monthly-bonus-page（月績效獎金頁）：只顯示已發布的員工結果，不讀取保密參數。
+// monthly-bonus-page（月績效獎金頁）：開頁核對並試算公開員工結果，不讀取保密參數。
 (function(){
   'use strict';
 
@@ -63,7 +63,7 @@
     note.hidden=false;
     note.replaceChildren(window.PCMSUIText.create(state.metadata
       ?{vi:`Cập nhật lần cuối: ${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('vi-VN')}`,zh:`最後更新：${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('zh-TW')}`}
-      :{vi:'Quản lý chi phí cần tính và công bố tháng này trước.',zh:'需先由成本管理計算並發布此月份。'}));
+      :{vi:'Tháng này chưa có kết quả tính thử. Hãy kiểm tra dữ liệu chấm công và sản lượng.',zh:'此月份尚無試算結果，請檢查考勤與產能資料。'}));
     const draft=state.metadata?.status==='draft';
     const exportButton=el('performance-bonus-export');
     exportButton.disabled=!state.metadata;
@@ -193,7 +193,12 @@
     if(!handle) return;
     return ui().runActionOnce(`performanceBonus.export.${state.month}`,async()=>{
       try{
-        if(draft) await store().lockMonth(state.month);
+        if(draft){
+          await store().lockMonth(state.month);
+          const refreshed=await store().loadMonth(state.month,{force:true});
+          state.metadata=refreshed.metadata;
+          state.employees=refreshed.employees;
+        }
         const spreadsheet=await window.PCMSFeatures.ensureSpreadsheetTool();
         const rows=state.employees.filter(item=>Number(item.finalBonus)>0).map(item=>[
           safeSpreadsheetValue(item.employeeId),safeSpreadsheetValue(item.employeeName),Math.round(Number(item.finalBonus)||0)

@@ -59,11 +59,12 @@
   }
 
   async function loadGroups(options={}){
-    if(loaded&&options.force!==true) return groups.map(cloneGroup);
     if(loadPromise) return loadPromise;
     loadPromise=(async()=>{
-      const snapshot=await window._getDocs(window._collection(GROUP_COLLECTION));
-      groups=snapshot.docs.map(item=>({groupId:item.id,...item.data()}))
+      const loadedRows=typeof window.firebaseLoadCachedCollection==='function'
+        ? await window.firebaseLoadCachedCollection(GROUP_COLLECTION,GROUP_COLLECTION,options)
+        : (await window._getDocs(window._collection(GROUP_COLLECTION))).docs.map(item=>({id:item.id,...item.data()}));
+      groups=loadedRows.map(item=>({...item,groupId:item.groupId||item.id}))
         .filter(item=>item.active!==false)
         .map(item=>({...item,memberCodes:[...new Set((item.memberCodes||[]).map(normalizeCode).filter(Boolean))]}));
       loaded=true;
@@ -496,6 +497,21 @@
     return matches;
   }
 
+  async function partitionRowsByEditableMonth(rows){
+    const guards=window.PCMSProductionGuards;
+    if(!guards) throw new Error('Thiếu mô-đun bảo vệ tháng sản xuất. / 缺少產能月份防護程式。');
+    const months=[...new Set((rows||[]).map(row=>guards.monthFromDate(row.productionDate)))];
+    const snapshots=await Promise.all(months.map(month=>window._getDoc(window._docRef('performanceBonusMonths',month))));
+    const locked=new Set();
+    snapshots.forEach((snapshot,index)=>{
+      if(snapshot.exists()&&['locked','exported','paid'].includes(String(snapshot.data()?.status||''))) locked.add(months[index]);
+    });
+    const editableRows=[];
+    const lockedRows=[];
+    (rows||[]).forEach(row=>(locked.has(guards.monthFromDate(row.productionDate))?lockedRows:editableRows).push(row));
+    return {editableRows,lockedRows,lockedMonths:[...locked].sort()};
+  }
+
   async function analyzeImpact(input={}){
     const targetCodes=[...new Set((input.targetCodes||[]).map(normalizeCode).filter(Boolean))];
     const mode=normalizeMode(input.mode);
@@ -503,10 +519,17 @@
     const corrections=buildCorrectionPlan(targetCodes,operationsByCode,mode);
     const orders=await activeOrdersForProducts(targetCodes,input);
     let entryCount=0;
+    let lockedEntryCount=0;
+    const lockedMonths=new Set();
     if(mode===EDIT_MODES.STANDARD_CORRECTION){
-      await queryProductionEntries(corrections,{collect:false,onPage:rows=>{ entryCount+=rows.length; }});
+      await queryProductionEntries(corrections,{collect:false,onPage:async rows=>{
+        const partition=await partitionRowsByEditableMonth(rows);
+        entryCount+=partition.editableRows.length;
+        lockedEntryCount+=partition.lockedRows.length;
+        partition.lockedMonths.forEach(month=>lockedMonths.add(month));
+      }});
     }
-    return {targetCodes,mode,corrections,orders,orderCount:orders.length,entryCount};
+    return {targetCodes,mode,corrections,orders,orderCount:orders.length,entryCount,lockedEntryCount,lockedMonths:[...lockedMonths].sort()};
   }
 
   async function loadOrderProcesses(order,options={}){
@@ -717,7 +740,11 @@
     const affectedRows=[];
     let completed=0;
     let batchesCompleted=0;
+    let lockedSkipped=0;
     await queryProductionEntries(corrections,{collect:false,onPage:async rows=>{
+      const partition=await partitionRowsByEditableMonth(rows);
+      rows=partition.editableRows;
+      lockedSkipped+=partition.lockedRows.length;
       const writes=[];
       const alreadyCorrected=rows.filter(row=>row.standardCorrectionJobId===master.jobId).length;
       completed+=alreadyCorrected;
@@ -736,20 +763,33 @@
         };
         writes.push({reference:window._docRef(ENTRY_COLLECTION,row.id),data,row:{...row,...data}});
       });
-      for(let offset=0;offset<writes.length;offset+=WRITE_BATCH_SIZE){
-        const batch=window._writeBatch();
-        const current=writes.slice(offset,offset+WRITE_BATCH_SIZE);
-        current.forEach(write=>batch.update(write.reference,write.data));
-        batch.set(window._docRef(EDIT_JOB_COLLECTION,master.jobId),{
-          status:'syncing',phase:'entries',correctedEntries:completed+current.length,
-          completedBatches:batchesCompleted+1,updatedAt:Date.now()
-        },{merge:true});
-        await batch.commit();
-        completed+=current.length;
-        batchesCompleted+=1;
-        affectedRows.push(...current.map(write=>write.row));
-        await window.PCMSProductionChanges?.markSafely?.(current.map(write=>write.row));
-        if(typeof onProgress==='function') onProgress({phase:'entries',completed,total:Number(master.affectedEntries)||completed});
+      const writesByMonth=new Map();
+      writes.forEach(write=>{
+        const month=window.PCMSProductionGuards.monthFromDate(write.row.productionDate);
+        if(!writesByMonth.has(month)) writesByMonth.set(month,[]);
+        writesByMonth.get(month).push(write);
+      });
+      for(const monthWrites of writesByMonth.values()){
+        for(let offset=0;offset<monthWrites.length;offset+=WRITE_BATCH_SIZE){
+          const batch=window._writeBatch();
+          const current=monthWrites.slice(offset,offset+WRITE_BATCH_SIZE);
+          const versionAt=Date.now();
+          const version=window.PCMSProductionGuards.sourceVersionToken();
+          current.forEach(write=>batch.update(write.reference,write.data));
+          batch.set(window.PCMSProductionGuards.monthSourceVersionReference(current[0].row.productionDate),
+            window.PCMSProductionGuards.entriesMonthSourceVersionData(current[0].row.productionDate,version,versionAt,currentUserId()),
+            {merge:true});
+          batch.set(window._docRef(EDIT_JOB_COLLECTION,master.jobId),{
+            status:'syncing',phase:'entries',correctedEntries:completed+current.length,
+            completedBatches:batchesCompleted+1,updatedAt:versionAt
+          },{merge:true});
+          await batch.commit();
+          completed+=current.length;
+          batchesCompleted+=1;
+          affectedRows.push(...current.map(write=>write.row));
+          await window.PCMSProductionChanges?.markSafely?.(current.map(write=>write.row));
+          if(typeof onProgress==='function') onProgress({phase:'entries',completed,total:Number(master.affectedEntries)||completed});
+        }
       }
       if(!writes.length&&alreadyCorrected&&typeof onProgress==='function'){
         onProgress({phase:'entries',completed,total:Number(master.affectedEntries)||completed});
@@ -766,7 +806,7 @@
     if(logResult===false){
       throw new Error('Không thể ghi lịch sử thao tác; công việc chưa hoàn tất. / 無法寫入操作紀錄，工作尚未完成。');
     }
-    return {correctedEntries:completed,batchesCompleted,affectedRows};
+    return {correctedEntries:completed,batchesCompleted,affectedRows,lockedSkipped};
   }
 
   async function runModificationJob(jobId,options={}){

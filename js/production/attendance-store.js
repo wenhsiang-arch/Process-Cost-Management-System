@@ -8,7 +8,7 @@
   const CACHE_DAY_PREFIX = 'productionAttendanceDay:'; // CACHE_DAY_PREFIX（依日期分開保存的考勤快取）
   const CACHE_RECORD_PREFIX = 'productionAttendanceRecord:'; // CACHE_RECORD_PREFIX（單筆考勤快取）
   const PAGE_SIZE = 200; // PAGE_SIZE（單一日期分頁讀取筆數）
-  const MAX_TRANSACTION_ITEMS = 10; // MAX_TRANSACTION_ITEMS（單次交易最多考勤筆數）：保留安全規則文件存取餘量。
+  const MAX_TRANSACTION_ITEMS = 5; // MAX_TRANSACTION_ITEMS（單次交易最多考勤筆數）：加入月份與每日累計檢查後保留安全規則存取餘量。
   const dayCache = new Map(); // dayCache（目前工作階段日期快取）
   const dayCacheVersions = new Map(); // dayCacheVersions（日期快取使用的資料版本）
   const dayPromises = new Map(); // dayPromises（避免同日期重複查詢）
@@ -198,26 +198,42 @@
   }
 
   async function saveChunk(inputs){
+    const guards = window.PCMSProductionGuards;
     const now = Date.now();
+    const sourceVersion=guards.sourceVersionToken();
     const logReference = window._newDocRef(LOG_COLLECTION_NAME);
     const references = inputs.map(input=>({
       input,
       employeeReference:window._docRef('productionEmployees',input.employeeId),
-      attendanceReference:window._docRef(COLLECTION_NAME,attendanceDocumentId(input.attendanceDate,input.employeeId))
+      attendanceReference:window._docRef(COLLECTION_NAME,attendanceDocumentId(input.attendanceDate,input.employeeId)),
+      monthReference:guards.monthReference(input.attendanceDate),
+      daySummaryReference:guards.daySummaryReference(input.attendanceDate,input.employeeId)
     }));
     const savedRows = [];
     await window._runTransaction(async transaction=>{
       const snapshots = await Promise.all(references.flatMap(item=>[
-        transaction.get(item.employeeReference),transaction.get(item.attendanceReference)
+        transaction.get(item.employeeReference),transaction.get(item.attendanceReference),
+        transaction.get(item.monthReference),transaction.get(item.daySummaryReference)
       ]));
       references.forEach((item,index)=>{
-        const employeeSnapshot = snapshots[index*2];
-        const attendanceSnapshot = snapshots[index*2+1];
+        const employeeSnapshot = snapshots[index*4];
+        const attendanceSnapshot = snapshots[index*4+1];
+        const monthSnapshot = snapshots[index*4+2];
+        const daySummarySnapshot = snapshots[index*4+3];
+        guards.assertEditableMonthSnapshot(monthSnapshot);
         if(!employeeSnapshot.exists()) throw new Error('Không tìm thấy nhân viên. / 找不到員工資料。');
         const employee = employeeSnapshot.data();
         const current = attendanceSnapshot.exists() ? attendanceSnapshot.data() : null;
         if(!current && employee.active !== true){
           throw new Error('Không thể tạo chấm công mới cho nhân viên đã ngừng sử dụng. / 不能為已停用員工新增考勤。');
+        }
+        const summary=guards.summaryValues(daySummarySnapshot);
+        const workedHours=item.input.normalHours+item.input.overtimeHours;
+        if(summary.activeEntryCount>0&&workedHours<=0){
+          throw new Error('Đã có sản lượng trong ngày nên không thể đổi chấm công về 0 giờ. / 當日已有產能，考勤不能改成0小時。');
+        }
+        if(summary.activeSupplementHours>workedHours){
+          throw new Error(`Đã có ${summary.activeSupplementHours} giờ bổ sung; không thể giảm chấm công thấp hơn mức này. / 已有 ${summary.activeSupplementHours} 小時有效補充工時，考勤不得調低於此數。`);
         }
         const attendanceId = attendanceDocumentId(item.input.attendanceDate,item.input.employeeId);
         const saved = {
@@ -248,6 +264,9 @@
         savedRows.map(row=>({field:'attendanceId',before:null,after:row.attendanceId})),
         now
       ));
+      const first=inputs[0];
+      transaction.set(guards.monthSourceVersionReference(first.attendanceDate),
+        guards.attendanceMonthSourceVersionData(first.attendanceDate,sourceVersion,now,currentUserId()),{merge:true});
     });
     return savedRows;
   }
@@ -308,16 +327,28 @@
   }
 
   async function deleteAttendance(attendanceId){
+    const guards = window.PCMSProductionGuards;
     if(window.cu?.role !== 'admin') throw new Error('Chỉ quản trị viên mới được xóa chấm công. / 只有管理員可以刪除考勤。');
     const reference = window._docRef(COLLECTION_NAME,normalizeText(attendanceId));
     const logReference = window._newDocRef(LOG_COLLECTION_NAME);
     let deleted = null;
     const now = Date.now();
+    const sourceVersion=guards.sourceVersionToken();
     await window._runTransaction(async transaction=>{
       const snapshot = await transaction.get(reference);
       if(!snapshot.exists()) throw new Error('Không tìm thấy dữ liệu chấm công. / 找不到考勤資料。');
       deleted = {id:snapshot.id,...snapshot.data()};
+      const [monthSnapshot,daySummarySnapshot]=await Promise.all([
+        transaction.get(guards.monthReference(deleted.attendanceDate)),
+        transaction.get(guards.daySummaryReference(deleted.attendanceDate,deleted.employeeId))
+      ]);
+      guards.assertEditableMonthSnapshot(monthSnapshot);
+      if(guards.summaryValues(daySummarySnapshot).activeEntryCount>0){
+        throw new Error('Đã có sản lượng trong ngày nên không thể xóa chấm công. Hãy hủy sản lượng trước. / 當日已有產能，不能刪除考勤；請先作廢產能。');
+      }
       transaction.delete(reference);
+      transaction.set(guards.monthSourceVersionReference(deleted.attendanceDate),
+        guards.attendanceMonthSourceVersionData(deleted.attendanceDate,sourceVersion,now,currentUserId()),{merge:true});
       transaction.set(logReference,operationLogData(
         'productionAttendanceDelete',1,deleted.attendanceId,
         [{field:'attendanceId',before:deleted.attendanceId,after:null}],now

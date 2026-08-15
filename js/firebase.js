@@ -125,6 +125,7 @@ const DATA_VERSION_COLLECTION = 'dataVersions'; // DATA_VERSION_COLLECTION（分
 const DATA_VERSION_SCHEMA_VERSION = 1;
 const CACHEABLE_COLLECTIONS = new Set([
   'orders','orderProcesses','productionEmployees','productionDepartments','productionEntries',
+  'productionAttendance','productGroups',
   'performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths'
 ]); // CACHEABLE_COLLECTIONS（允許使用資料版本快取的集合）
 const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','performanceBonusSettings']);
@@ -469,10 +470,14 @@ function appendDataVersionWrite(writer,scopesOrChange){
     ?createDataVersionChange(scopesOrChange)
     :scopesOrChange; // change（本次資料版本異動）：可沿用已建立的同一組版本代碼。
   if(change.scopes.length){
-    writer.set(doc(db,'system',DATA_VERSIONS_KEY),change.updates,{merge:true});
-    if(scopedDataVersionCapability==='available'){
-      change.documents.forEach(item=>writer.set(doc(db,DATA_VERSION_COLLECTION,item.scope),item));
+    const legacyScopes=change.scopes.filter(scope=>scope!=='productionEntries');
+    if(legacyScopes.length){
+      const legacyUpdates={updatedAt:change.updates.updatedAt,updatedBy:change.updates.updatedBy};
+      legacyScopes.forEach(scope=>{ legacyUpdates[scope]=change.updates[scope]; });
+      writer.set(doc(db,'system',DATA_VERSIONS_KEY),legacyUpdates,{merge:true});
     }
+    // 分範圍版本已是正式來源；產能登記省略舊總表可避免複合交易超過安全規則運算上限。
+    change.documents.forEach(item=>writer.set(doc(db,DATA_VERSION_COLLECTION,item.scope),item));
   }
   return change;
 }
@@ -1213,8 +1218,10 @@ window._setDoc     = async (ref,data,opts) => {
 window._increment  = (n)           => increment(n);
 window._serverTimestamp = ()        => serverTimestamp();
 window._deleteField = ()            => deleteField();
-window._runTransaction = async (fn) => {
+window._runTransaction = async (fn,options={}) => {
+  const skipDataVersions=options?.skipDataVersions===true;
   let committedVersionChange=createDataVersionChange([]); // committedVersionChange（最後成功交易的資料版本異動）
+  let refreshProductionEntries=false;
   const result=await runTransaction(db,async rawTransaction=>{
     const scopes=new Set();
     const trackedTransaction={
@@ -1236,13 +1243,21 @@ window._runTransaction = async (fn) => {
       }
     };
     const transactionResult=await fn(trackedTransaction); // transactionResult（功能交易回傳結果）
-    committedVersionChange=appendDataVersionWrite(rawTransaction,[...scopes]);
+    committedVersionChange=createDataVersionChange(skipDataVersions?[]:[...scopes]);
+    refreshProductionEntries=scopes.has('productionEntries');
+    // 產能月份版本已由功能交易同步寫入；大型產能交易完成後再自動補寫小型快取版本，避免安全規則超過運算上限。
+    if(!skipDataVersions) appendDataVersionWrite(rawTransaction,[...scopes].filter(scope=>scope!=='productionEntries'));
     return transactionResult;
   });
   await finishDataVersionChange(committedVersionChange);
+  if(refreshProductionEntries&&!skipDataVersions){
+    try{ await touchDataVersions(['productionEntries']); }
+    catch(error){ console.warn('產能已儲存，但跨頁快取版本通知失敗：',error); }
+  }
   return result;
 };
-window._writeBatch = () => {
+window._writeBatch = (options={}) => {
+  const skipDataVersions=options?.skipDataVersions===true;
   const rawBatch=writeBatch(db);
   const scopes=new Set();
   const trackedBatch={
@@ -1262,9 +1277,15 @@ window._writeBatch = () => {
       return trackedBatch;
     },
     commit:async()=>{
-      const versionChange=appendDataVersionWrite(rawBatch,[...scopes]); // versionChange（同批資料版本異動）
+      const versionChange=createDataVersionChange(skipDataVersions?[]:[...scopes]); // versionChange（本次資料版本異動）
+      const refreshProductionEntries=scopes.has('productionEntries');
+      if(!skipDataVersions) appendDataVersionWrite(rawBatch,[...scopes].filter(scope=>scope!=='productionEntries'));
       await rawBatch.commit();
       await finishDataVersionChange(versionChange);
+      if(refreshProductionEntries&&!skipDataVersions){
+        try{ await touchDataVersions(['productionEntries']); }
+        catch(error){ console.warn('產能已儲存，但跨頁快取版本通知失敗：',error); }
+      }
     }
   };
   return trackedBatch;

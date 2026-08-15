@@ -1,4 +1,4 @@
-// bonus-settings-page（績效獎金參數頁）：只在成本管理顯示保密參數、發布結果與鎖定月份公司損益。
+// bonus-settings-page（績效獎金參數頁）：顯示保密參數，並在開頁時核對試算結果與公司損益。
 (function(){
   'use strict';
 
@@ -22,7 +22,7 @@
   }
   function toast(message){ ui().showToast({kind:'success',message}); }
   function setBusy(busy){
-    ['performance-bonus-settings-save','performance-bonus-calculate'].forEach(id=>{ const button=el(id); if(button) button.disabled=busy; });
+    ['performance-bonus-settings-save'].forEach(id=>{ const button=el(id); if(button) button.disabled=busy; });
   }
   function renderShell(){
     const root=el('performance-bonus-settings-root');
@@ -48,7 +48,6 @@
           <div class="performance-bonus-month-command ui-command-row">
             <label class="performance-bonus-field"><span class="ui-dual-copy"><strong>Tháng tính thưởng</strong><span>獎金月份</span></span><input type="month" id="performance-bonus-settings-month"></label>
             <div class="performance-bonus-month-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>結算狀態</span></span><span id="performance-bonus-settings-status"><span class="ui-dual-copy"><strong>—</strong><span>—</span></span></span></div>
-            <button type="button" class="ui-button is-primary" id="performance-bonus-calculate"><i class="ti ti-calculator"></i><span class="ui-dual-copy"><strong>Tính lại và công bố</strong><span>重新計算並發布</span></span></button>
           </div>
           <div class="ui-notice" id="performance-bonus-settings-note" hidden></div>
         </section>
@@ -84,7 +83,7 @@
     note.hidden=false;
     note.replaceChildren(window.PCMSUIText.create(metadata
       ?{vi:`Lần tính gần nhất: ${new Date(Number(metadata.calculatedAt)||0).toLocaleString('vi-VN')}`,zh:`最近計算：${new Date(Number(metadata.calculatedAt)||0).toLocaleString('zh-TW')}`}
-      :{vi:'Tháng này chưa được tính và công bố.',zh:'此月份尚未計算與發布。'}));
+      :{vi:'Tháng này chưa có kết quả tính thử.',zh:'此月份尚無試算結果。'}));
     el('performance-bonus-company-empty').hidden=Boolean(locked);
     el('performance-bonus-company-metrics').hidden=!locked;
     if(!locked) return;
@@ -104,10 +103,10 @@
     state.month=month;
     const request=++state.request;
     try{
-      const [publicMonth,privateMonth]=await Promise.all([store().loadMonth(month,{force:true}),store().loadPrivateMonth(month,{force:true})]);
+      const publicMonth=await store().loadMonth(month,{force:true,includePrivate:true,settings:state.settings});
       if(request!==state.request) return;
       state.metadata=publicMonth.metadata;
-      state.privateMonth=privateMonth;
+      state.privateMonth=publicMonth.privateMonth;
       renderMonth();
     }catch(error){ if(request===state.request) await showError(error); }
   }
@@ -121,20 +120,7 @@
           efficiencyCap:el('performance-bonus-efficiency-cap').value
         });
         fillSettings(saved);
-        toast({vi:'Đã lưu tham số thưởng hiệu suất.',zh:'績效獎金參數已儲存。'});
-      }catch(error){ await showError(error); }
-      finally{ setBusy(false); }
-    });
-  }
-  async function calculateMonth(){
-    return ui().runActionOnce('performanceBonus.month.calculate',async()=>{
-      setBusy(true);
-      try{
-        if(!(Number(state.settings?.revision)>0)){
-          throw new Error('Vui lòng lưu tham số trước khi tính thưởng. / 請先儲存獎金參數，再進行計算。');
-        }
-        await store().calculateAndPublishMonth(el('performance-bonus-settings-month').value);
-        toast({vi:'Đã tính lại và công bố thưởng tháng.',zh:'月份獎金已重新計算並發布。'});
+        toast({vi:'Đã lưu tham số và hoàn tất tự động cập nhật các tháng chưa khóa.',zh:'參數已儲存，未鎖定月份已自動更新完成。'});
         await loadMonth();
       }catch(error){ await showError(error); }
       finally{ setBusy(false); }
@@ -143,7 +129,6 @@
   function bind(){
     el('performance-bonus-company-share').addEventListener('input',syncEmployeeShare);
     el('performance-bonus-settings-save').addEventListener('click',()=>void saveSettings());
-    el('performance-bonus-calculate').addEventListener('click',()=>void calculateMonth());
     el('performance-bonus-settings-month').addEventListener('change',()=>void loadMonth());
   }
   async function loadPerformanceBonusSettingsData(options={}){
