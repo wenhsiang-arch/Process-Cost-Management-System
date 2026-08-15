@@ -1222,7 +1222,8 @@
       if(!supplement&&window.PCMSQuickProcessSeconds){
         secondsCell.replaceChildren(window.PCMSQuickProcessSeconds.createButton({
           value:numberText(item.processSecSnapshot),code:item.productCode,processNo:item.processNo,
-          processNameVi:item.processNameVi,displayedSeconds:Number(item.processSecSnapshot)||0,source:'productionEntry'
+          processNameVi:item.processNameVi,displayedSeconds:Number(item.processSecSnapshot)||0,source:'productionEntry',
+          onSaved:refreshAfterProcessSecondsSaved
         }));
       }
       appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacitySnapshot),'production-number-cell','hourlyCapacity');
@@ -1280,6 +1281,28 @@
       renderDailyRows([]);
       await showError(error);
     }
+  }
+
+  // refreshAfterProcessSecondsSaved（工序秒數儲存後刷新）：正式訂正完成時立即換掉畫面與目前工序的舊資料。
+  async function refreshAfterProcessSecondsSaved(result={}){
+    const affectedCodes=new Set((result.items||[]).map(item=>String(item?.code||'').trim()).filter(Boolean));
+    const selectedCode=String(state.product?.code||'').trim();
+    if(state.orderReady&&state.order?.id&&selectedCode&&affectedCodes.has(selectedCode)){
+      try{
+        await window.PCMSProductionEntryStore.loadProcesses(state.order.id,{force:true});
+        if(state.process){
+          const refreshed=window.PCMSProductionEntryStore.findProcess(state.order.id,selectedCode,state.process.processNo);
+          if(refreshed){
+            state.process=refreshed;
+            setProcessName(refreshed);
+            await loadQuantityProgress(refreshed);
+          }
+        }
+      }catch(error){
+        console.warn('工序秒數已儲存，但目前訂單工序重新載入失敗：',error);
+      }
+    }
+    await loadDailyRows();
   }
 
   function setRecordDateFilter(value=''){

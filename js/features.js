@@ -26,7 +26,7 @@
     productionEntryStore:'js/production/entry-store.js?v=20260815-1',
     productionReportStore:'js/production/report-store.js?v=20260814-2',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260815-1',
-    productionEntry:'js/production/production-entry.js?v=20260814-5',
+    productionEntry:'js/production/production-entry.js?v=20260815-3',
     productionRecords:'js/production/production-records.js?v=20260814-2',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-2',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260815-2',
