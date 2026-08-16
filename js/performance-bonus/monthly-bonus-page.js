@@ -51,8 +51,15 @@
       productionEntries:{vi:'Sản lượng',zh:'產能紀錄'},
       productionDaySummaries:{vi:'Tóm tắt ngày',zh:'每日摘要'},
       productionEmployeeMonths:{vi:'Tóm tắt nhân viên theo tháng',zh:'員工月摘要'},
-      productionMonths:{vi:'Trạng thái tháng',zh:'月份狀態'}
+      productionMonths:{vi:'Trạng thái tháng',zh:'月份狀態'},
+      productionProcessTotals:{vi:'Tổng số lượng công đoạn',zh:'工序累計'},
+      performanceBonusAdjustments:{vi:'Điều chỉnh thưởng',zh:'獎金人工調整'},
+      performanceBonusMonths:{vi:'Tóm tắt thưởng tháng',zh:'月份獎金摘要'},
+      performanceBonusPrivateMonths:{vi:'Tóm tắt thưởng riêng',zh:'私密獎金摘要'}
     };
+    if(String(collectionName||'').startsWith('performanceBonusMonths/')){
+      return language==='vi'?'Kết quả thưởng theo nhân viên':'員工獎金結果';
+    }
     return labels[collectionName]?.[language]||(language==='vi'?'Dữ liệu cần kiểm tra':'需要檢查的資料');
   }
   function issueLines(issues,language){
@@ -276,20 +283,31 @@
     try{ plan=await window.PCMSProductionSummaryMigration.loadTestResetPlan(); }
     catch(error){ await showError(error,{vi:'Kiểm tra dữ liệu thử tháng 08/2026',zh:'檢查 2026/08 測試資料'}); return; }
     const totalSource=plan.counts.entries+plan.counts.attendance;
+    const totalDerived=plan.counts.daySummaries+plan.counts.employeeMonths+plan.counts.bonusAdjustments
+      +plan.counts.bonusEmployees+plan.counts.bonusMonths;
+    const totalRemaining=totalSource+totalDerived+plan.counts.totals;
+    const resumeNote=totalSource===0&&totalDerived>0
+      ?{
+        vi:'Dữ liệu nguồn đã hết, nhưng vẫn còn dữ liệu tóm tắt phát sinh. Nút này sẽ tiếp tục dọn phần còn lại, không tạo lại dữ liệu đã xóa.',
+        zh:'來源資料已清空，但仍有衍生摘要；這個按鈕會繼續清除剩餘資料，不會重建已刪除內容。'
+      }
+      :{vi:'Nếu thao tác dừng giữa chừng, có thể nhấn lại nút này để tiếp tục phần còn lại.',zh:'若操作中途停止，可以再次按此按鈕繼續清除剩餘資料。'};
     const first=await ui().confirmDialog({
       title:{vi:'Xác nhận xóa dữ liệu thử tháng 08/2026',zh:'確認清除 2026/08 測試資料'},kind:'danger',
       body:ui().createLanguageSections({
-        vi:`Sẽ xóa vĩnh viễn ${plan.counts.entries} bản ghi sản lượng thử, ${plan.counts.attendance} bản ghi chấm công thử và các tóm tắt phát sinh. Không xóa nhân viên, mã hàng, công đoạn, đơn hàng, quyền hoặc cài đặt.`,
-        zh:`將永久刪除 ${plan.counts.entries} 筆測試產能、${plan.counts.attendance} 筆測試考勤及其衍生摘要；不會刪除員工、款號、工序、訂單、權限或設定。`
+        vi:`Dữ liệu nguồn còn lại: ${plan.counts.entries} sản lượng, ${plan.counts.attendance} chấm công.\nDữ liệu phát sinh còn lại: ${plan.counts.daySummaries} tóm tắt ngày, ${plan.counts.employeeMonths} tóm tắt nhân viên tháng, ${plan.counts.bonusAdjustments} điều chỉnh thưởng, ${plan.counts.bonusEmployees} kết quả thưởng nhân viên, ${plan.counts.bonusMonths} tài liệu thưởng tháng.\nTổng số công đoạn cần đối chiếu: ${plan.counts.totals}.\n\n${resumeNote.vi}\n\nKhông xóa nhân viên, mã hàng, công đoạn, đơn hàng, quyền hoặc cài đặt.`,
+        zh:`剩餘來源：${plan.counts.entries} 筆產能、${plan.counts.attendance} 筆考勤。\n剩餘衍生資料：${plan.counts.daySummaries} 筆每日摘要、${plan.counts.employeeMonths} 筆員工月摘要、${plan.counts.bonusAdjustments} 筆獎金調整、${plan.counts.bonusEmployees} 筆員工獎金結果、${plan.counts.bonusMonths} 筆月份獎金文件。\n需核對的工序累計：${plan.counts.totals} 筆。\n\n${resumeNote.zh}\n\n不會刪除員工、款號、工序、訂單、權限或設定。`
       }),confirmText:{vi:'Tiếp tục kiểm tra',zh:'繼續確認'}
     });
     if(!first) return;
     const second=await ui().confirmDialog({
       title:{vi:'Xác nhận lần cuối',zh:'最後確認'},kind:'danger',
       body:ui().createLanguageSections({
-        vi:`Đây là thao tác không thể hoàn tác. Tổng cộng ${totalSource} bản ghi nguồn thử sẽ bị xóa.`,
-        zh:`這項操作無法復原，共 ${totalSource} 筆測試來源資料將被刪除。`
-      }),confirmText:{vi:'Xóa dữ liệu thử',zh:'清除測試資料'}
+        vi:`Đây là thao tác không thể hoàn tác. Hiện còn ${totalRemaining} mục cần xóa hoặc đối chiếu.`,
+        zh:`這項操作無法復原，目前共有 ${totalRemaining} 項資料需要清除或核對。`
+      }),confirmText:totalSource===0&&totalDerived>0
+        ?{vi:'Tiếp tục dọn dữ liệu còn lại',zh:'繼續清除剩餘資料'}
+        :{vi:'Xóa dữ liệu thử',zh:'清除測試資料'}
     });
     if(!second) return;
     const progress=ui().progressDialog({
@@ -299,13 +317,17 @@
     try{
       const result=await window.PCMSProductionSummaryMigration.resetAugustTestData({plan,
         onProgress:item=>progress.update({value:item.total?item.completed/item.total*100:1,
-          text:{vi:`Đã xử lý ${item.completed}/${item.total} mục...`,zh:`已處理 ${item.completed}/${item.total} 項…`}})});
+          text:{
+            vi:`${item.stageVi||'Đang xử lý'}: ${item.completed}/${item.total} mục...`,
+            zh:`${item.stageZh||'正在處理'}：${item.completed}/${item.total} 項…`
+          }})});
       progress.complete({vi:'Đã xóa dữ liệu thử tháng 08/2026.',zh:'2026/08 測試資料已清除。'});
       ui().showToast({kind:'success',message:{vi:`Đã xóa và đối chiếu ${result.writtenCount} mục.`,zh:`已清除並核對 ${result.writtenCount} 項資料。`}});
       await loadMonth();
     }catch(error){
       progress.fail({vi:'Xóa chưa hoàn tất; tháng đã tự trở lại trạng thái mở.',zh:'清除尚未完成；月份已自動恢復開放。'});
       await showError(error,{vi:'Xóa dữ liệu thử tháng 08/2026',zh:'清除 2026/08 測試資料'});
+      await loadMonth().catch(loadError=>console.error('[月績效] 清除失敗後重新載入月份資料失敗',loadError));
     }finally{ window.setTimeout(()=>progress.close(),1000); }
   }
   function monthDates(month){

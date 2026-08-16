@@ -588,19 +588,33 @@
       }
     };
   }
-  function resetDeleteItems(plan){
-    const items=[];
-    const add=(collection,rows)=>rows.forEach(row=>items.push({reference:window._docRef(collection,row.id),mode:'delete'}));
-    add(ENTRY_COLLECTION,plan.entries);
-    add(ATTENDANCE_COLLECTION,plan.attendanceRows);
-    add(DAY_SUMMARY_COLLECTION,plan.daySummaries);
-    add(EMPLOYEE_MONTH_COLLECTION,plan.employeeMonths);
-    add(BONUS_ADJUSTMENT_COLLECTION,plan.adjustments);
-    plan.bonusEmployees.forEach(row=>items.push({
-      reference:window._docRef(`${BONUS_MONTH_COLLECTION}/${RESET_MONTH}/employees`,row.id),mode:'delete'
-    }));
-    plan.directDocuments.forEach(item=>items.push({reference:window._docRef(item.collection,item.id),mode:'delete'}));
-    return items;
+  function resetDeleteGroups(plan){
+    const groups=[];
+    const add=(key,collection,labels,rows,mode='delete')=>{
+      const items=(rows||[]).map(row=>({reference:window._docRef(collection,row.id),mode,data:row.data}));
+      if(items.length) groups.push({key,collection,...labels,items});
+    };
+    const bonusEmployeeCollection=`${BONUS_MONTH_COLLECTION}/${RESET_MONTH}/employees`;
+    // 先刪除可重建衍生資料，最後才刪除正式來源；中途失敗時不會先失去來源。
+    add('bonusEmployees',bonusEmployeeCollection,
+      {stageVi:'Kết quả thưởng theo nhân viên',stageZh:'員工獎金結果'},plan.bonusEmployees);
+    add('bonusAdjustments',BONUS_ADJUSTMENT_COLLECTION,
+      {stageVi:'Điều chỉnh thưởng',stageZh:'獎金人工調整'},plan.adjustments);
+    add('bonusPrivateMonths',BONUS_PRIVATE_COLLECTION,
+      {stageVi:'Tóm tắt thưởng riêng',stageZh:'私密獎金摘要'},
+      plan.directDocuments.filter(item=>item.collection===BONUS_PRIVATE_COLLECTION));
+    add('bonusMonths',BONUS_MONTH_COLLECTION,
+      {stageVi:'Tóm tắt thưởng tháng',stageZh:'月份獎金摘要'},
+      plan.directDocuments.filter(item=>item.collection===BONUS_MONTH_COLLECTION));
+    add('employeeMonths',EMPLOYEE_MONTH_COLLECTION,
+      {stageVi:'Tóm tắt nhân viên theo tháng',stageZh:'員工月摘要'},plan.employeeMonths);
+    add('daySummaries',DAY_SUMMARY_COLLECTION,
+      {stageVi:'Tóm tắt hiệu suất ngày',stageZh:'每日績效摘要'},plan.daySummaries);
+    add('attendance',ATTENDANCE_COLLECTION,
+      {stageVi:'Chấm công thử',stageZh:'測試考勤'},plan.attendanceRows);
+    add('entries',ENTRY_COLLECTION,
+      {stageVi:'Sản lượng thử',stageZh:'測試產能'},plan.entries);
+    return groups;
   }
   function resetTotalData(item,currentActor){
     const current=item.current||{};
@@ -625,9 +639,12 @@
         throw new Error('Trạng thái tháng không cho phép xóa dữ liệu thử nghiệm. / 月份狀態不允許清除測試資料。');
       }
       const revision=Math.max(1,Math.max(0,Math.round(number(current.revision)))+(current.status==='migrating'?0:1));
+      const enteringReset=current.status!=='migrating';
+      const resetToken=`reset-${RESET_MONTH}-${currentActor.updatedAt}`;
       transaction.set(controlReference,{
         ...current,month:RESET_MONTH,status:'migrating',summaryReady:false,revision,
-        entriesVersion:text(current.entriesVersion)||'0',attendanceVersion:text(current.attendanceVersion)||'0',
+        entriesVersion:enteringReset?`${resetToken}-entries`:(text(current.entriesVersion)||'0'),
+        attendanceVersion:enteringReset?`${resetToken}-attendance`:(text(current.attendanceVersion)||'0'),
         summaryVersion:text(current.summaryVersion)||'0',...currentActor,schemaVersion:2
       });
       transaction.set(stateReference,{
@@ -659,16 +676,44 @@
       },{skipDataVersions:true});
     }catch(_error){ /* 下一次人工按鈕可重新嘗試，不建立自動無限重試。 */ }
   }
-  async function writeResetItems(items,onProgress){
+  function resetWriteError(error,group,chunk,batchNumber,completed,total){
+    const documentIds=chunk.map(item=>text(item.reference?.id)).filter(Boolean);
+    const result=new Error(
+      `Việc xóa dừng ở mục ${group.stageVi}. Dữ liệu đã xóa sẽ không bị xử lý lại; hãy nhấn lại cùng nút để tiếp tục phần còn lại.`
+      +` / 清除停在「${group.stageZh}」。已完成的資料不會重做；請再次按同一按鈕繼續剩餘資料。`
+    );
+    result.code=text(error?.code)||'test-reset-write-failed';
+    result.cause=error;
+    result.completedWrites=completed;
+    result.userIssues=[issue('test-reset-write',group.collection,documentIds[0],{
+      vi:`Không thể xóa ${group.stageVi}; vui lòng nhấn lại nút xóa để tiếp tục sau khi kiểm tra quyền.`,
+      zh:`無法清除${group.stageZh}；確認權限後，可再次按清除按鈕繼續。`
+    })];
+    result.technical={
+      stage:group.key,collection:group.collection,documentIds,batchNumber,
+      completed,total,raw:rawFirebaseError(error)
+    };
+    return result;
+  }
+  async function writeResetGroups(groups,onProgress){
     let completed=0;
-    // 一次性安全清除會跨多個集合；小批次避免每筆刪除的 Rules 驗證累加超過上限。
-    for(let index=0;index<items.length;index+=RESET_WRITE_LIMIT){
-      const chunk=items.slice(index,index+RESET_WRITE_LIMIT);
-      const batch=window._writeBatch({skipDataVersions:true});
-      chunk.forEach(item=>item.mode==='delete'?batch.delete(item.reference):batch.set(item.reference,item.data));
-      await batch.commit();
-      completed+=chunk.length;
-      onProgress?.({completed,total:items.length});
+    let batchNumber=0;
+    const total=groups.reduce((sum,group)=>sum+group.items.length,0);
+    // 每個集合各自分批，避免不同 Rules 分支在同一批要求中互相累加。
+    for(const group of groups){
+      for(let index=0;index<group.items.length;index+=RESET_WRITE_LIMIT){
+        const chunk=group.items.slice(index,index+RESET_WRITE_LIMIT);
+        const batch=window._writeBatch({skipDataVersions:true});
+        chunk.forEach(item=>item.mode==='delete'?batch.delete(item.reference):batch.set(item.reference,item.data));
+        batchNumber+=1;
+        try{ await batch.commit(); }
+        catch(error){ throw resetWriteError(error,group,chunk,batchNumber,completed,total); }
+        completed+=chunk.length;
+        onProgress?.({
+          completed,total,batchNumber,collection:group.collection,
+          stageVi:group.stageVi,stageZh:group.stageZh
+        });
+      }
     }
     return completed;
   }
@@ -688,16 +733,20 @@
     }
   }
   async function clearMonthCaches(month){
-    const cacheRows=await window.pcmsDataCache?.inspect?.()||[];
-    const scopes=cacheRows.map(item=>text(item.scope)).filter(scope=>
-      scope===`productionEmployeeMonths:${month}`
-      ||scope.startsWith(`productionEntriesQuery:`)
-      ||scope.startsWith(`productionAttendanceDay:${month}-`)
-      ||scope.startsWith(`productionAttendanceRecord:`)&&scope.includes(`:${month}-`)
-    );
-    await Promise.allSettled(scopes.map(scope=>window.pcmsDataCache?.remove(scope)));
-    window.PCMSProductionAttendanceStore?.resetMemory?.();
-    window.PCMSProductionReportStore?.resetMemory?.();
+    const scopes=new Set([`productionEmployeeMonths:${month}`]);
+    try{
+      const cacheRows=await window.pcmsDataCache?.inspect?.()||[];
+      cacheRows.map(item=>text(item.scope)).filter(scope=>
+        scope===`productionEmployeeMonths:${month}`
+        ||scope.startsWith('productionEntriesQuery:')
+        ||scope.startsWith(`productionAttendanceDay:${month}-`)
+        ||scope.startsWith('productionAttendanceRecord:')&&scope.includes(`:${month}-`)
+      ).forEach(scope=>scopes.add(scope));
+    }catch(error){ console.warn('[月份清除] 無法列出全部本機快取，仍會清除已知月份快取。',error); }
+    await Promise.allSettled([...scopes].map(scope=>window.pcmsDataCache?.remove?.(scope)));
+    window.PCMSProductionAttendance?.reset?.();
+    window.PCMSProductionReports?.reset?.();
+    window.PCMSProductionEntryStore?.reset?.();
     window.PCMSFeatures?.invalidateDataScopes?.([
       'productionEntries','productionAttendance','productionDaySummaries','productionEmployeeMonths',
       'productionMonths','productionProcessTotals','performanceBonusMonths','performanceBonusAdjustments'
@@ -711,15 +760,16 @@
       // begin 後重讀，避免確認期間新增的 8 月測試資料遺漏。
       const plan=await loadTestResetPlan();
       const currentActor=actor();
-      const items=resetDeleteItems(plan);
-      plan.totalPlans.forEach(item=>{
-        if(!item.current&&item.registeredQty===0) return;
-        items.push({
-          reference:window._docRef(TOTAL_COLLECTION,item.processId),mode:'set',
-          data:resetTotalData(item,currentActor)
-        });
+      const groups=resetDeleteGroups(plan);
+      const totalItems=plan.totalPlans.filter(item=>item.current||item.registeredQty!==0).map(item=>({
+        reference:window._docRef(TOTAL_COLLECTION,item.processId),mode:'set',
+        data:resetTotalData(item,currentActor)
+      }));
+      if(totalItems.length) groups.push({
+        key:'processTotals',collection:TOTAL_COLLECTION,
+        stageVi:'Đối chiếu tổng số lượng công đoạn',stageZh:'核對工序累計',items:totalItems
       });
-      const writtenCount=await writeResetItems(items,options.onProgress);
+      const writtenCount=await writeResetGroups(groups,options.onProgress);
       await verifyTestReset(plan.totalPlans);
       await window._runTransaction(async transaction=>{
         const controlReference=window._docRef(MONTH_COLLECTION,RESET_MONTH);
@@ -737,11 +787,14 @@
         transaction.delete(stateReference);
         transaction.delete(controlReference);
       },{skipDataVersions:true});
-      await clearMonthCaches(RESET_MONTH);
       return {...plan,writtenCount,cleared:true};
     }catch(error){
       await releaseFailedReset(error);
       throw error;
+    }finally{
+      // 無論成功或部分失敗都清除本機快取，避免畫面繼續顯示已刪除的舊資料。
+      try{ await clearMonthCaches(RESET_MONTH); }
+      catch(error){ console.warn('[月份清除] 本機快取清理未完整完成。',error); }
     }
   }
 
