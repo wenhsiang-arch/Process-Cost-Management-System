@@ -79,31 +79,35 @@ service cloud.firestore {
 
     // featureParentEnabled（主功能已開啟）：舊文件尚無主功能欄位時維持既有權限。
     function featureParentEnabled(features, feature) {
-      return (!(feature in ['summary', 'costView'])
+      return (!(feature in ['summary', 'costView', 'productionProcessEdit', 'processSecondsEdit'])
           || !('productsMain' in features)
           || features.productsMain == true)
-        && (!(feature in ['settings', 'costlog', 'export'])
+        && (!(feature in ['settings', 'performanceBonusSettings', 'costlog', 'export'])
           || !('costMain' in features)
           || features.costMain == true)
-        && (!(feature in ['productionEntry', 'productionRecords', 'productionEmployees'])
+        && (!(feature in ['productionEntry', 'productionRecords', 'productionAttendance', 'productionEmployees', 'performanceBonus', 'performanceBonusUnlock'])
           || !('productionMain' in features)
           || features.productionMain == true)
+        && (feature != 'cutting'
+          || ('preparationMain' in features && features.preparationMain == true))
         && (feature != 'export'
           || ('costMain' in features)
           || features.costView == true)
         && (feature != 'orderImport' || features.progress == true)
-        && (feature != 'costView' || features.summary == true);
+        && (feature != 'costView' || features.summary == true)
+        && (feature != 'processSecondsEdit'
+          || ('productionProcessEdit' in features && features.productionProcessEdit == true));
     }
 
     // configuredRoleHasFeature（可設定角色具有功能權限）
     function configuredRoleHasFeature(feature) {
       let roleId = accessDocument().role;
       let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
-      return exists(rolePath)
-        && get(rolePath).data.active == true
-        && get(rolePath).data.role == roleId
-        && get(rolePath).data.features[feature] == true
-        && featureParentEnabled(get(rolePath).data.features, feature);
+      let rolePermission = get(rolePath).data;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
+        && rolePermission.features[feature] == true
+        && featureParentEnabled(rolePermission.features, feature);
     }
 
     // hasFeature（具有功能權限）
@@ -111,28 +115,141 @@ service cloud.firestore {
       return isAdmin() || (isConfigurableRole() && configuredRoleHasFeature(feature));
     }
 
+    // hasProductionWriteFeature（產能寫入專用權限）：只檢查產能主功能與指定子功能，避免重算無關權限樹。
+    function hasProductionWriteFeature(feature) {
+      let access = accessDocument();
+      let roleId = access.role;
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return verifiedGoogleAccount()
+        && access.active == true
+        && (roleId == 'admin'
+          || (roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales']
+            && rolePermission.active == true
+            && rolePermission.role == roleId
+            && features[feature] == true
+            && (feature == 'processSecondsEdit'
+              ? (features.productionProcessEdit == true
+                && (!('productsMain' in features) || features.productsMain == true))
+              : (!('productionMain' in features) || features.productionMain == true))));
+    }
+
+    function productionEntryRoleEnabled() {
+      let access = accessDocument();
+      let rolePermission = get(/databases/$(database)/documents/rolePermissions/$(access.role)).data;
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email_verified == true
+        && access.active == true
+        && (access.role == 'admin'
+          || (rolePermission.active == true
+            && rolePermission.features.productionEntry == true
+            && (!('productionMain' in rolePermission.features)
+              || rolePermission.features.productionMain == true)));
+    }
+
+    // Transaction 讀取仍必須有登入、啟用帳號與一般報工權限；正式寫入另走完整 Google 驗證。
+    function productionEntryReadEnabled() {
+      let access = accessDocument();
+      let rolePermission = get(/databases/$(database)/documents/rolePermissions/$(access.role)).data;
+      return access.active == true
+        && (access.role == 'admin'
+          || (rolePermission.active == true
+            && rolePermission.features.productionEntry == true));
+    }
+
+    // canWriteProductionSourceVersion（可更新產能來源版本）：只讀一次角色文件，避免同批交易超過規則運算上限。
+    function canWriteProductionSourceVersion() {
+      let access = accessDocument();
+      let roleId = access.role;
+      let rolePermission = get(/databases/$(database)/documents/rolePermissions/$(roleId)).data;
+      let features = rolePermission.features;
+      return verifiedGoogleAccount()
+        && access.active == true
+        && (roleId == 'admin'
+          || (roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales']
+            && rolePermission.active == true
+            && rolePermission.role == roleId
+            && (((!('productionMain' in features) || features.productionMain == true)
+                && (features.productionEntry == true || features.productionRecords == true))
+              || (features.processSecondsEdit == true
+                && features.productionProcessEdit == true
+                && (!('productsMain' in features) || features.productsMain == true)))));
+    }
+
+    function canWriteAttendanceSourceVersion() {
+      let access = accessDocument();
+      let roleId = access.role;
+      let rolePermission = get(/databases/$(database)/documents/rolePermissions/$(roleId)).data;
+      let features = rolePermission.features;
+      return activeAccount()
+        && (roleId == 'admin'
+          || (roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales']
+            && rolePermission.active == true
+            && rolePermission.role == roleId
+            && features.productionAttendance == true
+            && (!('productionMain' in features) || features.productionMain == true)));
+    }
+
+    // canCalculatePerformanceBonus（可計算績效獎金）：一次讀取角色權限，避免同一規則重複展開完整權限樹。
+    function canCalculatePerformanceBonus() {
+      let access = accessDocument();
+      let roleId = access.role;
+      let rolePermission = get(/databases/$(database)/documents/rolePermissions/$(roleId)).data;
+      let features = rolePermission.features;
+      return activeAccount()
+        && (roleId == 'admin'
+          || (roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales']
+            && rolePermission.active == true
+            && rolePermission.role == roleId
+            && ((features.performanceBonus == true
+                && (!('productionMain' in features) || features.productionMain == true))
+              || (features.performanceBonusSettings == true
+                && (!('costMain' in features) || features.costMain == true)))));
+    }
+
+    // canManagePerformanceBonusSettings（可管理績效獎金參數）：保密參數及公司損益專用權限。
+    function canManagePerformanceBonusSettings() {
+      let access = accessDocument();
+      let roleId = access.role;
+      let rolePermission = get(/databases/$(database)/documents/rolePermissions/$(roleId)).data;
+      let features = rolePermission.features;
+      return activeAccount()
+        && (roleId == 'admin'
+          || (roleId in ['manager', 'clerk', 'productionDevelopment', 'productionControl', 'sales']
+            && rolePermission.active == true
+            && rolePermission.role == roleId
+            && features.performanceBonusSettings == true
+            && (!('costMain' in features) || features.costMain == true)));
+    }
+
     // validShortString（短文字安全檢查）
     function validShortString(value, maximumLength) {
       return value is string && value.size() > 0 && value.size() <= maximumLength;
     }
 
-    // 功能識別：progress（訂單資料）、sync（工序秒數同步）
+    // 功能識別：progress（訂單資料）
     // accounts（帳號管理）、export（匯出）、costView（查看工價）、settings（成本設定）、costlog（成本記錄）
-    // productsMain（款號管理主功能）、summary（款號總表）、orderImport（訂單匯入）、cutting（裁帶統計）
+    // productsMain（款號管理主功能）、summary（款號總表）、orderImport（訂單匯入）、preparationMain（備料主功能）、cutting（裁帶統計）
     // costMain（成本管理主功能）、productionMain（產能主功能）
-    // productionEntry（生產登記）、productionRecords（生產紀錄）、productionEmployees（產能員工資料）
+    // productionEntry（生產登記）、productionRecords（生產紀錄）、productionAttendance（產能考勤）、productionEmployees（產能員工資料）
+    // productionProcessEdit（工序修改）、processSecondsEdit（修改正式工序標準敏感權限）、productionAnalysis（生產分析）
     // validFeatureMap（功能權限欄位檢查）
     function validFeatureMap(features) {
       return features is map
         && features.keys().hasAll([
           'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-          'summary', 'orderImport', 'cutting', 'sync', 'costMain',
-          'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees'
+          'summary', 'orderImport', 'preparationMain', 'cutting', 'costMain',
+          'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees',
+          'performanceBonus', 'performanceBonusUnlock', 'performanceBonusSettings'
         ])
         && features.keys().hasOnly([
           'progress', 'accounts', 'export', 'costView', 'costlog', 'productsMain',
-          'summary', 'orderImport', 'cutting', 'sync', 'costMain', 'settings',
-          'productionMain', 'productionEntry', 'productionRecords', 'productionEmployees'
+          'summary', 'orderImport', 'preparationMain', 'cutting', 'sync', 'costMain', 'settings',
+          'productionMain', 'productionEntry', 'productionRecords', 'productionAttendance',
+          'productionEmployees', 'productionProcessEdit', 'processSecondsEdit', 'productionAnalysis',
+          'performanceBonus', 'performanceBonusUnlock', 'performanceBonusSettings'
         ])
         && features.progress is bool
         && features.accounts is bool
@@ -142,13 +259,21 @@ service cloud.firestore {
         && features.productsMain is bool
         && features.summary is bool
         && features.orderImport is bool
+        && features.preparationMain is bool
         && features.cutting is bool
-        && features.sync is bool
+        && (!('sync' in features) || features.sync is bool)
         && features.costMain is bool
         && features.productionMain is bool
         && features.productionEntry is bool
         && features.productionRecords is bool
+        && (!('productionAttendance' in features) || features.productionAttendance is bool)
         && features.productionEmployees is bool
+        && (!('productionProcessEdit' in features) || features.productionProcessEdit is bool)
+        && (!('processSecondsEdit' in features) || features.processSecondsEdit is bool)
+        && (!('productionAnalysis' in features) || features.productionAnalysis is bool)
+        && features.performanceBonus is bool
+        && features.performanceBonusUnlock is bool
+        && features.performanceBonusSettings is bool
         && (!('settings' in features) || features.settings is bool)
         && features.accounts == false;
     }
@@ -304,9 +429,52 @@ service cloud.firestore {
             'cuttingTemplateImport', 'cuttingTemplateDelete',
              'cuttingExcelExport', 'cuttingPdfExport'
           ])
+        || (permissionKey == 'productionEmployees'
+          && feature == 'production'
+          && action in [
+            'productionEmployeeDelete', 'productionDepartmentCreate',
+            'productionDepartmentRename', 'productionDepartmentStatus',
+            'productionDepartmentDelete'
+          ])
         || (permissionKey == 'productionRecords'
           && feature == 'production'
-          && action in ['productionEntryUpdate', 'productionEntryVoid']);
+          && action in [
+            'productionEntryVoid', 'productionEntryDelete', 'productionSummaryMigration'
+          ])
+        || (permissionKey == 'productionAttendance'
+          && feature == 'production'
+          && action in [
+            'productionAttendanceSave', 'productionAttendanceDelete'
+          ])
+        || (permissionKey == 'productionAnalysis'
+          && feature == 'productionAnalysis'
+          && action in [
+            'productionAnalysisExport', 'productionAnalysisPrint'
+          ])
+        || (permissionKey == 'productionProcessEdit'
+          && feature == 'productionProcessEdit'
+          && action in [
+             'productGroupCreate', 'productGroupMembersUpdate', 'productGroupRename', 'productGroupDelete',
+             'productProcessEdit', 'productVersionExport', 'orderProcessSnapshotSync',
+             'productionEntryStandardCorrection'
+          ])
+        || (permissionKey == 'systemMonitor'
+          && feature == 'systemMonitor'
+          && action in ['userLogin', 'userLogout'])
+        || (permissionKey == 'systemMonitor'
+          && feature == 'accounts'
+          && action in [
+            'accountCreate', 'accountUpdate', 'accountDelete', 'rolePermissionsUpdate'
+          ])
+        || (permissionKey == 'performanceBonusSettings'
+          && feature == 'performanceBonusSettings'
+          && action in ['performanceBonusSettingsUpdate', 'performanceBonusCalculate'])
+        || (permissionKey == 'performanceBonus'
+          && feature == 'performanceBonus'
+          && action in [
+            'performanceBonusCalculate', 'performanceBonusAdjustment', 'performanceBonusLock', 'performanceBonusExport',
+            'performanceBonusPaid', 'performanceBonusUnlock'
+          ]);
     }
 
     // validOperationLog（每次操作一筆且建立後不可變更的操作紀錄）
@@ -343,28 +511,147 @@ service cloud.firestore {
             && request.resource.data.note.size() <= 500));
     }
 
+    function validCoreProductionOperationLog() {
+      let data = request.resource.data;
+      let attendanceAction = data.permissionKey == 'productionAttendance'
+        && data.action == 'productionAttendanceSave';
+      let recordAction = data.permissionKey == 'productionRecords'
+        && data.action in ['productionEntryVoid', 'productionEntryDelete'];
+      return data.feature == 'production'
+        && ((attendanceAction && hasProductionWriteFeature('productionAttendance'))
+          || (recordAction && hasProductionWriteFeature('productionRecords')))
+        && data.status in ['success', 'partial', 'failed']
+        && data.createdAt is int
+        && data.createdAt > 0
+        && data.createdByUid == request.auth.uid
+        && validShortString(data.createdBy, 200)
+        && validNonNegativeInteger(data.itemCount)
+        && validNonNegativeInteger(data.detailCount)
+        && (!('changes' in data) || (data.changes is list && data.changes.size() <= 50))
+        && (!('note' in data) || (data.note is string && data.note.size() <= 500));
+    }
+
     // canReadOperationLog（可讀取操作紀錄）：依紀錄所屬功能分頁判斷，不使用只限管理員的預設。
     function canReadOperationLog(permissionKey) {
-      return (permissionKey == 'summary' && hasFeature('summary'))
-        || (permissionKey == 'export' && hasFeature('export'))
-        || (permissionKey == 'costlog' && hasFeature('costlog'))
-        || (permissionKey in ['progress', 'orderImport'] && hasFeature('progress'))
-        || (permissionKey == 'cutting' && hasFeature('cutting'))
-        || (permissionKey == 'productionRecords' && hasFeature('productionRecords'));
+      let featureKey = permissionKey == 'orderImport' ? 'progress' : permissionKey;
+      return permissionKey in [
+          'summary', 'export', 'costlog', 'progress', 'orderImport', 'cutting',
+          'productionRecords', 'productionAttendance', 'productionEmployees',
+          'productionAnalysis', 'productionProcessEdit',
+          'performanceBonusSettings', 'performanceBonus'
+        ]
+        && hasFeature(featureKey);
     }
 
     // canCreateOperationLog（可建立操作紀錄）：只要可以執行該頁動作就可留下紀錄。
     function canCreateOperationLog() {
       let permissionKey = request.resource.data.permissionKey;
+      let feature = request.resource.data.feature;
       let action = request.resource.data.action;
-      return (permissionKey == 'summary' && hasFeature('summary'))
-        || (permissionKey == 'export' && hasFeature('export'))
-        || (permissionKey == 'costlog'
-          && action == 'costSettingsUpdate'
-          && hasFeature('settings'))
-        || (permissionKey in ['progress', 'orderImport'] && hasFeature('progress'))
-        || (permissionKey == 'cutting' && hasFeature('cutting'))
-        || (permissionKey == 'productionRecords' && hasFeature('productionRecords'));
+      let featureKey = permissionKey == 'orderImport' ? 'progress'
+        : permissionKey == 'costlog' ? 'settings'
+        : permissionKey == 'productionProcessEdit'
+            && action in ['productProcessEdit', 'orderProcessSnapshotSync', 'productionEntryStandardCorrection']
+          ? 'processSecondsEdit'
+          : permissionKey;
+      let requiresAdministrator = action in ['productionAttendanceDelete', 'productionEmployeeDelete'];
+      let requiresBonusUnlock = action == 'performanceBonusUnlock';
+      let normalPermission = permissionKey in [
+          'summary', 'export', 'costlog', 'progress', 'orderImport', 'cutting',
+          'productionRecords', 'productionAttendance', 'productionEmployees',
+          'productionAnalysis', 'productionProcessEdit',
+          'performanceBonusSettings', 'performanceBonus'
+        ];
+      return (requiresAdministrator && isAdmin())
+        || (requiresBonusUnlock
+          && hasFeature('performanceBonus')
+          && hasFeature('performanceBonusUnlock'))
+        || (permissionKey == 'systemMonitor'
+          && feature == 'systemMonitor'
+          && action in ['userLogin', 'userLogout']
+          && isDeskUser())
+        || (permissionKey == 'systemMonitor'
+          && feature == 'accounts'
+          && action in [
+            'accountCreate', 'accountUpdate', 'accountDelete', 'rolePermissionsUpdate'
+          ]
+          && isAdmin())
+        || (!requiresAdministrator
+          && !requiresBonusUnlock
+          && normalPermission
+          && hasFeature(featureKey));
+    }
+
+    // validUsageCounters（使用量計數欄位）：只接受非負整數。
+    function validUsageCounters(value) {
+      return value is map
+        && value.keys().hasAll([
+          'queryCount', 'documentReads', 'documentWrites', 'cacheHits',
+          'cacheMisses', 'cacheWrites', 'fullLoads'
+        ])
+        && value.keys().hasOnly([
+          'queryCount', 'writeRequestCount', 'documentReads', 'documentWrites', 'cacheHits',
+          'cacheMisses', 'cacheWrites', 'fullLoads'
+        ])
+        && validNonNegativeInteger(value.queryCount)
+        && (!('writeRequestCount' in value) || validNonNegativeInteger(value.writeRequestCount))
+        && validNonNegativeInteger(value.documentReads)
+        && validNonNegativeInteger(value.documentWrites)
+        && validNonNegativeInteger(value.cacheHits)
+        && validNonNegativeInteger(value.cacheMisses)
+        && validNonNegativeInteger(value.cacheWrites)
+        && validNonNegativeInteger(value.fullLoads);
+    }
+
+    // validUsageSession（使用量工作階段）：只保存統計數字，不允許業務內容。
+    function validUsageSession(sessionDocumentId) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'sessionId', 'usageDate', 'uid', 'username', 'role', 'startedAt',
+          'updatedAt', 'endedAt', 'totals', 'pages', 'cacheScopes', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'sessionId', 'usageDate', 'uid', 'username', 'role', 'startedAt',
+          'updatedAt', 'endedAt', 'totals', 'pages', 'cacheScopes', 'schemaVersion'
+        ])
+        && data.sessionId is string
+        && data.sessionId.matches('^[A-Za-z0-9_-]{1,60}$')
+        && data.usageDate is string
+        && data.usageDate.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+        && data.uid == request.auth.uid
+        && sessionDocumentId == data.usageDate + '__' + data.uid + '__' + data.sessionId
+        && data.username == accessDocument().username
+        && data.role == accessDocument().role
+        && data.startedAt is int
+        && data.startedAt > 0
+        && data.updatedAt == request.time
+        && data.endedAt is int
+        && data.endedAt >= 0
+        && validUsageCounters(data.totals)
+        && ((data.schemaVersion == 1 && !('writeRequestCount' in data.totals))
+          || (data.schemaVersion == 2 && 'writeRequestCount' in data.totals))
+        && data.pages is map
+        && data.pages.size() <= 30
+        && data.cacheScopes is map
+        && data.cacheScopes.size() <= 30
+        && data.schemaVersion in [1, 2];
+    }
+
+    function validUsageSessionUpdate(sessionDocumentId) {
+      return validUsageSession(sessionDocumentId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'updatedAt', 'endedAt', 'totals', 'pages', 'cacheScopes'
+        ])
+        && request.resource.data.totals.queryCount >= resource.data.totals.queryCount
+        && (request.resource.data.schemaVersion == 1
+          || request.resource.data.totals.writeRequestCount >= resource.data.totals.writeRequestCount)
+        && request.resource.data.totals.documentReads >= resource.data.totals.documentReads
+        && request.resource.data.totals.documentWrites >= resource.data.totals.documentWrites
+        && request.resource.data.totals.cacheHits >= resource.data.totals.cacheHits
+        && request.resource.data.totals.cacheMisses >= resource.data.totals.cacheMisses
+        && request.resource.data.totals.cacheWrites >= resource.data.totals.cacheWrites
+        && request.resource.data.totals.fullLoads >= resource.data.totals.fullLoads
+        && (resource.data.endedAt == 0 || request.resource.data.endedAt == resource.data.endedAt);
     }
 
     // validOrder（訂單資料檢查）
@@ -413,11 +700,38 @@ service cloud.firestore {
       ]);
     }
 
-    // canReadProductionEmployees（可讀取產能員工名冊）：登記、紀錄或名冊頁任一權限即可讀取。
+    // configuredRoleCanReadProductionData（角色可讀取產能資料）：一次取得角色文件，避免逐項權限檢查超過規則運算上限。
+    function configuredRoleCanReadProductionData(includeEmployees) {
+      let roleId = accessDocument().role;
+      let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
+        && (features.productionAnalysis == true
+          || ('performanceBonusSettings' in features
+            && features.performanceBonusSettings == true
+            && (!('costMain' in features) || features.costMain == true))
+          || ((!('productionMain' in features) || features.productionMain == true)
+            && (features.productionEntry == true
+              || features.productionRecords == true
+              || features.productionAttendance == true
+              || (includeEmployees && features.productionEmployees == true))));
+    }
+
+    // canReadProductionData（可讀取產能歷史資料）：生產登記、紀錄、考勤或生產分析任一權限即可讀取。
+    function canReadProductionData() {
+      return isAdmin()
+        || hasFeature('processSecondsEdit')
+        || hasFeature('performanceBonusSettings')
+        || (isConfigurableRole() && configuredRoleCanReadProductionData(false));
+    }
+
+    // canReadProductionEmployees（可讀取產能員工名冊）：產能歷史資料權限或名冊權限可讀取。
     function canReadProductionEmployees() {
-      return hasFeature('productionEntry')
-        || hasFeature('productionRecords')
-        || hasFeature('productionEmployees');
+      return isAdmin()
+        || hasFeature('performanceBonusSettings')
+        || (isConfigurableRole() && configuredRoleCanReadProductionData(true));
     }
 
     // validProductionEmployeeData（產能員工資料檢查）。
@@ -468,259 +782,1045 @@ service cloud.firestore {
         && request.resource.data.updatedByUid == request.auth.uid;
     }
 
-    // validProductionEntryData（生產登記資料欄位與型別檢查）。
-    function validProductionEntryData() {
+    // validProductionDepartmentData（產能部門資料檢查）。
+    function validProductionDepartmentData(departmentId) {
+      return request.resource.data.keys().hasAll([
+          'departmentId', 'name', 'active',
+          'createdAt', 'createdByUid', 'createdBy',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'departmentId', 'name', 'active',
+          'createdAt', 'createdByUid', 'createdBy',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.departmentId == departmentId
+        && validShortString(request.resource.data.departmentId, 300)
+        && request.resource.data.departmentId.matches('^[^/]+$')
+        && validShortString(request.resource.data.name, 100)
+        && request.resource.data.active is bool
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && validShortString(request.resource.data.createdByUid, 128)
+        && request.resource.data.createdBy is string
+        && request.resource.data.createdBy.size() <= 200
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > 0
+        && validShortString(request.resource.data.updatedByUid, 128)
+        && request.resource.data.updatedBy is string
+        && request.resource.data.updatedBy.size() <= 200
+        && request.resource.data.schemaVersion == 1;
+    }
+
+    // validProductionDepartmentCreate（建立產能部門資料檢查）。
+    function validProductionDepartmentCreate(departmentId) {
+      return validProductionDepartmentData(departmentId)
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.createdAt == request.resource.data.updatedAt;
+    }
+
+    // validProductionDepartmentUpdate（修改產能部門資料檢查）：識別碼及建立資訊不可變更。
+    function validProductionDepartmentUpdate(departmentId) {
+      return validProductionDepartmentData(departmentId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'active', 'updatedAt', 'updatedByUid', 'updatedBy'
+        ])
+        && request.resource.data.updatedAt >= resource.data.updatedAt
+        && request.resource.data.updatedByUid == request.auth.uid;
+    }
+
+    // validProductionAttendanceHours（產能考勤時數）：0～24 小時且以 0.5 小時為單位。
+    function validProductionAttendanceHours(value) {
+      return value is number
+        && value >= 0
+        && value <= 24
+        && math.floor(value * 2) == value * 2;
+    }
+
+    function productionMonthPath(month) {
+      return /databases/$(database)/documents/productionMonths/$(month);
+    }
+
+    function productionMonthAutoInitializationState(productionDate) {
+      let parts = productionDate.split('-');
+      let month = parts[0] + '-' + parts[1];
+      let monthPath = productionMonthPath(month);
+      let after = getAfter(monthPath).data;
+      return month >= '2026-08'
+        && !exists(monthPath)
+        && existsAfter(monthPath)
+        && after.month == month
+        && after.status == 'open'
+        && after.summaryReady == true
+        && after.entriesVersion == '0'
+        && after.attendanceVersion == after.summaryVersion
+        && after.revision == 1
+        && after.schemaVersion == 2;
+    }
+
+    // productionSourceMonthEditable（產能來源月份可修改）：摘要維修只暫停分析，open 月份的正式來源仍可異動。
+    function productionSourceMonthEditable(productionDate) {
+      let parts = productionDate.split('-');
+      let month = parts[0] + '-' + parts[1];
+      let monthPath = productionMonthPath(month);
+      return exists(monthPath)
+        ? get(monthPath).data.status == 'open'
+        : productionMonthAutoInitializationState(productionDate);
+    }
+
+    function productionSourceUpdatesMonthSummary(productionDate, field) {
+      let parts = productionDate.split('-');
+      let month = parts[0] + '-' + parts[1];
+      let monthPath = productionMonthPath(month);
+      return exists(monthPath)
+        ? (get(monthPath).data.status == 'open'
+          && getAfter(monthPath).data.status == 'open'
+          && getAfter(monthPath).data.summaryReady == get(monthPath).data.summaryReady
+          && getAfter(monthPath).data.updatedByUid == request.auth.uid
+          && getAfter(monthPath).data.revision == get(monthPath).data.revision + 1
+          && getAfter(monthPath).data[field] != get(monthPath).data[field]
+          && getAfter(monthPath).data.summaryVersion != get(monthPath).data.summaryVersion)
+        : (field == 'attendanceVersion'
+          && productionMonthAutoInitializationState(productionDate)
+          && getAfter(monthPath).data.initialAttendanceId == request.resource.data.attendanceId
+          && getAfter(monthPath).data.updatedByUid == request.auth.uid);
+    }
+
+    function validProductionMonth(month) {
       let data = request.resource.data;
-      return data.recordType == 'standard'
-        && data.productionDate is string
-        && data.productionDate.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+      return data.keys().hasAll([
+          'month', 'status', 'summaryReady', 'entriesVersion', 'attendanceVersion', 'summaryVersion',
+          'revision', 'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.month == month
+        && data.status in ['open', 'migrating', 'locked']
+        && data.summaryReady is bool
+        && ((data.status == 'migrating' && data.summaryReady == false)
+          || data.status == 'open'
+          || (data.status == 'locked' && data.summaryReady == true))
+        && validShortString(data.entriesVersion, 300)
+        && validShortString(data.attendanceVersion, 300)
+        && validShortString(data.summaryVersion, 300)
+        && data.revision is int
+        && data.revision > 0
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && data.updatedBy is string
+        && data.updatedBy.size() <= 200
+        && data.schemaVersion == 2;
+    }
+
+    // validProductionMonthAttendanceInitialization（第一筆有效考勤初始化新月份）：2026-08 起才允許。
+    function validProductionMonthAttendanceInitialization(month) {
+      let data = request.resource.data;
+      let attendancePath = /databases/$(database)/documents/productionAttendance/$(data.initialAttendanceId);
+      let attendanceAfter = getAfter(attendancePath).data;
+      return month >= '2026-08'
+        && data.keys().hasAll([
+          'month', 'status', 'summaryReady', 'entriesVersion', 'attendanceVersion', 'summaryVersion',
+          'revision', 'initialAttendanceId', 'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'month', 'status', 'summaryReady', 'entriesVersion', 'attendanceVersion', 'summaryVersion',
+          'revision', 'initialAttendanceId', 'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.month == month
+        && data.status == 'open'
+        && data.summaryReady == true
+        && data.entriesVersion == '0'
+        && validShortString(data.attendanceVersion, 300)
+        && data.summaryVersion == data.attendanceVersion
+        && data.revision == 1
+        && validShortString(data.initialAttendanceId, 80)
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && data.updatedBy is string
+        && data.updatedBy.size() <= 200
+        && data.schemaVersion == 2
+        && !exists(attendancePath)
+        && existsAfter(attendancePath)
+        && attendanceAfter.attendanceId == data.initialAttendanceId
+        && attendanceAfter.attendanceDate.split('-')[0] + '-' + attendanceAfter.attendanceDate.split('-')[1] == month
+        && attendanceAfter.normalHours + attendanceAfter.overtimeHours > 0
+        && attendanceAfter.createdByUid == request.auth.uid
+        && attendanceAfter.updatedByUid == request.auth.uid
+        && attendanceAfter.updatedAt == data.updatedAt;
+    }
+
+    function validProductionMonthSourceUpdate(month) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return before.status == 'open'
+        && after.month == month
+        && after.status == before.status
+        && after.summaryReady == before.summaryReady
+        && after.revision == before.revision + 1
+        && after.schemaVersion == before.schemaVersion
+        && after.summaryVersion != before.summaryVersion
+        && after.updatedAt >= before.updatedAt
+        && after.updatedByUid == request.auth.uid
+        && ((changed.hasOnly([
+              'attendanceVersion', 'summaryVersion', 'revision', 'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && canWriteAttendanceSourceVersion()
+            && after.attendanceVersion is string
+            && after.attendanceVersion.size() > 0)
+          || (changed.hasOnly([
+              'entriesVersion', 'summaryVersion', 'revision', 'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && canWriteProductionSourceVersion()
+            && after.entriesVersion is string
+            && after.entriesVersion.size() > 0));
+    }
+
+    function validProductionMonthEntryUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return before.status == 'open'
+        && after.diff(before).affectedKeys().hasOnly([
+          'entriesVersion', 'summaryVersion', 'revision', 'updatedAt', 'updatedByUid', 'updatedBy'
+        ])
+        && after.entriesVersion != before.entriesVersion
+        && after.summaryVersion != before.summaryVersion
+        && after.revision == before.revision + 1
+        && after.updatedByUid == request.auth.uid
+        && productionEntryRoleEnabled();
+    }
+
+    function validProductionMonthAdminUpdate(month) {
+      let before = resource.data;
+      let after = request.resource.data;
+      return validProductionMonth(month)
+        && ((before.status != after.status
+            && after.revision == before.revision + 1
+            && (before.status == 'migrating' || after.status == 'migrating'))
+          || (before.status == 'open'
+            && after.status == 'open'
+            && before.summaryReady != after.summaryReady
+            && after.revision == before.revision + 1
+            && after.entriesVersion == before.entriesVersion
+            && after.attendanceVersion == before.attendanceVersion)
+          || (before.status == 'open'
+            && after.status == 'open'
+            && before.summaryReady == false
+            && after.summaryReady == false
+            && after.revision == before.revision + 1
+            && after.entriesVersion == before.entriesVersion
+            && after.attendanceVersion == before.attendanceVersion
+            && after.summaryVersion == before.summaryVersion)
+          || (before.status == 'migrating'
+            && after.status == 'migrating'
+            && after.revision == before.revision
+            && after.entriesVersion == before.entriesVersion
+            && after.attendanceVersion == before.attendanceVersion
+            && after.summaryVersion == before.summaryVersion));
+    }
+
+    function productionDaySummaryPath(productionDate, employeeId) {
+      return /databases/$(database)/documents/productionDaySummaries/$(productionDate + '__' + employeeId);
+    }
+
+    function productionEmployeeMonthPath(productionDate, employeeId) {
+      let parts = productionDate.split('-');
+      let month = parts[0] + '-' + parts[1];
+      return /databases/$(database)/documents/productionEmployeeMonths/$(month + '__' + employeeId);
+    }
+
+    function productionSourceUpdatesEmployeeMonth(productionDate, employeeId) {
+      let summaryPath = productionDaySummaryPath(productionDate, employeeId);
+      let monthPath = productionEmployeeMonthPath(productionDate, employeeId);
+      let dayAfter = getAfter(summaryPath).data;
+      let monthAfter = getAfter(monthPath).data;
+      return existsAfter(summaryPath)
+        && existsAfter(monthPath)
+        && dayAfter.schemaVersion == 2
+        && monthAfter.lastDayId == productionDate + '__' + employeeId
+        && monthAfter.lastDayRevision == dayAfter.revision
+        && monthAfter.updatedByUid == request.auth.uid;
+    }
+
+    function productionAttendanceRespectsDaySummary() {
+      let summaryPath = productionDaySummaryPath(
+        request.resource.data.attendanceDate,
+        request.resource.data.employeeId
+      );
+      let totalHours = request.resource.data.normalHours + request.resource.data.overtimeHours;
+      return !exists(summaryPath)
+        || ((get(summaryPath).data.activeEntryCount == 0 || totalHours > 0)
+          && get(summaryPath).data.activeSupplementHours <= totalHours);
+    }
+
+    function productionAttendanceCanDelete() {
+      let summaryPath = productionDaySummaryPath(resource.data.attendanceDate, resource.data.employeeId);
+      return productionSourceMonthEditable(resource.data.attendanceDate)
+        && productionSourceUpdatesMonthSummary(resource.data.attendanceDate, 'attendanceVersion')
+        && productionSourceUpdatesEmployeeMonth(resource.data.attendanceDate, resource.data.employeeId)
+        && (!exists(summaryPath) || get(summaryPath).data.activeEntryCount == 0);
+    }
+
+    // validProductionAttendanceData（產能考勤資料欄位與型別檢查）。
+    function validProductionAttendanceData(attendanceId) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'attendanceId', 'attendanceDate', 'employeeId', 'employeeName', 'department',
+          'normalHours', 'overtimeHours', 'note', 'revision',
+          'createdAt', 'createdByUid', 'createdBy',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'attendanceId', 'attendanceDate', 'employeeId', 'employeeName', 'department',
+          'normalHours', 'overtimeHours', 'note', 'revision',
+          'createdAt', 'createdByUid', 'createdBy',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.attendanceId == attendanceId
+        && data.attendanceId == data.attendanceDate + '__' + data.employeeId
+        && data.attendanceDate is string
+        && data.attendanceDate.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
         && data.employeeId is string
         && data.employeeId.matches('^[A-Z0-9_-]{1,30}$')
         && validShortString(data.employeeName, 100)
         && validShortString(data.department, 100)
-        && validShortString(data.orderProcessId, 200)
-        && validShortString(data.orderId, 200)
-        && data.processSecSnapshot is number
-        && data.processSecSnapshot > 0
-        && data.hourlyCapacitySnapshot is int
-        && data.hourlyCapacitySnapshot > 0
-        && data.orderQtySnapshot is int
-        && data.orderQtySnapshot > 0
-        && data.quantity is int
-        && data.quantity > 0
-        && data.status == 'active'
-        && data.revision == 1
+        && validProductionAttendanceHours(data.normalHours)
+        && validProductionAttendanceHours(data.overtimeHours)
+        && data.normalHours + data.overtimeHours <= 24
+        && data.note is string
+        && data.note.size() <= 200
+        && data.revision is int
+        && data.revision > 0
         && data.createdAt is int
         && data.createdAt > 0
-        && data.updatedAt == data.createdAt
+        && validShortString(data.createdByUid, 128)
         && data.createdBy is string
         && data.createdBy.size() <= 200
-        && data.updatedByUid == request.auth.uid
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && validShortString(data.updatedByUid, 128)
         && data.updatedBy is string
         && data.updatedBy.size() <= 200
-        && data.schemaVersion == 1
-        && data.calculationVersion == 'hourly-capacity-v1'
-        && !('voidReason' in data);
+        && data.schemaVersion == 1;
     }
 
-    // productionEntryMatchesSources（生產登記快照必須符合目前員工、訂單及工序來源）。
-    function productionEntryMatchesSources() {
+    // productionAttendanceMatchesEmployee（考勤快照必須符合員工主資料）。
+    function productionAttendanceMatchesEmployee(requireActive) {
       let employeePath = /databases/$(database)/documents/productionEmployees/$(request.resource.data.employeeId);
-      let orderPath = /databases/$(database)/documents/orders/$(request.resource.data.orderId);
-      let processPath = /databases/$(database)/documents/orderProcesses/$(request.resource.data.orderProcessId);
       let employee = get(employeePath).data;
-      let order = get(orderPath).data;
-      let process = get(processPath).data;
       return exists(employeePath)
-        && employee.active == true
-        && employee.name == request.resource.data.employeeName
-        && employee.department == request.resource.data.department
-        && exists(orderPath)
-        && (!('importStatus' in order) || order.importStatus == 'ready')
-        && (!('lifecycleStatus' in order) || order.lifecycleStatus == 'active')
-        && exists(processPath)
-        && process.orderId == request.resource.data.orderId
-        && process.orderNo == request.resource.data.orderNo
-        && process.code == request.resource.data.productCode
-        && process.processNo == request.resource.data.processNo
-        && process.processVi == request.resource.data.processNameVi
-        && process.processZh == request.resource.data.processNameZh
-        && process.orderQty == request.resource.data.orderQtySnapshot
-        && process.slPerHour == request.resource.data.hourlyCapacitySnapshot
-        && process.slPerHour is int
-        && process.slPerHour > 0
-        && ((('workStdSec' in process)
-              && process.workStdSec is number
-              && process.workStdSec > 0
-              && process.workStdSec == request.resource.data.processSecSnapshot)
-          || (process.processSec is number
-              && process.processSec > 0
-              && process.processSec == request.resource.data.processSecSnapshot));
+        && (!requireActive || employee.active == true)
+        && request.resource.data.employeeName == employee.name
+        && request.resource.data.department == employee.department;
     }
 
-    // productionEntryHasMatchingTotalCreate（新增登記時，工序累計必須在同一交易同步增加）。
-    function productionEntryHasMatchingTotalCreate(entryId) {
-      let totalPath = /databases/$(database)/documents/productionProcessTotals/$(request.resource.data.orderProcessId);
-      let totalAfter = getAfter(totalPath).data;
-      return existsAfter(totalPath)
-        && totalAfter.lastEntryId == entryId
-        && totalAfter.lastMutation == 'create'
-        && totalAfter.lastDelta == request.resource.data.quantity
-        && ((!exists(totalPath)
-            && totalAfter.registeredQty == request.resource.data.quantity)
-          || (exists(totalPath)
-            && totalAfter.registeredQty == get(totalPath).data.registeredQty
-              + request.resource.data.quantity));
-    }
-
-    // validProductionEntryCreate（新增生產登記檢查）。
-    function validProductionEntryCreate(entryId) {
-      return validProductionEntryData()
+    // validProductionAttendanceCreate（新增產能考勤）：同日期與工號使用固定文件識別碼。
+    function validProductionAttendanceCreate(attendanceId) {
+      return validProductionAttendanceData(attendanceId)
+        && request.resource.data.revision == 1
+        && request.resource.data.createdAt == request.resource.data.updatedAt
         && request.resource.data.createdByUid == request.auth.uid
-        && productionEntryMatchesSources()
-        && productionEntryHasMatchingTotalCreate(entryId);
+        && request.resource.data.updatedByUid == request.auth.uid
+        && productionAttendanceMatchesEmployee(true)
+        && productionSourceMonthEditable(request.resource.data.attendanceDate)
+        && productionSourceUpdatesMonthSummary(request.resource.data.attendanceDate, 'attendanceVersion')
+        && productionSourceUpdatesEmployeeMonth(request.resource.data.attendanceDate, request.resource.data.employeeId)
+        && productionAttendanceRespectsDaySummary();
     }
 
-    // productionEntryHasMatchingTotalUpdate（修改或作廢時，工序累計必須在同一交易同步調整）。
-    function productionEntryHasMatchingTotalUpdate(entryId, mutation, delta) {
-      let totalPath = /databases/$(database)/documents/productionProcessTotals/$(request.resource.data.orderProcessId);
-      let totalAfter = getAfter(totalPath).data;
-      return exists(totalPath)
-        && existsAfter(totalPath)
-        && totalAfter.lastEntryId == entryId
-        && totalAfter.lastMutation == mutation
-        && totalAfter.lastDelta == delta
-        && totalAfter.registeredQty == get(totalPath).data.registeredQty + delta;
-    }
-
-    // validProductionEntryUpdate（紀錄修改／作廢檢查）：來源快照與識別欄位不可變更。
-    function validProductionEntryUpdate(entryId) {
-      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      let quantityDelta = request.resource.data.quantity - resource.data.quantity;
-      return resource.data.status == 'active'
+    // validProductionAttendanceUpdate（修改產能考勤）：日期、工號及建立資訊不可變更。
+    function validProductionAttendanceUpdate(attendanceId) {
+      return validProductionAttendanceData(attendanceId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'employeeName', 'department', 'normalHours', 'overtimeHours', 'note',
+          'revision', 'updatedAt', 'updatedByUid', 'updatedBy'
+        ])
         && request.resource.data.revision == resource.data.revision + 1
         && request.resource.data.updatedAt >= resource.data.updatedAt
         && request.resource.data.updatedByUid == request.auth.uid
-        && ((request.resource.data.status == 'active'
-            && request.resource.data.quantity is int
-            && request.resource.data.quantity > 0
-            && changedKeys.hasOnly([
-              'quantity', 'revision', 'updatedAt', 'updatedByUid', 'updatedBy'
-            ])
-            && productionEntryHasMatchingTotalUpdate(entryId, 'update', quantityDelta))
-          || (request.resource.data.status == 'voided'
-            && request.resource.data.quantity == resource.data.quantity
-            && request.resource.data.voidedByUid == request.auth.uid
-            && request.resource.data.voidedAt is int
-            && validShortString(request.resource.data.voidReason, 500)
-            && changedKeys.hasOnly([
-              'status', 'revision', 'voidedAt', 'voidedByUid', 'voidedBy', 'voidReason',
-              'updatedAt', 'updatedByUid', 'updatedBy'
-            ])
-            && productionEntryHasMatchingTotalUpdate(
-              entryId, 'void', 0 - resource.data.quantity
-            )));
+        && productionAttendanceMatchesEmployee(false)
+        && productionSourceMonthEditable(request.resource.data.attendanceDate)
+        && productionSourceUpdatesMonthSummary(request.resource.data.attendanceDate, 'attendanceVersion')
+        && productionSourceUpdatesEmployeeMonth(request.resource.data.attendanceDate, request.resource.data.employeeId)
+        && productionAttendanceRespectsDaySummary();
     }
 
-    // validProductionTotalData（訂單工序累計資料檢查）。
-    function validProductionTotalData(processId) {
-      let processPath = /databases/$(database)/documents/orderProcesses/$(processId);
+    function validProductionDate(value) {
+      return value is string
+        && value.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$');
+    }
+
+    function productionEntryPath(entryId) {
+      return /databases/$(database)/documents/productionEntries/$(entryId);
+    }
+
+    function productionTotalPath(processId) {
+      return /databases/$(database)/documents/productionProcessTotals/$(processId);
+    }
+
+    function productionEntryMatchesAttendance(data) {
+      let attendancePath = /databases/$(database)/documents/productionAttendance/$(data.productionDate + '__' + data.employeeId);
+      let attendance = get(attendancePath).data;
+      return attendance.employeeName == data.employeeName
+        && attendance.department == data.department
+        && attendance.normalHours + attendance.overtimeHours > 0;
+    }
+
+    function validProductionEntryActor(data) {
+      return data.createdAt == data.updatedAt
+        && data.createdByUid == request.auth.uid
+        && data.updatedByUid == request.auth.uid
+        && data.createdBy == data.updatedBy
+        && data.revision == 1
+        && data.status == 'active'
+        && data.schemaVersion == 1;
+    }
+
+    function validStandardProductionEntryData() {
+      let data = request.resource.data;
+      return data.recordType == 'standard'
+        && data.processNo != '0'
+        && data.quantity is int
+        && data.quantity > 0
+        && data.calculationVersion == 'hourly-capacity-v1'
+        && validProductionEntryActor(data);
+    }
+
+    function validSupplementProductionEntryData() {
+      let data = request.resource.data;
+      return data.recordType == 'supplement'
+        && validProductionDate(data.productionDate)
+        && data.employeeId is string
+        && data.employeeId.matches('^[A-Z0-9_-]{1,30}$')
+        && validShortString(data.employeeName, 100)
+        && validShortString(data.department, 100)
+        && data.orderId is string
+        && data.orderId.size() <= 200
+        && data.orderNo is string
+        && data.orderNo.size() <= 200
+        && data.productCode is string
+        && data.productCode.size() <= 200
+        && ((data.orderId == '' && data.orderNo == '' && data.productCode == '')
+          || (validShortString(data.orderId, 200)
+            && validShortString(data.orderNo, 200)
+            && validShortString(data.productCode, 200)))
+        && data.processNo == '0'
+        && data.supplementReason is string
+        && data.supplementReason.size() <= 200
+        && data.supplementHours is number
+        && data.supplementHours >= 0.5
+        && data.supplementHours <= 24
+        && math.floor(data.supplementHours * 2) == data.supplementHours * 2
+        && data.calculationVersion == 'supplement-hours-v1'
+        && validProductionEntryActor(data);
+    }
+
+    function standardProductionEntryMatchesSources() {
+      let data = request.resource.data;
+      let orderPath = /databases/$(database)/documents/orders/$(data.orderId);
+      let processPath = /databases/$(database)/documents/orderProcesses/$(data.orderProcessId);
+      let standardPath = /databases/$(database)/documents/productProcessStandards/$(data.standardReferenceId);
+      let order = get(orderPath).data;
       let process = get(processPath).data;
-      return exists(processPath)
-        && request.resource.data.orderProcessId == processId
-        && request.resource.data.orderId == process.orderId
-        && request.resource.data.orderNo == process.orderNo
-        && request.resource.data.productCode == process.code
-        && request.resource.data.processNo == process.processNo
-        && request.resource.data.orderQty == process.orderQty
-        && request.resource.data.orderQty is int
-        && request.resource.data.orderQty > 0
-        && request.resource.data.registeredQty is int
-        && request.resource.data.registeredQty >= 0
-        && request.resource.data.registeredQty <= request.resource.data.orderQty
-        && request.resource.data.updatedAt is int
-        && request.resource.data.updatedAt > 0
+      let standard = get(standardPath).data;
+      return order.importStatus == 'ready'
+        && (!('lifecycleStatus' in order) || order.lifecycleStatus == 'active')
+        && !('processEditJobId' in order)
+        && order.processVersion == data.processVersionSnapshot
+        && (!('active' in process) || process.active != false)
+        && process.orderId == data.orderId
+        && process.orderNo == data.orderNo
+        && process.code == data.productCode
+        && process.processNo == data.processNo
+        && process.orderQty == data.orderQtySnapshot
+        && standard.active == true
+        && standard.productCode == data.productCode
+        && standard.processNo == data.processNo
+        && standard.processSec == data.processSecSnapshot
+        && standard.hourlyCapacity == data.hourlyCapacitySnapshot;
+    }
+
+    function supplementProductionEntryMatchesOrder() {
+      let data = request.resource.data;
+      let orderPath = /databases/$(database)/documents/orders/$(data.orderId);
+      return data.orderId == ''
+        || (exists(orderPath)
+          && (!('importStatus' in get(orderPath).data) || get(orderPath).data.importStatus == 'ready')
+          && (!('lifecycleStatus' in get(orderPath).data) || get(orderPath).data.lifecycleStatus == 'active')
+          && data.productCode in get(orderPath).data.productCodes
+          && get(orderPath).data.orderId == data.orderNo);
+    }
+
+    function productionEntryHasSummaryTargets(data, entryId) {
+      let summaryPath = productionDaySummaryPath(data.productionDate, data.employeeId);
+      let monthSummaryPath = productionEmployeeMonthPath(data.productionDate, data.employeeId);
+      let dayAfter = getAfter(summaryPath).data;
+      let monthAfter = getAfter(monthSummaryPath).data;
+      return dayAfter.lastEntryId == entryId
+        && monthAfter.lastDayId == dayAfter.summaryId
+        && monthAfter.lastDayRevision == dayAfter.revision;
+    }
+
+    function productionEntryHasTotalTarget(data, entryId) {
+      let totalPath = productionTotalPath(data.orderProcessId);
+      let totalAfter = getAfter(totalPath).data;
+      return totalAfter.lastEntryId == entryId;
+    }
+
+    function validProductionEntryCreate(entryId) {
+      let data = request.resource.data;
+      let attendancePath = /databases/$(database)/documents/productionAttendance/$(data.productionDate + '__' + data.employeeId);
+      let summaryPath = productionDaySummaryPath(data.productionDate, data.employeeId);
+      return productionSourceUpdatesMonthSummary(data.productionDate, 'entriesVersion')
+        && productionEntryMatchesAttendance(data)
+        && productionEntryHasSummaryTargets(data, entryId)
+        && ((data.recordType == 'standard'
+            && validStandardProductionEntryData()
+            && standardProductionEntryMatchesSources()
+            && productionEntryHasTotalTarget(data, entryId))
+          || (data.recordType == 'supplement'
+            && validSupplementProductionEntryData()
+            && supplementProductionEntryMatchesOrder()
+            && getAfter(summaryPath).data.activeSupplementHours
+              <= get(attendancePath).data.normalHours + get(attendancePath).data.overtimeHours));
+    }
+
+    function productionEntrySummaryAfterMatchesRemoval(entryId, mutation) {
+      let summaryPath = productionDaySummaryPath(resource.data.productionDate, resource.data.employeeId);
+      let removedHours = resource.data.recordType == 'supplement' ? resource.data.supplementHours : 0;
+      return exists(summaryPath)
+        && existsAfter(summaryPath)
+        && getAfter(summaryPath).data.lastEntryId == entryId
+        && getAfter(summaryPath).data.lastMutation == mutation
+        && getAfter(summaryPath).data.activeEntryCount == get(summaryPath).data.activeEntryCount - 1
+        && getAfter(summaryPath).data.activeSupplementHours == get(summaryPath).data.activeSupplementHours - removedHours;
+    }
+
+    function productionEntryTotalAfterMatchesVoid(entryId) {
+      let totalPath = productionTotalPath(resource.data.orderProcessId);
+      return exists(totalPath)
+        && existsAfter(totalPath)
+        && getAfter(totalPath).data.lastEntryId == entryId
+        && getAfter(totalPath).data.lastMutation == 'void'
+        && getAfter(totalPath).data.lastDelta == 0 - resource.data.quantity
+        && getAfter(totalPath).data.registeredQty == get(totalPath).data.registeredQty - resource.data.quantity;
+    }
+
+    function productionEntryTotalAfterMatchesDelete(entryId) {
+      let totalPath = productionTotalPath(resource.data.orderProcessId);
+      let remaining = get(totalPath).data.registeredQty - resource.data.quantity;
+      return exists(totalPath)
+        && remaining >= 0
+        && existsAfter(totalPath)
+        && getAfter(totalPath).data.lastEntryId == entryId
+        && getAfter(totalPath).data.lastMutation == 'delete'
+        && getAfter(totalPath).data.lastDelta == 0 - resource.data.quantity
+        && getAfter(totalPath).data.registeredQty == remaining;
+    }
+
+    function validProductionEntryVoid(entryId) {
+      return resource.data.status == 'active'
+        && request.resource.data.status == 'voided'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'revision', 'voidedAt', 'voidedByUid', 'voidedBy', 'voidReason',
+          'updatedAt', 'updatedByUid', 'updatedBy'
+        ])
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.voidedAt is int
+        && request.resource.data.voidedAt == request.resource.data.updatedAt
+        && request.resource.data.voidedByUid == request.auth.uid
         && request.resource.data.updatedByUid == request.auth.uid
-        && validShortString(request.resource.data.lastEntryId, 200)
-        && request.resource.data.lastMutation in ['create', 'update', 'void']
-        && request.resource.data.lastDelta is int
-        && request.resource.data.schemaVersion == 1;
+        && request.resource.data.voidedBy == request.resource.data.updatedBy
+        && validShortString(request.resource.data.updatedBy, 200)
+        && request.resource.data.voidReason is string
+        && request.resource.data.voidReason.size() <= 500
+        && productionSourceUpdatesMonthSummary(resource.data.productionDate, 'entriesVersion')
+        && productionEntrySummaryAfterMatchesRemoval(entryId, 'void')
+        && productionSourceUpdatesEmployeeMonth(resource.data.productionDate, resource.data.employeeId)
+        && (resource.data.recordType == 'supplement' || productionEntryTotalAfterMatchesVoid(entryId));
     }
 
-    // productionTotalMatchesEntryMutation（工序累計必須對應同一交易中的登記新增、修改或作廢）。
-    function productionTotalMatchesEntryMutation(processId) {
-      let entryPath = /databases/$(database)/documents/productionEntries/$(request.resource.data.lastEntryId);
+    function validProductionEntryDelete(entryId) {
+      return resource.data.status in ['active', 'voided']
+        && productionSourceUpdatesMonthSummary(resource.data.productionDate, 'entriesVersion')
+        && (resource.data.status == 'voided'
+          || (productionEntrySummaryAfterMatchesRemoval(entryId, 'delete')
+            && productionSourceUpdatesEmployeeMonth(resource.data.productionDate, resource.data.employeeId)
+            && (resource.data.recordType == 'supplement' || productionEntryTotalAfterMatchesDelete(entryId))));
+    }
+
+    function validProductionDaySummaryDataV2(summaryId) {
+      let data = request.resource.data;
+      return data.summaryId == summaryId
+        && data.summaryId == data.productionDate + '__' + data.employeeId
+        && data.month == data.productionDate.split('-')[0] + '-' + data.productionDate.split('-')[1]
+        && validProductionDate(data.productionDate)
+        && data.employeeId is string
+        && data.employeeId.matches('^[A-Z0-9_-]{1,30}$')
+        && validShortString(data.employeeName, 100)
+        && validShortString(data.department, 100)
+        && data.activeEntryCount is int
+        && data.activeEntryCount >= 0
+        && data.activeSupplementHours is number
+        && data.activeSupplementHours >= 0
+        && data.standardHours is number
+        && data.standardHours >= 0
+        && data.attendanceHours is number
+        && data.attendanceHours >= 0
+        && data.attendanceHours <= 24
+        && data.metricComplete == true
+        && data.revision is int
+        && data.revision >= 0
+        && data.lastEntryId is string
+        && data.lastEntryId.size() <= 200
+        && data.lastMutation in ['migration', 'attendance', 'attendance-delete', 'create', 'void', 'delete', 'standard-correction']
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && data.updatedBy is string
+        && data.updatedBy.size() <= 200
+        && data.schemaVersion == 2;
+    }
+
+    function productionDayFollowsAttendance(data, isDelete) {
+      let attendancePath = /databases/$(database)/documents/productionAttendance/$(data.productionDate + '__' + data.employeeId);
+      let attendanceBefore = get(attendancePath).data;
+      let attendanceAfter = getAfter(attendancePath).data;
+      return isDelete
+        ? (exists(attendancePath) && !existsAfter(attendancePath))
+        : (existsAfter(attendancePath)
+          && attendanceAfter.attendanceDate == data.productionDate
+          && attendanceAfter.employeeId == data.employeeId
+          && (!exists(attendancePath) || attendanceBefore.revision != attendanceAfter.revision));
+    }
+
+    function productionDayFollowsEntryCreate(data) {
+      let entryPath = productionEntryPath(data.lastEntryId);
       let entryAfter = getAfter(entryPath).data;
-      return existsAfter(entryPath)
+      return entryAfter.productionDate == data.productionDate
+        && entryAfter.employeeId == data.employeeId;
+    }
+
+    function productionDayFollowsEntryChange(data, mutation) {
+      let entryPath = productionEntryPath(data.lastEntryId);
+      let entryBefore = get(entryPath).data;
+      let entryAfter = getAfter(entryPath).data;
+      return exists(entryPath)
+        && (mutation == 'delete'
+          ? (!existsAfter(entryPath) && entryBefore.status == 'active')
+          : (existsAfter(entryPath)
+            && entryBefore.status == 'active'
+            && ((mutation == 'void' && entryAfter.status == 'voided')
+              || (mutation == 'standard-correction'
+                && entryAfter.status == 'active'
+                && entryAfter.revision == entryBefore.revision + 1
+                && entryAfter.standardCorrectionJobId is string))));
+    }
+
+    function validProductionDaySummaryCreate(summaryId) {
+      let data = request.resource.data;
+      return validProductionDaySummaryDataV2(summaryId)
+        && data.revision == 1
+        && ((data.lastMutation == 'migration' && productionSummaryRepairActive(data.month))
+          || (data.lastMutation == 'attendance'
+            && productionDayFollowsAttendance(data, false))
+          || (data.lastMutation == 'create'
+            && productionDayFollowsEntryCreate(data)));
+    }
+
+    function validProductionDayEntryCreate(summaryId, isUpdate) {
+      let data = request.resource.data;
+      return data.summaryId == summaryId
+        && data.summaryId == data.productionDate + '__' + data.employeeId
+        && data.revision == (isUpdate ? resource.data.revision + 1 : 1)
+        && productionDayFollowsEntryCreate(data);
+    }
+
+    function validProductionDaySummaryUpdate(summaryId) {
+      let data = request.resource.data;
+      return validProductionDaySummaryDataV2(summaryId)
+        && data.revision == resource.data.revision + 1
+        && ((data.lastMutation == 'migration' && productionSummaryRepairActive(data.month))
+          || (data.lastMutation == 'attendance'
+            && productionDayFollowsAttendance(data, false))
+          || (data.lastMutation == 'attendance-delete'
+            && productionDayFollowsAttendance(data, true))
+          || (data.lastMutation == 'create'
+            && productionDayFollowsEntryCreate(data))
+          || (data.lastMutation == 'void'
+            && productionDayFollowsEntryChange(data, 'void'))
+          || (data.lastMutation == 'delete'
+            && productionDayFollowsEntryChange(data, 'delete'))
+          || (data.lastMutation == 'standard-correction'
+            && productionDayFollowsEntryChange(data, 'standard-correction')));
+    }
+
+    function validProductionEmployeeMonthData(summaryId) {
+      let data = request.resource.data;
+      return data.monthSummaryId == summaryId
+        && data.monthSummaryId == data.month + '__' + data.employeeId
+        && data.month is string
+        && data.month.matches('^20[0-9]{2}-(0[1-9]|1[0-2])$')
+        && data.employeeId is string
+        && data.employeeId.matches('^[A-Z0-9_-]{1,30}$')
+        && validShortString(data.employeeName, 100)
+        && validShortString(data.department, 100)
+        && data.days is map
+        && data.activeEntryCount is int
+        && data.activeEntryCount >= 0
+        && data.summaryComplete is bool
+        && data.revision is int
+        && data.revision > 0
+        && data.lastDayId is string
+        && data.lastDayId.size() > 0
+        && data.lastDayId.size() <= 200
+        && data.lastDayRevision is int
+        && data.lastDayRevision >= 0
+        && data.lastMutation in ['migration', 'attendance', 'attendance-delete', 'create', 'void', 'delete', 'standard-correction']
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && data.updatedBy is string
+        && data.updatedBy.size() <= 200
+        && data.schemaVersion == 2;
+    }
+
+    function productionEmployeeMonthFollowsDayCreate() {
+      let data = request.resource.data;
+      let dayPath = /databases/$(database)/documents/productionDaySummaries/$(data.lastDayId);
+      let dayAfter = getAfter(dayPath).data;
+      return dayAfter.employeeId == data.employeeId
+        && dayAfter.month == data.month
+        && dayAfter.revision == data.lastDayRevision;
+    }
+
+    function productionEmployeeMonthFollowsDayUpdate() {
+      let data = request.resource.data;
+      let dayPath = /databases/$(database)/documents/productionDaySummaries/$(data.lastDayId);
+      let dayAfter = getAfter(dayPath).data;
+      return dayAfter.employeeId == data.employeeId
+        && dayAfter.month == data.month
+        && dayAfter.revision == data.lastDayRevision
+        && data.revision == resource.data.revision + 1;
+    }
+
+    function validProductionEmployeeMonthEntryCreate(summaryId, isUpdate) {
+      let data = request.resource.data;
+      return data.monthSummaryId == summaryId
+        && data.monthSummaryId == data.month + '__' + data.employeeId
+        && data.revision == (isUpdate ? resource.data.revision + 1 : 1)
+        && (isUpdate
+          ? productionEmployeeMonthFollowsDayUpdate()
+          : productionEmployeeMonthFollowsDayCreate());
+    }
+
+    function validProductionSummaryMigration(month) {
+      let data = request.resource.data;
+      return data.month == month
+        && data.status in ['running', 'completed', 'failed', 'stale', 'canceled', 'resetting']
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && data.schemaVersion == 1;
+    }
+
+    // augustTestResetActive（2026/08 測試資料清除）：只允許管理員在明確 resetting 狀態執行。
+    function augustTestResetActive() {
+      let resetMonth = '2026-08';
+      let statePath = /databases/$(database)/documents/productionSummaryMigrations/$(resetMonth);
+      let monthPath = productionMonthPath(resetMonth);
+      return isAdmin()
+        && exists(statePath)
+        && get(statePath).data.status == 'resetting'
+        && exists(monthPath)
+        && get(monthPath).data.status == 'migrating'
+        && get(monthPath).data.summaryReady == false;
+    }
+
+    function validAugustTestResetTotal(processId) {
+      let data = request.resource.data;
+      return augustTestResetActive()
+        && validProductionProcessTotalData(processId)
+        && data.lastMutation == 'test-reset'
+        && data.orderId is string
+        && data.orderId.size() > 0
+        && data.orderId.size() <= 200
+        && data.orderNo is string
+        && data.orderNo.size() <= 200
+        && data.productCode is string
+        && data.productCode.size() > 0
+        && data.productCode.size() <= 200
+        && data.processNo is string
+        && data.processNo.size() > 0
+        && data.processNo.size() <= 50
+        && data.orderQty is int
+        && data.orderQty >= data.registeredQty
+        && data.lastEntryId == ''
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && data.updatedBy is string
+        && data.updatedBy.size() <= 200;
+    }
+
+    function productionSummaryRepairActive(month) {
+      let statePath = /databases/$(database)/documents/productionSummaryMigrations/$(month);
+      let monthPath = productionMonthPath(month);
+      return isAdmin()
+        && exists(statePath)
+        && get(statePath).data.status == 'running'
+        && exists(monthPath)
+        && get(monthPath).data.status == 'open'
+        && get(monthPath).data.summaryReady == false;
+    }
+
+    function validProductionProcessTotalData(processId) {
+      let data = request.resource.data;
+      return data.orderProcessId == processId
+        && data.registeredQty is int
+        && data.registeredQty >= 0
+        && data.registeredQty <= data.orderQty
+        && data.updatedByUid == request.auth.uid
+        && data.lastDelta is int
+        && data.schemaVersion == 1;
+    }
+
+    function validProductionProcessTotalEntryCreate(processId, isUpdate) {
+      let data = request.resource.data;
+      let entryPath = productionEntryPath(data.lastEntryId);
+      let entryAfter = getAfter(entryPath).data;
+      return data.lastMutation == 'create'
+        && data.orderProcessId == processId
+        && data.registeredQty == (isUpdate
+          ? resource.data.registeredQty + entryAfter.quantity
+          : entryAfter.quantity)
+        && data.updatedByUid == request.auth.uid
+        && data.schemaVersion == 1
+        && data.registeredQty is int
+        && data.registeredQty >= 0
+        && data.registeredQty <= data.orderQty
+        && entryAfter.recordType == 'standard'
         && entryAfter.orderProcessId == processId
-        && ((request.resource.data.lastMutation == 'create'
+        && data.orderId == (isUpdate ? resource.data.orderId : entryAfter.orderId)
+        && data.lastDelta == entryAfter.quantity
+        && data.orderQty == (isUpdate ? resource.data.orderQty : entryAfter.orderQtySnapshot);
+    }
+
+    function validProductionProcessTotalUpdate(processId) {
+      let data = request.resource.data;
+      let entryPath = productionEntryPath(data.lastEntryId);
+      let entryBefore = get(entryPath).data;
+      let entryAfter = getAfter(entryPath).data;
+      // 明細規則已核對數量、異動值及訂單上限；此處只核對累計結果，
+      // 避免同一筆交易重複計算相同條件而超過 Security Rules（安全規則）上限。
+      return validProductionProcessTotalData(processId)
+        && data.orderId == resource.data.orderId
+        && data.orderNo == resource.data.orderNo
+        && data.productCode == resource.data.productCode
+        && data.processNo == resource.data.processNo
+        && data.orderQty == resource.data.orderQty
+        && data.updatedByUid == request.auth.uid
+        && ((data.lastMutation == 'create'
             && !exists(entryPath)
+            && existsAfter(entryPath)
+            && entryAfter.recordType == 'standard'
             && entryAfter.status == 'active'
-            && request.resource.data.lastDelta == entryAfter.quantity)
-          || (request.resource.data.lastMutation == 'update'
+            && entryAfter.orderProcessId == processId
+            && data.registeredQty == resource.data.registeredQty + entryAfter.quantity
+            && data.lastDelta == entryAfter.quantity
+            && data.registeredQty <= entryAfter.orderQtySnapshot)
+          || (data.lastMutation == 'void'
             && exists(entryPath)
-            && get(entryPath).data.status == 'active'
-            && entryAfter.status == 'active'
-            && request.resource.data.lastDelta
-              == entryAfter.quantity - get(entryPath).data.quantity)
-          || (request.resource.data.lastMutation == 'void'
-            && exists(entryPath)
-            && get(entryPath).data.status == 'active'
+            && existsAfter(entryPath)
+            && entryBefore.recordType == 'standard'
+            && entryBefore.status == 'active'
             && entryAfter.status == 'voided'
-            && request.resource.data.lastDelta == 0 - get(entryPath).data.quantity));
+            && entryBefore.orderProcessId == processId
+            && data.registeredQty == resource.data.registeredQty - entryBefore.quantity
+            && data.lastDelta == 0 - entryBefore.quantity
+            && data.registeredQty >= 0)
+          || (data.lastMutation == 'delete'
+            && exists(entryPath)
+            && !existsAfter(entryPath)
+            && entryBefore.recordType == 'standard'
+            && entryBefore.status == 'active'
+            && entryBefore.orderProcessId == processId
+            && data.registeredQty == resource.data.registeredQty - entryBefore.quantity
+            && data.lastDelta == 0 - entryBefore.quantity
+            && data.registeredQty >= 0));
     }
 
-    // validProductionTotalCreate（首次建立工序累計檢查）。
-    function validProductionTotalCreate(processId) {
-      return validProductionTotalData(processId)
-        && request.resource.data.lastMutation == 'create'
-        && request.resource.data.lastDelta > 0
-        && request.resource.data.registeredQty == request.resource.data.lastDelta
-        && productionTotalMatchesEntryMutation(processId);
+    // validStandardProductionEntryCorrection（標準錯誤訂正）：只允許有效修改工作重算秒數快照，原始值永久保留。
+    function validStandardProductionEntryCorrection() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      let jobId = request.resource.data.standardCorrectionJobId;
+      let jobPath = /databases/$(database)/documents/processEditJobs/$(jobId);
+      let job = get(jobPath).data;
+      let correction = job.correctionData[resource.data.productCode][resource.data.processNo];
+      return resource.data.recordType == 'standard'
+        && productionSourceUpdatesMonthSummary(resource.data.productionDate, 'entriesVersion')
+        && changedKeys.hasOnly([
+          'originalProcessSecSnapshot', 'originalHourlyCapacitySnapshot',
+          'processSecSnapshot', 'hourlyCapacitySnapshot',
+          'standardCorrectionJobId', 'standardCorrectionReason',
+          'standardCorrectedAt', 'standardCorrectedByUid', 'standardCorrectedBy',
+          'revision', 'updatedAt', 'updatedByUid', 'updatedBy', 'calculationVersion'
+        ])
+        && ((!('originalProcessSecSnapshot' in resource.data)
+              && request.resource.data.originalProcessSecSnapshot == resource.data.processSecSnapshot)
+            || (('originalProcessSecSnapshot' in resource.data)
+              && request.resource.data.originalProcessSecSnapshot == resource.data.originalProcessSecSnapshot))
+        && ((!('originalHourlyCapacitySnapshot' in resource.data)
+              && request.resource.data.originalHourlyCapacitySnapshot == resource.data.hourlyCapacitySnapshot)
+            || (('originalHourlyCapacitySnapshot' in resource.data)
+              && request.resource.data.originalHourlyCapacitySnapshot == resource.data.originalHourlyCapacitySnapshot))
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.updatedAt == request.resource.data.standardCorrectedAt
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.standardCorrectedByUid == request.auth.uid
+        && request.resource.data.updatedBy == request.resource.data.standardCorrectedBy
+        && validShortString(request.resource.data.updatedBy, 200)
+        && exists(jobPath)
+        && job.jobType == 'master'
+        && job.mode == 'standardCorrection'
+        && job.status == 'syncing'
+        && job.phase == 'entries'
+        && job.createdByUid == request.auth.uid
+        && resource.data.productCode in job.targetCodes
+        && resource.data.productCode in job.correctionData
+        && resource.data.processNo in job.correctionData[resource.data.productCode]
+        && correction.seconds is number
+        && correction.seconds > 0
+        && correction.hourlyCapacity is int
+        && correction.hourlyCapacity > 0
+        && request.resource.data.processSecSnapshot == correction.seconds
+        && request.resource.data.hourlyCapacitySnapshot == correction.hourlyCapacity
+        && request.resource.data.standardCorrectionReason == job.reason
+        && request.resource.data.standardCorrectedAt is int
+        && request.resource.data.standardCorrectedAt > 0
+        && request.resource.data.calculationVersion == 'hourly-capacity-v2-standard-correction';
     }
 
-    // validProductionTotalUpdate（更新工序累計檢查）。
-    function validProductionTotalUpdate(processId) {
-      return validProductionTotalData(processId)
-        && request.resource.data.registeredQty
-          == resource.data.registeredQty + request.resource.data.lastDelta
-        && productionTotalMatchesEntryMutation(processId);
+    // validProcessEditOrderUpdate（工序修改只允許訂單快照工作欄位變更）。
+    function validProcessEditOrderUpdate() {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      let activeJobId = 'processEditJobId' in request.resource.data
+        ? request.resource.data.processEditJobId
+        : resource.data.processEditJobId;
+      let activeJobPath = /databases/$(database)/documents/processEditJobs/$(activeJobId);
+      return changedKeys.hasOnly([
+          'processEditJobId', 'processEditStatus', 'processEditCompletedAt',
+          'processEditCompletedBy', 'processVersion', 'processCount'
+        ])
+        && (!('processEditJobId' in request.resource.data)
+          || validShortString(request.resource.data.processEditJobId, 200))
+        && (!('processEditStatus' in request.resource.data)
+          || request.resource.data.processEditStatus in ['syncing', 'ready'])
+        && (!('processEditCompletedAt' in request.resource.data)
+          || (request.resource.data.processEditCompletedAt is int
+            && request.resource.data.processEditCompletedAt > 0))
+        && (!('processEditCompletedBy' in request.resource.data)
+          || validShortString(request.resource.data.processEditCompletedBy, 200))
+        && (!('processCount' in request.resource.data)
+          || (request.resource.data.processCount is int
+            && request.resource.data.processCount >= 0))
+        && (!('processVersion' in request.resource.data)
+          || validShortString(request.resource.data.processVersion, 150))
+        && activeJobId is string
+        && activeJobId.size() > 0
+        && existsAfter(activeJobPath)
+        && getAfter(activeJobPath).data.orderId == resource.data.orderId
+        && getAfter(activeJobPath).data.createdByUid == request.auth.uid
+        && getAfter(activeJobPath).data.status
+          == ('processEditJobId' in request.resource.data ? 'syncing' : 'ready');
     }
 
-    // validSecondSyncOrderUpdate（工序秒數同步的訂單狀態變更檢查）。
-    function validSecondSyncOrderUpdate() {
+    function processEditOrderIsLocked() {
+      let orderPath = /databases/$(database)/documents/orders/$(request.resource.data.orderId);
+      return exists(orderPath)
+        && 'processEditJobId' in get(orderPath).data
+        && get(orderPath).data.processEditJobId is string
+        && exists(/databases/$(database)/documents/processEditJobs/$(get(orderPath).data.processEditJobId))
+        && get(/databases/$(database)/documents/processEditJobs/$(get(orderPath).data.processEditJobId)).data.status == 'syncing'
+        && get(/databases/$(database)/documents/processEditJobs/$(get(orderPath).data.processEditJobId)).data.createdByUid == request.auth.uid;
+    }
+
+    // validProcessEditProcessUpdate（工序修改可改工序內容、秒數、順序及停用狀態）。
+    function validProcessEditProcessUpdate() {
       let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
       return changedKeys.hasOnly([
-          'lifecycleStatus', 'secondSyncJobId', 'secondSyncStartedAt',
-          'secondSyncCompletedAt', 'secondSyncBy', 'processVersion'
+          'processNo', 'processCategory', 'processZh', 'processVi',
+          'workStdSec', 'processSec', 'slPerHour', 'active',
+          'officialSyncedAt', 'officialSyncedBy', 'deactivatedAt', 'deactivatedBy'
         ])
-        && request.resource.data.lifecycleStatus in ['active', 'syncingSeconds']
-        && (!('secondSyncJobId' in request.resource.data)
-          || request.resource.data.secondSyncJobId == null
-          || validShortString(request.resource.data.secondSyncJobId, 200))
-        && (!('secondSyncStartedAt' in request.resource.data)
-          || (request.resource.data.secondSyncStartedAt is int
-            && request.resource.data.secondSyncStartedAt > 0))
-        && (!('secondSyncCompletedAt' in request.resource.data)
-          || (request.resource.data.secondSyncCompletedAt is int
-            && request.resource.data.secondSyncCompletedAt > 0))
-        && (!('secondSyncBy' in request.resource.data)
-          || validShortString(request.resource.data.secondSyncBy, 200));
-    }
-
-    // validSecondSyncProcessUpdate（工序秒數同步只能改秒數與同步資訊）。
-    function validSecondSyncProcessUpdate() {
-      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      return changedKeys.hasOnly([
-          'workStdSec', 'processSec', 'quoteSnapshotSec', 'slPerHour',
-          'secondSyncedAt', 'secondSyncedBy'
-        ])
+        && validShortString(request.resource.data.processNo, 2)
+        && request.resource.data.processCategory in ['BL', 'SX', 'QC', 'DG']
+        && request.resource.data.processZh is string
+        && request.resource.data.processZh.size() <= 200
+        && validShortString(request.resource.data.processVi, 200)
         && request.resource.data.workStdSec is number
         && request.resource.data.workStdSec > 0
         && request.resource.data.processSec is number
         && request.resource.data.processSec > 0
-        && request.resource.data.quoteSnapshotSec is number
-        && request.resource.data.quoteSnapshotSec > 0
         && request.resource.data.slPerHour is int
         && request.resource.data.slPerHour >= 0
-        && request.resource.data.secondSyncedAt is int
-        && request.resource.data.secondSyncedAt > 0
-        && validShortString(request.resource.data.secondSyncedBy, 200);
+        && request.resource.data.active is bool
+        && (!('officialSyncedAt' in request.resource.data)
+          || (request.resource.data.officialSyncedAt is int
+            && request.resource.data.officialSyncedAt > 0))
+        && (!('officialSyncedBy' in request.resource.data)
+          || validShortString(request.resource.data.officialSyncedBy, 200))
+        && (!('deactivatedAt' in request.resource.data)
+          || (request.resource.data.deactivatedAt is int
+            && request.resource.data.deactivatedAt > 0))
+        && (!('deactivatedBy' in request.resource.data)
+          || validShortString(request.resource.data.deactivatedBy, 200));
+    }
+
+    // validProcessEditProcessCreate（工序修改新增訂單工序的完整欄位檢查）。
+    function validProcessEditProcessCreate() {
+      return validOrderProcess()
+        && hasNoLegacyReportCounters()
+        && validShortString(request.resource.data.processNo, 2)
+        && request.resource.data.processCategory in ['BL', 'SX', 'QC', 'DG']
+        && request.resource.data.processZh is string
+        && request.resource.data.processZh.size() <= 200
+        && validShortString(request.resource.data.processVi, 200)
+        && request.resource.data.workStdSec is number
+        && request.resource.data.workStdSec > 0
+        && request.resource.data.processSec is number
+        && request.resource.data.processSec > 0
+        && request.resource.data.slPerHour is int
+        && request.resource.data.slPerHour >= 0
+        && request.resource.data.active == true
+        && request.resource.data.officialSyncedAt is int
+        && request.resource.data.officialSyncedAt > 0
+        && validShortString(request.resource.data.officialSyncedBy, 200)
+        && request.resource.data.quoteSnapshotSec is number
+        && request.resource.data.quoteSnapshotSec > 0
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && validShortString(request.resource.data.createdBy, 200)
+        && processEditOrderIsLocked();
     }
 
     // configuredRoleCanUpdateOrder（可設定角色可修改訂單的範圍）。
     function configuredRoleCanUpdateOrder() {
       let roleId = accessDocument().role;
       let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
-      let features = get(rolePath).data.features;
-      return exists(rolePath)
-        && get(rolePath).data.active == true
-        && get(rolePath).data.role == roleId
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
         && (features.progress == true
-          || (features.sync == true && validSecondSyncOrderUpdate()));
+          || (features.productionProcessEdit == true
+            && 'processSecondsEdit' in features && features.processSecondsEdit == true
+            && (!('productsMain' in features) || features.productsMain == true)
+            && validProcessEditOrderUpdate()));
     }
 
-    // canUpdateOrder（可修改訂單）：訂單分頁可完整修改，同步分頁只能改同步狀態。
+    // canUpdateOrder（可修改訂單）：訂單分頁可完整修改，工序修改只可改快照工作欄位。
     function canUpdateOrder() {
       return isAdmin()
         || (isConfigurableRole() && configuredRoleCanUpdateOrder());
@@ -730,12 +1830,16 @@ service cloud.firestore {
     function configuredRoleCanUpdateOrderProcess() {
       let roleId = accessDocument().role;
       let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
-      let features = get(rolePath).data.features;
-      return exists(rolePath)
-        && get(rolePath).data.active == true
-        && get(rolePath).data.role == roleId
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
         && (features.progress == true
-          || (features.sync == true && validSecondSyncProcessUpdate()));
+          || (features.productionProcessEdit == true
+            && 'processSecondsEdit' in features && features.processSecondsEdit == true
+            && (!('productsMain' in features) || features.productsMain == true)
+            && validProcessEditProcessUpdate()
+            && processEditOrderIsLocked()));
     }
 
     // canUpdateOrderProcess（可修改訂單工序）。
@@ -751,6 +1855,35 @@ service cloud.firestore {
         && request.resource.data.ops.size() <= 200;
     }
 
+    // validProductProcessStandard（目前工序標準索引）：只保存新報工核對所需的小型資料。
+    function validProductProcessStandard(standardId) {
+      let data = request.resource.data;
+      return data.keys().hasAll([
+          'standardId', 'productCode', 'processNo', 'processNameVi', 'processNameZh',
+          'processCategory', 'processSec', 'hourlyCapacity', 'standardRevision', 'active',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'standardId', 'productCode', 'processNo', 'processNameVi', 'processNameZh',
+          'processCategory', 'processSec', 'hourlyCapacity', 'standardRevision', 'active',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.standardId == standardId
+        && validShortString(data.productCode, 200)
+        && validShortString(data.processNo, 100)
+        && data.processNameVi is string && data.processNameVi.size() <= 200
+        && data.processNameZh is string && data.processNameZh.size() <= 200
+        && data.processCategory in ['BL', 'SX', 'QC', 'DG']
+        && data.processSec is int && data.processSec > 0 && data.processSec <= 86400
+        && data.hourlyCapacity is int && data.hourlyCapacity > 0
+        && data.standardRevision is int && data.standardRevision >= 0
+        && data.active is bool
+        && data.updatedAt is int && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && validShortString(data.updatedBy, 200)
+        && data.schemaVersion == 1;
+    }
+
     // validProductChange（款號增量變更資料檢查）
     function validProductChange() {
       return request.resource.data.keys().hasAll([
@@ -759,7 +1892,7 @@ service cloud.firestore {
         ])
         && request.resource.data.keys().hasOnly([
           'sequence', 'fromVersion', 'toVersion', 'changedCodes', 'deletedCodes',
-          'createdAt', 'createdByUid', 'createdBy'
+          'createdAt', 'createdByUid', 'createdBy', 'versionId'
         ])
         && request.resource.data.sequence is int
         && request.resource.data.sequence > 0
@@ -771,11 +1904,235 @@ service cloud.firestore {
         && request.resource.data.changedCodes.size()
           + request.resource.data.deletedCodes.size() > 0
         && request.resource.data.changedCodes.size()
-          + request.resource.data.deletedCodes.size() <= 498
+          + request.resource.data.deletedCodes.size() <= 400
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdByUid == request.auth.uid
+        && validShortString(request.resource.data.createdBy, 200)
+        && (!('versionId' in request.resource.data)
+          || validShortString(request.resource.data.versionId, 200));
+    }
+
+    // validProductVersion（不可改寫的完整款號版本摘要）。
+    function validProductVersion(versionId) {
+      return request.resource.data.keys().hasAll([
+          'versionId', 'sequence', 'productVersion', 'type', 'action', 'status',
+          'productCount', 'opCount', 'chunkCount', 'reason', 'fileName',
+          'createdAt', 'createdByUid', 'createdBy'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'versionId', 'sequence', 'productVersion', 'type', 'action', 'status',
+          'productCount', 'opCount', 'chunkCount', 'reason', 'fileName',
+          'createdAt', 'createdByUid', 'createdBy'
+        ])
+        && request.resource.data.versionId == versionId
+        && validShortString(request.resource.data.versionId, 200)
+        && request.resource.data.sequence is int
+        && request.resource.data.sequence >= 0
+        && request.resource.data.productVersion is string
+        && request.resource.data.productVersion.size() <= 150
+        && request.resource.data.type in ['baseline', 'snapshot']
+        && request.resource.data.action in ['baseline', 'import', 'processEdit', 'delete']
+        && request.resource.data.status == 'ready'
+        && validNonNegativeInteger(request.resource.data.productCount)
+        && validNonNegativeInteger(request.resource.data.opCount)
+        && request.resource.data.chunkCount is int
+        && request.resource.data.chunkCount > 0
+        && request.resource.data.chunkCount <= 450
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 500
+        && request.resource.data.fileName is string
+        && request.resource.data.fileName.size() <= 300
         && request.resource.data.createdAt is int
         && request.resource.data.createdAt > 0
         && request.resource.data.createdByUid == request.auth.uid
         && validShortString(request.resource.data.createdBy, 200);
+    }
+
+    // validProductVersionChunk（不可改寫的款號版本資料區塊）。
+    function validProductVersionChunk(chunkId) {
+      return request.resource.data.keys().hasAll([
+          'chunkId', 'versionId', 'chunkIndex', 'itemCount', 'data', 'createdAt', 'createdByUid'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'chunkId', 'versionId', 'chunkIndex', 'itemCount', 'data', 'createdAt', 'createdByUid'
+        ])
+        && request.resource.data.chunkId == chunkId
+        && validShortString(request.resource.data.versionId, 200)
+        && request.resource.data.chunkIndex is int
+        && request.resource.data.chunkIndex >= 0
+        && validNonNegativeInteger(request.resource.data.itemCount)
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 650000
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdByUid == request.auth.uid;
+    }
+
+    // validProductGroup（同產品群組必須由人工確認後建立）。
+    function validProductGroup(groupId) {
+      return request.resource.data.keys().hasAll([
+          'groupId', 'name', 'signature', 'memberCodes', 'active',
+          'createdAt', 'createdByUid', 'createdBy', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'groupId', 'name', 'signature', 'memberCodes', 'active',
+          'createdAt', 'createdByUid', 'createdBy', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.groupId == groupId
+        && validShortString(request.resource.data.name, 200)
+        && validShortString(request.resource.data.signature, 200000)
+        && request.resource.data.memberCodes is list
+        && request.resource.data.memberCodes.size() >= 2
+        && request.resource.data.memberCodes.size() <= 200
+        && request.resource.data.active == true
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdByUid == request.auth.uid
+        && validShortString(request.resource.data.createdBy, 200)
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > 0
+        && request.resource.data.updatedByUid == request.auth.uid;
+    }
+
+    // validProductGroupUpdate（群組成員更新）：群組身分及建立資料不可改，只能改成員與更新資訊。
+    function validProductGroupUpdate(groupId) {
+      return request.resource.data.keys().hasAll([
+          'groupId', 'name', 'signature', 'memberCodes', 'active',
+          'createdAt', 'createdByUid', 'createdBy', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'groupId', 'name', 'signature', 'memberCodes', 'active',
+          'createdAt', 'createdByUid', 'createdBy', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.groupId == groupId
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.name == resource.data.name
+        && request.resource.data.signature == resource.data.signature
+        && request.resource.data.active == true
+        && resource.data.active == true
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.memberCodes is list
+        && request.resource.data.memberCodes.size() >= 2
+        && request.resource.data.memberCodes.size() <= 200
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > resource.data.updatedAt
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'memberCodes', 'updatedAt', 'updatedByUid'
+        ]);
+    }
+
+    // validProductGroupRename（修改群組名稱）：只允許改名稱及更新資訊。
+    function validProductGroupRename(groupId) {
+      return request.resource.data.keys().hasAll([
+          'groupId', 'name', 'signature', 'memberCodes', 'active',
+          'createdAt', 'createdByUid', 'createdBy', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'groupId', 'name', 'signature', 'memberCodes', 'active',
+          'createdAt', 'createdByUid', 'createdBy', 'updatedAt', 'updatedByUid'
+        ])
+        && request.resource.data.groupId == groupId
+        && request.resource.data.groupId == resource.data.groupId
+        && validShortString(request.resource.data.name, 200)
+        && request.resource.data.signature == resource.data.signature
+        && request.resource.data.memberCodes == resource.data.memberCodes
+        && request.resource.data.active == true
+        && resource.data.active == true
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedAt > resource.data.updatedAt
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'updatedAt', 'updatedByUid'
+        ]);
+    }
+
+    // validProductGroupDelete（永久刪除群組）：只允許刪除仍有效且結構正確的群組。
+    function validProductGroupDelete(groupId) {
+      return resource.data.groupId == groupId
+        && resource.data.active == true
+        && validShortString(resource.data.name, 200)
+        && validShortString(resource.data.signature, 200000)
+        && resource.data.memberCodes is list
+        && resource.data.memberCodes.size() >= 2
+        && resource.data.memberCodes.size() <= 200;
+    }
+
+    function groupAfterContainsMember(groupId, code) {
+      let groupPath = /databases/$(database)/documents/productGroups/$(groupId);
+      return existsAfter(groupPath)
+        ? (getAfter(groupPath).data.active == true
+          && getAfter(groupPath).data.memberCodes is list
+          && getAfter(groupPath).data.memberCodes.hasAny([code]))
+        : false;
+    }
+
+    function validProductGroupMember() {
+      return request.resource.data.keys().hasAll(['code', 'groupId', 'createdAt', 'createdByUid'])
+        && request.resource.data.keys().hasOnly(['code', 'groupId', 'createdAt', 'createdByUid'])
+        && validShortString(request.resource.data.code, 200)
+        && validShortString(request.resource.data.groupId, 200)
+        && request.resource.data.createdAt is int
+        && request.resource.data.createdAt > 0
+        && request.resource.data.createdByUid == request.auth.uid;
+    }
+
+    // validProcessEditJob（可重試的整體修改與單張訂單同步工作）。
+    function validProcessEditJob(jobId) {
+      let data = request.resource.data;
+      return data.jobId == jobId
+        && data.jobType in ['master', 'order']
+        && ((data.jobType == 'master' && data.masterJobId == '')
+          || (data.jobType == 'order' && validShortString(data.masterJobId, 200)))
+        && validShortString(data.orderId, 200)
+        && validShortString(data.orderNo, 200)
+        && data.targetCodes is list
+        && data.targetCodes.size() > 0
+        && data.targetCodes.size() <= 200
+        && data.operationsData is string
+        && data.operationsData.size() > 2
+        && data.operationsData.size() <= 300000
+        && data.correctionData is map
+        && data.correctionData.size() <= 200
+        && (!('orderSyncRequired' in data) || data.orderSyncRequired is bool)
+        && data.mode in ['standardCorrection', 'processOptimization']
+        && validShortString(data.reason, 500)
+        && data.status in ['syncing', 'ready', 'failed', 'partial']
+        && data.phase in ['product', 'orders', 'entries', 'complete']
+        && data.createdAt is int
+        && data.createdAt > 0
+        && data.updatedAt is int
+        && data.updatedAt >= data.createdAt
+        && data.createdByUid == request.auth.uid
+        && validShortString(data.createdBy, 200);
+    }
+
+    // validProcessEditJobCreateState（工作建立狀態）：主工作一定先保存款號，子工作一定從訂單同步開始。
+    function validProcessEditJobCreateState() {
+      return request.resource.data.status == 'syncing'
+        && ((request.resource.data.jobType == 'master' && request.resource.data.phase == 'product')
+          || (request.resource.data.jobType == 'order' && request.resource.data.phase == 'orders'));
+    }
+
+    // validProcessEditJobTransition（工作狀態轉換）：只能往後處理或在失敗階段重試，完成後永久封存。
+    function validProcessEditJobTransition() {
+      return resource.data.status != 'ready'
+        && ((resource.data.phase == 'product'
+              && request.resource.data.phase in ['product', 'orders', 'entries'])
+          || (resource.data.phase == 'orders'
+              && request.resource.data.phase in ['orders', 'entries', 'complete'])
+          || (resource.data.phase == 'entries'
+              && request.resource.data.phase in ['entries', 'complete']))
+        && (request.resource.data.status != 'ready' || request.resource.data.phase == 'complete')
+        && (request.resource.data.status != 'partial' || request.resource.data.phase == 'orders')
+        && (request.resource.data.jobType != 'order'
+          || request.resource.data.phase in ['orders', 'complete']);
     }
 
     // validCuttingChunk（裁帶模板分段資料檢查）
@@ -797,12 +2154,15 @@ service cloud.firestore {
     function configuredRoleCanReadProducts() {
       let roleId = accessDocument().role;
       let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
-      let features = get(rolePath).data.features;
-      return exists(rolePath)
-        && get(rolePath).data.active == true
-        && get(rolePath).data.role == roleId
-        && (('cutting' in features && features.cutting == true)
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
+        && (('cutting' in features && features.cutting == true
+          && 'preparationMain' in features && features.preparationMain == true)
         || ('summary' in features && features.summary == true
+          && (!('productsMain' in features) || features.productsMain == true))
+        || ('productionProcessEdit' in features && features.productionProcessEdit == true
           && (!('productsMain' in features) || features.productsMain == true))
         || ('progress' in features && features.progress == true)
         || ('export' in features && features.export == true
@@ -821,12 +2181,13 @@ service cloud.firestore {
     function configuredRoleCanReadOrders() {
       let roleId = accessDocument().role;
       let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
-      let features = get(rolePath).data.features;
-      return exists(rolePath)
-        && get(rolePath).data.active == true
-        && get(rolePath).data.role == roleId
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
         && (('progress' in features && features.progress == true)
-          || ('sync' in features && features.sync == true)
+          || ('productionProcessEdit' in features && features.productionProcessEdit == true
+            && (!('productsMain' in features) || features.productsMain == true))
           || ('productionEntry' in features && features.productionEntry == true
             && (!('productionMain' in features) || features.productionMain == true)));
     }
@@ -841,10 +2202,10 @@ service cloud.firestore {
     function configuredRoleCanReadCostSettings() {
       let roleId = accessDocument().role;
       let rolePath = /databases/$(database)/documents/rolePermissions/$(roleId);
-      let features = get(rolePath).data.features;
-      return exists(rolePath)
-        && get(rolePath).data.active == true
-        && get(rolePath).data.role == roleId
+      let rolePermission = get(rolePath).data;
+      let features = rolePermission.features;
+      return rolePermission.active == true
+        && rolePermission.role == roleId
         && ((features.costView == true
             && features.summary == true
             && (!('productsMain' in features) || features.productsMain == true))
@@ -860,40 +2221,458 @@ service cloud.firestore {
         || (isConfigurableRole() && configuredRoleCanReadCostSettings());
     }
 
-    // validDataVersions（資料版本文件檢查）
-    function validDataVersions() {
-      return request.resource.data.keys().hasAll(['updatedAt', 'updatedBy'])
-        && request.resource.data.keys().hasOnly([
-          'updatedAt', 'updatedBy', 'orders', 'orderProcesses', 'settings',
-          'operationSettings', 'costSettings', 'impHist', 'cLog',
-          'employees', 'reports', 'attendance', 'employeeUserHistory'
+    // validPerformanceBonusSettings（保密績效獎金參數）：固定規則只接受 80% 與 8 小時。
+    function validPerformanceBonusSettings() {
+      return request.resource.data.keys().hasAll([
+          'unitPrice', 'companyShare', 'employeeShare', 'efficiencyCap',
+          'baseEfficiency', 'minAttendanceHours', 'revision', 'updatedAt',
+          'updatedByUid', 'updatedBy', 'schemaVersion'
         ])
+        && request.resource.data.keys().hasOnly([
+          'unitPrice', 'companyShare', 'employeeShare', 'efficiencyCap',
+          'baseEfficiency', 'minAttendanceHours', 'revision', 'updatedAt',
+          'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.unitPrice is int
+        && request.resource.data.unitPrice > 0
+        && request.resource.data.unitPrice <= 10000000
+        && request.resource.data.companyShare is number
+        && request.resource.data.companyShare >= 0
+        && request.resource.data.companyShare <= 100
+        && request.resource.data.employeeShare is number
+        && request.resource.data.employeeShare == 100 - request.resource.data.companyShare
+        && request.resource.data.efficiencyCap is int
+        && request.resource.data.efficiencyCap >= 80
+        && request.resource.data.efficiencyCap <= 1000
+        && request.resource.data.baseEfficiency == 80
+        && request.resource.data.minAttendanceHours == 8
+        && request.resource.data.revision is int
+        && request.resource.data.revision > 0
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedByUid == request.auth.uid
+        && validShortString(request.resource.data.updatedBy, 200)
+        && request.resource.data.schemaVersion == 1;
+    }
+
+    function validPerformanceBonusTable(tableId) {
+      let data = request.resource.data;
+      let settingsPath = /databases/$(database)/documents/system/performanceBonusSettings;
+      return tableId == 'current'
+        && existsAfter(settingsPath)
+        && data.version == getAfter(settingsPath).data.revision
+        && data.baseEfficiency == 80
+        && data.minAttendanceHours == 8
+        && data.efficiencyCap == getAfter(settingsPath).data.efficiencyCap
+        && data.employeePointHourAmount is number
+        && data.employeePointHourAmount > 0
+        && data.rows is list
+        && data.rows.size() == data.efficiencyCap - 79
+        && data.rows.size() <= 921
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && validShortString(data.updatedBy, 200)
+        && data.schemaVersion == 1;
+    }
+
+    function validPerformanceBonusMonth() {
+      return request.resource.data.month is string
+        && request.resource.data.month.size() == 7
+        && request.resource.data.status in ['draft', 'locked', 'exported', 'paid']
+        && validShortString(request.resource.data.calculationId, 100)
+        && request.resource.data.settingsVersion is int
+        && request.resource.data.settingsVersion >= 0
+        && request.resource.data.sourceEntriesVersion is string
+        && request.resource.data.sourceAttendanceVersion is string
+        && validNonNegativeInteger(request.resource.data.employeeCount)
+        && validNonNegativeInteger(request.resource.data.eligibleEmployeeCount)
+        && validNonNegativeInteger(request.resource.data.baseBonusTotal)
+        && request.resource.data.adjustmentTotal is int
+        && validNonNegativeInteger(request.resource.data.finalBonusTotal)
+        && validNonNegativeInteger(request.resource.data.anomalyCount)
+        && request.resource.data.anomalies is list
+        && request.resource.data.anomalies.size() <= 100
+        && request.resource.data.requiresRecalculation is bool
+        && request.resource.data.calculatedAt is int
+        && request.resource.data.calculatedByUid is string
+        && validShortString(request.resource.data.calculatedBy, 200)
+        && validNonNegativeInteger(request.resource.data.lockRevision)
+        && request.resource.data.schemaVersion == 1;
+    }
+
+    function performanceBonusRequestedSourcesCurrent(month) {
+      let sourcePath = productionMonthPath(month);
+      return exists(sourcePath)
+        && request.resource.data.sourceEntriesVersion == get(sourcePath).data.entriesVersion
+        && request.resource.data.sourceAttendanceVersion == get(sourcePath).data.attendanceVersion;
+    }
+
+    function performanceBonusRequestedTableCurrent() {
+      let tablePath = /databases/$(database)/documents/performanceBonusTables/current;
+      return exists(tablePath) && request.resource.data.settingsVersion == get(tablePath).data.version;
+    }
+
+    function validPerformanceBonusMonthCalculation(month) {
+      return request.resource.data.month == month
+        && request.resource.data.status == 'draft'
+        && validPerformanceBonusMonth()
+        && request.resource.data.calculatedByUid == request.auth.uid
+        && request.resource.data.updatedByUid == request.auth.uid
+        && request.resource.data.calculatedBy == request.resource.data.updatedBy
+        && request.resource.data.updatedAt == request.resource.data.calculatedAt
+        && performanceBonusRequestedSourcesCurrent(month)
+        && performanceBonusRequestedTableCurrent()
+        && (!exists(/databases/$(database)/documents/performanceBonusMonths/$(month))
+          || resource.data.status == 'draft');
+    }
+
+    // validPerformanceBonusMonthV2Lock（新版鎖月快照）：未鎖定月份只在瀏覽器計算，鎖定時才保存一份結果。
+    function validPerformanceBonusMonthV2Lock(month) {
+      let data = request.resource.data;
+      let controlPath = productionMonthPath(month);
+      return data.keys().hasAll([
+          'month', 'status', 'settingsVersion', 'sourceEntriesVersion', 'sourceAttendanceVersion', 'sourceSummaryVersion',
+          'employeeCount', 'eligibleEmployeeCount', 'baseBonusTotal', 'adjustmentTotal', 'finalBonusTotal',
+          'anomalyCount', 'anomalies', 'requiresRecalculation', 'calculatedAt', 'calculatedByUid',
+          'calculatedBy', 'updatedAt', 'updatedByUid', 'updatedBy', 'summaryReady', 'frozenEmployees',
+           'lockedAt', 'lockedByUid', 'lockedBy', 'lockRevision', 'schemaVersion'
+         ])
+        && data.month == month
+        && data.status == 'locked'
+        && data.settingsVersion is int
+        && data.settingsVersion > 0
+        && data.sourceEntriesVersion is string
+        && data.sourceAttendanceVersion is string
+        && data.sourceSummaryVersion is string
+        && validNonNegativeInteger(data.employeeCount)
+        && data.frozenEmployees is list
+        && data.frozenEmployees.size() == data.employeeCount
+        && data.frozenEmployees.size() <= 200
+        && data.anomalyCount == 0
+        && data.anomalies is list
+        && data.anomalies.size() == 0
+        && data.requiresRecalculation == false
+        && data.summaryReady == true
+        && data.calculatedAt is int
+        && data.calculatedAt > 0
+        && data.calculatedByUid == request.auth.uid
+        && validShortString(data.calculatedBy, 200)
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && validShortString(data.updatedBy, 200)
+        && data.lockedAt is int
+        && data.lockedAt > 0
+        && data.lockedByUid == request.auth.uid
+        && validShortString(data.lockedBy, 200)
+        && data.lockRevision is int
+        && data.lockRevision == (exists(/databases/$(database)/documents/performanceBonusMonths/$(month))
+          ? resource.data.lockRevision + 1
+          : 1)
+        && data.schemaVersion == 2
+        && performanceBonusRequestedSourcesCurrent(month)
+        && data.sourceSummaryVersion == get(controlPath).data.summaryVersion
+        && performanceBonusRequestedTableCurrent()
+        && existsAfter(controlPath)
+        && getAfter(controlPath).data.status == 'locked'
+        && getAfter(controlPath).data.summaryReady == true
+        && getAfter(controlPath).data.updatedByUid == request.auth.uid
+        && (!exists(/databases/$(database)/documents/performanceBonusMonths/$(month))
+          || resource.data.status == 'draft');
+    }
+
+    function validPerformanceBonusSettingsVersion() {
+      let data = request.resource.data;
+      let settingsPath = /databases/$(database)/documents/system/performanceBonusSettings;
+      return validPerformanceBonusSettingsSnapshot(data, data.revision)
+        && data.keys().hasAll(['updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'])
+        && data.updatedAt is int
+        && validShortString(data.updatedByUid, 128)
+        && validShortString(data.updatedBy, 200)
+        && data.schemaVersion == 1
+        && existsAfter(settingsPath)
+        && ((exists(settingsPath) && data == get(settingsPath).data)
+          || data == getAfter(settingsPath).data);
+    }
+
+    function validPerformanceBonusAdjustment(adjustmentId) {
+      let data = request.resource.data;
+      let controlPath = productionMonthPath(data.month);
+      return data.keys().hasAll([
+          'adjustmentId', 'month', 'employeeId', 'adjustmentAmount', 'adjustmentNote',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'adjustmentId', 'month', 'employeeId', 'adjustmentAmount', 'adjustmentNote',
+          'updatedAt', 'updatedByUid', 'updatedBy', 'schemaVersion'
+        ])
+        && data.adjustmentId == adjustmentId
+        && adjustmentId == data.month + '__' + data.employeeId
+        && data.month is string
+        && data.month.size() == 7
+        && validShortString(data.employeeId, 30)
+        && data.adjustmentAmount is int
+        && data.adjustmentNote is string
+        && data.adjustmentNote.size() <= 200
+        && data.updatedAt is int
+        && data.updatedAt > 0
+        && data.updatedByUid == request.auth.uid
+        && validShortString(data.updatedBy, 200)
+        && data.schemaVersion == 1
+        && exists(controlPath)
+        && get(controlPath).data.status == 'open'
+        && get(controlPath).data.summaryReady == true;
+    }
+
+    function validPerformanceBonusControlTransition(month) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let bonusPath = /databases/$(database)/documents/performanceBonusMonths/$(month);
+      let changed = after.diff(before).affectedKeys();
+      return before.month == month
+        && after.month == month
+        && before.entriesVersion == after.entriesVersion
+        && before.attendanceVersion == after.attendanceVersion
+        && before.summaryVersion == after.summaryVersion
+        && after.updatedAt is int
+        && after.updatedByUid == request.auth.uid
+        && validShortString(after.updatedBy, 200)
+        && after.revision == before.revision + 1
+        && ((before.status == 'open'
+            && after.status == 'locked'
+            && before.summaryReady == true
+            && after.summaryReady == true
+            && changed.hasOnly([
+              'status', 'revision', 'lockedAt', 'lockedByUid', 'lockedBy',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && existsAfter(bonusPath)
+            && getAfter(bonusPath).data.status == 'locked'
+            && getAfter(bonusPath).data.schemaVersion == 2
+            && getAfter(bonusPath).data.updatedByUid == request.auth.uid)
+          || (before.status == 'locked'
+            && after.status == 'open'
+            && hasFeature('performanceBonusUnlock')
+            && changed.hasOnly([
+              'status', 'revision', 'unlockedAt', 'unlockedByUid', 'unlockedBy',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && existsAfter(bonusPath)
+            && getAfter(bonusPath).data.status == 'draft'
+            && getAfter(bonusPath).data.updatedByUid == request.auth.uid));
+    }
+
+    // validPerformanceBonusMonthTransition（月獎金狀態切換）：
+    // 已建立的完整月份資料只檢查本次允許改動欄位，避免每個狀態重複驗證整份文件。
+    function validPerformanceBonusMonthTransition(month) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let changed = after.diff(before).affectedKeys();
+      return before.month == month
+        && after.month == month
+        && after.updatedAt is int
+        && after.updatedAt > 0
+        && after.updatedByUid == request.auth.uid
+        && validShortString(after.updatedBy, 200)
+        && (
+          (before.status == 'draft'
+            && after.status == 'locked'
+            && before.anomalyCount == 0
+            && before.requiresRecalculation == false
+            && performanceBonusMonthSourcesCurrent(month)
+            && performanceBonusMonthSettingsCurrent()
+            && changed.hasOnly([
+              'status', 'lockedAt', 'lockedByUid', 'lockedBy', 'lockRevision',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && after.lockedAt is int
+            && after.lockedAt > 0
+            && after.lockedByUid == request.auth.uid
+            && validShortString(after.lockedBy, 200)
+            && after.lockRevision is int
+            && after.lockRevision == before.lockRevision + 1)
+          || (((before.status in ['locked', 'exported'] && after.status == 'exported')
+                || (before.status == 'paid' && after.status == 'paid'))
+            && ('anomalyCount' in before)
+            && before.anomalyCount == 0
+            && ('requiresRecalculation' in before)
+            && before.requiresRecalculation == false
+            && performanceBonusMonthSourcesCurrent(month)
+            && changed.hasOnly([
+              'status', 'lastExportedAt', 'lastExportedByUid', 'lastExportedBy',
+              'exportCount', 'lastExportFileName', 'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && after.lastExportedAt is int
+            && after.lastExportedAt > 0
+            && after.lastExportedByUid == request.auth.uid
+            && validShortString(after.lastExportedBy, 200)
+            && after.lastExportFileName is string
+            && after.lastExportFileName.size() <= 300
+            && after.exportCount is int
+            && after.exportCount == (('exportCount' in before) ? before.exportCount + 1 : 1))
+          || (before.status == 'exported'
+            && after.status == 'paid'
+            && ('anomalyCount' in before)
+            && before.anomalyCount == 0
+            && ('requiresRecalculation' in before)
+            && before.requiresRecalculation == false
+            && performanceBonusMonthSourcesCurrent(month)
+            && changed.hasOnly([
+              'status', 'paidAt', 'paidByUid', 'paidBy',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && after.paidAt is int
+            && after.paidAt > 0
+            && after.paidByUid == request.auth.uid
+            && validShortString(after.paidBy, 200))
+          || (before.status in ['locked', 'exported', 'paid']
+            && after.status == 'draft'
+            && hasFeature('performanceBonusUnlock')
+            && changed.hasOnly([
+              'status', 'unlockedAt', 'unlockedByUid', 'unlockedBy',
+              'requiresRecalculation', 'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && after.unlockedAt is int
+            && after.unlockedAt > 0
+            && after.unlockedByUid == request.auth.uid
+            && validShortString(after.unlockedBy, 200)
+            && after.requiresRecalculation == true)
+        );
+    }
+
+    function performanceBonusMonthSourcesCurrent(month) {
+      let sourcePath = productionMonthPath(month);
+      return exists(sourcePath)
+        && resource.data.sourceEntriesVersion == get(sourcePath).data.entriesVersion
+        && resource.data.sourceAttendanceVersion == get(sourcePath).data.attendanceVersion;
+    }
+
+    function performanceBonusMonthSettingsCurrent() {
+      let settingsPath = /databases/$(database)/documents/system/performanceBonusSettings;
+      return exists(settingsPath) && resource.data.settingsVersion == get(settingsPath).data.revision;
+    }
+
+    function bonusMonthParent(month) {
+      return get(/databases/$(database)/documents/performanceBonusMonths/$(month)).data;
+    }
+
+    function validPerformanceBonusEmployee(employeeId) {
+      return request.resource.data.employeeId == employeeId
+        && validShortString(request.resource.data.employeeId, 30)
+        && validShortString(request.resource.data.employeeName, 200)
+        && request.resource.data.department is string
+        && request.resource.data.department.size() <= 200
+        && request.resource.data.days is list
+        && request.resource.data.days.size() <= 31
+        && validNonNegativeInteger(request.resource.data.qualifyingDays)
+        && request.resource.data.calculatedHours is number
+        && request.resource.data.calculatedHours >= 0
+        && validNonNegativeInteger(request.resource.data.baseBonus)
+        && request.resource.data.adjustmentAmount is int
+        && request.resource.data.adjustmentAmount >= -request.resource.data.baseBonus
+        && request.resource.data.adjustmentNote is string
+        && request.resource.data.adjustmentNote.size() <= 200
+        && validNonNegativeInteger(request.resource.data.finalBonus)
+        && request.resource.data.finalBonus == request.resource.data.baseBonus + request.resource.data.adjustmentAmount
+        && validShortString(request.resource.data.calculationId, 100)
+        && request.resource.data.calculatedAt is int
+        && request.resource.data.updatedAt is int
+        && request.resource.data.updatedByUid == request.auth.uid
+        && validShortString(request.resource.data.updatedBy, 200)
+        && request.resource.data.schemaVersion == 1;
+    }
+
+    function validPerformanceBonusEmployeeCalculation(month, employeeId) {
+      let parentPath = /databases/$(database)/documents/performanceBonusMonths/$(month);
+      return existsAfter(parentPath)
+        && getAfter(parentPath).data.status == 'draft'
+        && request.resource.data.month == month
+        && request.resource.data.employeeId == employeeId
+        && request.resource.data.calculationId == getAfter(parentPath).data.calculationId
+        && request.resource.data.calculatedAt == getAfter(parentPath).data.calculatedAt
+        && request.resource.data.updatedByUid == request.auth.uid
+        && validPerformanceBonusEmployee(employeeId);
+    }
+
+    function validPerformanceBonusSettingsSnapshot(data, revision) {
+      return data is map
+        && data.unitPrice is int
+        && data.unitPrice > 0
+        && data.companyShare is number
+        && data.companyShare >= 0
+        && data.companyShare <= 100
+        && data.employeeShare == 100 - data.companyShare
+        && data.efficiencyCap is int
+        && data.efficiencyCap >= 80
+        && data.efficiencyCap <= 1000
+        && data.baseEfficiency == 80
+        && data.minAttendanceHours == 8
+        && data.revision == revision;
+    }
+
+    function validPerformanceBonusPrivateMonth(month) {
+      let data = request.resource.data;
+      let parentPath = /databases/$(database)/documents/performanceBonusMonths/$(month);
+      return existsAfter(parentPath)
+        && data.month == month
+        && data.calculationId == getAfter(parentPath).data.calculationId
+        && data.settingsVersion == getAfter(parentPath).data.settingsVersion
+        && validPerformanceBonusSettingsSnapshot(data.settingsSnapshot, data.settingsVersion)
+        && validNonNegativeInteger(data.grossExtra)
+        && validNonNegativeInteger(data.efficiencyLoss)
+        && validNonNegativeInteger(data.employeeDays)
+        && data.calculatedAt is int
+        && data.calculatedAt > 0
+        && data.calculatedByUid == request.auth.uid
+        && validShortString(data.calculatedBy, 200)
+        && data.schemaVersion == 1;
+    }
+
+    function performanceBonusEmployeeAdjustmentMatchesParent(month) {
+      let parentPath = /databases/$(database)/documents/performanceBonusMonths/$(month);
+      let beforeParent = get(parentPath).data;
+      let afterParent = getAfter(parentPath).data;
+      let adjustmentDelta = request.resource.data.adjustmentAmount - resource.data.adjustmentAmount;
+      let finalDelta = request.resource.data.finalBonus - resource.data.finalBonus;
+      let eligibleDelta = (request.resource.data.finalBonus > 0 ? 1 : 0) - (resource.data.finalBonus > 0 ? 1 : 0);
+      return exists(parentPath)
+        && existsAfter(parentPath)
+        && afterParent.adjustmentTotal == beforeParent.adjustmentTotal + adjustmentDelta
+        && afterParent.finalBonusTotal == beforeParent.finalBonusTotal + finalDelta
+        && afterParent.eligibleEmployeeCount == beforeParent.eligibleEmployeeCount + eligibleDelta;
+    }
+
+    // activeDataVersionScope（正式資料版本範圍）：只保留仍服務持久快取的四類資料。
+    function activeDataVersionScope(scope) {
+      return scope in ['orders', 'productionEmployees', 'productionDepartments', 'productGroups'];
+    }
+
+    // validScopedDataVersion（分範圍資料版本文件檢查）：每份文件只保存一個範圍與版本代碼。
+    function validScopedDataVersion(scope) {
+      return activeDataVersionScope(scope)
+        && request.resource.data.keys().hasAll([
+          'scope', 'version', 'updatedAt', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'scope', 'version', 'updatedAt', 'updatedBy', 'schemaVersion'
+        ])
+        && request.resource.data.scope == scope
+        && validShortString(request.resource.data.version, 300)
         && request.resource.data.updatedAt is int
         && request.resource.data.updatedAt > 0
-        && request.resource.data.updatedBy == request.auth.uid;
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.schemaVersion == 1;
     }
 
-    // hasNoLegacyDataVersionKeys（新資料版本文件不得建立舊流程版本欄位）
-    function hasNoLegacyDataVersionKeys() {
-      return !request.resource.data.keys().hasAny([
-        'employees', 'reports', 'attendance', 'employeeUserHistory'
-      ]);
-    }
-
-    // preservesLegacyDataVersionKeys（既有舊流程版本欄位只能原樣保留）
-    function preservesLegacyDataVersionKeys() {
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'employees', 'reports', 'attendance', 'employeeUserHistory'
-      ]);
-    }
-
-    // canTouchDataVersionKeys（可以更新指定資料版本欄位）
-    function canTouchDataVersionKeys(keys) {
-      return (!keys.hasAny(['orders', 'orderProcesses'])
-          || hasFeature('progress') || hasFeature('sync'))
-        && (!keys.hasAny(['operationSettings', 'costSettings']) || hasFeature('settings'))
-        && (!keys.hasAny(['settings', 'cLog']) || isAdmin())
-        && (!keys.hasAny(['impHist']) || hasFeature('summary'));
+    // canTouchDataVersionScope（單一資料版本範圍權限）：未知範圍由 validScopedDataVersion 拒絕。
+    function canTouchDataVersionScope(scope) {
+      return isAdmin() || (scope == 'orders'
+        ? hasFeature('progress') || hasFeature('processSecondsEdit')
+        : scope in ['productionEmployees', 'productionDepartments']
+          ? hasFeature('productionEmployees')
+          : scope == 'productGroups'
+            ? hasFeature('productionProcessEdit')
+            : false);
     }
 
     // userAccess（使用者存取權限）
@@ -927,17 +2706,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // system/dataVersions（各功能資料版本）
+    // system/dataVersions（舊全域資料版本）：正式程式已停止使用，舊文件保留但拒絕存取。
     match /system/dataVersions {
-      allow read: if isDeskUser();
-      allow create: if isDeskUser()
-        && validDataVersions()
-        && hasNoLegacyDataVersionKeys()
-        && canTouchDataVersionKeys(request.resource.data.keys());
-      allow update: if isDeskUser()
-        && validDataVersions()
-        && preservesLegacyDataVersionKeys()
-        && canTouchDataVersionKeys(request.resource.data.diff(resource.data).affectedKeys());
+      allow read, write: if false;
+    }
+
+    // dataVersions/{scope}（分範圍資料版本）：只服務四個正式持久快取範圍。
+    match /dataVersions/{scope} {
+      allow read: if activeDataVersionScope(scope) && isDeskUser();
+      allow create, update: if validScopedDataVersion(scope)
+        && canTouchDataVersionScope(scope);
       allow delete: if false;
     }
 
@@ -959,10 +2737,24 @@ service cloud.firestore {
       allow write: if hasFeature('settings') && validSystemData(200000);
     }
 
+    // system/performanceBonusSettings（保密績效獎金參數）：只允許成本管理參數權限讀寫。
+    match /system/performanceBonusSettings {
+      allow read: if canManagePerformanceBonusSettings();
+      allow create: if canManagePerformanceBonusSettings()
+        && validPerformanceBonusSettings()
+        && request.resource.data.revision == 1;
+      allow update: if canManagePerformanceBonusSettings()
+        && validPerformanceBonusSettings()
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.updatedAt >= resource.data.updatedAt;
+      allow delete: if false;
+    }
+
     // system/productsMeta（款號版本資料）
     match /system/productsMeta {
-      allow read: if canReadProducts();
-      allow write: if hasFeature('summary') && validSystemData(200000);
+      allow read: if canReadProducts() || hasFeature('productionAnalysis');
+      allow write: if (hasFeature('summary') || hasFeature('processSecondsEdit'))
+        && validSystemData(200000);
     }
 
     // system/impHist（匯入記錄）
@@ -980,8 +2772,105 @@ service cloud.firestore {
     // operationLogs（獨立操作紀錄）：依功能權限查詢，建立後禁止修改與刪除。
     match /operationLogs/{logId} {
       allow read: if isAdmin() || canReadOperationLog(resource.data.permissionKey);
-      allow create: if canCreateOperationLog() && validOperationLog();
+      allow create: if validCoreProductionOperationLog()
+        || (canCreateOperationLog() && validOperationLog());
       allow update, delete: if false;
+    }
+
+    // performanceBonusTables（獎金公開對照表）：不包含單價、分成或公司損益。
+    match /performanceBonusTables/{tableId} {
+      allow read: if tableId == 'current'
+        && (hasFeature('performanceBonus') || hasFeature('performanceBonusSettings'));
+      allow create, update: if canManagePerformanceBonusSettings()
+        && validPerformanceBonusTable(tableId);
+      allow delete: if false;
+    }
+
+    // performanceBonusSettingVersions（獎金參數版本）：鎖定月份可重建當時結果，建立後不可覆寫。
+    match /performanceBonusSettingVersions/{versionId} {
+      allow read: if canManagePerformanceBonusSettings();
+      allow create: if canManagePerformanceBonusSettings()
+        && validPerformanceBonusSettingsVersion();
+      allow update, delete: if false;
+    }
+
+    // performanceBonusAdjustments（未鎖定月份獎金調整）：每位員工一筆，不再整月重寫。
+    match /performanceBonusAdjustments/{adjustmentId} {
+      allow read: if hasFeature('performanceBonus') || hasFeature('performanceBonusSettings');
+      allow create: if hasFeature('performanceBonus')
+        && validPerformanceBonusAdjustment(adjustmentId);
+      allow update: if hasFeature('performanceBonus')
+        && resource.data.adjustmentId == adjustmentId
+        && resource.data.month == request.resource.data.month
+        && resource.data.employeeId == request.resource.data.employeeId
+        && validPerformanceBonusAdjustment(adjustmentId);
+      allow delete: if resource.data.month == '2026-08' && augustTestResetActive();
+    }
+
+    // performanceBonusMonths（月績效獎金結果）：新版只在鎖定時保存一次；舊版規則保留相容性。
+    match /performanceBonusMonths/{month} {
+      allow read: if hasFeature('performanceBonus') || hasFeature('performanceBonusSettings');
+      allow create: if canCalculatePerformanceBonus()
+        && ((request.resource.data.schemaVersion == 1
+            && request.resource.data.calculatedByUid == request.auth.uid
+            && validPerformanceBonusMonthCalculation(month))
+          || (request.resource.data.schemaVersion == 2
+            && validPerformanceBonusMonthV2Lock(month)));
+      allow update: if request.resource.data.month == month
+        && resource.data.month == month
+        && (
+          (request.resource.data.schemaVersion == 1
+            && request.resource.data.status == 'draft'
+            && request.resource.data.calculatedByUid == request.auth.uid
+            && request.resource.data.updatedAt == request.resource.data.calculatedAt
+            && canCalculatePerformanceBonus()
+            && validPerformanceBonusMonthCalculation(month))
+          || (request.resource.data.schemaVersion == 1
+            && resource.data.status == 'draft'
+            && request.resource.data.status == 'draft'
+            && hasFeature('performanceBonus')
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'adjustmentTotal', 'finalBonusTotal', 'eligibleEmployeeCount',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && validPerformanceBonusMonth())
+          || ((request.resource.data.schemaVersion == 1 || request.resource.data.status != 'locked')
+            && hasFeature('performanceBonus')
+            && validPerformanceBonusMonthTransition(month))
+          || (request.resource.data.schemaVersion == 2
+            && canCalculatePerformanceBonus()
+            && validPerformanceBonusMonthV2Lock(month))
+        );
+      allow delete: if month == '2026-08' && augustTestResetActive();
+
+      match /employees/{employeeId} {
+        allow read: if hasFeature('performanceBonus') || hasFeature('performanceBonusSettings');
+        allow create: if canCalculatePerformanceBonus()
+          && validPerformanceBonusEmployeeCalculation(month, employeeId);
+        allow update: if (request.resource.data.month == month
+            && bonusMonthParent(month).status == 'draft'
+            && request.resource.data.calculationId == bonusMonthParent(month).calculationId
+            && resource.data.calculationId == bonusMonthParent(month).calculationId
+            && validPerformanceBonusEmployee(employeeId)
+            && hasFeature('performanceBonus')
+            && resource.data.employeeId == employeeId
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'adjustmentAmount', 'adjustmentNote', 'finalBonus',
+              'updatedAt', 'updatedByUid', 'updatedBy'
+            ])
+            && performanceBonusEmployeeAdjustmentMatchesParent(month))
+          || (canCalculatePerformanceBonus()
+            && validPerformanceBonusEmployeeCalculation(month, employeeId));
+        allow delete: if month == '2026-08' && augustTestResetActive();
+      }
+    }
+
+    // performanceBonusPrivateMonths（公司損益與參數快照）：只供成本管理查看。
+    match /performanceBonusPrivateMonths/{month} {
+      allow read: if canManagePerformanceBonusSettings();
+      allow create, update: if canManagePerformanceBonusSettings()
+        && validPerformanceBonusPrivateMonth(month);
+      allow delete: if month == '2026-08' && augustTestResetActive();
     }
 
     // system/employeeUserHistory（已淘汰的員工帳號使用歷史）
@@ -992,15 +2881,74 @@ service cloud.firestore {
     // products（款號工序資料）
     match /products/{productId} {
       allow read: if canReadProducts();
-      allow create, update: if hasFeature('summary') && validProduct();
-      allow delete: if hasFeature('summary');
+      allow create: if hasFeature('summary') && validProduct();
+      allow update: if hasFeature('processSecondsEdit') && validProduct();
+      allow delete: if hasFeature('productionProcessEdit');
+    }
+
+    // productProcessStandards（目前工序標準索引）：新報工只讀單一工序，不同步整批訂單。
+    match /productProcessStandards/{standardId} {
+      allow read: if productionEntryReadEnabled()
+        || canReadProducts()
+        || hasFeature('productionRecords')
+        || hasFeature('productionAnalysis');
+      allow create: if hasFeature('processSecondsEdit')
+        && validProductProcessStandard(standardId);
+      allow update: if hasFeature('processSecondsEdit')
+        && resource.data.standardId == request.resource.data.standardId
+        && resource.data.productCode == request.resource.data.productCode
+        && resource.data.processNo == request.resource.data.processNo
+        && request.resource.data.standardRevision >= resource.data.standardRevision
+        && validProductProcessStandard(standardId);
+      allow delete: if false;
     }
 
     // productChanges（款號增量變更）：供快取只補讀有變動的款號，建立後禁止修改與刪除。
     match /productChanges/{changeId} {
       allow read: if canReadProducts();
-      allow create: if hasFeature('summary') && validProductChange();
+      allow create: if (hasFeature('summary') || hasFeature('processSecondsEdit'))
+        && validProductChange();
       allow update, delete: if false;
+    }
+
+    // productVersions（完整款號版本摘要）：匯入與工序修改可建立，建立後不可改寫。
+    match /productVersions/{versionId} {
+      allow get: if hasFeature('summary') || hasFeature('productionProcessEdit');
+      allow list: if hasFeature('productionProcessEdit');
+      allow create: if (hasFeature('summary') || hasFeature('processSecondsEdit'))
+        && validProductVersion(versionId);
+      allow update, delete: if false;
+    }
+
+    // productVersionChunks（完整款號版本資料區塊）：只供版本下載還原。
+    match /productVersionChunks/{chunkId} {
+      allow read: if hasFeature('productionProcessEdit');
+      allow create: if (hasFeature('summary') || hasFeature('processSecondsEdit'))
+        && validProductVersionChunk(chunkId);
+      allow update, delete: if false;
+    }
+
+    // productGroups（同產品群組）與 productGroupMembers（款號唯一群組索引）。
+    match /productGroups/{groupId} {
+      allow read: if hasFeature('productionProcessEdit');
+      allow create: if hasFeature('productionProcessEdit') && validProductGroup(groupId);
+      allow update: if hasFeature('productionProcessEdit')
+        && (validProductGroupUpdate(groupId) || validProductGroupRename(groupId));
+      allow delete: if hasFeature('productionProcessEdit') && validProductGroupDelete(groupId);
+    }
+
+    match /productGroupMembers/{memberId} {
+      allow read: if hasFeature('productionProcessEdit');
+      allow create: if hasFeature('productionProcessEdit')
+        && validProductGroupMember()
+        && groupAfterContainsMember(request.resource.data.groupId, request.resource.data.code);
+      allow delete: if hasFeature('productionProcessEdit')
+        && (!exists(/databases/$(database)/documents/productGroupMembers/$(memberId))
+          ? true
+          : (validShortString(resource.data.code, 200)
+            && validShortString(resource.data.groupId, 200)
+            && !groupAfterContainsMember(resource.data.groupId, resource.data.code)));
+      allow update: if false;
     }
 
     // employees（已淘汰的員工資料）
@@ -1008,59 +2956,201 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // productionEmployees（產能員工名冊）：可停用但禁止正式刪除。
+    // productionEmployees（產能員工名冊）：永久刪除只允許管理員刪除已停用資料；歷史資料檢查由正式管理流程完成。
     match /productionEmployees/{employeeId} {
-      allow read: if canReadProductionEmployees();
+      allow read: if productionEntryReadEnabled()
+        || canReadProductionEmployees();
       allow create: if hasFeature('productionEmployees')
         && validProductionEmployeeCreate(employeeId);
       allow update: if hasFeature('productionEmployees')
         && validProductionEmployeeUpdate(employeeId);
-      allow delete: if false;
+      allow delete: if isAdmin()
+        && resource.data.active == false;
     }
 
-    // productionEntries（生產登記）：新增與工序累計必須在同一交易完成。
+    // productionDepartments（產能部門）：只在員工資料頁按需讀取與管理。
+    match /productionDepartments/{departmentId} {
+      allow read: if hasFeature('productionEmployees');
+      allow create: if hasFeature('productionEmployees')
+        && validProductionDepartmentCreate(departmentId);
+      allow update: if hasFeature('productionEmployees')
+        && validProductionDepartmentUpdate(departmentId);
+      allow delete: if hasFeature('productionEmployees');
+    }
+
+    // productionAttendance（產能考勤）：新流程使用固定日期與工號識別碼，不重用舊 attendance 集合。
+    match /productionAttendance/{attendanceId} {
+      allow read: if productionEntryReadEnabled()
+        || canReadProductionData();
+      allow create: if hasProductionWriteFeature('productionAttendance')
+        && validProductionAttendanceCreate(attendanceId);
+      allow update: if hasProductionWriteFeature('productionAttendance')
+        && validProductionAttendanceUpdate(attendanceId);
+      allow delete: if (resource.data.attendanceDate.matches('^2026-08-[0-9]{2}$') && augustTestResetActive())
+        || (isAdmin() && productionAttendanceCanDelete());
+    }
+
+    // productionDaySummaries（員工每日產能累計）：只可隨產能交易同步更新，用於考勤與補充工時防護。
+    match /productionDaySummaries/{summaryId} {
+      allow read: if productionEntryReadEnabled()
+        || canReadProductionData();
+      allow create: if signedIn()
+        && (request.resource.data.lastMutation == 'create'
+          ? validProductionDayEntryCreate(summaryId, false)
+          : validProductionDaySummaryCreate(summaryId));
+      allow update: if signedIn()
+        && (request.resource.data.lastMutation == 'create'
+          ? (request.resource.data.revision == resource.data.revision + 1
+            && validProductionDayEntryCreate(summaryId, true))
+          : validProductionDaySummaryUpdate(summaryId));
+      // 舊測試摘要可能缺少 month；清除時以受限文件編號辨識，且仍必須由管理員先啟動 2026/08 reset。
+      allow delete: if (summaryId.matches('^2026-08-[0-9]{2}__.+$') && augustTestResetActive())
+        || productionSummaryRepairActive(resource.data.month);
+    }
+
+    // productionEmployeeMonths（員工月份摘要）：正常寫入必須跟隨同一筆每日摘要異動；管理員可執行一次性轉換。
+    match /productionEmployeeMonths/{summaryId} {
+      allow read: if productionEntryReadEnabled()
+        || canReadProductionData()
+        || hasFeature('performanceBonus')
+        || hasFeature('performanceBonusSettings');
+      allow create: if signedIn()
+        && (request.resource.data.lastMutation == 'create'
+          ? validProductionEmployeeMonthEntryCreate(summaryId, false)
+          : (validProductionEmployeeMonthData(summaryId)
+            && ((request.resource.data.lastMutation == 'migration'
+                && productionSummaryRepairActive(request.resource.data.month))
+              || productionEmployeeMonthFollowsDayCreate())));
+      allow update: if signedIn()
+        && (request.resource.data.lastMutation == 'create'
+          ? (request.resource.data.revision == resource.data.revision + 1
+            && validProductionEmployeeMonthEntryCreate(summaryId, true))
+          : (validProductionEmployeeMonthData(summaryId)
+            && ((request.resource.data.lastMutation == 'migration'
+                && productionSummaryRepairActive(request.resource.data.month))
+              || productionEmployeeMonthFollowsDayUpdate())));
+      allow delete: if (resource.data.month == '2026-08' && augustTestResetActive())
+        || productionSummaryRepairActive(resource.data.month);
+    }
+
+    // productionMonths（唯一月份狀態）：合併鎖定、摘要完成與來源新鮮度。
+    match /productionMonths/{month} {
+      allow read: if productionEntryReadEnabled()
+        || canReadProductionData()
+        || hasFeature('performanceBonus')
+        || hasFeature('performanceBonusSettings');
+      allow create: if (isAdmin() && validProductionMonth(month))
+        || (hasProductionWriteFeature('productionAttendance')
+          && validProductionMonthAttendanceInitialization(month));
+      allow update: if validProductionMonthEntryUpdate()
+        || validProductionMonthSourceUpdate(month)
+        || (isAdmin() && validProductionMonthAdminUpdate(month))
+        || (hasFeature('performanceBonus') && validPerformanceBonusControlTransition(month));
+      allow delete: if month == '2026-08' && augustTestResetActive();
+    }
+
+    // productionSummaryMigrations（摘要轉換進度）：只供管理員續跑與驗收。
+    match /productionSummaryMigrations/{month} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin() && validProductionSummaryMigration(month);
+      allow delete: if month == '2026-08' && augustTestResetActive();
+    }
+
+    // productionEntries（生產登記）：產能、每日累計、工序累計與版本必須在同一筆交易完成。
     match /productionEntries/{entryId} {
-      allow read: if hasFeature('productionEntry') || hasFeature('productionRecords');
-      allow create: if hasFeature('productionEntry')
+      allow read: if canReadProductionData();
+      allow create: if productionEntryRoleEnabled()
         && validProductionEntryCreate(entryId);
-      allow update: if hasFeature('productionRecords')
-        && validProductionEntryUpdate(entryId);
-      allow delete: if false;
+      allow update: if (hasProductionWriteFeature('productionRecords')
+          && validProductionEntryVoid(entryId))
+        || (hasProductionWriteFeature('processSecondsEdit')
+          && validStandardProductionEntryCorrection());
+      allow delete: if (resource.data.productionDate.matches('^2026-08-[0-9]{2}$') && augustTestResetActive())
+        || (isAdmin() && validProductionEntryDelete(entryId));
     }
 
     // productionProcessTotals（訂單工序累計）：只接受由生產登記同步產生的數量變動。
     match /productionProcessTotals/{processId} {
-      allow read: if hasFeature('productionEntry') || hasFeature('productionRecords');
-      allow create: if hasFeature('productionEntry')
-        && validProductionTotalCreate(processId);
-      allow update: if ((request.resource.data.lastMutation == 'create'
-            && hasFeature('productionEntry'))
-          || (request.resource.data.lastMutation in ['update', 'void']
-            && hasFeature('productionRecords')))
-        && validProductionTotalUpdate(processId);
+      allow read: if productionEntryReadEnabled()
+        || hasFeature('productionEntry')
+        || hasFeature('productionRecords');
+      allow create: if validProductionProcessTotalEntryCreate(processId, false)
+        || validAugustTestResetTotal(processId);
+      allow update: if request.resource.data.lastMutation == 'create'
+        ? (request.resource.data.registeredQty > resource.data.registeredQty
+          && validProductionProcessTotalEntryCreate(processId, true))
+        : (request.resource.data.lastMutation == 'test-reset'
+          ? validAugustTestResetTotal(processId)
+          : validProductionProcessTotalUpdate(processId));
+      allow delete: if false;
+    }
+
+    // systemUsageSessions（系統使用量工作階段）：本人只寫自己的估算數字，只有管理員可讀全站。
+    match /systemUsageSessions/{sessionDocumentId} {
+      allow read: if isAdmin();
+      allow create: if isDeskUser()
+        && validUsageSession(sessionDocumentId);
+      allow update: if isDeskUser()
+        && resource.data.uid == request.auth.uid
+        && validUsageSessionUpdate(sessionDocumentId);
       allow delete: if false;
     }
 
     // orders（訂單資料）
     match /orders/{orderId} {
       // 舊訂單若仍含 snapshotHr（平均時薪快照），只有可查看工價者能讀取；管理員載入後會自動清除該欄位。
-      allow read: if canReadOrders()
+      allow read: if (productionEntryReadEnabled() || canReadOrders())
         && (!('snapshotHr' in resource.data) || hasFeature('costView'));
       allow create: if hasFeature('progress') && validOrder();
-      allow update: if validOrder() && canUpdateOrder();
+      allow update: if (hasFeature('processSecondsEdit') && validProcessEditOrderUpdate())
+        || (validOrder() && canUpdateOrder());
       allow delete: if hasFeature('progress');
     }
 
     // orderProcesses（訂單工序資料）
     match /orderProcesses/{processId} {
-      allow read: if canReadOrders();
-      allow create: if hasFeature('progress')
-        && validOrderProcess()
-        && hasNoLegacyReportCounters();
-      allow update: if validOrderProcess()
-        && preservesLegacyReportCounters()
-        && canUpdateOrderProcess();
+      allow read: if productionEntryReadEnabled()
+        || canReadOrders();
+      allow create: if (hasFeature('processSecondsEdit')
+          && validProcessEditProcessCreate())
+        || (hasFeature('progress')
+          && validOrderProcess()
+          && hasNoLegacyReportCounters());
+      allow update: if (hasFeature('processSecondsEdit')
+          && validProcessEditProcessUpdate()
+          && processEditOrderIsLocked())
+        || (validOrderProcess()
+          && preservesLegacyReportCounters()
+          && canUpdateOrderProcess());
       allow delete: if hasFeature('progress');
+    }
+
+    // processEditJobs（訂單工序快照同步工作）：失敗可由同一功能重試，不允許刪除。
+    match /processEditJobs/{jobId} {
+      allow read: if hasFeature('productionProcessEdit');
+      allow create: if hasFeature('processSecondsEdit')
+        && validProcessEditJob(jobId)
+        && validProcessEditJobCreateState();
+      allow update: if hasFeature('processSecondsEdit')
+        && resource.data.createdByUid == request.auth.uid
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.jobType == resource.data.jobType
+        && request.resource.data.orderId == resource.data.orderId
+        && request.resource.data.orderNo == resource.data.orderNo
+        && request.resource.data.targetCodes == resource.data.targetCodes
+        && request.resource.data.operationsData == resource.data.operationsData
+        && request.resource.data.correctionData == resource.data.correctionData
+        && request.resource.data.mode == resource.data.mode
+        && request.resource.data.reason == resource.data.reason
+        && ((!('orderSyncRequired' in resource.data)
+              && !('orderSyncRequired' in request.resource.data))
+          || (('orderSyncRequired' in resource.data)
+              && request.resource.data.orderSyncRequired == resource.data.orderSyncRequired))
+        && request.resource.data.masterJobId == resource.data.masterJobId
+        && validProcessEditJob(jobId)
+        && validProcessEditJobTransition();
+      allow delete: if false;
     }
 
     // reports（已淘汰的報工資料）
@@ -1084,10 +3174,9 @@ service cloud.firestore {
       allow read, create, update, delete: if hasFeature('progress');
     }
 
-    // secondSyncLogs（工序秒數同步記錄）
+    // secondSyncLogs（舊工序秒數同步記錄）：保留實體資料但停止網站讀寫。
     match /secondSyncLogs/{syncId} {
-      allow read, create, update: if hasFeature('sync');
-      allow delete: if isAdmin();
+      allow read, create, update, delete: if false;
     }
 
     // efficiencyLogs（已淘汰的效率報表記錄）
