@@ -138,13 +138,128 @@
     });
     return {...plan,dayDocuments,monthDocuments};
   }
+  function writeIdentity(item={}){
+    return {
+      collection:text(item.collection||item.reference?.parent?.id||'unknown'),
+      documentId:text(item.documentId||item.reference?.id||'unknown'),
+      employeeId:text(item.employeeId||item.data?.employeeId),
+      date:text(item.date||item.data?.productionDate||item.data?.month)
+    };
+  }
+  function migrationWriteValidationError(item={}){
+    const data=item.data||{};
+    const identity=writeIdentity(item);
+    const requiredText=(value,maximum)=>typeof value==='string'&&value.trim().length>0&&value.length<=maximum;
+    const actorUid=text(window.firebaseAuthUser?.uid);
+    if(!identity.collection||identity.collection==='unknown') return 'collection 無法辨識';
+    if(!identity.documentId||identity.documentId==='unknown') return 'document id 無法辨識';
+    if(!/^[A-Z0-9_-]{1,30}$/.test(text(data.employeeId))) return 'employeeId 格式不符合安全規則';
+    if(!requiredText(data.employeeName,100)) return 'employeeName 為空白或超過 100 字';
+    if(!requiredText(data.department,100)) return 'department 為空白或超過 100 字';
+    if(!Number.isInteger(data.revision)||data.revision<1) return 'revision 必須為大於 0 的整數';
+    if(!Number.isInteger(data.updatedAt)||data.updatedAt<=0) return 'updatedAt 必須為正整數';
+    if(!actorUid||text(data.updatedByUid)!==actorUid) return 'updatedByUid 與目前登入 UID 不一致';
+    if(typeof data.updatedBy!=='string'||data.updatedBy.length>200) return 'updatedBy 類型錯誤或超過 200 字';
+    if(data.lastMutation!=='migration') return 'lastMutation 必須為 migration';
+    if(data.schemaVersion!==2) return 'schemaVersion 必須為 2';
+    if(identity.collection===DAY_SUMMARY_COLLECTION){
+      if(data.summaryId!==identity.documentId||data.summaryId!==`${data.productionDate}__${data.employeeId}`) return 'summaryId 與文件 ID／日期／員工不一致';
+      if(!/^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(text(data.productionDate))) return 'productionDate 格式不正確';
+      if(data.month!==text(data.productionDate).slice(0,7)) return 'month 與 productionDate 不一致';
+      if(!Number.isInteger(data.activeEntryCount)||data.activeEntryCount<0) return 'activeEntryCount 必須為非負整數';
+      if(typeof data.activeSupplementHours!=='number'||data.activeSupplementHours<0) return 'activeSupplementHours 必須為非負數';
+      if(typeof data.standardHours!=='number'||data.standardHours<0) return 'standardHours 必須為非負數';
+      if(typeof data.attendanceHours!=='number'||data.attendanceHours<0||data.attendanceHours>24) return 'attendanceHours 必須介於 0～24';
+      if(data.metricComplete!==true) return 'metricComplete 必須為 true';
+      if(typeof data.lastEntryId!=='string'||data.lastEntryId.length>200) return 'lastEntryId 類型錯誤或超過 200 字';
+      return '';
+    }
+    if(identity.collection===EMPLOYEE_MONTH_COLLECTION){
+      if(data.monthSummaryId!==identity.documentId||data.monthSummaryId!==`${data.month}__${data.employeeId}`) return 'monthSummaryId 與文件 ID／月份／員工不一致';
+      if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(text(data.month))) return 'month 格式不正確';
+      if(!data.days||typeof data.days!=='object'||Array.isArray(data.days)) return 'days 必須為月份日期資料物件';
+      if(!Number.isInteger(data.activeEntryCount)||data.activeEntryCount<0) return 'activeEntryCount 必須為非負整數';
+      if(typeof data.summaryComplete!=='boolean') return 'summaryComplete 必須為布林值';
+      if(!requiredText(data.lastDayId,200)) return 'lastDayId 不可空白且不得超過 200 字';
+      if(!Number.isInteger(data.lastDayRevision)||data.lastDayRevision<0) return 'lastDayRevision 必須為非負整數';
+      return '';
+    }
+    return `不支援的摘要 collection：${identity.collection}`;
+  }
+  function rawFirebaseError(error){
+    return `${text(error?.code||error?.cause?.code||'unknown')}: ${text(error?.message||error?.cause?.message||error||'unknown')}`.slice(0,500);
+  }
+  function migrationDiagnosticError({batchNumber,phase,item,validationError='',firebaseError=null,originalError=null,completed=0}){
+    const identity=writeIdentity(item);
+    const details=[
+      `batch=${batchNumber}`,`collection=${identity.collection}`,`documentId=${identity.documentId}`,
+      `employeeId=${identity.employeeId||'-'}`,`date=${identity.date||'-'}`,`completedBeforeFailure=${completed}`
+    ].join(', ');
+    const firebaseDetail=rawFirebaseError(firebaseError||originalError);
+    const originalDetail=originalError&&firebaseError&&originalError!==firebaseError
+      ?`；originalBatchError=${rawFirebaseError(originalError)}`:'';
+    const reason=validationError||'Firebase Security Rules 拒絕此文件';
+    const vi=`Định vị ghi tóm tắt thất bại: giai đoạn=${phase}; ${details}; nguyên nhân=${reason}; Firebase=${firebaseDetail}${originalDetail}`;
+    const zh=`摘要寫入定位失敗：階段=${phase}；${details}；原因=${reason}；Firebase=${firebaseDetail}${originalDetail}`;
+    const diagnostic=new Error(`${vi} / ${zh}`);
+    diagnostic.code=text(firebaseError?.code||originalError?.code||'permission-denied');
+    diagnostic.batchNumber=batchNumber;
+    diagnostic.collection=identity.collection;
+    diagnostic.documentId=identity.documentId;
+    diagnostic.employeeId=identity.employeeId;
+    diagnostic.date=identity.date;
+    diagnostic.migrationDiagnostic=true;
+    return diagnostic;
+  }
+  async function locateFirstRejectedWrite(chunk,batchNumber,originalError,completed){
+    for(let index=0;index<chunk.length;index+=1){
+      const item=chunk[index];
+      const batch=window._writeBatch({skipDataVersions:true});
+      batch.set(item.reference,item.data);
+      try{
+        await batch.commit();
+      }catch(error){
+        throw migrationDiagnosticError({
+          batchNumber,phase:`single-document-${index+1}`,item,firebaseError:error,originalError,
+          completed:completed+index
+        });
+      }
+    }
+    throw migrationDiagnosticError({
+      batchNumber,phase:'batch-only',
+      item:{collection:'multiple-summary-documents',documentId:`batch-${batchNumber}`},
+      validationError:'批次內每份文件單獨寫入均成功，拒絕原因屬批次整體限制',
+      originalError,completed:completed+chunk.length
+    });
+  }
   async function writeChunks(items,onProgress){
     let completed=0;
     for(let index=0;index<items.length;index+=WRITE_LIMIT){
       const chunk=items.slice(index,index+WRITE_LIMIT);
+      const batchNumber=Math.floor(index/WRITE_LIMIT)+1;
+      for(const item of chunk){
+        const validationError=migrationWriteValidationError(item);
+        if(validationError){
+          throw migrationDiagnosticError({
+            batchNumber,phase:'preflight-validation',item,validationError,completed
+          });
+        }
+      }
       const batch=window._writeBatch({skipDataVersions:true});
       chunk.forEach(item=>batch.set(item.reference,item.data));
-      await batch.commit();
+      try{
+        await batch.commit();
+      }catch(error){
+        const searchable=`${text(error?.code)} ${text(error?.message)}`.toLowerCase();
+        if(searchable.includes('permission-denied')||searchable.includes('insufficient permissions')){
+          await locateFirstRejectedWrite(chunk,batchNumber,error,completed);
+        }
+        throw migrationDiagnosticError({
+          batchNumber,phase:'summary-batch',
+          item:{collection:'multiple-summary-documents',documentId:`batch-${batchNumber}`},
+          firebaseError:error,completed
+        });
+      }
       completed+=chunk.length;
       onProgress?.({completed,total:items.length});
     }
@@ -211,8 +326,16 @@
       }
       plan=preparePlanForWrite(plan,await readExistingSummaries(normalized));
       const writes=[
-        ...plan.dayDocuments.map(data=>({reference:summaries.dayReference(data.productionDate,data.employeeId),data})),
-        ...plan.monthDocuments.map(data=>({reference:summaries.employeeMonthReference(data.month,data.employeeId),data}))
+        ...plan.dayDocuments.map(data=>({
+          reference:summaries.dayReference(data.productionDate,data.employeeId),data,
+          collection:DAY_SUMMARY_COLLECTION,documentId:data.summaryId,
+          employeeId:data.employeeId,date:data.productionDate
+        })),
+        ...plan.monthDocuments.map(data=>({
+          reference:summaries.employeeMonthReference(data.month,data.employeeId),data,
+          collection:EMPLOYEE_MONTH_COLLECTION,documentId:data.monthSummaryId,
+          employeeId:data.employeeId,date:data.month
+        }))
       ];
       await writeChunks(writes,options.onProgress);
       const finishedAt=Date.now();

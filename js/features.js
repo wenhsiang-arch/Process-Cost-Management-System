@@ -23,7 +23,7 @@
     productionEmployeeStore:'js/production/employee-store.js?v=20260816-1',
     productionChangeStore:'js/production/change-store.js?v=20260812-1',
     productionSummaryStore:'js/production/summary-store.js?v=20260816-1',
-    productionSummaryMigration:'js/production/summary-migration.js?v=20260815-4',
+    productionSummaryMigration:'js/production/summary-migration.js?v=20260817-1',
     productionGuardStore:'js/production/production-guard-store.js?v=20260815-4',
     productionEntryStore:'js/production/entry-store.js?v=20260816-2',
     productionReportStore:'js/production/report-store.js?v=20260816-2',
