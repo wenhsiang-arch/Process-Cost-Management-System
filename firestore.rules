@@ -1235,7 +1235,7 @@ service cloud.firestore {
         && process.processNo == data.processNo
         && process.orderQty == data.orderQtySnapshot
         && standard.active == true
-        && standard.productCode == data.productCode
+        && standard.productCode.upper() == data.productCode.upper()
         && standard.processNo == data.processNo
         && standard.processSec == data.processSecSnapshot
         && standard.hourlyCapacity == data.hourlyCapacitySnapshot;

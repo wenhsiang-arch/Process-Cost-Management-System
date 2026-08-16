@@ -20,6 +20,13 @@
   function currentUserId(){ return String(window.firebaseAuthUser?.uid||''); }
   function currentUserName(){ return String(window.cu?.user||window.cu?.username||window.firebaseAuthUser?.displayName||'').trim(); }
   function normalizedText(value){ return String(value||'').trim(); }
+  function productCodeKey(value){ return normalizedText(value).normalize('NFKC').toUpperCase(); }
+  function canonicalProductCode(value){
+    const original=normalizedText(value);
+    const key=productCodeKey(original);
+    const product=(Array.isArray(window.D)?window.D:[]).find(item=>productCodeKey(item?.code)===key);
+    return normalizedText(product?.code)||original;
+  }
   function isPositiveInteger(value){ return Number.isInteger(value)&&value>0; }
   function isValidSupplementHours(value){
     const hours=Number(value);
@@ -58,9 +65,9 @@
   // applyCurrentProductStandards（套用目前款號標準）：訂單保留數量與工序身分，畫面與新報工使用目前正式秒數。
   function applyCurrentProductStandards(items){
     const products=Array.isArray(window.D)?window.D:[];
-    const productsByCode=new Map(products.map(item=>[normalizedText(item.code),item]));
+    const productsByCode=new Map(products.map(item=>[productCodeKey(item.code),item]));
     return (items||[]).map(item=>{
-      const product=productsByCode.get(normalizedText(item.code));
+      const product=productsByCode.get(productCodeKey(item.code));
       const operation=(product?.ops||[]).map(value=>window.PCMSProductModel?.normalizeOperation?.(value)||value)
         .find(value=>normalizedText(value.no)===normalizedText(item.processNo));
       const seconds=Number(operation?.sec);
@@ -308,7 +315,7 @@
     const attendanceReference=window._docRef(COLLECTIONS.attendance,`${normalized.productionDate}__${normalized.employeeId}`);
     const orderReference=window._docRef(COLLECTIONS.orders,normalized.orderId);
     const processReference=window._docRef(COLLECTIONS.processes,process.id);
-    const standardReferenceId=currentStandardDocumentId(normalized.productCode,normalized.processNo);
+    const standardReferenceId=currentStandardDocumentId(canonicalProductCode(normalized.productCode),normalized.processNo);
     const standardReference=window._docRef('productProcessStandards',standardReferenceId);
     const totalReference=window._docRef(COLLECTIONS.totals,process.id);
     const summaryReference=guards.daySummaryReference(normalized.productionDate,normalized.employeeId);
@@ -331,7 +338,7 @@
       }
       const currentStandard=standardSnapshot.exists()?standardSnapshot.data():null;
       const standardMatches=currentStandard?.active===true
-        && normalizedText(currentStandard.productCode)===normalized.productCode
+        && productCodeKey(currentStandard.productCode)===productCodeKey(normalized.productCode)
         && normalizedText(currentStandard.processNo)===normalized.processNo;
       const effectiveProcess=standardMatches?{
         ...liveProcess,
