@@ -195,7 +195,7 @@
   }
 
   function updateAttendanceSummaries(transaction,{summarySnapshot,monthSummarySnapshot,summaryReference,monthSummaryReference,
-    controlSnapshot,attendance,employee,now,mutation='attendance'}){
+    controlSnapshot,attendance,employee,now,mutation='attendance',summaryComplete=false}){
     const summaries=window.PCMSProductionSummaries;
     if(!summaries) throw new Error('Bộ tóm tắt sản xuất chưa sẵn sàng. / 產能摘要程式尚未載入。');
     const current=summarySnapshot?.exists?.()?summarySnapshot.data():null;
@@ -217,7 +217,7 @@
     if(!day) return null;
     const month=summaries.applyDayToMonth(
       monthSummarySnapshot?.exists?.()?monthSummarySnapshot.data():null,current,day,actor,
-      {complete:controlSnapshot?.exists?.()&&controlSnapshot.data()?.summaryReady===true}
+      {complete:summaryComplete===true||(controlSnapshot?.exists?.()&&controlSnapshot.data()?.summaryReady===true)}
     );
     transaction.set(summaryReference,day);
     transaction.set(monthSummaryReference,month);
@@ -256,7 +256,7 @@
       daySummaryReference:guards.daySummaryReference(input.attendanceDate,input.employeeId),
       monthSummaryReference:summaries.employeeMonthReference(guards.monthFromDate(input.attendanceDate),input.employeeId)
     }));
-    const savedRows = [];
+    let savedRows = [];
     await window._runTransaction(async transaction=>{
       const snapshots = await Promise.all([
         transaction.get(monthReference),
@@ -266,7 +266,23 @@
         ])
       ]);
       const controlSnapshot=snapshots[0];
-      guards.assertEditableMonthSnapshot(controlSnapshot);
+      const monthAction=guards.assertEditableMonthSnapshot(controlSnapshot,{
+        productionDate:inputs[0].attendanceDate,allowInitialize:true
+      });
+      const attemptRows=[];
+      let initialAttendanceId='';
+      if(monthAction==='initialize'){
+        references.some((item,index)=>{
+          const attendanceSnapshot=snapshots[1+(index*4)+1];
+          const workedHours=Number(item.input.normalHours)+Number(item.input.overtimeHours);
+          if(attendanceSnapshot.exists()||workedHours<=0) return false;
+          initialAttendanceId=attendanceDocumentId(item.input.attendanceDate,item.input.employeeId);
+          return true;
+        });
+        if(!initialAttendanceId){
+          throw new Error('Cần ít nhất một chấm công mới có tổng giờ lớn hơn 0 để khởi tạo tháng. / 新月份至少需要一筆總工時大於0的新考勤才能初始化。');
+        }
+      }
       references.forEach((item,index)=>{
         const offset=1+(index*4);
         const employeeSnapshot = snapshots[offset];
@@ -309,19 +325,27 @@
         transaction.set(item.attendanceReference,saved);
         updateAttendanceSummaries(transaction,{summarySnapshot:daySummarySnapshot,monthSummarySnapshot,
           summaryReference:item.daySummaryReference,monthSummaryReference:item.monthSummaryReference,
-          controlSnapshot,attendance:saved,employee:{employeeId:item.input.employeeId,...employee},now});
-        savedRows.push({id:item.attendanceReference.id,...saved});
+          controlSnapshot,attendance:saved,employee:{employeeId:item.input.employeeId,...employee},now,
+          summaryComplete:monthAction==='initialize'});
+        attemptRows.push({id:item.attendanceReference.id,...saved});
       });
       transaction.set(logReference,operationLogData(
         'productionAttendanceSave',
-        savedRows.length,
-        `${savedRows[0]?.attendanceDate || ''} · ${savedRows.length}`,
-        savedRows.map(row=>({field:'attendanceId',before:null,after:row.attendanceId})),
+        attemptRows.length,
+        `${attemptRows[0]?.attendanceDate || ''} · ${attemptRows.length}`,
+        attemptRows.map(row=>({field:'attendanceId',before:null,after:row.attendanceId})),
         now
       ));
       const first=inputs[0];
-      transaction.set(monthReference,
-        guards.attendanceMonthSourceVersionData(first.attendanceDate,sourceVersion,now,currentUserId(),currentUserName()),{merge:true});
+      if(monthAction==='initialize'){
+        transaction.set(monthReference,guards.attendanceMonthInitializationData(
+          first.attendanceDate,initialAttendanceId,sourceVersion,now,currentUserId(),currentUserName()
+        ));
+      }else{
+        transaction.set(monthReference,
+          guards.attendanceMonthSourceVersionData(first.attendanceDate,sourceVersion,now,currentUserId(),currentUserName()),{merge:true});
+      }
+      savedRows=attemptRows;
     },{skipDataVersions:true});
     return savedRows;
   }

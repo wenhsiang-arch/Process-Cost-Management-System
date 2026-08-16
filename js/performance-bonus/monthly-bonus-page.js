@@ -62,7 +62,8 @@
     el('performance-bonus-status').replaceChildren(window.PCMSUIText.create(status));
     const note=el('performance-bonus-month-note');
     note.hidden=false;
-    const summaryReady=state.metadata?.summaryReady===true||state.metadata?.status!=='draft';
+    const summaryReady=state.metadata?.summaryReady===true
+      ||Boolean(state.metadata&&state.metadata.status!=='draft');
     note.replaceChildren(window.PCMSUIText.create(!summaryReady
       ?{vi:'Tháng này cần tạo tóm tắt một lần trước khi tính hoặc khóa thưởng.',zh:'此月份需先建立一次摘要，才能試算或鎖定獎金。'}
       :state.metadata
@@ -116,7 +117,13 @@
       state.metadata=result.metadata;
       state.employees=result.employees.filter(item=>Number(item.finalBonus)>0);
       render();
-    }catch(error){ if(request===state.request) await showError(error); }
+    }catch(error){
+      if(request!==state.request) return;
+      state.metadata=null;
+      state.employees=[];
+      render();
+      await showError(error);
+    }
   }
   async function migrateMonthSummary(){
     if(window.cu?.role!=='admin'||!window.PCMSProductionSummaryMigration) return;
@@ -286,6 +293,9 @@
     renderShell();
     if(!state.initialized){ state.initialized=true; bind(); }
     el('performance-bonus-month').value=state.month||store().currentMonth();
+    state.metadata=null;
+    state.employees=[];
+    render();
     try{
       state.reference=await store().loadReferenceTable({force:true});
       await loadMonth();
