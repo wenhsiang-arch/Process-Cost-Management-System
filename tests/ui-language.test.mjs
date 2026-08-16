@@ -153,14 +153,16 @@ test('主畫面在顯示前載入 UID 偏好且登出先重設語言',()=>{
   assert.match(read('js/safe-dom.js'),/PCMSUIText\?\.parseLegacyPair/);
 });
 
-test('雲端狀態與工序同步的動態單位使用標準語言節點',()=>{
+test('雲端狀態與工序修改使用中央三種語言節點',()=>{
   const firebase=read('js/firebase.js');
-  const sync=read('js/sync.js');
+  const processEdit=read('js/production/process-edit.js');
   assert.match(firebase,/PCMSUIText\.set\(el,pair\)/);
   assert.match(firebase,/createLanguageSections\(firebaseDisplayPair/);
   assert.doesNotMatch(firebase,/雲端同步中\.\.\. \/ Đang đồng bộ/);
-  assert.match(sync,/function syncPairHtml/);
-  assert.match(sync,/prev\.replaceChildren\(window\.PCMSUIText\.create/);
+  assert.match(processEdit,/ui-dual-copy/);
+  assert.match(processEdit,/PCMSUIText/);
+  assert.match(read('styles/features/production-process-edit.css'),/data-ui-language-mode="vi"/);
+  assert.match(read('styles/features/production-process-edit.css'),/data-ui-language-mode="zh"/);
 });
 
 test('大型功能的動態狀態與空資料提示具有明確語言身分',()=>{

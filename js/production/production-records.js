@@ -385,20 +385,23 @@
     const searchButton = element('production-record-search-button');
     if(searchButton) searchButton.disabled = true;
     try{
-      const [entries,...attendanceDays] = await Promise.all([
-        window.PCMSProductionReports.loadRange(current.from,current.to,{activeOnly:true}),
-        ...dates.map(date=>window.PCMSProductionAttendance.loadDay(date))
-      ]);
+      const summariesReady=await window.PCMSProductionSummaries.rangeReady(current.from,current.to);
+      if(summariesReady){
+        state.rows=await window.PCMSProductionSummaries.loadPerformanceRange(current.from,current.to);
+      }else{
+        const [entries,...attendanceDays] = await Promise.all([
+          window.PCMSProductionReports.loadRange(current.from,current.to,{activeOnly:true}),
+          ...dates.map(date=>window.PCMSProductionAttendance.loadDay(date))
+        ]);
+        const attendanceByDate = new Map(dates.map((date,index)=>[date,attendanceDays[index]]));
+        state.rows = aggregatePerformance(entries,attendanceByDate);
+      }
       if(request !== state.loadRequest) return;
-      const attendanceByDate = new Map(dates.map((date,index)=>[date,attendanceDays[index]]));
-      state.rows = aggregatePerformance(entries,attendanceByDate);
       if(window.canOpenPage?.('production-bonus')===true&&window.PCMSPerformanceBonusStore){
         const months=[...new Set(dates.map(date=>date.slice(0,7)))];
-        const bonusMonths=await Promise.all(months.map(month=>window.PCMSPerformanceBonusStore.loadMonth(month)));
         const bonusByDay=new Map();
-        bonusMonths.forEach(result=>(result.employees||[]).forEach(employee=>(employee.days||[]).forEach(day=>{
-          bonusByDay.set(`${employee.employeeId}|${day.date}`,Number(day.bonus)||0);
-        })));
+        const bonusMaps=await Promise.all(months.map(month=>window.PCMSPerformanceBonusStore.loadDailyBonuses(month,state.rows)));
+        bonusMaps.forEach(map=>map.forEach((amount,key)=>bonusByDay.set(key,amount)));
         state.rows=state.rows.map(item=>({...item,bonusAmount:bonusByDay.get(`${item.employeeId}|${item.productionDate}`)}));
       }
       if(request !== state.loadRequest) return;
@@ -418,6 +421,9 @@
 
   async function loadPerformanceRange(from,to){
     const dates=rangeDates(from,to);
+    if(await window.PCMSProductionSummaries.rangeReady(from,to)){
+      return window.PCMSProductionSummaries.loadPerformanceRange(from,to);
+    }
     const [entries,...attendanceDays]=await Promise.all([
       window.PCMSProductionReports.loadRange(from,to,{activeOnly:true}),
       ...dates.map(date=>window.PCMSProductionAttendance.loadDay(date))

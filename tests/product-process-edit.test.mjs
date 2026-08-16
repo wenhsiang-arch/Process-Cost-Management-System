@@ -20,7 +20,8 @@ function loadProcessEditStoreForImpact(){
     {no:'1',category:'SX',zh:'車身',vi:'May thân',sec:48}
   ]};
   const queries=[];
-  const window={D:[product],S:{ws:3000}};
+  const countQueries=[];
+  const window={D:[product],S:{ws:3000},firebaseAuthUser:{uid:'test-user'}};
   Object.assign(window,{
     _collection:name=>({name}),
     _where:(field,operator,value)=>({type:'where',field,operator,value}),
@@ -28,20 +29,33 @@ function loadProcessEditStoreForImpact(){
     _limit:value=>({type:'limit',value}),
     _startAfter:value=>({type:'startAfter',value}),
     _query:(collection,...constraints)=>({collection:collection.name,constraints}),
+    _docRef:(collection,id)=>({collection,id}),
+    _getDoc:async reference=>reference.collection==='productionMonths'
+      ? {exists:()=>true,data:()=>({month:reference.id,status:'open',summaryReady:true,revision:1,
+          entriesVersion:'E1',attendanceVersion:'A1',summaryVersion:'S1',schemaVersion:2})}
+      : {exists:()=>false,data:()=>undefined},
     _getDocs:async query=>{
       queries.push(query);
+      if(query.collection==='productionMonths') return {size:1,docs:[
+        {id:'2026-08',data:()=>({month:'2026-08',status:'open',summaryReady:true})}
+      ]};
       if(query.collection==='orders') return {size:2,docs:[
         {id:'ORDER-A',data:()=>({orderId:'A',productCodes:['P-001'],importStatus:'ready',lifecycleStatus:'active',createdAt:2})},
         {id:'ORDER-DONE',data:()=>({orderId:'DONE',productCodes:['P-001'],importStatus:'ready',lifecycleStatus:'done',createdAt:1})}
       ]};
-      return {size:1,docs:[{id:'ENTRY-1',data:()=>({recordType:'standard',productCode:'P-001',processNo:'1',createdAt:1})}]};
+      return {size:0,docs:[]};
+    },
+    _getCountFromServer:async query=>{
+      countQueries.push(query);
+      return {data:()=>({count:1})};
     }
   });
   const context={window,console,TextEncoder};
   vm.createContext(context);
   vm.runInContext(read('js/product-model.js'),context);
+  vm.runInContext(read('js/production/production-guard-store.js'),context);
   vm.runInContext(read('js/production/process-edit-store.js'),context);
-  return {store:window.PCMSProcessEditStore,queries};
+  return {store:window.PCMSProcessEditStore,queries,countQueries};
 }
 
 test('款號匯入會分成新增、相同與有差異三類',()=>{
@@ -134,14 +148,17 @@ test('群組候選仍需人工建立且工序正式修改會保存開發原始�
   assert.match(groups,/Xác nhận tạo 1 nhóm/);
 });
 
-test('兩種秒數修改模式只查詢受影響的生產中訂單並使用可重試工作',()=>{
+test('純秒數修改不掃描訂單，結構修改與標準訂正各自處理必要資料',()=>{
   const store=read('js/production/process-edit-store.js');
   const entryStore=read('js/production/entry-store.js');
+  const firebase=read('js/firebase.js');
   const page=read('js/production/process-edit.js');
   assert.match(store,/STANDARD_CORRECTION:'standardCorrection'/);
   assert.match(store,/PROCESS_OPTIMIZATION:'processOptimization'/);
-  assert.match(store,/usableOrder\(order\)/);
-  assert.match(store,/window\._where\('productCodes','array-contains-any',codeChunk\)/);
+  assert.match(store,/function requiresOrderStructureSync/);
+  assert.match(store,/const orders=orderSyncRequired\?await activeOrdersForProducts/);
+  assert.match(store,/processStandardUpdates:standardUpdates/);
+  assert.match(store,/const needsJob=orderSyncRequired\|\|mode===EDIT_MODES\.STANDARD_CORRECTION/);
   assert.doesNotMatch(store,/loadOrders\(|orderRows/);
   assert.match(store,/jobType:'master'/);
   assert.match(store,/jobType:'order',masterJobId:master\.jobId/);
@@ -161,35 +178,78 @@ test('兩種秒數修改模式只查詢受影響的生產中訂單並使用可�
   assert.match(store,/if\(logResult===false\)/);
   assert.match(entryStore,/processSecSnapshot:processSeconds/);
   assert.match(entryStore,/processVersionSnapshot:orderVersion\(orderSnapshot\.data\(\),normalized\.orderId\)/);
-  assert.match(entryStore,/`legacy-\$\{normalizedText\(orderId \|\| order\?\.id\)\}`/);
+  assert.match(entryStore,/`legacy-\$\{normalizedText\(orderId\|\|order\?\.id\)\}`/);
   assert.match(entryStore,/liveProcess\.active===false/);
-  assert.match(page,/Giữ nguyên ảnh chụp cũ/);
+  assert.match(entryStore,/transaction\.set\(monthReference,guards\.entriesMonthSourceVersionData/);
+  assert.doesNotMatch(entryStore,/productionMonthControls|productionMonthVersions/);
+  assert.match(store,/summaries\.applyEntry\(nextDay,\{\.\.\.row,mutation:'standard-correction'\},-1,actor\)/);
+  assert.match(store,/revision:\(Number\(beforeDay\.revision\)\|\|0\)\+1/);
+  assert.match(store,/const rows=await queryProductionEntries\(corrections,openMonths\)/);
+  assert.doesNotMatch(store,/queryProductionEntries\(corrections,openMonths,\{collect:false,onPage/);
+  assert.match(store,/window\._getCountFromServer/);
+  assert.match(firebase,/getCountFromServer as firestoreGetCountFromServer/);
+  assert.match(firebase,/window\._getCountFromServer/);
+  assert.match(store,/window\._where\('recordType','==','standard'\)/);
+  assert.match(store,/window\._where\('status','==','active'\)/);
+  assert.match(store,/window\._where\('productionDate','>=',range\.from\)/);
+  assert.match(store,/window\._where\('productionDate','<',range\.to\)/);
+  assert.doesNotMatch(store,/window\._orderBy\('createdAt','asc'\)/);
+  assert.doesNotMatch(store,/summaries\.processQueueReference\(productionDate,employeeId\)/);
+  assert.match(page,/新報工立即使用新標準/);
   assert.match(page,/store\(\)\.analyzeImpact/);
   assert.match(page,/store\(\)\.resumeModificationJob/);
   assert.doesNotMatch(page,/Ngoại lệ một đơn|單張訂單例外|saveOrderException/);
   assert.match(page,/state\.selectedTargets/);
+  assert.match(page,/Không tải dữ liệu tháng đã khóa/);
+  assert.match(page,/鎖定月份資料不下載/);
 });
 
 test('影響分析依模式分開計算歷史訂正，結構變更不能冒用標準錯誤訂正',async()=>{
-  const {store,queries}=loadProcessEditStoreForImpact();
+  const {store,queries,countQueries}=loadProcessEditStoreForImpact();
   const correctedOperations={'P-001':[{no:'1',category:'SX',zh:'車身',vi:'May thân',sec:30}]};
   const correction=await store.analyzeImpact({
     targetCodes:['P-001'],operationsByCode:correctedOperations,mode:store.EDIT_MODES.STANDARD_CORRECTION
   });
-  assert.equal(correction.orderCount,1);
+  assert.equal(correction.orderCount,0);
   assert.equal(correction.entryCount,1);
   assert.equal(correction.corrections['P-001']['1'].seconds,30);
   assert.equal(correction.corrections['P-001']['1'].hourlyCapacity,100);
-  assert.equal(queries.some(item=>item.collection==='productionEntries'),true);
+  assert.equal(queries.some(item=>item.collection==='productionMonths'),true);
+  assert.equal(queries.some(item=>item.collection==='productionEntries'),false);
+  assert.equal(queries.some(item=>item.collection==='orders'),false);
+  assert.equal(countQueries.length,1);
+  assert.deepEqual(countQueries[0].constraints.filter(item=>item.type==='where').map(item=>[item.field,item.operator,item.value]),[
+    ['productCode','==','P-001'],
+    ['processNo','==','1'],
+    ['recordType','==','standard'],
+    ['status','==','active'],
+    ['productionDate','>=','2026-08-01'],
+    ['productionDate','<','2026-09-01']
+  ]);
 
   queries.length=0;
+  countQueries.length=0;
   const optimization=await store.analyzeImpact({
     targetCodes:['P-001'],operationsByCode:{'P-001':[
       ...correctedOperations['P-001'],{no:'2',category:'QC',zh:'檢查',vi:'Kiểm tra',sec:20}
     ]},mode:store.EDIT_MODES.PROCESS_OPTIMIZATION
   });
   assert.equal(optimization.entryCount,0);
+  assert.equal(optimization.orderCount,1);
+  assert.equal(optimization.orderSyncRequired,true);
   assert.equal(queries.some(item=>item.collection==='productionEntries'),false);
+  assert.equal(queries.some(item=>item.collection==='orders'),true);
+  assert.equal(countQueries.length,0);
+
+  queries.length=0;
+  countQueries.length=0;
+  const secondsOnly=await store.analyzeImpact({
+    targetCodes:['P-001'],operationsByCode:correctedOperations,mode:store.EDIT_MODES.PROCESS_OPTIMIZATION
+  });
+  assert.equal(secondsOnly.orderCount,0);
+  assert.equal(secondsOnly.orderSyncRequired,false);
+  assert.equal(queries.length,0);
+  assert.equal(countQueries.length,0);
   await assert.rejects(
     store.analyzeImpact({
       targetCodes:['P-001'],operationsByCode:{'P-001':[
@@ -251,7 +311,7 @@ test('群組獨立儲存且秒數儲存只在缺少群組時提供接續設定',
   const quick=read('js/production/process-seconds-quick-edit.js');
   const groupPage=quick.indexOf('function openGroupCreation(product,products,selectedCodes)');
   const missingGroupPrompt=quick.indexOf("title:{vi:'Mã hàng chưa có nhóm'");
-  const syncConfirmation=quick.indexOf("title:{vi:'Xác nhận đồng bộ bảng mã hàng'");
+  const syncConfirmation=quick.indexOf("title:{vi:'Xác nhận lưu giây mới'");
   assert.ok(groupPage>0);
   assert.ok(missingGroupPrompt>groupPage);
   assert.ok(syncConfirmation>missingGroupPrompt);
@@ -263,7 +323,7 @@ test('群組獨立儲存且秒數儲存只在缺少群組時提供接續設定',
   assert.match(quick,/data-save-new-group/);
   assert.doesNotMatch(quick,/aria-pressed="false"[^\n]*data-save-new-group|saveNewGroup=!saveNewGroup/);
   assert.match(quick,/此次修改將同步目前的款號表/);
-  assert.match(quick,/舊產能登記完全不變；同步完成後的新登記才使用新標準/);
+  assert.match(quick,/舊產能登記完全不變；新報工立即使用新標準，不掃描訂單/);
   assert.match(quick,/訂正舊登記秒數與效率，並保留修改前的款號表秒數/);
 });
 
@@ -297,7 +357,7 @@ test('正式工序與快速秒數只接受整數，內容相同時不寫入',()=
   assert.match(store,/Number\.isInteger\(operation\.sec\)/);
   assert.match(store,/Number\.isInteger\(seconds\)/);
   assert.match(page,/step="1" inputmode="numeric"/);
-  assert.match(page,/Không có thay đổi; hệ thống không lưu phiên bản/);
+  assert.match(page,/Không có thay đổi; hệ thống không ghi dữ liệu/);
   assert.match(quick,/Math\.round\(Number\(input\.recommendedSeconds\)\|\|0\)/);
   assert.match(quick,/Giây mới giống dữ liệu hiện tại; hệ thống không ghi dữ liệu/);
 });

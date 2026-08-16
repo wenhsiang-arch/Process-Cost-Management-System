@@ -3,16 +3,6 @@
   'use strict';
 
   const CALCULATION_VERSION='production-analysis-v1'; // CALCULATION_VERSION（計算規則版本）：匯出與交接時辨識本批公式。
-  const CONFIDENCE_ANCHORS = Object.freeze([
-    {hours:5,percent:58},
-    {hours:10,percent:70},
-    {hours:20,percent:80},
-    {hours:30,percent:85},
-    {hours:50,percent:93},
-    {hours:100,percent:97},
-    {hours:200,percent:99}
-  ]); // CONFIDENCE_ANCHORS（可信度演算參考點）：表示回推秒數落在實際值正負 10% 內的模擬比例。
-
   function number(value){
     const result=Number(value);
     return Number.isFinite(result)?result:0;
@@ -50,6 +40,10 @@
       number(entry?.processSecSnapshot),number(entry?.hourlyCapacitySnapshot)
     ].join('||');
   }
+  // ieProcessKey（工序分析身分）：目前版本只以款號與工序號辨識，不改動歷史 processKey（工序歷史鍵）。
+  function ieProcessKey(entry){
+    return [text(entry?.productCode),text(entry?.processNo)].join('||');
+  }
   function dayKey(employeeId,date){ return `${text(employeeId).toUpperCase()}||${text(date)}`; }
 
   function standardHoursForEntry(entry){
@@ -57,27 +51,6 @@
     const quantity=number(entry?.quantity);
     const capacity=number(entry?.hourlyCapacitySnapshot);
     return quantity>0&&capacity>0?quantity/capacity:0;
-  }
-
-  function confidenceForHours(value){
-    const hours=Math.max(0,number(value));
-    const level=hours<20?'low':hours<50?'medium':'high';
-    if(hours<CONFIDENCE_ANCHORS[0].hours){
-      return {hours,level,percent:null,displayPercent:'<58%'};
-    }
-    const last=CONFIDENCE_ANCHORS[CONFIDENCE_ANCHORS.length-1];
-    if(hours>=last.hours){
-      return {hours,level,percent:last.percent,displayPercent:`${last.percent}%`};
-    }
-    for(let index=1;index<CONFIDENCE_ANCHORS.length;index+=1){
-      const upper=CONFIDENCE_ANCHORS[index];
-      if(hours>upper.hours) continue;
-      const lower=CONFIDENCE_ANCHORS[index-1];
-      const percent=lower.percent
-        +(hours-lower.hours)/(upper.hours-lower.hours)*(upper.percent-lower.percent);
-      return {hours,level,percent:round(percent,1),displayPercent:`${round(percent,1)}%`};
-    }
-    return {hours,level,percent:last.percent,displayPercent:`${last.percent}%`};
   }
 
   function relativeLevel(value,reference){
@@ -155,9 +128,14 @@
   }
 
   function employeeProcessAggregate(samples){
-    const standardHours=samples.reduce((sum,item)=>sum+item.standardHours,0);
-    const inferredHours=samples.reduce((sum,item)=>sum+item.inferredHours,0);
-    const quantity=samples.reduce((sum,item)=>sum+item.quantity,0);
+    let standardHours=0;
+    let inferredHours=0;
+    let quantity=0;
+    samples.forEach(item=>{
+      standardHours+=item.standardHours;
+      inferredHours+=item.inferredHours;
+      quantity+=item.quantity;
+    });
     return {
       employeeId:samples[0]?.employeeId||'',standardHours,inferredHours,quantity,
       efficiency:ratio(standardHours,inferredHours),
@@ -165,14 +143,28 @@
     };
   }
 
-  function aggregateProcess(samples){
+  function employeeProcessAggregateFromTotals(employeeId,totals){
+    if(!totals?.sampleCount) return null;
+    return {
+      employeeId,standardHours:totals.standardHours,inferredHours:totals.inferredHours,quantity:totals.quantity,
+      efficiency:ratio(totals.standardHours,totals.inferredHours),
+      suggestedSeconds:totals.inferredHours>0&&totals.quantity>0?totals.inferredHours*3000/totals.quantity:null
+    };
+  }
+
+  function aggregateProcess(samples,options={}){
     const source=samples[0]||{};
     const employeeRows=[...groupBy(samples,item=>item.employeeId).values()]
       .map(employeeProcessAggregate)
       .filter(item=>item.efficiency!==null&&item.suggestedSeconds!==null);
-    const totalStandardHours=samples.reduce((sum,item)=>sum+item.standardHours,0);
-    const totalInferredHours=samples.reduce((sum,item)=>sum+item.inferredHours,0);
-    const totalQuantity=samples.reduce((sum,item)=>sum+item.quantity,0);
+    let totalStandardHours=0;
+    let totalInferredHours=0;
+    let totalQuantity=0;
+    samples.forEach(item=>{
+      totalStandardHours+=item.standardHours;
+      totalInferredHours+=item.inferredHours;
+      totalQuantity+=item.quantity;
+    });
     let typicalRows=employeeRows.slice();
     let method='single';
     let typicalEfficiency=null;
@@ -193,24 +185,84 @@
       typicalEfficiency=average(typicalRows.map(item=>item.efficiency));
       suggestedSeconds=average(typicalRows.map(item=>item.suggestedSeconds));
     }
-    const currentSeconds=number(source.processSecSnapshot);
+    const currentSeconds=options.currentSeconds===undefined
+      ?number(source.processSecSnapshot)
+      :number(options.currentSeconds);
     const differencePercent=currentSeconds>0&&suggestedSeconds!==null
       ? (suggestedSeconds-currentSeconds)/currentSeconds*100
       : null;
+    const differenceSeconds=suggestedSeconds===null?null:suggestedSeconds-currentSeconds;
     return {
-      key:source.key,
-      productCode:source.productCode,processNo:source.processNo,
-      processNameVi:source.processNameVi,processNameZh:source.processNameZh,
+      key:options.key||source.key,
+      productCode:options.productCode||source.productCode,processNo:options.processNo||source.processNo,
+      processNameVi:options.processNameVi||source.processNameVi,processNameZh:options.processNameZh||source.processNameZh,
       currentSeconds,hourlyCapacitySnapshot:source.hourlyCapacitySnapshot,
       rawEfficiency:ratio(totalStandardHours,totalInferredHours),
       rawSuggestedSeconds:totalInferredHours>0&&totalQuantity>0?totalInferredHours*3000/totalQuantity:null,
-      typicalEfficiency,suggestedSeconds,differencePercent,
+      typicalEfficiency,suggestedSeconds,differenceSeconds,
+      absoluteDifferenceSeconds:differenceSeconds===null?0:Math.abs(differenceSeconds),differencePercent,
       participantCount:employeeRows.length,
       cumulativeStandardHours:totalStandardHours,
-      confidence:confidenceForHours(totalStandardHours),
       method,typicalEmployeeIds:typicalRows.map(item=>item.employeeId),
       employeeRows,sampleCount:samples.length,totalQuantity,totalInferredHours
     };
+  }
+
+  function historyProcessKey(employeeId,key){ return `${text(employeeId).toUpperCase()}\u0000${text(key)}`; }
+  function historyProcessDateKey(employeeId,key,date){ return `${historyProcessKey(employeeId,key)}\u0000${text(date)}`; }
+
+  // createAnalysisIndex（建立分析索引）：把歷史累計預先算好，避免每一列再次掃描全部員工日與工序樣本。
+  function createAnalysisIndex(days,processSamples){
+    const dayMap=new Map(days.map(day=>[day.key,day]));
+    const employeeHistoryBefore=new Map();
+    const processHistoryBefore=new Map();
+    const employeeGroups=groupBy(days,day=>day.employeeId);
+    employeeGroups.forEach(employeeDays=>{
+      const sorted=employeeDays.slice().sort((a,b)=>a.date.localeCompare(b.date));
+      let numerator=0;
+      let denominator=0;
+      let sampleDays=0;
+      sorted.forEach(day=>{
+        employeeHistoryBefore.set(day.key,{numerator,denominator,percentage:ratio(numerator,denominator),sampleDays});
+        if(day.attendanceHours>0&&!day.invalidCapacity){
+          numerator+=day.standardHours+day.supplementHours;
+          denominator+=day.attendanceHours;
+          sampleDays+=1;
+        }
+      });
+    });
+    const processGroups=groupBy(processSamples,sample=>historyProcessKey(sample.employeeId,sample.key));
+    processGroups.forEach(samples=>{
+      const sorted=samples.slice().sort((a,b)=>a.date.localeCompare(b.date));
+      const totals={standardHours:0,inferredHours:0,quantity:0,sampleCount:0};
+      let index=0;
+      while(index<sorted.length){
+        const date=sorted[index].date;
+        let end=index;
+        const snapshot={...totals};
+        while(end<sorted.length&&sorted[end].date===date){
+          const sample=sorted[end];
+          processHistoryBefore.set(historyProcessDateKey(sample.employeeId,sample.key,date),snapshot);
+          end+=1;
+        }
+        for(let cursor=index;cursor<end;cursor+=1){
+          const sample=sorted[cursor];
+          totals.standardHours+=sample.standardHours;
+          totals.inferredHours+=sample.inferredHours;
+          totals.quantity+=sample.quantity;
+          totals.sampleCount+=1;
+        }
+        index=end;
+      }
+    });
+    return Object.freeze({dayMap,employeeHistoryBefore,processHistoryBefore});
+  }
+
+  function attachAnalysisIndex(dataset){
+    Object.defineProperty(dataset,'analysisIndex',{
+      value:createAnalysisIndex(dataset.days,dataset.processSamples),enumerable:false,writable:false
+    });
+    return dataset;
   }
 
   function buildDataset(input={}){
@@ -224,30 +276,74 @@
     const days=[...allKeys].map(key=>buildDay(entryGroups.get(key)||[],attendanceMap.get(key)||null,employeeMap))
       .sort((a,b)=>b.date.localeCompare(a.date)||a.employeeId.localeCompare(b.employeeId,'en',{numeric:true}));
     const processSamples=days.flatMap(day=>day.processes.filter(process=>process.inferredHours>0));
-    const processStats=[...groupBy(processSamples,item=>item.key).values()].map(aggregateProcess)
+    const processStats=historicalProcessRows({processSamples},{})
       .sort((a,b)=>a.productCode.localeCompare(b.productCode,'en',{numeric:true})||a.processNo.localeCompare(b.processNo,'en',{numeric:true}));
-    return {entries,attendance:attendanceRows,employees,employeeMap,days,processSamples,processStats};
+    return attachAnalysisIndex({entries,attendance:attendanceRows,employees,employeeMap,days,processSamples,processStats});
+  }
+
+  // buildDatasetFromMonthSummaries（由員工月份摘要建立分析資料）：不再重讀原始報工與逐日考勤。
+  function buildDatasetFromMonthSummaries(monthRows=[],filters={}){
+    const days=[];
+    (Array.isArray(monthRows)?monthRows:[]).forEach(employee=>{
+      Object.values(employee?.days||{}).forEach(value=>{
+        const date=text(value?.productionDate);
+        if(!date) return;
+        const processes=(Array.isArray(value.processes)?value.processes:[]).map(item=>({
+          key:text(item.key),employeeId:text(employee.employeeId).toUpperCase(),date,
+          productCode:text(item.productCode),processNo:text(item.processNo),
+          processNameVi:text(item.processNameVi),processNameZh:text(item.processNameZh),
+          processSecSnapshot:number(item.processSecSnapshot),hourlyCapacitySnapshot:number(item.hourlyCapacitySnapshot),
+          quantity:number(item.quantity),standardHours:number(item.standardHours),
+          inferredHours:item.inferredHours==null?null:number(item.inferredHours),
+          efficiency:number(item.inferredHours)>0?number(item.standardHours)/number(item.inferredHours)*100:null,
+          suggestedSeconds:item.suggestedSeconds==null?null:number(item.suggestedSeconds)
+        }));
+        const attendanceHours=number(value.attendanceHours);
+        const standardHours=number(value.standardHours);
+        const supplementHours=number(value.supplementHours);
+        const invalidCapacity=number(value.invalidCapacityCount)>0;
+        days.push({
+          key:dayKey(employee.employeeId,date),employeeId:text(employee.employeeId).toUpperCase(),
+          employeeName:text(employee.employeeName),department:text(employee.department),date,entries:[],processes,attendance:null,
+          attendanceHours,standardHours,supplementHours,availableProductionHours:Math.max(0,attendanceHours-supplementHours),
+          invalidCapacity,dailyEfficiency:attendanceHours>0&&!invalidCapacity?(standardHours+supplementHours)/attendanceHours*100:
+            (attendanceHours===0&&standardHours+supplementHours===0?0:null)
+        });
+      });
+    });
+    days.sort((a,b)=>b.date.localeCompare(a.date)||a.employeeId.localeCompare(b.employeeId,'en',{numeric:true}));
+    const samples=days.flatMap(day=>day.processes.filter(process=>process.inferredHours>0));
+    const dataset=attachAnalysisIndex({entries:[],attendance:[],employees:[],employeeMap:new Map(),days,
+      processSamples:samples,processStats:[]});
+    dataset.processStats=historicalProcessRows(dataset,filters);
+    return dataset;
   }
 
   function weightedDayEfficiency(days){
-    const usable=days.filter(day=>day.attendanceHours>0&&!day.invalidCapacity);
-    const numerator=usable.reduce((sum,day)=>sum+day.standardHours+day.supplementHours,0);
-    const denominator=usable.reduce((sum,day)=>sum+day.attendanceHours,0);
-    return {numerator,denominator,percentage:ratio(numerator,denominator),sampleDays:usable.length};
+    let numerator=0;
+    let denominator=0;
+    let sampleDays=0;
+    days.forEach(day=>{
+      if(!(day.attendanceHours>0)||day.invalidCapacity) return;
+      numerator+=day.standardHours+day.supplementHours;
+      denominator+=day.attendanceHours;
+      sampleDays+=1;
+    });
+    return {numerator,denominator,percentage:ratio(numerator,denominator),sampleDays};
   }
 
   function employeeAnalysisRows(dataset,filters={}){
     const processStatMap=new Map(dataset.processStats.map(item=>[item.key,item]));
     const rows=[];
     dataset.days.filter(day=>inDateRange(day.date,filters.fromDate,filters.toDate)).forEach(day=>{
-      const priorEmployeeDays=dataset.days.filter(item=>item.employeeId===day.employeeId&&item.date<day.date);
-      const employeeHistory=weightedDayEfficiency(priorEmployeeDays);
+      const employeeHistory=dataset.analysisIndex?.employeeHistoryBefore.get(day.key)
+        ||{numerator:0,denominator:0,percentage:null,sampleDays:0};
       const visibleProcesses=day.processes.length?day.processes:[null];
       visibleProcesses.forEach(process=>{
-        const priorProcessSamples=process
-          ? dataset.processSamples.filter(item=>item.employeeId===day.employeeId&&item.key===process.key&&item.date<day.date)
-          : [];
-        const personalProcess=priorProcessSamples.length?employeeProcessAggregate(priorProcessSamples):null;
+        const processTotals=process
+          ? dataset.analysisIndex?.processHistoryBefore.get(historyProcessDateKey(day.employeeId,process.key,day.date))
+          : null;
+        const personalProcess=process?employeeProcessAggregateFromTotals(day.employeeId,processTotals):null;
         const lineReference=process?processStatMap.get(process.key)||null:null;
         const comparisonValue=personalProcess?.efficiency??process?.efficiency??null;
         rows.push({
@@ -308,22 +404,58 @@
     }).filter(Boolean);
   }
 
-  function ieAnalysisRows(dataset,filters={}){
-    const samples=dataset.processSamples.filter(sample=>{
+  // historicalProcessRows（歷史工序統計）：保留原快照版本分組，供員工歷史效率使用。
+  function historicalProcessRows(dataset,filters={}){
+    const samples=(dataset?.processSamples||[]).filter(sample=>{
       if(!inDateRange(sample.date,filters.fromDate,filters.toDate)) return false;
       if(!filters.department) return true;
-      const day=dataset.days.find(item=>item.key===dayKey(sample.employeeId,sample.date));
+      const day=dataset.analysisIndex?.dayMap.get(dayKey(sample.employeeId,sample.date));
       return day?.department===filters.department;
     });
     return [...groupBy(samples,item=>item.key).values()].map(aggregateProcess);
   }
 
+  // ieAnalysisRows（目前工序分析）：只接受與目前正式秒數相同的樣本，且不以每小時產能快照拆分版本。
+  function ieAnalysisRows(dataset,filters={},currentStandards=new Map()){
+    const standards=currentStandards instanceof Map
+      ?currentStandards
+      :new Map(Object.entries(currentStandards||{}));
+    if(!standards.size) return [];
+    const grouped=new Map();
+    (dataset?.processSamples||[]).forEach(sample=>{
+      if(!inDateRange(sample.date,filters.fromDate,filters.toDate)) return;
+      if(filters.department){
+        const day=dataset.analysisIndex?.dayMap.get(dayKey(sample.employeeId,sample.date));
+        if(day?.department!==filters.department) return;
+      }
+      const identity=ieProcessKey(sample);
+      const standard=standards.get(identity);
+      const currentSeconds=number(standard?.processSec);
+      if(standard?.active===false||!(currentSeconds>0)||number(sample.processSecSnapshot)!==currentSeconds) return;
+      if(!grouped.has(identity)) grouped.set(identity,[]);
+      grouped.get(identity).push(sample);
+    });
+    return [...grouped.entries()].map(([identity,samples])=>{
+      const standard=standards.get(identity)||{};
+      return aggregateProcess(samples,{
+        key:identity,
+        productCode:text(standard.productCode)||text(samples[0]?.productCode),
+        processNo:text(standard.processNo)||text(samples[0]?.processNo),
+        processNameVi:text(standard.processNameVi)||text(samples[0]?.processNameVi),
+        processNameZh:text(standard.processNameZh)||text(samples[0]?.processNameZh),
+        currentSeconds:number(standard.processSec)
+      });
+    });
+  }
+
   function departmentAnalysisRows(dataset,filters={}){
     const periodDays=dataset.days.filter(day=>inDateRange(day.date,filters.fromDate,filters.toDate));
-    const departments=new Set(periodDays.map(day=>day.department||'—'));
-    return [...departments].map(department=>{
-      const current=periodDays.filter(day=>(day.department||'—')===department);
-      const historical=dataset.days.filter(day=>(day.department||'—')===department&&(!filters.fromDate||day.date<filters.fromDate));
+    const currentGroups=groupBy(periodDays,day=>day.department||'—');
+    const historicalGroups=groupBy(
+      filters.fromDate?dataset.days.filter(day=>day.date<filters.fromDate):[],day=>day.department||'—'
+    );
+    return [...currentGroups.entries()].map(([department,current])=>{
+      const historical=historicalGroups.get(department)||[];
       const currentSummary=weightedDayEfficiency(current);
       const historicalSummary=weightedDayEfficiency(historical);
       const employeeCount=new Set(current.map(day=>day.employeeId)).size;
@@ -345,9 +477,8 @@
 
   window.PCMSProductionAnalysisCalculations=Object.freeze({
     calculationVersion:CALCULATION_VERSION,
-    confidenceAnchors:CONFIDENCE_ANCHORS,
-    standardHoursForEntry,confidenceForHours,relativeLevel,processKey,
-    buildDataset,employeeAnalysisRows,employeeDailyAnalysisGroups,ieAnalysisRows,departmentAnalysisRows,
+    standardHoursForEntry,relativeLevel,processKey,ieProcessKey,
+    buildDataset,buildDatasetFromMonthSummaries,employeeAnalysisRows,employeeDailyAnalysisGroups,ieAnalysisRows,departmentAnalysisRows,
     aggregateProcess,weightedDayEfficiency,round,median
   });
 })();

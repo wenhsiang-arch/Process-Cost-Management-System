@@ -28,6 +28,7 @@
             <label class="performance-bonus-field"><span class="ui-dual-copy"><strong>Tháng thưởng</strong><span>獎金月份</span></span><input type="month" id="performance-bonus-month"></label>
             <div class="performance-bonus-month-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>結算狀態</span></span><span id="performance-bonus-status"><span class="ui-dual-copy"><strong>—</strong><span>—</span></span></span></div>
             <button type="button" class="ui-button" id="performance-bonus-reference"><i class="ti ti-table"></i><span class="ui-dual-copy"><strong>Bảng đối chiếu</strong><span>獎金對照表</span></span></button>
+            <button type="button" class="ui-button" id="performance-bonus-migrate" hidden><i class="ti ti-database-import"></i><span class="ui-dual-copy"><strong>Tạo tóm tắt tháng</strong><span>建立月份摘要</span></span></button>
             <button type="button" class="ui-button is-primary" id="performance-bonus-export"><i class="ti ti-file-spreadsheet"></i><span class="ui-dual-copy"><strong>Khóa và xuất Excel</strong><span>鎖定並匯出 Excel</span></span></button>
             <button type="button" class="ui-button" id="performance-bonus-paid" hidden><i class="ti ti-cash-banknote"></i><span class="ui-dual-copy"><strong>Đánh dấu đã phát</strong><span>標記已發放</span></span></button>
             <button type="button" class="ui-button is-danger" id="performance-bonus-unlock" hidden><i class="ti ti-lock-open"></i><span class="ui-dual-copy"><strong>Mở khóa tháng</strong><span>解除月份鎖定</span></span></button>
@@ -61,12 +62,17 @@
     el('performance-bonus-status').replaceChildren(window.PCMSUIText.create(status));
     const note=el('performance-bonus-month-note');
     note.hidden=false;
-    note.replaceChildren(window.PCMSUIText.create(state.metadata
+    const summaryReady=state.metadata?.summaryReady===true||state.metadata?.status!=='draft';
+    note.replaceChildren(window.PCMSUIText.create(!summaryReady
+      ?{vi:'Tháng này cần tạo tóm tắt một lần trước khi tính hoặc khóa thưởng.',zh:'此月份需先建立一次摘要，才能試算或鎖定獎金。'}
+      :state.metadata
       ?{vi:`Cập nhật lần cuối: ${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('vi-VN')}`,zh:`最後更新：${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('zh-TW')}`}
       :{vi:'Tháng này chưa có kết quả tính thử. Hãy kiểm tra dữ liệu chấm công và sản lượng.',zh:'此月份尚無試算結果，請檢查考勤與產能資料。'}));
     const draft=state.metadata?.status==='draft';
+    const migrationButton=el('performance-bonus-migrate');
+    migrationButton.hidden=summaryReady||window.cu?.role!=='admin';
     const exportButton=el('performance-bonus-export');
-    exportButton.disabled=!state.metadata;
+    exportButton.disabled=!state.metadata||!summaryReady;
     exportButton.querySelector('.ui-dual-copy strong').textContent=draft?'Khóa và xuất Excel':'Xuất lại Excel';
     exportButton.querySelector('.ui-dual-copy span').textContent=draft?'鎖定並匯出 Excel':'重新匯出 Excel';
     el('performance-bonus-paid').hidden=state.metadata?.status!=='exported';
@@ -111,6 +117,38 @@
       state.employees=result.employees.filter(item=>Number(item.finalBonus)>0);
       render();
     }catch(error){ if(request===state.request) await showError(error); }
+  }
+  async function migrateMonthSummary(){
+    if(window.cu?.role!=='admin'||!window.PCMSProductionSummaryMigration) return;
+    let preview;
+    try{ preview=await window.PCMSProductionSummaryMigration.migrateMonth(state.month); }
+    catch(error){ await showError(error); return; }
+    const confirmed=await ui().confirmDialog({
+      title:{vi:'Xác nhận tạo tóm tắt tháng',zh:'確認建立月份摘要'},kind:'warning',
+      body:ui().createLanguageSections({
+        vi:`Hệ thống sẽ đọc ${preview.sourceEntryCount} bản ghi sản lượng và ${preview.sourceAttendanceCount} bản ghi chấm công của tháng ${state.month}, sau đó tạo tóm tắt. Dữ liệu gốc không bị sửa hoặc xóa.`,
+        zh:`系統將讀取 ${state.month} 的 ${preview.sourceEntryCount} 筆產能與 ${preview.sourceAttendanceCount} 筆考勤，再建立摘要；不會修改或刪除原始資料。`
+      }),
+      confirmText:{vi:'Bắt đầu tạo',zh:'開始建立'},cancelText:{vi:'Hủy',zh:'取消'}
+    });
+    if(!confirmed) return;
+    const progress=ui().progressDialog({
+      title:{vi:'Đang tạo tóm tắt tháng',zh:'正在建立月份摘要'},value:0,
+      text:{vi:'Đang ghi tóm tắt...',zh:'正在寫入摘要…'},
+      detail:{vi:'Vui lòng giữ trang này mở.',zh:'請保持此頁開啟。'}
+    });
+    try{
+      const result=await window.PCMSProductionSummaryMigration.migrateMonth(state.month,{
+        commit:true,entries:preview.migrationSource.entries,attendanceRows:preview.migrationSource.attendanceRows,
+        employees:preview.migrationEmployees,
+        onProgress:item=>progress.update({value:item.total?item.completed/item.total*100:1,
+          text:{vi:`Đã ghi ${item.completed}/${item.total} mục...`,zh:`已寫入 ${item.completed}/${item.total} 項…`}})
+      });
+      progress.complete({vi:'Đã hoàn tất tóm tắt tháng.',zh:'月份摘要已完成。'});
+      ui().showToast({kind:'success',message:{vi:`Đã tạo ${result.writtenCount} mục tóm tắt.`,zh:`已建立 ${result.writtenCount} 筆摘要資料。`}});
+      await loadMonth();
+    }catch(error){ progress.fail({vi:'Không thể hoàn tất tóm tắt.',zh:'無法完成月份摘要。'}); await showError(error); }
+    finally{ window.setTimeout(()=>progress.close(),1000); }
   }
   function monthDates(month){
     const [year,number]=month.split('-').map(Number);
@@ -238,6 +276,7 @@
   function bind(){
     el('performance-bonus-month').addEventListener('change',()=>void loadMonth());
     el('performance-bonus-reference').addEventListener('click',openReference);
+    el('performance-bonus-migrate').addEventListener('click',()=>void migrateMonthSummary());
     el('performance-bonus-export').addEventListener('click',()=>void exportMonth());
     el('performance-bonus-paid').addEventListener('click',()=>void markPaid());
     el('performance-bonus-unlock').addEventListener('click',()=>void unlockMonth());

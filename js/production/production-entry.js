@@ -16,7 +16,9 @@
     processTotal:null,
     processTotalLoading:false,
     processTotalRequest:0,
+    processTotalTimer:null,
     attendanceRequest:0,
+    contextRequest:0,
     processRowsRequest:0,
     processRowsMode:false,
     processRowsProcessId:'',
@@ -29,6 +31,8 @@
   }; // state（登記頁目前狀態）
 
   const RECORD_PAGE_SIZE = 50; // RECORD_PAGE_SIZE（產能登記表格每頁筆數）
+  const CONTEXT_VERSION_RETRIES = 2; // CONTEXT_VERSION_RETRIES（員工資料版本重試上限）：初次讀取後最多重試兩次。
+  const PROCESS_TOTAL_TTL_MS = 30000; // PROCESS_TOTAL_TTL_MS（工序累計畫面有效時間）：只控制顯示刷新，不參與正式超量判斷。
   const ALL_EMPLOYEES_OPTION = Object.freeze({allEmployees:true,employeeId:'Tất cả / 全部',name:'',department:''});
 
   const PRODUCTION_TABLE_COLUMNS = Object.freeze([
@@ -266,6 +270,8 @@
   }
 
   function resetQuantityProgress(){
+    if(state.processTotalTimer) clearTimeout(state.processTotalTimer);
+    state.processTotalTimer = null;
     state.processTotal = null;
     state.processTotalLoading = false;
     state.processTotalRequest += 1;
@@ -290,6 +296,25 @@
       registeredQuantity,orderQuantity,quantity,projectedQuantity,
       exceededQuantity:Math.max(0,projectedQuantity-orderQuantity)
     };
+  }
+
+  function productionEntryPageActive(){
+    return element('pg-production-entry')?.classList?.contains('active')===true;
+  }
+
+  function scheduleProcessTotalRefresh(process){
+    if(state.processTotalTimer) clearTimeout(state.processTotalTimer);
+    state.processTotalTimer=null;
+    const processId=String(process?.id||'');
+    if(!processId||state.supplementMode||!productionEntryPageActive()) return;
+    const loadedAt=window.PCMSProductionEntryStore.processTotalLoadedAt?.(processId)||Date.now();
+    const remaining=Math.max(0,PROCESS_TOTAL_TTL_MS-(Date.now()-loadedAt));
+    state.processTotalTimer=setTimeout(()=>{
+      state.processTotalTimer=null;
+      if(state.process?.id===processId&&!state.supplementMode&&productionEntryPageActive()){
+        void loadQuantityProgress(state.process,{force:true});
+      }
+    },remaining);
   }
 
   function renderQuantityProgress(){
@@ -336,7 +361,7 @@
     setEntryLocalizedAttribute(progress,'title',`${quantityTitle.vi} · ${detailHint.vi}`,`${quantityTitle.zh} · ${detailHint.zh}`);
   }
 
-  async function loadQuantityProgress(process){
+  async function loadQuantityProgress(process,options={}){
     const request = ++state.processTotalRequest;
     state.processTotalLoading = true;
     state.processTotal = {
@@ -345,16 +370,35 @@
     };
     renderQuantityProgress();
     try{
-      const total = await window.PCMSProductionEntryStore.loadProcessTotal(process?.id);
+      const total = await window.PCMSProductionEntryStore.loadProcessTotal(process?.id,{
+        maxAgeMs:PROCESS_TOTAL_TTL_MS,force:options.force===true
+      });
       if(request !== state.processTotalRequest || state.process?.id !== process?.id) return;
       state.processTotal = total;
       state.processTotalLoading = false;
       renderQuantityProgress();
+      scheduleProcessTotalRefresh(process);
     }catch(error){
       if(request !== state.processTotalRequest || state.process?.id !== process?.id) return;
       resetQuantityProgress();
       setStatus('Không thể đọc số lượng đã ghi nhận.','無法讀取目前已登記數量。','danger');
     }
+  }
+
+  function refreshProcessTotalOnFocus(){
+    if(!productionEntryPageActive()||state.supplementMode||!state.process?.id) return;
+    void loadQuantityProgress(state.process,{force:true});
+  }
+
+  function applySavedProcessTotal(saved){
+    if(!saved?.orderProcessId||state.process?.id!==saved.orderProcessId||!state.processTotal) return;
+    state.processTotal={
+      registeredQuantity:Math.max(0,Number(state.processTotal.registeredQuantity)||0)+Math.max(0,Number(saved.quantity)||0),
+      orderQuantity:Math.max(0,Number(saved.orderQtySnapshot)||Number(state.processTotal.orderQuantity)||0)
+    };
+    state.processTotalLoading=false;
+    renderQuantityProgress();
+    scheduleProcessTotalRefresh(state.process);
   }
 
   function employeeIdOptionCopy(item){
@@ -432,6 +476,7 @@
     state.recordDateFilter = '';
     state.recordPage = 1;
     state.recordRequest += 1;
+    state.contextRequest += 1;
     const employeeIdInput=element('production-employee-input');
     const employeeNameInput=element('production-entry-employee-name-input');
     const department = element('production-employee-department');
@@ -455,6 +500,92 @@
     }
   }
 
+  function monthsBetween(fromValue,toValue){
+    const from=String(fromValue||'').slice(0,7);
+    const to=String(toValue||'').slice(0,7);
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(from)||!/^20\d{2}-(0[1-9]|1[0-2])$/.test(to)||from>to) return [];
+    const result=[];
+    let [year,month]=from.split('-').map(Number);
+    while(result.length<240){
+      const value=`${year}-${String(month).padStart(2,'0')}`;
+      result.push(value);
+      if(value===to) break;
+      month+=1;
+      if(month===13){ year+=1;month=1; }
+    }
+    return result;
+  }
+
+  async function readProductionMonthStates(months){
+    const normalized=[...new Set((months||[]).map(value=>String(value||'').trim()).filter(Boolean))];
+    const snapshots=await Promise.all(normalized.map(month=>window._getDoc(window._docRef('productionMonths',month))));
+    return new Map(snapshots.map((snapshot,index)=>{
+      const data=snapshot.exists()?snapshot.data():{};
+      return [normalized[index],{
+        entriesVersion:String(data?.entriesVersion||'0'),
+        attendanceVersion:String(data?.attendanceVersion||'0')
+      }];
+    }));
+  }
+
+  function entriesVersionSignature(months,states){
+    return months.map(month=>`${month}:${states.get(month)?.entriesVersion||'0'}`).join('|');
+  }
+
+  async function loadStableEmployeeContext({employeeId,productionDate,from,to,maxRetries=CONTEXT_VERSION_RETRIES}){
+    const attendanceMonth=String(productionDate||'').slice(0,7);
+    const entryMonths=monthsBetween(from,to);
+    const months=[...new Set([attendanceMonth,...entryMonths].filter(Boolean))];
+    let before=await readProductionMonthStates(months);
+    let attendance=null;
+    let rows=[];
+    let attendanceLoads=0;
+    let entryLoads=0;
+    let reloadAttendance=true;
+    let reloadEntries=true;
+    const retryLimit=Math.max(0,Math.min(CONTEXT_VERSION_RETRIES,Number(maxRetries)||0));
+    for(let attempt=0;attempt<=retryLimit;attempt+=1){
+      const tasks=[];
+      if(reloadAttendance){
+        attendanceLoads+=1;
+        tasks.push(window.PCMSProductionAttendance.loadOne(employeeId,productionDate,{
+          version:before.get(attendanceMonth)?.attendanceVersion||'0',force:attempt>0
+        }).then(value=>{ attendance=value; }));
+      }
+      if(reloadEntries){
+        entryLoads+=1;
+        tasks.push(window.PCMSProductionReports.loadEmployeeRange(employeeId,from,to,{
+          activeOnly:false,version:entriesVersionSignature(entryMonths,before),force:attempt>0
+        }).then(value=>{ rows=value; }));
+      }
+      await Promise.all(tasks);
+      const after=await readProductionMonthStates(months);
+      const attendanceChanged=(before.get(attendanceMonth)?.attendanceVersion||'0')
+        !==(after.get(attendanceMonth)?.attendanceVersion||'0');
+      const entriesChanged=entryMonths.some(month=>(before.get(month)?.entriesVersion||'0')
+        !==(after.get(month)?.entriesVersion||'0'));
+      if(!attendanceChanged&&!entriesChanged){
+        return {attendance,rows,attempts:attempt+1,attendanceLoads,entryLoads,months};
+      }
+      if(attempt>=retryLimit){
+        throw new Error('Dữ liệu sản xuất đang thay đổi liên tục. Vui lòng thử lại. / 產能資料持續變動，請稍後重試。');
+      }
+      before=after;
+      reloadAttendance=attendanceChanged;
+      reloadEntries=entriesChanged;
+    }
+    throw new Error('Không thể xác nhận phiên bản dữ liệu. / 無法確認資料版本。');
+  }
+
+  function renderAttendanceSummary(attendance){
+    if(!attendance){
+      setAttendanceSummary('Chưa chấm công','考勤未登記');
+      return;
+    }
+    const total=Number(attendance.normalHours||0)+Number(attendance.overtimeHours||0);
+    setAttendanceSummary(hoursText(total),'');
+  }
+
   async function refreshAttendanceSummary(){
     const requestId = ++state.attendanceRequest;
     const employeeId = state.employee?.employeeId;
@@ -469,18 +600,40 @@
     }
     setAttendanceSummary('Đang tải...','正在載入…');
     try{
-      const attendance = await window.PCMSProductionAttendance.loadOne(employeeId,productionDate,{force:true});
+      const attendance = await window.PCMSProductionAttendance.loadOne(employeeId,productionDate);
       if(requestId !== state.attendanceRequest) return;
-      if(!attendance){
-        setAttendanceSummary('Chưa chấm công','考勤未登記');
-        return;
-      }
-      const total = Number(attendance.normalHours || 0)+Number(attendance.overtimeHours || 0);
-      setAttendanceSummary(hoursText(total),'');
+      renderAttendanceSummary(attendance);
     }catch(error){
       if(requestId !== state.attendanceRequest) return;
       setAttendanceSummary('Không thể tải','無法載入');
       console.warn('Không thể tải giờ chấm công / 無法載入考勤時數：',error);
+    }
+  }
+
+  async function loadEmployeeContext(){
+    if(!state.employee||state.allEmployees){
+      if(state.allEmployees) await loadDailyRows();
+      return;
+    }
+    const contextRequest=++state.contextRequest;
+    const attendanceRequest=++state.attendanceRequest;
+    const recordRequest=++state.recordRequest;
+    const employeeId=state.employee.employeeId;
+    const productionDate=element('production-date-input')?.value;
+    const range=recordDateRange();
+    setProcessRowsMode(false);
+    setAttendanceSummary('Đang tải...','正在載入…');
+    try{
+      const result=await loadStableEmployeeContext({employeeId,productionDate,from:range.from,to:range.to});
+      if(contextRequest!==state.contextRequest||attendanceRequest!==state.attendanceRequest
+        ||recordRequest!==state.recordRequest||state.employee?.employeeId!==employeeId) return;
+      renderAttendanceSummary(result.attendance);
+      renderDailyRows(result.rows);
+    }catch(error){
+      if(contextRequest!==state.contextRequest) return;
+      setAttendanceSummary('Không thể tải','無法載入');
+      renderDailyRows([]);
+      await showError(error);
     }
   }
 
@@ -497,8 +650,7 @@
     closeDropdown('production-employee-name-options');
     setStatus('','','info');
     syncDropdownAvailability();
-    void loadDailyRows();
-    void refreshAttendanceSummary();
+    void loadEmployeeContext();
   }
 
   function selectAllEmployees(){
@@ -514,6 +666,7 @@
     element('production-employee-department').textContent = 'Tất cả / 全部';
     setAttendanceSummary('—','');
     state.attendanceRequest += 1;
+    state.contextRequest += 1;
     closeDropdown('production-employee-options');
     closeDropdown('production-employee-name-options');
     syncDropdownAvailability();
@@ -1016,8 +1169,8 @@
     });
     if(!confirmed) return;
     try{
-      await window.PCMSProductionEntryStore.voidEntry(item.id,reason);
-      await loadDailyRows();
+      const voided = await window.PCMSProductionEntryStore.voidEntry(item.id,reason);
+      patchDailyRow(voided);
       if(state.process && !supplement) void loadQuantityProgress(state.process);
       setStatus('Đã hủy bản ghi.','紀錄已作廢。','success');
     }catch(error){ await showError(error); }
@@ -1041,8 +1194,8 @@
     });
     if(!confirmed) return;
     try{
-      await window.PCMSProductionEntryStore.deleteEntry(item.id);
-      await loadDailyRows();
+      const deleted = await window.PCMSProductionEntryStore.deleteEntry(item.id);
+      patchDailyRow(deleted,{remove:true});
       if(state.process && !supplement) void loadQuantityProgress(state.process);
       setStatus(
         supplement ? 'Đã xóa vĩnh viễn giờ bổ sung.' : 'Đã xóa vĩnh viễn bản ghi sản xuất.',
@@ -1050,6 +1203,24 @@
         'success'
       );
     }catch(error){ await showError(error); }
+  }
+
+  // patchDailyRow（局部更新產能表格）：寫入成功後只更動畫面中的該筆紀錄，避免重新讀取員工整月資料。
+  function patchDailyRow(item,{remove=false}={}){
+    const id=String(item?.id||'').trim();
+    if(!id) return;
+    const range=recordDateRange();
+    const belongsToEmployee=state.allEmployees===true
+      || String(item.employeeId||'')===String(state.employee?.employeeId||'');
+    const belongsToRange=String(item.productionDate||'')>=range.from
+      && String(item.productionDate||'')<=range.to;
+    const rows=state.dailyRows.filter(row=>String(row.id||'')!==id);
+    if(!remove&&belongsToEmployee&&belongsToRange) rows.push({...item});
+    rows.sort((left,right)=>{
+      const date=String(right.productionDate||'').localeCompare(String(left.productionDate||''));
+      return date||(Number(right.createdAt)||0)-(Number(left.createdAt)||0);
+    });
+    renderDailyRows(rows);
   }
 
   async function saveEntry(){
@@ -1063,7 +1234,11 @@
       setStatus('Đang kiểm tra số lượng đã ghi nhận.','正在確認目前已登記數量。','info');
       return null;
     }
-    const preview = supplement ? null : quantityProgress();
+    let preview = supplement ? null : quantityProgress();
+    if(preview?.exceededQuantity > 0&&state.process){
+      await loadQuantityProgress(state.process,{force:true});
+      preview=quantityProgress();
+    }
     if(preview?.exceededQuantity > 0){
       setStatus(
         `Số lượng dự kiến vượt ${numberText(preview.exceededQuantity)}.`,
@@ -1087,6 +1262,7 @@
           supplementReason:supplement ? reasonInput.value : undefined,
           supplementHours:supplement ? quantityInput.value : undefined
         });
+        if(!supplement) applySavedProcessTotal(saved);
         element('production-process-input').value = '';
         setSupplementMode(false);
         setStatus(
@@ -1098,11 +1274,15 @@
             : `已儲存工序 ${saved.processNo} 的 ${numberText(saved.quantity)} 件生產數量。`,
           'success'
         );
-        await loadDailyRows();
+        patchDailyRow(saved);
         element('production-process-input').focus();
         return saved;
       }catch(error){
         setStatus('Chưa lưu dữ liệu. Vui lòng kiểm tra và thử lại.','資料尚未儲存，請檢查後重試。','danger');
+        if(!supplement&&state.process?.id){
+          try{ await loadQuantityProgress(state.process,{force:true}); }
+          catch(refreshError){ console.warn('Không thể làm mới số lượng công đoạn / 無法重新讀取工序累計：',refreshError); }
+        }
         await showError(error);
         throw error;
       }
@@ -1389,8 +1569,11 @@
       if(element('production-date-input').value !== current){
         element('production-date-input').value = current;
         syncDateControls();
-        if(!state.recordDateFilter) void loadDailyRows();
-        void refreshAttendanceSummary();
+        if(state.employee&&!state.recordDateFilter) void loadEmployeeContext();
+        else{
+          if(state.allEmployees&&!state.recordDateFilter) void loadDailyRows();
+          if(state.employee) void refreshAttendanceSummary();
+        }
       }
     },30000);
   }
@@ -1435,6 +1618,7 @@
     });
     element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
     element('production-quantity-progress').addEventListener('click',()=>void toggleSelectedProcessRows());
+    window.addEventListener?.('focus',refreshProcessTotalOnFocus);
     ENTRY_INPUT_IDS.forEach(id=>{
       element(id)?.addEventListener('keydown',event=>handleEntryTab(event,id));
     });
@@ -1501,7 +1685,7 @@
     closeDropdown('production-employee-name-options');
     syncDropdownAvailability();
     syncEntryTableMode();
-    await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
+    await loadEmployeeContext();
     const targetProcess=Boolean(pending.orderId||pending.orderNo||pending.code||pending.processNo);
     if(pending.orderId||pending.orderNo){
       const order=window.PCMSProductionEntryStore.listOrders().find(item=>String(item.id)===pending.orderId
@@ -1539,11 +1723,15 @@
     if(state.dateAuto) element('production-date-input').value = today();
     syncDateControls();
     startDateTimer();
-    if(state.employee||state.allEmployees) await Promise.all([loadDailyRows(),refreshAttendanceSummary()]);
+    if(state.employee) await loadEmployeeContext();
+    else if(state.allEmployees) await loadDailyRows();
+    if(state.process&&!state.supplementMode) void loadQuantityProgress(state.process);
   }
 
   function productionEntryLeave(){
     stopDateTimer();
+    if(state.processTotalTimer) clearTimeout(state.processTotalTimer);
+    state.processTotalTimer=null;
     productionTableControl?.deactivate?.({resetSort:true});
     closeAllDropdowns();
   }
@@ -1551,5 +1739,5 @@
   window.loadProductionEntryData = loadProductionEntryData;
   window.productionEntryInit = productionEntryInit;
   window.productionEntryLeave = productionEntryLeave;
-  window.PCMSProductionEntry = Object.freeze({setPendingContext});
+  window.PCMSProductionEntry = Object.freeze({setPendingContext,loadStableContext:loadStableEmployeeContext});
 })();

@@ -265,7 +265,7 @@ test('排序只由箭頭按鈕觸發，表頭文字及欄寬拖曳區不會排�
   const control=harness.api.create({
     table:fixture.table,
     columns:[
-      {key:'code',label:{vi:'Mã hàng',zh:'款號'},minimum:90,preferred:120,maximum:220},
+      {key:'code',label:{vi:'Mã hàng đầy đủ',zh:'完整款號名稱'},headerLabel:{vi:'Mã hàng',zh:'款號'},minimum:90,preferred:120,maximum:220},
       {key:'name',label:{vi:'Tên Việt',zh:'越文名稱'},minimum:120,preferred:200,maximum:260}
     ],
     resizable:true,
@@ -280,6 +280,9 @@ test('排序只由箭頭按鈕觸發，表頭文字及欄寬拖曳區不會排�
   assert.ok(trigger);
   assert.equal(vi.textContent,'Mã hàng');
   assert.equal(zh.textContent,'款號');
+  assert.equal(harness.api.availableColumns([
+    {key:'code',label:{vi:'Mã hàng đầy đủ',zh:'完整款號名稱'},headerLabel:{vi:'Mã hàng',zh:'款號'}}
+  ])[0].label.vi,'Mã hàng đầy đủ');
 
   fixture.table.dispatch('click',{target:header});
   fixture.table.dispatch('click',{target:resizeHandle});

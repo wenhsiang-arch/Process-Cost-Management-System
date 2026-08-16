@@ -389,14 +389,14 @@
     const body=document.createElement('div');
     body.className='process-edit-change-summary';
     const correction=mode===store().EDIT_MODES.STANDARD_CORRECTION;
-    const orderLabels=impact.orders.map(item=>item.orderId||item.id);
+    const orderLabels=(impact.orders||[]).map(item=>item.orderId||item.id);
     const productSections=targetCodes.map(code=>{
       const lines=operationChangeLines(productByCode(code)?.ops,operations);
       return `<section><b>${safe(code)}</b><ul>${lines.map(line=>`<li>${safe(line)}</li>`).join('')}</ul></section>`;
     }).join('');
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Kiểm tra nội dung thay đổi trước khi lưu.</strong><span>儲存前請確認實際修改內容。</span></span></div>
       <div class="process-edit-change-products">${productSections}</div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Đơn đang sản xuất</strong><span>生產中訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact.entryCount)||0):0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Bản ghi tháng đã khóa được giữ nguyên</strong><span>鎖定月份保留不動</span></span></dt><dd>${correction?(Number(impact.lockedEntryCount)||0):0}${impact.lockedMonths?.length?`（${safe(impact.lockedMonths.join('、'))}）`:''}</dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Lưu giây bảng mã hàng trước khi sửa':'Giữ nguyên ảnh chụp cũ'}</strong><span>${correction?'保留修改前的款號表秒數並另存訂正結果':'舊快照完全不變'}</span></span></dd></div></dl>`;
+      <dl><div><dt><span class="ui-dual-copy"><strong>Chế độ</strong><span>修改模式</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Sửa lỗi tiêu chuẩn':'Tối ưu công đoạn'}</strong><span>${correction?'標準錯誤訂正':'工序優化'}</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Mã hàng bị ảnh hưởng</strong><span>受影響款號</span></span></dt><dd>${safe(targetCodes.join('、'))}</dd></div>${impact.orderSyncRequired?`<div><dt><span class="ui-dual-copy"><strong>Đơn cần cập nhật cấu trúc</strong><span>需更新結構的訂單</span></span></dt><dd>${safe(orderLabels.join('、')||'0')}</dd></div>`:''}<div><dt><span class="ui-dual-copy"><strong>Bản ghi sản xuất cần sửa</strong><span>需訂正產能紀錄</span></span></dt><dd>${correction?(Number(impact.entryCount)||0):0}</dd></div><div><dt><span class="ui-dual-copy"><strong>Không tải dữ liệu tháng đã khóa</strong><span>鎖定月份資料不下載</span></span></dt><dd><span class="ui-dual-copy"><strong>Không thuộc phạm vi sửa</strong><span>不納入訂正範圍</span></span></dd></div><div><dt><span class="ui-dual-copy"><strong>Dữ liệu lịch sử</strong><span>歷史資料</span></span></dt><dd><span class="ui-dual-copy"><strong>${correction?'Lưu giây bảng mã hàng trước khi sửa':'Giữ nguyên ảnh chụp cũ'}</strong><span>${correction?'保留修改前的款號表秒數並另存訂正結果':'舊快照完全不變，新報工立即使用新標準'}</span></span></dd></div></dl>`;
     return body;
   }
 
@@ -421,7 +421,7 @@
     catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
     const targetCodes=selectedCodes.filter(code=>!operationsEqual(productByCode(code)?.ops,operations));
     if(!targetCodes.length){
-      setStatus({vi:'Không có thay đổi; hệ thống không lưu phiên bản và không đồng bộ đơn hàng.',zh:'內容完全相同，未建立版本、未寫入資料，也未同步訂單。'},'info');
+      setStatus({vi:'Không có thay đổi; hệ thống không ghi dữ liệu.',zh:'內容完全相同，系統不會寫入資料。'},'info');
       return;
     }
     const structuralChange=targetCodes.some(code=>!sameOperationStructure(productByCode(code)?.ops,operations));
@@ -430,7 +430,7 @@
     let impact;
     try{
       const operationsByCode=Object.fromEntries(targetCodes.map(code=>[code,operations]));
-      setStatus({vi:'Đang kiểm tra đơn hàng và dữ liệu bị ảnh hưởng...',zh:'正在檢查受影響訂單與資料…'},'info');
+      setStatus({vi:'Đang kiểm tra dữ liệu bị ảnh hưởng...',zh:'正在檢查受影響資料…'},'info');
       impact=await store().analyzeImpact({targetCodes,operationsByCode,mode});
     }catch(error){ setStatus({vi:String(error.message||error),zh:String(error.message||error)},'danger'); return; }
     const confirmed=await ui().confirmDialog({
@@ -442,7 +442,9 @@
     const progress=ui().progressDialog({
       title:{vi:'Tiến độ sửa công đoạn',zh:'工序修改進度'},value:0,
       text:{vi:'Đang lưu tiêu chuẩn mã hàng...',zh:'正在儲存款號標準…'},
-      detail:{vi:`Ảnh hưởng ${impact.orderCount} đơn và ${impact.entryCount} bản ghi.`,zh:`影響 ${impact.orderCount} 張訂單與 ${impact.entryCount} 筆產能紀錄。`}
+      detail:impact.orderSyncRequired
+        ?{vi:`Cần cập nhật cấu trúc ${impact.orderCount} đơn.`,zh:`需更新 ${impact.orderCount} 張訂單的工序結構。`}
+        :{vi:`Không quét đơn hàng; ${impact.entryCount} bản ghi cần sửa.`,zh:`不掃描訂單；需訂正 ${impact.entryCount} 筆產能紀錄。`}
     });
     try{
       setStatus({vi:'Đang lưu phiên bản và công đoạn...',zh:'正在儲存版本與工序修改…'},'info');
@@ -460,7 +462,9 @@
       }else{
         progress.complete({vi:'Đã hoàn tất toàn bộ thay đổi.',zh:'全部修改已完成。'});
         setStatus(result.logSaved
-        ? {vi:`Đã lưu tiêu chuẩn và đồng bộ ${impact.orderCount} đơn đang sản xuất.`,zh:`正式標準已儲存，並同步 ${impact.orderCount} 張生產中訂單。`}
+        ? (impact.orderSyncRequired
+          ?{vi:`Đã lưu tiêu chuẩn và cập nhật cấu trúc ${impact.orderCount} đơn.`,zh:`正式標準已儲存，並更新 ${impact.orderCount} 張訂單的工序結構。`}
+          :{vi:'Đã lưu tiêu chuẩn; lần ghi nhận mới dùng ngay dữ liệu mới.',zh:'正式標準已儲存；之後的新報工立即使用新資料。'})
         : {vi:'Đã lưu tiêu chuẩn, nhưng lịch sử thao tác không lưu được.',zh:'正式標準已儲存，但操作紀錄保存失敗。'},result.logSaved?'success':'warning');
       }
       window.setTimeout(()=>progress.close(),1000);

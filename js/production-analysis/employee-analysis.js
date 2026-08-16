@@ -4,7 +4,7 @@
 
   const PAGE_SIZE=50;
 
-  function create(root){
+  function create(root,options={}){
     const ui=window.PCMSProductionAnalysisUI;
     const calc=window.PCMSProductionAnalysisCalculations;
     let dataset=null;
@@ -27,7 +27,6 @@
           <div class="ui-command-actions">
             <button type="button" class="ui-command-action" data-action="guide"><i class="ti ti-help-circle"></i>${ui.dual('Hướng dẫn','使用說明')}</button>
             <button type="button" class="ui-command-action" data-action="print"><i class="ti ti-printer"></i>${ui.dual('In báo cáo','列印報表')}</button>
-            <button type="button" class="ui-command-action is-primary" data-action="export"><i class="ti ti-file-spreadsheet"></i>${ui.dual('Xuất Excel','匯出表格')}</button>
           </div>
         </div>
       </div>
@@ -358,12 +357,6 @@
         formulaZh:explanationAppendix().map(item=>`${item.label}：${item.content}`).join('\n\n')
       });
     }
-    async function exportRows(){
-      await window.PCMSProductionAnalysisExport.exportWorkbook({
-        title:'Phân tích nhân viên / 員工分析',filePrefix:'Phan_tich_nhan_vien_員工分析',
-        rows:exportRowsData(),columns:exportColumns(),filterSummary:filterSummary(),explanations:explanationAppendix()
-      });
-    }
     async function printRows(){
       await window.PCMSProductionAnalysisExport.printRows({
         title:'Phân tích nhân viên / 員工分析',rows:exportRowsData(),columns:exportColumns(),
@@ -371,9 +364,12 @@
       });
     }
 
-    root.querySelectorAll('[data-filter]').forEach(element=>element.addEventListener(element.tagName==='INPUT'?'input':'change',()=>{page=1;render();}));
+    root.querySelectorAll('[data-filter]').forEach(element=>element.addEventListener(element.tagName==='INPUT'?'input':'change',()=>{
+      page=1;
+      render();
+      if(element.dataset.filter==='from'||element.dataset.filter==='to') options.onDateRangeChange?.(filters());
+    }));
     root.querySelector('[data-action="guide"]').addEventListener('click',showGuide);
-    root.querySelector('[data-action="export"]').addEventListener('click',exportRows);
     root.querySelector('[data-action="print"]').addEventListener('click',printRows);
     root.querySelector('[data-page="previous"]').addEventListener('click',()=>{if(page>1){page-=1;renderTable();}});
     root.querySelector('[data-page="next"]').addEventListener('click',()=>{if(page*PAGE_SIZE<filtered.length){page+=1;renderTable();}});
@@ -392,6 +388,7 @@
         ui.setSourceLabel(root.querySelector('[data-role="source"]'),metadata);
         render();
       },
+      dataRange(){ const current=filters();return {fromDate:current.fromDate,toDate:current.toDate}; },
       activate(){render();},leave(){}
     };
   }

@@ -14,7 +14,15 @@ test('工序分析分頁使用新名稱且主表分開款號與工序',()=>{
   assert.match(process,/data-ui-table-column="process"[^\n]+dual\('Công đoạn','工序'\)/);
   assert.match(process,/ui\.createCell\(row\.productCode\|\|'—'\)/);
   assert.match(process,/ui\.createCell\(\[row\.processNo,row\.processNameVi\]/);
-  assert.match(process,/cell\.colSpan=13/);
+  assert.match(process,/cell\.colSpan=11/);
+  assert.match(process,/const DISPLAY_LIMIT=20/);
+  assert.match(process,/\.slice\(0,DISPLAY_LIMIT\)/);
+  assert.match(process,/calc\.ieAnalysisRows\(dataset,filters\(\),standards\)/);
+  assert.match(process,/PCMSProductionAnalysisStore\.loadCurrentStandards/);
+  assert.match(process,/onSaved:handleSaved/);
+  assert.match(process,/目前標準尚無有效樣本/);
+  assert.doesNotMatch(process,/data-ui-table-column="confidence"|Xuất Excel|匯出 Excel/);
+  assert.match(process,/不判定可信度/);
 });
 
 test('員工分析使用合併搜尋且明細只顯示越文工序名稱',()=>{
@@ -31,4 +39,17 @@ test('員工分析五個篩選欄位固定為桌機單列',()=>{
   const style=read('styles/features/production-analysis.css');
   assert.match(style,/\.employee-analysis-filter-grid \{\s*grid-template-columns: minmax\(135px,\.85fr\) minmax\(135px,\.85fr\) minmax\(260px,1\.5fr\) minmax\(140px,\.9fr\) minmax\(140px,\.9fr\);\s*\}/);
   assert.doesNotMatch(style,/\.employee-analysis-filter-grid \{\s*grid-template-columns: repeat\(3/);
+});
+
+test('三個生產分析頁只保留畫面查看與列印，不提供表格匯出',()=>{
+  const employee=read('js/production-analysis/employee-analysis.js');
+  const process=read('js/production-analysis/ie-analysis.js');
+  const department=read('js/production-analysis/department-analysis.js');
+  [employee,process,department].forEach(source=>{
+    assert.match(source,/data-action="print"/);
+    assert.doesNotMatch(source,/data-action="export"|exportWorkbook|Xuất Excel|匯出表格/);
+  });
+  const output=read('js/production-analysis/analysis-export.js');
+  assert.match(output,/Object\.freeze\(\{printRows\}\)/);
+  assert.doesNotMatch(output,/exportWorkbook|PCMSFileIO|ensureSpreadsheetTool|\.xlsx/);
 });

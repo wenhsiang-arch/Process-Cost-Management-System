@@ -4,6 +4,8 @@
 
   const controllers=new Map();
   let activeTab='employee';
+  let rangeLoadTimer=0;
+  let rangeLoadSerial=0;
 
   function text(value){ return String(value??'').trim(); }
   function number(value){
@@ -220,8 +222,57 @@
     document.querySelectorAll('#production-analysis-root [data-analysis-view]').forEach(view=>{
       view.hidden=view.dataset.analysisView!==name;
     });
-    controllers.get(name)?.activate?.();
+    const controller=controllers.get(name);
+    controller?.activate?.();
+    const range=controller?.dataRange?.();
+    if(range?.fromDate||range?.toDate) requestDataRange(range);
     refreshTableTools();
+  }
+  function applyDataset(result){
+    controllers.forEach(controller=>controller.setData(result.dataset,{source:result.source,loadedAt:result.loadedAt}));
+  }
+  // handleProcessSecondsSaved（處理本視窗正式秒數修改完成）：直接採用成功結果；標準錯誤訂正才重載已更新的月份摘要。
+  async function handleProcessSecondsSaved(result,range={}){
+    const store=window.PCMSProductionAnalysisStore;
+    store.applyCurrentProducts(result?.items||[]);
+    const root=document.getElementById('production-analysis-root');
+    if(result?.mode==='standardCorrection'){
+      root?.classList.add('is-loading');
+      try{
+        const loaded=await store.load({force:true,fromDate:range.fromDate,toDate:range.toDate});
+        applyDataset(loaded);
+      }catch(error){
+        console.error('Không thể nạp lại tóm tắt sau khi sửa tiêu chuẩn / 標準訂正後無法重載摘要',error);
+        window.PCMSUIComponents?.showToast?.({kind:'warning',text:{
+          vi:'Đã lưu giây mới, nhưng cần mở lại phân tích để cập nhật dữ liệu.',
+          zh:'新秒數已儲存，但需要重新開啟分析以更新資料。'
+        }});
+      }finally{
+        root?.classList.remove('is-loading');
+      }
+    }
+    controllers.get('ie')?.refreshCurrentStandards?.();
+  }
+  function requestDataRange(range={}){
+    if(rangeLoadTimer) clearTimeout(rangeLoadTimer);
+    rangeLoadTimer=setTimeout(async()=>{
+      rangeLoadTimer=0;
+      const serial=++rangeLoadSerial;
+      const root=document.getElementById('production-analysis-root');
+      root?.classList.add('is-loading');
+      try{
+        const result=await window.PCMSProductionAnalysisStore.load({fromDate:range.fromDate,toDate:range.toDate});
+        if(serial!==rangeLoadSerial) return;
+        applyDataset(result);
+        controllers.get(activeTab)?.activate?.();
+      }catch(error){
+        if(serial!==rangeLoadSerial) return;
+        console.error('Lỗi tải phạm vi phân tích / 分析日期範圍載入失敗',error);
+        await showError(error);
+      }finally{
+        if(serial===rangeLoadSerial) root?.classList.remove('is-loading');
+      }
+    },120);
   }
   function ensureShell(root){
     if(root.dataset.ready==='true') return;
@@ -240,19 +291,24 @@
       const button=event.target.closest('[data-analysis-tab]');
       if(button) setTab(button.dataset.analysisTab);
     });
-    controllers.set('employee',window.PCMSProductionEmployeeAnalysis.create(root.querySelector('#production-analysis-employee-view')));
-    controllers.set('ie',window.PCMSProductionIEAnalysis.create(root.querySelector('#production-analysis-ie-view')));
-    controllers.set('department',window.PCMSProductionDepartmentAnalysis.create(root.querySelector('#production-analysis-department-view')));
+    const controllerOptions={onDateRangeChange:requestDataRange,onProcessSecondsSaved:handleProcessSecondsSaved};
+    controllers.set('employee',window.PCMSProductionEmployeeAnalysis.create(root.querySelector('#production-analysis-employee-view'),controllerOptions));
+    controllers.set('ie',window.PCMSProductionIEAnalysis.create(root.querySelector('#production-analysis-ie-view'),controllerOptions));
+    controllers.set('department',window.PCMSProductionDepartmentAnalysis.create(root.querySelector('#production-analysis-department-view'),controllerOptions));
     root.dataset.ready='true';
   }
   async function productionAnalysisInit(options={}){
     const root=document.getElementById('production-analysis-root');
     if(!root) return;
     ensureShell(root);
+    if(options.force===true){
+      window.PCMSProductionAnalysisStore.resetCurrentStandards({revalidate:true});
+      controllers.get('ie')?.invalidateCurrentStandards?.();
+    }
     root.classList.add('is-loading');
     try{
       const result=await window.PCMSProductionAnalysisStore.load({force:options.force===true});
-      controllers.forEach(controller=>controller.setData(result.dataset,{source:result.source,loadedAt:result.loadedAt}));
+      applyDataset(result);
       setTab(activeTab);
     }catch(error){
       console.error('Lỗi tải phân tích sản xuất / 生產分析載入失敗',error);
@@ -262,7 +318,11 @@
     }
   }
   function productionAnalysisLeave(){
+    if(rangeLoadTimer) clearTimeout(rangeLoadTimer);
+    rangeLoadTimer=0;
+    rangeLoadSerial+=1;
     controllers.forEach(controller=>controller.leave?.());
+    window.PCMSProductionAnalysisStore?.resetCurrentStandards?.({revalidate:true});
   }
 
   window.PCMSProductionAnalysisUI=Object.freeze({

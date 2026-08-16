@@ -25,5 +25,5 @@ test('正式網站使用背景評分型 App Check 且先於 Firebase 服務初�
 
 test('主頁載入新版 App Check 核心程式',()=>{
   const html=read('index.html');
-  assert.match(html,/js\/firebase\.js\?v=20260813-2/);
+  assert.match(html,/js\/firebase\.js\?v=20260816-1/);
 });

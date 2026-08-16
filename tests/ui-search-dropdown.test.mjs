@@ -73,3 +73,12 @@ test('共用搜尋框第一次點擊既有文字時全選，再次點擊可放�
   assert.match(source,/listen\(input,'mousedown',handleInputMouseDown\)/);
   assert.match(source,/listen\(input,'click',handleInputClick\)/);
 });
+
+test('共用搜尋下拉在唯一結果時由 Tab 或 Enter 直接選入',()=>{
+  const source=read('js/ui-search-dropdown.js');
+  assert.match(source,/const forwardTab = event\.key === 'Tab' && !event\.shiftKey/);
+  assert.match(source,/const uniqueResult = query \? resultFor\(query,2\)/);
+  assert.match(source,/uniqueResult\.total === 1 && selectItem\(uniqueResult\.items\[0\]\)/);
+  assert.match(source,/if\(event\.key === 'Enter'\) event\.preventDefault\(\)/);
+  assert.match(source,/if\(forwardTab\) return/);
+});

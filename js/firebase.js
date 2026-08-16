@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {
   getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
-  setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,updateDoc as firestoreUpdateDoc,
+  setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,getCountFromServer as firestoreGetCountFromServer,updateDoc as firestoreUpdateDoc,
   deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,documentId,
   increment,serverTimestamp,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -65,6 +65,12 @@ async function getDocs(reference){
   window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:snapshot.size});
   return snapshot;
 }
+async function getCountFromServer(reference){
+  const snapshot=await firestoreGetCountFromServer(reference);
+  const count=Math.max(0,Number(snapshot.data()?.count)||0);
+  window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:Math.max(1,Math.ceil(count/1000))});
+  return snapshot;
+}
 async function setDoc(reference,data,options){
   const result=options===undefined
     ? await firestoreSetDoc(reference,data)
@@ -119,25 +125,18 @@ async function runTransaction(database,worker){
   return result;
 }
 
-// dataVersions（資料版本）只保存版本代碼，不保存業務資料。
-const DATA_VERSIONS_KEY = 'dataVersions';
-const DATA_VERSION_COLLECTION = 'dataVersions'; // DATA_VERSION_COLLECTION（分範圍資料版本集合）：新舊版本並行期間使用。
+// dataVersions（資料版本）每份文件只服務一個仍有持久快取效益的資料範圍。
+const DATA_VERSION_COLLECTION = 'dataVersions';
 const DATA_VERSION_SCHEMA_VERSION = 1;
 const CACHEABLE_COLLECTIONS = new Set([
-  'orders','orderProcesses','productionEmployees','productionDepartments','productionEntries',
-  'productionAttendance','productGroups',
-  'performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths'
+  'orders','productionEmployees','productionDepartments','productGroups'
 ]); // CACHEABLE_COLLECTIONS（允許使用資料版本快取的集合）
-const CACHEABLE_SYSTEM_KEYS = new Set(['operationSettings','costSettings','performanceBonusSettings']);
 const DATA_VERSION_MEMORY_MS = 15000;
-const DATA_VERSION_CAPABILITY_RETRY_MS = 60000;
-let dataVersionsMemory = null;
-let dataVersionsReadAt = 0;
-let dataVersionsPromise = null;
+const dataVersionsMemory = new Map(); // dataVersionsMemory（目前工作階段的分範圍版本記憶）
 const scopedDataVersionReadAt = new Map(); // scopedDataVersionReadAt（各資料範圍最近確認時間）
 const scopedDataVersionPromises = new Map(); // scopedDataVersionPromises（避免同範圍重複讀取）
-let scopedDataVersionCapability = 'unknown'; // scopedDataVersionCapability（新版分範圍規則是否已可用）
-let scopedDataVersionProbeAt = 0;
+const directSettingMemory = new Map(); // directSettingMemory（同一頁面的小型設定記憶）
+const directSettingPromises = new Map(); // directSettingPromises（避免同頁重複讀取同一設定）
 
 window.firebaseAuthUser = null;
 window.firebaseGoogleLogin = () => signInWithPopup(auth, googleProvider);
@@ -302,6 +301,7 @@ function showLoading(show){
 
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
+const PRODUCT_PROCESS_STANDARDS_COL = 'productProcessStandards';
 const PRODUCTS_META_KEY = 'productsMeta';
 const PRODUCT_CHANGES_COL = 'productChanges';
 const PRODUCTS_SCHEMA_VERSION = 2;
@@ -345,93 +345,38 @@ function dataVersionToken(){
 
 function cacheScopeForReference(reference){
   const parts=String(reference?.path||'').split('/').filter(Boolean);
-  if(parts[0]==='system'&&CACHEABLE_SYSTEM_KEYS.has(parts[1])) return parts[1];
   return CACHEABLE_COLLECTIONS.has(parts[0])?parts[0]:'';
-}
-
-async function readLegacyDataVersions(force=false){
-  const now=Date.now();
-  if(!force&&dataVersionsMemory&&now-dataVersionsReadAt<DATA_VERSION_MEMORY_MS){
-    return {online:true,data:dataVersionsMemory};
-  }
-  if(dataVersionsPromise) return dataVersionsPromise;
-  dataVersionsPromise=(async()=>{
-    try{
-      const snap=await getDocFromServer(doc(db,'system',DATA_VERSIONS_KEY));
-      dataVersionsMemory=snap.exists()?snap.data():{};
-      dataVersionsReadAt=Date.now();
-      return {online:true,data:dataVersionsMemory};
-    }catch(error){
-      console.warn('dataVersions（資料版本）無法從雲端讀取：',error);
-      return {
-        online:false,
-        allowOfflineCache:error?.code==='unavailable',
-        data:dataVersionsMemory||{}
-      };
-    }finally{
-      dataVersionsPromise=null;
-    }
-  })();
-  return dataVersionsPromise;
 }
 
 function normalizeDataVersionScopes(value){
   const list=Array.isArray(value)?value:(typeof value==='string'?[value]:[]);
-  return [...new Set(list.filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
-}
-
-function shouldProbeScopedDataVersions(force=false){
-  return force===true
-    || scopedDataVersionCapability!=='legacy'
-    || Date.now()-scopedDataVersionProbeAt>=DATA_VERSION_CAPABILITY_RETRY_MS;
+  return [...new Set(list.filter(scope=>CACHEABLE_COLLECTIONS.has(scope)))];
 }
 
 async function readScopedDataVersion(scope,force=false){
   const now=Date.now();
-  if(!force&&dataVersionsMemory&&Object.hasOwn(dataVersionsMemory,scope)
+  if(!force&&dataVersionsMemory.has(scope)
     && now-(scopedDataVersionReadAt.get(scope)||0)<DATA_VERSION_MEMORY_MS){
-    return {online:true,allowOfflineCache:false,scope,version:String(dataVersionsMemory[scope]||'0'),source:'memory'};
+    return {online:true,allowOfflineCache:false,scope,version:String(dataVersionsMemory.get(scope)||'0'),source:'memory'};
   }
   if(scopedDataVersionPromises.has(scope)) return scopedDataVersionPromises.get(scope);
   const promise=(async()=>{
-    const legacyPromise=readLegacyDataVersions(force);
-    let scopedSnapshot=null;
-    let scopedError=null;
-    if(shouldProbeScopedDataVersions(force)){
-      try{
-        scopedSnapshot=await getDocFromServer(doc(db,DATA_VERSION_COLLECTION,scope));
-        scopedDataVersionCapability='available';
-        scopedDataVersionProbeAt=Date.now();
-      }catch(error){
-        scopedError=error;
-        if(error?.code==='permission-denied'){
-          scopedDataVersionCapability='legacy';
-          scopedDataVersionProbeAt=Date.now();
-        }
-      }
-    }
-    const legacyState=await legacyPromise;
-    const legacyVersion=String(legacyState.data?.[scope]||'0');
-    const legacyUpdatedAt=Number(legacyState.data?.updatedAt)||0;
-    const scopedData=scopedSnapshot?.exists()?scopedSnapshot.data():null;
-    const scopedVersion=String(scopedData?.version||'0');
-    const scopedUpdatedAt=Number(scopedData?.updatedAt)||0;
-    const useScoped=!!scopedData
-      && (!legacyState.online||scopedVersion===legacyVersion||scopedUpdatedAt>=legacyUpdatedAt);
-    const online=!!scopedSnapshot||legacyState.online===true;
-    const version=useScoped?scopedVersion:legacyVersion;
-    if(online){
-      dataVersionsMemory={...(dataVersionsMemory||{}),[scope]:version};
+    try{
+      const snapshot=await getDocFromServer(doc(db,DATA_VERSION_COLLECTION,scope));
+      const version=String(snapshot.exists()?snapshot.data()?.version||'0':'0');
+      dataVersionsMemory.set(scope,version);
       scopedDataVersionReadAt.set(scope,Date.now());
+      return {online:true,allowOfflineCache:false,scope,version,source:'scoped'};
+    }catch(error){
+      console.warn(`dataVersions/${scope}（分範圍資料版本）無法從雲端讀取：`,error);
+      return {
+        online:false,
+        allowOfflineCache:error?.code==='unavailable',
+        scope,
+        version:String(dataVersionsMemory.get(scope)||'0'),
+        source:'unavailable'
+      };
     }
-    if(scopedError&&scopedError?.code!=='permission-denied'&&legacyState.online!==true){
-      console.warn(`dataVersions/${scope}（分範圍資料版本）無法從雲端讀取：`,scopedError);
-    }
-    return {
-      online,
-      allowOfflineCache:!online&&(legacyState.allowOfflineCache===true||scopedError?.code==='unavailable'),
-      scope,version,source:useScoped?'scoped':'legacy'
-    };
   })().finally(()=>scopedDataVersionPromises.delete(scope));
   scopedDataVersionPromises.set(scope,promise);
   return promise;
@@ -440,8 +385,7 @@ async function readScopedDataVersion(scope,force=false){
 async function readDataVersions(scopesOrForce=false,maybeForce=false){
   const scopes=normalizeDataVersionScopes(scopesOrForce);
   if(!scopes.length){
-    const force=typeof scopesOrForce==='boolean'?scopesOrForce:maybeForce===true;
-    return readLegacyDataVersions(force);
+    return {online:true,allowOfflineCache:false,data:{},sources:{}};
   }
   const force=maybeForce===true;
   const results=await Promise.all(scopes.map(scope=>readScopedDataVersion(scope,force)));
@@ -454,7 +398,7 @@ async function readDataVersions(scopesOrForce=false,maybeForce=false){
 }
 
 function createDataVersionChange(scopes){
-  const unique=[...new Set((scopes||[]).filter(scope=>CACHEABLE_COLLECTIONS.has(scope)||CACHEABLE_SYSTEM_KEYS.has(scope)))];
+  const unique=[...new Set((scopes||[]).filter(scope=>CACHEABLE_COLLECTIONS.has(scope)))];
   const updatedAt=Date.now();
   const updatedBy=window.firebaseAuthUser?.uid||'';
   const updates={updatedAt,updatedBy};
@@ -470,13 +414,6 @@ function appendDataVersionWrite(writer,scopesOrChange){
     ?createDataVersionChange(scopesOrChange)
     :scopesOrChange; // change（本次資料版本異動）：可沿用已建立的同一組版本代碼。
   if(change.scopes.length){
-    const legacyScopes=change.scopes.filter(scope=>scope!=='productionEntries');
-    if(legacyScopes.length){
-      const legacyUpdates={updatedAt:change.updates.updatedAt,updatedBy:change.updates.updatedBy};
-      legacyScopes.forEach(scope=>{ legacyUpdates[scope]=change.updates[scope]; });
-      writer.set(doc(db,'system',DATA_VERSIONS_KEY),legacyUpdates,{merge:true});
-    }
-    // 分範圍版本已是正式來源；產能登記省略舊總表可避免複合交易超過安全規則運算上限。
     change.documents.forEach(item=>writer.set(doc(db,DATA_VERSION_COLLECTION,item.scope),item));
   }
   return change;
@@ -484,9 +421,10 @@ function appendDataVersionWrite(writer,scopesOrChange){
 
 async function finishDataVersionChange(change){
   if(!change?.scopes?.length) return change?.updates||{};
-  dataVersionsMemory={...(dataVersionsMemory||{}),...change.updates};
-  dataVersionsReadAt=Date.now();
-  change.scopes.forEach(scope=>scopedDataVersionReadAt.set(scope,Date.now()));
+  change.scopes.forEach(scope=>{
+    dataVersionsMemory.set(scope,String(change.updates[scope]||'0'));
+    scopedDataVersionReadAt.set(scope,Date.now());
+  });
   window.PCMSFeatures?.invalidateDataScopes?.(change.scopes);
   const results=await Promise.allSettled(change.scopes.map(scope=>window.pcmsDataCache?.remove(scope)));
   results.forEach(result=>{
@@ -503,8 +441,8 @@ async function touchDataVersions(scopes){
     appendDataVersionWrite(batch,change);
     await batch.commit();
   }catch(error){
-    dataVersionsMemory=null;
-    dataVersionsReadAt=0;
+    dataVersionsMemory.clear();
+    scopedDataVersionReadAt.clear();
     console.error('更新 dataVersions（資料版本）失敗：',error);
     throw error;
   }
@@ -530,57 +468,11 @@ async function loadCollectionWithCache(scope,collectionName,options={}){
   const snap=await getDocs(collection(db,collectionName));
   const rows=snap.docs.map(item=>({id:item.id,...item.data()}));
   window.PCMSUsageMetrics?.recordFullLoad?.({scope,documentReads:snap.size});
-  const latest=await readDataVersions(true);
+  const latest=await readDataVersions([scope],true);
   const version=String(latest.data?.[scope]||cached.expectedVersion||'0');
   await window.pcmsDataCache?.write(scope,version,rows);
   window.lastCollectionReadMetrics=Object.freeze({scope,mode:'full',documentReads:snap.size,finishedAt:Date.now()});
   return rows;
-}
-
-async function loadSystemWithCache(key,options={}){
-  if(!CACHEABLE_SYSTEM_KEYS.has(key)) throw new Error(`不允許的 system data-cache（系統資料快取）：${key}`);
-  if(options.force===true) await window.pcmsDataCache?.remove(key);
-  const cached=await readCachedScope(key);
-  if(cached.data!==null&&cached.data!==undefined) return cached.data;
-  const snap=await getDoc(doc(db,'system',key));
-  const value=snap.exists()?JSON.parse(snap.data().data):null;
-  const latest=await readDataVersions(true);
-  const version=String(latest.data?.[key]||cached.expectedVersion||'0');
-  await window.pcmsDataCache?.write(key,version,value);
-  return value;
-}
-
-async function fbLoad(key){
-  try{
-    const snap = await window._getDoc(window._doc("system", key));
-    if(snap.exists()) return JSON.parse(snap.data().data);
-  }catch(e){ console.error("Firebase load error:", e); }
-  return null;
-}
-
-async function fbSave(key, data){
-  try{
-    const batch=writeBatch(db); // batch（資料與版本的同一批次寫入）
-    batch.set(doc(db,'system',key),{data:JSON.stringify(data)});
-    const versionChange=appendDataVersionWrite(batch,[key]); // versionChange（同批資料版本異動）
-    await batch.commit();
-    const versions=await finishDataVersionChange(versionChange);
-    if(CACHEABLE_SYSTEM_KEYS.has(key)){
-      await window.pcmsDataCache?.write(key,String(versions[key]||'0'),data);
-    }
-    return true;
-  }catch(e){
-    console.error("Firebase save error:", e);
-    return false;
-  }
-}
-
-async function fbSaveWithStatus(key, data){
-  setSyncState('syncing');
-  const ok = await fbSave(key, data);
-  if(ok){ setSyncState('success'); }
-  else{ setSyncState('failed'); showSyncError(); }
-  return ok;
 }
 
 function normalizeProductDoc(data,id){
@@ -901,6 +793,18 @@ async function saveProductItemsToCollection(items,options={}){
   setSyncState('syncing');
   try{
     if(rows.length>PRODUCTS_MAX_BATCH_ITEMS) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
+    const processStandardUpdates=(Array.isArray(options.processStandardUpdates)?options.processStandardUpdates:[]).map(item=>({
+      ...item,
+      standardId:String(item?.standardId||''),productCode:String(item?.productCode||'').trim(),
+      processNo:String(item?.processNo||'').trim(),processNameVi:String(item?.processNameVi||'').trim(),
+      processNameZh:String(item?.processNameZh||'').trim(),processCategory:String(item?.processCategory||'').trim(),
+      processSec:Number(item?.processSec),hourlyCapacity:Number(item?.hourlyCapacity),
+      standardRevision:Number(item?.standardRevision)||0,active:item?.active===true
+    }));
+    if(processStandardUpdates.some(item=>!item.standardId||!item.productCode||!item.processNo
+      ||!Number.isInteger(item.processSec)||item.processSec<=0||!Number.isInteger(item.hourlyCapacity)||item.hourlyCapacity<=0)){
+      throw new Error('Dữ liệu chỉ mục tiêu chuẩn công đoạn không hợp lệ. / 工序標準索引資料不正確。');
+    }
     const currentUserUid=String(auth.currentUser?.uid||'');
     if(!currentUserUid) throw new Error('Vui lòng đăng nhập lại / 請重新登入');
     const base=getProductsBase();
@@ -939,7 +843,7 @@ async function saveProductItemsToCollection(items,options={}){
         createdByUid:currentUserUid,
         createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
       });
-      const writeCount=rows.length+historySnapshot.chunks.length+4;
+      const writeCount=rows.length+processStandardUpdates.length+historySnapshot.chunks.length+4;
       if(writeCount>499) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
       meta.historyVersionId=versionId;
       rows.forEach(item=>{
@@ -952,6 +856,10 @@ async function saveProductItemsToCollection(items,options={}){
           updatedBy:window.cu?.user||''
         },{merge:false});
       });
+      processStandardUpdates.forEach(item=>transaction.set(doc(db,PRODUCT_PROCESS_STANDARDS_COL,item.standardId),{
+        ...item,updatedAt:changedAt,updatedByUid:currentUserUid,
+        updatedBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid,schemaVersion:1
+      },{merge:false}));
       transaction.set(changeRef,{
         sequence:meta.changeSequence,
         fromVersion:String(currentMeta.version),
@@ -1077,13 +985,9 @@ async function saveSplitSettingsToFB(){
     const batch=writeBatch(db);
     batch.set(doc(db,'system','operationSettings'),{data:JSON.stringify(operationSettings)});
     batch.set(doc(db,'system','costSettings'),{data:JSON.stringify(costSettings)});
-    const versionChange=appendDataVersionWrite(batch,['operationSettings','costSettings']); // versionChange（設定資料版本異動）
     await batch.commit();
-    const versions=await finishDataVersionChange(versionChange);
-    await Promise.all([
-      window.pcmsDataCache?.write('operationSettings',String(versions.operationSettings||'0'),operationSettings),
-      window.pcmsDataCache?.write('costSettings',String(versions.costSettings||'0'),costSettings)
-    ]);
+    directSettingMemory.clear();
+    window.PCMSFeatures?.invalidateDataScopes?.(['operationSettings','costSettings']);
     setSyncState('success');
     return true;
   }catch(error){
@@ -1112,22 +1016,33 @@ function applySettings(savedSettings,allowedKeys){
   if(window.S.mh){ const element=document.getElementById('ss-hr'); if(element) element.value=window.S.mh; }
 }
 
-let legacySettingsPromise=null;
-async function loadLegacySettingsForAdmin(){
-  if(!isAdm()) return null;
-  if(!legacySettingsPromise) legacySettingsPromise=fbLoad('settings');
-  return legacySettingsPromise;
+function directSettingMemoryKey(key,options={}){
+  const userId=String(window.firebaseAuthUser?.uid||'');
+  const pageName=String(options.pageName||'session');
+  return `${userId}|${pageName}|${key}`;
+}
+
+async function loadDirectSystemSetting(key,options={}){
+  const memoryKey=directSettingMemoryKey(key,options);
+  if(options.force!==true&&options.background!==true&&directSettingMemory.has(memoryKey)){
+    return directSettingMemory.get(memoryKey);
+  }
+  if(directSettingPromises.has(memoryKey)) return directSettingPromises.get(memoryKey);
+  const promise=(async()=>{
+    const snapshot=await getDoc(doc(db,'system',key));
+    if(!snapshot.exists()) return null;
+    const raw=snapshot.data()?.data;
+    return typeof raw==='string'?JSON.parse(raw):null;
+  })().then(value=>{
+    directSettingMemory.set(memoryKey,value);
+    return value;
+  }).finally(()=>directSettingPromises.delete(memoryKey));
+  directSettingPromises.set(memoryKey,promise);
+  return promise;
 }
 
 async function ensureOperationSettingsLoaded(options={}){
-  let saved=null;
-  try{
-    saved=await loadSystemWithCache('operationSettings',options);
-  }catch(error){
-    // 新安全規則尚未發布時，暫時從 settings（舊合併設定）讀取一般運算欄位。
-    saved=await fbLoad('settings');
-  }
-  if(!saved&&isAdm()) saved=await loadLegacySettingsForAdmin();
+  const saved=await loadDirectSystemSetting('operationSettings',options);
   applySettings(saved,OPERATION_SETTING_KEYS);
   return pickSettingFields(window.S,OPERATION_SETTING_KEYS);
 }
@@ -1138,14 +1053,7 @@ async function ensureCostSettingsLoaded(options={}){
     await window.pcmsDataCache?.remove('costSettings');
     return pickSettingFields(window.S,COST_SETTING_KEYS);
   }
-  let saved=null;
-  try{
-    saved=await loadSystemWithCache('costSettings',options);
-  }catch(error){
-    // 過渡期間只有原本已能查看工價的角色會嘗試讀取 settings（舊合併設定）。
-    saved=await fbLoad('settings');
-  }
-  if(!saved&&isAdm()) saved=await loadLegacySettingsForAdmin();
+  const saved=await loadDirectSystemSetting('costSettings',options);
   applySettings(saved,COST_SETTING_KEYS);
   return pickSettingFields(window.S,COST_SETTING_KEYS);
 }
@@ -1166,6 +1074,7 @@ window.firebaseShowLoading=showLoading;
 
 window._db         = db;
 window._getDocs    = (q)           => getDocs(q);
+window._getCountFromServer = (q)   => getCountFromServer(q);
 window._addDoc     = async (colRef,data) => {
   const reference=doc(colRef); // reference（預先建立的新文件位置）
   const scope=cacheScopeForReference(reference); // scope（對應資料快取範圍）
@@ -1221,7 +1130,6 @@ window._deleteField = ()            => deleteField();
 window._runTransaction = async (fn,options={}) => {
   const skipDataVersions=options?.skipDataVersions===true;
   let committedVersionChange=createDataVersionChange([]); // committedVersionChange（最後成功交易的資料版本異動）
-  let refreshProductionEntries=false;
   const result=await runTransaction(db,async rawTransaction=>{
     const scopes=new Set();
     const trackedTransaction={
@@ -1244,16 +1152,10 @@ window._runTransaction = async (fn,options={}) => {
     };
     const transactionResult=await fn(trackedTransaction); // transactionResult（功能交易回傳結果）
     committedVersionChange=createDataVersionChange(skipDataVersions?[]:[...scopes]);
-    refreshProductionEntries=scopes.has('productionEntries');
-    // 產能月份版本已由功能交易同步寫入；大型產能交易完成後再自動補寫小型快取版本，避免安全規則超過運算上限。
-    if(!skipDataVersions) appendDataVersionWrite(rawTransaction,[...scopes].filter(scope=>scope!=='productionEntries'));
+    if(!skipDataVersions) appendDataVersionWrite(rawTransaction,[...scopes]);
     return transactionResult;
   });
   await finishDataVersionChange(committedVersionChange);
-  if(refreshProductionEntries&&!skipDataVersions){
-    try{ await touchDataVersions(['productionEntries']); }
-    catch(error){ console.warn('產能已儲存，但跨頁快取版本通知失敗：',error); }
-  }
   return result;
 };
 window._writeBatch = (options={}) => {
@@ -1278,14 +1180,9 @@ window._writeBatch = (options={}) => {
     },
     commit:async()=>{
       const versionChange=createDataVersionChange(skipDataVersions?[]:[...scopes]); // versionChange（本次資料版本異動）
-      const refreshProductionEntries=scopes.has('productionEntries');
-      if(!skipDataVersions) appendDataVersionWrite(rawBatch,[...scopes].filter(scope=>scope!=='productionEntries'));
+      if(!skipDataVersions) appendDataVersionWrite(rawBatch,[...scopes]);
       await rawBatch.commit();
       await finishDataVersionChange(versionChange);
-      if(refreshProductionEntries&&!skipDataVersions){
-        try{ await touchDataVersions(['productionEntries']); }
-        catch(error){ console.warn('產能已儲存，但跨頁快取版本通知失敗：',error); }
-      }
     }
   };
   return trackedBatch;
@@ -1301,14 +1198,22 @@ async function fbInitForAuthorizedUser(){
     await window.pcmsDataCache?.requestPersistentStorage();
     // settings（舊合併設定）可能包含薪資，登入後一律清除舊快取。
     await window.pcmsDataCache?.remove('settings');
-    // 清除已淘汰的員工、報工、考勤與員工帳號歷史快取。
+    // 清除已淘汰的員工、報工、考勤、設定、分析與員工帳號歷史快取。
     await Promise.all([
       window.pcmsDataCache?.remove('employees'),
       window.pcmsDataCache?.remove('reports'),
       window.pcmsDataCache?.remove('attendance'),
       window.pcmsDataCache?.remove('employeeUserHistory'),
       window.pcmsDataCache?.remove('impHist'),
-      window.pcmsDataCache?.remove('cLog')
+      window.pcmsDataCache?.remove('cLog'),
+      window.pcmsDataCache?.remove('operationSettings'),
+      window.pcmsDataCache?.remove('costSettings'),
+      window.pcmsDataCache?.remove('performanceBonusSettings'),
+      window.pcmsDataCache?.remove('performanceBonusTable'),
+      window.pcmsDataCache?.remove('performanceBonusTables'),
+      window.pcmsDataCache?.remove('performanceBonusMonths'),
+      window.pcmsDataCache?.remove('performanceBonusPrivateMonths'),
+      window.pcmsDataCache?.remove('productionAnalysisSummaries')
     ]);
     try{
       localStorage.removeItem('impHist');
@@ -1341,14 +1246,11 @@ async function fbInitForAuthorizedUser(){
 window.fbInitForAuthorizedUser = fbInitForAuthorizedUser;
 window.resetAuthorizedFirebaseInit = () => {
   authorizedInitPromise=null;
-  legacySettingsPromise=null;
-  dataVersionsMemory=null;
-  dataVersionsReadAt=0;
-  dataVersionsPromise=null;
+  dataVersionsMemory.clear();
   scopedDataVersionReadAt.clear();
   scopedDataVersionPromises.clear();
-  scopedDataVersionCapability='unknown';
-  scopedDataVersionProbeAt=0;
+  directSettingMemory.clear();
+  directSettingPromises.clear();
   productsLoadPromise=null;
   runtimeProductsVersion='';
   runtimeProductsSequence=0;

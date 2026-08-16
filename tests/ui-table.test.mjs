@@ -4,6 +4,12 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 
 const source=fs.readFileSync(new URL('../js/ui-table.js',import.meta.url),'utf8'); // source（共用表格程式內容）
+const styles=fs.readFileSync(new URL('../styles/ui-core.css',import.meta.url),'utf8'); // styles（共用表格樣式內容）
+
+test('浮動專用表格在控制初始化前就隱藏功能框原始捲軸',()=>{
+  assert.match(styles,/\.ui-table-scroll\[data-ui-floating-scroll="only"\],[\s\S]*?scrollbar-width:\s*none;/);
+  assert.match(styles,/\.ui-table-scroll\[data-ui-floating-scroll="only"\]::\-webkit-scrollbar,[\s\S]*?height:\s*0;/);
+});
 
 function classList(initial=[]){
   const values=new Set(initial);
@@ -171,24 +177,25 @@ test('短內容的唯一水平捲軸固定在主視窗最下方',()=>{
   assert.equal(harness.target.classList.contains('is-ui-floating-only'),true);
 });
 
-test('長內容初始不顯示，向下捲動後才在主視窗底部顯示浮動捲軸',()=>{
+test('長內容在頁面頂端立即顯示，主捲軸移動後仍維持浮動捲軸',()=>{
   const harness=createHarness({targetBottom:1400,scrollHeight:1800});
   harness.api.activatePage('production-records');
   harness.flush();
-  assert.equal(harness.created.length,0);
+  const bar=harness.created[0];
+  assert.equal(bar.classList.contains('is-visible'),true);
+  assert.equal(bar.style.top,'782px');
   assert.equal(harness.target.classList.contains('is-ui-floating-only'),true);
 
   harness.scrollHost.scrollTop=120;
   harness.scrollHost.dispatch('scroll');
   harness.flush();
-  const bar=harness.created[0];
   assert.equal(bar.classList.contains('is-visible'),true);
   assert.equal(bar.style.top,'782px');
 
   harness.scrollHost.scrollTop=0;
   harness.scrollHost.dispatch('scroll');
   harness.flush();
-  assert.equal(bar.classList.contains('is-visible'),false);
+  assert.equal(bar.classList.contains('is-visible'),true);
 
   harness.api.deactivatePage('production-records');
   assert.equal(harness.target.classList.contains('is-ui-floating-only'),false);

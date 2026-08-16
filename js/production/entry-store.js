@@ -14,6 +14,8 @@
   let ordersPromise=null;
   const processRows=new Map();
   const processPromises=new Map();
+  const processTotalMemory=new Map(); // processTotalMemory（工序累計短效記憶）：只供畫面顯示，不參與正式超量判斷。
+  const processTotalPromises=new Map(); // processTotalPromises（工序累計讀取工作）：避免同工序同時重複讀取。
 
   function currentUserId(){ return String(window.firebaseAuthUser?.uid||''); }
   function currentUserName(){ return String(window.cu?.user||window.cu?.username||window.firebaseAuthUser?.displayName||'').trim(); }
@@ -46,6 +48,33 @@
     return items.slice().sort((a,b)=>{
       const code=String(a.code||'').localeCompare(String(b.code||''),'en',{numeric:true,sensitivity:'base'});
       return code||String(a.processNo||'').localeCompare(String(b.processNo||''),'en',{numeric:true,sensitivity:'base'});
+    });
+  }
+
+  function currentStandardDocumentId(productCode,processNo){
+    return `${encodeURIComponent(normalizedText(productCode))}__${encodeURIComponent(normalizedText(processNo))}`;
+  }
+
+  // applyCurrentProductStandards（套用目前款號標準）：訂單保留數量與工序身分，畫面與新報工使用目前正式秒數。
+  function applyCurrentProductStandards(items){
+    const products=Array.isArray(window.D)?window.D:[];
+    const productsByCode=new Map(products.map(item=>[normalizedText(item.code),item]));
+    return (items||[]).map(item=>{
+      const product=productsByCode.get(normalizedText(item.code));
+      const operation=(product?.ops||[]).map(value=>window.PCMSProductModel?.normalizeOperation?.(value)||value)
+        .find(value=>normalizedText(value.no)===normalizedText(item.processNo));
+      const seconds=Number(operation?.sec);
+      if(!Number.isInteger(seconds)||seconds<=0) return item;
+      return {
+        ...item,
+        processCategory:normalizedText(operation.category)||item.processCategory,
+        processZh:normalizedText(operation.zh)||item.processZh,
+        processVi:normalizedText(operation.vi)||item.processVi,
+        processSec:seconds,workStdSec:seconds,
+        slPerHour:Math.round((Number(window.S?.ws)||3000)/seconds),
+        currentStandardId:currentStandardDocumentId(item.code,item.processNo),
+        currentStandardRevision:Number(product?.standardRevision)||0
+      };
     });
   }
 
@@ -83,7 +112,7 @@
         rows=snapshot.docs.map(item=>({id:item.id,...item.data()}));
         await window.PCMSOrderProcessCache?.write?.(target,version,rows);
       }
-      const sorted=sortProcesses(rows.filter(item=>item.active!==false));
+      const sorted=sortProcesses(applyCurrentProductStandards(rows.filter(item=>item.active!==false)));
       processRows.set(target,{version,rows:sorted});
       return sorted.map(item=>({...item}));
     })().finally(()=>{ processPromises.delete(target); });
@@ -107,13 +136,50 @@
     const number=normalizedText(processNo);
     return getLoadedProcesses(orderId).find(item=>normalizedText(item.code)===code&&normalizedText(item.processNo)===number)||null;
   }
-  async function loadProcessTotal(processId){
+  function rememberProcessTotal(processId,value){
+    const target=normalizedText(processId);
+    const remembered={
+      registeredQuantity:Math.max(0,Number(value?.registeredQuantity)||0),
+      orderQuantity:Math.max(0,Number(value?.orderQuantity)||0)
+    };
+    processTotalMemory.set(target,{value:remembered,loadedAt:Date.now()});
+    return {...remembered};
+  }
+
+  function applyProcessTotalDelta(processId,delta,orderQuantity=0){
+    const target=normalizedText(processId);
+    const remembered=processTotalMemory.get(target);
+    if(!target||!remembered) return null;
+    return rememberProcessTotal(target,{
+      registeredQuantity:Math.max(0,Number(remembered.value.registeredQuantity)||0)+Number(delta||0),
+      orderQuantity:Math.max(0,Number(orderQuantity)||Number(remembered.value.orderQuantity)||0)
+    });
+  }
+
+  function processTotalLoadedAt(processId){
+    return Number(processTotalMemory.get(normalizedText(processId))?.loadedAt)||0;
+  }
+
+  async function loadProcessTotal(processId,options={}){
     const target=normalizedText(processId);
     if(!target) return {registeredQuantity:0,orderQuantity:0};
+    const maximumAge=Math.max(0,Number(options.maxAgeMs)||0);
+    const remembered=processTotalMemory.get(target);
+    if(options.force!==true&&maximumAge>0&&remembered&&Date.now()-remembered.loadedAt<maximumAge){
+      return {...remembered.value};
+    }
+    if(processTotalPromises.has(target)) return processTotalPromises.get(target);
     const process=[...processRows.values()].flatMap(group=>group.rows).find(item=>item.id===target);
-    const snapshot=await window._getDoc(window._docRef(COLLECTIONS.totals,target));
-    const total=snapshot.exists()?snapshot.data():null;
-    return {registeredQuantity:Math.max(0,Number(total?.registeredQty)||0),orderQuantity:Math.max(0,Number(total?.orderQty)||Number(process?.orderQty)||0)};
+    const promise=(async()=>{
+      const snapshot=await window._getDoc(window._docRef(COLLECTIONS.totals,target));
+      const total=snapshot.exists()?snapshot.data():null;
+      return rememberProcessTotal(target,{
+        registeredQuantity:Math.max(0,Number(total?.registeredQty)||0),
+        orderQuantity:Math.max(0,Number(total?.orderQty)||Number(process?.orderQty)||0)
+      });
+    })().finally(()=>processTotalPromises.delete(target));
+    processTotalPromises.set(target,promise);
+    return promise;
   }
 
   function hourlyCapacity(process){
@@ -132,20 +198,6 @@
     return hours;
   }
 
-  function summaryData(current,{productionDate,employee,entryId,mutation,entryDelta,supplementDelta,now,userId,userName}){
-    const activeEntryCount=current.activeEntryCount+entryDelta;
-    const activeSupplementHours=Number((current.activeSupplementHours+supplementDelta).toFixed(2));
-    if(!Number.isInteger(activeEntryCount)||activeEntryCount<0||activeSupplementHours<0){
-      throw new Error('Dữ liệu tổng hợp sản xuất không hợp lệ. / 產能累計資料不正確。');
-    }
-    return {
-      summaryId:`${productionDate}__${employee.employeeId}`,productionDate,employeeId:employee.employeeId,
-      employeeName:normalizedText(employee.name).slice(0,100),department:normalizedText(employee.department).slice(0,100),
-      activeEntryCount,activeSupplementHours,revision:current.revision+1,lastEntryId:entryId,lastMutation:mutation,
-      updatedAt:now,updatedByUid:userId,updatedBy:userName,schemaVersion:1
-    };
-  }
-
   function totalData(process,current,entryId,mutation,delta,now,userId){
     const registeredQty=(current?Number(current.registeredQty)||0:0)+delta;
     const orderQty=Number(process.orderQty);
@@ -156,6 +208,20 @@
       orderProcessId:process.id,orderId:normalizedText(process.orderId),orderNo:normalizedText(process.orderNo),
       productCode:normalizedText(process.code),processNo:normalizedText(process.processNo),orderQty,registeredQty,
       updatedAt:now,updatedByUid:userId,lastEntryId:entryId,lastMutation:mutation,lastDelta:delta,schemaVersion:1
+    };
+  }
+
+  // totalIncrementData（一般報工累計原子增量）：不先讀累計文件，由 Firestore 與 Rules 驗證最終數量。
+  function totalIncrementData(process,entryId,quantity,now,userId){
+    const orderQty=Number(process.orderQty);
+    if(!Number.isInteger(orderQty)||orderQty<=0||!isPositiveInteger(quantity)){
+      throw new Error('Thông số số lượng công đoạn không hợp lệ. / 工序數量資料不正確。');
+    }
+    return {
+      orderProcessId:process.id,orderId:normalizedText(process.orderId),orderNo:normalizedText(process.orderNo),
+      productCode:normalizedText(process.code),processNo:normalizedText(process.processNo),orderQty,
+      registeredQty:window._increment(quantity),updatedAt:now,updatedByUid:userId,
+      lastEntryId:entryId,lastMutation:'create',lastDelta:quantity,schemaVersion:1
     };
   }
 
@@ -173,13 +239,41 @@
     return window.PCMSProductionGuards;
   }
 
+  function summaryStore(){
+    if(!window.PCMSProductionSummaries) throw new Error('Bộ tóm tắt sản xuất chưa sẵn sàng. / 產能摘要程式尚未載入。');
+    return window.PCMSProductionSummaries;
+  }
+
+  function summaryActor(now,userId,userName){
+    return {updatedAt:now,updatedByUid:userId,updatedBy:userName};
+  }
+
+  function writeEntrySummaries(transaction,{guards,summaries,summaryReference,summarySnapshot,monthSummaryReference,
+    monthSummarySnapshot,controlSnapshot,summaryComplete,attendance,employee,entry,direction,mutation,now,userId,userName}){
+    const currentData=summarySnapshot?.exists?.()?summarySnapshot.data():null;
+    if(currentData&&Number(currentData.schemaVersion)!==summaries.SCHEMA_VERSION){
+      throw new Error('Tóm tắt ngày chưa được chuyển đổi; hãy hoàn tất xây dựng lại trước. / 每日摘要尚未轉換，請先完成重建。');
+    }
+    const actor=summaryActor(now,userId,userName);
+    const base=currentData||summaries.emptyDay({
+      productionDate:entry.productionDate,employeeId:entry.employeeId,employeeName:employee.name,
+      department:employee.department,attendance,actor,complete:true
+    });
+    const day=summaries.applyEntry(base,{...entry,mutation},direction,actor);
+    const month=summaries.applyDayToMonth(
+      monthSummarySnapshot?.exists?.()?monthSummarySnapshot.data():null,base,day,actor,
+      {complete:summaryComplete===true||(controlSnapshot?.exists?.()&&controlSnapshot.data()?.summaryReady===true)}
+    );
+    transaction.set(summaryReference,day);
+    transaction.set(monthSummaryReference,month);
+    return {day,month};
+  }
+
   function requireSignedInActor(){
     const userId=currentUserId();
     if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
     return {userId,userName:currentUserName()};
   }
-
-  async function markAnalysisChange(row){ await window.PCMSProductionChanges?.markSafely?.([row]); }
 
   function validateEntryInput(input){
     const productionDate=normalizedText(input?.productionDate);
@@ -211,62 +305,71 @@
     const {userId,userName}=requireSignedInActor();
     const process=findProcess(normalized.orderId,normalized.productCode,normalized.processNo);
     if(!process?.id) throw new Error('Công đoạn không thuộc mã hàng của đơn hàng đã chọn. / 工序不屬於所選訂單的款號。');
-    const employeeReference=window._docRef(COLLECTIONS.employees,normalized.employeeId);
     const attendanceReference=window._docRef(COLLECTIONS.attendance,`${normalized.productionDate}__${normalized.employeeId}`);
     const orderReference=window._docRef(COLLECTIONS.orders,normalized.orderId);
     const processReference=window._docRef(COLLECTIONS.processes,process.id);
+    const standardReferenceId=currentStandardDocumentId(normalized.productCode,normalized.processNo);
+    const standardReference=window._docRef('productProcessStandards',standardReferenceId);
     const totalReference=window._docRef(COLLECTIONS.totals,process.id);
     const summaryReference=guards.daySummaryReference(normalized.productionDate,normalized.employeeId);
     const monthReference=guards.monthReference(normalized.productionDate);
-    const monthVersionReference=guards.monthSourceVersionReference(normalized.productionDate);
+    const summaries=summaryStore();
+    const monthSummaryReference=summaries.employeeMonthReference(guards.monthFromDate(normalized.productionDate),normalized.employeeId);
     const entryReference=window._newDocRef(COLLECTIONS.entries);
     let saved;
     await window._runTransaction(async transaction=>{
-      const [employeeSnapshot,attendanceSnapshot,orderSnapshot,processSnapshot,totalSnapshot,summarySnapshot,monthSnapshot]=await Promise.all([
-        employeeReference,attendanceReference,orderReference,processReference,totalReference,summaryReference,monthReference
+      const [attendanceSnapshot,orderSnapshot,processSnapshot,standardSnapshot,summarySnapshot,monthSummarySnapshot]=await Promise.all([
+        attendanceReference,orderReference,processReference,standardReference,summaryReference,monthSummaryReference
       ].map(reference=>transaction.get(reference)));
-      guards.assertEditableMonthSnapshot(monthSnapshot);
       attendanceHours(attendanceSnapshot);
-      if(!employeeSnapshot.exists()||employeeSnapshot.data().active!==true) throw new Error('Nhân viên không tồn tại hoặc đã ngừng sử dụng. / 員工不存在或已停用。');
       if(!orderSnapshot.exists()||!usableOrder(orderSnapshot.data())) throw new Error('Đơn hàng không còn sử dụng được. / 訂單目前不可使用。');
-      if(orderSnapshot.data().processEditJobId) throw new Error('Đơn hàng đang đồng bộ công đoạn, vui lòng thao tác lại sau. / 訂單正在同步工序，請稍後再登記。');
       if(!processSnapshot.exists()) throw new Error('Dữ liệu công đoạn đã thay đổi. / 工序資料已變更。');
       const liveProcess={id:processReference.id,...processSnapshot.data()};
       if(liveProcess.active===false||liveProcess.orderId!==normalized.orderId
         ||normalizedText(liveProcess.code)!==normalized.productCode||normalizedText(liveProcess.processNo)!==normalized.processNo){
         throw new Error('Công đoạn không khớp đơn hàng và mã hàng. / 工序與訂單、款號不相符。');
       }
+      const currentStandard=standardSnapshot.exists()?standardSnapshot.data():null;
+      const standardMatches=currentStandard?.active===true
+        && normalizedText(currentStandard.productCode)===normalized.productCode
+        && normalizedText(currentStandard.processNo)===normalized.processNo;
+      const effectiveProcess=standardMatches?{
+        ...liveProcess,
+        processVi:currentStandard.processNameVi,processZh:currentStandard.processNameZh,
+        processSec:currentStandard.processSec,workStdSec:currentStandard.processSec,
+        slPerHour:currentStandard.hourlyCapacity
+      }:liveProcess;
       const orderQuantity=Number(liveProcess.orderQty);
-      const capacity=hourlyCapacity(liveProcess);
-      const processSeconds=Number(liveProcess.workStdSec||liveProcess.processSec);
+      const capacity=hourlyCapacity(effectiveProcess);
+      const processSeconds=Number(effectiveProcess.workStdSec||effectiveProcess.processSec);
       if(!Number.isInteger(orderQuantity)||orderQuantity<=0||!Number.isFinite(processSeconds)||processSeconds<=0){
         throw new Error('Thông số công đoạn không hợp lệ. / 工序標準資料不正確。');
       }
       const now=Date.now();
-      const employee={employeeId:normalized.employeeId,...employeeSnapshot.data()};
-      const currentSummary=guards.summaryValues(summarySnapshot);
-      const total=totalData(liveProcess,totalSnapshot.exists()?totalSnapshot.data():null,entryReference.id,'create',normalized.quantity,now,userId);
+      const attendance=attendanceSnapshot.data();
+      const employee={employeeId:normalized.employeeId,name:attendance.employeeName,department:attendance.department};
+      const total=totalIncrementData(liveProcess,entryReference.id,normalized.quantity,now,userId);
       saved={
         recordType:'standard',productionDate:normalized.productionDate,employeeId:normalized.employeeId,
         employeeName:normalizedText(employee.name).slice(0,100),department:normalizedText(employee.department).slice(0,100),
         orderProcessId:liveProcess.id,orderId:normalized.orderId,
         orderNo:normalizedText(liveProcess.orderNo||orderSnapshot.data().orderId||normalized.orderId),
         productCode:normalized.productCode,processNo:normalized.processNo,
-        processNameVi:normalizedText(liveProcess.processVi).slice(0,200),processNameZh:normalizedText(liveProcess.processZh).slice(0,200),
+        processNameVi:normalizedText(effectiveProcess.processVi).slice(0,200),processNameZh:normalizedText(effectiveProcess.processZh).slice(0,200),
         processVersionSnapshot:orderVersion(orderSnapshot.data(),normalized.orderId).slice(0,150),processSecSnapshot:processSeconds,
-        hourlyCapacitySnapshot:capacity,orderQtySnapshot:orderQuantity,quantity:normalized.quantity,status:'active',revision:1,
+        standardReferenceId,hourlyCapacitySnapshot:capacity,orderQtySnapshot:orderQuantity,quantity:normalized.quantity,status:'active',revision:1,
         createdAt:now,createdByUid:userId,createdBy:userName,updatedAt:now,updatedByUid:userId,updatedBy:userName,
         schemaVersion:1,calculationVersion:'hourly-capacity-v1'
       };
       const version=guards.sourceVersionToken();
       transaction.set(entryReference,saved);
-      transaction.set(totalReference,total);
-      transaction.set(summaryReference,summaryData(currentSummary,{productionDate:normalized.productionDate,employee,entryId:entryReference.id,
-        mutation:'create',entryDelta:1,supplementDelta:0,now,userId,userName}));
-      transaction.set(monthVersionReference,guards.entriesMonthSourceVersionData(normalized.productionDate,version,now,userId),{merge:true});
-    });
+      transaction.set(totalReference,total,{merge:true});
+      writeEntrySummaries(transaction,{guards,summaries,summaryReference,summarySnapshot,monthSummaryReference,monthSummarySnapshot,
+        summaryComplete:true,attendance,employee,entry:{id:entryReference.id,...saved},direction:1,mutation:'create',now,userId,userName});
+      transaction.set(monthReference,guards.entriesMonthSourceVersionData(normalized.productionDate,version,now,userId,userName),{merge:true});
+    },{skipDataVersions:true});
     const result={id:entryReference.id,...saved};
-    await markAnalysisChange(result);
+    applyProcessTotalDelta(result.orderProcessId,result.quantity,result.orderQtySnapshot);
     return result;
   }
 
@@ -278,14 +381,15 @@
     const orderReference=normalized.orderId?window._docRef(COLLECTIONS.orders,normalized.orderId):null;
     const summaryReference=guards.daySummaryReference(normalized.productionDate,normalized.employeeId);
     const monthReference=guards.monthReference(normalized.productionDate);
-    const monthVersionReference=guards.monthSourceVersionReference(normalized.productionDate);
+    const summaries=summaryStore();
+    const monthSummaryReference=summaries.employeeMonthReference(guards.monthFromDate(normalized.productionDate),normalized.employeeId);
     const entryReference=window._newDocRef(COLLECTIONS.entries);
     let saved;
     await window._runTransaction(async transaction=>{
-      const references=[employeeReference,attendanceReference,summaryReference,monthReference];
+      const references=[employeeReference,attendanceReference,summaryReference,monthSummaryReference,monthReference];
       if(orderReference) references.push(orderReference);
       const snapshots=await Promise.all(references.map(reference=>transaction.get(reference)));
-      const [employeeSnapshot,attendanceSnapshot,summarySnapshot,monthSnapshot]=snapshots;
+      const [employeeSnapshot,attendanceSnapshot,summarySnapshot,monthSummarySnapshot,monthSnapshot]=snapshots;
       guards.assertEditableMonthSnapshot(monthSnapshot);
       const workedHours=attendanceHours(attendanceSnapshot);
       if(!employeeSnapshot.exists()||employeeSnapshot.data().active!==true) throw new Error('Nhân viên không tồn tại hoặc đã ngừng sử dụng. / 員工不存在或已停用。');
@@ -293,7 +397,7 @@
       if(currentSummary.activeSupplementHours+normalized.supplementHours>workedHours){
         throw new Error(`Tổng giờ bổ sung trong ngày không được vượt quá ${workedHours} giờ chấm công. / 當日有效補充工時合計不得超過 ${workedHours} 小時考勤。`);
       }
-      const orderSnapshot=orderReference?snapshots[4]:null;
+      const orderSnapshot=orderReference?snapshots[5]:null;
       if(orderReference){
         if(!orderSnapshot.exists()||!usableOrder(orderSnapshot.data())) throw new Error('Đơn hàng hoặc mã hàng không còn sử dụng được. / 訂單或款號目前不可使用。');
         const productCodes=Array.isArray(orderSnapshot.data().productCodes)?orderSnapshot.data().productCodes.map(normalizedText):[];
@@ -312,12 +416,11 @@
       };
       const version=guards.sourceVersionToken();
       transaction.set(entryReference,saved);
-      transaction.set(summaryReference,summaryData(currentSummary,{productionDate:normalized.productionDate,employee,entryId:entryReference.id,
-        mutation:'create',entryDelta:1,supplementDelta:normalized.supplementHours,now,userId,userName}));
-      transaction.set(monthVersionReference,guards.entriesMonthSourceVersionData(normalized.productionDate,version,now,userId),{merge:true});
-    });
+      writeEntrySummaries(transaction,{guards,summaries,summaryReference,summarySnapshot,monthSummaryReference,monthSummarySnapshot,
+        controlSnapshot:monthSnapshot,attendance:attendanceSnapshot.data(),employee,entry:{id:entryReference.id,...saved},direction:1,mutation:'create',now,userId,userName});
+      transaction.set(monthReference,guards.entriesMonthSourceVersionData(normalized.productionDate,version,now,userId,userName),{merge:true});
+    },{skipDataVersions:true});
     const result={id:entryReference.id,...saved};
-    await markAnalysisChange(result);
     return result;
   }
 
@@ -344,15 +447,17 @@
       if(!['active','voided'].includes(current.status)) throw new Error('Trạng thái bản ghi sản xuất không hợp lệ. / 生產紀錄狀態不正確。');
       const monthReference=guards.monthReference(current.productionDate);
       const summaryReference=guards.daySummaryReference(current.productionDate,current.employeeId);
-      const monthVersionReference=guards.monthSourceVersionReference(current.productionDate);
+      const summaries=summaryStore();
+      const monthSummaryReference=summaries.employeeMonthReference(guards.monthFromDate(current.productionDate),current.employeeId);
       const references=[monthReference];
-      if(current.status==='active') references.push(summaryReference);
+      if(current.status==='active') references.push(summaryReference,monthSummaryReference);
       const totalReference=current.status==='active'&&!isSupplementEntry(current)
         ?window._docRef(COLLECTIONS.totals,current.orderProcessId):null;
       if(totalReference) references.push(totalReference);
       const snapshots=await Promise.all(references.map(reference=>transaction.get(reference)));
       guards.assertEditableMonthSnapshot(snapshots[0]);
       const summarySnapshot=current.status==='active'?snapshots[1]:null;
+      const monthSummarySnapshot=current.status==='active'?snapshots[2]:null;
       const totalSnapshot=totalReference?snapshots[snapshots.length-1]:null;
       if(current.status==='active'&&!summarySnapshot?.exists()){
         throw new Error('Thiếu dữ liệu tổng hợp ngày; cần hoàn tất chuyển đổi dữ liệu trước. / 缺少每日累計，請先完成資料整理。');
@@ -360,9 +465,8 @@
       const now=Date.now();
       if(current.status==='active'){
         const employee={employeeId:current.employeeId,name:current.employeeName,department:current.department};
-        transaction.set(summaryReference,summaryData(guards.summaryValues(summarySnapshot),{productionDate:current.productionDate,employee,
-          entryId:normalizedEntryId,mutation:mode,entryDelta:-1,supplementDelta:isSupplementEntry(current)?-Number(current.supplementHours):0,
-          now,userId,userName}));
+        writeEntrySummaries(transaction,{guards,summaries,summaryReference,summarySnapshot,monthSummaryReference,monthSummarySnapshot,
+          controlSnapshot:snapshots[0],attendance:null,employee,entry:{id:normalizedEntryId,...current},direction:-1,mutation:mode,now,userId,userName});
         if(totalReference){
           if(!totalSnapshot?.exists()) throw new Error('Thiếu dữ liệu tổng hợp công đoạn. / 缺少工序累計資料。');
           const total=totalData({id:current.orderProcessId,orderId:current.orderId,orderNo:current.orderNo,code:current.productCode,
@@ -380,10 +484,14 @@
       }
       transaction.set(logReference,operationLogData(mode==='delete'?ENTRY_DELETE_ACTION:'productionEntryVoid',current,note,now,userId,userName));
       const version=guards.sourceVersionToken();
-      transaction.set(monthVersionReference,guards.entriesMonthSourceVersionData(current.productionDate,version,now,userId),{merge:true});
-    });
+      transaction.set(monthReference,guards.entriesMonthSourceVersionData(current.productionDate,version,now,userId,userName),{merge:true});
+    },{skipDataVersions:true});
     const changed={id:normalizedEntryId,...result};
-    await markAnalysisChange(changed);
+    const removesActiveTotal=!isSupplementEntry(changed)
+      && ((mode==='void'&&changed.status==='voided')||(mode==='delete'&&changed.status==='active'));
+    if(removesActiveTotal){
+      applyProcessTotalDelta(changed.orderProcessId,-Number(changed.quantity),changed.orderQtySnapshot);
+    }
     return changed;
   }
 
@@ -394,10 +502,17 @@
     if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên mới được xóa vĩnh viễn bản ghi sản xuất. / 只有管理員可以永久刪除生產紀錄。');
     return mutateEntry(entryId,'','delete');
   }
-  function reset(){ orders=[]; ordersPromise=null; processRows.clear(); processPromises.clear(); }
+  function reset(){
+    orders=[];
+    ordersPromise=null;
+    processRows.clear();
+    processPromises.clear();
+    processTotalMemory.clear();
+    processTotalPromises.clear();
+  }
 
   window.PCMSProductionEntryStore=Object.freeze({
     loadOrders,listOrders,findOrder,loadProcesses,getLoadedProcesses,productsForOrder,findProcess,loadProcessTotal,
-    createEntry,voidEntry,deleteEntry,reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
+    processTotalLoadedAt,createEntry,voidEntry,deleteEntry,reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
   });
 })();

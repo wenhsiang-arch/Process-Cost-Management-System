@@ -123,8 +123,8 @@
     const confirmed = await window.PCMSUIComponents.confirmDialog({
       title:{vi:'Xóa vĩnh viễn nhân viên',zh:'永久刪除員工'},
       message:{
-        vi:`Xóa vĩnh viễn ${employee.employeeId} · ${employee.name}? Nhân viên có bản ghi sản xuất sẽ không thể xóa.`,
-        zh:`確定永久刪除 ${employee.employeeId} · ${employee.name}？仍有生產紀錄的員工不能刪除。`
+        vi:`Xóa vĩnh viễn ${employee.employeeId} · ${employee.name}? Chỉ nhân viên được tạo nhầm và chưa có bất kỳ dữ liệu nghiệp vụ nào mới có thể xóa.`,
+        zh:`確定永久刪除 ${employee.employeeId} · ${employee.name}？只有建立錯誤且完全沒有任何歷史業務資料的員工可以刪除。`
       }
     });
     if(!confirmed) return;

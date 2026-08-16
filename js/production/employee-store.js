@@ -4,7 +4,12 @@
 
   const COLLECTION_NAME = 'productionEmployees'; // COLLECTION_NAME（產能員工集合名稱）
   const DEPARTMENT_COLLECTION_NAME = 'productionDepartments'; // DEPARTMENT_COLLECTION_NAME（產能部門集合名稱）
-  const ENTRY_COLLECTION_NAME = 'productionEntries'; // ENTRY_COLLECTION_NAME（產能登記集合名稱）
+  const EMPLOYEE_HISTORY_COLLECTION_NAMES = Object.freeze([
+    'productionEntries',
+    'productionAttendance',
+    'productionDaySummaries',
+    'productionEmployeeMonths'
+  ]); // EMPLOYEE_HISTORY_COLLECTION_NAMES（可證明工號曾被使用的業務資料集合）
   const LOG_COLLECTION_NAME = 'operationLogs'; // LOG_COLLECTION_NAME（操作紀錄集合名稱）
   const EMPLOYEE_DELETE_ACTION = 'productionEmployeeDelete'; // productionEmployeeDelete（永久刪除產能員工）
   const DEPARTMENT_CREATE_ACTION = 'productionDepartmentCreate'; // productionDepartmentCreate（新增產能部門）
@@ -132,6 +137,16 @@
     return rows.find(item=>item.employeeId === normalized) || null;
   }
 
+  async function employeeHasHistoricalBusinessData(employeeId){
+    const normalized = normalizeEmployeeId(employeeId);
+    const snapshots = await Promise.all(EMPLOYEE_HISTORY_COLLECTION_NAMES.map(collectionName=>window._getDocs(window._query(
+      window._collection(collectionName),
+      window._where('employeeId','==',normalized),
+      window._limit(1)
+    ))));
+    return snapshots.some(snapshot=>snapshot.size > 0);
+  }
+
   async function createEmployee(input){
     const data = validateEmployee(input);
     const reference = window._docRef(COLLECTION_NAME,employeeDocumentId(data.employeeId));
@@ -139,6 +154,9 @@
     const userId = currentUserId();
     const userName = currentUserName();
     if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
+    if(window.cu?.role === 'admin' && await employeeHasHistoricalBusinessData(data.employeeId)){
+      throw new Error('Mã nhân viên này đã từng được sử dụng và không thể cấp lại cho người khác. / 此工號已有歷史業務資料，永久不得重新分配。');
+    }
     let saved;
     await window._runTransaction(async transaction=>{
       const snapshot = await transaction.get(reference);
@@ -383,13 +401,8 @@
 
     // 先停用員工，避免檢查關聯資料期間又建立新的生產登記。
     if(current.active === true) await setActive(normalized,false);
-    const relatedSnapshot = await window._getDocs(window._query(
-      window._collection(ENTRY_COLLECTION_NAME),
-      window._where('employeeId','==',normalized),
-      window._limit(1)
-    ));
-    if(relatedSnapshot.size > 0){
-      throw new Error('Nhân viên vẫn còn bản ghi sản xuất. Vui lòng xóa bản ghi sản xuất trước. / 員工仍有生產紀錄，請先刪除生產紀錄。');
+    if(await employeeHasHistoricalBusinessData(normalized)){
+      throw new Error('Nhân viên đã có dữ liệu nghiệp vụ lịch sử; chỉ được ngừng sử dụng, không được xóa vĩnh viễn. / 員工已有歷史業務資料，只能停用，不得永久刪除。');
     }
 
     const reference = window._docRef(COLLECTION_NAME,employeeDocumentId(normalized));
@@ -399,6 +412,9 @@
       const snapshot = await transaction.get(reference);
       if(!snapshot.exists()) throw new Error('Không tìm thấy nhân viên. / 找不到員工資料。');
       const employee = snapshot.data();
+      if(employee.active !== false){
+        throw new Error('Phải ngừng sử dụng nhân viên trước khi xóa vĩnh viễn. / 永久刪除前必須先停用員工。');
+      }
       transaction.delete(reference);
       transaction.set(logReference,{
         permissionKey:'productionEmployees',

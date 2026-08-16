@@ -2,10 +2,8 @@
 (function(){
   'use strict';
 
-  const MONTH_COLLECTION='performanceBonusMonths';
+  const MONTH_COLLECTION='productionMonths';
   const DAY_SUMMARY_COLLECTION='productionDaySummaries';
-  const MONTH_SOURCE_VERSION_COLLECTION='productionMonthVersions';
-  const LOCKED_STATUSES=new Set(['locked','exported','paid']);
 
   function text(value){ return String(value||'').trim(); }
   function monthFromDate(value){
@@ -21,18 +19,22 @@
   function daySummaryReference(productionDate,employeeId){
     return window._docRef(DAY_SUMMARY_COLLECTION,daySummaryId(productionDate,employeeId));
   }
-  function monthSourceVersionReference(productionDate){
-    return window._docRef(MONTH_SOURCE_VERSION_COLLECTION,monthFromDate(productionDate));
-  }
   function sourceVersionToken(){
     const uid=String(window.firebaseAuthUser?.uid||'').slice(0,12);
     return `${Date.now()}-${uid}-${Math.random().toString(36).slice(2,10)}`;
   }
-  function attendanceMonthSourceVersionData(productionDate,version,updatedAt,updatedByUid){
-    return {month:monthFromDate(productionDate),attendanceVersion:String(version),updatedAt:Number(updatedAt),updatedByUid:String(updatedByUid||''),schemaVersion:1};
+  function monthSourceUpdateData(productionDate,field,version,updatedAt,updatedByUid,updatedBy){
+    if(!['entriesVersion','attendanceVersion'].includes(field)) throw new Error('Nguồn phiên bản tháng không hợp lệ. / 月份版本來源不正確。');
+    return {
+      month:monthFromDate(productionDate),[field]:String(version),summaryVersion:String(version),
+      updatedAt:Number(updatedAt),updatedByUid:String(updatedByUid||''),updatedBy:text(updatedBy).slice(0,200),schemaVersion:2
+    };
   }
-  function entriesMonthSourceVersionData(productionDate,version,updatedAt,updatedByUid){
-    return {month:monthFromDate(productionDate),entriesVersion:String(version),updatedAt:Number(updatedAt),updatedByUid:String(updatedByUid||''),schemaVersion:1};
+  function attendanceMonthSourceVersionData(productionDate,version,updatedAt,updatedByUid,updatedBy){
+    return monthSourceUpdateData(productionDate,'attendanceVersion',version,updatedAt,updatedByUid,updatedBy);
+  }
+  function entriesMonthSourceVersionData(productionDate,version,updatedAt,updatedByUid,updatedBy){
+    return monthSourceUpdateData(productionDate,'entriesVersion',version,updatedAt,updatedByUid,updatedBy);
   }
   function summaryValues(snapshot){
     const data=snapshot?.exists?.()?snapshot.data():null;
@@ -43,14 +45,17 @@
     };
   }
   function assertEditableMonthSnapshot(snapshot){
-    const status=snapshot?.exists?.()?text(snapshot.data()?.status):'draft';
-    if(LOCKED_STATUSES.has(status)){
-      throw new Error('Tháng đã khóa, đã xuất hoặc đã phát thưởng nên không thể sửa dữ liệu nguồn. Hãy mở khóa về trạng thái đang tính thử trước. / 月份已鎖定、已匯出或已發放，不能修改來源資料；請先解鎖回試算中。');
+    if(!snapshot?.exists?.()){
+      throw new Error('Tháng chưa được chuyển đổi; hãy hoàn tất xây dựng tóm tắt trước. / 月份尚未轉換，請先完成摘要重建。');
     }
+    const data=snapshot.data()||{};
+    const status=text(data.status);
+    if(status!=='open') throw new Error('Tháng đang khóa hoặc chuyển đổi nên không thể sửa dữ liệu nguồn. / 月份已鎖定或轉換中，無法修改來源資料。');
+    if(data.summaryReady!==true) throw new Error('Tóm tắt tháng chưa sẵn sàng. / 月份摘要尚未完成。');
     return status;
   }
   window.PCMSProductionGuards=Object.freeze({
-    monthFromDate,monthReference,daySummaryReference,monthSourceVersionReference,
+    monthFromDate,monthReference,daySummaryReference,
     sourceVersionToken,attendanceMonthSourceVersionData,entriesMonthSourceVersionData,
     summaryValues,assertEditableMonthSnapshot
   });

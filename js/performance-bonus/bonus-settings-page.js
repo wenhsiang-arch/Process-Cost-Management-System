@@ -120,7 +120,7 @@
           efficiencyCap:el('performance-bonus-efficiency-cap').value
         });
         fillSettings(saved);
-        toast({vi:'Đã lưu tham số và hoàn tất tự động cập nhật các tháng chưa khóa.',zh:'參數已儲存，未鎖定月份已自動更新完成。'});
+        toast({vi:'Đã lưu tham số. Các tháng chưa khóa sẽ dùng ngay tham số mới khi hiển thị.',zh:'參數已儲存；未鎖定月份顯示時會立即使用新參數。'});
         await loadMonth();
       }catch(error){ await showError(error); }
       finally{ setBusy(false); }
@@ -132,7 +132,6 @@
     el('performance-bonus-settings-month').addEventListener('change',()=>void loadMonth());
   }
   async function loadPerformanceBonusSettingsData(options={}){
-    await window.PCMSProductionEmployees.load({revalidate:options.background===true});
     return true;
   }
   async function performanceBonusSettingsInit(){

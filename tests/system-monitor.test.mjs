@@ -18,7 +18,8 @@ test('系統監控位於管理分類且只有管理員可開啟',()=>{
   assert.equal(module.usesInternalTabs,true);
   assert.equal(page.adminOnly,true);
   assert.equal(page.dataLoaders.length,0);
-  assert.match(html,/id="nv-accounts"[\s\S]*?id="nv-system-monitor"[\s\S]*?id="nv-sync"/);
+  assert.match(html,/id="nv-accounts"[\s\S]*?id="nv-system-monitor"/);
+  assert.doesNotMatch(html,/id="nv-sync"/);
   assert.match(html,/id="pg-system-monitor"[\s\S]*?id="system-monitor-root"/);
 });
 
