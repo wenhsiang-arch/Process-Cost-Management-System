@@ -126,6 +126,14 @@
     processPromises.set(target,promise);
     return promise;
   }
+  function refreshLoadedProcessStandards(orderId){
+    const target=normalizedText(orderId);
+    const cachedState=processRows.get(target);
+    if(!cachedState||!Array.isArray(cachedState.rows)) return [];
+    const rows=sortProcesses(applyCurrentProductStandards(cachedState.rows));
+    processRows.set(target,{...cachedState,rows});
+    return rows.map(item=>({...item}));
+  }
   function getLoadedProcesses(orderId){
     return (processRows.get(normalizedText(orderId))?.rows||[]).map(item=>({...item}));
   }
@@ -519,7 +527,7 @@
   }
 
   window.PCMSProductionEntryStore=Object.freeze({
-    loadOrders,listOrders,findOrder,loadProcesses,getLoadedProcesses,productsForOrder,findProcess,loadProcessTotal,
+    loadOrders,listOrders,findOrder,loadProcesses,refreshLoadedProcessStandards,getLoadedProcesses,productsForOrder,findProcess,loadProcessTotal,
     processTotalLoadedAt,createEntry,voidEntry,deleteEntry,reset,validateEntryInput,isValidSupplementHours,isSupplementEntry
   });
 })();

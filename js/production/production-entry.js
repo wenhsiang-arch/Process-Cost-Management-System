@@ -1469,7 +1469,7 @@
     const selectedCode=String(state.product?.code||'').trim();
     if(state.orderReady&&state.order?.id&&selectedCode&&affectedCodes.has(selectedCode)){
       try{
-        await window.PCMSProductionEntryStore.loadProcesses(state.order.id,{force:true});
+        window.PCMSProductionEntryStore.refreshLoadedProcessStandards(state.order.id);
         if(state.process){
           const refreshed=window.PCMSProductionEntryStore.findProcess(state.order.id,selectedCode,state.process.processNo);
           if(refreshed){
