@@ -4,7 +4,7 @@
 
   const MONTH_COLLECTION='productionMonths';
   const DAY_SUMMARY_COLLECTION='productionDaySummaries';
-  const AUTO_INITIALIZE_FROM_MONTH='2026-09';
+  const AUTO_INITIALIZE_FROM_MONTH='2026-08';
 
   function text(value){ return String(value||'').trim(); }
   function monthFromDate(value){
@@ -28,6 +28,7 @@
     if(!['entriesVersion','attendanceVersion'].includes(field)) throw new Error('Nguồn phiên bản tháng không hợp lệ. / 月份版本來源不正確。');
     return {
       month:monthFromDate(productionDate),[field]:String(version),summaryVersion:String(version),
+      revision:window._increment(1),
       updatedAt:Number(updatedAt),updatedByUid:String(updatedByUid||''),updatedBy:text(updatedBy).slice(0,200),schemaVersion:2
     };
   }
@@ -71,8 +72,9 @@
     }
     const data=snapshot.data()||{};
     const status=text(data.status);
-    if(status!=='open') throw new Error('Tháng đang khóa hoặc chuyển đổi nên không thể sửa dữ liệu nguồn. / 月份已鎖定或轉換中，無法修改來源資料。');
-    if(data.summaryReady!==true) throw new Error('Tóm tắt tháng chưa sẵn sàng. / 月份摘要尚未完成。');
+    if(status!=='open') throw new Error('Tháng đang khóa nên không thể sửa dữ liệu nguồn. / 月份已鎖定，無法修改來源資料。');
+    // summaryReady=false（摘要暫停）只停止分析與獎金；正式來源仍可寫入。
+    // 來源交易會原子增加 productionMonths.revision，讓重建在 final commit 前判斷結果是否過期。
     return 'existing';
   }
   window.PCMSProductionGuards=Object.freeze({
