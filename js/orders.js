@@ -696,7 +696,7 @@ async function confirmImportOrder(){
       snapshotWs:window.S?.ws||3000,
       importStatus:'importing'
     });
-    const ordId=orderRef.id, processRows=[];
+    const ordId=orderRef.id, processRows=[], cachedProcessRows=[];
     d.matched.forEach(item=>(item.ops||[]).forEach(op=>processRows.push(makeOrderProcess(ordId,d.ordId,item,op,now))));
     const totalBatches=Math.max(1,Math.ceil(processRows.length/450));
     for(let offset=0,batchNo=1;offset<processRows.length;offset+=450,batchNo++){
@@ -704,7 +704,11 @@ async function confirmImportOrder(){
         `Đang nhập đợt ${batchNo}/${totalBatches}. Tổng cộng ${processRows.length} công đoạn.`,
         `正在匯入第 ${batchNo}/${totalBatches} 批，共 ${processRows.length} 道工序。`);
       const batch=window._writeBatch();
-      processRows.slice(offset,offset+450).forEach(row=>batch.set(window._newDocRef(COL.processes),row));
+      processRows.slice(offset,offset+450).forEach(row=>{
+        const processRef=window._newDocRef(COL.processes);
+        batch.set(processRef,row);
+        cachedProcessRows.push({id:processRef.id,...row});
+      });
       await batch.commit();
     }
     await window._updateDoc(lockRef,{status:'ready',orderId:ordId,completedAt:Date.now()});
@@ -739,7 +743,8 @@ async function confirmImportOrder(){
       createdAt:now,importStatus:'ready'
     });
     closeImportOrder();
-    await reloadProcesses({orderId:ordId,force:true});
+    await window.PCMSOrderProcessCache.write(ordId,importedProcessVersion,cachedProcessRows);
+    replaceLoadedOrderProcesses(ordId,cachedProcessRows,importedProcessVersion);
     renderOrders(); renderProgress();
     await ordersMessage(
       `Nhập đơn hàng thành công!\nĐơn hàng: ${d.ordId}\nMã hàng: ${d.matched.length}\nCông đoạn: ${d.matched.reduce((a,m)=>a+m.ops.length,0)}`,
