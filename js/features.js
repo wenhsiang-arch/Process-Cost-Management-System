@@ -33,7 +33,7 @@
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260816-1',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
-    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260817-1',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260817-2',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260815-4',

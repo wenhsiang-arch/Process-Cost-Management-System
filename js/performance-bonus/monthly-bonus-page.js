@@ -16,7 +16,51 @@
       paid:{vi:'Đã phát',zh:'已發放'}
     })[status]||{vi:'Chưa có dữ liệu',zh:'尚無資料'};
   }
-  function showError(error){ return ui().alertDialog({kind:'danger',message:window.PCMSUIText.errorPair(error)}); }
+  function errorDetails(error){
+    const code=String(error?.code||error?.cause?.code||'unknown').trim()||'unknown';
+    const message=String(error?.message||error?.cause?.message||error||'Không có chi tiết / 無詳細訊息').trim().slice(0,1000);
+    return {code,message};
+  }
+  function errorReason(details){
+    const parsed=window.PCMSUIText.parseLegacyPair(details.message);
+    if(parsed) return parsed;
+    const searchable=`${details.code} ${details.message}`.toLowerCase();
+    if(searchable.includes('permission-denied')||searchable.includes('insufficient permissions')){
+      return {vi:'Quyền tài khoản hoặc quy tắc bảo mật đã từ chối thao tác.',zh:'帳號權限或安全規則拒絕了這次操作。'};
+    }
+    if(searchable.includes('1000 expressions')||searchable.includes('resource-exhausted')){
+      return {vi:'Quy tắc bảo mật đã vượt giới hạn xử lý.',zh:'安全規則超過運算限制。'};
+    }
+    if(searchable.includes('requires an index')){
+      return {vi:'Truy vấn đang thiếu chỉ mục Firestore cần thiết.',zh:'查詢缺少必要的 Firestore 索引。'};
+    }
+    if(searchable.includes('aborted')||searchable.includes('transaction')){
+      return {vi:'Giao dịch bị xung đột hoặc trạng thái tháng đã thay đổi.',zh:'交易發生衝突，或月份狀態已經改變。'};
+    }
+    if(searchable.includes('unavailable')||searchable.includes('network')||searchable.includes('offline')){
+      return {vi:'Không thể kết nối ổn định với Firebase.',zh:'目前無法穩定連線至 Firebase。'};
+    }
+    if(searchable.includes('not-found')){
+      return {vi:'Không tìm thấy dữ liệu cần thiết để hoàn tất thao tác.',zh:'找不到完成操作所需的資料。'};
+    }
+    return {vi:'Hệ thống đã trả về lỗi chưa được phân loại; xem chi tiết bên dưới.',zh:'系統回傳尚未分類的錯誤，請查看下方詳細訊息。'};
+  }
+  function showError(error,stage={vi:'Thao tác thưởng tháng',zh:'月績效操作'}){
+    const details=errorDetails(error);
+    const reason=errorReason(details);
+    console.error(`[月績效] ${stage.zh}失敗`,error);
+    const body=ui().createLanguageSections({
+      vi:`Giai đoạn: ${stage.vi}\nNguyên nhân: ${reason.vi}\nMã lỗi: ${details.code}\nChi tiết: ${details.message}`,
+      zh:`發生階段：${stage.zh}\n原因：${reason.zh}\n錯誤碼：${details.code}\n詳細訊息：${details.message}`
+    });
+    body.querySelectorAll('.ui-language-section').forEach(section=>{
+      section.style.whiteSpace='pre-wrap';
+      section.style.overflowWrap='anywhere';
+    });
+    return ui().alertDialog({
+      kind:'danger',title:{vi:'Không thể hoàn tất thao tác',zh:'無法完成操作'},body,size:'wide'
+    });
+  }
   function renderShell(){
     const root=el('performance-bonus-monthly-root');
     if(!root||root.dataset.ready==='true') return;
@@ -122,14 +166,14 @@
       state.metadata=null;
       state.employees=[];
       render();
-      await showError(error);
+      await showError(error,{vi:'Tải dữ liệu thưởng tháng',zh:'載入月績效資料'});
     }
   }
   async function migrateMonthSummary(){
     if(window.cu?.role!=='admin'||!window.PCMSProductionSummaryMigration) return;
     let preview;
     try{ preview=await window.PCMSProductionSummaryMigration.migrateMonth(state.month); }
-    catch(error){ await showError(error); return; }
+    catch(error){ await showError(error,{vi:'Đọc trước dữ liệu để tạo tóm tắt',zh:'預讀月份摘要來源'}); return; }
     const confirmed=await ui().confirmDialog({
       title:{vi:'Xác nhận tạo tóm tắt tháng',zh:'確認建立月份摘要'},kind:'warning',
       body:ui().createLanguageSections({
@@ -154,7 +198,10 @@
       progress.complete({vi:'Đã hoàn tất tóm tắt tháng.',zh:'月份摘要已完成。'});
       ui().showToast({kind:'success',message:{vi:`Đã tạo ${result.writtenCount} mục tóm tắt.`,zh:`已建立 ${result.writtenCount} 筆摘要資料。`}});
       await loadMonth();
-    }catch(error){ progress.fail({vi:'Không thể hoàn tất tóm tắt.',zh:'無法完成月份摘要。'}); await showError(error); }
+    }catch(error){
+      progress.fail({vi:'Không thể hoàn tất tóm tắt.',zh:'無法完成月份摘要。'});
+      await showError(error,{vi:'Ghi tóm tắt tháng',zh:'寫入月份摘要'});
+    }
     finally{ window.setTimeout(()=>progress.close(),1000); }
   }
   function monthDates(month){
