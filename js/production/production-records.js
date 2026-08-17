@@ -214,6 +214,16 @@
       if(current.employeeId&&item.employeeId!==current.employeeId) return false;
       if(matchedEmployeeIds&&!matchedEmployeeIds.has(item.employeeId)) return false;
       return true;
+    }).sort((left,right)=>{
+      const dateOrder=String(right.productionDate).localeCompare(String(left.productionDate));
+      if(dateOrder) return dateOrder;
+      const leftPercentage=Number(itemPercentage(left));
+      const rightPercentage=Number(itemPercentage(right));
+      const leftReady=Number.isFinite(leftPercentage);
+      const rightReady=Number.isFinite(rightPercentage);
+      if(leftReady!==rightReady) return leftReady?-1:1;
+      if(leftReady&&rightReady&&rightPercentage!==leftPercentage) return rightPercentage-leftPercentage;
+      return String(left.employeeId).localeCompare(String(right.employeeId),'en',{numeric:true,sensitivity:'base'});
     });
   }
 
