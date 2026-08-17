@@ -638,6 +638,8 @@ async function processImportOrderFile(file,input){
   reader.readAsBinaryString(file);
 }
 
+const ORDER_PROCESS_BATCH_SIZE=10;
+
 async function confirmImportOrder(){
   const d=window._impData;
   if(!d||!d.matched.length){ await ordersMessage('Vui lòng tải tệp đơn hàng trước.','請先上傳訂單表格檔。','warning'); return; }
@@ -698,13 +700,13 @@ async function confirmImportOrder(){
     });
     const ordId=orderRef.id, processRows=[], cachedProcessRows=[];
     d.matched.forEach(item=>(item.ops||[]).forEach(op=>processRows.push(makeOrderProcess(ordId,d.ordId,item,op,now))));
-    const totalBatches=Math.max(1,Math.ceil(processRows.length/450));
-    for(let offset=0,batchNo=1;offset<processRows.length;offset+=450,batchNo++){
+  const totalBatches=Math.max(1,Math.ceil(processRows.length/ORDER_PROCESS_BATCH_SIZE));
+  for(let offset=0,batchNo=1;offset<processRows.length;offset+=ORDER_PROCESS_BATCH_SIZE,batchNo++){
       setImportProgress(Math.round(offset/processRows.length*100),
         `Đang nhập đợt ${batchNo}/${totalBatches}. Tổng cộng ${processRows.length} công đoạn.`,
         `正在匯入第 ${batchNo}/${totalBatches} 批，共 ${processRows.length} 道工序。`);
       const batch=window._writeBatch();
-      processRows.slice(offset,offset+450).forEach(row=>{
+    processRows.slice(offset,offset+ORDER_PROCESS_BATCH_SIZE).forEach(row=>{
         const processRef=window._newDocRef(COL.processes);
         batch.set(processRef,row);
         cachedProcessRows.push({id:processRef.id,...row});
@@ -793,9 +795,9 @@ async function cleanupFailedOrder(orderId,orderNo,silent=false){
     ?window._query(window._collection(COL.processes),window._where('orderId','==',orderId))
     :window._query(window._collection(COL.processes),window._where('orderNo','==',orderNo));
   const snap=await window._getDocs(procQuery);
-  for(let i=0;i<snap.docs.length;i+=450){
+      for(let i=0;i<snap.docs.length;i+=ORDER_PROCESS_BATCH_SIZE){
     const batch=window._writeBatch();
-    snap.docs.slice(i,i+450).forEach(d=>batch.delete(d.ref));
+        snap.docs.slice(i,i+ORDER_PROCESS_BATCH_SIZE).forEach(d=>batch.delete(d.ref));
     await batch.commit();
   }
   if(orderId){
