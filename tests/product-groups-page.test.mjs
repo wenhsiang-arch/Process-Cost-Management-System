@@ -100,6 +100,13 @@ test('群組清單只顯示群組摘要且點名稱開啟可修改成員的緊�
   assert.match(style,/\.product-group-detail-dialog \.ui-table-scroll\{max-height:none;overflow:visible\}/);
 });
 
+test('群組新增成員及舊群組驗證共用相容版候選特徵',()=>{
+  const page=read('js/production/product-groups.js');
+  const store=read('js/production/process-edit-store.js');
+  assert.match(page,/matchesGroupSignature\(item,group\.signature\)/);
+  assert.match(store,/matchesGroupSignature\(validated\.memberProducts\[0\],current\.signature\)/);
+});
+
 test('工序修改安全預設只改目前款號，主動選擇後才展開群組',()=>{
   const page=read('js/production/process-edit.js');
   assert.match(page,/process-edit-client-select/);

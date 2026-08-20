@@ -133,20 +133,37 @@
     return text(value).normalize('NFKC').toLocaleLowerCase();
   }
 
-  // groupSignature（群組候選特徵）：尺寸與秒數不參與，避免不同尺寸及已修正秒數拆成不同產品。
+  // canonicalGroupSignature（標準群組候選特徵）：相容舊特徵，但正式比對不使用中文品名及中文工序。
+  function canonicalGroupSignature(value){
+    let source=value;
+    try{
+      if(typeof source==='string') source=JSON.parse(source);
+    }catch(_error){ return ''; }
+    if(!source||typeof source!=='object'||!Array.isArray(source.operations)) return '';
+    return JSON.stringify({
+      client:normalizedSignatureText(source.client),
+      vi:normalizedSignatureText(source.vi),
+      operations:source.operations.map(operation=>({
+        no:processNo(operation?.no),
+        category:text(operation?.category).toUpperCase(),
+        vi:normalizedSignatureText(operation?.vi)
+      })).sort(compareOperationNumber)
+    });
+  }
+
+  // groupSignature（群組候選特徵）：尺寸、秒數、中文品名及中文工序不參與候選比對。
   function groupSignature(product){
     const item=normalizeProduct(product);
-    return JSON.stringify({
-      client:normalizedSignatureText(item.client),
-      zh:normalizedSignatureText(item.zh),
-      vi:normalizedSignatureText(item.vi),
-      operations:item.ops.map(operation=>({
-        no:operation.no,
-        category:operation.category,
-        zh:normalizedSignatureText(operation.zh),
-        vi:normalizedSignatureText(operation.vi)
-      }))
+    return canonicalGroupSignature({
+      client:item.client,
+      vi:item.vi,
+      operations:item.ops
     });
+  }
+
+  // matchesGroupSignature（符合既有群組特徵）：舊群組仍可沿用保存過的含中文特徵。
+  function matchesGroupSignature(product,signature){
+    return groupSignature(product)===canonicalGroupSignature(signature);
   }
 
   window.PCMSProductModel=Object.freeze({
@@ -156,6 +173,7 @@
     sameProduct,
     compareProducts,
     classifyImport,
-    groupSignature
+    groupSignature,
+    matchesGroupSignature
   });
 })();

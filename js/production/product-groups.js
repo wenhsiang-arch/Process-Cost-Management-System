@@ -208,7 +208,7 @@
     return products().filter(item=>{
       const code=normalize(item.code);
       return code&&!memberCodes.has(code)&&clientName(item)===groupClient(group)
-        &&window.PCMSProductModel.groupSignature(item)===group.signature;
+        &&window.PCMSProductModel.matchesGroupSignature(item,group.signature);
     }).sort((a,b)=>normalize(a.sz).localeCompare(normalize(b.sz),undefined,{numeric:true,sensitivity:'base'})
       ||normalize(a.code).localeCompare(normalize(b.code),undefined,{numeric:true,sensitivity:'base'}));
   }
@@ -329,7 +329,7 @@
     const panel=host.querySelector('[data-product-groups-panel="3"]');
     const candidates=store().findCandidates(product.code);
     panel.innerHTML=`<div class="product-groups-wizard-source"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><b>${safe(product.code)}</b><span>${safe(product.client||'—')} · ${safe(product.zh||'—')} · ${safe(product.vi||'—')} · ${safe(product.sz||'—')}</span></div>
-      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Hệ thống tự khớp mã cùng sản phẩm. Danh sách đã chia theo kích thước; hãy kiểm tra khách hàng và tên sản phẩm trước khi tạo nhóm.</span><span class="ui-text-zh">系統已自動匹配同產品款號並依尺寸分組；建立前請確認客人及中越文品名。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
+      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Hệ thống tự khớp mã cùng sản phẩm. Danh sách đã chia theo kích thước; hãy kiểm tra khách hàng, tên tiếng Việt và cấu trúc công đoạn trước khi tạo nhóm.</span><span class="ui-text-zh">系統已自動匹配同產品款號並依尺寸分組；建立前請確認客人、越文品名及工序結構。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
       :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã cùng cấu trúc để lập nhóm</strong><span>找不到結構相同、可建立群組的其他款號</span></span></div>'}`;
     host._groupSelector=null;
     if(candidates.length){

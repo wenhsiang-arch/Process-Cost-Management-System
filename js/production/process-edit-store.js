@@ -97,7 +97,7 @@
     const memberProducts=normalized.map(productByCode);
     if(memberProducts.some(item=>!item)) throw new Error('Có mã hàng không tồn tại. / 群組內有不存在的款號。');
     const signatures=new Set(memberProducts.map(window.PCMSProductModel.groupSignature));
-    if(signatures.size!==1) throw new Error('Tên và công đoạn của các mã hàng không giống nhau, không thể lập nhóm. / 款號的品名或工序結構不同，不能建立同產品群組。');
+    if(signatures.size!==1) throw new Error('Tên tiếng Việt hoặc cấu trúc công đoạn của các mã hàng không giống nhau, không thể lập nhóm. / 款號的越文品名或工序結構不同，不能建立同產品群組。');
     return {memberCodes:normalized,memberProducts,signature:[...signatures][0]};
   }
 
@@ -147,7 +147,7 @@
     const current=groups.find(item=>item.groupId===groupId);
     if(!current) throw new Error('Không tìm thấy nhóm cần sửa. / 找不到要修改的群組。');
     const validated=validateGroupMembers(input.memberCodes);
-    if(validated.signature!==current.signature) throw new Error('Mã hàng được chọn không thuộc cùng sản phẩm của nhóm này. / 所選款號不屬於此群組的同一產品。');
+    if(!window.PCMSProductModel.matchesGroupSignature(validated.memberProducts[0],current.signature)) throw new Error('Mã hàng được chọn không thuộc cùng sản phẩm của nhóm này. / 所選款號不屬於此群組的同一產品。');
     const previousCodes=[...new Set((current.memberCodes||[]).map(normalizeCode).filter(Boolean))];
     const previousSet=new Set(previousCodes);
     const nextSet=new Set(validated.memberCodes);

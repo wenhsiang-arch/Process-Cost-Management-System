@@ -76,11 +76,21 @@ test('款號匯入會分成新增、相同與有差異三類',()=>{
   assert.equal(result.differentItems[0].differences[0].field,'sec');
 });
 
-test('產品群組候選忽略尺寸與秒數，但不忽略工序名稱與順序',()=>{
+test('產品群組候選忽略尺寸、秒數及中文名稱，但保留越文與工序結構',()=>{
   const {PCMSProductModel:model}=loadProductModules();
   const base={code:'A',client:'C',zh:'產品',vi:'SP',sz:'S',ops:[{no:'1',category:'SX',zh:'車',vi:'May',sec:15}]};
   assert.equal(model.groupSignature(base),model.groupSignature({...base,code:'B',sz:'XL',ops:[{...base.ops[0],sec:22}]}));
+  assert.equal(model.groupSignature(base),model.groupSignature({...base,code:'B',zh:'其他產品',ops:[{...base.ops[0],zh:'其他工序'}]}));
+  const signature=JSON.parse(model.groupSignature(base));
+  assert.equal('zh' in signature,false);
+  assert.equal('zh' in signature.operations[0],false);
+  assert.notEqual(model.groupSignature(base),model.groupSignature({...base,code:'C',vi:'Khác'}));
   assert.notEqual(model.groupSignature(base),model.groupSignature({...base,code:'C',ops:[{...base.ops[0],vi:'Khác'}]}));
+  assert.notEqual(model.groupSignature(base),model.groupSignature({...base,code:'C',ops:[{...base.ops[0],category:'QC'}]}));
+  const legacySignature=JSON.stringify({
+    client:'c',zh:'產品',vi:'sp',operations:[{no:'1',category:'SX',zh:'車',vi:'may'}]
+  });
+  assert.equal(model.matchesGroupSignature(base,legacySignature),true);
 });
 
 test('完整款號版本會切成可還原的安全資料區塊',()=>{
