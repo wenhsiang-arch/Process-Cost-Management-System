@@ -3,12 +3,13 @@
   'use strict';
 
   const normalize=value=>String(value??'').trim();
+  const normalizeCode=value=>normalize(value).normalize('NFKC').toUpperCase();
   const safe=value=>window.PCMSSafe.text(value);
   const ui=()=>window.PCMSUIComponents;
   const textApi=()=>window.PCMSUIText;
   const store=()=>window.PCMSProcessEditStore;
   const groupUI=()=>window.PCMSProcessGroupUI;
-  const productByCode=code=>(window.D||[]).find(item=>normalize(item.code)===normalize(code))||null;
+  const productByCode=code=>(window.D||[]).find(item=>normalizeCode(item.code)===normalizeCode(code))||null;
 
   function allowed(){
     return typeof window.canEditProcessSeconds==='function'&&window.canEditProcessSeconds();

@@ -38,7 +38,7 @@
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260815-4',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-5',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260815-1',
+    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260820-1',
     productionProcessEdit:'js/production/process-edit.js?v=20260815-2',
     productionProductGroups:'js/production/product-groups.js?v=20260813-6',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260816-1',
