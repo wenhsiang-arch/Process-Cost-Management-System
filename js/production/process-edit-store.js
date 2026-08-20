@@ -90,15 +90,24 @@
     }).sort((a,b)=>String(a.sz||'').localeCompare(String(b.sz||''),'zh-Hant',{numeric:true,sensitivity:'base'}));
   }
 
-  function validateGroupMembers(memberCodes){
+  // validateGroupMembers（驗證群組成員）：新群組維持推薦條件；既有群組可由使用者人工確認，但客人仍必須一致。
+  function validateGroupMembers(memberCodes,{allowManualSelection=false,expectedClient=''}={}){
     const normalized=[...new Set((memberCodes||[]).map(normalizeCode).filter(Boolean))];
     if(normalized.length<2) throw new Error('Nhóm phải có ít nhất 2 mã hàng. / 群組至少需要2個款號。');
     if(normalized.length>200) throw new Error('Nhóm chỉ được có tối đa 200 mã hàng. / 群組最多只能有200個款號。');
     const memberProducts=normalized.map(productByCode);
     if(memberProducts.some(item=>!item)) throw new Error('Có mã hàng không tồn tại. / 群組內有不存在的款號。');
+    const clients=new Set(memberProducts.map(item=>normalizeCode(item.client)).filter(Boolean));
+    if(clients.size!==1||memberProducts.some(item=>!normalizeCode(item.client))){
+      throw new Error('Các mã hàng trong nhóm phải thuộc cùng một khách hàng. / 群組內款號必須屬於同一位客人。');
+    }
+    const client=[...clients][0];
+    if(expectedClient&&client!==normalizeCode(expectedClient)){
+      throw new Error('Mã hàng được chọn không thuộc khách hàng của nhóm này. / 所選款號不屬於此群組的客人。');
+    }
     const signatures=new Set(memberProducts.map(window.PCMSProductModel.groupSignature));
-    if(signatures.size!==1) throw new Error('Tên tiếng Việt hoặc cấu trúc công đoạn của các mã hàng không giống nhau, không thể lập nhóm. / 款號的越文品名或工序結構不同，不能建立同產品群組。');
-    return {memberCodes:normalized,memberProducts,signature:[...signatures][0]};
+    if(!allowManualSelection&&signatures.size!==1) throw new Error('Tên tiếng Việt hoặc cấu trúc công đoạn của các mã hàng không giống nhau, không thể lập nhóm. / 款號的越文品名或工序結構不同，不能建立同產品群組。');
+    return {memberCodes:normalized,memberProducts,signature:[...signatures][0],client};
   }
 
   async function createGroup(input={}){
@@ -146,8 +155,9 @@
     const groupId=normalizeCode(input.groupId);
     const current=groups.find(item=>item.groupId===groupId);
     if(!current) throw new Error('Không tìm thấy nhóm cần sửa. / 找不到要修改的群組。');
-    const validated=validateGroupMembers(input.memberCodes);
-    if(!window.PCMSProductModel.matchesGroupSignature(validated.memberProducts[0],current.signature)) throw new Error('Mã hàng được chọn không thuộc cùng sản phẩm của nhóm này. / 所選款號不屬於此群組的同一產品。');
+    const expectedClient=normalizeCode((current.memberCodes||[]).map(productByCode).find(item=>normalizeCode(item?.client))?.client);
+    if(!expectedClient) throw new Error('Không xác định được khách hàng hiện tại của nhóm. / 無法確認群組目前的客人。');
+    const validated=validateGroupMembers(input.memberCodes,{allowManualSelection:true,expectedClient});
     const previousCodes=[...new Set((current.memberCodes||[]).map(normalizeCode).filter(Boolean))];
     const previousSet=new Set(previousCodes);
     const nextSet=new Set(validated.memberCodes);

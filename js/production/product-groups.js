@@ -119,11 +119,13 @@
     const afterCodes=new Set(afterProducts.map(item=>normalize(item.code)));
     const added=afterProducts.filter(item=>!beforeCodes.has(normalize(item.code)));
     const removed=beforeProducts.filter(item=>!afterCodes.has(normalize(item.code)));
+    const manualAdded=added.filter(item=>!window.PCMSProductModel.matchesGroupSignature(item,group.signature));
     const affectedSizes=[...new Set([...added,...removed].map(item=>normalize(item.sz)||'—'))]
       .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
     body.innerHTML=`<div class="ui-notice is-warning"><i class="ti ti-alert-triangle"></i><span class="ui-dual-copy"><strong>Chỉ lưu sau khi xác nhận các thay đổi dưới đây.</strong><span>確認以下變更後才會修改群組。</span></span></div>
-      <dl><div><dt><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span></dt><dd>${safe(group.name||group.groupId)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Số mã sau sửa</strong><span>修改後款號數</span></span></dt><dd>${afterProducts.length}</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã thêm mới</strong><span>新增款號</span></span></dt><dd>${safe(changeList(added))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã bị xóa</strong><span>移除款號</span></span></dt><dd>${safe(changeList(removed))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước bị ảnh hưởng</strong><span>受影響尺寸</span></span></dt><dd>${safe(affectedSizes.join('、')||'—')}</dd></div></dl>`;
-    return {body,added,removed};
+      ${manualAdded.length?`<div class="ui-notice is-warning"><i class="ti ti-user-check"></i><span class="ui-dual-copy"><strong>${manualAdded.length} mã không khớp đề xuất hệ thống, cần người dùng xác nhận nhóm.</strong><span>${manualAdded.length} 個款號不符合系統推薦，需由使用者人工確認分組。</span></span></div>`:''}
+      <dl><div><dt><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span></dt><dd>${safe(group.name||group.groupId)}</dd></div><div><dt><span class="ui-dual-copy"><strong>Số mã sau sửa</strong><span>修改後款號數</span></span></dt><dd>${afterProducts.length}</dd></div><div><dt><span class="ui-dual-copy"><strong>Mã thêm mới</strong><span>新增款號</span></span></dt><dd>${safe(changeList(added))}</dd></div>${manualAdded.length?`<div><dt><span class="ui-dual-copy"><strong>Mã cần xác nhận thủ công</strong><span>需人工確認款號</span></span></dt><dd>${safe(changeList(manualAdded))}</dd></div>`:''}<div><dt><span class="ui-dual-copy"><strong>Mã bị xóa</strong><span>移除款號</span></span></dt><dd>${safe(changeList(removed))}</dd></div><div><dt><span class="ui-dual-copy"><strong>Kích thước bị ảnh hưởng</strong><span>受影響尺寸</span></span></dt><dd>${safe(affectedSizes.join('、')||'—')}</dd></div></dl>`;
+    return {body,added,removed,manualAdded};
   }
 
   async function deleteGroup(groupId){
@@ -227,7 +229,7 @@
       <label class="product-groups-field is-search" data-group-add-code-field><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span><input type="search" data-group-add-search autocomplete="off"></label>
       <label class="product-groups-field is-search" data-group-add-vi-field hidden><span class="ui-dual-copy"><strong>Tên tiếng Việt</strong><span>越文名稱</span></span><select data-group-add-vi></select></label>
     </div>
-    <div class="product-group-add-note ui-bilingual"><span class="ui-text-vi">Chỉ hiển thị mã hàng của cùng khách hàng. Mã không cùng tên Việt hoặc cấu trúc công đoạn sẽ chỉ hiển thị để đối chiếu và không thể chọn.</span><span class="ui-text-zh">只顯示同一客人的款號；越文品名或工序結構不同的款號只供核對，不能加入。</span></div>
+    <div class="product-group-add-note ui-bilingual"><span class="ui-text-vi">Chỉ hiển thị mã hàng của cùng khách hàng. Đề xuất hệ thống chỉ để sàng lọc ban đầu; mã không khớp vẫn có thể chọn và sẽ được xác nhận lại trước khi lưu. Mã đã thuộc nhóm khác không thể chọn.</span><span class="ui-text-zh">只顯示同一客人的款號。系統推薦只供第一次篩選；不符合推薦的款號仍可勾選，並會在儲存前再次確認。已屬其他群組的款號不能勾選。</span></div>
     <div class="product-group-add-result-note" data-group-add-result-note hidden></div>
     <div data-group-add-status hidden></div>
     <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table"><thead><tr><th class="ui-table-center-cell is-select"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></th><th class="is-code"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th class="is-zh"><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th><th class="is-vi"><span class="ui-dual-copy"><strong>Tên Việt</strong><span>越文名稱</span></span></th><th class="is-size"><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th><th class="is-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th></tr></thead><tbody data-group-add-body></tbody></table></div></div>`;
@@ -305,13 +307,17 @@
       body.querySelector('[data-group-add-body]').innerHTML=rows.length?rows.map(item=>{
         const other=store().groupForProduct(item.code);
         const compatible=window.PCMSProductModel.matchesGroupSignature(item,group.signature);
-        const disabled=!!other||existingCodes.has(normalize(item.code))||!compatible;
+        const disabled=!!other||existingCodes.has(normalize(item.code));
+        const otherName=safe(other?.name||other?.groupId||'');
         const stateCopy=other
-          ?`<span class="product-group-blocked">${safe(other.name||other.groupId)}</span>`
+          ?`<span class="product-group-blocked ui-dual-copy"><strong>Đã thuộc nhóm: ${otherName}</strong><span>已在其他群組：${otherName}</span></span>`
           :compatible
-            ?'<span class="product-group-available ui-dual-copy"><strong>Có thể thêm</strong><span>可加入</span></span>'
-            :'<span class="product-group-blocked ui-dual-copy"><strong>Không cùng sản phẩm</strong><span>不符合同產品條件</span></span>';
-        return `<tr><td class="ui-table-center-cell"><input type="checkbox" data-group-add-code="${safe(item.code)}" ${chosen.has(normalize(item.code))?'checked':''} ${disabled?'disabled':''}></td><td title="${safe(item.code)}"><b>${safe(item.code)}</b></td><td title="${safe(item.zh||'—')}">${safe(item.zh||'—')}</td><td title="${safe(item.vi||'—')}">${safe(item.vi||'—')}</td><td>${safe(item.sz||'—')}</td><td>${stateCopy}</td></tr>`;
+            ?'<span class="product-group-available ui-dual-copy"><strong>Khớp đề xuất</strong><span>符合系統推薦</span></span>'
+            :'<span class="product-group-review ui-dual-copy"><strong>Không khớp đề xuất · cần xác nhận</strong><span>不符合系統推薦・需人工確認</span></span>';
+        const stateTitle=other
+          ?textApi().visibleText({vi:`Đã thuộc nhóm: ${other.name||other.groupId}`,zh:`已在其他群組：${other.name||other.groupId}`})
+          :textApi().visibleText(compatible?{vi:'Khớp đề xuất',zh:'符合系統推薦'}:{vi:'Không khớp đề xuất · cần xác nhận',zh:'不符合系統推薦・需人工確認'});
+        return `<tr><td class="ui-table-center-cell"><input type="checkbox" data-group-add-code="${safe(item.code)}" ${chosen.has(normalize(item.code))?'checked':''} ${disabled?'disabled':''}></td><td title="${safe(item.code)}"><b>${safe(item.code)}</b></td><td title="${safe(item.zh||'—')}">${safe(item.zh||'—')}</td><td title="${safe(item.vi||'—')}">${safe(item.vi||'—')}</td><td>${safe(item.sz||'—')}</td><td class="is-status" title="${safe(stateTitle)}">${stateCopy}</td></tr>`;
       }).join(''):`<tr><td colspan="6" class="ui-table-empty"><span class="ui-dual-copy"><strong>${safe(emptyCopy.vi)}</strong><span>${safe(emptyCopy.zh)}</span></span></td></tr>`;
     }
     fillFilterOptions();
@@ -330,8 +336,7 @@
     ui().openDialog({
       title:{vi:'Thêm mã hàng vào nhóm',zh:'新增款號到群組'},body,size:'xlarge',keepPrevious:true,
       actions:[{text:{vi:'Hủy',zh:'取消'}},{text:{vi:'Thêm mã đã chọn',zh:'加入所選款號'},icon:'ti-plus',kind:'primary',onClick:()=>{
-        const added=candidates.filter(item=>chosen.has(normalize(item.code))&&!store().groupForProduct(item.code)
-          &&window.PCMSProductModel.matchesGroupSignature(item,group.signature));
+        const added=candidates.filter(item=>chosen.has(normalize(item.code))&&!store().groupForProduct(item.code));
         if(!added.length){
           setAddStatus({vi:'Vui lòng chọn ít nhất 1 mã có thể thêm.',zh:'請先勾選至少1個可加入的款號。'});
           return false;
