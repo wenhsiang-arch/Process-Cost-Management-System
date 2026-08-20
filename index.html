@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="styles/ui-core.css?v=20260813-3">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
+<link rel="stylesheet" href="styles/features/home.css?v=20260820-1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(--bg)}
@@ -287,13 +288,46 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 
       <!-- 輕量功能首頁：登入後不讀取任何業務功能資料。 -->
       <div class="pg" id="pg-home">
-        <div class="card" style="min-height:260px;display:flex;align-items:center;justify-content:center;text-align:center">
-          <div style="max-width:520px">
-            <i class="ti ti-layout-grid" style="font-size:48px;color:var(--accent)"></i>
-            <div style="font-size:22px;font-weight:600;color:var(--navy);margin-top:16px">Chọn chức năng để bắt đầu</div>
-            <div style="font-size:18px;color:var(--mu);margin-top:8px">請從左側選擇要使用的功能</div>
+        <section class="home-updates card" aria-labelledby="home-updates-title">
+          <header class="home-updates-header">
+            <div class="home-updates-heading">
+              <span class="home-updates-icon" aria-hidden="true"><i class="ti ti-speakerphone"></i></span>
+              <h1 class="ui-dual-copy" id="home-updates-title">
+                <strong>Cập nhật hệ thống</strong>
+                <span>系統更新</span>
+              </h1>
+            </div>
+            <span class="home-updates-latest ui-dual-copy">
+              <strong>Mới</strong>
+              <span>最新</span>
+            </span>
+          </header>
+
+          <div class="home-update-timeline">
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-08-20">20/08/2026</time>
+                <h2 class="ui-dual-copy">
+                  <strong>Đã sửa lỗi chuyển đến màn hình chỉnh sửa giây của mã hàng</strong>
+                  <span>修復款號秒數修改畫面跳轉問題</span>
+                </h2>
+                <div class="home-update-description">
+                  <p class="ui-text-vi">Một số mã hàng trước đây không thể mở màn hình chỉnh sửa giây công đoạn. Hiện tại người dùng có thể nhấn vào số giây để mở và chỉnh sửa bình thường.</p>
+                  <p class="ui-text-zh">修復部分款號無法開啟工序秒數修改畫面的問題，現在可直接點擊秒數並正常進行修改。</p>
+                </div>
+              </div>
+            </article>
           </div>
-        </div>
+
+          <footer class="home-updates-footer">
+            <i class="ti ti-layout-grid" aria-hidden="true"></i>
+            <span class="ui-dual-copy">
+              <strong>Chọn chức năng bên trái để bắt đầu làm việc</strong>
+              <span>請從左側選擇功能開始工作</span>
+            </span>
+          </footer>
+        </section>
       </div>
 
       <!-- 產能登記：正式工序第一階段 -->
