@@ -133,7 +133,7 @@
     return text(value).normalize('NFKC').toLocaleLowerCase();
   }
 
-  // canonicalGroupSignature（標準群組候選特徵）：相容舊特徵，但正式比對不使用中文品名及中文工序。
+  // canonicalGroupSignature（標準群組候選特徵）：相容舊特徵，但正式比對不使用加工分類、中文品名及中文工序。
   function canonicalGroupSignature(value){
     let source=value;
     try{
@@ -145,13 +145,12 @@
       vi:normalizedSignatureText(source.vi),
       operations:source.operations.map(operation=>({
         no:processNo(operation?.no),
-        category:text(operation?.category).toUpperCase(),
         vi:normalizedSignatureText(operation?.vi)
       })).sort(compareOperationNumber)
     });
   }
 
-  // groupSignature（群組候選特徵）：尺寸、秒數、中文品名及中文工序不參與候選比對。
+  // groupSignature（群組候選特徵）：尺寸、秒數、加工分類、中文品名及中文工序不參與候選比對。
   function groupSignature(product){
     const item=normalizeProduct(product);
     return canonicalGroupSignature({

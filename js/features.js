@@ -7,7 +7,7 @@
     uiTableControls:'js/ui-table-controls.js?v=20260821-1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-3',
     productCache:'js/product-cache.js?v=20260806-1',
-    productModel:'js/product-model.js?v=20260821-1',
+    productModel:'js/product-model.js?v=20260821-2',
     productVersionStore:'js/product-version-store.js?v=20260813-1',
     orderProcessCache:'js/order-process-cache.js?v=20260806-1',
     summary:'js/summary.js?v=20260813-1',
