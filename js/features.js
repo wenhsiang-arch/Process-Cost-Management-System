@@ -40,7 +40,7 @@
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-5',
     productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260820-1',
     productionProcessEdit:'js/production/process-edit.js?v=20260815-2',
-    productionProductGroups:'js/production/product-groups.js?v=20260821-1',
+    productionProductGroups:'js/production/product-groups.js?v=20260821-2',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260816-1',
     productionProcessStatsStore:'js/production-analysis/process-stats-store.js?v=20260815-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260816-2',
@@ -58,7 +58,7 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260813-1',
     production:'styles/features/production.css?v=20260821-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260814-3',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260821-1',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1'

@@ -10,6 +10,9 @@
   const groupUI=()=>window.PCMSProcessGroupUI;
   const products=()=>Array.isArray(window.D)?window.D:[];
   const normalize=value=>String(value||'').trim();
+  const searchable=value=>normalize(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[Đđ]/g,'d').toLocaleLowerCase();
+  const searchableCode=value=>searchable(value).replace(/[^a-z0-9]/g,'');
+  const ADD_RESULT_LIMIT=200;
   const productByCode=code=>products().find(item=>normalize(item.code)===normalize(code))||null;
   const clientName=product=>normalize(product?.client);
 
@@ -207,8 +210,7 @@
     const memberCodes=new Set(members.map(item=>normalize(item.code)));
     return products().filter(item=>{
       const code=normalize(item.code);
-      return code&&!memberCodes.has(code)&&clientName(item)===groupClient(group)
-        &&window.PCMSProductModel.matchesGroupSignature(item,group.signature);
+      return code&&!memberCodes.has(code)&&clientName(item)===groupClient(group);
     }).sort((a,b)=>normalize(a.sz).localeCompare(normalize(b.sz),undefined,{numeric:true,sensitivity:'base'})
       ||normalize(a.code).localeCompare(normalize(b.code),undefined,{numeric:true,sensitivity:'base'}));
   }
@@ -219,33 +221,125 @@
     const chosen=new Set();
     const body=document.createElement('div');
     body.className='product-group-add-dialog';
-    body.innerHTML=`<label class="product-groups-field is-search"><span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span><input type="search" data-group-add-search></label><div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table"><thead><tr><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></th><th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th><th><span class="ui-dual-copy"><strong>Tên Việt</strong><span>越文名稱</span></span></th><th><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th><th><span class="ui-dual-copy"><strong>Nhóm hiện tại</strong><span>目前群組</span></span></th></tr></thead><tbody data-group-add-body></tbody></table></div></div></div>`;
+    body.innerHTML=`<div class="product-group-add-filters">
+      <label class="product-groups-field"><span class="ui-dual-copy"><strong>Khách hàng của nhóm</strong><span>群組客人</span></span><select data-group-add-client disabled><option>${safe(groupClient(group))}</option></select></label>
+      <label class="product-groups-field"><span class="ui-dual-copy"><strong>Tìm theo</strong><span>篩選方式</span></span><select data-group-add-mode></select></label>
+      <label class="product-groups-field is-search" data-group-add-code-field><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span><input type="search" data-group-add-search autocomplete="off"></label>
+      <label class="product-groups-field is-search" data-group-add-vi-field hidden><span class="ui-dual-copy"><strong>Tên tiếng Việt</strong><span>越文名稱</span></span><select data-group-add-vi></select></label>
+    </div>
+    <div class="product-group-add-note ui-bilingual"><span class="ui-text-vi">Chỉ hiển thị mã hàng của cùng khách hàng. Mã không cùng tên Việt hoặc cấu trúc công đoạn sẽ chỉ hiển thị để đối chiếu và không thể chọn.</span><span class="ui-text-zh">只顯示同一客人的款號；越文品名或工序結構不同的款號只供核對，不能加入。</span></div>
+    <div class="product-group-add-result-note" data-group-add-result-note hidden></div>
+    <div data-group-add-status hidden></div>
+    <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table"><thead><tr><th class="ui-table-center-cell is-select"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></th><th class="is-code"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th><th class="is-zh"><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th><th class="is-vi"><span class="ui-dual-copy"><strong>Tên Việt</strong><span>越文名稱</span></span></th><th class="is-size"><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th><th class="is-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th></tr></thead><tbody data-group-add-body></tbody></table></div></div>`;
+    const mode=body.querySelector('[data-group-add-mode]');
     const search=body.querySelector('[data-group-add-search]');
-    textApi().setLocalizedAttribute(search,'placeholder',{vi:'Nhập mã hàng hoặc tên sản phẩm',zh:'輸入款號或品名'});
+    const viSelect=body.querySelector('[data-group-add-vi]');
+    const codeField=body.querySelector('[data-group-add-code-field]');
+    const viField=body.querySelector('[data-group-add-vi-field]');
+    const status=body.querySelector('[data-group-add-status]');
+    const resultNote=body.querySelector('[data-group-add-result-note]');
+    const viNames=[...new Set(candidates.map(item=>normalize(item.vi)).filter(Boolean))]
+      .sort((a,b)=>a.localeCompare(b,'vi',{numeric:true,sensitivity:'base'}));
+    const preferredVi=normalize(existingProducts.find(item=>normalize(item.vi))?.vi);
+
+    function fillFilterOptions(){
+      const selectedMode=mode.value||'vi';
+      const codeOption=document.createElement('option');
+      codeOption.value='code';
+      codeOption.textContent=textApi().visibleText({vi:'Mã hàng',zh:'款號'});
+      const viOption=document.createElement('option');
+      viOption.value='vi';
+      viOption.textContent=textApi().visibleText({vi:'Tên tiếng Việt',zh:'越文名稱'});
+      mode.replaceChildren(codeOption,viOption);
+      mode.value=selectedMode;
+
+      const selectedVi=viSelect.value;
+      const placeholder=document.createElement('option');
+      placeholder.value='';
+      placeholder.textContent=textApi().visibleText({vi:'Chọn tên tiếng Việt',zh:'請選擇越文名稱'});
+      viSelect.replaceChildren(placeholder,...viNames.map(name=>{
+        const option=document.createElement('option');
+        option.value=name;
+        option.textContent=name;
+        return option;
+      }));
+      viSelect.value=viNames.includes(selectedVi)?selectedVi:(viNames.includes(preferredVi)?preferredVi:'');
+      textApi().setLocalizedAttribute(search,'placeholder',{vi:'Nhập mã hàng',zh:'輸入款號'});
+    }
+
+    function setAddStatus(pair,kind='warning'){
+      status.replaceChildren(ui().createNotice({text:pair,kind,long:true}));
+      status.hidden=false;
+    }
+
+    function clearAddStatus(){ status.hidden=true;status.replaceChildren(); }
+
     function draw(){
-      const query=normalize(search.value).toLocaleLowerCase();
-      const rows=candidates.filter(item=>!query||[item.code,item.zh,item.vi,item.sz].map(normalize).join(' ').toLocaleLowerCase().includes(query));
+      const filterMode=mode.value||'vi';
+      const query=searchable(search.value);
+      const compactQuery=searchableCode(search.value);
+      const selectedVi=normalize(viSelect.value);
+      codeField.hidden=filterMode!=='code';
+      viField.hidden=filterMode!=='vi';
+      const matches=candidates.filter(item=>filterMode==='vi'
+        ?!!selectedVi&&normalize(item.vi)===selectedVi
+        :!!query&&(searchable(item.code).includes(query)||(compactQuery&&searchableCode(item.code).includes(compactQuery))));
+      if(filterMode==='code'){
+        const rank=item=>{
+          const code=searchable(item.code);
+          const compact=searchableCode(item.code);
+          if(code===query||compact===compactQuery) return 0;
+          if(code.startsWith(query)||compact.startsWith(compactQuery)) return 1;
+          return 2;
+        };
+        matches.sort((a,b)=>rank(a)-rank(b)||normalize(a.code).localeCompare(normalize(b.code),undefined,{numeric:true,sensitivity:'base'}));
+      }
+      const rows=matches.slice(0,ADD_RESULT_LIMIT);
+      resultNote.hidden=matches.length<=ADD_RESULT_LIMIT;
+      resultNote.textContent=resultNote.hidden?'':textApi().visibleText({vi:`Hiển thị ${ADD_RESULT_LIMIT} kết quả phù hợp đầu tiên. Hãy nhập thêm ký tự để thu hẹp.`,zh:`目前顯示前 ${ADD_RESULT_LIMIT} 筆符合結果，請繼續輸入款號縮小範圍。`});
+      const emptyCopy=filterMode==='code'&&!query
+        ?{vi:'Nhập mã hàng để bắt đầu lọc.',zh:'請輸入款號開始篩選。'}
+        :filterMode==='vi'&&!selectedVi
+          ?{vi:'Vui lòng chọn tên tiếng Việt.',zh:'請選擇越文名稱。'}
+          :{vi:'Không có mã phù hợp để thêm.',zh:'沒有可新增的符合款號。'};
       body.querySelector('[data-group-add-body]').innerHTML=rows.length?rows.map(item=>{
         const other=store().groupForProduct(item.code);
-        const disabled=!!other||existingCodes.has(normalize(item.code));
-        return `<tr><td class="ui-table-center-cell"><input type="checkbox" data-group-add-code="${safe(item.code)}" ${chosen.has(normalize(item.code))?'checked':''} ${disabled?'disabled':''}></td><td><b>${safe(item.code)}</b></td><td>${safe(item.zh||'—')}</td><td>${safe(item.vi||'—')}</td><td>${safe(item.sz||'—')}</td><td>${other?`<span class="product-group-blocked">${safe(other.name||other.groupId)}</span>`:'<span class="ui-dual-copy"><strong>Chưa có nhóm</strong><span>未加入群組</span></span>'}</td></tr>`;
-      }).join(''):'<tr><td colspan="6" class="ui-table-empty"><span class="ui-dual-copy"><strong>Không có mã phù hợp để thêm</strong><span>沒有可新增的符合款號</span></span></td></tr>';
+        const compatible=window.PCMSProductModel.matchesGroupSignature(item,group.signature);
+        const disabled=!!other||existingCodes.has(normalize(item.code))||!compatible;
+        const stateCopy=other
+          ?`<span class="product-group-blocked">${safe(other.name||other.groupId)}</span>`
+          :compatible
+            ?'<span class="product-group-available ui-dual-copy"><strong>Có thể thêm</strong><span>可加入</span></span>'
+            :'<span class="product-group-blocked ui-dual-copy"><strong>Không cùng sản phẩm</strong><span>不符合同產品條件</span></span>';
+        return `<tr><td class="ui-table-center-cell"><input type="checkbox" data-group-add-code="${safe(item.code)}" ${chosen.has(normalize(item.code))?'checked':''} ${disabled?'disabled':''}></td><td title="${safe(item.code)}"><b>${safe(item.code)}</b></td><td title="${safe(item.zh||'—')}">${safe(item.zh||'—')}</td><td title="${safe(item.vi||'—')}">${safe(item.vi||'—')}</td><td>${safe(item.sz||'—')}</td><td>${stateCopy}</td></tr>`;
+      }).join(''):`<tr><td colspan="6" class="ui-table-empty"><span class="ui-dual-copy"><strong>${safe(emptyCopy.vi)}</strong><span>${safe(emptyCopy.zh)}</span></span></td></tr>`;
     }
-    search.addEventListener('input',draw);
+    fillFilterOptions();
+    search.addEventListener('input',()=>{ clearAddStatus();draw(); });
+    mode.addEventListener('change',()=>{ clearAddStatus();draw(); });
+    viSelect.addEventListener('change',()=>{ clearAddStatus();draw(); });
     body.addEventListener('change',event=>{
       const code=normalize(event.target?.dataset?.groupAddCode);
       if(!code) return;
       if(event.target.checked) chosen.add(code); else chosen.delete(code);
+      clearAddStatus();
     });
     draw();
+    const handleAddLanguageChange=()=>{ fillFilterOptions();draw(); };
+    document.addEventListener('pcms:languagechange',handleAddLanguageChange);
     ui().openDialog({
-      title:{vi:'Thêm mã hàng vào nhóm',zh:'新增款號到群組'},body,size:'large',keepPrevious:true,
+      title:{vi:'Thêm mã hàng vào nhóm',zh:'新增款號到群組'},body,size:'xlarge',keepPrevious:true,
       actions:[{text:{vi:'Hủy',zh:'取消'}},{text:{vi:'Thêm mã đã chọn',zh:'加入所選款號'},icon:'ti-plus',kind:'primary',onClick:()=>{
-        const added=candidates.filter(item=>chosen.has(normalize(item.code))&&!store().groupForProduct(item.code));
-        if(!added.length) return false;
+        const added=candidates.filter(item=>chosen.has(normalize(item.code))&&!store().groupForProduct(item.code)
+          &&window.PCMSProductModel.matchesGroupSignature(item,group.signature));
+        if(!added.length){
+          setAddStatus({vi:'Vui lòng chọn ít nhất 1 mã có thể thêm.',zh:'請先勾選至少1個可加入的款號。'});
+          return false;
+        }
         onAdd(added);
         return true;
-      }}]
+      }}],
+      onClose:()=>document.removeEventListener('pcms:languagechange',handleAddLanguageChange)
     });
   }
 
@@ -257,14 +351,16 @@
     const members=groupMembers(group);
     const body=document.createElement('div');
     body.className='product-group-detail-dialog';
-    body.innerHTML=`<div class="product-group-detail-heading"><span><span class="ui-dual-copy"><strong>Khách hàng:</strong><span>客人：</span></span><b>${safe(groupClient(group))}</b></span><button type="button" class="product-group-detail-name" data-product-group-rename><span class="ui-dual-copy"><strong>Tên nhóm:</strong><span>群組名稱：</span></span><b data-product-group-name>${safe(group.name||group.groupId)}</b><i class="ti ti-edit"></i></button><button type="button" class="ui-button is-primary" data-product-group-add><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm mã hàng</strong><span>新增款號</span></span></button></div><div data-product-group-detail-selector></div>`;
+    body.innerHTML=`<div class="product-group-detail-heading"><span><span class="ui-dual-copy"><strong>Khách hàng:</strong><span>客人：</span></span><b>${safe(groupClient(group))}</b></span><button type="button" class="product-group-detail-name" data-product-group-rename><span class="ui-dual-copy"><strong>Tên nhóm:</strong><span>群組名稱：</span></span><b data-product-group-name>${safe(group.name||group.groupId)}</b><i class="ti ti-edit"></i></button><button type="button" class="ui-button is-primary" data-product-group-add><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Thêm mã hàng</strong><span>新增款號</span></span></button></div><div data-product-group-detail-status hidden></div><div data-product-group-detail-selector></div>`;
     const selectorHost=body.querySelector('[data-product-group-detail-selector]');
+    const detailStatus=body.querySelector('[data-product-group-detail-status]');
     let detailProducts=members.slice();
     let selectedCodes=members.map(item=>item.code);
     let activeSize=members[0]?.sz;
     let selector;
-    function renderSelector(){
-      if(selector){ selectedCodes=selector.selectedCodes();activeSize=selector.activeSize(); }
+    function renderSelector(nextActiveSize=''){
+      if(selector&&!nextActiveSize){ selectedCodes=selector.selectedCodes();activeSize=selector.activeSize(); }
+      if(nextActiveSize) activeSize=nextActiveSize;
       selector=groupUI().createMemberSelector({products:detailProducts,currentCode:members[0]?.code,activeSize,compact:true,selectedCodes,selectable:true});
       selectorHost.replaceChildren(selector.element);
     }
@@ -276,7 +372,10 @@
     body.querySelector('[data-product-group-add]').addEventListener('click',()=>openAddProducts(group,detailProducts,added=>{
       selectedCodes=selector.selectedCodes();
       added.forEach(item=>{ if(!detailProducts.some(row=>normalize(row.code)===normalize(item.code))) detailProducts.push(item);selectedCodes.push(item.code); });
-      renderSelector();
+      selectedCodes=[...new Set(selectedCodes.map(normalize).filter(Boolean))];
+      renderSelector(normalize(added[0]?.sz));
+      detailStatus.replaceChildren(ui().createNotice({text:{vi:`Đã thêm ${added.length} mã vào danh sách chờ lưu. Vui lòng bấm “Xác nhận và lưu” để hoàn tất.`,zh:`已將 ${added.length} 個款號加入待儲存清單，請再按「確認並儲存」完成。`},kind:'success',long:true}));
+      detailStatus.hidden=false;
     }));
     const dialog=ui().openDialog({
       title:{vi:'Chi tiết nhóm cùng sản phẩm',zh:'同產品群組明細'},body,size:'xlarge',
