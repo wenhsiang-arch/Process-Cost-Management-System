@@ -246,6 +246,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         <i class="ti ti-chevron-left" aria-hidden="true"></i>
       </button>
     </div>
+    <div class="ni" id="nv-home-updates" onclick="void openHomeUpdates()"><i class="ti ti-speakerphone"></i><div class="nl"><span class="nvi">Cập nhật hệ thống</span><span class="nzh">系統更新</span></div></div>
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Dữ liệu đơn hàng</span><span class="nzh">訂單資料</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
@@ -304,6 +305,22 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
           </header>
 
           <div class="home-update-timeline">
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-08-21">21/08/2026</time>
+                <h2 class="ui-dual-copy">
+                  <strong>Cải thiện bảng sản xuất, thưởng và thao tác hằng ngày</strong>
+                  <span>改善生產表格、績效獎金與日常操作</span>
+                </h2>
+                <div class="home-update-description">
+                  <p class="ui-text-vi">Thưởng hiệu suất tháng được xếp từ cao xuống thấp. Bản ghi sản xuất có thêm giờ hiệu lực và tìm kiếm toàn bảng; hiệu suất ngày được chia mỗi trang một tuần để xem nhanh hơn.</p>
+                  <p class="ui-text-vi">Hệ thống ghi nhớ cột hiển thị và độ rộng bảng theo từng tài khoản, hỗ trợ phím Enter khi nhập hoặc tìm kiếm, đồng thời có lối tắt Cập nhật hệ thống ở đầu menu bên trái.</p>
+                  <p class="ui-text-zh">月績效獎金改為由高至低排列；生產紀錄新增有效工時與全表搜尋；日績效改為每頁顯示一週，減少單頁內容。</p>
+                  <p class="ui-text-zh">系統會依各登入帳號記住表格顯示欄位與欄寬，單行輸入及搜尋可使用 Enter 確認，左側選單最上方也新增系統更新捷徑。</p>
+                </div>
+              </div>
+            </article>
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
@@ -430,6 +447,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               </div>
               <span class="ui-dual-copy"><strong id="production-entry-table-title-vi">Bản ghi của nhân viên trong tháng</strong><span id="production-entry-table-title-zh">員工本月生產紀錄</span></span>
               <div class="production-entry-table-filters" id="production-entry-table-filters">
+                <label class="production-entry-table-search" for="production-entry-record-search">
+                  <i class="ti ti-search" aria-hidden="true"></i>
+                  <input type="search" id="production-entry-record-search" autocomplete="off" placeholder="Tìm trong bảng / 搜尋表格" aria-label="Tìm trong bảng / 搜尋表格">
+                </label>
                 <div class="production-entry-table-filter">
                   <span class="production-entry-table-filter-label ui-dual-copy"><strong>Phạm vi</strong><span>範圍</span></span>
                   <div class="production-record-date-filter">
@@ -474,6 +495,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <th class="production-number-cell ui-table-center-cell ui-table-sortable-header" data-production-column="processNo" data-ui-table-column="processNo" data-ui-table-sort-key="processNo"><span class="ui-table-sort-heading"><span>Số CĐ</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序號</span></th>
                 <th class="ui-table-sortable-header" data-production-column="processName" data-ui-table-column="processName" data-ui-table-sort-key="processName"><span class="ui-table-sort-heading"><span>Tên công đoạn</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序名稱</span></th>
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="quantity" data-ui-table-column="quantity" data-ui-table-sort-key="quantity"><span class="ui-table-sort-heading"><span>SL sản xuất</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">生產數量</span></th>
+                <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="effectiveHours" data-ui-table-column="effectiveHours" data-ui-table-sort-key="effectiveHours"><span class="ui-table-sort-heading"><span>Giờ hiệu lực</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">有效工時</span></th>
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="supplementHours" data-ui-table-column="supplementHours" data-ui-table-sort-key="supplementHours"><span class="ui-table-sort-heading"><span>Giờ bổ sung</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">補充工時</span></th>
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="processSeconds" data-ui-table-column="processSeconds" data-ui-table-sort-key="processSeconds"><span class="ui-table-sort-heading"><span>Giây</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">工序秒數</span></th>
                 <th class="production-number-cell ui-table-number-cell ui-table-sortable-header" data-production-column="hourlyCapacity" data-ui-table-column="hourlyCapacity" data-ui-table-sort-key="hourlyCapacity"><span class="ui-table-sort-heading"><span>SL/giờ</span><i class="ti ti-arrows-sort ui-table-sort-icon is-idle" data-ui-table-sort-icon aria-hidden="true"></i></span><span class="tv">每小時數量</span></th>
@@ -509,7 +531,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
             </div>
           </section>
           <section class="production-data-section ui-data-section">
-            <div class="ui-section-header"><i class="ti ti-chart-bar"></i><span class="ui-dual-copy"><strong>Hiệu suất nhân viên</strong><span>員工績效</span></span><span class="production-section-count"><span id="production-records-count">0</span> ngày công / 人日</span></div>
+            <div class="ui-section-header"><i class="ti ti-chart-bar"></i><span class="ui-dual-copy"><strong>Hiệu suất nhân viên</strong><span>員工績效</span></span><div class="production-entry-pagination production-records-week-pagination" id="production-records-pagination" hidden><button type="button" tabindex="-1" id="production-records-page-previous" aria-label="Tuần mới hơn / 較新的週" title="Tuần mới hơn / 較新的週"><i class="ti ti-chevron-left"></i></button><span class="ui-dual-copy production-records-page-indicator"><strong id="production-records-page-indicator-vi">Tuần 1 / 1</strong><span id="production-records-page-indicator-zh">第 1 / 1 週</span></span><button type="button" tabindex="-1" id="production-records-page-next" aria-label="Tuần cũ hơn / 較早的週" title="Tuần cũ hơn / 較早的週"><i class="ti ti-chevron-right"></i></button></div><span class="production-section-count"><span id="production-records-count">0</span> ngày công / 人日</span></div>
             <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table production-records-table production-performance-table" id="production-records-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
               <thead><tr>
                 <th data-ui-table-column="date" data-ui-table-sort-type="date" data-ui-table-min-width="96" data-ui-table-width="106" data-ui-table-max-width="120"><span class="ui-dual-copy"><strong>Ngày</strong><span>日期</span></span></th>
@@ -1345,14 +1367,14 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
 <script src="js/safe-dom.js?v=20260812-2"></script>
 <script src="js/ui-text.js?v=20260813-1"></script>
-<script src="js/ui-runtime.js?v=20260812-2"></script>
+<script src="js/ui-runtime.js?v=20260821-1"></script>
 <script src="js/ui-components.js?v=20260813-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
 <script src="js/ui-table.js?v=20260810-5"></script>
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260820-1"></script>
+  <script src="js/features.js?v=20260821-1"></script>
 <script src="js/auth.js?v=20260813-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
@@ -1377,6 +1399,14 @@ function setSidebarCollapsed(collapsed){
 function togglePrimarySidebar(){
   const shell=document.getElementById('app-shell');
   setSidebarCollapsed(!(shell&&shell.classList.contains('sidebar-collapsed')));
+}
+
+// openHomeUpdates（開啟系統更新）：先完成目前功能離開流程，再回到不讀取業務資料的主頁。
+async function openHomeUpdates(){
+  await window.PCMSFeatures?.leaveActivePage?.();
+  if(typeof showFeatureHome==='function') showFeatureHome();
+  document.getElementById('nv-home-updates')?.classList.add('active');
+  window.requestAnimationFrame(()=>document.getElementById('home-updates-title')?.scrollIntoView({block:'start',behavior:'smooth'}));
 }
 
 function setManagementNavOpen(open){

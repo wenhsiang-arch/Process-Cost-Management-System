@@ -25,12 +25,15 @@
     dailyRows:[],
     recordDateFilter:'',
     recordStatusFilter:'active',
+    recordSearch:'',
     recordPage:1,
     recordRequest:0,
     pendingContext:null
   }; // state（登記頁目前狀態）
 
   const RECORD_PAGE_SIZE = 50; // RECORD_PAGE_SIZE（產能登記表格每頁筆數）
+  const RECORD_PREFERENCE_SCOPE = 'productionEntryTablePreferences'; // RECORD_PREFERENCE_SCOPE（依 UID 隔離的紀錄表格條件）
+  const RECORD_PREFERENCE_VERSION = '1'; // RECORD_PREFERENCE_VERSION（紀錄表格偏好格式版本）
   const CONTEXT_VERSION_RETRIES = 2; // CONTEXT_VERSION_RETRIES（員工資料版本重試上限）：初次讀取後最多重試兩次。
   const PROCESS_TOTAL_TTL_MS = 30000; // PROCESS_TOTAL_TTL_MS（工序累計畫面有效時間）：只控制顯示刷新，不參與正式超量判斷。
   const ALL_EMPLOYEES_OPTION = Object.freeze({allEmployees:true,employeeId:'Tất cả / 全部',name:'',department:''});
@@ -45,6 +48,7 @@
     {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},headerLabel:{vi:'Số CĐ',zh:'工序號'},minimum:68,preferred:72,maximum:84},
     {key:'processName',label:{vi:'Tên công đoạn',zh:'工序名稱'},minimum:190,preferred:240,maximum:420},
     {key:'quantity',label:{vi:'Số lượng sản xuất',zh:'生產數量'},headerLabel:{vi:'SL sản xuất',zh:'生產數量'},minimum:100,preferred:106,maximum:132},
+    {key:'effectiveHours',label:{vi:'Giờ hiệu lực',zh:'有效工時'},minimum:88,preferred:96,maximum:116},
     {key:'supplementHours',label:{vi:'Giờ bổ sung',zh:'補充工時'},minimum:100,preferred:106,maximum:132},
     {key:'processSeconds',label:{vi:'Giây công đoạn',zh:'工序秒數'},headerLabel:{vi:'Giây',zh:'工序秒數'},minimum:76,preferred:82,maximum:100},
     {key:'hourlyCapacity',label:{vi:'Số lượng mỗi giờ',zh:'每小時數量'},headerLabel:{vi:'SL/giờ',zh:'每小時數量'},minimum:86,preferred:92,maximum:112},
@@ -63,6 +67,8 @@
 
   const dropdownControllers = new Map(); // dropdownControllers（產能登記使用的共用搜尋下拉控制器）
   let productionTableControl = null; // productionTableControl（當日表格共用操作控制）
+  let recordPreferenceUserId = ''; // recordPreferenceUserId（目前紀錄表格偏好所屬使用者）
+  let recordPreferenceTimer = null; // recordPreferenceTimer（合併連續搜尋輸入的本機保存工作）
 
   function element(id){ return document.getElementById(id); }
   function isAdmin(){ return window.cu?.role === 'admin'; }
@@ -98,16 +104,98 @@
   function numberText(value){ return Number(value || 0).toLocaleString(); }
   function hoursText(value){
     const hours = Number(value);
-    return Number.isFinite(hours) ? hours.toLocaleString(undefined,{minimumFractionDigits:hours % 1 === 0 ? 0 : 1,maximumFractionDigits:1}) : '—';
+    return Number.isFinite(hours) ? hours.toLocaleString(undefined,{minimumFractionDigits:hours % 1 === 0 ? 0 : 1,maximumFractionDigits:2}) : '—';
   }
   function hourlyCapacityText(value){
     const capacity = Number(value);
     return Number.isInteger(capacity) && capacity > 0 ? capacity.toLocaleString() : '—';
   }
 
+  function effectiveHours(item){
+    if(!window.PCMSProductionAttendance?.calculateEfficiency) return null;
+    const result = window.PCMSProductionAttendance.calculateEfficiency([{...item,status:'active'}],null);
+    const value = Number(result?.standardHours);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  function normalizeRecordSearch(value){
+    return String(value ?? '').trim().toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  }
+
+  function recordSearchText(item){
+    const employee = window.PCMSProductionEmployees?.find?.(item.employeeId);
+    const dateBadge = dateBadgeText(item.productionDate);
+    const status = item.status === 'voided' ? 'voided đã hủy 已作廢' : 'active hiệu lực 有效';
+    const action = !canManageRecords() ? '' : (item.status === 'voided'
+      ? (isAdmin() ? 'xóa vĩnh viễn 永久刪除' : '')
+      : 'hủy bỏ 作廢');
+    const effective = effectiveHours(item);
+    return [
+      item.productionDate,dateText(item.productionDate),dateBadge.vi,dateBadge.zh,item.employeeId,employee?.name,item.employeeName,
+      employee?.department,item.department,item.orderNo,item.productCode,item.orderQtySnapshot,numberText(item.orderQtySnapshot),
+      item.processNo,item.processNameVi,item.processNameZh,item.supplementReason,item.quantity,numberText(item.quantity),
+      item.supplementHours,hoursText(item.supplementHours),effective,hoursText(effective),item.processSecSnapshot,
+      numberText(item.processSecSnapshot),item.hourlyCapacitySnapshot,hourlyCapacityText(item.hourlyCapacitySnapshot),status,action
+    ].map(normalizeRecordSearch).join(' ');
+  }
+
   function filteredDailyRows(){
-    if(state.processRowsMode || state.recordStatusFilter === 'all') return [...state.dailyRows];
-    return state.dailyRows.filter(item=>item.status === state.recordStatusFilter);
+    if(state.processRowsMode) return [...state.dailyRows];
+    let rows = state.recordStatusFilter === 'all'
+      ? [...state.dailyRows]
+      : state.dailyRows.filter(item=>item.status === state.recordStatusFilter);
+    const tokens = normalizeRecordSearch(state.recordSearch).split(/\s+/).filter(Boolean);
+    if(tokens.length) rows = rows.filter(item=>{
+      const searchable = recordSearchText(item);
+      return tokens.every(token=>searchable.includes(token));
+    });
+    return rows;
+  }
+
+  function currentTrustedUserId(){
+    const userId = String(window.cu?.authUid || '');
+    return userId && window.firebaseAuthUser?.uid === userId ? userId : '';
+  }
+
+  function saveRecordPreferences(){
+    const expectedUserId = currentTrustedUserId();
+    if(!expectedUserId || !window.pcmsDataCache?.write) return;
+    if(recordPreferenceTimer) clearTimeout(recordPreferenceTimer);
+    recordPreferenceTimer = setTimeout(()=>{
+      recordPreferenceTimer = null;
+      if(currentTrustedUserId() !== expectedUserId) return;
+      void window.pcmsDataCache.write(RECORD_PREFERENCE_SCOPE,RECORD_PREFERENCE_VERSION,{
+        date:state.recordDateFilter,
+        status:state.recordStatusFilter,
+        search:state.recordSearch,
+        page:state.recordPage
+      });
+    },120);
+  }
+
+  async function restoreRecordPreferences(){
+    const expectedUserId = currentTrustedUserId();
+    if(!expectedUserId || !window.pcmsDataCache?.read) return false;
+    if(recordPreferenceUserId === expectedUserId) return true;
+    state.recordDateFilter = '';
+    state.recordStatusFilter = 'active';
+    state.recordSearch = '';
+    state.recordPage = 1;
+    try{
+      const stored = await window.pcmsDataCache.read(RECORD_PREFERENCE_SCOPE,RECORD_PREFERENCE_VERSION);
+      if(currentTrustedUserId() !== expectedUserId) return false;
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(stored?.date || '')) ? String(stored.date) : '';
+      state.recordDateFilter = date && date <= today() ? date : '';
+      state.recordStatusFilter = ['active','voided','all'].includes(stored?.status) ? stored.status : 'active';
+      state.recordSearch = String(stored?.search || '').slice(0,200);
+      state.recordPage = Math.max(1,Math.round(Number(stored?.page)||1));
+    }catch(_error){}
+    if(currentTrustedUserId() !== expectedUserId) return false;
+    recordPreferenceUserId = expectedUserId;
+    const search = element('production-entry-record-search');
+    if(search) search.value = state.recordSearch;
+    syncRecordFilterCopy();
+    return true;
   }
 
   function syncRecordFilterCopy(){
@@ -473,7 +561,6 @@
   function clearEmployee(options={}){
     state.employee = null;
     state.allEmployees = false;
-    state.recordDateFilter = '';
     state.recordPage = 1;
     state.recordRequest += 1;
     state.contextRequest += 1;
@@ -488,6 +575,7 @@
     setProcessRowsMode(false);
     syncDropdownAvailability();
     renderDailyRows([]);
+    saveRecordPreferences();
   }
 
   function setAttendanceSummary(vi,zh){
@@ -641,7 +729,6 @@
     if(employee?.allEmployees){ selectAllEmployees(); return; }
     state.employee = employee;
     state.allEmployees = false;
-    state.recordDateFilter = '';
     state.recordPage = 1;
     element('production-employee-input').value = employee.employeeId;
     element('production-entry-employee-name-input').value = employee.name || '';
@@ -650,13 +737,13 @@
     closeDropdown('production-employee-name-options');
     setStatus('','','info');
     syncDropdownAvailability();
+    saveRecordPreferences();
     void loadEmployeeContext();
   }
 
   function selectAllEmployees(){
     state.employee = null;
     state.allEmployees = true;
-    state.recordDateFilter = '';
     state.recordPage = 1;
     setProcessRowsMode(false);
     clearOrder();
@@ -671,6 +758,7 @@
     closeDropdown('production-employee-name-options');
     syncDropdownAvailability();
     setStatus('Đang hiển thị bản ghi của tất cả nhân viên.','目前顯示全部員工紀錄。','info');
+    saveRecordPreferences();
     void loadDailyRows();
   }
 
@@ -1346,6 +1434,7 @@
       processNo:Number(item.processNo || 0),
       processName:supplement ? (item.supplementReason || '—') : (item.processNameVi || item.processNameZh || ''),
       quantity:supplement ? null : Number(item.quantity || 0),
+      effectiveHours:effectiveHours(item),
       supplementHours:supplement ? Number(item.supplementHours || 0) : null,
       orderQuantity:supplement ? null : Number(item.orderQtySnapshot || 0),
       processSeconds:supplement ? null : Number(item.processSecSnapshot || 0),
@@ -1397,6 +1486,7 @@
       appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
       appendCell(row,supplement ? (item.supplementReason || '—') : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
       appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity','production-value-badge');
+      appendCell(row,hoursText(effectiveHours(item)),'production-number-cell','effectiveHours');
       appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
       const secondsCell=appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
       if(!supplement&&window.PCMSQuickProcessSeconds){
@@ -1490,6 +1580,7 @@
     state.recordDateFilter = normalized && normalized <= today() ? normalized : '';
     state.recordPage = 1;
     syncEntryTableMode();
+    saveRecordPreferences();
     void loadDailyRows();
   }
 
@@ -1508,6 +1599,7 @@
     state.recordPage = 1;
     syncEntryTableMode();
     renderDailyRows(state.dailyRows,{store:false});
+    saveRecordPreferences();
   }
 
   function shiftRecordPage(offset){
@@ -1517,6 +1609,7 @@
     if(nextPage === state.recordPage) return;
     state.recordPage = nextPage;
     renderDailyRows(state.dailyRows,{store:false});
+    saveRecordPreferences();
   }
 
   function dateObject(value){
@@ -1602,6 +1695,15 @@
     element('production-record-date-filter-input').addEventListener('change',event=>setRecordDateFilter(event.target.value));
     element('production-record-date-filter-clear').addEventListener('click',()=>setRecordDateFilter(''));
     element('production-entry-record-status-filter').addEventListener('change',event=>setRecordStatusFilter(event.target.value));
+    const recordSearch = element('production-entry-record-search');
+    setEntryLocalizedAttribute(recordSearch,'placeholder','Tìm trong bảng','搜尋表格');
+    setEntryLocalizedAttribute(recordSearch,'aria-label','Tìm trong bảng','搜尋表格');
+    recordSearch?.addEventListener('input',event=>{
+      state.recordSearch = String(event.currentTarget?.value || '').slice(0,200);
+      state.recordPage = 1;
+      renderDailyRows(state.dailyRows,{store:false});
+      saveRecordPreferences();
+    });
     element('production-entry-page-previous').addEventListener('click',()=>shiftRecordPage(-1));
     element('production-entry-page-next').addEventListener('click',()=>shiftRecordPage(1));
     initializeSearchDropdowns();
@@ -1659,7 +1761,9 @@
     state.dateAuto = productionDate === today();
     state.recordDateFilter = /^\d{4}-\d{2}-\d{2}$/.test(pending.productionDate || '') ? productionDate : '';
     state.recordStatusFilter = 'active';
+    state.recordSearch = '';
     state.recordPage = 1;
+    if(element('production-entry-record-search')) element('production-entry-record-search').value = '';
     syncDateControls();
     clearOrder();
     element('production-order-input').value = '';
@@ -1711,11 +1815,13 @@
     }else{
       requestAnimationFrame(()=>element('production-entry-data-section')?.scrollIntoView({block:'start'}));
     }
+    saveRecordPreferences();
     return true;
   }
 
   async function productionEntryInit(){
     init();
+    await restoreRecordPreferences();
     if(await applyPendingContext()){
       startDateTimer();
       return;

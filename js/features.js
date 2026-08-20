@@ -4,7 +4,7 @@
     history:'js/history.js?v=20260812-1',
     fileIo:'js/file-io.js?v=20260808-1',
     settings:'js/settings.js?v=20260809-3',
-    uiTableControls:'js/ui-table-controls.js?v=20260813-2',
+    uiTableControls:'js/ui-table-controls.js?v=20260821-1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-3',
     productCache:'js/product-cache.js?v=20260806-1',
     productModel:'js/product-model.js?v=20260813-1',
@@ -28,12 +28,12 @@
     productionEntryStore:'js/production/entry-store.js?v=20260817-2',
     productionReportStore:'js/production/report-store.js?v=20260816-2',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260816-2',
-    productionEntry:'js/production/production-entry.js?v=20260817-1',
-    productionRecords:'js/production/production-records.js?v=20260817-1',
+    productionEntry:'js/production/production-entry.js?v=20260821-1',
+    productionRecords:'js/production/production-records.js?v=20260821-1',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260816-1',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
-    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260817-5',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260821-1',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessEditStore:'js/production/process-edit-store.js?v=20260815-4',
@@ -57,7 +57,7 @@
     products:'styles/features/products.css?v=20260810-1',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260813-1',
-    production:'styles/features/production.css?v=20260814-2',
+    production:'styles/features/production.css?v=20260821-1',
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260814-3',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
@@ -594,6 +594,7 @@
     updateActivePageTitle(getPage(pageName));
     window.PCMSUIFileDrop?.activatePage?.(pageName);
     try{
+      await window.PCMSUITableControls?.preparePagePreferences?.(pageName);
       await runPageHooks(pageName,'onOpen');
       window.PCMSUITableControls?.activatePage?.(pageName);
       window.PCMSUITable?.activatePage?.(pageName);

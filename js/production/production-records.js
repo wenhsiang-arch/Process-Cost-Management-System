@@ -3,10 +3,15 @@
   'use strict';
 
   const MAX_RANGE_DAYS = 31; // MAX_RANGE_DAYS（每日績效單次最多查詢天數）
+  const WEEK_PAGE_DAYS = 7; // WEEK_PAGE_DAYS（每日績效每頁固定顯示七個日曆日）
+  const PREFERENCE_SCOPE = 'productionRecordsPreferences'; // PREFERENCE_SCOPE（依 UID 隔離的每日績效條件）
+  const PREFERENCE_VERSION = '1'; // PREFERENCE_VERSION（每日績效偏好格式版本）
   const state = {
     initialized:false,rows:[],filtered:[],loading:false,loadRequest:0,
-    selectedEmployeeId:'',searchDropdown:null,pendingContext:null
+    selectedEmployeeId:'',searchDropdown:null,pendingContext:null,weekPage:1
   }; // state（每日績效頁狀態）
+  let preferenceUserId=''; // preferenceUserId（目前偏好所屬可信任使用者）
+  let preferenceTimer=null; // preferenceTimer（合併連續搜尋輸入的本機保存工作）
 
   function element(id){ return document.getElementById(id); }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
@@ -14,6 +19,14 @@
     const value = new Date();
     value.setDate(value.getDate()+days);
     return typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
+  }
+  function formatDate(value){
+    return typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
+  }
+  function shiftedDate(value,days){
+    const date=dateObject(value);
+    date.setDate(date.getDate()+days);
+    return formatDate(date);
   }
   function dateObject(value){
     const [year,month,day] = String(value || '').split('-').map(Number);
@@ -32,9 +45,11 @@
     if(!input) return;
     const value = dateObject(input.value || today());
     value.setDate(value.getDate()+days);
-    const nextValue = typeof formatLocalDate === 'function' ? formatLocalDate(value) : value.toISOString().slice(0,10);
+    const nextValue = formatDate(value);
     input.value = nextValue > today() ? today() : nextValue;
+    state.weekPage=1;
     syncDateControl(inputId,nextId);
+    savePreferences();
     void load();
   }
   function openDatePicker(inputId){
@@ -104,6 +119,61 @@
       employeeId:state.selectedEmployeeId,
       status:element('production-record-status-filter').value
     };
+  }
+
+  function currentTrustedUserId(){
+    const userId=String(window.cu?.authUid||'');
+    return userId&&window.firebaseAuthUser?.uid===userId?userId:'';
+  }
+
+  function savePreferences(){
+    const expectedUserId=currentTrustedUserId();
+    if(!expectedUserId||!window.pcmsDataCache?.write) return;
+    if(preferenceTimer) clearTimeout(preferenceTimer);
+    preferenceTimer=setTimeout(()=>{
+      preferenceTimer=null;
+      if(currentTrustedUserId()!==expectedUserId) return;
+      const current=filters();
+      void window.pcmsDataCache.write(PREFERENCE_SCOPE,PREFERENCE_VERSION,{
+        from:current.from,to:current.to,search:current.search,employeeId:current.employeeId,
+        status:current.status,weekPage:state.weekPage
+      });
+    },120);
+  }
+
+  async function restorePreferences(){
+    const expectedUserId=currentTrustedUserId();
+    if(!expectedUserId||!window.pcmsDataCache?.read) return false;
+    if(preferenceUserId===expectedUserId) return true;
+    element('production-record-from').value=shiftDate(-6);
+    element('production-record-to').value=today();
+    element('production-record-search').value='';
+    element('production-record-status-filter').value='';
+    state.selectedEmployeeId='';
+    state.weekPage=1;
+    try{
+      const stored=await window.pcmsDataCache.read(PREFERENCE_SCOPE,PREFERENCE_VERSION);
+      if(currentTrustedUserId()!==expectedUserId) return false;
+      const from=String(stored?.from||'');
+      const to=String(stored?.to||'');
+      try{
+        if(to<=today()&&rangeDates(from,to).length){
+          element('production-record-from').value=from;
+          element('production-record-to').value=to;
+        }
+      }catch(_error){}
+      const employeeId=String(stored?.employeeId||'');
+      state.selectedEmployeeId=window.PCMSProductionEmployees?.find?.(employeeId)?employeeId:'';
+      element('production-record-search').value=String(stored?.search||'').slice(0,200);
+      element('production-record-status-filter').value=['ready','missing-attendance','invalid-attendance','invalid-capacity'].includes(stored?.status)
+        ?stored.status:'';
+      state.weekPage=Math.max(1,Math.round(Number(stored?.weekPage)||1));
+    }catch(_error){}
+    if(currentTrustedUserId()!==expectedUserId) return false;
+    preferenceUserId=expectedUserId;
+    syncDateControl('production-record-from','production-record-from-next');
+    syncDateControl('production-record-to','production-record-to-next');
+    return true;
   }
 
   function employeeInfo(employeeId,entries=[],attendance=null){
@@ -350,8 +420,39 @@
     }catch(error){ await showError(error); }
   }
 
+  function weekPageInfo(){
+    let dates=[];
+    try{ dates=rangeDates(filters().from,filters().to); }catch(_error){}
+    const totalPages=Math.max(1,Math.ceil(dates.length/WEEK_PAGE_DAYS));
+    state.weekPage=Math.max(1,Math.min(state.weekPage,totalPages));
+    const endIndex=dates.length-1-((state.weekPage-1)*WEEK_PAGE_DAYS);
+    const pageDates=endIndex>=0?dates.slice(Math.max(0,endIndex-WEEK_PAGE_DAYS+1),endIndex+1):[];
+    const host=element('production-records-pagination');
+    const previous=element('production-records-page-previous');
+    const next=element('production-records-page-next');
+    const vi=element('production-records-page-indicator-vi');
+    const zh=element('production-records-page-indicator-zh');
+    if(host) host.hidden=totalPages<=1;
+    if(previous) previous.disabled=state.weekPage<=1;
+    if(next) next.disabled=state.weekPage>=totalPages;
+    if(vi) vi.textContent=`Tuần ${state.weekPage} / ${totalPages}`;
+    if(zh) zh.textContent=`第 ${state.weekPage} / ${totalPages} 週`;
+    return {totalPages,from:pageDates[0]||'',to:pageDates.at(-1)||''};
+  }
+
+  function shiftWeekPage(offset){
+    const info=weekPageInfo();
+    const nextPage=Math.max(1,Math.min(state.weekPage+Number(offset||0),info.totalPages));
+    if(nextPage===state.weekPage) return;
+    state.weekPage=nextPage;
+    render();
+    savePreferences();
+  }
+
   function render(){
-    state.filtered = filteredRows();
+    const matched=filteredRows();
+    const week=weekPageInfo();
+    state.filtered = matched.filter(item=>(!week.from||item.productionDate>=week.from)&&(!week.to||item.productionDate<=week.to));
     const body = element('production-records-table-body');
     body.replaceChildren();
     state.filtered.forEach((item,index)=>{
@@ -442,7 +543,7 @@
   }
 
   function clearFilters(){
-    element('production-record-from').value = shiftDate(-7);
+    element('production-record-from').value = shiftDate(-6);
     element('production-record-to').value = today();
     syncDateControl('production-record-from','production-record-from-next');
     syncDateControl('production-record-to','production-record-to-next');
@@ -450,13 +551,15 @@
     state.selectedEmployeeId='';
     state.searchDropdown?.close?.();
     element('production-record-status-filter').value = '';
+    state.weekPage=1;
+    savePreferences();
     void load();
   }
 
   function init(){
     if(state.initialized) return;
     state.initialized = true;
-    element('production-record-from').value = shiftDate(-7);
+    element('production-record-from').value = shiftDate(-6);
     element('production-record-to').value = today();
     syncDateControl('production-record-from','production-record-from-next');
     syncDateControl('production-record-to','production-record-to-next');
@@ -467,15 +570,25 @@
     element('production-record-to-previous').addEventListener('click',()=>shiftDateInput('production-record-to','production-record-to-next',-1));
     element('production-record-to-next').addEventListener('click',()=>shiftDateInput('production-record-to','production-record-to-next',1));
     element('production-record-from').addEventListener('change',()=>{
+      state.weekPage=1;
       syncDateControl('production-record-from','production-record-from-next');
+      savePreferences();
       void load();
     });
     element('production-record-to').addEventListener('change',()=>{
+      state.weekPage=1;
       syncDateControl('production-record-to','production-record-to-next');
+      savePreferences();
       void load();
     });
-    element('production-record-search-button').addEventListener('click',()=>void load());
+    element('production-record-search-button').addEventListener('click',()=>{
+      state.weekPage=1;
+      savePreferences();
+      void load();
+    });
     element('production-record-clear-button').addEventListener('click',clearFilters);
+    element('production-records-page-previous').addEventListener('click',()=>shiftWeekPage(-1));
+    element('production-records-page-next').addEventListener('click',()=>shiftWeekPage(1));
     state.searchDropdown=window.PCMSUISearchDropdown.create({
       input:'#production-record-search',toggle:'#production-record-search-toggle',list:'#production-record-search-options',
       getItems:()=>window.PCMSProductionEmployees?.list?.()||[],
@@ -485,14 +598,25 @@
         {key:'department',mode:'text',weight:20}
       ],
       renderItem:item=>({primary:String(item.name||item.employeeId),secondary:[item.employeeId,item.department].filter(Boolean).join(' · ')}),
-      onInput:()=>{ state.selectedEmployeeId=''; render(); },
+      onInput:()=>{
+        state.selectedEmployeeId='';
+        state.weekPage=1;
+        render();
+        savePreferences();
+      },
       onSelect:item=>{
         state.selectedEmployeeId=String(item.employeeId||'');
         element('production-record-search').value=String(item.name||item.employeeId||'');
+        state.weekPage=1;
         render();
+        savePreferences();
       }
     });
-    element('production-record-status-filter').addEventListener('change',render);
+    element('production-record-status-filter').addEventListener('change',()=>{
+      state.weekPage=1;
+      render();
+      savePreferences();
+    });
   }
 
   async function loadProductionRecordsData(options={}){
@@ -502,17 +626,24 @@
 
   function applyPendingContext(){
     const context=state.pendingContext;
-    if(!context) return;
+    if(!context) return false;
     state.pendingContext=null;
     if(context.from) element('production-record-from').value=context.from;
     if(context.to) element('production-record-to').value=context.to;
     state.selectedEmployeeId=String(context.employeeId||'');
     element('production-record-search').value=String(context.employeeName||context.employeeId||'');
     element('production-record-status-filter').value='';
+    state.weekPage=1;
     syncDateControl('production-record-from','production-record-from-next');
     syncDateControl('production-record-to','production-record-to-next');
+    return true;
   }
-  async function productionRecordsInit(){ init(); applyPendingContext(); await load(); }
+  async function productionRecordsInit(){
+    init();
+    await restorePreferences();
+    if(applyPendingContext()) savePreferences();
+    await load();
+  }
   function productionRecordsLeave(){
     state.loadRequest += 1;
     state.loading = false;

@@ -18,6 +18,7 @@
   const fontRegistry = new Map(); // fontRegistry（可用字型清單）
   let currentLanguageMode = DEFAULT_LANGUAGE_MODE; // currentLanguageMode（目前實際顯示模式）
   let languageWritePromise = Promise.resolve(); // languageWritePromise（依使用者操作順序保存語言偏好）
+  const ENTER_INPUT_TYPES = new Set(['text','search','number','date','month','email','tel','url','password']); // ENTER_INPUT_TYPES（支援確認鍵的單行輸入類型）
 
   // normalizeOption（正規化外觀選項）：每個選項都保留越文與中文名稱。
   function normalizeOption(option){
@@ -169,6 +170,58 @@
     return true;
   }
 
+  function unsafeEnterAction(button){
+    const identity = `${button?.id || ''} ${button?.className || ''} ${button?.dataset?.uiAction || ''}`.toLowerCase();
+    return button?.classList?.contains?.('is-danger')
+      || /(^|[\s_-])(danger|delete|remove|destroy|void|revoke|rollback|reset|unlock|cancel|bd2)([\s_-]|$)/.test(identity);
+  }
+
+  function safeEnterAction(input){
+    const explicitHost = input.closest?.('[data-ui-enter-action]'); // explicitHost（功能明確指定確認動作的容器）
+    const selector = String(input.dataset?.uiEnterAction || explicitHost?.dataset?.uiEnterAction || '').trim();
+    if(selector){
+      try{
+        const explicit = document.querySelector(selector);
+        if(explicit?.matches?.('button:not(:disabled), input[type="submit"]:not(:disabled)')
+          && !unsafeEnterAction(explicit)) return explicit;
+      }catch(_error){}
+    }
+    const searchContext = input.type === 'search'
+      || Boolean(input.closest?.('[class*="search"], [class*="filter"], [id*="search"], [id*="filter"]'));
+    if(!searchContext) return null;
+    const host = input.closest?.('.ui-command-row, .ui-operation-panel, .ui-toolbar, .ui-section-header, .ui-dialog, .md, .pg') || document;
+    const actionPattern = input.type === 'search' ? /(search|find|load)/ : /(search|find|load|apply)/;
+    return Array.from(host.querySelectorAll?.('button:not(:disabled)') || []).find(button=>{
+      if(unsafeEnterAction(button)) return false;
+      const identity = `${button.id || ''} ${button.className || ''} ${button.dataset?.uiAction || ''}`.toLowerCase();
+      if(/(toggle|dropdown|picker|clear|previous|next)/.test(identity)) return false;
+      return actionPattern.test(identity);
+    }) || null;
+  }
+
+  // bindEnterInputSupport（全域單行輸入確認）：搜尋區執行搜尋，其餘輸入只完成目前值，不自動觸發破壞性動作。
+  function bindEnterInputSupport(){
+    if(typeof document.addEventListener !== 'function') return false;
+    if(document.documentElement.dataset.uiEnterInputBound === 'true') return false;
+    document.documentElement.dataset.uiEnterInputBound = 'true';
+    document.addEventListener('keydown',event=>{
+      if(event.key !== 'Enter' || event.defaultPrevented || event.isComposing || event.repeat
+        || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const input = event.target;
+      if(!(input instanceof HTMLInputElement) || !ENTER_INPUT_TYPES.has(String(input.type || 'text').toLowerCase())
+        || input.disabled || input.readOnly || input.dataset.uiEnterIgnore === 'true') return;
+      if(input.form || input.closest?.('form')) return;
+      const action = safeEnterAction(input);
+      event.preventDefault();
+      if(action){
+        action.click();
+        return;
+      }
+      input.blur?.();
+    });
+    return true;
+  }
+
   // readMarker（讀取樣式定義識別碼）：用來辨識登記存在但樣式檔遺失的情況。
   function readMarker(propertyName){
     return getComputedStyle(document.documentElement).getPropertyValue(propertyName).trim();
@@ -218,6 +271,7 @@
     applyFont(readStored(FONT_STORAGE_KEY));
     applyLanguageMode(DEFAULT_LANGUAGE_MODE,{notify:false});
     bindLanguagePicker();
+    bindEnterInputSupport();
   }
 
   registerTheme({id:DEFAULT_THEME_ID, vi:'Mặc định xanh trắng xám', zh:'預設藍白灰'});
@@ -238,6 +292,7 @@
     listLanguageModes:()=>LANGUAGE_MODES.map(option=>({...option})),
     listThemes,
     listFonts,
+    bindEnterInputSupport,
     initialize
   });
 

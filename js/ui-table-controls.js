@@ -9,16 +9,22 @@
   const SORT_ICON_SELECTOR = '[data-ui-table-sort-icon]'; // SORT_ICON_SELECTOR（排序狀態圖示）
   const RESIZE_HANDLE_SELECTOR = '[data-ui-table-resize-handle]'; // RESIZE_HANDLE_SELECTOR（欄寬拖曳分隔線）
   const AUTO_TABLE_SELECTOR = 'table[data-ui-table-controls="auto"]'; // AUTO_TABLE_SELECTOR（可由共用程式接入的一般表格）
-  const WIDTH_STORAGE_PREFIX = 'pcms.ui.table-widths.v1'; // WIDTH_STORAGE_PREFIX（本機欄寬偏好識別）
+  const TABLE_PREFERENCE_SCOPE = 'uiTablePreferences'; // TABLE_PREFERENCE_SCOPE（依 UID 隔離的全表格介面偏好）
+  const TABLE_PREFERENCE_VERSION = '1'; // TABLE_PREFERENCE_VERSION（表格偏好資料格式版本）
   const DEFAULT_MINIMUM_WIDTH = 56; // DEFAULT_MINIMUM_WIDTH（未指定時的最低可讀欄寬）
   const DEFAULT_MAXIMUM_WIDTH = 720; // DEFAULT_MAXIMUM_WIDTH（未指定時的最大合理欄寬）
   const autoRuntimes = new WeakMap(); // autoRuntimes（一般表格與共用操作執行狀態）
+  const tableControls = new Set(); // tableControls（已建立表格控制；切換登入者時套用各自設定）
   let activePageName = ''; // activePageName（目前啟用一般表格操作的頁面）
   let activePage = null; // activePage（目前功能頁）
   let activeAutoTables = new Set(); // activeAutoTables（目前頁面的一般表格）
   let pageObserver = null; // pageObserver（動態表格與資料列觀察器）
   let pageFrameId = 0; // pageFrameId（等待中的一般表格更新工作）
   let generatedTableId = 0; // generatedTableId（沒有識別碼表格的本機流水號）
+  let preparedPageName = ''; // preparedPageName（生命週期進入前已準備偏好的頁面）
+  let preferenceUserId = ''; // preferenceUserId（目前記憶體偏好所屬可信任使用者）
+  let tablePreferences = Object.create(null); // tablePreferences（目前 UID 的各表格欄位顯示與欄寬）
+  let preferenceWritePromise = Promise.resolve(false); // preferenceWritePromise（依操作順序保存表格偏好）
 
   function currentLanguageMode(){
     return window.PCMSUIRuntime?.getLanguageMode?.() || 'bilingual';
@@ -79,34 +85,62 @@
     return normalizeColumns(columns).filter(columnIsAvailable);
   }
 
-  function resizeStorageKey(table,explicitKey){
-    const key = String(explicitKey || table?.id || '').trim();
-    return key ? `${WIDTH_STORAGE_PREFIX}.${key}` : '';
+  function currentTrustedUserId(){
+    const userId = String(window.cu?.authUid || '');
+    return userId && window.firebaseAuthUser?.uid === userId ? userId : '';
   }
 
-  function readStoredWidths(key,signature){
-    if(!key) return {};
+  function normalizePreferenceTables(value){
+    if(!value || typeof value !== 'object' || Array.isArray(value)) return Object.create(null);
+    return Object.fromEntries(Object.entries(value).filter(([key,item])=>String(key).trim()
+      && item && typeof item === 'object' && !Array.isArray(item)));
+  }
+
+  async function preparePagePreferences(pageName=''){
+    preparedPageName = String(pageName || '');
+    const expectedUserId = currentTrustedUserId();
+    if(!expectedUserId || !window.pcmsDataCache?.read){
+      preferenceUserId = '';
+      tablePreferences = Object.create(null);
+      tableControls.forEach(control=>control.restorePreference?.());
+      return false;
+    }
+    if(preferenceUserId === expectedUserId) return true;
     try{
-      const parsed = JSON.parse(window.localStorage?.getItem?.(key) || 'null');
-      if(!parsed || parsed.signature !== signature || !parsed.widths || typeof parsed.widths !== 'object') return {};
-      return Object.fromEntries(Object.entries(parsed.widths)
-        .map(([column,width])=>[String(column),Number(width)])
-        .filter(([,width])=>Number.isFinite(width) && width > 0));
+      const stored = await window.pcmsDataCache.read(TABLE_PREFERENCE_SCOPE,TABLE_PREFERENCE_VERSION); // stored（目前 UID 的表格偏好）
+      if(currentTrustedUserId() !== expectedUserId) return false;
+      preferenceUserId = expectedUserId;
+      tablePreferences = normalizePreferenceTables(stored?.tables);
+      tableControls.forEach(control=>control.restorePreference?.());
+      return true;
     }catch(_error){
-      return {};
+      if(currentTrustedUserId() === expectedUserId){
+        preferenceUserId = expectedUserId;
+        tablePreferences = Object.create(null);
+        tableControls.forEach(control=>control.restorePreference?.());
+      }
+      return false;
     }
   }
 
-  function writeStoredWidths(key,signature,widths){
-    if(!key) return;
-    try{
-      window.localStorage?.setItem?.(key,JSON.stringify({signature,widths}));
-    }catch(_error){}
+  function queuePreferenceWrite(){
+    const expectedUserId = preferenceUserId;
+    if(!expectedUserId || !window.pcmsDataCache?.write) return Promise.resolve(false);
+    const snapshot = {tables:JSON.parse(JSON.stringify(tablePreferences))}; // snapshot（本次操作完成時的偏好副本）
+    preferenceWritePromise = preferenceWritePromise
+      .catch(()=>false)
+      .then(()=>{
+        if(currentTrustedUserId() !== expectedUserId) return false;
+        return window.pcmsDataCache.write(TABLE_PREFERENCE_SCOPE,TABLE_PREFERENCE_VERSION,snapshot);
+      });
+    return preferenceWritePromise;
   }
 
-  function removeStoredWidths(key){
-    if(!key) return;
-    try{ window.localStorage?.removeItem?.(key); }catch(_error){}
+  function tablePreferenceKey(table,explicitKey,signature){
+    const key = String(explicitKey || table?.dataset?.uiTablePreferenceKey || table?.id || '').trim();
+    if(key) return key;
+    const pageName = activePageName || preparedPageName || String(table?.closest?.('.pg')?.id || '').replace(/^pg-/,'') || 'page';
+    return `${pageName}:${String(signature || 'table')}`;
   }
 
   function nextSortState(current,key){
@@ -203,15 +237,26 @@
     const columnMap = new Map(columns.map(column=>[column.key,column])); // columnMap（欄位識別與欄寬限制）
     const resizable = options.resizable === true || table?.dataset?.uiTableResizable === 'true'; // resizable（是否啟用滑鼠欄寬調整）
     const widthSignature = columns.map(column=>column.key).join('|'); // widthSignature（欄位結構識別）
-    const widthKey = resizeStorageKey(table,options.resizeStorageKey); // widthKey（目前表格本機欄寬保存鍵）
+    const preferenceKey = tablePreferenceKey(table,options.preferenceKey || options.resizeStorageKey,widthSignature); // preferenceKey（依頁面與表格隔離的個人設定鍵）
+    const savedPreference = tablePreferences[preferenceKey] || null; // savedPreference（目前 UID 已保存設定；新增欄位沿用舊欄位選擇）
     const visibility = Object.create(null); // visibility（各欄位目前顯示狀態）
     columns.forEach(column=>{ visibility[column.key] = column.defaultVisible; });
-    let resizeWidths = resizable ? readStoredWidths(widthKey,widthSignature) : {}; // resizeWidths（使用者調整後的各欄寬）
+    if(savedPreference?.visibility && typeof savedPreference.visibility === 'object'){
+      columns.forEach(column=>{
+        if(typeof savedPreference.visibility[column.key] === 'boolean') visibility[column.key] = savedPreference.visibility[column.key];
+      });
+    }
+    let resizeWidths = resizable && savedPreference?.widths && typeof savedPreference.widths === 'object'
+      ? Object.fromEntries(Object.entries(savedPreference.widths)
+        .map(([column,width])=>[String(column),Number(width)])
+        .filter(([column,width])=>columns.some(item=>item.key===column) && Number.isFinite(width) && width > 0))
+      : {}; // resizeWidths（目前 UID 使用者調整後的各欄寬）
     let activeResize = null; // activeResize（目前進行中的欄寬拖曳）
     let measureCanvas = null; // measureCanvas（依目前表頭字型量測最低欄寬的畫布）
     let availabilitySignature = '';
     let sortState = Object.freeze({key:'',direction:'none'}); // sortState（目前單欄排序狀態）
     let destroyed = false;
+    let controlApi = null; // controlApi（目前表格公開控制；銷毀時從登入者切換清單移除）
 
     if(!table) throw new Error('Thiếu bảng dùng chung / 缺少共用表格');
 
@@ -378,14 +423,27 @@
         .filter(([key,width])=>columnMap.has(key) && Number.isFinite(Number(width)) && Number(width) > 0)
         .map(([key,width])=>[key,Math.round(Number(width))]));
       resizeWidths = widths;
-      writeStoredWidths(widthKey,widthSignature,widths);
+      persistTablePreference();
+    }
+
+    function persistTablePreference(){
+      if(!preferenceKey || !preferenceUserId) return false;
+      tablePreferences[preferenceKey] = {
+        signature:widthSignature,
+        visibility:Object.fromEntries(columns.map(column=>[column.key,visibility[column.key] !== false])),
+        widths:Object.fromEntries(Object.entries(resizeWidths)
+          .filter(([key,width])=>columnMap.has(key) && Number.isFinite(Number(width)) && Number(width) > 0)
+          .map(([key,width])=>[key,Math.round(Number(width))]))
+      };
+      void queuePreferenceWrite();
+      return true;
     }
 
     function resetColumnWidths(){
       if(!resizable) return false;
       resizeWidths = {};
-      removeStoredWidths(widthKey);
       applyResizeWidths();
+      persistTablePreference();
       return true;
     }
 
@@ -582,14 +640,32 @@
       return true;
     }
 
+    function restorePreference(){
+      columns.forEach(column=>{ visibility[column.key] = column.defaultVisible; });
+      const saved = tablePreferences[preferenceKey];
+      if(saved?.visibility && typeof saved.visibility === 'object'){
+        columns.forEach(column=>{
+          if(typeof saved.visibility[column.key] === 'boolean') visibility[column.key] = saved.visibility[column.key];
+        });
+      }
+      resizeWidths = resizable && saved?.widths && typeof saved.widths === 'object'
+        ? Object.fromEntries(Object.entries(saved.widths)
+          .map(([column,width])=>[String(column),Number(width)])
+          .filter(([column,width])=>columnMap.has(column) && Number.isFinite(width) && width > 0))
+        : {};
+      return refresh();
+    }
+
     function setAllColumns(visible){
       currentAvailableColumns().forEach(column=>{ visibility[column.key] = visible === true; });
       applyColumns();
+      persistTablePreference();
     }
 
     function resetColumns(){
       columns.forEach(column=>{ visibility[column.key] = column.defaultVisible; });
       applyColumns();
+      persistTablePreference();
     }
 
     function handleSettingsChange(event){
@@ -602,6 +678,7 @@
       if(!key || !Object.prototype.hasOwnProperty.call(visibility,key)) return;
       visibility[key] = target.checked === true;
       applyColumns();
+      persistTablePreference();
     }
 
     function handleSettingsClick(event){
@@ -658,6 +735,7 @@
       document.removeEventListener('keydown',handleDocumentKeydown);
       document.removeEventListener('pcms:languagechange',handleLanguageChange);
       finishResize(false);
+      if(controlApi) tableControls.delete(controlApi);
       headerCells().forEach(header=>Array.from(header.children || [])
         .filter(child=>child?.dataset?.uiTableResizeHandle === 'true')
         .forEach(handle=>handle.remove?.()));
@@ -679,9 +757,10 @@
     renderMenu();
     refresh();
 
-    return Object.freeze({
+    controlApi = Object.freeze({
       refresh,
       applyColumns,
+      restorePreference,
       resetColumns,
       resetColumnWidths,
       setAllColumns,
@@ -692,6 +771,8 @@
       deactivate,
       destroy
     });
+    tableControls.add(controlApi);
+    return controlApi;
   }
 
   function headerLabel(header){
@@ -927,6 +1008,7 @@
     }
     const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
     if(!headers.length) return null;
+    const preferenceKey = tablePreferenceKey(table,'',signature); // preferenceKey（動態表格在產生暫時 DOM ID 前取得穩定偏好鍵）
     const sortEnabled = table.dataset.uiTableSort !== 'none';
     const columns = headers.map((header,index)=>autoColumnDefinition(header,index,sortEnabled));
     columns.forEach((column,index)=>decorateAutoHeader(headers[index],column));
@@ -947,6 +1029,7 @@
       frame:table.closest('.ui-table-frame'),
       empty,
       columns,
+      preferenceKey,
       resizable:table.dataset.uiTableResizable === 'true',
       onColumnsChanged:({visibleKeys,minimumWidth})=>updateAutoMinimumWidth(table,columns,visibleKeys,minimumWidth),
       onSortChanged:()=>applyAutoSort(runtime)
@@ -1007,6 +1090,7 @@
     create,
     availableColumns,
     nextSortState,
+    preparePagePreferences,
     activatePage,
     deactivatePage,
     refreshPage

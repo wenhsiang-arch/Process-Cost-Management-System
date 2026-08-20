@@ -8,6 +8,12 @@
   function ui(){ return window.PCMSUIComponents; }
   function store(){ return window.PCMSPerformanceBonusStore; }
   function money(value){ return Math.round(Number(value)||0).toLocaleString('vi-VN'); }
+  function sortedBonusEmployees(rows){
+    return (Array.isArray(rows)?rows:[]).filter(item=>Number(item.finalBonus)>0).slice().sort((left,right)=>{
+      const bonusOrder=(Number(right.finalBonus)||0)-(Number(left.finalBonus)||0);
+      return bonusOrder||String(left.employeeId||'').localeCompare(String(right.employeeId||''),'en',{numeric:true,sensitivity:'base'});
+    });
+  }
   function statusPair(status){
     return ({
       draft:{vi:'Đang thử tính',zh:'試算中'},
@@ -219,7 +225,7 @@
       }
       const result=resultState.value;
       state.metadata=result.metadata;
-      state.employees=result.employees.filter(item=>Number(item.finalBonus)>0);
+      state.employees=sortedBonusEmployees(result.employees);
       render();
     }catch(error){
       if(request!==state.request) return;
@@ -415,7 +421,7 @@
           await store().lockMonth(state.month);
           const refreshed=await store().loadMonth(state.month,{force:true});
           state.metadata=refreshed.metadata;
-          state.employees=refreshed.employees;
+          state.employees=sortedBonusEmployees(refreshed.employees);
         }
         const spreadsheet=await window.PCMSFeatures.ensureSpreadsheetTool();
         const rows=state.employees.filter(item=>Number(item.finalBonus)>0).map(item=>[
