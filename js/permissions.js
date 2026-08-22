@@ -9,22 +9,71 @@ function permissionsMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
 }
 
-async function savePermissions(){
+let permissionsSaveBusy=false; // permissionsSaveBusy（權限與維護狀態是否正在儲存）
+
+function isSystemMaintenanceActive(){
+  return CONFIGURABLE_ROLES.length>0&&CONFIGURABLE_ROLES.every(role=>
+    window.rolePermissionDocumentsReady?.[role]===true
+      &&window.rolePermissionActive?.[role]===false
+  );
+}
+
+function setPermissionActionsBusy(busy){
+  ['permissions-maintenance-action','permissions-refresh-action','permissions-apply-action'].forEach(id=>{
+    const button=g(id);
+    if(button) button.disabled=busy===true;
+  });
+}
+
+function updateSystemMaintenanceButton(){
+  const button=g('permissions-maintenance-action');
+  if(!button) return;
+  const active=isSystemMaintenanceActive(); // active（目前是否已暫停所有非管理員）
+  const icon=button.querySelector('i');
+  const vi=button.querySelector('.ui-dual-copy > strong');
+  const zh=button.querySelector('.ui-dual-copy > span');
+  if(icon) icon.className=`ti ${active?'ti-lock-open':'ti-tool'}`;
+  if(vi) vi.textContent=active?'Mở lại hệ thống':'Bảo trì hệ thống';
+  if(zh) zh.textContent=active?'重新開放':'系統維護';
+  button.classList.toggle('is-danger',!active);
+  window.PCMSUIText?.setLocalizedAttribute?.(button,'title',active
+    ?{vi:'Cho phép người dùng không phải quản trị viên đăng nhập lại',zh:'重新允許非管理員登入'}
+    :{vi:'Tạm dừng toàn bộ người dùng không phải quản trị viên',zh:'暫停所有非管理員使用'});
+  window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',active
+    ?{vi:'Mở lại hệ thống',zh:'重新開放系統'}
+    :{vi:'Bảo trì hệ thống',zh:'啟動系統維護'});
+}
+
+function setPermissionRuntimeActive(active){
+  CONFIGURABLE_ROLES.forEach(role=>{
+    window.rolePermissionDocumentsReady[role]=true;
+    window.rolePermissionActive[role]=active===true;
+    window.rolePermissionsReady[role]=active===true;
+  });
+}
+
+async function savePermissions(options={}){
   if(!isAdm()){
     await permissionsMessage('Chỉ quản trị viên mới có thể lưu quyền.','只有管理員可以儲存權限。','warning');
     return false;
   }
+  if(permissionsSaveBusy) return false;
   if(typeof window.firebaseSaveRolePermissions!=='function'){
     await permissionsMessage('Dịch vụ dữ liệu đám mây chưa sẵn sàng.','雲端資料庫服務尚未就緒。','warning');
     return false;
   }
+  permissionsSaveBusy=true;
+  setPermissionActionsBusy(true);
   const now=Date.now();
   const updatedBy=String(window.cu?.user||window.firebaseAuthUser?.uid||'admin').slice(0,100);
+  const active=typeof options.activeOverride==='boolean'
+    ?options.activeOverride
+    :!isSystemMaintenanceActive(); // active（一般儲存時保留目前維護狀態）
   const payload={};
   CONFIGURABLE_ROLES.forEach(role=>{
     payload[role]={
       role,
-      active:true,
+      active,
       features:normalizeFeaturePermissions(window.permissionSettings[role],DEFAULT_PERMISSIONS[role]),
       updatedAt:now,
       updatedBy
@@ -36,19 +85,56 @@ async function savePermissions(){
       await window.PCMSHistory?.saveOperationLog?.({
         permissionKey:'systemMonitor',feature:'accounts',action:'rolePermissionsUpdate',status:'success',
         itemCount:CONFIGURABLE_ROLES.length,detailCount:PERMISSION_KEYS.length,
-        note:'Cập nhật quyền vai trò / 更新角色權限'
+        note:String(options.logNote||'Cập nhật quyền vai trò / 更新角色權限').slice(0,500)
       });
     }catch(logError){ console.warn('無法寫入角色權限操作紀錄：',logError); }
-    window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,true]));
+    setPermissionRuntimeActive(active);
     renderPermissions();
-    window.PCMSUIComponents.showToast({kind:'success',text:{vi:'Đã lưu và áp dụng quyền.',zh:'權限設定已儲存套用。'}});
+    window.PCMSUIComponents.showToast({kind:'success',text:options.successText||{vi:'Đã lưu và áp dụng quyền.',zh:'權限設定已儲存套用。'}});
     if(typeof uNav==='function') uNav();
     return true;
   }catch(e){
     console.error('Không thể lưu rolePermissions / 無法儲存角色功能權限：',e);
     await permissionsMessage('Lưu quyền thất bại.','儲存權限失敗。','danger');
     return false;
+  }finally{
+    permissionsSaveBusy=false;
+    setPermissionActionsBusy(false);
+    updateSystemMaintenanceButton();
   }
+}
+
+async function toggleSystemMaintenance(){
+  if(!isAdm()||permissionsSaveBusy) return false;
+  const activating=!isSystemMaintenanceActive(); // activating（本次是否啟動維護）
+  const confirmed=await window.PCMSUIComponents.confirmDialog({
+    title:activating
+      ?{vi:'Xác nhận bảo trì hệ thống',zh:'確認啟動系統維護'}
+      :{vi:'Xác nhận mở lại hệ thống',zh:'確認重新開放系統'},
+    kind:activating?'danger':'warning',
+    body:window.PCMSUIComponents.createLanguageSections(activating
+      ?{
+        vi:'Toàn bộ người dùng không phải quản trị viên đang trực tuyến sẽ nhận thông báo bảo trì và đăng xuất. Thiết lập quyền hiện tại được giữ nguyên.',
+        zh:'所有在線的非管理員會收到維護提示並退出；目前各職務的權限設定會完整保留。'
+      }
+      :{
+        vi:'Cho phép toàn bộ vai trò đã thiết lập đăng nhập lại và tiếp tục dùng quyền đã lưu?',
+        zh:'確定重新允許所有已設定職務登入，並沿用原本保存的權限嗎？'
+      }),
+    confirmText:activating
+      ?{vi:'Bắt đầu bảo trì',zh:'啟動維護'}
+      :{vi:'Mở lại hệ thống',zh:'重新開放'}
+  });
+  if(!confirmed) return false;
+  return savePermissions({
+    activeOverride:!activating,
+    logNote:activating
+      ?'Bắt đầu bảo trì hệ thống / 啟動系統維護'
+      :'Mở lại hệ thống / 重新開放系統',
+    successText:activating
+      ?{vi:'Đã chuyển hệ thống sang trạng thái bảo trì.',zh:'系統已進入維護狀態。'}
+      :{vi:'Đã mở lại hệ thống.',zh:'系統已重新開放。'}
+  });
 }
 
 // setPermissionValue（設定單項權限）：父層關閉只暫停下層，不清除既有設定。
@@ -172,11 +258,13 @@ function permissionMatrixCopy(vi,zh,extraClass=''){
 
 function permissionMatrixRoleHeader(role){
   const labels=permissionLabelParts(permissionRoleLabel(role)); // labels（角色雙語標題）
-  const ready=role==='admin'||window.rolePermissionsReady?.[role]===true;
+  const documentReady=role==='admin'||window.rolePermissionDocumentsReady?.[role]===true;
+  const active=role==='admin'||window.rolePermissionActive?.[role]===true;
   const status=role==='admin'
     ? {vi:'Cố định',zh:'固定'}
-    : ready?{vi:'Đã thiết lập',zh:'已設定'}:{vi:'Chưa thiết lập',zh:'尚未設定'};
-  return `<th scope="col" class="permission-matrix-role-head${ready?'':' is-pending'}">
+    : !documentReady?{vi:'Chưa thiết lập',zh:'尚未設定'}
+      : active?{vi:'Đã thiết lập',zh:'已設定'}:{vi:'Tạm dừng',zh:'已暫停'};
+  return `<th scope="col" class="permission-matrix-role-head${documentReady&&active?'':' is-pending'}">
     ${permissionMatrixCopy(labels.vi,labels.zh)}
     <span class="permission-matrix-role-status"><span>${status.vi}</span><span>${status.zh}</span></span>
   </th>`;
@@ -293,7 +381,8 @@ function renderPermissions(){
   const availableCount=configurableRows.length*CONFIGURABLE_ROLES.length; // availableCount（可設定權限格總數）
   const enabledCount=configurableRows.reduce((total,row)=>
     total+CONFIGURABLE_ROLES.filter(role=>permissionRowEnabled(role,row)).length,0); // enabledCount（目前有效權限數）
-  const pendingCount=CONFIGURABLE_ROLES.filter(role=>window.rolePermissionsReady?.[role]!==true).length; // pendingCount（尚未建立權限文件的角色數）
+  const pendingCount=CONFIGURABLE_ROLES.filter(role=>window.rolePermissionDocumentsReady?.[role]!==true).length; // pendingCount（尚未建立權限文件的角色數）
+  const pausedCount=CONFIGURABLE_ROLES.filter(role=>window.rolePermissionDocumentsReady?.[role]===true&&window.rolePermissionActive?.[role]!==true).length; // pausedCount（維護期間暫停的角色數）
   const query=permissionSafeAttribute(window.permissionMatrixQuery||'');
   window.permissionMatrixFilter=window.permissionMatrixFilter||'all';
 
@@ -331,9 +420,10 @@ function renderPermissions(){
     </div>
     <div class="permission-matrix-footer">
       <div>Đang hiển thị <strong id="permission-matrix-visible-count">${rows.length}</strong> mục · Đã bật ${enabledCount} / ${availableCount}</div>
-      <div>目前顯示 <strong id="permission-matrix-visible-count-zh">${rows.length}</strong> 項 · 已開啟 ${enabledCount}／${availableCount}${pendingCount?` · ${pendingCount} 個職務尚未設定`:''}</div>
+      <div>目前顯示 <strong id="permission-matrix-visible-count-zh">${rows.length}</strong> 項 · 已開啟 ${enabledCount}／${availableCount}${pendingCount?` · ${pendingCount} 個職務尚未設定`:''}${pausedCount?` · ${pausedCount} 個職務已暫停`:''}</div>
     </div>`;
   applyPermissionMatrixFilters();
+  updateSystemMaintenanceButton();
 }
 
 async function applyPermissions(){

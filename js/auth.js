@@ -160,6 +160,48 @@ function resetIdle(){ idleT=IDLE; }
 let firebaseAuthStateBusy = false;
 let firebaseAuthInitialCheckComplete = false;
 let googleLoginRequestBusy = false;
+let rolePermissionMonitorUnsubscribe=null; // rolePermissionMonitorUnsubscribe（目前角色權限監聽停止函式）
+let rolePermissionMaintenanceHandling=false;
+
+function stopRolePermissionMonitor(){
+  if(typeof rolePermissionMonitorUnsubscribe==='function'){
+    try{ rolePermissionMonitorUnsubscribe(); }catch(error){}
+  }
+  rolePermissionMonitorUnsubscribe=null;
+}
+
+function startRolePermissionMonitor(role){
+  stopRolePermissionMonitor();
+  if(role==='admin'||!CONFIGURABLE_ROLES.includes(role)||typeof window.firebaseSubscribeRolePermission!=='function') return;
+  rolePermissionMonitorUnsubscribe=window.firebaseSubscribeRolePermission(role,documentData=>{
+    if(window.cu?.role!==role) return;
+    const documentReady=!!(documentData&&documentData.role===role);
+    const active=documentReady&&documentData.active===true;
+    window.rolePermissionDocumentsReady[role]=documentReady;
+    window.rolePermissionActive[role]=active;
+    window.rolePermissionsReady[role]=active;
+    if(active){
+      window.permissionSettings[role]=window.normalizeFeaturePermissions(
+        documentData.features,
+        window.PCMSFeatures.defaultPermissions[role]
+      );
+      if(typeof uNav==='function') uNav();
+      return;
+    }
+    if(rolePermissionMaintenanceHandling) return;
+    rolePermissionMaintenanceHandling=true;
+    void (async()=>{
+      try{
+        await doLogout('system-maintenance');
+        showLoginMessage('Hệ thống đang bảo trì, vui lòng thử lại sau. / 系統維護中，請稍後再試。');
+      }finally{
+        rolePermissionMaintenanceHandling=false;
+      }
+    })();
+  },error=>{
+    console.warn('Không thể theo dõi trạng thái bảo trì / 無法監聽系統維護狀態：',error);
+  });
+}
 
 function refreshGoogleLoginButton(){
   const btn=g('google-login-btn');
@@ -191,6 +233,7 @@ function hideLoginMessage(){
 }
 
 function clearSessionUi(){
+  stopRolePermissionMonitor();
   clearInterval(idleIv);
   ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
   window.PCMSFeatures?.resetActivePage?.();
@@ -238,8 +281,10 @@ async function enterAuthorizedDeskSystem(user,access){
     ? await loadPermissions()
     : Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
   if(window.cu.role!=='admin'&&permissionState?.[window.cu.role]!==true){
-    const error=new Error('Role permissions are not ready');
-    error.code='role-permissions-not-ready';
+    const maintenance=window.rolePermissionDocumentsReady?.[window.cu.role]===true
+      &&window.rolePermissionActive?.[window.cu.role]===false;
+    const error=new Error(maintenance?'System maintenance is active':'Role permissions are not ready');
+    error.code=maintenance?'system-maintenance':'role-permissions-not-ready';
     throw error;
   }
   const entryOrder=window.PCMSFeatures?.getEntryOrder?.()||[]; // entryOrder（登入後首頁候選順序）：由中央功能清單提供。
@@ -261,6 +306,7 @@ async function enterAuthorizedDeskSystem(user,access){
   uNav();
   startIdle();
   showFeatureHome();
+  startRolePermissionMonitor(window.cu.role);
 }
 
 window.handleFirebaseAuthState=async function(user){
@@ -302,12 +348,14 @@ window.handleFirebaseAuthState=async function(user){
     await enterAuthorizedDeskSystem(user,access);
   }catch(e){
     console.error('Firebase Authentication 登入流程失敗：',e);
-    if(['role-permissions-not-ready','role-no-functions'].includes(e?.code)&&typeof window.firebaseAuthLogout==='function'){
+    if(['system-maintenance','role-permissions-not-ready','role-no-functions'].includes(e?.code)&&typeof window.firebaseAuthLogout==='function'){
       try{ await window.firebaseAuthLogout(); }catch(logoutError){}
     }
     clearSessionUi();
     showLoginMessage(
-      e?.code==='role-permissions-not-ready'
+      e?.code==='system-maintenance'
+        ? 'Hệ thống đang bảo trì, vui lòng thử lại sau. / 系統維護中，請稍後再試。'
+        : e?.code==='role-permissions-not-ready'
         ? 'Quyền vai trò chưa được quản trị viên thiết lập. / 管理員尚未設定此角色權限。'
         : e?.code==='role-no-functions'
           ? 'Vai trò này chưa được mở chức năng nào. / 此角色尚未開放任何功能。'

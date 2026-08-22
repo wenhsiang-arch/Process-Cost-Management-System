@@ -5,7 +5,7 @@ import {
   getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
   setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,getCountFromServer as firestoreGetCountFromServer,updateDoc as firestoreUpdateDoc,
   deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,documentId,
-  increment,serverTimestamp,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
+  increment,serverTimestamp,onSnapshot,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
@@ -226,6 +226,17 @@ window.firebaseSaveRolePermissions = async (roleDocuments) => {
     batch.set(doc(db,'rolePermissions',role),roleDocuments[role]);
   });
   await batch.commit();
+};
+// firebaseSubscribeRolePermission（監聽目前角色是否被系統維護暫停）：只監聽單一小型文件。
+window.firebaseSubscribeRolePermission = (role,onChange,onError) => {
+  const allowedRoles=window.CONFIGURABLE_ROLES||[];
+  if(!allowedRoles.includes(role)) return ()=>{};
+  return onSnapshot(doc(db,'rolePermissions',role),snapshot=>{
+    window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:1});
+    if(typeof onChange==='function') onChange(snapshot.exists()?snapshot.data():null);
+  },error=>{
+    if(typeof onError==='function') onError(error);
+  });
 };
 
 // ===== 同步狀態 =====

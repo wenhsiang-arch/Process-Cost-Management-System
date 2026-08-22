@@ -578,7 +578,7 @@ test('權限管理使用固定職務矩陣、合併母子欄並只標示敏感�
   assert.doesNotMatch(source,/Sử dụng chức năng chính|使用主功能|Sử dụng trang|使用分頁/);
   assert.match(source,/window\.permissionSettings\[role\]\[key\]=checked===true/);
   assert.match(source,/firebaseSaveRolePermissions\(payload\)/);
-  assert.match(features,/permissions:'js\/permissions\.js\?v=20260812-1'/);
+  assert.match(features,/permissions:'js\/permissions\.js\?v=20260823-1'/);
   assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260810-2'/);
   assert.match(style,/\.permission-matrix-table \{[\s\S]*?table-layout: fixed;/);
   assert.match(style,/\.permission-matrix-shell \{[\s\S]*?overflow: visible;/);

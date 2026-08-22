@@ -17,7 +17,7 @@
     cutting:'js/cutting.js?v=20260813-1',
     accounts:'js/accounts.js?v=20260813-2',
     orders:'js/orders.js?v=20260816-1',
-    permissions:'js/permissions.js?v=20260812-1',
+    permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
     productionEmployeeStore:'js/production/employee-store.js?v=20260816-1',
@@ -314,12 +314,13 @@
         ? features[key]
         : defaults[key]===true;
     });
-    // productsMain（款號管理主入口）在舊權限文件中可能尚未跟隨工序修改；子權限已開啟時仍要能看見款號管理入口。
-    normalized.productsMain=normalized.productsMain===true
-      ||normalized.summary===true
-      ||normalized.costView===true
-      ||normalized.productionProcessEdit===true
-      ||normalized.processSecondsEdit===true;
+    // 舊文件缺少 productsMain（款號管理主入口）時才由子權限推導；明確關閉不得被重新開啟。
+    if(!features||typeof features.productsMain!=='boolean'){
+      normalized.productsMain=normalized.summary===true
+        ||normalized.costView===true
+        ||normalized.productionProcessEdit===true
+        ||normalized.processSecondsEdit===true;
+    }
     // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
     normalized.orderImport=normalized.progress===true;
     if(features&&typeof features.costMain!=='boolean'){
@@ -342,6 +343,8 @@
       CONFIGURABLE_ROLES.map(role=>[role,{...DEFAULT_PERMISSIONS[role]}])
     );
     window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
+    window.rolePermissionDocumentsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
+    window.rolePermissionActive=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
     window.selectedPermissionRole='manager';
   }
 
@@ -358,7 +361,11 @@
       const saved=await window.firebaseLoadRolePermissions(requestedRoles);
       CONFIGURABLE_ROLES.forEach(role=>{
         const doc=saved?.[role];
-        window.rolePermissionsReady[role]=!!(doc&&doc.active===true&&doc.role===role);
+        const documentReady=!!(doc&&doc.role===role); // documentReady（角色權限文件已正確建立）
+        const active=documentReady&&doc.active===true; // active（角色目前允許登入及操作）
+        window.rolePermissionDocumentsReady[role]=documentReady;
+        window.rolePermissionActive[role]=active;
+        window.rolePermissionsReady[role]=active;
         window.permissionSettings[role]=normalizeFeaturePermissions(doc?.features,DEFAULT_PERMISSIONS[role]);
       });
       return {...window.rolePermissionsReady};
