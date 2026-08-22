@@ -193,7 +193,7 @@ function startRolePermissionMonitor(role){
     void (async()=>{
       try{
         await doLogout('system-maintenance');
-        showLoginMessage('Hệ thống đang bảo trì, vui lòng thử lại sau. / 系統維護中，請稍後再試。');
+        await showMaintenanceDialog();
       }finally{
         rolePermissionMaintenanceHandling=false;
       }
@@ -230,6 +230,19 @@ function showLoginMessage(message){
 function hideLoginMessage(){
   const box=g('lerr');
   if(box) box.style.display='none';
+}
+
+// showMaintenanceDialog（系統維護提示視窗）：讓登入攔截與在線退出共用同一個明顯提示。
+function showMaintenanceDialog(){
+  hideLoginMessage();
+  return window.PCMSUIComponents.alertDialog({
+    kind:'danger',
+    title:{vi:'Hệ thống đang bảo trì',zh:'系統維護中'},
+    message:{
+      vi:'Hệ thống đang bảo trì, vui lòng thử lại sau.',
+      zh:'系統維護中，請稍後再試。'
+    }
+  });
 }
 
 function clearSessionUi(){
@@ -352,15 +365,17 @@ window.handleFirebaseAuthState=async function(user){
       try{ await window.firebaseAuthLogout(); }catch(logoutError){}
     }
     clearSessionUi();
-    showLoginMessage(
-      e?.code==='system-maintenance'
-        ? 'Hệ thống đang bảo trì, vui lòng thử lại sau. / 系統維護中，請稍後再試。'
-        : e?.code==='role-permissions-not-ready'
+    if(e?.code==='system-maintenance'){
+      await showMaintenanceDialog();
+    }else{
+      showLoginMessage(
+        e?.code==='role-permissions-not-ready'
         ? 'Quyền vai trò chưa được quản trị viên thiết lập. / 管理員尚未設定此角色權限。'
         : e?.code==='role-no-functions'
           ? 'Vai trò này chưa được mở chức năng nào. / 此角色尚未開放任何功能。'
           : 'Không thể tải quyền tài khoản, vui lòng thử lại. / 無法載入帳號權限，請稍後再試。'
-    );
+      );
+    }
   }finally{
     firebaseAuthInitialCheckComplete=true;
     firebaseAuthStateBusy=false;

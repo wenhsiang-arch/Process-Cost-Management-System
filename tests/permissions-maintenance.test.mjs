@@ -84,7 +84,9 @@ test('非管理員登入與在線使用期間都受維護狀態攔截',()=>{
   assert.match(auth,/startRolePermissionMonitor\(window\.cu\.role\)/);
   assert.match(auth,/stopRolePermissionMonitor\(\);[\s\S]*?clearInterval\(idleIv\)/);
   assert.match(auth,/error\.code=maintenance\?'system-maintenance':'role-permissions-not-ready'/);
-  assert.match(auth,/Hệ thống đang bảo trì, vui lòng thử lại sau\. \/ 系統維護中，請稍後再試。/);
+  assert.match(auth,/function showMaintenanceDialog\(\)[\s\S]*?PCMSUIComponents\.alertDialog\(\{[\s\S]*?kind:'danger'/);
+  assert.match(auth,/await doLogout\('system-maintenance'\);[\s\S]*?await showMaintenanceDialog\(\)/);
+  assert.match(auth,/if\(e\?\.code==='system-maintenance'\)\{[\s\S]*?await showMaintenanceDialog\(\)/);
   assert.match(firebase,/increment,serverTimestamp,onSnapshot/);
   assert.match(firebase,/window\.firebaseSubscribeRolePermission[\s\S]*?onSnapshot\(doc\(db,'rolePermissions',role\)/);
   assert.match(firebase,/recordCloudRead\?\.\(\{queryCount:1,documentReads:1\}\)/);
