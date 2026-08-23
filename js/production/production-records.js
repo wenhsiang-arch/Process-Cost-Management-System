@@ -211,7 +211,7 @@
       const invalidContexts=group.entries.filter(item=>{
         if(item?.status!=='active'||item.recordType==='supplement'||String(item.processNo||'')==='0') return false;
         const quantity=Number(item.quantity);
-        const capacity=Number(item.hourlyCapacitySnapshot);
+        const capacity=Number(item.hourlyCapacity);
         return Number.isFinite(quantity)&&quantity>0&&!(Number.isFinite(capacity)&&capacity>0);
       }).map(item=>({
         orderId:String(item.orderId||''),

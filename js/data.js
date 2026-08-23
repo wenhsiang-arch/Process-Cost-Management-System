@@ -364,7 +364,6 @@ async function cImp(){
     setDataBilingual('imp-ok-msg','Không có mã hàng mới để nhập; dữ liệu hiện có không bị thay đổi.','沒有可新增的款號；系統既有資料未被修改。');
     return;
   }
-  const hist={c:actualCount,o:to,ow:0,sk:skippedCount,diff:classification.differentItems.length,fileName:detailImportFileName};
   let msgVi=`✓ Đã thêm ${actualCount} mã mới, ${to} công đoạn`;
   let msgZh=`已新增 ${actualCount} 款、${to} 道工序`;
   if(skippedCount){ msgVi+=`, bỏ qua ${skippedCount} mã đã tồn tại`; msgZh+=`，略過 ${skippedCount} 個既有款號`; }
@@ -372,42 +371,23 @@ async function cImp(){
 
   setDataBilingual('imp-ok-msg',`Đang đồng bộ lên đám mây: ${actualCount} mã, ${to} công đoạn.`,`正在同步雲端：${actualCount} 款，${to} 工序。`);
   g('imp-ok').style.display='flex';
-  if(window.saveProductItemsToFB && window.saveHistoryToFB){
-    const ok1=await saveProductItemsToFB(changedItems,{
-      action:'import',
-      fileName:detailImportFileName,
-      reason:'Chỉ thêm mã hàng mới từ Excel / 僅從 Excel 新增新款號'
-    });
-    if(!ok1){
-      const failMsg=window.lastProductSyncError || '❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại tệp bảng tính. / 匯入失敗，正式資料未更新。請確認網路後重新匯入表格檔。';
-      setDataBilingual('imp-ok-msg','❌ Nhập thất bại, dữ liệu chính thức chưa cập nhật. Vui lòng kiểm tra mạng rồi nhập lại tệp bảng tính.','匯入失敗，正式資料未更新。請確認網路後重新匯入表格檔。');
-      if(window.setSyncState) window.setSyncState('failed', failMsg);
-      return;
-    }
-
-    changedItems.forEach(x=>{
-      const i=window.D.findIndex(d=>d.code===x.code);
-      if(i>=0) window.D[i]=x;
-      else window.D.push(x);
-    });
-    let savedHistory=null;
-    try{
-      savedHistory=await saveHistoryToFB(hist);
-    }catch(error){
-      console.error('Không thể lưu operationLogs / 無法儲存操作紀錄：',error);
-    }
-    if(!savedHistory){
-      g('imp-ok-msg').innerHTML=`<div class="ui-language-sections"><div class="ui-language-section">${msgVi}<br>⚠️ Lịch sử nhập không lưu được lên đám mây và không được lưu tạm trên máy này.</div><div class="ui-language-section">${msgZh}<br>匯入紀錄無法保存到雲端，亦未暫存在本機。</div></div>`;
-    } else {
-      window.impHist=[savedHistory,...(window.impHist||[])].slice(0,50);
-    }
-    ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
-    nItms=null; dups=[]; detailImportFileName=''; importClassification=null; g('fi').value='';
-    rSum(); rDet(); rExp(); rBk(); rHist();
-    if(savedHistory) g('imp-ok-msg').innerHTML=msg;
-  } else {
-    setDataBilingual('imp-ok-msg','❌ Không thể đồng bộ vì dịch vụ dữ liệu đám mây chưa sẵn sàng; dữ liệu chính thức chưa cập nhật.','❌ 無法同步：雲端資料庫服務尚未載入，正式款號資料未更新。');
+  if(!window.PCMSProductMasterService?.importProducts){
+    setDataBilingual('imp-ok-msg','❌ Dịch vụ dữ liệu mã hàng chính thức chưa sẵn sàng; dữ liệu chưa thay đổi.','❌ 正式款號主檔服務尚未載入，資料未變更。');
+    return;
   }
+  const result=await window.PCMSProductMasterService.importProducts(changedItems,{fileName:detailImportFileName});
+  if(result.failures.length){
+    const failedCodes=result.failures.map(item=>item.code||changedItems[item.index]?.code).filter(Boolean);
+    setDataBilingual('imp-ok-msg',
+      `Đã thêm ${result.successes.length} mã; ${result.failures.length} mã thất bại (${failedCodes.join(', ')}). Nhập lại tệp sẽ chỉ xử lý mã chưa thành công.`,
+      `已新增 ${result.successes.length} 個款號；${result.failures.length} 個失敗（${failedCodes.join('、')}）。重新匯入只會處理尚未成功的款號。`
+    );
+    return;
+  }
+  ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
+  nItms=null; dups=[]; detailImportFileName=''; importClassification=null; g('fi').value='';
+  rSum(); rDet(); rExp(); rBk(); rHist();
+  g('imp-ok-msg').innerHTML=msg;
 }
 
 function xImp(){

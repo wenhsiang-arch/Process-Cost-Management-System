@@ -117,7 +117,7 @@
         const currentCell=ui.createCell('','ui-table-number-cell');
         if(window.PCMSQuickProcessSeconds){
           currentCell.appendChild(window.PCMSQuickProcessSeconds.createButton({
-            value:ui.seconds(row.currentSeconds),code:row.productCode,processNo:row.processNo,
+            value:ui.seconds(row.currentSeconds),productId:row.productId,processId:row.processId,code:row.productCode,processNo:row.processNo,
             processNameVi:row.processNameVi,displayedSeconds:number(row.currentSeconds),
             recommendedSeconds:number(row.suggestedSeconds),source:'ieAnalysis',onSaved:handleSaved
           }));
@@ -137,7 +137,7 @@
         if(window.PCMSQuickProcessSeconds?.allowed?.()&&number(row.suggestedSeconds)>0){
           const button=window.PCMSUIComponents.createButton({text:{vi:'Sửa nhanh',zh:'快速修改'},icon:'ti-edit'});
           button.addEventListener('click',()=>window.PCMSQuickProcessSeconds.open({
-            code:row.productCode,processNo:row.processNo,processNameVi:row.processNameVi,
+            productId:row.productId,processId:row.processId,code:row.productCode,processNo:row.processNo,processNameVi:row.processNameVi,
             displayedSeconds:number(row.currentSeconds),recommendedSeconds:number(row.suggestedSeconds),source:'ieAnalysis',onSaved:handleSaved
           }));
           correction.appendChild(button);
@@ -190,7 +190,7 @@
     }
     async function handleSaved(result){
       if(typeof options.onProcessSecondsSaved==='function') await options.onProcessSecondsSaved(result,filters());
-      else window.PCMSProductionAnalysisStore.applyCurrentProducts(result?.items||[]);
+      else window.PCMSProductionAnalysisStore.resetCurrentStandards();
       if(active) await ensureStandards();
     }
     function selectedOrRows(){ const selected=rows.filter(row=>selectedKeys.has(row.key));return selected.length?selected:rows; }

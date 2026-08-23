@@ -6,28 +6,14 @@
   const MEMORY_FRESH_MS=60000;
   const MAX_RANGE_MONTHS=24;
   const DEFAULT_LOOKBACK_MONTHS=12;
-  const CURRENT_STANDARD_COLLECTION='productProcessStandards';
-  const STANDARD_QUERY_CHUNK_SIZE=30;
   let state={loaded:false,source:'',dataset:null,monthRows:[],processStats:[],months:[],rangeKey:'',loadedAt:0,pendingProcessDays:false};
   let loadPromise=null;
   let currentStandards=new Map();
-  let resolvedStandardKeys=new Set();
-  let currentStandardSource='';
-  let standardLoadPromise=null;
-  let requireStandardRevalidation=false;
 
   function text(value){ return String(value??'').trim(); }
   function number(value){ const result=Number(value);return Number.isFinite(result)?result:0; }
   function cloneRows(rows){ return (rows||[]).map(item=>({...item,days:{...(item.days||{})}})); }
-  function standardKey(productCode,processNo){ return `${text(productCode)}||${text(processNo)}`; }
-  function standardDocumentId(productCode,processNo){
-    return `${encodeURIComponent(text(productCode))}__${encodeURIComponent(text(processNo))}`;
-  }
-  function chunks(values,size){
-    const result=[];
-    for(let index=0;index<values.length;index+=size) result.push(values.slice(index,index+size));
-    return result;
-  }
+  function standardKey(productId,processId){ return `${text(productId)}||${text(processId)}`; }
   function monthText(value){
     const match=text(value).match(/^(\d{4})-(\d{2})/);
     return match?`${match[1]}-${match[2]}`:'';
@@ -68,203 +54,47 @@
     return {fromDate,toDate,months,key:`${months.join(',')}|${fromDate}|${toDate}`};
   }
 
-  function standardPairs(dataset){
-    const pairs=new Map();
-    (dataset?.processSamples||[]).forEach(sample=>{
-      const productCode=text(sample?.productCode);
-      const processNo=text(sample?.processNo);
-      if(!productCode||!processNo) return;
-      const key=standardKey(productCode,processNo);
-      if(!pairs.has(key)) pairs.set(key,{key,productCode,processNo,standardId:standardDocumentId(productCode,processNo)});
-    });
-    return [...pairs.values()].sort((left,right)=>left.key.localeCompare(right.key,'en',{numeric:true}));
-  }
-
-  function canReadFullProducts(){
-    const role=text(window.cu?.role);
-    if(!role||window.firebaseAuthUser?.uid!==window.cu?.authUid) return false;
-    if(role==='admin') return true;
-    const features=window.permissionSettings?.[role]||{};
-    return (features.cutting===true&&features.preparationMain===true)
-      || (features.summary===true&&features.productsMain===true)
-      || (features.productionProcessEdit===true&&features.productsMain===true)
-      || features.progress===true
-      || (features.export===true&&(features.costMain===true||features.costView===true));
-  }
-
-  function verifiedRuntimeProducts(){
-    const mode=text(window.lastProductReadMetrics?.mode);
-    return canReadFullProducts()&&Array.isArray(window.D)
-      && ['runtime','indexeddb','delta','full'].includes(mode)
-      && Number(window.lastProductReadMetrics?.finishedAt)>0;
-  }
-
-  function standardFromOperation(product,operation){
-    const normalized=window.PCMSProductModel?.normalizeOperation
-      ?window.PCMSProductModel.normalizeOperation(operation)
-      :{no:text(operation?.no),sec:number(operation?.sec),vi:text(operation?.vi),zh:text(operation?.zh)};
-    const productCode=text(product?.code);
-    const processNo=text(normalized?.no);
-    if(!productCode||!processNo||!(number(normalized?.sec)>0)) return null;
+  function standardFromSample(sample){
+    const productId=text(sample?.productId);
+    const processId=text(sample?.processId);
+    const processSeconds=number(sample?.processSeconds);
+    if(!productId||!processId||!(processSeconds>0)) return null;
     return {
-      standardId:standardDocumentId(productCode,processNo),productCode,processNo,
-      processNameVi:text(normalized.vi),processNameZh:text(normalized.zh),
-      processSec:number(normalized.sec),active:true
+      productId,processId,productCode:text(sample.productCode),processNo:text(sample.processNo),
+      processNameVi:text(sample.processNameVi),processNameZh:text(sample.processNameZh),
+      processSeconds,hourlyCapacity:number(sample.hourlyCapacity),active:true
     };
   }
 
-  function standardsFromProducts(items,pairs){
-    const productsByCode=new Map((Array.isArray(items)?items:[]).map(item=>[text(item?.code),item]));
-    const result=new Map();
-    pairs.forEach(pair=>{
-      const product=productsByCode.get(pair.productCode);
-      const operation=(product?.ops||[]).find(item=>text(item?.no)===pair.processNo);
-      const standard=standardFromOperation(product,operation);
-      if(standard) result.set(pair.key,standard);
-    });
-    return result;
-  }
-
-  function standardFromDocument(data,id=''){
-    const productCode=text(data?.productCode);
-    const processNo=text(data?.processNo);
-    if(!productCode||!processNo) return null;
-    return {
-      ...data,standardId:text(data?.standardId||id),productCode,processNo,
-      processNameVi:text(data?.processNameVi),processNameZh:text(data?.processNameZh),
-      processSec:number(data?.processSec),active:data?.active===true
-    };
-  }
-
-  function rulesDocumentsPerRequest(){ return text(window.cu?.role)==='admin'?1:2; }
   function publishStandardMetrics(metrics){
     const finishedAt=Date.now();
     const result=Object.freeze({
       ...metrics,
-      clientReadCount:metrics.metaReadCount+metrics.standardReadCount,
-      rulesDependentReadCount:(metrics.metaRequestCount+metrics.queryCount)*rulesDocumentsPerRequest(),
+      clientReadCount:0,rulesDependentReadCount:0,
       finishedAt,elapsedMs:Math.max(0,finishedAt-metrics.startedAt)
     });
     window.lastProductionIEStandardReadMetrics=result;
     return result;
   }
 
-  async function readTargetedStandards(pairs,metrics){
-    const groups=chunks(pairs,STANDARD_QUERY_CHUNK_SIZE);
-    const snapshots=await Promise.all(groups.map(group=>window._getDocs(window._query(
-      window._collection(CURRENT_STANDARD_COLLECTION),
-      window._where('standardId','in',group.map(item=>item.standardId))
-    ))));
-    metrics.queryCount+=groups.length;
-    snapshots.forEach(snapshot=>{
-      metrics.standardReadCount+=Number(snapshot?.size)||snapshot?.docs?.length||0;
-      (snapshot?.docs||[]).forEach(document=>{
-        const standard=standardFromDocument(document.data(),document.id);
-        if(!standard) return;
-        const key=standardKey(standard.productCode,standard.processNo);
-        if(standard.active===true&&standard.processSec>0) currentStandards.set(key,standard);
-        else currentStandards.delete(key);
-      });
-    });
-    pairs.forEach(pair=>resolvedStandardKeys.add(pair.key));
-    currentStandardSource='productProcessStandards';
-  }
-
-  function mergeResolvedStandards(pairs,standards,source){
-    pairs.forEach(pair=>{
-      if(standards.has(pair.key)) currentStandards.set(pair.key,standards.get(pair.key));
-      else currentStandards.delete(pair.key);
-      resolvedStandardKeys.add(pair.key);
-    });
-    currentStandardSource=source;
-  }
-
-  function standardResult(pairs,metrics){
-    const standards=new Map();
-    pairs.forEach(pair=>{
-      const standard=currentStandards.get(pair.key);
-      if(standard) standards.set(pair.key,{...standard});
-    });
-    return {standards,source:currentStandardSource,metrics:publishStandardMetrics(metrics),keyCount:pairs.length};
-  }
-
-  async function runCurrentStandardLoad(dataset){
-    const pairs=standardPairs(dataset);
-    const missing=pairs.filter(pair=>!resolvedStandardKeys.has(pair.key));
-    const metrics={source:'memory',keyCount:pairs.length,metaReadCount:0,metaRequestCount:0,
-      standardReadCount:0,queryCount:0,fullProductReadCount:0,startedAt:Date.now()};
-    if(!missing.length) return standardResult(pairs,metrics);
-
-    if(!requireStandardRevalidation&&verifiedRuntimeProducts()){
-      metrics.source='runtime-products';
-      mergeResolvedStandards(missing,standardsFromProducts(window.D,missing),metrics.source);
-      return standardResult(pairs,metrics);
-    }
-
-    if(canReadFullProducts()&&window.PCMSProductCache?.read&&window.getProductsMetaForFeature){
-      const cache=await window.PCMSProductCache.read();
-      if(cache?.version){
-        const meta=await window.getProductsMetaForFeature(true);
-        metrics.metaReadCount+=1;
-        metrics.metaRequestCount+=1;
-        if(meta?.version&&text(meta.version)===text(cache.version)){
-          metrics.source='indexeddb-products';
-          mergeResolvedStandards(missing,standardsFromProducts(cache.items,missing),metrics.source);
-          requireStandardRevalidation=false;
-          return standardResult(pairs,metrics);
-        }
-      }
-    }
-
-    metrics.source='targeted-standards';
-    await readTargetedStandards(missing,metrics);
-    requireStandardRevalidation=false;
-    return standardResult(pairs,metrics);
-  }
-
   async function loadCurrentStandards(options={}){
     const dataset=options.dataset||state.dataset;
-    if(options.force===true) resetCurrentStandards({revalidate:true});
-    const key=standardPairs(dataset).map(item=>item.key).join('\u0000');
-    if(standardLoadPromise){
-      if(standardLoadPromise.key===key) return standardLoadPromise.promise;
-      await standardLoadPromise.promise;
-      return loadCurrentStandards(options);
-    }
-    const promise=runCurrentStandardLoad(dataset).finally(()=>{
-      if(standardLoadPromise?.promise===promise) standardLoadPromise=null;
+    currentStandards=new Map();
+    (dataset?.processSamples||[]).forEach(sample=>{
+      const standard=standardFromSample(sample);
+      if(standard) currentStandards.set(standardKey(standard.productId,standard.processId),standard);
     });
-    standardLoadPromise={key,promise};
-    return promise;
+    const metrics=publishStandardMetrics({source:'resolved-product-master',keyCount:currentStandards.size,
+      metaReadCount:0,metaRequestCount:0,standardReadCount:0,queryCount:0,fullProductReadCount:0,startedAt:Date.now()});
+    return {standards:new Map([...currentStandards].map(([key,value])=>[key,{...value}])),source:'resolved-product-master',metrics,keyCount:currentStandards.size};
   }
 
   function applyCurrentProducts(items){
-    (Array.isArray(items)?items:[]).forEach(product=>{
-      const productCode=text(product?.code);
-      if(!productCode) return;
-      const activeKeys=new Set();
-      (product.ops||[]).forEach(operation=>{
-        const standard=standardFromOperation(product,operation);
-        if(!standard) return;
-        const key=standardKey(standard.productCode,standard.processNo);
-        activeKeys.add(key);
-        currentStandards.set(key,standard);
-        resolvedStandardKeys.add(key);
-      });
-      [...resolvedStandardKeys].filter(key=>key.startsWith(`${productCode}||`)&&!activeKeys.has(key)).forEach(key=>{
-        currentStandards.delete(key);
-        resolvedStandardKeys.add(key);
-      });
-    });
-    if((items||[]).length) currentStandardSource='saved-products';
+    if((items||[]).length) currentStandards=new Map();
   }
 
-  function resetCurrentStandards(options={}){
+  function resetCurrentStandards(){
     currentStandards=new Map();
-    resolvedStandardKeys=new Set();
-    currentStandardSource='';
-    standardLoadPromise=null;
-    requireStandardRevalidation=options.revalidate===true;
   }
   async function readControl(month,metrics){
     const snapshot=await window._getDoc(window._docRef(MONTH_STATE_COLLECTION,month));

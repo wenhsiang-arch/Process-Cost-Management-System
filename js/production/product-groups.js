@@ -6,7 +6,7 @@
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
-  const store=()=>window.PCMSProcessEditStore;
+  const store=()=>window.PCMSProductGroupRuntime;
   const groupUI=()=>window.PCMSProcessGroupUI;
   const products=()=>Array.isArray(window.D)?window.D:[];
   const normalize=value=>String(value||'').trim();
@@ -100,7 +100,7 @@
     body.innerHTML=groups.map(group=>{
       const members=groupMembers(group);
       const sizeCount=groupUI().groupBySize(members).length;
-      return `<tr data-product-group-row="${safe(group.groupId)}" class="${group.groupId===state.selectedGroupId?'is-selected':''}"><td>${safe(groupClient(group))}</td><td><button type="button" class="product-group-name-button" data-product-group-view="${safe(group.groupId)}"><i class="ti ti-box-multiple"></i><b>${safe(group.name||group.groupId)}</b></button></td><td class="ui-table-number-cell"><b>${sizeCount}</b></td><td class="ui-table-number-cell"><b>${members.length}</b></td><td class="ui-table-center-cell"><button type="button" class="ui-button is-compact is-danger product-group-delete-button" data-product-group-delete="${safe(group.groupId)}"><i class="ti ti-trash"></i><span class="ui-dual-copy"><strong>Xóa</strong><span>刪除</span></span></button></td></tr>`;
+      return `<tr data-product-group-row="${safe(group.groupId)}" class="${group.groupId===state.selectedGroupId?'is-selected':''}"><td>${safe(groupClient(group))}</td><td><button type="button" class="product-group-name-button" data-product-group-view="${safe(group.groupId)}"><i class="ti ti-box-multiple"></i><b>${safe(group.name||group.groupId)}</b></button></td><td class="ui-table-number-cell"><b>${sizeCount}</b></td><td class="ui-table-number-cell"><b>${members.length}</b></td><td class="ui-table-center-cell"><button type="button" class="ui-button is-compact is-danger product-group-delete-button" data-product-group-delete="${safe(group.groupId)}"><i class="ti ti-player-stop"></i><span class="ui-dual-copy"><strong>Ngừng dùng</strong><span>停用</span></span></button></td></tr>`;
     }).join('');
     empty.hidden=groups.length>0;
     if(state.selectedGroupId&&!groups.some(group=>group.groupId===state.selectedGroupId)) state.selectedGroupId='';
@@ -132,29 +132,19 @@
     const group=store().listGroups().find(item=>item.groupId===normalize(groupId));
     if(!group) return;
     const members=groupMembers(group);
-    const sizeCount=groupUI().groupBySize(members).length;
     const confirmed=await ui().confirmDialog({
-      title:{vi:'Xác nhận xóa vĩnh viễn nhóm',zh:'確認永久刪除群組'},kind:'danger',
+      title:{vi:'Xác nhận ngừng dùng nhóm',zh:'確認停用群組'},kind:'warning',
       message:{
-        vi:`Sẽ xóa sạch nhóm “${group.name||group.groupId}” và ${members.length} chỉ mục thành viên trong Firebase; gồm ${sizeCount} nhóm kích thước. Mã hàng, công đoạn, giây, đơn hàng và sản lượng không bị xóa.`,
-        zh:`將從 Firebase（雲端資料庫）完整刪除群組「${group.name||group.groupId}」及 ${members.length} 筆成員索引，共 ${sizeCount} 個尺寸群組；款號、工序、秒數、訂單與產能資料不會刪除。`
+        vi:`Nhóm “${group.name||group.groupId}” sẽ ngừng áp dụng cho ${members.length} mã hàng. Mã hàng, công đoạn, đơn hàng và sản lượng không thay đổi.`,
+        zh:`群組「${group.name||group.groupId}」將停止套用於 ${members.length} 個款號；款號、工序、訂單與產能都不會改變。`
       },
-      confirmText:{vi:'Tiếp tục xóa',zh:'繼續刪除'},cancelText:{vi:'Hủy',zh:'取消'}
+      confirmText:{vi:'Ngừng dùng',zh:'確認停用'},cancelText:{vi:'Hủy',zh:'取消'}
     });
     if(!confirmed) return;
-    const finalConfirmed=await ui().confirmDialog({
-      title:{vi:'Không thể khôi phục sau khi xóa',zh:'刪除後無法復原'},kind:'danger',
-      message:{
-        vi:`Xác nhận xóa vĩnh viễn nhóm “${group.name||group.groupId}”? Nhật ký thao tác vẫn được giữ.`,
-        zh:`確定永久刪除群組「${group.name||group.groupId}」？不可修改的操作紀錄仍會保留。`
-      },
-      confirmText:{vi:'Xóa vĩnh viễn',zh:'永久刪除'},cancelText:{vi:'Quay lại',zh:'返回'}
-    });
-    if(!finalConfirmed) return;
     try{
       await store().deleteGroup(group.groupId);
       renderGroupList();
-      setStatus({vi:'Đã xóa vĩnh viễn nhóm và chỉ mục thành viên.',zh:'群組及成員索引已永久刪除。'},'success');
+      setStatus({vi:'Đã ngừng dùng nhóm.',zh:'群組已停用。'},'success');
     }catch(error){ setStatus(textApi().errorPair(error),'danger'); }
   }
 

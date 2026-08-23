@@ -73,12 +73,56 @@ function toggleSummaryDetail(code){
   rSum();
 }
 
+function summaryProductGroup(productId){
+  const runtimeGroup=window.PCMSProductGroupRuntime?.groupForProduct?.(productId);
+  if(runtimeGroup) return runtimeGroup;
+  return (Array.isArray(window.productMasterGroups)?window.productMasterGroups:[])
+    .find(group=>group.active!==false&&group.memberProductIds?.includes(productId))||null;
+}
+
+function summaryQuickInput(product,field,value,processId=''){
+  return {
+    field,value,sourceProductId:product.productId,sourceProcessId:processId,
+    products:window.D||[],group:summaryProductGroup(product.productId),
+    onSaved:()=>{ rSum();rDet(); }
+  };
+}
+
+// mountSummaryQuickTrigger（掛上快速修改入口）：新 Loader 未切換前維持原本純文字，不啟動半套流程。
+function mountSummaryQuickTrigger(host,product,field,value,processId=''){
+  if(!host||!window.PCMSProductQuickEdit||!product?.productId) return false;
+  host.replaceChildren(window.PCMSProductQuickEdit.createTrigger(summaryQuickInput(product,field,value,processId)));
+  return true;
+}
+
+function bindSummaryProductQuickEdits(row,product){
+  const fields={code:'code',client:'client',zh:'zh',vi:'vi',size:'sz'};
+  Object.entries(fields).forEach(([column,field])=>{
+    mountSummaryQuickTrigger(row.querySelector(`[data-ui-table-column="${column}"]`),product,field,product[field]);
+  });
+}
+
+function bindSummaryProcessQuickEdits(root,product){
+  root.querySelectorAll('[data-process-id]').forEach(row=>{
+    const operation=(product.ops||[]).find(item=>item.processId===row.dataset.processId);
+    if(!operation) return;
+    row.querySelectorAll('[data-product-quick-field]').forEach(cell=>{
+      const field=cell.dataset.productQuickField;
+      const values={
+        processNo:operation.no,processSortOrder:operation.sortOrder,processCategory:operation.category,
+        processNameZh:operation.zh,processNameVi:operation.vi,processSeconds:operation.sec
+      };
+      mountSummaryQuickTrigger(cell,product,field,values[field],operation.processId);
+    });
+  });
+}
+
 function renderSummaryDetail(d){
   const isA=canViewCosts();
   let total=0;
-  const rows=[...d.ops].sort((a,b)=>compareProcessNo(a.no,b.no)).map(op=>{
+  const rows=[...d.ops].sort((a,b)=>Number(a.sortOrder||a.no)-Number(b.sortOrder||b.no)).map((op,index)=>{
     const result=calc(op.sec); total+=result.vnd;
-    return`<tr><td>${summarySafeText(op.no)}</td><td><span class="tg tn">${summarySafeText(op.category||'—')} · ${summarySafeText(processCategoryLabel(op.category))}</span></td><td>${summarySafeText(op.zh)}</td><td style="color:var(--mu)">${summarySafeText(op.vi||'')}</td><td>${summarySafeText(op.sec)}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(result.vnd))}</td>`:'')+`</tr>`;
+    return`<tr data-process-id="${summarySafeText(op.processId||'')}"><td data-product-quick-field="processNo">${summarySafeText(op.no)}</td><td data-product-quick-field="processSortOrder">${summarySafeText(op.sortOrder||index+1)}</td><td data-product-quick-field="processCategory"><span class="tg tn">${summarySafeText(op.category||'—')} · ${summarySafeText(processCategoryLabel(op.category))}</span></td><td data-product-quick-field="processNameZh">${summarySafeText(op.zh)}</td><td data-product-quick-field="processNameVi" style="color:var(--mu)">${summarySafeText(op.vi||'')}</td><td data-product-quick-field="processSeconds">${summarySafeText(op.sec)}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(result.vnd))}</td>`:'')+`</tr>`;
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
@@ -86,8 +130,8 @@ function renderSummaryDetail(d){
       ${isA?`<span class="tg tg2">USD: ${summarySafeText(fU(total))}</span><span class="tg tb2">VND: ${summarySafeText(fV(total))}</span><span class="tg ta">TWD: ${summarySafeText(fT(total))}</span>`:''}
     </div>
     <div class="summary-detail-table-wrap"><table class="summary-detail-table ui-table" data-ui-table-layout="special">
-      <thead><tr><th>Số công đoạn<span class="tv">工序號</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí<span class="tv">工資</span></th>':''}</tr></thead>
-      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">Chưa có công đoạn<span class="tv">尚無工序資料</span></td></tr>`}</tbody>
+      <thead><tr><th>Số công đoạn<span class="tv">工序號</span></th><th>Thứ tự<span class="tv">排序</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí<span class="tv">工資</span></th>':''}</tr></thead>
+      <tbody>${rows||`<tr><td colspan="${isA?8:7}" style="text-align:center;color:var(--mu)">Chưa có công đoạn<span class="tv">尚無工序資料</span></td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
@@ -116,11 +160,17 @@ function rSum(){
     r.querySelector('.summary-toggle')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-code')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-delete')?.addEventListener('click',()=>askDel(d.code));
+    bindSummaryProductQuickEdits(r,d);
+    if(window.PCMSProductMasterEditor&&d.productId){
+      const actionCell=r.querySelector('.summary-action-column');
+      actionCell?.prepend(window.PCMSProductMasterEditor.createButton(d,{onSaved:()=>{rSum();rDet();}}));
+    }
     tb.appendChild(r);
     if(expanded){
       const detailRow=document.createElement('tr');
       detailRow.className='summary-detail-row';
       detailRow.innerHTML=`<td colspan="${Math.max(1,visibleColumns)}" class="summary-detail-cell">${renderSummaryDetail(d)}</td>`;
+      bindSummaryProcessQuickEdits(detailRow,d);
       tb.appendChild(detailRow);
     }
   });
@@ -170,9 +220,21 @@ function askDel(code){
 async function confDel(){
   const code=g('del-code').value, inp=g('del-inp').value.trim();
   if(inp!==code){ await summaryMessage('Mã hàng không khớp.','款號輸入不符合。','warning'); return; }
-  if(window.deleteProductFromFB){
-    const ok=await deleteProductFromFB(code);
-    if(!ok){ await summaryMessage('Xóa thất bại, dữ liệu chính thức chưa thay đổi.','刪除失敗，正式資料未變更。','danger'); return; }
+  const product=(window.D||[]).find(item=>item.code===code&&item.active!==false);
+  if(!product||!window.PCMSProductMasterService?.saveDraft){
+    await summaryMessage('Không tìm thấy dịch vụ mã hàng chính thức.','找不到正式款號主檔服務。','danger');
+    return;
   }
-  window.D=window.D.filter(d=>d.code!==code); cm('m-del'); rSum(); rDet(); rExp(); rBk();
+  try{
+    await window.PCMSProductMasterService.saveDraft({
+      base:product,draft:{...product,active:false},action:'productDeactivate',
+      note:'Ngừng sử dụng thay cho xóa vĩnh viễn / 以停用取代永久刪除'
+    });
+    window.D=window.D.filter(item=>item.productId!==product.productId);
+    cm('m-del');rSum();rDet();rExp();rBk();
+    await summaryMessage('Mã hàng đã ngừng sử dụng; dữ liệu lịch sử vẫn được giữ lại.','款號已停用，歷史資料仍完整保留。','success');
+  }catch(error){
+    console.error('Không thể ngừng mã hàng / 款號停用失敗',error);
+    await summaryMessage('Không thể ngừng mã hàng; dữ liệu chính thức chưa thay đổi.','款號停用失敗，正式資料未變更。','danger');
+  }
 }

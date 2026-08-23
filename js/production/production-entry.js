@@ -132,10 +132,10 @@
     const effective = effectiveHours(item);
     return [
       item.productionDate,dateText(item.productionDate),dateBadge.vi,dateBadge.zh,item.employeeId,employee?.name,item.employeeName,
-      employee?.department,item.department,item.orderNo,item.productCode,item.orderQtySnapshot,numberText(item.orderQtySnapshot),
+      employee?.department,item.department,item.orderNo,item.productCode,item.orderQuantity,numberText(item.orderQuantity),
       item.processNo,item.processNameVi,item.processNameZh,item.supplementReason,item.quantity,numberText(item.quantity),
-      item.supplementHours,hoursText(item.supplementHours),effective,hoursText(effective),item.processSecSnapshot,
-      numberText(item.processSecSnapshot),item.hourlyCapacitySnapshot,hourlyCapacityText(item.hourlyCapacitySnapshot),status,action
+      item.supplementHours,hoursText(item.supplementHours),effective,hoursText(effective),item.processSeconds,
+      numberText(item.processSeconds),item.hourlyCapacity,hourlyCapacityText(item.hourlyCapacity),status,action
     ].map(normalizeRecordSearch).join(' ');
   }
 
@@ -479,10 +479,11 @@
   }
 
   function applySavedProcessTotal(saved){
-    if(!saved?.orderProcessId||state.process?.id!==saved.orderProcessId||!state.processTotal) return;
+    const processTotalId=String(saved?.processTotalId||'');
+    if(!processTotalId||state.process?.id!==processTotalId||!state.processTotal) return;
     state.processTotal={
       registeredQuantity:Math.max(0,Number(state.processTotal.registeredQuantity)||0)+Math.max(0,Number(saved.quantity)||0),
-      orderQuantity:Math.max(0,Number(saved.orderQtySnapshot)||Number(state.processTotal.orderQuantity)||0)
+      orderQuantity:Math.max(0,Number(saved.orderQuantity)||Number(state.processTotal.orderQuantity)||0)
     };
     state.processTotalLoading=false;
     renderQuantityProgress();
@@ -506,7 +507,13 @@
   }
 
   function productOptionCopy(item){
-    return {primary:item.code,secondary:[item.desc,item.color,item.size].filter(Boolean).join(' · ')};
+    const line=item.orderItemId?`#${item.lineNumber||'?'}`:'';
+    return {primary:item.code,secondary:[line,item.po,item.desc,item.color,item.size].filter(Boolean).join(' · ')};
+  }
+
+  function productInputValue(item){
+    if(!item?.orderItemId) return String(item?.code||'');
+    return [item.code,`#${item.lineNumber||'?'}`,item.po,item.color].filter(Boolean).join(' · ');
   }
 
   function processOptionCopy(item){
@@ -873,7 +880,7 @@
   function selectProduct(product,options={}){
     state.product = product;
     setSupplementMode(false);
-    element('production-product-input').value = product.code;
+    element('production-product-input').value = productInputValue(product);
     element('production-process-input').value = '';
     setProcessName(null);
     closeDropdown('production-product-options');
@@ -885,7 +892,7 @@
     if(!state.order || !state.orderReady){ closeDropdown('production-product-options'); return false; }
     const input = element('production-product-input');
     const value = input.value.trim();
-    if(state.product && value !== state.product.code) clearProduct();
+    if(state.product && value !== productInputValue(state.product)) clearProduct();
     if(value) input.title=value;
     else input.removeAttribute('title');
     return Boolean(value);
@@ -923,8 +930,8 @@
     if(!state.orderReady || !state.product) return null;
     return window.PCMSProductionEntryStore.findProcess(
       state.order?.id,
-      state.product.code,
-      element('production-process-input').value
+      state.product.orderItemId||state.product.code,
+      state.process?.processId||element('production-process-input').value
     );
   }
 
@@ -939,8 +946,11 @@
   function productForExactInput(){
     if(!state.orderReady||!state.order) return null;
     const value=element('production-product-input')?.value;
-    return window.PCMSProductionEntryStore.productsForOrder(state.order.id)
-      .find(item=>window.PCMSUISearchDropdown.isExact(value,item.code))||null;
+    const items=window.PCMSProductionEntryStore.productsForOrder(state.order.id);
+    const exact=items.find(item=>window.PCMSUISearchDropdown.isExact(value,productInputValue(item)));
+    if(exact) return exact;
+    const byCode=items.filter(item=>window.PCMSUISearchDropdown.isExact(value,item.code));
+    return byCode.length===1?byCode[0]:null;
   }
 
   function confirmOrderInput(options={}){
@@ -962,7 +972,7 @@
       setStatus('Vui lòng chọn đúng mã hàng trong danh sách.','請從清單選擇正確的款號。','warning');
       return false;
     }
-    if(state.product?.code !== exact.code) selectProduct(exact,{focusProcess:options.focusNext===true});
+    if((state.product?.orderItemId||state.product?.code)!==(exact.orderItemId||exact.code)) selectProduct(exact,{focusProcess:options.focusNext===true});
     else if(options.focusNext===true) element('production-process-input')?.focus({preventScroll:true});
     return options.focusNext===true?'handled':true;
   }
@@ -1048,7 +1058,9 @@
       inputId:'production-process-input',toggleId:'production-process-toggle',mode:'numeric',
       isEnabled:()=>Boolean(!state.supplementMode&&state.orderReady&&state.product),
       getItems:()=>state.order?window.PCMSProductionEntryStore.getLoadedProcesses(state.order.id)
-        .filter(item=>String(item.code||'')===String(state.product?.code||'')):[],
+        .filter(item=>state.product?.orderItemId
+          ?String(item.orderItemId||'')===String(state.product.orderItemId)
+          :String(item.code||'')===String(state.product?.code||'')):[],
       fields:[{value:item=>item.processNo,mode:'numeric'}],
       renderItem:processOptionCopy,onSelect:selectProcess,onInput:handleProcessInput,
       onConfirm:()=>confirmProcessInput({focusNext:true})
@@ -1344,6 +1356,9 @@
           productionDate:element('production-date-input').value,
           employeeId:state.employee?.employeeId,
           orderId:state.order?.id,
+          orderItemId:state.product?.orderItemId,
+          productId:state.product?.productId,
+          processId:state.process?.processId,
           productCode:state.product?.code,
           processNo:supplement ? '0' : state.process?.processNo,
           quantity:supplement ? undefined : quantityInput.value,
@@ -1436,9 +1451,9 @@
       quantity:supplement ? null : Number(item.quantity || 0),
       effectiveHours:effectiveHours(item),
       supplementHours:supplement ? Number(item.supplementHours || 0) : null,
-      orderQuantity:supplement ? null : Number(item.orderQtySnapshot || 0),
-      processSeconds:supplement ? null : Number(item.processSecSnapshot || 0),
-      hourlyCapacity:supplement ? null : Number(item.hourlyCapacitySnapshot || 0),
+      orderQuantity:supplement ? null : Number(item.orderQuantity || 0),
+      processSeconds:supplement ? null : Number(item.processSeconds || 0),
+      hourlyCapacity:supplement ? null : Number(item.hourlyCapacity || 0),
       status:item.status || ''
     };
     return values[key];
@@ -1476,27 +1491,27 @@
       const row = document.createElement('tr');
       const groupStart=index===0||visibleRows[index-1]?.productionDate!==item.productionDate;
       if(groupStart) row.classList.add('production-date-group-start');
-      row.dataset.orderProcessId = String(item.orderProcessId || '');
+      row.dataset.processTotalId = String(item.processTotalId || '');
       appendDateCell(row,item.productionDate,groupStart);
       appendCell(row,item.employeeId || '—','production-record-text-cell','employeeId');
       appendCell(row,currentEmployee?.name || item.employeeName || '—','production-record-text-cell','employeeName');
       appendCell(row,item.orderNo || '—','', 'order');
       appendCell(row,item.productCode || '—','production-product-code-cell','product');
-      appendCell(row,supplement ? '—' : numberText(item.orderQtySnapshot),'production-number-cell','orderQuantity');
+      appendCell(row,supplement ? '—' : numberText(item.orderQuantity),'production-number-cell','orderQuantity');
       appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
       appendCell(row,supplement ? (item.supplementReason || '—') : (item.processNameVi || item.processNameZh || '—'),'', 'processName');
       appendCell(row,supplement ? '—' : numberText(item.quantity),'production-number-cell','quantity','production-value-badge');
       appendCell(row,hoursText(effectiveHours(item)),'production-number-cell','effectiveHours');
       appendCell(row,supplement ? hoursText(item.supplementHours) : '—','production-number-cell','supplementHours');
-      const secondsCell=appendCell(row,supplement ? '—' : numberText(item.processSecSnapshot),'production-number-cell','processSeconds');
+      const secondsCell=appendCell(row,supplement ? '—' : numberText(item.processSeconds),'production-number-cell','processSeconds');
       if(!supplement&&window.PCMSQuickProcessSeconds){
         secondsCell.replaceChildren(window.PCMSQuickProcessSeconds.createButton({
-          value:numberText(item.processSecSnapshot),code:item.productCode,processNo:item.processNo,
-          processNameVi:item.processNameVi,displayedSeconds:Number(item.processSecSnapshot)||0,source:'productionEntry',
+          value:numberText(item.processSeconds),productId:item.productId,processId:item.processId,code:item.productCode,processNo:item.processNo,
+          processNameVi:item.processNameVi,displayedSeconds:Number(item.processSeconds)||0,source:'productionEntry',
           onSaved:refreshAfterProcessSecondsSaved
         }));
       }
-      appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacitySnapshot),'production-number-cell','hourlyCapacity');
+      appendCell(row,supplement ? '—' : hourlyCapacityText(item.hourlyCapacity),'production-number-cell','hourlyCapacity');
       const statusCell = document.createElement('td');
       statusCell.className = 'production-center-cell';
       statusCell.dataset.productionColumn = 'status';
@@ -1561,7 +1576,9 @@
       try{
         window.PCMSProductionEntryStore.refreshLoadedProcessStandards(state.order.id);
         if(state.process){
-          const refreshed=window.PCMSProductionEntryStore.findProcess(state.order.id,selectedCode,state.process.processNo);
+          const refreshed=window.PCMSProductionEntryStore.findProcess(
+            state.order.id,state.product?.orderItemId||selectedCode,state.process.processId||state.process.processNo
+          );
           if(refreshed){
             state.process=refreshed;
             setProcessName(refreshed);
@@ -1573,6 +1590,40 @@
       }
     }
     await loadDailyRows();
+  }
+
+  // refreshAfterProductMasterChange（款號主檔更新後刷新）：固定身分不變，只重新解析目前顯示內容。
+  async function refreshAfterProductMasterChange(event){
+    const changedProductId=String(event?.detail?.productId||'');
+    if(!state.orderReady||!state.order?.id) return;
+    if(changedProductId&&state.product?.productId&&changedProductId!==state.product.productId){
+      await loadDailyRows();
+      return;
+    }
+    const orderItemId=String(state.product?.orderItemId||'');
+    const processId=String(state.process?.processId||'');
+    try{
+      await window.PCMSProductionEntryStore.loadProcesses(state.order.id,{force:true});
+      if(orderItemId){
+        const product=window.PCMSProductionEntryStore.productsForOrder(state.order.id).find(item=>item.orderItemId===orderItemId)||null;
+        state.product=product;
+        if(product) element('production-product-input').value=productInputValue(product);
+      }
+      if(orderItemId&&processId){
+        const process=window.PCMSProductionEntryStore.findProcess(state.order.id,orderItemId,processId);
+        state.process=process;
+        setProcessName(process);
+        if(process) await loadQuantityProgress(process,{force:true});
+        else{
+          resetQuantityProgress();
+          setStatus('Công đoạn hiện tại không còn sử dụng được.','目前工序已不存在或停用。','warning');
+        }
+      }
+      await loadDailyRows();
+    }catch(error){
+      setStatus('Không thể làm mới dữ liệu mã hàng hiện tại.','無法重新載入目前款號資料。','danger');
+      await showError(error);
+    }
   }
 
   function setRecordDateFilter(value=''){
@@ -1721,6 +1772,7 @@
     element('production-supplement-help-button').addEventListener('click',()=>void openSupplementHelp());
     element('production-quantity-progress').addEventListener('click',()=>void toggleSelectedProcessRows());
     window.addEventListener?.('focus',refreshProcessTotalOnFocus);
+    document.addEventListener('pcms:productmasterchange',refreshAfterProductMasterChange);
     ENTRY_INPUT_IDS.forEach(id=>{
       element(id)?.addEventListener('keydown',event=>handleEntryTab(event,id));
     });

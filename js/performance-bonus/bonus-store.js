@@ -125,7 +125,7 @@
       throw new Error('Bộ nhớ tóm tắt tháng chưa sẵn sàng. / 月摘要快取程式尚未載入。');
     }
     const rows=await summaryStore.loadEmployeeMonths(requireMonth(month),{version:String(summaryVersion||'0')});
-    return rows.filter(item=>item.summaryComplete===true&&Number(item.schemaVersion)===2);
+    return rows.filter(item=>item.summaryComplete===true&&Number(item.schemaVersion)===Number(summaryStore.SCHEMA_VERSION));
   }
   function rowsFromSummaries(summaries){
     const rows=[];
@@ -190,6 +190,13 @@
   async function readStoredMonth(month){
     const metadata=snapshotData(await window._getDoc(monthRef(month)));
     if(!metadata||!LOCKED_STATUSES.has(metadata.status)) return {metadata:null,employees:[]};
+    if(metadata.snapshotId){
+      const service=window.PCMSPerformanceBonusLockService;
+      if(!service?.readSnapshot) throw new Error('Bộ đọc ảnh chụp tháng chưa sẵn sàng. / 月份快照讀取程式尚未載入。');
+      const payload=await service.readSnapshot(metadata.snapshotId);
+      if(payload?.month!==month) throw new Error('Ảnh chụp tháng không khớp. / 月份快照不相符。');
+      return {metadata,employees:Array.isArray(payload?.bonus?.employees)?payload.bonus.employees:[]};
+    }
     if(Array.isArray(metadata.frozenEmployees)) return {metadata,employees:metadata.frozenEmployees};
     const snapshot=await window._getDocs(window._collection(legacyEmployeeCollection(month)));
     const calculationId=String(metadata.calculationId||'');
@@ -309,33 +316,9 @@
   async function lockMonth(month){
     const normalized=requireMonth(month);
     const current=await assertMonthReadyForLock(normalized);
-    const timestamp=now();
-    let saved;
-    await window._runTransaction(async transaction=>{
-      const [controlSnapshot,monthSnapshot]=await Promise.all([
-        transaction.get(productionMonthRef(normalized)),transaction.get(monthRef(normalized))
-      ]);
-      if(!controlSnapshot.exists()||controlSnapshot.data().status!=='open'||controlSnapshot.data().summaryReady!==true){
-        throw new Error('Tháng chưa sẵn sàng để khóa. / 月份尚未準備好鎖定。');
-      }
-      if(monthSnapshot.exists()&&LOCKED_STATUSES.has(monthSnapshot.data().status)) return;
-      const source=controlSnapshot.data();
-      if(String(source.entriesVersion||'0')!==String(current.metadata.sourceEntriesVersion||'0')
-        ||String(source.attendanceVersion||'0')!==String(current.metadata.sourceAttendanceVersion||'0')
-        ||String(source.summaryVersion||'0')!==String(current.metadata.sourceSummaryVersion||'0')){
-        throw new Error('Dữ liệu vừa thay đổi, vui lòng thử khóa lại. / 資料剛有變動，請重新執行鎖定。');
-      }
-      const previousMonth=monthSnapshot.exists()?monthSnapshot.data():{};
-      saved={...current.metadata,status:'locked',frozenEmployees:current.employees,lockedAt:timestamp,
-        lockedByUid:uid(),lockedBy:username(),lockRevision:(Number(previousMonth.lockRevision)||0)+1,
-        updatedAt:timestamp,updatedByUid:uid(),updatedBy:username(),schemaVersion:SCHEMA_VERSION};
-      transaction.set(monthRef(normalized),saved);
-      transaction.set(productionMonthRef(normalized),{...controlSnapshot.data(),status:'locked',revision:Number(controlSnapshot.data().revision||0)+1,
-        lockedAt:timestamp,lockedByUid:uid(),lockedBy:username(),updatedAt:timestamp,updatedByUid:uid(),updatedBy:username()});
-      transaction.set(window._newDocRef(LOG_COLLECTION),logData('performanceBonusLock',saved.employeeCount,saved.eligibleEmployeeCount,normalized,
-        [{field:'status',before:'open',after:'locked'}]));
-    },{skipDataVersions:true});
-    return saved;
+    const service=window.PCMSPerformanceBonusLockService;
+    if(!service?.lockMonth) throw new Error('Bộ khóa tháng chưa sẵn sàng. / 月份鎖定程式尚未載入。');
+    return service.lockMonth(normalized,current);
   }
   async function updateLockedStatus(month,allowed,nextStatus,extra={},action='performanceBonusExport',logExtra={}){
     const normalized=requireMonth(month);
@@ -364,21 +347,8 @@
     return updateLockedStatus(month,['exported'],'paid',{paidAt:timestamp,paidByUid:uid(),paidBy:username()},'performanceBonusPaid');
   }
   async function unlockMonth(month){
-    const normalized=requireMonth(month);
-    const timestamp=now();
-    await window._runTransaction(async transaction=>{
-      const [monthSnapshot,controlSnapshot]=await Promise.all([transaction.get(monthRef(normalized)),transaction.get(productionMonthRef(normalized))]);
-      if(!monthSnapshot.exists()||!LOCKED_STATUSES.has(monthSnapshot.data().status)||!controlSnapshot.exists()){
-        throw new Error('Trạng thái tháng không cho phép mở khóa. / 月份狀態不允許解鎖。');
-      }
-      transaction.set(monthRef(normalized),{...monthSnapshot.data(),status:'draft',requiresRecalculation:true,
-        unlockedAt:timestamp,unlockedByUid:uid(),unlockedBy:username(),updatedAt:timestamp,updatedByUid:uid(),updatedBy:username()});
-      transaction.set(productionMonthRef(normalized),{...controlSnapshot.data(),status:'open',revision:Number(controlSnapshot.data().revision||0)+1,
-        unlockedAt:timestamp,unlockedByUid:uid(),unlockedBy:username(),updatedAt:timestamp,updatedByUid:uid(),updatedBy:username()});
-      transaction.set(window._newDocRef(LOG_COLLECTION),logData('performanceBonusUnlock',monthSnapshot.data().employeeCount,0,normalized,
-        [{field:'status',before:monthSnapshot.data().status,after:'draft'}]));
-    },{skipDataVersions:true});
-    return loadMonth(normalized,{force:true});
+    requireMonth(month);
+    throw new Error('Chức năng chưa được kết nối. / 功能尚未接入。');
   }
   function canUnlock(){
     if(window.isAdm?.()) return true;

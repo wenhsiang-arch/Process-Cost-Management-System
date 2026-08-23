@@ -2,8 +2,173 @@
 (function(){
   'use strict';
 
+  const PRODUCT_CODE_MAX_LENGTH=80;
+  const CONTROL_CHARACTER_PATTERN=/[\u0000-\u001F\u007F-\u009F]/u;
+  const FIXED_ID_PATTERN=/^(prd|prc|oit|grp)_[a-z0-9_-]{12,80}$/;
+  const ID_PREFIXES=Object.freeze({product:'prd',process:'prc',orderItem:'oit',group:'grp'});
+  const BASE64URL_ALPHABET='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+
   function text(value){
     return String(value??'').trim().replace(/\s+/g,' ');
+  }
+
+  // normalizeProductCode（正規化款號代碼）：保留使用者大小寫，只統一 Unicode 與空白並拒絕控制字元。
+  function normalizeProductCode(value){
+    const normalized=text(value).normalize('NFKC');
+    if(!normalized) throw new Error('Mã hàng không được để trống. / 款號代碼不得空白。');
+    if(CONTROL_CHARACTER_PATTERN.test(normalized)) throw new Error('Mã hàng chứa ký tự điều khiển không hợp lệ. / 款號代碼含有不允許的控制字元。');
+    if(Array.from(normalized).length>PRODUCT_CODE_MAX_LENGTH) throw new Error(`Mã hàng không được vượt quá ${PRODUCT_CODE_MAX_LENGTH} ký tự. / 款號代碼不得超過 ${PRODUCT_CODE_MAX_LENGTH} 字。`);
+    return normalized;
+  }
+
+  // productCodeComparisonKey（款號比對鍵）：大小寫不敏感，但不改變正式顯示代碼。
+  function productCodeComparisonKey(value){
+    return normalizeProductCode(value).toLocaleUpperCase('en-US');
+  }
+
+  function utf8Bytes(value){
+    if(typeof TextEncoder==='function') return Array.from(new TextEncoder().encode(value));
+    const encoded=encodeURIComponent(value);
+    const bytes=[];
+    for(let index=0;index<encoded.length;index+=1){
+      if(encoded[index]==='%'){
+        bytes.push(Number.parseInt(encoded.slice(index+1,index+3),16));
+        index+=2;
+      }else bytes.push(encoded.charCodeAt(index));
+    }
+    return bytes;
+  }
+
+  function utf8Text(bytes){
+    const encoded=bytes.map(byte=>`%${Number(byte).toString(16).padStart(2,'0')}`).join('');
+    return decodeURIComponent(encoded);
+  }
+
+  function encodeBase64Url(value){
+    const bytes=utf8Bytes(value);
+    let output='';
+    for(let index=0;index<bytes.length;index+=3){
+      const first=bytes[index];
+      const second=bytes[index+1];
+      const third=bytes[index+2];
+      output+=BASE64URL_ALPHABET[first>>2];
+      output+=BASE64URL_ALPHABET[((first&3)<<4)|((second??0)>>4)];
+      if(second!==undefined) output+=BASE64URL_ALPHABET[((second&15)<<2)|((third??0)>>6)];
+      if(third!==undefined) output+=BASE64URL_ALPHABET[third&63];
+    }
+    return output;
+  }
+
+  function decodeBase64Url(value){
+    const encoded=String(value||'');
+    if(!encoded||encoded.length%4===1||!/^[A-Za-z0-9_-]+$/.test(encoded)) throw new Error('Chỉ mục mã hàng không hợp lệ. / 款號索引格式不正確。');
+    const bytes=[];
+    for(let index=0;index<encoded.length;index+=4){
+      const first=BASE64URL_ALPHABET.indexOf(encoded[index]);
+      const second=BASE64URL_ALPHABET.indexOf(encoded[index+1]);
+      const third=encoded[index+2]===undefined?-1:BASE64URL_ALPHABET.indexOf(encoded[index+2]);
+      const fourth=encoded[index+3]===undefined?-1:BASE64URL_ALPHABET.indexOf(encoded[index+3]);
+      if(first<0||second<0||third<-1||fourth<-1) throw new Error('Chỉ mục mã hàng không hợp lệ. / 款號索引格式不正確。');
+      bytes.push((first<<2)|(second>>4));
+      if(third>=0) bytes.push(((second&15)<<4)|(third>>2));
+      if(fourth>=0) bytes.push(((third&3)<<6)|fourth);
+    }
+    return utf8Text(bytes);
+  }
+
+  // safeProductCodeKey（安全款號索引鍵）：可逆的 Base64URL，只編碼大小寫不敏感比對值。
+  function safeProductCodeKey(value){ return `code_${encodeBase64Url(productCodeComparisonKey(value))}`; }
+  function productCodeFromSafeKey(value){
+    const key=String(value||'');
+    if(!key.startsWith('code_')) throw new Error('Chỉ mục mã hàng không hợp lệ. / 款號索引格式不正確。');
+    return decodeBase64Url(key.slice(5));
+  }
+
+  function identityPrefix(kind){
+    const prefix=ID_PREFIXES[kind];
+    if(!prefix) throw new Error('Loại mã định danh không hợp lệ. / 固定識別碼類型不正確。');
+    return prefix;
+  }
+
+  function randomToken(){
+    if(globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID().replace(/-/g,'').toLowerCase();
+    if(globalThis.crypto?.getRandomValues){
+      const bytes=new Uint8Array(16);
+      globalThis.crypto.getRandomValues(bytes);
+      return Array.from(bytes,byte=>byte.toString(16).padStart(2,'0')).join('');
+    }
+    const first=Math.floor(Math.random()*Number.MAX_SAFE_INTEGER).toString(36);
+    const second=Date.now().toString(36);
+    return `${second}${first}${Math.random().toString(36).slice(2)}`.slice(0,40);
+  }
+
+  // createPermanentId（建立永久識別碼）：建立後只作身分，不從可修改欄位重新計算。
+  function createPermanentId(kind,tokenProvider){
+    const raw=typeof tokenProvider==='function'?tokenProvider(kind):tokenProvider;
+    const token=String(raw||randomToken()).toLowerCase().replace(/[^a-z0-9_-]/g,'');
+    if(token.length<12) throw new Error('Nguồn tạo mã định danh quá ngắn. / 固定識別碼來源長度不足。');
+    return `${identityPrefix(kind)}_${token.slice(0,80)}`;
+  }
+
+  function fixedId(value,kind){
+    const normalized=text(value).toLowerCase();
+    if(!FIXED_ID_PATTERN.test(normalized)||(kind&& !normalized.startsWith(`${identityPrefix(kind)}_`))) return '';
+    return normalized;
+  }
+
+  function hash64(bytes,seed){
+    let hash=BigInt.asUintN(64,14695981039346656037n^BigInt(seed));
+    for(const byte of bytes){
+      hash^=BigInt(byte);
+      hash=BigInt.asUintN(64,hash*1099511628211n);
+    }
+    return hash.toString(16).padStart(16,'0');
+  }
+
+  // deterministicLegacyId（可重跑舊資料識別碼）：相同來源永遠產生相同目標身分。
+  function deterministicLegacyId(kind,sourceKey){
+    const source=text(sourceKey).normalize('NFKC');
+    if(!source) throw new Error('Thiếu nguồn dữ liệu cũ để tạo mã định danh. / 缺少建立固定識別碼的舊資料來源。');
+    const bytes=utf8Bytes(`${kind}\u001f${source}`);
+    return `${identityPrefix(kind)}_${hash64(bytes,0x9e3779b1)}${hash64(bytes,0x85ebca6b)}`;
+  }
+
+  function legacySourceKey(collection,documentId,detail=''){
+    const sourceCollection=text(collection);
+    const sourceDocument=text(documentId);
+    const sourceDetail=text(detail);
+    if(!sourceCollection||!sourceDocument) throw new Error('Thiếu đường dẫn nguồn dữ liệu cũ. / 缺少舊資料來源路徑。');
+    return [sourceCollection,sourceDocument,sourceDetail].map(value=>encodeBase64Url(value.normalize('NFKC'))).join('.');
+  }
+
+  // buildLegacyMapping（舊資料對照契約）：保存來源與固定目標，供轉換重跑、續跑及驗證。
+  function buildLegacyMapping(input={}){
+    const sourceKey=text(input.sourceKey);
+    const targetKind=text(input.targetKind);
+    const targetId=fixedId(input.targetId,targetKind);
+    if(!sourceKey||!targetId) throw new Error('Dữ liệu đối chiếu chuyển đổi không hợp lệ. / 資料轉換對照不正確。');
+    const bytes=utf8Bytes(`mapping\u001f${sourceKey}\u001f${targetKind}`);
+    const status=['mapped','validated','exception'].includes(input.status)?input.status:'mapped';
+    return {
+      mappingId:`map_${hash64(bytes,0x27d4eb2f)}${hash64(bytes,0x165667b1)}`,
+      sourceType:text(input.sourceType),sourceKey,targetKind,targetId,
+      migrationVersion:text(input.migrationVersion)||'product-master-v1',status,
+      verifiedAt:Number(input.verifiedAt)||null,verificationResult:text(input.verificationResult)
+    };
+  }
+
+  // buildMigrationException（資料轉換例外契約）：只記錄無法唯一判斷的來源與候選固定身分。
+  function buildMigrationException(input={}){
+    const sourceKey=text(input.sourceKey);
+    const reasonCode=text(input.reasonCode);
+    if(!sourceKey||!reasonCode) throw new Error('Thiếu nguồn hoặc nguyên nhân ngoại lệ chuyển đổi. / 缺少資料轉換例外來源或原因。');
+    const bytes=utf8Bytes(`exception\u001f${sourceKey}\u001f${reasonCode}`);
+    return {
+      exceptionId:`exc_${hash64(bytes,0x94d049bb)}${hash64(bytes,0x369dea0f)}`,
+      sourceType:text(input.sourceType),sourceKey,reasonCode,status:'unresolved',
+      candidateIds:[...new Set((Array.isArray(input.candidateIds)?input.candidateIds:[]).map(text).filter(Boolean))].sort(),
+      detail:text(input.detail).slice(0,1000),migrationVersion:text(input.migrationVersion)||'product-master-v1'
+    };
   }
 
   function processNo(value){
@@ -17,28 +182,37 @@
   }
 
   function normalizeOperation(operation={}){
-    return {
+    const normalized={
       no:processNo(operation.no),
       category:text(operation.category).toUpperCase(),
       zh:text(operation.zh),
       vi:text(operation.vi),
       sec:seconds(operation.sec)
     };
+    const processId=fixedId(operation.processId,'process');
+    if(processId) normalized.processId=processId;
+    const sortOrder=Number(operation.sortOrder);
+    if(Number.isInteger(sortOrder)&&sortOrder>0&&sortOrder<=999) normalized.sortOrder=sortOrder;
+    if(operation.active===false) normalized.active=false;
+    return normalized;
   }
 
   function compareOperationNumber(left,right){
-    return Number(left?.no||0)-Number(right?.no||0);
+    const order=Number(left?.sortOrder||left?.no||0)-Number(right?.sortOrder||right?.no||0);
+    return order||Number(left?.no||0)-Number(right?.no||0);
   }
 
   function normalizeProduct(product={}){
     const normalized={
-      code:text(product.code),
+      code:text(product.code)?normalizeProductCode(product.code):'',
       client:text(product.client),
       zh:text(product.zh),
       vi:text(product.vi),
       sz:text(product.sz),
       ops:(Array.isArray(product.ops)?product.ops:[]).map(normalizeOperation).sort(compareOperationNumber)
     };
+    const productId=fixedId(product.productId,'product');
+    if(productId) normalized.productId=productId;
     const groupId=text(product.groupId);
     if(groupId) normalized.groupId=groupId;
     if(Array.isArray(product.developmentOps)&&product.developmentOps.length){
@@ -50,6 +224,9 @@
     if(Number.isFinite(officialUpdatedAt)&&officialUpdatedAt>0) normalized.officialUpdatedAt=officialUpdatedAt;
     const officialUpdatedBy=text(product.officialUpdatedBy);
     if(officialUpdatedBy) normalized.officialUpdatedBy=officialUpdatedBy;
+    const revision=Number(product.revision);
+    if(Number.isInteger(revision)&&revision>0) normalized.revision=revision;
+    if(product.active===false) normalized.active=false;
     return normalized;
   }
 
@@ -61,7 +238,9 @@
       zh:normalized.zh,
       vi:normalized.vi,
       sz:normalized.sz,
-      ops:normalized.ops
+      ops:normalized.ops.map(operation=>({
+        no:operation.no,category:operation.category,zh:operation.zh,vi:operation.vi,sec:operation.sec
+      }))
     };
   }
 
@@ -117,10 +296,10 @@
 
   function classifyImport(existingItems,incomingItems){
     const existingByCode=new Map((Array.isArray(existingItems)?existingItems:[])
-      .map(normalizeProduct).filter(item=>item.code).map(item=>[item.code,item]));
+      .map(normalizeProduct).filter(item=>item.code).map(item=>[productCodeComparisonKey(item.code),item]));
     const result={newItems:[],sameItems:[],differentItems:[]};
     (Array.isArray(incomingItems)?incomingItems:[]).map(normalizeProduct).filter(item=>item.code).forEach(item=>{
-      const existing=existingByCode.get(item.code);
+      const existing=existingByCode.get(productCodeComparisonKey(item.code));
       if(!existing){ result.newItems.push(item); return; }
       const differences=compareProducts(existing,item);
       if(differences.length) result.differentItems.push({code:item.code,existing,incoming:item,differences});
@@ -166,6 +345,17 @@
   }
 
   window.PCMSProductModel=Object.freeze({
+    PRODUCT_CODE_MAX_LENGTH,
+    normalizeProductCode,
+    productCodeComparisonKey,
+    safeProductCodeKey,
+    productCodeFromSafeKey,
+    createPermanentId,
+    fixedId,
+    deterministicLegacyId,
+    legacySourceKey,
+    buildLegacyMapping,
+    buildMigrationException,
     normalizeOperation,
     normalizeProduct,
     comparableProduct,

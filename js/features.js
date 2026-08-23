@@ -6,55 +6,59 @@
     settings:'js/settings.js?v=20260809-3',
     uiTableControls:'js/ui-table-controls.js?v=20260821-1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-3',
-    productCache:'js/product-cache.js?v=20260806-1',
-    productModel:'js/product-model.js?v=20260821-2',
-    productVersionStore:'js/product-version-store.js?v=20260813-1',
-    orderProcessCache:'js/order-process-cache.js?v=20260806-1',
-    summary:'js/summary.js?v=20260813-1',
-    data:'js/data.js?v=20260813-2',
+    productCache:'js/product-cache.js?v=20260823-2',
+    productModel:'js/product-model.js?v=20260824-1',
+    productMasterStore:'js/product-master-store.js?v=20260823-5',
+    productResolver:'js/product-resolver.js?v=20260823-1',
+    productGroupStore:'js/product-group-store.js?v=20260823-1',
+    productMasterService:'js/product-master-service.js?v=20260823-4',
+    productMasterEditor:'js/product-master-editor.js?v=20260823-1',
+    productQuickEdit:'js/product-quick-edit.js?v=20260823-1',
+    productGroupRuntime:'js/product-group-runtime.js?v=20260823-2',
+    orderItemStore:'js/order-item-store.js?v=20260823-1',
+    orderService:'js/order-service.js?v=20260823-2',
+    summary:'js/summary.js?v=20260823-2',
+    data:'js/data.js?v=20260823-3',
     costLog:'js/cost-log.js?v=20260813-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260813-1',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260816-1',
+    orders:'js/orders.js?v=20260823-2',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
     productionEmployeeStore:'js/production/employee-store.js?v=20260816-1',
-    productionChangeStore:'js/production/change-store.js?v=20260812-1',
-    productionSummaryStore:'js/production/summary-store.js?v=20260816-1',
-    productionSummaryMigration:'js/production/summary-migration.js?v=20260817-5',
-    productionGuardStore:'js/production/production-guard-store.js?v=20260817-4',
-    productionEntryStore:'js/production/entry-store.js?v=20260817-2',
-    productionReportStore:'js/production/report-store.js?v=20260816-2',
-    productionAttendanceStore:'js/production/attendance-store.js?v=20260816-2',
-    productionEntry:'js/production/production-entry.js?v=20260821-1',
-    productionRecords:'js/production/production-records.js?v=20260821-1',
+    productionEfficiencyCore:'js/production/efficiency-core.js?v=20260823-1',
+    productionSummaryStore:'js/production/linked-summary-store.js?v=20260823-3',
+    productionGuardStore:'js/production/production-guard-store.js?v=20260824-1',
+    productionEntryStore:'js/production/linked-entry-store.js?v=20260823-3',
+    productionReportStore:'js/production/report-store.js?v=20260823-3',
+    productionAttendanceStore:'js/production/attendance-store.js?v=20260823-3',
+    productionEntry:'js/production/production-entry.js?v=20260823-2',
+    productionRecords:'js/production/production-records.js?v=20260823-2',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
-    performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260816-1',
+    performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20260823-2',
+    performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260824-1',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
-    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260821-1',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260824-1',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
-    productionProcessEditStore:'js/production/process-edit-store.js?v=20260821-2',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260813-5',
-    productionProcessSecondsQuickEdit:'js/production/process-seconds-quick-edit.js?v=20260820-1',
-    productionProcessEdit:'js/production/process-edit.js?v=20260815-2',
-    productionProductGroups:'js/production/product-groups.js?v=20260821-3',
-    productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260816-1',
-    productionProcessStatsStore:'js/production-analysis/process-stats-store.js?v=20260815-2',
-    productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260816-2',
+    productionProcessSecondsQuickEdit:'js/production/product-seconds-adapter.js?v=20260823-1',
+    productionProductGroups:'js/production/product-groups.js?v=20260824-1',
+    productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260823-2',
+    productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260823-3',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260815-1',
     productionEmployeeAnalysis:'js/production-analysis/employee-analysis.js?v=20260815-2',
-    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260816-1',
+    productionIeAnalysis:'js/production-analysis/ie-analysis.js?v=20260823-2',
     productionDepartmentAnalysis:'js/production-analysis/department-analysis.js?v=20260815-2',
-    productionAnalysis:'js/production-analysis/production-analysis.js?v=20260816-1'
+    productionAnalysis:'js/production-analysis/production-analysis.js?v=20260823-2'
   }); // SCRIPT_URLS（功能程式網址）：修改功能檔時只更新對應版本。
 
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260813-1',
     orders:'styles/features/orders.css?v=20260810-2',
-    products:'styles/features/products.css?v=20260810-1',
+    products:'styles/features/products.css?v=20260824-1',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260813-1',
     production:'styles/features/production.css?v=20260821-1',
@@ -73,8 +77,8 @@
           page:'progress',feature:'progress',icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
           styles:['orders'],
           // data（資料與報表程式）目前仍提供訂單明細共用的工序分類文字；待後續拆出共用工具。
-          scripts:['history','productCache','uiTableControls','orderProcessCache','data','orders'],
-          dataScopes:['operationSettings','orders','orderProcesses'],
+          scripts:['history','productCache','productModel','productionEfficiencyCore','productResolver','orderItemStore','orderService','uiTableControls','data','orders'],
+          dataScopes:['operationSettings','orders','orderItems','products','productsMeta'],
           dataLoaders:['ensureOperationSettingsLoaded','loadOrderData'],
           onOpen:['renderProgress','renderOrders']
         }
@@ -87,12 +91,12 @@
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
           styles:['products'],
-          scripts:['history','fileIo','productCache','productModel','productVersionStore','uiTableControls','summary','data'],
-          dataScopes:['operationSettings','costSettings','products'],
+          scripts:['history','fileIo','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productMasterEditor','productQuickEdit','uiTableControls','summary','data'],
+          dataScopes:['operationSettings','costSettings','products','productsMeta','productGroups','productGroupMembers'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
             {name:'ensureCostSettingsLoaded',when:'costView'},
-            'ensureProductsLoaded'
+            'ensureProductsLoaded','loadProductMasterGroups'
           ],
           onOpen:['rSum'],onLeave:['summaryLeave'],
           restrictions:[
@@ -100,19 +104,9 @@
           ]
         },
         {
-          page:'production-process-edit',feature:'productionProcessEdit',icon:'ti-edit',vi:'Chỉnh sửa công đoạn',zh:'工序修改',
+          page:'product-groups',feature:'productionProcessEdit',icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
           styles:['productionProcessEdit'],
-          scripts:['history','fileIo','productCache','orderProcessCache','productModel','productVersionStore','uiTableControls','productionGuardStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','productionProcessEdit'],
-          dataScopes:['operationSettings','products','productProcessStandards','productGroups','productGroupMembers','productVersions','orders','orderProcesses','processEditJobs','productionEntries','productionDaySummaries','productionEmployeeMonths','productionMonths'],
-          dataLoaders:['loadProductionProcessEditData'],onOpen:['productionProcessEditInit'],onLeave:['productionProcessEditLeave'],
-          restrictions:[
-            {key:'processSecondsEdit',vi:'Sửa tiêu chuẩn công đoạn chính thức',zh:'修改正式工序標準（含秒數）'}
-          ]
-        },
-        {
-          page:'product-groups',feature:'productionProcessEdit',permissionVisible:false,icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
-          styles:['productionProcessEdit'],
-          scripts:['productCache','productModel','productionProcessEditStore','productionProcessGroupUi','productionProductGroups'],
+          scripts:['productCache','productModel','productMasterStore','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productionProductGroups'],
           dataScopes:['products','productGroups','productGroupMembers'],
           dataLoaders:['loadProductionProductGroupsData'],onOpen:['productionProductGroupsInit'],onLeave:['productionProductGroupsLeave']
         }
@@ -136,22 +130,22 @@
         {
           page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
           styles:['production','productionProcessEdit'],
-          scripts:['history','productCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','uiTableControls','uiSearchDropdown','orderProcessCache','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionEntry'],
-          dataScopes:['products','productProcessStandards','productGroups','productionEmployees','orders','orderProcesses','productionEntries','productionProcessTotals','productionAttendance','productionDaySummaries','productionEmployeeMonths','productionMonths'],
+          scripts:['history','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productQuickEdit','productionProcessSecondsQuickEdit','uiTableControls','uiSearchDropdown','orderItemStore','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionEntry'],
+          dataScopes:['products','productsMeta','productGroups','productionEmployees','orders','orderItems','productionEntries','productionProcessTotals','productionAttendance','productionDaySummaries','productionEmployeeMonths','productionMonths'],
           dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit'],onLeave:['productionEntryLeave']
         },
         {
           page:'production-records',feature:'productionRecords',icon:'ti-chart-bar',vi:'Hiệu suất nhân viên',zh:'員工績效',
           styles:['production'],
-          scripts:['uiTableControls','uiSearchDropdown','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','performanceBonusCalculations','performanceBonusStore','productionRecords'],
+          scripts:['productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','uiSearchDropdown','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','performanceBonusCalculations','performanceBonusStore','productionRecords'],
           dataScopes:['productionEmployees','productionEntries','productionProcessTotals','productionAttendance','productionDaySummaries','productionEmployeeMonths','productionMonths','performanceBonusTables','performanceBonusMonths'],
           dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
         },
         {
           page:'production-bonus',feature:'performanceBonus',icon:'ti-award',vi:'Thưởng hiệu suất tháng',zh:'月績效獎金',
           styles:['production','performanceBonus'],
-          scripts:['fileIo','uiTableControls','productionEmployeeStore','productionSummaryStore','productionSummaryMigration','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusStore','performanceBonusMonthlyPage'],
-          dataScopes:['performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths','performanceBonusAdjustments','productionEmployeeMonths','productionMonths','productionSummaryMigrations'],
+          scripts:['fileIo','productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionAnalysisCalculations','performanceBonusCalculations','performanceBonusLockService','performanceBonusStore','performanceBonusMonthlyPage'],
+          dataScopes:['products','orders','orderItems','productionEntries','productionAttendance','performanceBonusTables','performanceBonusMonths','performanceBonusSnapshots','performanceBonusSnapshotChunks','performanceBonusPrivateMonths','performanceBonusAdjustments','productionEmployeeMonths','productionMonths'],
           dataLoaders:['loadPerformanceBonusData'],onOpen:['performanceBonusInit'],onLeave:['performanceBonusLeave'],
           restrictions:[
             {key:'performanceBonusUnlock',vi:'Mở khóa tháng đã chốt',zh:'解除已結算月份鎖定'}
@@ -160,7 +154,7 @@
         {
           page:'production-attendance',feature:'productionAttendance',icon:'ti-calendar-time',vi:'Chấm công',zh:'考勤',
           styles:['production'],
-          scripts:['uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionReportStore','productionAttendanceStore','productionAttendance'],
+          scripts:['productModel','productionEfficiencyCore','productResolver','uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionReportStore','productionAttendanceStore','productionAttendance'],
           dataScopes:['productionEmployees','productionEntries','productionAttendance','productionDaySummaries','productionEmployeeMonths','productionMonths'],
           dataLoaders:['loadProductionAttendanceData'],onOpen:['productionAttendanceInit'],onLeave:['productionAttendanceLeave']
         },
@@ -181,11 +175,11 @@
           page:'production-analysis',feature:'productionAnalysis',icon:'ti-chart-histogram',vi:'Phân tích sản xuất',zh:'生產分析',
           styles:['productionAnalysis','productionProcessEdit'],
           scripts:[
-            'history','productCache','productModel','productVersionStore','productionProcessEditStore','productionProcessGroupUi','productionProcessSecondsQuickEdit','uiTableControls','productionEmployeeStore',
+            'history','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productQuickEdit','productionProcessSecondsQuickEdit','uiTableControls','productionEmployeeStore',
             'productionSummaryStore','productionAnalysisCalculations','productionAnalysisStore','productionAnalysisExport',
             'productionEmployeeAnalysis','productionIeAnalysis','productionDepartmentAnalysis','productionAnalysis'
           ],
-          dataScopes:['products','productsMeta','productProcessStandards','productGroups','productionEmployeeMonths','productionMonths','operationLogs:productionAnalysis'],
+          dataScopes:['products','productsMeta','productGroups','productionEmployeeMonths','productionMonths','operationLogs:productionAnalysis'],
           dataLoaders:['loadProductionAnalysisData'],onOpen:['productionAnalysisInit'],onLeave:['productionAnalysisLeave']
         }
       ]
@@ -205,7 +199,7 @@
         {
           page:'performance-bonus-settings',feature:'performanceBonusSettings',icon:'ti-adjustments-dollar',vi:'Tham số thưởng hiệu suất',zh:'績效獎金參數',
           styles:['production','performanceBonus'],
-          scripts:['uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusStore','performanceBonusSettingsPage'],
+          scripts:['productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusStore','performanceBonusSettingsPage'],
           dataScopes:['performanceBonusSettings','performanceBonusSettingVersions','performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths','performanceBonusAdjustments','productionEmployeeMonths','productionMonths'],
           dataLoaders:['loadPerformanceBonusSettingsData'],onOpen:['performanceBonusSettingsInit'],onLeave:['performanceBonusSettingsLeave']
         },
@@ -295,7 +289,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','production-process-edit','product-groups','cutting','production-entry','production-bonus','production-analysis','performance-bonus-settings','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','product-groups','cutting','production-entry','production-bonus','production-analysis','performance-bonus-settings','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){

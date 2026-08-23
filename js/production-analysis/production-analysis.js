@@ -231,25 +231,23 @@
   function applyDataset(result){
     controllers.forEach(controller=>controller.setData(result.dataset,{source:result.source,loadedAt:result.loadedAt}));
   }
-  // handleProcessSecondsSaved（處理本視窗正式秒數修改完成）：直接採用成功結果；標準錯誤訂正才重載已更新的月份摘要。
+  // handleProcessSecondsSaved（處理本視窗正式秒數修改完成）：重新解析相同原始摘要，不回寫舊產能。
   async function handleProcessSecondsSaved(result,range={}){
     const store=window.PCMSProductionAnalysisStore;
-    store.applyCurrentProducts(result?.items||[]);
     const root=document.getElementById('production-analysis-root');
-    if(result?.mode==='standardCorrection'){
-      root?.classList.add('is-loading');
-      try{
-        const loaded=await store.load({force:true,fromDate:range.fromDate,toDate:range.toDate});
-        applyDataset(loaded);
-      }catch(error){
-        console.error('Không thể nạp lại tóm tắt sau khi sửa tiêu chuẩn / 標準訂正後無法重載摘要',error);
-        window.PCMSUIComponents?.showToast?.({kind:'warning',text:{
-          vi:'Đã lưu giây mới, nhưng cần mở lại phân tích để cập nhật dữ liệu.',
-          zh:'新秒數已儲存，但需要重新開啟分析以更新資料。'
-        }});
-      }finally{
-        root?.classList.remove('is-loading');
-      }
+    root?.classList.add('is-loading');
+    try{
+      store.resetCurrentStandards();
+      const loaded=await store.load({force:true,fromDate:range.fromDate,toDate:range.toDate});
+      applyDataset(loaded);
+    }catch(error){
+      console.error('Không thể nạp lại dữ liệu sau khi sửa mã hàng / 款號修改後無法重載資料',error);
+      window.PCMSUIComponents?.showToast?.({kind:'warning',text:{
+        vi:'Đã lưu dữ liệu mới, nhưng cần mở lại phân tích để cập nhật màn hình.',
+        zh:'新資料已儲存，但需要重新開啟分析以更新畫面。'
+      }});
+    }finally{
+      root?.classList.remove('is-loading');
     }
     controllers.get('ie')?.refreshCurrentStandards?.();
   }

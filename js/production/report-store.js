@@ -27,7 +27,7 @@
     return [
       item.productionDate,displayDate,item.employeeId,item.displayEmployeeName,item.employeeName,item.department,
       item.orderNo,item.productCode,item.processNo,item.processNameVi,item.processNameZh,item.supplementReason,
-      item.quantity,item.supplementHours,item.orderQuantitySnapshot,item.processSecSnapshot,item.hourlyCapacitySnapshot,
+      item.quantity,item.supplementHours,item.orderQuantity,item.processSeconds,item.hourlyCapacity,
       item.displayEfficiency,statusText
     ].map(normalizeSearch).join(' ');
   }
@@ -37,6 +37,12 @@
       const dateCompare = String(b.productionDate || '').localeCompare(String(a.productionDate || ''));
       return dateCompare || (Number(b.createdAt)||0)-(Number(a.createdAt)||0);
     });
+  }
+
+  async function decorateRows(rows){
+    if(typeof window.PCMSProductionEntryStore?.decorateEntries!=='function') return rows;
+    if(!(rows||[]).some(item=>Number(item?.schemaVersion)>=2&&item?.productId&&item?.processId)) return rows;
+    return window.PCMSProductionEntryStore.decorateEntries(rows);
   }
 
   function monthsBetween(fromValue,toValue){
@@ -120,7 +126,8 @@
       window._where('employeeId','==',normalizedEmployeeId),
       window._where('productionDate','==',normalizedDate)
     ],{...options,months:monthsBetween(normalizedDate,normalizedDate)});
-    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+    const displayed=await decorateRows(rows);
+    return options.activeOnly === false ? displayed : displayed.filter(item=>item.status === 'active');
   }
 
   async function loadEmployeeRange(employeeId,fromValue,toValue,options={}){
@@ -136,7 +143,8 @@
       window._where('productionDate','<=',to),
       window._orderBy('productionDate','desc')
     ],{...options,months:monthsBetween(from,to)});
-    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+    const displayed=await decorateRows(rows);
+    return options.activeOnly === false ? displayed : displayed.filter(item=>item.status === 'active');
   }
 
   async function loadDay(productionDate,options={}){
@@ -145,16 +153,20 @@
     const rows = await loadExactRows(`date:${normalizedDate}`,[
       window._where('productionDate','==',normalizedDate)
     ],{...options,months:monthsBetween(normalizedDate,normalizedDate)});
-    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+    const displayed=await decorateRows(rows);
+    return options.activeOnly === false ? displayed : displayed.filter(item=>item.status === 'active');
   }
 
-  async function loadProcess(orderProcessId,options={}){
-    const processId = String(orderProcessId || '').trim();
-    if(!processId) return [];
-    const rows = await loadExactRows(`process:${processId}`,[
-      window._where('orderProcessId','==',processId)
-    ],options);
-    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+  async function loadProcess(processTotalId,options={}){
+    const totalId = String(processTotalId || '').trim();
+    if(!totalId) return [];
+    const linkedProcess=[...(window.PCMSProductionEntryStore?.listOrders?.()||[])].flatMap(order=>
+      window.PCMSProductionEntryStore?.getLoadedProcesses?.(order.id)||[]).find(item=>item.processTotalId===totalId);
+    if(!linkedProcess) return [];
+    const conditions=[window._where('orderItemId','==',linkedProcess.orderItemId),window._where('processId','==',linkedProcess.processId)];
+    const rows = await loadExactRows(`process:${totalId}`,conditions,options);
+    const displayed=await decorateRows(rows);
+    return options.activeOnly === false ? displayed : displayed.filter(item=>item.status === 'active');
   }
 
   async function loadRange(fromValue,toValue,options={}){
@@ -166,7 +178,8 @@
       window._where('productionDate','<=',to),
       window._orderBy('productionDate','desc')
     ],{...options,months:monthsBetween(from,to)});
-    return options.activeOnly === false ? rows : rows.filter(item=>item.status === 'active');
+    const displayed=await decorateRows(rows);
+    return options.activeOnly === false ? displayed : displayed.filter(item=>item.status === 'active');
   }
 
   function buildSignature(filters){
@@ -197,7 +210,7 @@
     conditions.push(window._limit(PAGE_SIZE));
     const snapshot = await window._getDocs(window._query(window._collection(COLLECTION_NAME),...conditions));
     historyCursor = snapshot.docs.length ? snapshot.docs[snapshot.docs.length-1] : null;
-    const rows = sortRows(snapshot.docs.map(item=>({id:item.id,...item.data()})));
+    const rows = await decorateRows(sortRows(snapshot.docs.map(item=>({id:item.id,...item.data()}))));
     return {rows,hasMore:snapshot.size === PAGE_SIZE,pageSize:PAGE_SIZE};
   }
 

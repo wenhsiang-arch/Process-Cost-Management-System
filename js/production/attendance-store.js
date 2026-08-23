@@ -178,31 +178,35 @@
     throw new Error('Dữ liệu chấm công đang thay đổi liên tục. Vui lòng thử lại. / 考勤資料持續變動，請稍後重試。');
   }
 
-  function operationLogData(action,itemCount,note,changes,now){
+  function operationLogData(logId,action,itemCount,note,changes,productionMonthId,now){
     return {
       permissionKey:'productionAttendance',
       feature:'production',
       action,
       status:'success',
+      targetType:'productionAttendanceBatch',
+      productionMonthId,
+      operationLogId:logId,
       createdAt:now,
       createdByUid:currentUserId(),
       createdBy:currentUserName(),
       itemCount,
       detailCount:Array.isArray(changes) ? changes.length : 0,
       changes:Array.isArray(changes) ? changes.slice(0,50) : [],
-      note:normalizeText(note).slice(0,500)
+      note:normalizeText(note).slice(0,500),
+      schemaVersion:2
     };
   }
 
   function updateAttendanceSummaries(transaction,{summarySnapshot,monthSummarySnapshot,summaryReference,monthSummaryReference,
-    controlSnapshot,attendance,employee,now,mutation='attendance',summaryComplete=false}){
+    controlSnapshot,attendance,employee,operationLogId,now,mutation='attendance',summaryComplete=false}){
     const summaries=window.PCMSProductionSummaries;
     if(!summaries) throw new Error('Bộ tóm tắt sản xuất chưa sẵn sàng. / 產能摘要程式尚未載入。');
     const current=summarySnapshot?.exists?.()?summarySnapshot.data():null;
     if(current&&Number(current.schemaVersion)!==summaries.SCHEMA_VERSION){
       throw new Error('Tóm tắt ngày chưa được chuyển đổi; hãy hoàn tất xây dựng lại trước. / 每日摘要尚未轉換，請先完成重建。');
     }
-    const actor={updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName()};
+    const actor={updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName(),operationLogId};
     let day;
     if(current){
       day=summaries.applyAttendance(current,attendance,actor);
@@ -320,30 +324,40 @@
           updatedAt:now,
           updatedByUid:currentUserId(),
           updatedBy:currentUserName(),
-          schemaVersion:1
+          operationLogId:logReference.id,
+          schemaVersion:2
         };
         transaction.set(item.attendanceReference,saved);
         updateAttendanceSummaries(transaction,{summarySnapshot:daySummarySnapshot,monthSummarySnapshot,
           summaryReference:item.daySummaryReference,monthSummaryReference:item.monthSummaryReference,
           controlSnapshot,attendance:saved,employee:{employeeId:item.input.employeeId,...employee},now,
-          summaryComplete:monthAction==='initialize'});
+          operationLogId:logReference.id,summaryComplete:monthAction==='initialize'});
         attemptRows.push({id:item.attendanceReference.id,...saved});
       });
       transaction.set(logReference,operationLogData(
+        logReference.id,
         'productionAttendanceSave',
         attemptRows.length,
         `${attemptRows[0]?.attendanceDate || ''} · ${attemptRows.length}`,
         attemptRows.map(row=>({field:'attendanceId',before:null,after:row.attendanceId})),
+        guards.monthFromDate(inputs[0].attendanceDate),
         now
       ));
       const first=inputs[0];
       if(monthAction==='initialize'){
-        transaction.set(monthReference,guards.attendanceMonthInitializationData(
-          first.attendanceDate,initialAttendanceId,sourceVersion,now,currentUserId(),currentUserName()
-        ));
+        transaction.set(monthReference,{
+          ...guards.attendanceMonthInitializationData(
+            first.attendanceDate,initialAttendanceId,sourceVersion,now,currentUserId(),currentUserName()
+          ),
+          operationLogId:logReference.id
+        });
       }else{
-        transaction.set(monthReference,
-          guards.attendanceMonthSourceVersionData(first.attendanceDate,sourceVersion,now,currentUserId(),currentUserName()),{merge:true});
+        transaction.set(monthReference,{
+          ...guards.attendanceMonthSourceVersionData(
+            first.attendanceDate,sourceVersion,now,currentUserId(),currentUserName()
+          ),
+          operationLogId:logReference.id
+        },{merge:true});
       }
       savedRows=attemptRows;
     },{skipDataVersions:true});
@@ -431,7 +445,7 @@
       transaction.delete(reference);
       if(daySummarySnapshot.exists()&&Number(daySummarySnapshot.data()?.schemaVersion)===summaries.SCHEMA_VERSION){
         const current=daySummarySnapshot.data();
-        const actor={updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName()};
+        const actor={updatedAt:now,updatedByUid:currentUserId(),updatedBy:currentUserName(),operationLogId:logReference.id};
         const day=summaries.applyAttendance(current,null,actor);
         const month=summaries.applyDayToMonth(monthSummarySnapshot.exists()?monthSummarySnapshot.data():null,current,day,actor,
           {complete:monthSnapshot.data()?.summaryReady===true});
@@ -440,11 +454,17 @@
       }else{
         throw new Error('Tóm tắt ngày chưa được chuyển đổi; hãy hoàn tất xây dựng lại trước. / 每日摘要尚未轉換，請先完成重建。');
       }
-      transaction.set(monthReference,
-        guards.attendanceMonthSourceVersionData(deleted.attendanceDate,sourceVersion,now,currentUserId(),currentUserName()),{merge:true});
+      transaction.set(monthReference,{
+        ...guards.attendanceMonthSourceVersionData(
+          deleted.attendanceDate,sourceVersion,now,currentUserId(),currentUserName()
+        ),
+        operationLogId:logReference.id
+      },{merge:true});
       transaction.set(logReference,operationLogData(
+        logReference.id,
         'productionAttendanceDelete',1,deleted.attendanceId,
-        [{field:'attendanceId',before:deleted.attendanceId,after:null}],now
+        [{field:'attendanceId',before:deleted.attendanceId,after:null}],
+        guards.monthFromDate(deleted.attendanceDate),now
       ));
     },{skipDataVersions:true});
     await invalidate(deleted.attendanceDate,[deleted.employeeId]);
@@ -461,7 +481,7 @@
         return;
       }
       const quantity = Number(item.quantity);
-      const capacity = Number(item.hourlyCapacitySnapshot);
+      const capacity = Number(item.hourlyCapacity);
       if(Number.isFinite(quantity) && quantity > 0 && Number.isFinite(capacity) && capacity > 0){
         standardHours += quantity/capacity;
       }else if(Number.isFinite(quantity) && quantity > 0){

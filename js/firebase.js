@@ -4,7 +4,7 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gst
 import {
   getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
   setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,getCountFromServer as firestoreGetCountFromServer,updateDoc as firestoreUpdateDoc,
-  deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,documentId,
+  deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,
   increment,serverTimestamp,onSnapshot,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -312,14 +312,10 @@ function showLoading(show){
 
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
-const PRODUCT_PROCESS_STANDARDS_COL = 'productProcessStandards';
 const PRODUCTS_META_KEY = 'productsMeta';
-const PRODUCT_CHANGES_COL = 'productChanges';
 const PRODUCTS_SCHEMA_VERSION = 2;
-// 每次版本會連同完整款號快照一起寫入，保留交易寫入數量給版本與變更文件。
+// 每次版本只以 productsMeta（款號版本資料）判斷新舊；版本不同時重讀目前 Product Master（款號主檔）。
 const PRODUCTS_MAX_BATCH_ITEMS = 400;
-const PRODUCT_CHANGE_PAGE_SIZE = 100;
-const PRODUCT_QUERY_CHUNK_SIZE = 30;
 const PRODUCT_META_MEMORY_MS = 15000;
 let productsLoadPromise=null;
 let runtimeProductsVersion='';
@@ -328,13 +324,13 @@ let productsMetaMemory=null;
 let productsMetaReadAt=0;
 
 function newProductReadMetrics(){
-  return {mode:'pending',metaReads:0,changeLogReads:0,productReads:0,totalReads:0,startedAt:Date.now()};
+  return {mode:'pending',metaReads:0,productReads:0,totalReads:0,startedAt:Date.now()};
 }
 
 function publishProductReadMetrics(metrics,meta){
   const result={
     ...metrics,
-    totalReads:(metrics.metaReads||0)+(metrics.changeLogReads||0)+(metrics.productReads||0),
+    totalReads:(metrics.metaReads||0)+(metrics.productReads||0),
     productCount:Number(meta?.productCount)||window.D?.length||0,
     finishedAt:Date.now()
   };
@@ -525,7 +521,13 @@ async function loadProductsMeta(metrics=null,forceServer=false){
   try{
     const snap=await getDocFromServer(doc(db,'system',PRODUCTS_META_KEY));
     if(metrics) metrics.metaReads++;
-    productsMetaMemory=snap.exists()?JSON.parse(snap.data().data||'{}'):null;
+    if(!snap.exists()) productsMetaMemory=null;
+    else{
+      const raw=snap.data();
+      productsMetaMemory=Number(raw.schemaVersion)===3&&raw.version
+        ?raw
+        :JSON.parse(raw.data||'{}');
+    }
     productsMetaReadAt=Date.now();
     return productsMetaMemory;
   }catch(e){ console.error('讀取款號版本資料失敗：', e); }
@@ -637,62 +639,6 @@ async function loadProductsData(metrics=null){
   return items.sort((a,b)=>a.code.localeCompare(b.code));
 }
 
-async function loadProductChangesAfter(sequence,targetSequence,metrics){
-  const rows=[];
-  let cursor=null; // cursor（款號變更紀錄分頁游標）
-  while(rows.length<1000){
-    const conditions=[
-      where('sequence','>',sequence),
-      orderBy('sequence','asc')
-    ];
-    if(cursor) conditions.push(startAfter(cursor));
-    conditions.push(limit(PRODUCT_CHANGE_PAGE_SIZE));
-    const snapshot=await getDocs(query(collection(db,PRODUCT_CHANGES_COL),...conditions));
-    metrics.changeLogReads+=snapshot.size;
-    if(snapshot.empty) break;
-    snapshot.docs.forEach(item=>rows.push({id:item.id,...item.data()}));
-    cursor=snapshot.docs[snapshot.docs.length-1];
-    if(Number(rows[rows.length-1]?.sequence)>=targetSequence||snapshot.size<PRODUCT_CHANGE_PAGE_SIZE) break;
-  }
-  return rows.filter(row=>Number(row.sequence)<=targetSequence);
-}
-
-async function loadChangedProducts(codes,metrics){
-  const normalized=[...new Set((codes||[]).map(code=>String(code||'').trim()).filter(Boolean))];
-  const items=[];
-  for(let offset=0;offset<normalized.length;offset+=PRODUCT_QUERY_CHUNK_SIZE){
-    const ids=normalized.slice(offset,offset+PRODUCT_QUERY_CHUNK_SIZE).map(productDocId);
-    const snapshot=await getDocs(query(
-      collection(db,PRODUCTS_COL),
-      where(documentId(),'in',ids)
-    ));
-    metrics.productReads+=snapshot.size;
-    snapshot.docs.forEach(item=>items.push(normalizeProductDoc(item.data(),item.id)));
-  }
-  return items;
-}
-
-async function applyProductChanges(cache,meta,metrics){
-  if(!window.PCMSProductCache) return null;
-  const startSequence=Number(cache?.sequence)||0;
-  const targetSequence=Number(meta?.changeSequence)||0;
-  if(targetSequence<=startSequence) return null;
-  const logs=await loadProductChangesAfter(startSequence,targetSequence,metrics);
-  const plan=window.PCMSProductCache.planChanges(logs,startSequence); // plan（款號增量合併計畫）
-  if(!plan.valid||plan.sequence!==targetSequence) return null;
-  const changedItems=await loadChangedProducts(plan.changedCodes,metrics);
-  const returnedCodes=new Set(changedItems.map(item=>item.code));
-  const missingChangedCodes=plan.changedCodes.filter(code=>!returnedCodes.has(code));
-  const merged=window.PCMSProductCache.merge(
-    cache.items,
-    changedItems,
-    [...plan.deletedCodes,...missingChangedCodes]
-  );
-  verifyProductsMetaCounts(meta,merged);
-  await saveProductsCache(merged,meta);
-  return merged;
-}
-
 function replaceRuntimeProducts(items){
   const saved=Array.isArray(items)?items:[];
   if(typeof D !== 'undefined'){
@@ -741,18 +687,6 @@ async function ensureProductsLoaded(options=false){
         publishProductReadMetrics(metrics,meta);
         return true;
       }
-      if(!force&&cache&&meta?.version&&Number(meta.changeSequence)>Number(cache.sequence||0)){
-        const changed=await applyProductChanges(cache,meta,metrics);
-        if(changed){
-          runtimeProductsVersion=String(meta.version);
-          runtimeProductsSequence=Number(meta.changeSequence)||0;
-          replaceRuntimeProducts(changed);
-          metrics.mode='delta';
-          renderProductViews();
-          publishProductReadMetrics(metrics,meta);
-          return true;
-        }
-      }
       let saved=await loadProductsData(metrics);
       let latestMeta=await loadProductsMeta(metrics,true);
       if(meta?.version&&latestMeta?.version&&String(meta.version)!==String(latestMeta.version)){
@@ -795,188 +729,12 @@ async function ensureProductsLoaded(options=false){
   return productsLoadPromise;
 }
 
-async function saveProductItemsToCollection(items,options={}){
-  const rows=[...new Map((Array.isArray(items)?items:[])
-    .filter(item=>String(item?.code||'').trim())
-    .map(item=>[String(item.code).trim(),window.PCMSProductModel?.normalizeProduct?.(item)||item])).values()];
-  if(!rows.length) return true;
-  window.lastProductSyncError = '';
-  setSyncState('syncing');
-  try{
-    if(rows.length>PRODUCTS_MAX_BATCH_ITEMS) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
-    const processStandardUpdates=(Array.isArray(options.processStandardUpdates)?options.processStandardUpdates:[]).map(item=>({
-      ...item,
-      standardId:String(item?.standardId||''),productCode:String(item?.productCode||'').trim(),
-      processNo:String(item?.processNo||'').trim(),processNameVi:String(item?.processNameVi||'').trim(),
-      processNameZh:String(item?.processNameZh||'').trim(),processCategory:String(item?.processCategory||'').trim(),
-      processSec:Number(item?.processSec),hourlyCapacity:Number(item?.hourlyCapacity),
-      standardRevision:Number(item?.standardRevision)||0,active:item?.active===true
-    }));
-    if(processStandardUpdates.some(item=>!item.standardId||!item.productCode||!item.processNo
-      ||!Number.isInteger(item.processSec)||item.processSec<=0||!Number.isInteger(item.hourlyCapacity)||item.hourlyCapacity<=0)){
-      throw new Error('Dữ liệu chỉ mục tiêu chuẩn công đoạn không hợp lệ. / 工序標準索引資料不正確。');
-    }
-    const currentUserUid=String(auth.currentUser?.uid||'');
-    if(!currentUserUid) throw new Error('Vui lòng đăng nhập lại / 請重新登入');
-    const base=getProductsBase();
-    const existingCodes=new Set(base.map(item=>String(item.code||'').trim()));
-    if(options.allowExisting!==true){
-      const blocked=rows.filter(item=>existingCodes.has(String(item.code||'').trim())).map(item=>item.code);
-      if(blocked.length){
-        throw new Error(`Không được ghi đè mã hàng đã tồn tại: ${blocked.slice(0,10).join(', ')} / 禁止覆蓋既有款號：${blocked.slice(0,10).join(', ')}`);
-      }
-    }
-    const checkedMeta=await verifyProductsVersionBeforeWrite(base);
-    if(!window.PCMSProductVersionStore) throw new Error('Chức năng lịch sử phiên bản chưa sẵn sàng. / 款號版本歷史功能尚未載入。');
-    await window.PCMSProductVersionStore.ensureBaseline(base,checkedMeta);
-    const merged=mergeProducts(base,rows);
-    const metaRef=doc(db,'system',PRODUCTS_META_KEY);
-    const changeRef=doc(collection(db,PRODUCT_CHANGES_COL));
-    let meta=null;
-    await runTransaction(db,async transaction=>{
-      const metaSnapshot=await transaction.get(metaRef);
-      const currentMeta=metaSnapshot.exists()
-        ? JSON.parse(metaSnapshot.data().data||'{}')
-        : null;
-      verifyProductsMetaVersion(currentMeta);
-      verifyProductsMetaCounts(currentMeta,base);
-      const action=String(options.action||'import').slice(0,50);
-      meta=buildProductsMeta(merged,action,currentMeta);
-      const changedAt=Date.now();
-      const versionId=`version-${meta.changeSequence}-${meta.version}`;
-      const historySnapshot=window.PCMSProductVersionStore.buildSnapshot(versionId,merged,{
-        sequence:meta.changeSequence,
-        productVersion:meta.version,
-        action,
-        reason:String(options.reason||''),
-        fileName:String(options.fileName||''),
-        createdAt:changedAt,
-        createdByUid:currentUserUid,
-        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
-      });
-      const writeCount=rows.length+processStandardUpdates.length+historySnapshot.chunks.length+4;
-      if(writeCount>499) throw new Error(PRODUCT_SYNC_MESSAGES.tooMany);
-      meta.historyVersionId=versionId;
-      rows.forEach(item=>{
-        const code=String(item.code).trim();
-        transaction.set(doc(db,PRODUCTS_COL,productDocId(code)),{
-          ...item,
-          code,
-          ops:Array.isArray(item.ops)?item.ops:[],
-          updatedAt:changedAt,
-          updatedBy:window.cu?.user||''
-        },{merge:false});
-      });
-      processStandardUpdates.forEach(item=>transaction.set(doc(db,PRODUCT_PROCESS_STANDARDS_COL,item.standardId),{
-        ...item,updatedAt:changedAt,updatedByUid:currentUserUid,
-        updatedBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid,schemaVersion:1
-      },{merge:false}));
-      transaction.set(changeRef,{
-        sequence:meta.changeSequence,
-        fromVersion:String(currentMeta.version),
-        toVersion:String(meta.version),
-        changedCodes:rows.map(item=>String(item.code).trim()),
-        deletedCodes:[],
-        versionId,
-        createdAt:changedAt,
-        createdByUid:currentUserUid,
-        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
-      });
-      transaction.set(doc(db,'productVersions',versionId),historySnapshot.record);
-      historySnapshot.chunks.forEach(chunk=>transaction.set(doc(db,'productVersionChunks',chunk.chunkId),chunk));
-      transaction.set(metaRef,{data:JSON.stringify(meta)});
-    });
-    await saveProductsCache(merged,meta);
-    runtimeProductsVersion=String(meta.version);
-    runtimeProductsSequence=Number(meta.changeSequence)||0;
-    productsMetaMemory=meta;
-    productsMetaReadAt=Date.now();
-    replaceRuntimeProducts(merged);
-    renderProductViews();
-    setSyncState('success');
-    return true;
-  }catch(e){
-    console.error('Firebase product item save error:', e);
-    setProductSyncError(e.message||'Đồng bộ mã hàng thất bại / 款號同步失敗');
-    return false;
-  }
-}
-
-async function deleteProductDoc(code){
-  window.lastProductSyncError = '';
-  setSyncState('syncing');
-  try{
-    const currentUserUid=String(auth.currentUser?.uid||'');
-    if(!currentUserUid) throw new Error('Vui lòng đăng nhập lại / 請重新登入');
-    const normalizedCode=String(code||'').trim();
-    if(!normalizedCode) throw new Error('Thiếu mã hàng / 缺少款號');
-    const base=getProductsBase();
-    const kept=removeProductFromList(base,normalizedCode);
-    const checkedMeta=await verifyProductsVersionBeforeWrite(base);
-    if(!window.PCMSProductVersionStore) throw new Error('Chức năng lịch sử phiên bản chưa sẵn sàng. / 款號版本歷史功能尚未載入。');
-    await window.PCMSProductVersionStore.ensureBaseline(base,checkedMeta);
-    const metaRef=doc(db,'system',PRODUCTS_META_KEY);
-    const changeRef=doc(collection(db,PRODUCT_CHANGES_COL));
-    let meta=null;
-    await runTransaction(db,async transaction=>{
-      const metaSnapshot=await transaction.get(metaRef);
-      const currentMeta=metaSnapshot.exists()
-        ? JSON.parse(metaSnapshot.data().data||'{}')
-        : null;
-      verifyProductsMetaVersion(currentMeta);
-      verifyProductsMetaCounts(currentMeta,base);
-      meta=buildProductsMeta(kept,'delete',currentMeta);
-      const changedAt=Date.now();
-      const versionId=`version-${meta.changeSequence}-${meta.version}`;
-      const historySnapshot=window.PCMSProductVersionStore.buildSnapshot(versionId,kept,{
-        sequence:meta.changeSequence,
-        productVersion:meta.version,
-        action:'delete',
-        reason:`Xóa mã hàng ${normalizedCode} / 刪除款號 ${normalizedCode}`,
-        createdAt:changedAt,
-        createdByUid:currentUserUid,
-        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
-      });
-      meta.historyVersionId=versionId;
-      transaction.delete(doc(db,PRODUCTS_COL,productDocId(normalizedCode)));
-      transaction.set(changeRef,{
-        sequence:meta.changeSequence,
-        fromVersion:String(currentMeta.version),
-        toVersion:String(meta.version),
-        changedCodes:[],
-        deletedCodes:[normalizedCode],
-        versionId,
-        createdAt:changedAt,
-        createdByUid:currentUserUid,
-        createdBy:window.cu?.user||auth.currentUser?.displayName||currentUserUid
-      });
-      transaction.set(doc(db,'productVersions',versionId),historySnapshot.record);
-      historySnapshot.chunks.forEach(chunk=>transaction.set(doc(db,'productVersionChunks',chunk.chunkId),chunk));
-      transaction.set(metaRef,{data:JSON.stringify(meta)});
-    });
-    await saveProductsCache(kept,meta);
-    runtimeProductsVersion=String(meta.version);
-    runtimeProductsSequence=Number(meta.changeSequence)||0;
-    productsMetaMemory=meta;
-    productsMetaReadAt=Date.now();
-    replaceRuntimeProducts(kept);
-    setSyncState('success');
-    return true;
-  }catch(e){
-    console.error('刪除款號雲端文件失敗：', e);
-    setProductSyncError(e.message||'Xóa mã hàng thất bại / 刪除款號失敗');
-    return false;
-  }
-}
-
 // ===== 掛到 window =====
 window.loadProductsData = loadProductsData;
 window.refreshProductsFromCloud = refreshProductsFromCloud;
 window.ensureProductsLoaded = ensureProductsLoaded;
 window.verifyProductsVersionForOrderImport = verifyProductsVersionForOrderImport;
 window.getProductsMetaForFeature = (force=false) => loadProductsMeta(null,force===true);
-window.saveProductItemsToFB = saveProductItemsToCollection;
-window.deleteProductFromFB = deleteProductDoc;
 const OPERATION_SETTING_KEYS = ['usd','twd','ws','eff']; // OPERATION_SETTING_KEYS（一般運算設定欄位）。
 const COST_SETTING_KEYS = ['sal','ins','meal','mc','mh']; // COST_SETTING_KEYS（成本設定欄位）。
 

@@ -35,21 +35,18 @@
     return entry?.recordType==='supplement'||text(entry?.processNo)==='0';
   }
   function processKey(entry){
-    return [
-      text(entry?.productCode),text(entry?.processNo),
-      number(entry?.processSecSnapshot),number(entry?.hourlyCapacitySnapshot)
-    ].join('||');
+    return [text(entry?.productId),text(entry?.processId)].join('||');
   }
-  // ieProcessKey（工序分析身分）：目前版本只以款號與工序號辨識，不改動歷史 processKey（工序歷史鍵）。
+  // ieProcessKey（工序分析身分）：款號或工序顯示內容變更後仍沿用固定識別碼。
   function ieProcessKey(entry){
-    return [text(entry?.productCode),text(entry?.processNo)].join('||');
+    return [text(entry?.productId),text(entry?.processId)].join('||');
   }
   function dayKey(employeeId,date){ return `${text(employeeId).toUpperCase()}||${text(date)}`; }
 
   function standardHoursForEntry(entry){
     if(isSupplement(entry)) return 0;
     const quantity=number(entry?.quantity);
-    const capacity=number(entry?.hourlyCapacitySnapshot);
+    const capacity=number(entry?.hourlyCapacity);
     return quantity>0&&capacity>0?quantity/capacity:0;
   }
 
@@ -101,12 +98,13 @@
       processes.push({
         key,
         employeeId,date,
+        productId:text(source.productId),processId:text(source.processId),
         productCode:text(source.productCode),
         processNo:text(source.processNo),
         processNameVi:text(source.processNameVi),
         processNameZh:text(source.processNameZh),
-        processSecSnapshot:number(source.processSecSnapshot),
-        hourlyCapacitySnapshot:number(source.hourlyCapacitySnapshot),
+        processSeconds:number(source.processSeconds),
+        hourlyCapacity:number(source.hourlyCapacity),
         quantity,
         standardHours:processStandardHours,
         inferredHours,
@@ -186,7 +184,7 @@
       suggestedSeconds=average(typicalRows.map(item=>item.suggestedSeconds));
     }
     const currentSeconds=options.currentSeconds===undefined
-      ?number(source.processSecSnapshot)
+      ?number(source.processSeconds)
       :number(options.currentSeconds);
     const differencePercent=currentSeconds>0&&suggestedSeconds!==null
       ? (suggestedSeconds-currentSeconds)/currentSeconds*100
@@ -194,9 +192,10 @@
     const differenceSeconds=suggestedSeconds===null?null:suggestedSeconds-currentSeconds;
     return {
       key:options.key||source.key,
+      productId:options.productId||source.productId,processId:options.processId||source.processId,
       productCode:options.productCode||source.productCode,processNo:options.processNo||source.processNo,
       processNameVi:options.processNameVi||source.processNameVi,processNameZh:options.processNameZh||source.processNameZh,
-      currentSeconds,hourlyCapacitySnapshot:source.hourlyCapacitySnapshot,
+      currentSeconds,hourlyCapacity:source.hourlyCapacity,
       rawEfficiency:ratio(totalStandardHours,totalInferredHours),
       rawSuggestedSeconds:totalInferredHours>0&&totalQuantity>0?totalInferredHours*3000/totalQuantity:null,
       typicalEfficiency,suggestedSeconds,differenceSeconds,
@@ -290,9 +289,10 @@
         if(!date) return;
         const processes=(Array.isArray(value.processes)?value.processes:[]).map(item=>({
           key:text(item.key),employeeId:text(employee.employeeId).toUpperCase(),date,
+          productId:text(item.productId),processId:text(item.processId),
           productCode:text(item.productCode),processNo:text(item.processNo),
           processNameVi:text(item.processNameVi),processNameZh:text(item.processNameZh),
-          processSecSnapshot:number(item.processSecSnapshot),hourlyCapacitySnapshot:number(item.hourlyCapacitySnapshot),
+          processSeconds:number(item.processSeconds),hourlyCapacity:number(item.hourlyCapacity),
           quantity:number(item.quantity),standardHours:number(item.standardHours),
           inferredHours:item.inferredHours==null?null:number(item.inferredHours),
           efficiency:number(item.inferredHours)>0?number(item.standardHours)/number(item.inferredHours)*100:null,
@@ -367,7 +367,7 @@
           supplementHours:day.supplementHours,invalidCapacity:day.invalidCapacity,
           processStandardHours:process?.standardHours??0,
           inferredHours:process?.inferredHours??null,quantity:process?.quantity??0,
-          currentSeconds:process?.processSecSnapshot??null,
+          currentSeconds:process?.processSeconds??null,
           lineParticipantCount:lineReference?.participantCount??0,
           lineCumulativeStandardHours:lineReference?.cumulativeStandardHours??0,
           lineMethod:lineReference?.method||''
@@ -430,8 +430,8 @@
       }
       const identity=ieProcessKey(sample);
       const standard=standards.get(identity);
-      const currentSeconds=number(standard?.processSec);
-      if(standard?.active===false||!(currentSeconds>0)||number(sample.processSecSnapshot)!==currentSeconds) return;
+      const currentSeconds=number(standard?.processSeconds);
+      if(standard?.active===false||!(currentSeconds>0)||number(sample.processSeconds)!==currentSeconds) return;
       if(!grouped.has(identity)) grouped.set(identity,[]);
       grouped.get(identity).push(sample);
     });
@@ -439,11 +439,13 @@
       const standard=standards.get(identity)||{};
       return aggregateProcess(samples,{
         key:identity,
+        productId:text(standard.productId)||text(samples[0]?.productId),
+        processId:text(standard.processId)||text(samples[0]?.processId),
         productCode:text(standard.productCode)||text(samples[0]?.productCode),
         processNo:text(standard.processNo)||text(samples[0]?.processNo),
         processNameVi:text(standard.processNameVi)||text(samples[0]?.processNameVi),
         processNameZh:text(standard.processNameZh)||text(samples[0]?.processNameZh),
-        currentSeconds:number(standard.processSec)
+        currentSeconds:number(standard.processSeconds)
       });
     });
   }
