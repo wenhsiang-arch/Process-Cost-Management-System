@@ -4,6 +4,7 @@
 
   function text(value){ return String(value??'').trim(); }
   function allowed(field=''){
+    if(field==='code') return false;
     if(window.cu?.role==='admin') return true;
     if(field==='processSeconds') return window.cu?.features?.processSecondsEdit===true;
     return window.cu?.features?.productionProcessEdit===true;
@@ -44,7 +45,7 @@
     }
     await window.PCMSProductGroupRuntime?.loadForProduct?.(product.productId);
     const currentValue={
-      code:product.code,client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
+      client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
       processNo:operation?.no,processCategory:operation?.category,
       processNameZh:operation?.zh,processNameVi:operation?.vi,processSeconds:operation?.sec
     }[field];

@@ -3,7 +3,6 @@
   'use strict';
 
   const FIELD_CONFIG=Object.freeze({
-    code:{scope:'product',vi:'Mã hàng',zh:'款號代碼',type:'text',perProduct:true,maxLength:80},
     client:{scope:'product',vi:'Khách hàng',zh:'款號客戶',type:'text',maxLength:200},
     zh:{scope:'product',vi:'Tên tiếng Trung',zh:'中文品名',type:'text',maxLength:200},
     vi:{scope:'product',vi:'Tên tiếng Việt',zh:'越文品名',type:'text',maxLength:200},
@@ -25,6 +24,7 @@
   function ui(){ return window.PCMSUIComponents; }
   function groupUI(){ return window.PCMSProcessGroupUI; }
   function allowed(field=''){
+    if(!FIELD_CONFIG[field]) return false;
     if(window.cu?.role==='admin') return true;
     if(field==='processSeconds') return window.cu?.features?.processSecondsEdit===true;
     return window.cu?.features?.productionProcessEdit===true;
@@ -34,7 +34,7 @@
 
   function fieldValue(product,operation,field){
     const values={
-      code:product.code,client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
+      client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
       processNo:operation?.no,processCategory:operation?.category,
       processNameZh:operation?.zh,processNameVi:operation?.vi,processSeconds:operation?.sec
     };
@@ -139,15 +139,26 @@
 
   function tableHead(config){
     const process=config.scope==='process';
-    const cells=[dual('Chọn','選擇'),dual('Mã hàng','款號'),dual('Kích thước','尺寸'),dual('Tổng số công đoạn','總工序數量')];
+    const cells=[
+      {value:dual('Chọn','選擇'),className:'ui-table-center-cell is-select'},
+      {value:dual('Mã hàng','款號'),className:'is-code'},
+      {value:dual('Kích thước','尺寸'),className:'ui-table-center-cell is-size'},
+      {value:dual('Tổng số công đoạn','總工序數量'),className:'ui-table-center-cell is-process-count'}
+    ];
     if(process){
-      cells.push(dual('Số công đoạn','工序號'),dual('Mô tả tiếng Việt','越文工序描述'));
-      if(!['processSeconds','processNo'].includes(config.key)) cells.push(dual('Giây hiện tại','目前秒數'));
+      cells.push(
+        {value:dual('Số công đoạn','工序號'),className:'ui-table-center-cell is-process-no'},
+        {value:dual('Mô tả tiếng Việt','越文工序描述'),className:'is-process-description'}
+      );
+      if(!['processSeconds','processNo'].includes(config.key)) cells.push({value:dual('Giây hiện tại','目前秒數'),className:'ui-table-number-cell is-current-seconds'});
     }
-    cells.push(dual(`Hiện tại: ${config.vi}`,`目前${config.zh}`),dual(`Sau sửa: ${config.vi}`,`修改後${config.zh}`));
-    if(config.key==='processSeconds') cells.push(dual('SL/giờ sau sửa','修改後每小時產能'));
-    cells.push(dual('Trạng thái','差異狀態'));
-    return cells.map(cell=>`<th>${cell}</th>`).join('');
+    cells.push(
+      {value:dual(`Hiện tại: ${config.vi}`,`目前${config.zh}`),className:config.type==='number'?'ui-table-number-cell':''},
+      {value:dual(`Sau sửa: ${config.vi}`,`修改後${config.zh}`),className:config.type==='number'?'ui-table-number-cell':''}
+    );
+    if(config.key==='processSeconds') cells.push({value:dual('SL/giờ sau sửa','修改後每小時產能'),className:'ui-table-number-cell'});
+    cells.push({value:dual('Trạng thái','差異狀態'),className:'is-status'});
+    return cells.map(cell=>`<th${cell.className?` class="${cell.className}"`:''}>${cell.value}</th>`).join('');
   }
 
   function tableColumnCount(config){
@@ -167,9 +178,9 @@
       row.dataset.processId=target.operation?.processId||'';
       const operation=target.operation;
       const processCells=config.scope==='process'?[
-        operation?safe(operation.no):`<select data-process-select>${processOptions(target.product)}</select>`,
-        safe(operation?.vi||'—'),
-        ...(!['processSeconds','processNo'].includes(config.key)?[safe(displayValue(operation?.sec))]:[])
+        {value:operation?safe(operation.no):`<select data-process-select>${processOptions(target.product)}</select>`,className:'ui-table-center-cell is-process-no'},
+        {value:safe(operation?.vi||'—'),className:'is-process-description'},
+        ...(!['processSeconds','processNo'].includes(config.key)?[{value:safe(displayValue(operation?.sec)),className:'ui-table-number-cell is-current-seconds'}]:[])
       ]:[];
       const current=displayValue(fieldValue(target.product,operation,config.key));
       const pending=rowValues?.get(target.product.productId)??(current==='—'?'':current);
@@ -178,9 +189,9 @@
         :safe(current);
       const next=config.perProduct?pending:afterValue(config,target,commonValue,row);
       row.innerHTML=`<td class="ui-table-center-cell"><input type="checkbox" data-select${selected.has(target.product.productId)?' checked':''}${target.matched?'':' disabled'}></td>
-        <td><button type="button" class="product-quick-code-button${expanded.has(target.product.productId)?' is-open':''}" data-product-quick-expand="${safeAttribute(target.product.productId)}" aria-expanded="${expanded.has(target.product.productId)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(target.product.code)}</b></button></td><td>${safe(target.product.sz||'—')}</td><td class="ui-table-number-cell"><b>${safe(groupUI().activeOperations(target.product).length)}</b></td>
-        ${processCells.map(value=>`<td>${value}</td>`).join('')}
-        <td>${perProductInput}</td><td data-after>${safe(next)}</td>
+        <td><button type="button" class="product-quick-code-button${expanded.has(target.product.productId)?' is-open':''}" data-product-quick-expand="${safeAttribute(target.product.productId)}" aria-expanded="${expanded.has(target.product.productId)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(target.product.code)}</b></button></td><td class="ui-table-center-cell">${safe(target.product.sz||'—')}</td><td class="ui-table-center-cell is-process-count"><b>${safe(groupUI().activeOperations(target.product).length)}</b></td>
+        ${processCells.map(cell=>`<td class="${cell.className}">${cell.value}</td>`).join('')}
+        <td class="${config.type==='number'?'ui-table-number-cell':''}">${perProductInput}</td><td class="${config.type==='number'?'ui-table-number-cell':''}" data-after>${safe(next)}</td>
         ${config.key==='processSeconds'?`<td class="ui-table-number-cell" data-capacity>${next!=='—'?safe(capacity(next)):'—'}</td>`:''}
         <td class="product-quick-status" data-status>${statusTags(target)}</td>`;
       host.appendChild(row);
@@ -265,7 +276,7 @@
       confirmText:{vi:'Xác nhận thực hiện',zh:'確認執行'},cancelText:{vi:'Quay lại chỉnh sửa',zh:'返回修改'}
     });
     if(!confirmed) return {cancelled:true,results:[],successes:[],failures:[],skipped};
-    const progress=ui().progressDialog({title:{vi:'Đang cập nhật mã hàng',zh:'正在更新款號'},value:0,
+    const progress=ui().progressDialog({title:{vi:'Đang cập nhật mã hàng',zh:'正在更新款號'},value:0,keepPrevious:options.keepPrevious===true,
       text:{vi:'Đang chuẩn bị...',zh:'正在準備…'},detail:{vi:`0/${requests.length} mã`,zh:`0/${requests.length} 個款號`}});
     let result;
     try{
@@ -290,7 +301,7 @@
       progress.close('program');
     }
     await ui().alertDialog({title:{vi:'Kết quả cập nhật',zh:'修改結果'},body:createResultBody(result,skipped),
-      kind:result.failures.length?'warning':'success',size:'xlarge'});
+      kind:result.failures.length?'warning':'success',size:'xlarge',keepPrevious:options.keepPrevious===true});
     await options.onSaved?.(result);
     return {...result,skipped,cancelled:false};
   }
@@ -373,6 +384,7 @@
 
     ui().openDialog({
       title:{vi:`Sửa nhanh: ${config.vi}`,zh:`快速修改：${config.zh}`},body,size:'xlarge',
+      keepPrevious:input.keepPrevious===true,
       actions:[
         {text:{vi:'Hủy',zh:'取消'}},
         {text:{vi:'Xem trước mục đã chọn',zh:'預覽已選項目'},icon:'ti-eye-check',kind:'primary',onClick:async()=>{
@@ -390,7 +402,7 @@
             const value=config.perProduct?(rowValues.get(target.product.productId)??target.value):(common?.value??'');
             requests.push({base:clone(target.product),draft:service().draftWithField(target.product,{field:config.key,value,processId:target.operation?.processId||''}),action:'productGroupQuickEdit'});
           });
-          const result=await saveWithWorkflow(requests,{skipped,onSaved:input.onSaved});
+          const result=await saveWithWorkflow(requests,{skipped,onSaved:input.onSaved,keepPrevious:input.keepPrevious===true});
           return result.cancelled?false:true;
         }}
       ],
@@ -404,7 +416,11 @@
     const button=document.createElement('button');
     button.type='button';button.className='product-quick-edit-trigger';button.disabled=!allowed(input.field);
     button.textContent=String(input.value??'—');
-    if(!button.disabled) button.addEventListener('click',event=>{ event.stopPropagation();void open(input); });
+    if(!button.disabled) button.addEventListener('click',async event=>{
+      event.stopPropagation();
+      if(typeof input.beforeOpen==='function'&&await input.beforeOpen()===false) return;
+      await open(input);
+    });
     return button;
   }
 

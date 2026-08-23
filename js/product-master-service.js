@@ -188,7 +188,7 @@
       if(field==='processNo') draft.ops=model().moveOperation(draft.ops,target,value);
       else operation[actualField]=value;
     }else{
-      if(!store().PRODUCT_FIELDS.includes(field)) throw new Error('Trường mã hàng không được phép sửa. / 不允許修改此款號欄位。');
+      if(!store().EDITABLE_PRODUCT_FIELDS.includes(field)) throw new Error('Trường mã hàng không được phép sửa. / 不允許修改此款號欄位。');
       draft[field]=value;
     }
     return draft;

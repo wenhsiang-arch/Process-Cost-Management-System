@@ -367,6 +367,7 @@
     const dialog = openDialog({
       title:options.title || 'common.processing',
       body,
+      keepPrevious:options.keepPrevious===true,
       closeOnEscape:options.allowClose === true,
       closeOnBackdrop:false,
       actions:options.allowClose === true ? [{text:'common.close'}] : [],

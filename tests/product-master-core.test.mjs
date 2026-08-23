@@ -63,24 +63,24 @@ test('建立款號時固定 productId 與 processId，重跑相同舊來源不�
   assert.equal(first.product.revision,1);
 });
 
-test('兩人修改不同欄位可合併，固定身分不因代碼、名稱或工序內容改變',()=>{
+test('兩人修改不同可編輯欄位可合併，款號代碼與固定身分維持不變',()=>{
   const {PCMSProductMasterStore:store}=load();
   const base=store.prepareCreate(sourceProduct,{
     actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
   }).product;
   const current={...base,client:'Khách B',revision:2,updatedAt:1100,updatedByUid:'other'};
-  const draft={...base,code:'NEW-001',zh:'產品新版',ops:base.ops.map((operation,index)=>index===0?{...operation,no:'7',sec:50}:operation)};
+  const draft={...base,zh:'產品新版',ops:base.ops.map((operation,index)=>index===0?{...operation,no:'7',sec:50}:operation)};
   const result=store.prepareUpdate({base,current,draft,actor,now:1200});
   assert.equal(result.hasConflicts,false);
   assert.equal(result.merged.client,'Khách B');
-  assert.equal(result.merged.code,'NEW-001');
+  assert.equal(result.merged.code,base.code);
   assert.equal(result.merged.zh,'產品新版');
   assert.equal(result.merged.productId,base.productId);
   const moved=result.merged.ops.find(item=>item.processId===base.ops[0].processId);
   assert.equal(moved.processId,base.ops[0].processId);
   assert.equal(moved.no,'7');
   assert.equal(moved.sec,50);
-  assert.equal(result.plan.deletes.length,1);
+  assert.equal(result.plan.deletes.length,0);
 });
 
 test('工序號就是排序，移到已存在位置會順移並保留全部固定身分',()=>{
@@ -111,9 +111,16 @@ test('群組差異會分別標示工序數量、越文描述及標準秒數，�
   assert.equal(rows.some(item=>item.countDifferent),true);
 });
 
-test('款號代碼修改會列入正式差異與預覽',()=>{
-  const {PCMSProductModel:model}=load();
+test('差異檢查會辨識嘗試改碼，但正式儲存拒絕既有款號代碼變更',()=>{
+  const {PCMSProductModel:model,PCMSProductMasterStore:store}=load();
   assert.equal(model.compareProducts(sourceProduct,{...sourceProduct,code:'NEW-CODE'}).some(item=>item.field==='code'),true);
+  const base=store.prepareCreate(sourceProduct,{
+    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
+  }).product;
+  assert.throws(
+    ()=>store.prepareUpdate({base,current:base,draft:{...base,code:'NEW-CODE'},actor,now:1200}),
+    /Mã hàng không được phép sửa|款號代碼不得修改/
+  );
 });
 
 test('兩人修改同一欄位時保留雲端值與草稿值並回報衝突',()=>{

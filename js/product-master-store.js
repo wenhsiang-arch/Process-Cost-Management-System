@@ -8,6 +8,7 @@
     migrationExceptions:'productMasterMigrationExceptions'
   });
   const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz']);
+  const EDITABLE_PRODUCT_FIELDS=Object.freeze(['client','zh','vi','sz']);
   const PROCESS_FIELDS=Object.freeze(['no','category','zh','vi','sec']);
   const ALLOWED_CATEGORIES=new Set(['BL','SX','QC','DG']);
 
@@ -93,9 +94,10 @@
     const current=normalizeAndValidateProduct(currentInput,{tokenProvider:'currentidentity000000000000'});
     const draft=normalizeAndValidateProduct(draftInput,{tokenProvider:'draftidentity00000000000000'});
     if(base.productId!==current.productId||base.productId!==draft.productId) throw new Error('Mã định danh sản phẩm đã thay đổi. / 款號固定識別碼已被更換。');
+    if(base.code!==current.code||base.code!==draft.code) throw new Error('Mã hàng không được phép sửa. / 款號代碼不得修改。');
     const merged=clone(current);
     const conflicts=[];
-    PRODUCT_FIELDS.forEach(field=>fieldMerge('product.',field,base,current,draft,merged,conflicts));
+    EDITABLE_PRODUCT_FIELDS.forEach(field=>fieldMerge('product.',field,base,current,draft,merged,conflicts));
     const baseById=new Map(base.ops.map(item=>[item.processId,item]));
     const currentById=new Map(current.ops.map(item=>[item.processId,item]));
     const draftById=new Map(draft.ops.map(item=>[item.processId,item]));
@@ -254,7 +256,7 @@
   }
 
   window.PCMSProductMasterStore=Object.freeze({
-    COLLECTIONS,PRODUCT_FIELDS,PROCESS_FIELDS,normalizeAndValidateProduct,mergeProductDraft,prepareCreate,prepareUpdate,
+    COLLECTIONS,PRODUCT_FIELDS,EDITABLE_PRODUCT_FIELDS,PROCESS_FIELDS,normalizeAndValidateProduct,mergeProductDraft,prepareCreate,prepareUpdate,
     prepareImportReplacement,finalizeFreshnessPlan
   });
 })();

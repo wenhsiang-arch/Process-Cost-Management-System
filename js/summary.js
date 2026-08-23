@@ -96,7 +96,7 @@ function mountSummaryQuickTrigger(host,product,field,value,processId=''){
 }
 
 function bindSummaryProductQuickEdits(row,product){
-  const fields={code:'code',client:'client',zh:'zh',vi:'vi',size:'sz'};
+  const fields={client:'client',zh:'zh',vi:'vi',size:'sz'};
   Object.entries(fields).forEach(([column,field])=>{
     mountSummaryQuickTrigger(row.querySelector(`[data-ui-table-column="${column}"]`),product,field,product[field]);
   });

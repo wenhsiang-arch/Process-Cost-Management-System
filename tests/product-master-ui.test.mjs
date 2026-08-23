@@ -39,14 +39,14 @@ test('群組快速修改預設全選，找不到相同工序號的款號不猜�
   assert.equal(targets[2].selected,false);
 });
 
-test('款號代碼快速修改仍顯示全組，但每個款號保留自己的輸入值',()=>{
+test('款號代碼不提供快速修改欄位，底層也拒絕建立改碼目標',()=>{
   const window=loadQuickEdit();
   const rows=products(window.PCMSProductModel);
-  const targets=window.PCMSProductQuickEdit.buildTargets({
-    field:'code',sourceProductId:rows[0].productId,products:rows,group:{memberProductIds:rows.map(item=>item.productId)}
-  });
-  assert.equal(targets.every(item=>item.selected),true);
-  assert.equal(targets.map(item=>item.value).join(','),'P1,P2,P3');
+  assert.equal(window.PCMSProductQuickEdit.FIELD_CONFIG.code,undefined);
+  assert.equal(window.PCMSProductQuickEdit.allowed('code'),false);
+  assert.throws(()=>window.PCMSProductQuickEdit.buildTargets({
+    field:'code',sourceProductId:rows[0].productId,products:rows
+  }),/Trường sửa nhanh không hợp lệ|快速修改欄位不正確/);
 });
 
 test('快速修改與完整編輯只呼叫 Product Master Service，不保留工序優化或標準訂正模式',()=>{
@@ -74,23 +74,28 @@ test('款號總表與完整工序編輯不提供刪除或停用功能',()=>{
   assert.doesNotMatch(store,/PROCESS_FIELDS[^\n]*'active'/);
 });
 
-test('款號總表在新 Loader 載入後提供款號與工序各欄位快速入口及完整編輯',()=>{
+test('款號總表保留款號展開但不提供改碼，其他款號與工序欄位共用快速修改',()=>{
   const summary=read('js/summary.js');
   assert.match(summary,/PCMSProductQuickEdit\.createTrigger/);
   assert.match(summary,/PCMSProductMasterEditor\.createButton/);
-  ['code','client','zh','vi','sz','processNo','processCategory','processNameZh','processNameVi','processSeconds']
+  ['client','zh','vi','sz','processNo','processCategory','processNameZh','processNameVi','processSeconds']
     .forEach(field=>assert.match(summary,new RegExp(field)));
+  assert.doesNotMatch(summary,/const fields=\{code:'code'/);
+  assert.match(summary,/summary-code/);
   assert.doesNotMatch(summary,/data-product-quick-field="processSortOrder"/);
   assert.doesNotMatch(summary,/工序號／排序/);
 });
 
-test('完整編輯與快速修改保留尺寸分頁、差異提醒、拖曳、預覽進度與結果流程',()=>{
+test('完整編輯只顯示單一款號，欄位點擊共用群組面板並保留拖曳、預覽、進度與結果',()=>{
   const editor=read('js/product-master-editor.js');
   const quick=read('js/product-quick-edit.js');
   const groupUi=read('js/production/process-group-ui.js');
-  assert.match(editor,/createMemberSelector/);
+  assert.doesNotMatch(editor,/createMemberSelector|product-master-group-selection|selectedProducts/);
+  assert.match(editor,/product-master-readonly-value/);
+  assert.match(editor,/readonly:true/);
+  assert.match(editor,/createQuickTrigger/);
+  assert.match(editor,/keepPrevious:true/);
   assert.match(editor,/draggable=true/);
-  assert.match(editor,/moveRow/);
   assert.match(editor,/saveWithWorkflow/);
   assert.match(quick,/groupBySize/);
   assert.match(quick,/createPreviewBody/);
@@ -111,57 +116,38 @@ test('完整編輯與快速修改保留尺寸分頁、差異提醒、拖曳、�
   assert.match(groupUi,/Có nhiều phiên bản · cần kiểm tra/);
 });
 
-test('生產登記款號、工序號、工序名稱及秒數都接到同一款號主檔快速修改流程',()=>{
+test('生產登記款號維持只讀，工序號、工序名稱及秒數接到同一款號主檔快速修改流程',()=>{
   const entry=read('js/production/production-entry.js');
   const adapter=read('js/production/product-seconds-adapter.js');
   assert.match(entry,/PCMSQuickProductMaster\.createButton/);
-  [/field:\s*'code'/,/field:'processNo'/,/field:item\.processNameVi\?'processNameVi':'processNameZh'/]
+  [/field:'processNo'/,/field:item\.processNameVi\?'processNameVi':'processNameZh'/]
     .forEach(pattern=>assert.match(entry,pattern));
+  assert.doesNotMatch(entry,/field:\s*'code'/);
+  assert.match(adapter,/if\(field==='code'\) return false/);
   assert.match(adapter,/loadForProduct/);
   assert.doesNotMatch(adapter,/ProductGroupRuntime\?\.load\?\./);
 });
 
-test('完整編輯套用至描述不同的群組成員時仍可重排，並保留各自固定工序身分',()=>{
-  const context={window:{},TextEncoder,console};
-  vm.createContext(context);
-  vm.runInContext(read('js/product-model.js'),context);
-  vm.runInContext(read('js/product-master-editor.js'),context);
-  const model=context.window.PCMSProductModel;
-  const sourceId=model.deterministicLegacyId('product','EDITOR-SOURCE');
-  const targetId=model.deterministicLegacyId('product','EDITOR-TARGET');
-  const source={productId:sourceId,code:'SRC',client:'C',zh:'一',vi:'A',sz:'S',ops:[
-    {processId:model.deterministicLegacyId('process','SRC-1'),no:'1',category:'SX',zh:'一',vi:'May A',sec:10},
-    {processId:model.deterministicLegacyId('process','SRC-2'),no:'2',category:'SX',zh:'二',vi:'May B',sec:20}
-  ]};
-  const target={productId:targetId,code:'TGT',client:'C',zh:'二',vi:'B',sz:'M',ops:[
-    {processId:model.deterministicLegacyId('process','TGT-1'),no:'1',category:'SX',zh:'甲',vi:'Mô tả khác A',sec:11},
-    {processId:model.deterministicLegacyId('process','TGT-2'),no:'2',category:'SX',zh:'乙',vi:'Mô tả khác B',sec:21}
-  ]};
-  const sourceDraft={...source,client:'C2',ops:model.moveOperation(source.ops,source.ops[0].processId,2)};
-  const result=context.window.PCMSProductMasterEditor.applyTemplate(source,sourceDraft,target);
-  assert.equal(result.draft.code,'TGT');
-  assert.equal(result.draft.client,'C2');
-  assert.deepEqual(Array.from(result.draft.ops,item=>item.processId),[target.ops[1].processId,target.ops[0].processId]);
-  assert.deepEqual(Array.from(result.draft.ops,item=>item.no),['1','2']);
+test('完整編輯的結構儲存只建立目前款號一筆請求，既有欄位不再直接輸入',()=>{
+  const editor=read('js/product-master-editor.js');
+  assert.match(editor,/\{base:clone\(base\),draft,action:'productFullEdit'\}/);
+  assert.doesNotMatch(editor,/data-product-field=|applyTemplate|buildRequests/);
+  assert.match(editor,/newOperationRow/);
+  assert.match(editor,/data-new-process|newProcess/);
 });
 
-test('完整編輯遇到缺少對應工序時整個款號不做部分修改',()=>{
-  const context={window:{},TextEncoder,console};
-  vm.createContext(context);
-  vm.runInContext(read('js/product-model.js'),context);
-  vm.runInContext(read('js/product-master-editor.js'),context);
-  const model=context.window.PCMSProductModel;
-  const source={productId:model.deterministicLegacyId('product','MISS-SOURCE'),code:'SRC',client:'C',zh:'一',vi:'A',sz:'S',ops:[
-    {processId:model.deterministicLegacyId('process','MISS-SOURCE-1'),no:'1',category:'SX',zh:'一',vi:'May',sec:10}
-  ]};
-  const target={productId:model.deterministicLegacyId('product','MISS-TARGET'),code:'TGT',client:'C',zh:'二',vi:'B',sz:'M',ops:[
-    {processId:model.deterministicLegacyId('process','MISS-TARGET-2'),no:'2',category:'SX',zh:'二',vi:'Khác',sec:20}
-  ]};
-  const sourceDraft={...source,client:'C2',ops:[{...source.ops[0],vi:'May mới'}]};
-  const result=context.window.PCMSProductMasterEditor.applyTemplate(source,sourceDraft,target);
-  assert.equal(result.warnings.length,1);
-  assert.equal(result.draft.client,'C');
-  assert.deepEqual(JSON.parse(JSON.stringify(result.draft.ops)),target.ops);
+test('共用群組修改樣式由三個入口共同載入，數量與工序號固定置中分隔',()=>{
+  const productStyles=read('styles/features/products.css');
+  const sharedStyles=read('styles/features/production-process-edit.css');
+  const features=read('js/features.js');
+  const components=read('js/ui-components.js');
+  assert.doesNotMatch(productStyles,/\.product-quick-summary/);
+  assert.match(sharedStyles,/product-quick-edit（款號主檔共用群組修改）/);
+  assert.match(sharedStyles,/th\.is-process-count[\s\S]*text-align:center/);
+  assert.match(sharedStyles,/th\.is-process-no[\s\S]*border-left/);
+  assert.match(features,/styles:\['products','productionProcessEdit'\]/);
+  assert.match(features,/styles:\['production','productionProcessEdit'\]/);
+  assert.match(components,/keepPrevious:options\.keepPrevious===true/);
 });
 
 test('生產登記按款號載入群組最多兩筆文件，重複開啟不再完整讀取',async()=>{

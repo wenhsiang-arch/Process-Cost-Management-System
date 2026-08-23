@@ -1496,7 +1496,7 @@
       appendCell(row,item.employeeId || '—','production-record-text-cell','employeeId');
       appendCell(row,currentEmployee?.name || item.employeeName || '—','production-record-text-cell','employeeName');
       appendCell(row,item.orderNo || '—','', 'order');
-      const productCell=appendCell(row,item.productCode || '—','production-product-code-cell','product');
+      appendCell(row,item.productCode || '—','production-product-code-cell','product');
       appendCell(row,supplement ? '—' : numberText(item.orderQuantity),'production-number-cell','orderQuantity');
       const processNoCell=appendCell(row,item.processNo || '—','production-number-cell','processNo','production-value-badge');
       const processNameValue=supplement ? (item.supplementReason || '—') : (item.processNameVi || item.processNameZh || '—');
@@ -1510,7 +1510,6 @@
           productId:item.productId,processId:item.processId,code:item.productCode,processNo:item.processNo,
           source:'productionEntry',onSaved:refreshAfterProcessSecondsSaved
         };
-        productCell.replaceChildren(window.PCMSQuickProductMaster.createButton({...common,field:'code',value:item.productCode}));
         processNoCell.replaceChildren(window.PCMSQuickProductMaster.createButton({...common,field:'processNo',value:item.processNo}));
         processNameCell.replaceChildren(window.PCMSQuickProductMaster.createButton({
           ...common,field:item.processNameVi?'processNameVi':'processNameZh',value:processNameValue

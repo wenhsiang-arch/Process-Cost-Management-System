@@ -340,7 +340,8 @@
     const existingByNo=new Map(existing.ops.map(operation=>[operation.no,operation]));
     return {
       productId:existing.productId,
-      code:incoming.code,
+      // 同款號匯入只覆蓋主檔內容；既有款號代碼本身永遠保留。
+      code:existing.code,
       client:incoming.client,
       zh:incoming.zh,
       vi:incoming.vi,

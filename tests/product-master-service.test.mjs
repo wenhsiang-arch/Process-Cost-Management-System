@@ -74,20 +74,23 @@ test('新增款號、固定索引、單款歷史、版本提示與操作紀錄�
   assert.equal(window.D[0].productId,saved.productId);
 });
 
-test('完整編輯與快速修改共用 saveDraft，改代碼時固定身分不變且舊索引退出',async()=>{
+test('完整編輯與快速修改共用 saveDraft，但款號代碼不可修改且不產生任何寫入',async()=>{
   const {window,database}=load();
   const base=await window.PCMSProductMasterService.createProduct(product,{
     sourceKey:'legacy.product.1',processSourceKeys:['legacy.process.1'],now:1000
   });
   const draft={...base,code:'NEW-001',ops:base.ops.map(operation=>({...operation,sec:50}))};
-  const saved=await window.PCMSProductMasterService.saveDraft({base,draft,now:2000});
-  assert.equal(saved.productId,base.productId);
-  assert.equal(saved.ops[0].processId,base.ops[0].processId);
-  assert.equal(saved.ops[0].sec,50);
-  assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('P-001')),undefined);
-  assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('new-001')).productId,base.productId);
-  assert.equal(database.count('operationLogs'),2);
-  assert.equal(database.get('system','productsMeta').changeSequence,2);
+  await assert.rejects(
+    window.PCMSProductMasterService.saveDraft({base,draft,now:2000}),
+    /Mã hàng không được phép sửa|款號代碼不得修改/
+  );
+  const saved=database.get('products',base.productId);
+  assert.equal(saved.code,'P-001');
+  assert.equal(saved.ops[0].sec,60);
+  assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('P-001')).productId,base.productId);
+  assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('new-001')),undefined);
+  assert.equal(database.count('operationLogs'),1);
+  assert.equal(database.get('system','productsMeta').changeSequence,1);
   assert.equal(database.get('system','productsMeta').productCount,1);
 });
 
@@ -126,7 +129,7 @@ test('匯入覆蓋在單款交易內完整替代工序並同時建立歷史與�
   const removedProcessId=base.ops[1].processId;
   const progress=[];
   const result=await window.PCMSProductMasterService.importProducts([{
-    mode:'replace',existing:base,incoming:{...product,client:'C2',ops:[
+    mode:'replace',existing:base,incoming:{...product,code:'p-001',client:'C2',ops:[
       {no:'1',category:'SX',zh:'新車縫',vi:'May mới',sec:45},
       {no:'3',category:'DG',zh:'包裝',vi:'Đóng gói',sec:20}
     ]}
@@ -134,6 +137,7 @@ test('匯入覆蓋在單款交易內完整替代工序並同時建立歷史與�
   assert.equal(result.failures.length,0);
   const saved=result.successes[0].product;
   assert.equal(saved.productId,base.productId);
+  assert.equal(saved.code,base.code);
   assert.equal(saved.client,'C2');
   assert.equal(saved.ops.length,2);
   assert.equal(saved.ops[0].processId,firstProcessId);
