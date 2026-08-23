@@ -1202,32 +1202,13 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 
   <!-- Modals -->
   <div class="mb" id="m-detail-import"><div class="md wide">
-    <div class="mt2"><span><i class="ti ti-file-spreadsheet"></i> Nhập dữ liệu Excel / 匯入資料確認</span><button class="btn bsm" onclick="xImp()"><i class="ti ti-x"></i></button></div>
-    <div class="pw" id="pw-wrap">
-      <div class="pwl" id="pw-label">處理中...</div>
-      <div class="pbb"><div class="pbar" id="pw-bar" style="width:0%"></div></div>
-      <div class="psb" id="pw-sub"></div>
-    </div>
+    <div class="mt2"><span class="ui-dual-copy"><strong><i class="ti ti-file-spreadsheet"></i> Nhập dữ liệu Excel</strong><span>匯入 Excel 資料</span></span><button class="btn bsm" onclick="xImp()"><i class="ti ti-x"></i></button></div>
     <div id="imp-err" style="display:none" class="nt nd"><i class="ti ti-alert-triangle"></i><div id="imp-err-msg"></div></div>
-    <div id="dup-warn" style="display:none">
-      <div class="nt nw" style="margin-bottom:8px"><i class="ti ti-alert-triangle"></i><div id="dup-summary"></div></div>
-      <div class="dl" id="dup-list"></div>
-      <div class="br" style="margin-top:10px">
-        <button class="btn bp" id="dup-import-new-btn" onclick="cImp()"><i class="ti ti-plus"></i><span class="ui-dual-copy"><strong>Nhập mã mới</strong><span>匯入新款號</span></span></button>
-        <button class="btn bd2" onclick="xImp()"><i class="ti ti-x"></i><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button>
-      </div>
-    </div>
-    <div id="imp-prev" style="display:none">
-      <p style="font-size:13px;margin-bottom:10px;color:var(--mu);font-weight:500">預覽（前5筆）</p>
-      <div class="to"><div class="ts" style="max-height:180px"><table class="ui-table" id="prev-tbl" data-ui-table-layout="special" data-ui-table-sticky="container"><thead></thead><tbody></tbody></table></div></div>
-      <div class="br" style="margin-top:12px">
-        <button class="btn bp" onclick="chkDup()"><i class="ti ti-check"></i>確認匯入</button>
-        <button class="btn" onclick="xImp()"><i class="ti ti-x"></i>取消</button>
-      </div>
-    </div>
-    <div id="imp-ok" style="display:none" class="nt ns"><i class="ti ti-check"></i><span id="imp-ok-msg"></span></div>
     <div class="dv"></div>
-    <p style="font-size:11px;color:var(--mu)">Thứ tự cột: Mã hàng · Khách hàng · Tên Trung · Tên Việt · Kích thước · Số công đoạn · Phân loại (BL/SX/QC/DG) · Tên công đoạn Trung · Tên công đoạn Việt · Giây<br>Có thể để trống tên công đoạn Trung; các trường khác không được để trống.<br>欄位順序：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 加工分類（BL/SX/QC/DG）· 工序中文 · 工序越文 · 秒數；工序中文可空白，其餘欄位皆不得空白</p>
+    <div class="ui-language-sections product-import-column-help">
+      <div class="ui-language-section is-vi">Thứ tự cột: Mã hàng · Khách hàng · Tên Trung · Tên Việt · Kích thước · Số công đoạn · Phân loại (BL/SX/QC/DG) · Tên công đoạn Trung · Tên công đoạn Việt · Giây. Có thể để trống tên công đoạn Trung; các trường khác không được để trống.</div>
+      <div class="ui-language-section is-zh">欄位順序：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 加工分類（BL/SX/QC/DG）· 工序中文 · 工序越文 · 秒數。工序中文可空白，其餘欄位皆不得空白。</div>
+    </div>
   </div></div>
 
   <div class="mb" id="m-history"><div class="md wide">

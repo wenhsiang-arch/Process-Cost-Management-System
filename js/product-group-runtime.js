@@ -5,6 +5,7 @@
   let groups=[];
   let loaded=false;
   let loadingPromise=null;
+  const productLookups=new Map();
 
   function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
   function store(){
@@ -63,11 +64,38 @@
       const snapshot=await window._getDocs(window._collection(store().COLLECTION));
       groups=normalizeRows(documentRows(snapshot));
       loaded=true;
+      productLookups.clear();
       return publish();
     })();
     loadingPromise=promise;
     try{ return await promise; }
     finally{ if(loadingPromise===promise) loadingPromise=null; }
+  }
+
+  // loadForProduct（只載入單一款號所屬群組）：生產登記點擊編輯時最多讀取會員索引與群組各一筆。
+  async function loadForProduct(identity){
+    const product=productByIdentity(identity);
+    const target=productId(product?.productId||identity);
+    if(!target) return null;
+    const current=groupForProduct(target);
+    if(current||loaded) return current;
+    if(productLookups.has(target)) return productLookups.get(target);
+    if(typeof window._getDoc!=='function'||typeof window._docRef!=='function'){
+      throw new Error('Dịch vụ cơ sở dữ liệu chưa sẵn sàng. / 雲端資料庫服務尚未載入。');
+    }
+    const promise=(async()=>{
+      const memberSnapshot=await window._getDoc(window._docRef(store().MEMBER_COLLECTION,target));
+      if(!memberSnapshot?.exists?.()) return null;
+      const groupId=String(memberSnapshot.data()?.groupId||'').trim();
+      if(!groupId) return null;
+      const groupSnapshot=await window._getDoc(window._docRef(store().COLLECTION,groupId));
+      if(!groupSnapshot?.exists?.()) return null;
+      const saved=upsert({groupId:groupSnapshot.id,...groupSnapshot.data()});
+      return view(saved);
+    })();
+    productLookups.set(target,promise);
+    try{ return await promise; }
+    catch(error){ productLookups.delete(target);throw error; }
   }
 
   function all(options={}){
@@ -87,7 +115,7 @@
       &&window.PCMSProductModel.groupSignature(item)===signature)
       .sort((left,right)=>String(left.sz||'').localeCompare(String(right.sz||''),'zh-Hant',{numeric:true,sensitivity:'base'}));
   }
-  function invalidate(){ loaded=false;loadingPromise=null;groups=[];window.productMasterGroups=[]; }
+  function invalidate(){ loaded=false;loadingPromise=null;groups=[];productLookups.clear();window.productMasterGroups=[]; }
 
   async function create(input,options={}){
     const memberProductIds=input.memberProductIds||(input.memberCodes||[]).map(code=>productByIdentity(code)?.productId).filter(Boolean);
@@ -123,7 +151,7 @@
     return {group:view(saved),memberCodes:view(current).memberCodes,logSaved:true};
   }
 
-  window.PCMSProductGroupRuntime=Object.freeze({load,loadGroups:load,all,listGroups,groupForProduct,findCandidates,invalidate,
+  window.PCMSProductGroupRuntime=Object.freeze({load,loadGroups:load,loadForProduct,all,listGroups,groupForProduct,findCandidates,invalidate,
     create,createGroup,update,rename,renameGroup,setActive,updateMembers,updateGroupMembers,deleteGroup});
   window.loadProductMasterGroups=options=>load(options);
 })();

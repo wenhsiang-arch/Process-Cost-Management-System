@@ -76,10 +76,44 @@ test('兩人修改不同欄位可合併，固定身分不因代碼、名稱或�
   assert.equal(result.merged.code,'NEW-001');
   assert.equal(result.merged.zh,'產品新版');
   assert.equal(result.merged.productId,base.productId);
-  assert.equal(result.merged.ops[0].processId,base.ops[0].processId);
-  assert.equal(result.merged.ops[0].no,'7');
-  assert.equal(result.merged.ops[0].sec,50);
+  const moved=result.merged.ops.find(item=>item.processId===base.ops[0].processId);
+  assert.equal(moved.processId,base.ops[0].processId);
+  assert.equal(moved.no,'7');
+  assert.equal(moved.sec,50);
   assert.equal(result.plan.deletes.length,1);
+});
+
+test('工序號就是排序，移到已存在位置會順移並保留全部固定身分',()=>{
+  const {PCMSProductModel:model}=load();
+  const operations=['A','B','C'].map((key,index)=>({
+    processId:model.deterministicLegacyId('process',key),no:String(index+1),sortOrder:index+1,category:'SX',zh:key,vi:key,sec:10
+  }));
+  const moved=model.moveOperation(operations,operations[2].processId,2);
+  assert.deepEqual(Array.from(moved,item=>item.zh),['A','C','B']);
+  assert.deepEqual(Array.from(moved,item=>item.no),['1','2','3']);
+  assert.deepEqual(Array.from(moved,item=>item.sortOrder),[1,2,3]);
+  assert.deepEqual(new Set(moved.map(item=>item.processId)),new Set(operations.map(item=>item.processId)));
+});
+
+test('群組差異會分別標示工序數量、越文描述及標準秒數，僅供提醒',()=>{
+  const {PCMSProductModel:model}=load();
+  const productId=index=>model.deterministicLegacyId('product',`GROUP-${index}`);
+  const products=[
+    {...sourceProduct,productId:productId(1),code:'P1'},
+    {...sourceProduct,productId:productId(2),code:'P2',ops:sourceProduct.ops.map((item,index)=>index?item:{...item,vi:'May khác'})},
+    {...sourceProduct,productId:productId(3),code:'P3',ops:sourceProduct.ops.map((item,index)=>index?item:{...item,sec:55})},
+    {...sourceProduct,productId:productId(4),code:'P4',ops:sourceProduct.ops.slice(0,1)}
+  ];
+  const rows=model.compareGroupConsistency(products);
+  assert.equal(rows.length,4);
+  assert.equal(rows.some(item=>item.descriptionDifferent),true);
+  assert.equal(rows.some(item=>item.secondsDifferent),true);
+  assert.equal(rows.some(item=>item.countDifferent),true);
+});
+
+test('款號代碼修改會列入正式差異與預覽',()=>{
+  const {PCMSProductModel:model}=load();
+  assert.equal(model.compareProducts(sourceProduct,{...sourceProduct,code:'NEW-CODE'}).some(item=>item.field==='code'),true);
 });
 
 test('兩人修改同一欄位時保留雲端值與草稿值並回報衝突',()=>{
@@ -127,4 +161,42 @@ test('款號與既有工序不得透過共用儲存服務停用或移除',()=>{
   const removed=store.prepareUpdate({base,current:base,draft:{...base,ops:[base.ops[0]]},actor,now:1201});
   assert.equal(removed.hasConflicts,true);
   assert.equal(removed.conflicts[0].reason,'process-removal-requires-reference-check');
+});
+
+test('Excel 完整覆蓋保留同款號及同工序固定身分，並精確替代全部工序',()=>{
+  const {PCMSProductMasterStore:store,PCMSProductModel:model}=load();
+  const original={...sourceProduct,ops:Array.from({length:12},(_,index)=>({
+    no:String(index+1),sortOrder:index+1,category:'SX',zh:`工序${index+1}`,vi:`Công đoạn ${index+1}`,sec:20+index
+  }))};
+  const current=store.prepareCreate(original,{
+    actor,now:1000,sourceKey:'legacy.products.OVERWRITE',
+    processSourceKeys:original.ops.map(item=>`legacy.process.${item.no}`)
+  }).product;
+  const incoming={...sourceProduct,client:'Khách mới',ops:Array.from({length:11},(_,index)=>({
+    no:String(index+1),category:index===0?'QC':'SX',zh:`新工序${index+1}`,vi:`Công đoạn mới ${index+1}`,sec:30+index
+  }))};
+  const replacement=model.reconcileImportReplacement(current,incoming);
+  assert.equal(replacement.productId,current.productId);
+  assert.equal(replacement.ops.length,11);
+  assert.equal(replacement.ops[0].processId,current.ops[0].processId);
+  assert.equal(replacement.ops[10].processId,current.ops[10].processId);
+  assert.equal(replacement.ops.some(item=>item.processId===current.ops[11].processId),false);
+  const prepared=store.prepareImportReplacement({current,incoming,actor,now:2000});
+  assert.equal(prepared.plan.product.ops.length,11);
+  assert.equal(prepared.plan.product.revision,2);
+  assert.equal(prepared.plan.product.operationLogId.endsWith('__productImport'),true);
+});
+
+test('Excel 新增工序只替新工序建立固定身分，原工序身分全部沿用',()=>{
+  const {PCMSProductMasterStore:store}=load();
+  const current=store.prepareCreate(sourceProduct,{
+    actor,now:1000,sourceKey:'legacy.products.ADD',processSourceKeys:['legacy.process.ADD.1','legacy.process.ADD.2']
+  }).product;
+  const incoming={...sourceProduct,ops:[...sourceProduct.ops,{no:'3',category:'DG',zh:'包裝',vi:'Đóng gói',sec:20}]};
+  const saved=store.prepareImportReplacement({current,incoming,actor,now:2000}).plan.product;
+  assert.equal(saved.ops.length,3);
+  assert.equal(saved.ops[0].processId,current.ops[0].processId);
+  assert.equal(saved.ops[1].processId,current.ops[1].processId);
+  assert.match(saved.ops[2].processId,/^prc_/);
+  assert.notEqual(saved.ops[2].processId,current.ops[0].processId);
 });

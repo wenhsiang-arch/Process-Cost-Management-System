@@ -116,6 +116,48 @@ test('同欄位衝突不寫入 Product 或操作紀錄並回傳雙方內容',asy
   assert.equal(database.count('operationLogs'),1);
 });
 
+test('匯入覆蓋在單款交易內完整替代工序並同時建立歷史與操作紀錄',async()=>{
+  const {window,database}=load();
+  const base=await window.PCMSProductMasterService.createProduct({...product,ops:[
+    {no:'1',category:'SX',zh:'車縫',vi:'May',sec:60},
+    {no:'2',category:'QC',zh:'檢查',vi:'Kiểm',sec:30}
+  ]},{sourceKey:'legacy.product.replace',processSourceKeys:['legacy.process.replace.1','legacy.process.replace.2'],now:1000});
+  const firstProcessId=base.ops[0].processId;
+  const removedProcessId=base.ops[1].processId;
+  const progress=[];
+  const result=await window.PCMSProductMasterService.importProducts([{
+    mode:'replace',existing:base,incoming:{...product,client:'C2',ops:[
+      {no:'1',category:'SX',zh:'新車縫',vi:'May mới',sec:45},
+      {no:'3',category:'DG',zh:'包裝',vi:'Đóng gói',sec:20}
+    ]}
+  }],{fileName:'products.xlsx',onProgress:item=>progress.push(item.phase)});
+  assert.equal(result.failures.length,0);
+  const saved=result.successes[0].product;
+  assert.equal(saved.productId,base.productId);
+  assert.equal(saved.client,'C2');
+  assert.equal(saved.ops.length,2);
+  assert.equal(saved.ops[0].processId,firstProcessId);
+  assert.equal(saved.ops.some(item=>item.processId===removedProcessId),false);
+  assert.match(saved.ops[1].processId,/^prc_/);
+  assert.equal(database.count('productHistory'),2);
+  assert.equal(database.count('operationLogs'),2);
+  assert.equal(database.get('operationLogs',saved.operationLogId).action,'productImport');
+  assert.deepEqual(progress,['start','complete']);
+});
+
+test('匯入遇到失敗款號立即停止並回報尚未處理數量',async()=>{
+  const {window,database}=load();
+  const result=await window.PCMSProductMasterService.importProducts([
+    {mode:'create',incoming:{...product,code:'P-NEW'}},
+    {mode:'create',incoming:{...product,code:'P-BAD',ops:[]}},
+    {mode:'create',incoming:{...product,code:'P-NOT-RUN'}}
+  ],{fileName:'products.xlsx'});
+  assert.equal(result.successes.length,1);
+  assert.equal(result.failures.length,1);
+  assert.equal(result.remaining,1);
+  assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('P-NOT-RUN')),undefined);
+});
+
 test('群組批次每個款號獨立成功或失敗，失敗不會撤銷已成功項目',async()=>{
   const {window,database}=load();
   const first=await window.PCMSProductMasterService.createProduct(product,{

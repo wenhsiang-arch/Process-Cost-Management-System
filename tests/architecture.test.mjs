@@ -32,7 +32,7 @@ test('共用表格操作只在使用功能開啟後按需載入',()=>{
   const products=source.slice(productsStart,productsEnd);
   assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
   assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260821-1'/);
-  assert.match(products,/scripts:\['history','fileIo','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productMasterEditor','productQuickEdit','uiTableControls','summary','data'\]/);
+  assert.match(products,/scripts:\['history','fileIo','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','summary','data'\]/);
   assert.doesNotMatch(products,/productVersionStore/);
   assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });
@@ -151,6 +151,7 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     accounts:'js/accounts.js',orders:'js/orders.js',permissions:'js/permissions.js',
     productModel:'js/product-model.js',productMasterStore:'js/product-master-store.js',productResolver:'js/product-resolver.js',
     productGroupStore:'js/product-group-store.js',productMasterService:'js/product-master-service.js',
+    productImportImpact:'js/product-import-impact.js',
     productMasterEditor:'js/product-master-editor.js',productQuickEdit:'js/product-quick-edit.js',
     productGroupRuntime:'js/product-group-runtime.js',
     orderItemStore:'js/order-item-store.js',orderService:'js/order-service.js',

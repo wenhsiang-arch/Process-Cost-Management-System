@@ -8,7 +8,7 @@
     migrationExceptions:'productMasterMigrationExceptions'
   });
   const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz']);
-  const PROCESS_FIELDS=Object.freeze(['no','sortOrder','category','zh','vi','sec']);
+  const PROCESS_FIELDS=Object.freeze(['no','category','zh','vi','sec']);
   const ALLOWED_CATEGORIES=new Set(['BL','SX','QC','DG']);
 
   function model(){
@@ -37,7 +37,7 @@
     const normalized=model().normalizeOperation(operation);
     const processId=model().fixedId(operation?.processId,'process')
       ||idFor('process',{sourceKey,tokenProvider});
-    const sortOrder=positiveInteger(normalized.sortOrder)?Number(normalized.sortOrder):index+1;
+    const sortOrder=Number(normalized.no)||index+1;
     if(!normalized.no) throw new Error(`Số công đoạn ở dòng ${index+1} không hợp lệ. / 第 ${index+1} 列工序號不正確。`);
     if(!ALLOWED_CATEGORIES.has(normalized.category)) throw new Error(`Phân loại công đoạn ${normalized.no} không hợp lệ. / 工序 ${normalized.no} 的分類不正確。`);
     if(!normalized.vi||normalized.vi.length>200||normalized.zh.length>200) throw new Error(`Tên công đoạn ${normalized.no} không hợp lệ. / 工序 ${normalized.no} 的名稱不正確。`);
@@ -61,16 +61,13 @@
     if(!operations.length||operations.length>99) throw new Error('Mỗi mã hàng phải có từ 1 đến 99 công đoạn. / 每個款號必須有1至99道工序。');
     const processIds=new Set();
     const processNumbers=new Set();
-    const sortOrders=new Set();
     operations.forEach(operation=>{
       if(processIds.has(operation.processId)) throw new Error('Mã định danh công đoạn bị trùng. / 工序固定識別碼重複。');
       if(processNumbers.has(operation.no)) throw new Error(`Số công đoạn ${operation.no} bị trùng. / 工序號 ${operation.no} 重複。`);
-      if(sortOrders.has(operation.sortOrder)) throw new Error(`Thứ tự công đoạn ${operation.sortOrder} bị trùng. / 工序排序 ${operation.sortOrder} 重複。`);
       processIds.add(operation.processId);
       processNumbers.add(operation.no);
-      sortOrders.add(operation.sortOrder);
     });
-    operations.sort((left,right)=>left.sortOrder-right.sortOrder||Number(left.no)-Number(right.no));
+    operations.sort((left,right)=>Number(left.no)-Number(right.no));
     return {
       productId,code:normalized.code,client:normalized.client,zh:normalized.zh,vi:normalized.vi,sz:normalized.sz,
       ops:operations,processIds:operations.map(operation=>operation.processId),active:input.active!==false
@@ -124,7 +121,7 @@
       const target=mergedById.get(processId);
       PROCESS_FIELDS.forEach(field=>fieldMerge(`process.${processId}.`,field,before,remote,local,target,conflicts));
     });
-    merged.ops=[...mergedById.values()].sort((left,right)=>left.sortOrder-right.sortOrder||Number(left.no)-Number(right.no));
+    merged.ops=[...mergedById.values()].sort((left,right)=>Number(left.no)-Number(right.no));
     return {merged,conflicts,hasConflicts:conflicts.length>0};
   }
 
@@ -233,7 +230,31 @@
     return {...result,merged:product,plan:documentPlan(product,{actor,now,action:text(action)||'productUpdate',previousCodeKey,note})};
   }
 
+  // prepareImportReplacement（準備匯入完整覆蓋）：只供已確認的 Excel 匯入使用，不放寬一般編輯的工序移除限制。
+  function prepareImportReplacement({current,incoming,actor:actorInput,now:time,note='',tokenProvider}={}){
+    const actor=actorData(actorInput);
+    const now=Number(time)||Date.now();
+    const replacement=model().reconcileImportReplacement(current,incoming);
+    const normalized=normalizeAndValidateProduct(replacement,{tokenProvider});
+    const product={
+      ...normalized,
+      revision:(Number(current?.revision)||1)+1,
+      createdAt:Number(current?.createdAt)||now,
+      createdByUid:text(current?.createdByUid)||actor.uid,
+      createdBy:text(current?.createdBy)||actor.name,
+      updatedAt:now,
+      updatedByUid:actor.uid,
+      updatedBy:actor.name
+    };
+    const previousCodeKey=model().safeProductCodeKey(current.code);
+    return {
+      merged:product,
+      plan:documentPlan(product,{actor,now,action:'productImport',previousCodeKey,note})
+    };
+  }
+
   window.PCMSProductMasterStore=Object.freeze({
-    COLLECTIONS,PRODUCT_FIELDS,PROCESS_FIELDS,normalizeAndValidateProduct,mergeProductDraft,prepareCreate,prepareUpdate,finalizeFreshnessPlan
+    COLLECTIONS,PRODUCT_FIELDS,PROCESS_FIELDS,normalizeAndValidateProduct,mergeProductDraft,prepareCreate,prepareUpdate,
+    prepareImportReplacement,finalizeFreshnessPlan
   });
 })();

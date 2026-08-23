@@ -191,15 +191,35 @@
     };
     const processId=fixedId(operation.processId,'process');
     if(processId) normalized.processId=processId;
-    const sortOrder=Number(operation.sortOrder);
-    if(Number.isInteger(sortOrder)&&sortOrder>0&&sortOrder<=999) normalized.sortOrder=sortOrder;
+    // sortOrder（內部相容排序值）永遠鏡像工序號；正式介面不再維護第二套排序。
+    if(normalized.no) normalized.sortOrder=Number(normalized.no);
     if(operation.active===false) normalized.active=false;
     return normalized;
   }
 
   function compareOperationNumber(left,right){
-    const order=Number(left?.sortOrder||left?.no||0)-Number(right?.sortOrder||right?.no||0);
-    return order||Number(left?.no||0)-Number(right?.no||0);
+    return Number(left?.no||0)-Number(right?.no||0);
+  }
+
+  // renumberOperations（依目前列順序重新編號）：只改可變工序號，固定 processId 永遠保留。
+  function renumberOperations(operations=[]){
+    return (Array.isArray(operations)?operations:[]).map((operation,index)=>({
+      ...operation,
+      no:String(index+1),
+      sortOrder:index+1
+    }));
+  }
+
+  // moveOperation（移動工序）：目標位置已存在時自動插入並順移，不產生重複工序號。
+  function moveOperation(operations=[],targetProcessId,targetPosition){
+    const rows=(Array.isArray(operations)?operations:[]).map(operation=>({...operation}));
+    const target=fixedId(targetProcessId,'process');
+    const fromIndex=rows.findIndex(operation=>fixedId(operation?.processId,'process')===target);
+    if(fromIndex<0) throw new Error('Không tìm thấy công đoạn cần di chuyển. / 找不到要移動的工序。');
+    const position=Math.max(1,Math.min(rows.length,Number.parseInt(String(targetPosition??''),10)||1));
+    const [operation]=rows.splice(fromIndex,1);
+    rows.splice(position-1,0,operation);
+    return renumberOperations(rows);
   }
 
   function normalizeProduct(product={}){
@@ -249,6 +269,7 @@
   }
 
   const FIELD_LABELS=Object.freeze({
+    code:{vi:'Mã hàng',zh:'款號代碼'},
     client:{vi:'Khách hàng',zh:'客人'},
     zh:{vi:'Tên tiếng Trung',zh:'中文名稱'},
     vi:{vi:'Tên tiếng Việt',zh:'越文名稱'},
@@ -269,7 +290,7 @@
     const before=normalizeProduct(existing);
     const after=normalizeProduct(incoming);
     const differences=[];
-    ['client','zh','vi','sz'].forEach(field=>{
+    ['code','client','zh','vi','sz'].forEach(field=>{
       if(before[field]!==after[field]) differences.push(difference(field,before[field],after[field]));
     });
     if(before.ops.length!==after.ops.length){
@@ -308,8 +329,135 @@
     return result;
   }
 
+  // reconcileImportReplacement（建立匯入完整替代資料）：同工序號沿用固定身分，Excel 未出現的舊工序不留在目前主檔。
+  function reconcileImportReplacement(existingInput,incomingInput){
+    const existing=normalizeProduct(existingInput);
+    const incoming=normalizeProduct(incomingInput);
+    if(!existing.productId) throw new Error('Thiếu mã định danh sản phẩm hiện có. / 缺少既有款號固定識別碼。');
+    if(productCodeComparisonKey(existing.code)!==productCodeComparisonKey(incoming.code)){
+      throw new Error('Mã hàng nhập không khớp với sản phẩm cần ghi đè. / 匯入款號與要覆蓋的既有款號不一致。');
+    }
+    const existingByNo=new Map(existing.ops.map(operation=>[operation.no,operation]));
+    return {
+      productId:existing.productId,
+      code:incoming.code,
+      client:incoming.client,
+      zh:incoming.zh,
+      vi:incoming.vi,
+      sz:incoming.sz,
+      active:true,
+      ops:incoming.ops.map((operation,index)=>{
+        const current=existingByNo.get(operation.no);
+        return {
+          ...operation,
+          ...(current?.processId?{processId:current.processId}:{}),
+          sortOrder:index+1,
+          active:true
+        };
+      })
+    };
+  }
+
+  // buildImportImpact（建立匯入影響列）：只列出會改變目前主檔或既有報工顯示的工序。
+  function buildImportImpact(existingInput,incomingInput){
+    const existing=normalizeProduct(existingInput);
+    const incoming=normalizeProduct(incomingInput);
+    const replacement=reconcileImportReplacement(existing,incoming);
+    const differences=compareProducts(existing,incoming);
+    const productFields=new Set(['code','client','zh','vi','sz']);
+    const productDifferences=differences.filter(item=>productFields.has(item.field));
+    const beforeByNo=new Map(existing.ops.map(operation=>[operation.no,operation]));
+    const afterByNo=new Map(replacement.ops.map(operation=>[operation.no,operation]));
+    const operationNumbers=[...new Set([...beforeByNo.keys(),...afterByNo.keys()])]
+      .sort((left,right)=>Number(left)-Number(right));
+    const rows=[];
+    operationNumbers.forEach(no=>{
+      const before=beforeByNo.get(no)||null;
+      const after=afterByNo.get(no)||null;
+      const processDifferences=differences.filter(item=>item.operationNo===no);
+      const processChanged=!before||!after||processDifferences.length>0;
+      if(!processChanged&&!productDifferences.length) return;
+      rows.push({
+        productId:existing.productId,
+        code:incoming.code,
+        processNo:no,
+        processId:before?.processId||after?.processId||'',
+        before,
+        after,
+        kind:!before?'added':(!after?'removed':(processChanged?'changed':'product-changed')),
+        productDifferences,
+        processDifferences,
+        requiresImpactCount:Boolean(before?.processId)
+      });
+    });
+    return {
+      existing,
+      incoming,
+      replacement,
+      differences,
+      productDifferences,
+      rows,
+      processChangeCount:rows.filter(row=>row.kind!=='product-changed').length
+    };
+  }
+
   function normalizedSignatureText(value){
     return text(value).normalize('NFKC').toLocaleLowerCase();
+  }
+
+  function groupProcessProfile(product){
+    const item=normalizeProduct(product);
+    return item.ops.map(operation=>({
+      no:operation.no,
+      vi:normalizedSignatureText(operation.vi),
+      sec:Number(operation.sec)||0
+    }));
+  }
+
+  function profileKey(profile){ return JSON.stringify(profile); }
+
+  function compareProfiles(profile,baseline){
+    const countDifferent=profile.length!==baseline.length;
+    const profileByNo=new Map(profile.map(item=>[item.no,item]));
+    const baselineByNo=new Map(baseline.map(item=>[item.no,item]));
+    const numbers=[...new Set([...profileByNo.keys(),...baselineByNo.keys()])];
+    let descriptionDifferent=false;
+    let secondsDifferent=false;
+    numbers.forEach(no=>{
+      const current=profileByNo.get(no);
+      const expected=baselineByNo.get(no);
+      if(!current||!expected){ descriptionDifferent=true;secondsDifferent=true;return; }
+      if(current.vi!==expected.vi) descriptionDifferent=true;
+      if(current.sec!==expected.sec) secondsDifferent=true;
+    });
+    return {countDifferent,descriptionDifferent,secondsDifferent};
+  }
+
+  // compareGroupConsistency（群組一致性）：以最多款號採用的工序內容為基準；無多數時所有不同版本都提醒。
+  function compareGroupConsistency(products=[]){
+    const rows=(Array.isArray(products)?products:[]).filter(Boolean).map(product=>({product,profile:groupProcessProfile(product)}));
+    const variants=new Map();
+    rows.forEach(row=>{
+      const key=profileKey(row.profile);
+      const variant=variants.get(key)||{key,profile:row.profile,count:0};
+      variant.count+=1;
+      variants.set(key,variant);
+    });
+    const ranked=[...variants.values()].sort((left,right)=>right.count-left.count);
+    const hasMajority=ranked.length<=1||(ranked[0]?.count||0)>(ranked[1]?.count||0);
+    const baseline=ranked[0]?.profile||[];
+    const global={countDifferent:false,descriptionDifferent:false,secondsDifferent:false};
+    if(!hasMajority&&ranked.length>1){
+      ranked.slice(1).forEach(variant=>{
+        const differences=compareProfiles(variant.profile,baseline);
+        Object.keys(global).forEach(key=>{ global[key]=global[key]||differences[key]; });
+      });
+    }
+    return rows.map(row=>{
+      const differences=hasMajority?compareProfiles(row.profile,baseline):{...global};
+      return {productId:fixedId(row.product?.productId,'product'),code:text(row.product?.code),...differences,
+        consistent:!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent};
+    });
   }
 
   // canonicalGroupSignature（標準群組候選特徵）：相容舊特徵，但正式比對不使用加工分類、中文品名及中文工序。
@@ -357,11 +505,17 @@
     buildLegacyMapping,
     buildMigrationException,
     normalizeOperation,
+    renumberOperations,
+    moveOperation,
     normalizeProduct,
     comparableProduct,
     sameProduct,
     compareProducts,
     classifyImport,
+    reconcileImportReplacement,
+    buildImportImpact,
+    groupProcessProfile,
+    compareGroupConsistency,
     groupSignature,
     matchesGroupSignature
   });

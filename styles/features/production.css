@@ -1669,3 +1669,7 @@
 .production-supplement-dialog-backdrop .ui-dialog-body {
   text-align: left;
 }
+
+/* product-master-entry-edit-button（生產登記款號主檔欄位入口）：外觀與原秒數入口一致。 */
+.product-master-entry-edit-button{display:inline-flex;max-width:100%;align-items:center;justify-content:flex-start;padding:5px 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.product-master-entry-edit-button:not(:disabled):hover,.product-master-entry-edit-button:not(:disabled):focus-visible{border-color:var(--accent);background:#eaf2ff;color:var(--accent);outline:none}.product-master-entry-edit-button:disabled{cursor:default}.production-number-cell .product-master-entry-edit-button{justify-content:flex-end;margin-left:auto}

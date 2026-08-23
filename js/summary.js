@@ -109,7 +109,7 @@ function bindSummaryProcessQuickEdits(root,product){
     row.querySelectorAll('[data-product-quick-field]').forEach(cell=>{
       const field=cell.dataset.productQuickField;
       const values={
-        processNo:operation.no,processSortOrder:operation.sortOrder,processCategory:operation.category,
+        processNo:operation.no,processCategory:operation.category,
         processNameZh:operation.zh,processNameVi:operation.vi,processSeconds:operation.sec
       };
       mountSummaryQuickTrigger(cell,product,field,values[field],operation.processId);
@@ -120,9 +120,9 @@ function bindSummaryProcessQuickEdits(root,product){
 function renderSummaryDetail(d){
   const isA=canViewCosts();
   let total=0;
-  const rows=[...d.ops].sort((a,b)=>Number(a.sortOrder||a.no)-Number(b.sortOrder||b.no)).map((op,index)=>{
+  const rows=[...d.ops].sort((a,b)=>Number(a.no)-Number(b.no)).map(op=>{
     const result=calc(op.sec); total+=result.vnd;
-    return`<tr data-process-id="${summarySafeText(op.processId||'')}"><td data-product-quick-field="processNo">${summarySafeText(op.no)}</td><td data-product-quick-field="processSortOrder">${summarySafeText(op.sortOrder||index+1)}</td><td data-product-quick-field="processCategory"><span class="tg tn">${summarySafeText(op.category||'—')} · ${summarySafeText(processCategoryLabel(op.category))}</span></td><td data-product-quick-field="processNameZh">${summarySafeText(op.zh)}</td><td data-product-quick-field="processNameVi" style="color:var(--mu)">${summarySafeText(op.vi||'')}</td><td data-product-quick-field="processSeconds">${summarySafeText(op.sec)}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(result.vnd))}</td>`:'')+`</tr>`;
+    return`<tr data-process-id="${summarySafeText(op.processId||'')}"><td data-product-quick-field="processNo">${summarySafeText(op.no)}</td><td data-product-quick-field="processCategory"><span class="tg tn">${summarySafeText(op.category||'—')} · ${summarySafeText(processCategoryLabel(op.category))}</span></td><td data-product-quick-field="processNameZh">${summarySafeText(op.zh)}</td><td data-product-quick-field="processNameVi" style="color:var(--mu)">${summarySafeText(op.vi||'')}</td><td data-product-quick-field="processSeconds">${summarySafeText(op.sec)}</td><td>${result.qty}</td>`+(isA?`<td style="color:var(--accent);font-weight:500">${summarySafeText(fm(result.vnd))}</td>`:'')+`</tr>`;
   }).join('');
   return`<div class="summary-detail-wrap">
     <div class="summary-detail-head">
@@ -130,8 +130,8 @@ function renderSummaryDetail(d){
       ${isA?`<span class="tg tg2">USD: ${summarySafeText(fU(total))}</span><span class="tg tb2">VND: ${summarySafeText(fV(total))}</span><span class="tg ta">TWD: ${summarySafeText(fT(total))}</span>`:''}
     </div>
     <div class="summary-detail-table-wrap"><table class="summary-detail-table ui-table" data-ui-table-layout="special">
-      <thead><tr><th>Số công đoạn<span class="tv">工序號</span></th><th>Thứ tự<span class="tv">排序</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí<span class="tv">工資</span></th>':''}</tr></thead>
-      <tbody>${rows||`<tr><td colspan="${isA?8:7}" style="text-align:center;color:var(--mu)">Chưa có công đoạn<span class="tv">尚無工序資料</span></td></tr>`}</tbody>
+      <thead><tr><th>Số công đoạn<span class="tv">工序號</span></th><th>Phân loại<span class="tv">加工分類</span></th><th>Tên công đoạn (TQ)<span class="tv">工序中文</span></th><th>Tên công đoạn (VN)<span class="tv">工序越文</span></th><th>Giây<span class="tv">秒數</span></th><th>SL/giờ<span class="tv">標準產量/時</span></th>${isA?'<th>Chi phí<span class="tv">工資</span></th>':''}</tr></thead>
+      <tbody>${rows||`<tr><td colspan="${isA?7:6}" style="text-align:center;color:var(--mu)">Chưa có công đoạn<span class="tv">尚無工序資料</span></td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
@@ -162,7 +162,9 @@ function rSum(){
     bindSummaryProductQuickEdits(r,d);
     if(window.PCMSProductMasterEditor&&d.productId){
       const actionCell=r.querySelector('.summary-action-column');
-      actionCell?.prepend(window.PCMSProductMasterEditor.createButton(d,{onSaved:()=>{rSum();rDet();}}));
+      actionCell?.prepend(window.PCMSProductMasterEditor.createButton(d,{
+        products:window.D||[],group:summaryProductGroup(d.productId),onSaved:()=>{rSum();rDet();}
+      }));
     }
     tb.appendChild(r);
     if(expanded){

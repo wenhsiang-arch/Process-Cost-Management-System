@@ -151,7 +151,7 @@ test('工序快速修改預設勾選可匹配群組且共用正式儲存服務',
   assert.match(page,/memberProductIds/);
   assert.match(page,/matched:config\.scope==='product'\|\|!!operation/);
   assert.match(page,/selected:config\.scope==='product'\|\|!!operation/);
-  assert.match(page,/目前群組預設全選；取消不想修改的款號即可/);
+  assert.match(page,/目前群組預設全選；差異只作提醒，不阻止執行/);
   assert.match(page,/service\(\)\.saveManyDrafts/);
   assert.doesNotMatch(page,/工序優化|標準錯誤訂正|order-exception-button/);
 });

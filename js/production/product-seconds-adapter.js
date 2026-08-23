@@ -1,10 +1,12 @@
-// product-seconds-adapter（工序秒數快速修改轉接）：沿用單一 Product Master 儲存流程，不提供舊修改模式。
+// product-seconds-adapter（款號主檔快速修改轉接）：生產登記只在點擊欄位時載入所屬群組並沿用正式儲存流程。
 (function(){
   'use strict';
 
   function text(value){ return String(value??'').trim(); }
-  function allowed(){
-    return window.cu?.role==='admin'||window.cu?.features?.processSecondsEdit===true;
+  function allowed(field=''){
+    if(window.cu?.role==='admin') return true;
+    if(field==='processSeconds') return window.cu?.features?.processSecondsEdit===true;
+    return window.cu?.features?.productionProcessEdit===true;
   }
   function productByIdentity(input={}){
     const productId=text(input.productId);
@@ -16,32 +18,58 @@
     const processNo=text(input.processNo);
     return (product?.ops||[]).find(item=>(processId&&item.processId===processId)||(processNo&&text(item.no)===processNo))||null;
   }
+  function missingMessage(field){
+    return String(field||'').startsWith('process')
+      ?{vi:'Không tìm thấy công đoạn trong bảng mã hàng hiện tại.',zh:'目前款號主檔找不到這道工序。'}
+      :{vi:'Không tìm thấy mã hàng trong bảng mã hàng hiện tại.',zh:'目前款號主檔找不到這個款號。'};
+  }
+  function deniedMessage(field){
+    return field==='processSeconds'
+      ?{vi:'Bạn không có quyền sửa giây công đoạn.',zh:'你沒有修改工序秒數的權限。'}
+      :{vi:'Bạn không có quyền sửa bảng mã hàng.',zh:'你沒有修改款號主檔的權限。'};
+  }
+
   async function open(input={}){
-    if(!allowed()){
-      await window.PCMSUIComponents.alertDialog({kind:'warning',message:{vi:'Bạn không có quyền sửa giây công đoạn.',zh:'你沒有修改工序秒數的權限。'}});
+    const field=text(input.field)||'processSeconds';
+    if(!allowed(field)){
+      await window.PCMSUIComponents.alertDialog({kind:'warning',message:deniedMessage(field)});
       return false;
     }
     await window.ensureProductsLoaded?.({requireMeta:true});
-    await window.PCMSProductGroupRuntime?.load?.();
     const product=productByIdentity(input);
-    const operation=operationFor(product,input);
-    if(!product||!operation){
-      await window.PCMSUIComponents.alertDialog({kind:'danger',message:{vi:'Không tìm thấy công đoạn trong bảng mã hàng hiện tại.',zh:'目前款號主檔找不到這道工序。'}});
+    const operation=String(field).startsWith('process')?operationFor(product,input):null;
+    if(!product||(String(field).startsWith('process')&&!operation)){
+      await window.PCMSUIComponents.alertDialog({kind:'danger',message:missingMessage(field)});
       return false;
     }
+    await window.PCMSProductGroupRuntime?.loadForProduct?.(product.productId);
+    const currentValue={
+      code:product.code,client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
+      processNo:operation?.no,processCategory:operation?.category,
+      processNameZh:operation?.zh,processNameVi:operation?.vi,processSeconds:operation?.sec
+    }[field];
     return window.PCMSProductQuickEdit.open({
-      field:'processSeconds',value:Number(operation.sec)||0,sourceProductId:product.productId,sourceProcessId:operation.processId,
+      field,value:input.value??currentValue,sourceProductId:product.productId,sourceProcessId:operation?.processId||'',
       products:window.D||[],group:window.PCMSProductGroupRuntime?.groupForProduct?.(product.productId)||null,
       onSaved:input.onSaved,onClose:input.onClose
     });
   }
+
   function createButton(input={}){
+    const field=text(input.field)||'processSeconds';
     const button=document.createElement('button');
-    button.type='button';button.className='process-seconds-edit-button';button.disabled=!allowed();
+    button.type='button';
+    button.className=field==='processSeconds'?'process-seconds-edit-button':'product-master-entry-edit-button';
+    button.disabled=!allowed(field);
     button.textContent=String(input.value??'—');
-    if(!button.disabled) button.addEventListener('click',event=>{ event.stopPropagation();void open(input); });
+    if(!button.disabled) button.addEventListener('click',event=>{ event.stopPropagation();void open({...input,field}); });
     return button;
   }
 
-  window.PCMSQuickProcessSeconds=Object.freeze({open,createButton,allowed});
+  window.PCMSQuickProductMaster=Object.freeze({open,createButton,allowed});
+  window.PCMSQuickProcessSeconds=Object.freeze({
+    open:input=>open({...input,field:'processSeconds'}),
+    createButton:input=>createButton({...input,field:'processSeconds'}),
+    allowed:()=>allowed('processSeconds')
+  });
 })();

@@ -356,7 +356,10 @@
     function renderSelector(nextActiveSize=''){
       if(selector&&!nextActiveSize){ selectedCodes=selector.selectedCodes();activeSize=selector.activeSize(); }
       if(nextActiveSize) activeSize=nextActiveSize;
-      selector=groupUI().createMemberSelector({products:detailProducts,currentCode:members[0]?.code,activeSize,compact:true,selectedCodes,selectable:true});
+      selector=groupUI().createMemberSelector({
+        products:detailProducts,currentCode:members[0]?.code,activeSize,compact:true,selectedCodes,selectable:true,
+        consistency:true,expandable:true
+      });
       selectorHost.replaceChildren(selector.element);
     }
     renderSelector();

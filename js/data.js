@@ -1,5 +1,5 @@
 // ===== 匯入 =====
-let nItms=null, dups=[], detailImportFileName='', importClassification=null;
+let detailImportFileName='', importImpactPlan=null;
 let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
 let productFileDropTargetRegistered=false; // productFileDropTargetRegistered（款號全視窗匯入用途是否已登記）
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
@@ -71,16 +71,23 @@ function splitDataBilingual(value){
   },{vi:[],zh:[]});
 }
 function processCategoryLabel(code){ return PROCESS_CATEGORIES[code]||code||'—'; }
+function importProductCodeKey(value){
+  const code=String(value??'').trim();
+  if(!code) return '__blank__';
+  try{ return window.PCMSProductModel?.productCodeComparisonKey?.(code)||code.toLocaleUpperCase('en-US'); }
+  catch(_error){ return code.toLocaleUpperCase('en-US'); }
+}
 
 function validateImportProcessRows(rows){
   const byCode={};
   rows.forEach((r,i)=>{
     const code=String(r[0]).trim();
-    if(!byCode[code]) byCode[code]=[];
-    byCode[code].push({no:String(r[5]).trim(),row:r._excelRow||i+2});
+    const key=importProductCodeKey(code);
+    if(!byCode[key]) byCode[key]={code,ops:[]};
+    byCode[key].ops.push({no:String(r[5]).trim(),row:r._excelRow||i+2});
   });
   const errors=[];
-  Object.entries(byCode).forEach(([code,ops])=>{
+  Object.values(byCode).forEach(({code,ops})=>{
     const seen=new Map();
     ops.forEach(op=>{
       if(!normalizeProcessNo(op.no)){
@@ -113,6 +120,33 @@ function validateImportProcessRows(rows){
   return errors;
 }
 
+function validateImportProductRows(rows){
+  const firstByCode=new Map();
+  const errors=[];
+  const labels=[
+    {index:1,vi:'Khách hàng',zh:'客人'},
+    {index:2,vi:'Tên tiếng Trung',zh:'中文名稱'},
+    {index:3,vi:'Tên tiếng Việt',zh:'越文名稱'},
+    {index:4,vi:'Kích thước',zh:'尺寸'}
+  ];
+  rows.forEach((row,index)=>{
+    const code=String(row[0]??'').trim();
+    const key=importProductCodeKey(code);
+    const current=labels.map(item=>String(row[item.index]??'').trim());
+    const first=firstByCode.get(key);
+    if(!first){ firstByCode.set(key,{row:row._excelRow||index+2,values:current,code}); return; }
+    labels.forEach((label,fieldIndex)=>{
+      if(first.values[fieldIndex]===current[fieldIndex]) return;
+      errors.push({
+        code:first.code,
+        vi:`Dòng ${row._excelRow||index+2}: ${label.vi} không giống dòng ${first.row} của cùng mã hàng.`,
+        zh:`第 ${row._excelRow||index+2} 行：同一款號的${label.zh}與第 ${first.row} 行不一致。`
+      });
+    });
+  });
+  return errors;
+}
+
 function validateRequiredImportFields(rows){
   const fields=['款號','客人','中文名稱','越文名稱','尺寸','工序號','加工','工序中文','工序越文','秒數'];
   const viFields=['Mã hàng','Khách hàng','Tên Trung','Tên Việt','Kích thước','Số công đoạn','Phân loại','Tên công đoạn Trung','Tên công đoạn Việt','Giây'];
@@ -136,10 +170,11 @@ function validateRequiredImportFields(rows){
       });
     }
     const sec=String(r[9]??'').trim();
-    if(sec!==''&&(!Number.isFinite(Number(sec))||Number(sec)<=0)) errors.push({
+    const seconds=Number(sec); // seconds（匯入工序的整數標準秒數）
+    if(sec!==''&&(!Number.isInteger(seconds)||seconds<=0||seconds>86400)) errors.push({
       code,
-      vi:`Dòng ${r._excelRow}: Giây của công đoạn ${r[5]} phải lớn hơn 0:「${sec}」.`,
-      zh:`第 ${r._excelRow} 行：工序號 ${r[5]} 的秒數必須大於 0：「${sec}」。`
+      vi:`Dòng ${r._excelRow}: Giây của công đoạn ${r[5]} phải là số nguyên từ 1 đến 86400:「${sec}」.`,
+      zh:`第 ${r._excelRow} 行：工序號 ${r[5]} 的秒數必須是 1～86400 的整數：「${sec}」。`
     });
   });
   return errors;
@@ -201,7 +236,7 @@ function hideProg(){
 }
 
 function resetDetailImportDisplay(){
-  ['imp-prev','dup-warn','imp-ok','imp-err'].forEach(id=>g(id).style.display='none');
+  ['imp-err'].forEach(id=>{ const target=g(id); if(target) target.style.display='none'; });
   hideProg();
 }
 
@@ -212,7 +247,7 @@ function openDetailImportModal(){
 
 function closeDetailImportModal(){
   resetDetailImportDisplay();
-  nItms=null; dups=[]; detailImportFileName=''; importClassification=null; g('fi').value='';
+  detailImportFileName=''; importImpactPlan=null; g('fi').value='';
   cm('m-detail-import');
 }
 
@@ -241,153 +276,161 @@ async function hImport(input){
   return window.PCMSUIFileDrop?.receiveFiles?.(input.files,{targetId:'product-import',source:'picker'});
 }
 
+function readImportFile(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onerror=()=>reject(new Error('Không thể đọc tệp. / 無法讀取檔案。'));
+    reader.onload=()=>resolve(reader.result);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function yieldImportUi(){
+  return new Promise(resolve=>{
+    const schedule=window.requestAnimationFrame||((callback)=>setTimeout(callback,0));
+    schedule(resolve);
+  });
+}
+
 async function processDetailImportFile(file){
   g('imp-err').style.display='none';
   detailImportFileName=String(file?.name||'').slice(0,300);
   try{
+    setProg(5,'Đang tải công cụ bảng tính... / 正在載入表格工具...','');
     await window.PCMSFeatures.ensureSpreadsheetTool();
-  }catch(error){
-    g('imp-err').style.display='flex';
-    setDataBilingual('imp-err-msg','Không thể tải công cụ bảng tính.','無法載入表格檔工具。');
-    g('fi').value='';
-    return;
-  }
-  setProg(10,'Đang đọc file... / 正在讀取檔案...','');
-  setTimeout(()=>{
-    const reader=new FileReader();
-    reader.onerror=function(){
+    await yieldImportUi();
+    setProg(15,'Đang đọc tệp Excel... / 正在讀取 Excel 檔案...','');
+    const fileContent=await readImportFile(file);
+    setProg(30,'Đang kiểm tra dữ liệu... / 正在驗證資料...','');
+    await yieldImportUi();
+    const wb=XLSX.read(fileContent,{type:'array'});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    const dr=rows.map((r,i)=>{ r._excelRow=i+1; return r; }).filter(r=>{
+      const values=r.slice(0,10).map(v=>String(v??'').trim());
+      return values.some(Boolean)&&!['款號','mã hàng','Mã hàng'].includes(values[0]);
+    });
+    const errs=validateRequiredImportFields(dr);
+    errs.push(...validateImportProcessRows(dr));
+    errs.push(...validateImportProductRows(dr));
+    if(errs.length>0){
       hideProg();
       g('imp-err').style.display='flex';
-      setDataBilingual('imp-err-msg','Không thể đọc tệp, vui lòng kiểm tra định dạng.','無法讀取檔案，請確認格式是否正確。');
-      g('fi').value='';
-    };
-    reader.onload=function(e){
-      try{
-        setProg(40,'Đang kiểm tra dữ liệu... / 正在驗證資料...','');
-        setTimeout(()=>{
-          try{
-            const wb=XLSX.read(e.target.result,{type:'binary'});
-            const ws=wb.Sheets[wb.SheetNames[0]];
-            const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-            const dr=rows.map((r,i)=>{ r._excelRow=i+1; return r; }).filter(r=>{
-              const values=r.slice(0,10).map(v=>String(v??'').trim());
-              return values.some(Boolean)&&!['款號','mã hàng','Mã hàng'].includes(values[0]);
-            });
-            const errs=validateRequiredImportFields(dr);
-            errs.push(...validateImportProcessRows(dr));
-            if(errs.length>0){
-              hideProg();
-              g('imp-err').style.display='flex';
-              g('imp-err-msg').innerHTML=renderImportErrors(errs);
-              g('fi').value=''; return;
-            }
-            setProg(70,'Đang xử lý mã hàng... / 正在整理款號...','');
-            setTimeout(()=>{
-              try{
-                const ni={};
-                dr.forEach(r=>{
-                  const code=String(r[0]).trim();
-                  if(!ni[code]) ni[code]={code,client:String(r[1]).trim(),zh:String(r[2]).trim(),vi:String(r[3]).trim(),sz:String(r[4]).trim(),ops:[]};
-                  ni[code].ops.push({no:normalizeProcessNo(r[5]),category:String(r[6]),zh:String(r[7]).trim(),vi:String(r[8]).trim(),sec:+r[9]});
-                });
-                nItms=ni;
-                if(!window.PCMSProductModel) throw new Error('Thiếu mô hình dữ liệu mã hàng / 缺少款號資料模型');
-                importClassification=window.PCMSProductModel.classifyImport(window.D||[],Object.values(ni));
-                dups=[...importClassification.sameItems,...importClassification.differentItems.map(item=>item.incoming)].map(item=>item.code);
-                setProg(100,'Hoàn tất / 完成！',`Đã tìm thấy ${Object.keys(ni).length} mã hàng. / 找到 ${Object.keys(ni).length} 個款號。`);
-                setTimeout(()=>{
-                  hideProg();
-                  const prev=g('imp-prev'); prev.style.display='block';
-                  const thead=document.querySelector('#prev-tbl thead');
-                  const tbody=document.querySelector('#prev-tbl tbody');
-                  thead.innerHTML='<tr><th>Mã hàng<br><span class="tv">款號</span></th><th>Khách hàng<br><span class="tv">客人</span></th><th>Tên Trung<br><span class="tv">中文名稱</span></th><th>Tên Việt<br><span class="tv">越文名稱</span></th><th>Kích thước<br><span class="tv">尺寸</span></th><th>Số công đoạn<br><span class="tv">工序號</span></th><th>Phân loại<br><span class="tv">加工分類</span></th><th>Công đoạn Trung<br><span class="tv">工序中文</span></th><th>Công đoạn Việt<br><span class="tv">工序越文</span></th><th>Giây<br><span class="tv">秒數</span></th></tr>';
-                  tbody.innerHTML='';
-                  dr.slice(0,5).forEach(r=>{
-                    const isDup=dups.includes(String(r[0]).trim());
-                    const tr=document.createElement('tr');
-                    tr.innerHTML=`<td>${isDup?'<span class="tg tr2">Trùng/重複</span> ':''}<b>${dataSafeText(r[0])}</b></td><td>${dataSafeText(r[1])}</td><td>${dataSafeText(r[2])}</td><td>${dataSafeText(r[3])}</td><td>${dataSafeText(r[4])}</td><td>${dataSafeText(r[5])}</td><td>${dataSafeText(r[6])}</td><td>${dataSafeText(r[7])}</td><td>${dataSafeText(r[8])}</td><td>${dataSafeText(r[9])}</td>`;
-                    tbody.appendChild(tr);
-                  });
-                },500);
-              }catch(err){ console.error('Xử lý dữ liệu thất bại / 處理資料失敗',err); hideProg(); g('imp-err').style.display='flex'; setDataBilingual('imp-err-msg','Xử lý dữ liệu thất bại.','處理資料失敗。'); }
-              finally{ g('fi').value=''; }
-            },300);
-          }catch(err){ console.error('Không thể đọc bảng tính / 讀取工作表失敗',err); hideProg(); g('imp-err').style.display='flex'; setDataBilingual('imp-err-msg','Không thể đọc bảng tính.','讀取工作表失敗。'); }
-          finally{ g('fi').value=''; }
-        },200);
-      }catch(err){ console.error('Định dạng tệp không đúng / 檔案格式錯誤',err); hideProg(); g('imp-err').style.display='flex'; setDataBilingual('imp-err-msg','Định dạng tệp không đúng.','檔案格式錯誤。'); }
-      finally{ g('fi').value=''; }
-    };
-    reader.readAsBinaryString(file);
-  },100);
-}
-
-function chkDup(){
-  if(!nItms) return;
-  if(dups.length>0){
-    g('imp-prev').style.display='none';
-    g('dup-warn').style.display='block';
-    const classification=importClassification||window.PCMSProductModel.classifyImport(window.D||[],Object.values(nItms));
-    const sameCount=classification.sameItems.length;
-    const differentCount=classification.differentItems.length;
-    const newCount=classification.newItems.length;
-    setDataBilingual('dup-summary',
-      `Có ${sameCount} mã giống nhau và ${differentCount} mã có khác biệt; tất cả mã đã tồn tại sẽ bị bỏ qua. Có thể nhập ${newCount} mã mới.`,
-      `有 ${sameCount} 個內容相同、${differentCount} 個內容不同的既有款號；全部既有款號都會略過。本次可新增 ${newCount} 個新款號。`
-    );
-    g('dup-list').innerHTML=[
-      ...classification.differentItems.map(item=>{
-        const details=item.differences.slice(0,5).map(change=>{
-          const operation=change.operationNo?` CĐ ${dataSafeText(change.operationNo)} / 工序 ${dataSafeText(change.operationNo)}`:'';
-          return `<div class="import-difference-line">${dataSafeText(change.label?.vi||change.field)} / ${dataSafeText(change.label?.zh||change.field)}${operation}: <b>${dataSafeText(change.before||'—')}</b> → <b>${dataSafeText(change.after||'—')}</b></div>`;
-        }).join('');
-        const more=item.differences.length>5?`<div class="import-difference-more">+${item.differences.length-5} khác biệt / 另有 ${item.differences.length-5} 項差異</div>`:'';
-        return `<div class="di import-difference-item"><div><b>${dataSafeText(item.code)}</b><span class="tg tr2">Khác / 有差異</span></div><div>${details}${more}</div></div>`;
-      }),
-      ...classification.sameItems.slice(0,100).map(item=>`<div class="di"><span><b>${dataSafeText(item.code)}</b></span><span class="tg">Giống nhau, bỏ qua / 內容相同，略過</span></div>`)
-    ].join('');
-    const importButton=g('dup-import-new-btn');
-    if(importButton) importButton.disabled=newCount===0;
-  } else cImp();
+      g('imp-err-msg').innerHTML=renderImportErrors(errs);
+      return false;
+    }
+    setProg(45,'Đang đối chiếu mã hàng... / 正在比對款號...','');
+    await yieldImportUi();
+    if(!window.PCMSProductModel||!window.PCMSProductImportImpact){
+      throw new Error('Thiếu dịch vụ xem trước nhập mã hàng. / 缺少款號匯入預覽服務。');
+    }
+    const incomingByKey=new Map();
+    dr.forEach(r=>{
+      const code=String(r[0]).trim();
+      const key=window.PCMSProductModel.productCodeComparisonKey(code);
+      if(!incomingByKey.has(key)) incomingByKey.set(key,{
+        code,client:String(r[1]).trim(),zh:String(r[2]).trim(),vi:String(r[3]).trim(),sz:String(r[4]).trim(),ops:[]
+      });
+      incomingByKey.get(key).ops.push({
+        no:normalizeProcessNo(r[5]),category:String(r[6]).trim().toUpperCase(),
+        zh:String(r[7]).trim(),vi:String(r[8]).trim(),sec:Number(r[9])
+      });
+    });
+    const importClassification=window.PCMSProductModel.classifyImport(window.D||[],[...incomingByKey.values()]);
+    importImpactPlan=window.PCMSProductImportImpact.buildPlan(importClassification);
+    setProg(55,'Đang đọc số phiếu sản lượng bị ảnh hưởng... / 正在讀取受影響報工數...','');
+    await window.PCMSProductImportImpact.loadImpactCounts(importImpactPlan,{
+      onProgress:progress=>{
+        const value=progress.total?55+Math.round(progress.completed/progress.total*40):95;
+        setProg(value,'Đang đọc số phiếu sản lượng bị ảnh hưởng... / 正在讀取受影響報工數...',
+          progress.total?`${progress.completed}/${progress.total} công đoạn / ${progress.completed}/${progress.total} 道工序`:''
+        );
+      }
+    });
+    setProg(100,'Đã hoàn tất kiểm tra / 影響檢查完成',
+      `Đã kiểm tra ${incomingByKey.size} mã hàng. / 已檢查 ${incomingByKey.size} 個款號。`);
+    await yieldImportUi();
+    hideProg();
+    cm('m-detail-import');
+    const confirmed=await window.PCMSProductImportImpact.confirmPreview(importImpactPlan,{fileName:detailImportFileName});
+    if(confirmed) await cImp();
+    else closeDetailImportModal();
+    return confirmed;
+  }catch(error){
+    console.error('Xử lý tệp nhập mã hàng thất bại / 款號匯入檔處理失敗',error);
+    hideProg();
+    openDetailImportModal();
+    g('imp-err').style.display='flex';
+    const pair=window.PCMSUIText?.fromError?.(error,{vi:'Không thể xử lý tệp nhập.',zh:'無法處理匯入檔。'})
+      ||{vi:'Không thể xử lý tệp nhập.',zh:'無法處理匯入檔。'};
+    setDataBilingual('imp-err-msg',pair.vi,pair.zh);
+    return false;
+  }finally{
+    g('fi').value='';
+  }
 }
 
 async function cImp(){
-  if(!nItms) return;
-  const classification=importClassification||window.PCMSProductModel.classifyImport(window.D||[],Object.values(nItms));
-  const changedItems=classification.newItems;
+  if(!importImpactPlan) return;
+  const changedItems=importImpactPlan.requests;
   const actualCount=changedItems.length;
-  const skippedCount=classification.sameItems.length+classification.differentItems.length;
-  const to=changedItems.reduce((sum,item)=>sum+item.ops.length,0);
+  const skippedCount=importImpactPlan.sameCount;
+  const to=changedItems.reduce((sum,item)=>sum+(item.incoming?.ops?.length||0),0);
   if(!actualCount){
-    g('dup-warn').style.display='none';
-    g('imp-ok').style.display='flex';
-    setDataBilingual('imp-ok-msg','Không có mã hàng mới để nhập; dữ liệu hiện có không bị thay đổi.','沒有可新增的款號；系統既有資料未被修改。');
+    await dataMessage('Không có thay đổi cần nhập.','沒有需要匯入的變更。','info');
     return;
   }
-  let msgVi=`✓ Đã thêm ${actualCount} mã mới, ${to} công đoạn`;
-  let msgZh=`已新增 ${actualCount} 款、${to} 道工序`;
-  if(skippedCount){ msgVi+=`, bỏ qua ${skippedCount} mã đã tồn tại`; msgZh+=`，略過 ${skippedCount} 個既有款號`; }
-  const msg=`<div class="ui-language-sections"><div class="ui-language-section">${msgVi}</div><div class="ui-language-section">${msgZh}</div></div>`;
-
-  setDataBilingual('imp-ok-msg',`Đang đồng bộ lên đám mây: ${actualCount} mã, ${to} công đoạn.`,`正在同步雲端：${actualCount} 款，${to} 工序。`);
-  g('imp-ok').style.display='flex';
   if(!window.PCMSProductMasterService?.importProducts){
-    setDataBilingual('imp-ok-msg','❌ Dịch vụ dữ liệu mã hàng chính thức chưa sẵn sàng; dữ liệu chưa thay đổi.','❌ 正式款號主檔服務尚未載入，資料未變更。');
+    await dataMessage('Dịch vụ dữ liệu mã hàng chính thức chưa sẵn sàng; dữ liệu chưa thay đổi.','正式款號主檔服務尚未載入，資料未變更。','danger');
     return;
   }
-  const result=await window.PCMSProductMasterService.importProducts(changedItems,{fileName:detailImportFileName});
+  setProg(1,'Đang lưu dữ liệu mã hàng... / 正在儲存款號資料...',`0/${actualCount} mã hàng / 0/${actualCount} 個款號`);
+  let result;
+  try{
+    result=await window.PCMSProductMasterService.importProducts(changedItems,{
+      fileName:detailImportFileName,
+      stopOnFailure:true,
+      onProgress:progress=>{
+        const completed=Math.max(0,Number(progress.completed)||0);
+        const value=progress.phase==='failed'?Math.round(completed/actualCount*100):Math.max(1,Math.round(completed/actualCount*100));
+        setProg(value,
+          progress.phase==='start'?`Đang lưu ${progress.code||''}... / 正在儲存 ${progress.code||''}...`:'Đang lưu dữ liệu mã hàng... / 正在儲存款號資料...',
+          `${completed}/${actualCount} mã hàng / ${completed}/${actualCount} 個款號`
+        );
+      }
+    });
+  }catch(error){
+    console.error('Lưu tệp nhập mã hàng thất bại / 儲存款號匯入檔失敗',error);
+    hideProg();
+    const pair=window.PCMSUIText?.fromError?.(error,{
+      vi:'Không thể lưu dữ liệu nhập. Không có dữ liệu nào sau điểm lỗi được tiếp tục xử lý.',
+      zh:'無法儲存匯入資料；錯誤發生後的款號均未繼續處理。'
+    })||{
+      vi:'Không thể lưu dữ liệu nhập. Không có dữ liệu nào sau điểm lỗi được tiếp tục xử lý.',
+      zh:'無法儲存匯入資料；錯誤發生後的款號均未繼續處理。'
+    };
+    await dataMessage(pair.vi,pair.zh,'danger');
+    return;
+  }
   if(result.failures.length){
-    const failedCodes=result.failures.map(item=>item.code||changedItems[item.index]?.code).filter(Boolean);
-    setDataBilingual('imp-ok-msg',
-      `Đã thêm ${result.successes.length} mã; ${result.failures.length} mã thất bại (${failedCodes.join(', ')}). Nhập lại tệp sẽ chỉ xử lý mã chưa thành công.`,
-      `已新增 ${result.successes.length} 個款號；${result.failures.length} 個失敗（${failedCodes.join('、')}）。重新匯入只會處理尚未成功的款號。`
+    const failedCodes=result.failures.map(item=>item.code||changedItems[item.index]?.incoming?.code).filter(Boolean);
+    hideProg();
+    await dataMessage(
+      `Đã dừng tại mã ${failedCodes.join(', ')||'—'}. Đã hoàn tất ${result.successes.length} mã; còn ${result.remaining+result.failures.length} mã chưa hoàn tất. Đọc lại tệp để tiếp tục.`,
+      `已在款號 ${failedCodes.join('、')||'—'} 停止。已完成 ${result.successes.length} 個款號，尚有 ${result.remaining+result.failures.length} 個未完成；請重新讀取檔案後繼續。`,
+      'danger'
     );
     return;
   }
-  ['dup-warn','imp-prev'].forEach(id=>g(id).style.display='none');
-  nItms=null; dups=[]; detailImportFileName=''; importClassification=null; g('fi').value='';
-  rSum(); rDet(); rExp(); rBk(); rHist();
-  g('imp-ok-msg').innerHTML=msg;
+  setProg(100,'Đã lưu hoàn tất / 儲存完成',`${actualCount}/${actualCount} mã hàng / ${actualCount}/${actualCount} 個款號`);
+  await yieldImportUi();
+  hideProg();
+  let msgVi=`Đã xử lý ${importImpactPlan.overwriteCount} mã ghi đè, thêm ${importImpactPlan.newCount} mã và ${to} công đoạn.`;
+  let msgZh=`已完成覆蓋 ${importImpactPlan.overwriteCount} 個款號、新增 ${importImpactPlan.newCount} 個款號，共 ${to} 道工序。`;
+  if(skippedCount){ msgVi+=` Bỏ qua ${skippedCount} mã không thay đổi.`; msgZh+=`另略過 ${skippedCount} 個無變更款號。`; }
+  detailImportFileName=''; importImpactPlan=null; g('fi').value='';
+  rHist();
+  await dataMessage(msgVi,msgZh,'success');
 }
 
 function xImp(){

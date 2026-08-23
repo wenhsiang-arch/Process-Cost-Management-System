@@ -56,15 +56,22 @@
     }
   }
 
-  function publishProduct(product){
+  function publishProducts(products){
     if(!Array.isArray(window.D)) return;
-    const index=window.D.findIndex(item=>text(item?.productId)===product.productId);
-    if(index>=0) window.D[index]=clone(product);
-    else window.D.push(clone(product));
+    const saved=(Array.isArray(products)?products:[]).filter(item=>item?.productId);
+    saved.forEach(product=>{
+      const index=window.D.findIndex(item=>text(item?.productId)===product.productId);
+      if(index>=0) window.D[index]=clone(product);
+      else window.D.push(clone(product));
+    });
+    if(!saved.length) return;
     ['rSum','rDet','rExp','rBk'].forEach(name=>window[name]?.());
     window.PCMSFeatures?.invalidateDataScopes?.(['products']);
-    window.document?.dispatchEvent?.(new CustomEvent('pcms:productmasterchange',{detail:{productId:product.productId}}));
+    window.document?.dispatchEvent?.(new CustomEvent('pcms:productmasterchange',{
+      detail:{productId:saved[0].productId,productIds:saved.map(product=>product.productId)}
+    }));
   }
+  function publishProduct(product){ publishProducts([product]); }
 
   function conflictError(result){
     const error=new Error('Dữ liệu đã được người khác sửa ở cùng trường. / 相同欄位已由其他人修改。');
@@ -89,11 +96,11 @@
       plan=store().finalizeFreshnessPlan(preparedPlan,metaSnapshot?.exists?.()?metaSnapshot.data():{},null,window.D||[]);
       applyPlan(transaction,plan);
     },{skipDataVersions:true});
-    publishProduct(plan.product);
+    if(options.publish!==false) publishProduct(plan.product);
     return clone(plan.product);
   }
 
-  async function saveDraft({base,draft,actor:actorInput,now:time,action='productUpdate',note=''}={}){
+  async function saveDraft({base,draft,actor:actorInput,now:time,action='productUpdate',note='',publish=true}={}){
     requireCloud();
     const currentActor=actor(actorInput);
     const now=Number(time)||Date.now();
@@ -121,7 +128,51 @@
       applyPlan(transaction,plan);
       saved=plan.product;
     },{skipDataVersions:true});
-    publishProduct(saved);
+    if(publish!==false) publishProduct(saved);
+    return clone(saved);
+  }
+
+  // replaceImportedProduct（覆蓋單一既有款號）：以預覽時修訂號防止等待確認期間的新修改被蓋掉。
+  async function replaceImportedProduct(request={},options={}){
+    requireCloud();
+    const currentActor=actor(options.actor);
+    const now=Number(options.now)||Date.now();
+    const expectedProductId=model().fixedId(request?.existing?.productId||request?.productId,'product');
+    const expectedRevision=Number(request?.existing?.revision||request?.expectedRevision)||0;
+    if(!expectedProductId) throw new Error('Thiếu mã định danh sản phẩm cần ghi đè. / 缺少要覆蓋的款號固定識別碼。');
+    let saved;
+    await window._runTransaction(async transaction=>{
+      const productReference=window._docRef(store().COLLECTIONS.products,expectedProductId);
+      const productSnapshot=await transaction.get(productReference);
+      if(!productSnapshot.exists()) throw new Error('Không tìm thấy mã hàng cần ghi đè. / 找不到要覆蓋的款號。');
+      const current={productId:expectedProductId,...productSnapshot.data()};
+      if(expectedRevision&&Number(current.revision)!==expectedRevision){
+        const error=new Error('Mã hàng đã thay đổi sau khi xem trước; vui lòng đọc lại tệp. / 款號在預覽後已被修改，請重新讀取檔案。');
+        error.code='product-import-preview-stale';
+        throw error;
+      }
+      let plan=store().prepareImportReplacement({
+        current,
+        incoming:request.incoming,
+        actor:currentActor,
+        now,
+        note:text(options.fileName||options.note),
+        tokenProvider:options.tokenProvider
+      }).plan;
+      const additional=(plan.deletes||[]).filter(item=>item.collection===store().COLLECTIONS.codeIndex);
+      const seeded=new Map([[`${store().COLLECTIONS.products}/${expectedProductId}`,productSnapshot]]);
+      const snapshots=await readPlan(transaction,plan,additional,seeded);
+      verifyCodeOwner(snapshotFor(snapshots,store().COLLECTIONS.codeIndex,plan.codeKey),expectedProductId);
+      for(const item of additional){
+        const oldIndex=snapshotFor(snapshots,item.collection,item.id);
+        if(oldIndex?.exists?.()) verifyCodeOwner(oldIndex,expectedProductId);
+      }
+      const metaSnapshot=snapshotFor(snapshots,store().COLLECTIONS.metadata,'productsMeta');
+      plan=store().finalizeFreshnessPlan(plan,metaSnapshot?.exists?.()?metaSnapshot.data():{},current,window.D||[]);
+      applyPlan(transaction,plan);
+      saved=plan.product;
+    },{skipDataVersions:true});
+    if(options.publish!==false) publishProduct(saved);
     return clone(saved);
   }
 
@@ -131,10 +182,11 @@
       const target=model().fixedId(processId,'process');
       const operation=draft.ops?.find(item=>model().fixedId(item?.processId,'process')===target);
       if(!operation) throw new Error('Không tìm thấy công đoạn cần sửa. / 找不到要修改的工序。');
-      const processFields={processNo:'no',processSortOrder:'sortOrder',processCategory:'category',processNameZh:'zh',processNameVi:'vi',processSeconds:'sec'};
+      const processFields={processNo:'no',processCategory:'category',processNameZh:'zh',processNameVi:'vi',processSeconds:'sec'};
       const actualField=processFields[field]||field;
       if(!store().PROCESS_FIELDS.includes(actualField)) throw new Error('Trường công đoạn không được phép sửa. / 不允許修改此工序欄位。');
-      operation[actualField]=value;
+      if(field==='processNo') draft.ops=model().moveOperation(draft.ops,target,value);
+      else operation[actualField]=value;
     }else{
       if(!store().PRODUCT_FIELDS.includes(field)) throw new Error('Trường mã hàng không được phép sửa. / 不允許修改此款號欄位。');
       draft[field]=value;
@@ -151,31 +203,55 @@
   // saveManyDrafts（群組批次儲存）：每個 Product 各自原子成功，失敗項目可單獨重試。
   async function saveManyDrafts(requests,options={}){
     const results=[];
-    for(const request of Array.isArray(requests)?requests:[]){
+    const rows=Array.isArray(requests)?requests:[];
+    for(let index=0;index<rows.length;index+=1){
+      const request=rows[index];
+      await options.onProgress?.({phase:'start',index,completed:index,total:rows.length,productId:text(request?.base?.productId)});
       try{
-        const product=await saveDraft({...request,actor:options.actor||request.actor,action:request.action||'productGroupQuickEdit'});
+        const product=await saveDraft({...request,actor:options.actor||request.actor,action:request.action||'productGroupQuickEdit',publish:false});
         results.push({ok:true,productId:product.productId,product});
+        await options.onProgress?.({phase:'complete',index,completed:index+1,total:rows.length,productId:product.productId,product});
       }catch(error){
         results.push({ok:false,productId:text(request?.base?.productId||request?.draft?.productId),error});
+        await options.onProgress?.({phase:'failed',index,completed:index+1,total:rows.length,productId:text(request?.base?.productId),error});
       }
     }
-    return {results,successes:results.filter(item=>item.ok),failures:results.filter(item=>!item.ok)};
+    const successes=results.filter(item=>item.ok);
+    if(successes.length&&options.publish!==false) publishProducts(successes.map(item=>item.product));
+    return {results,successes,failures:results.filter(item=>!item.ok)};
   }
 
   async function importProducts(products,options={}){
     const results=[];
     const rows=Array.isArray(products)?products:[];
     for(let index=0;index<rows.length;index+=1){
-      const item=rows[index];
+      const request=rows[index]||{};
+      const mode=request.mode==='replace'?'replace':'create';
+      const item=request.incoming||request.product||request;
+      await options.onProgress?.({phase:'start',index,completed:index,total:rows.length,mode,code:text(item?.code)});
       try{
-        const product=await createProduct(item,{
+        const commonOptions={
           actor:options.actor,action:'productImport',note:text(options.fileName||options.note),
-          sourceKey:options.sourceKeys?.[index],processSourceKeys:options.processSourceKeys?.[index]
-        });
-        results.push({ok:true,index,productId:product.productId,product});
-      }catch(error){ results.push({ok:false,index,code:text(item?.code),error}); }
+          sourceKey:options.sourceKeys?.[index],processSourceKeys:options.processSourceKeys?.[index],
+          tokenProvider:options.tokenProvider,publish:false
+        };
+        const product=mode==='replace'
+          ?await replaceImportedProduct({...request,incoming:item},commonOptions)
+          :await createProduct(item,commonOptions);
+        const result={ok:true,index,mode,code:text(item?.code),productId:product.productId,product};
+        results.push(result);
+        await options.onProgress?.({phase:'complete',index,completed:index+1,total:rows.length,mode,code:result.code,product});
+      }catch(error){
+        const failed={ok:false,index,mode,code:text(item?.code),error};
+        results.push(failed);
+        await options.onProgress?.({phase:'failed',index,completed:index,total:rows.length,mode,code:failed.code,error});
+        if(options.stopOnFailure!==false) break;
+      }
     }
-    return {results,successes:results.filter(item=>item.ok),failures:results.filter(item=>!item.ok)};
+    const successes=results.filter(item=>item.ok);
+    const failures=results.filter(item=>!item.ok);
+    publishProducts(successes.map(item=>item.product));
+    return {results,successes,failures,remaining:Math.max(0,rows.length-results.length)};
   }
 
   function groupLog(action,group,currentActor,now,detailCount,note=''){
@@ -296,7 +372,7 @@
   }
 
   window.PCMSProductMasterService=Object.freeze({
-    createProduct,saveDraft,saveField,saveManyDrafts,importProducts,draftWithField,
+    createProduct,saveDraft,saveField,saveManyDrafts,replaceImportedProduct,importProducts,draftWithField,
     createGroup,updateGroup,updateGroupMembers
   });
 })();
