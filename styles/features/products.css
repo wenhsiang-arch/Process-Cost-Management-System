@@ -154,8 +154,7 @@
 
 #m-import .md,
 #m-history .md,
-#m-backup .md,
-#m-del .md {
+#m-backup .md {
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-dialog);
 }

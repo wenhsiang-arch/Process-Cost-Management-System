@@ -7,8 +7,8 @@
     metadata:'system',logs:'operationLogs',legacyMappings:'productMasterLegacyMappings',
     migrationExceptions:'productMasterMigrationExceptions'
   });
-  const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz','active']);
-  const PROCESS_FIELDS=Object.freeze(['no','sortOrder','category','zh','vi','sec','active']);
+  const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz']);
+  const PROCESS_FIELDS=Object.freeze(['no','sortOrder','category','zh','vi','sec']);
   const ALLOWED_CATEGORIES=new Set(['BL','SX','QC','DG']);
 
   function model(){
@@ -109,7 +109,7 @@
       const remote=currentById.get(processId);
       const local=draftById.get(processId);
       if(!before){
-        if(local&&!remote) mergedById.set(processId,clone(local));
+        if(local&&!remote) mergedById.set(processId,{...clone(local),active:true});
         else if(local&&remote&&!same(local,remote)) conflicts.push({path:`process.${processId}`,baseValue:null,currentValue:clone(remote),draftValue:clone(local)});
         return;
       }
@@ -212,7 +212,8 @@
   function prepareCreate(input,options={}){
     const actor=actorData(options.actor);
     const now=Number(options.now)||Date.now();
-    const normalized=normalizeAndValidateProduct(input,options);
+    const activeInput={...clone(input),active:true,ops:(input?.ops||[]).map(operation=>({...clone(operation),active:true}))};
+    const normalized=normalizeAndValidateProduct(activeInput,options);
     const product={...normalized,revision:1,createdAt:now,createdByUid:actor.uid,createdBy:actor.name,
       updatedAt:now,updatedByUid:actor.uid,updatedBy:actor.name};
     return documentPlan(product,{actor,now,action:text(options.action)||'productCreate',note:options.note});

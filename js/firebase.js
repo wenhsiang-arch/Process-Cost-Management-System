@@ -561,11 +561,6 @@ function mergeProducts(base, rows){
   return normalizeProductsList([...merged.values()]);
 }
 
-function removeProductFromList(base, code){
-  const target=String(code||'').trim();
-  return normalizeProductsList(base).filter(item=>String(item.code||'').trim()!==target);
-}
-
 function countProductOps(items){
   const list=normalizeProductsList(items);
   return {

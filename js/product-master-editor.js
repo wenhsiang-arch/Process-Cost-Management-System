@@ -35,7 +35,7 @@
   function operationRow(operation){
     const row=document.createElement('tr');
     row.dataset.processId=operation.processId;
-    if(operation.active===false) row.classList.add('is-inactive');
+    row.dataset.active=operation.active===false?'false':'true';
     row.innerHTML=`
       <td><input type="number" min="1" max="99" step="1" data-field="no" value="${safe(operation.no)}"></td>
       <td><input type="number" min="1" max="999" step="1" data-field="sortOrder" value="${safe(operation.sortOrder)}"></td>
@@ -43,9 +43,7 @@
       <td><input type="text" maxlength="200" data-field="zh" value="${safe(operation.zh)}"></td>
       <td><input type="text" maxlength="200" data-field="vi" value="${safe(operation.vi)}"></td>
       <td><input type="number" min="1" max="86400" step="1" inputmode="numeric" data-field="sec" value="${safe(operation.sec)}"${secondsAllowed()?'':' disabled'}></td>
-      <td class="product-master-capacity" data-capacity></td>
-      <td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-toggle-process>${dualLabel(operation.active===false?'Dùng lại':'Ngừng dùng',operation.active===false?'重新啟用':'停用')}</button></td>`;
-    row.dataset.active=operation.active===false?'false':'true';
+      <td class="product-master-capacity" data-capacity></td>`;
     return row;
   }
 
@@ -103,7 +101,7 @@
         <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table"><thead><tr>
           <th>${dualLabel('Số CĐ','工序號')}</th><th>${dualLabel('Thứ tự','排序')}</th><th>${dualLabel('Phân loại','分類')}</th>
           <th>${dualLabel('Tên Trung','工序中文')}</th><th>${dualLabel('Tên Việt','工序越文')}</th><th>${dualLabel('Giây','標準秒數')}</th>
-          <th>${dualLabel('SL/giờ','每小時產能')}</th><th>${dualLabel('Thao tác','操作')}</th>
+          <th>${dualLabel('SL/giờ','每小時產能')}</th>
         </tr></thead><tbody data-process-body></tbody></table></div></div>
       </section>`;
     const processBody=body.querySelector('[data-process-body]');
@@ -111,15 +109,6 @@
     processBody.querySelectorAll('tr').forEach(updateCapacity);
     processBody.addEventListener('input',event=>{
       if(event.target?.matches?.('[data-field="sec"]')) updateCapacity(event.target.closest('tr'));
-    });
-    processBody.addEventListener('click',event=>{
-      const button=event.target.closest('[data-toggle-process]');
-      if(!button) return;
-      const row=button.closest('tr');
-      const active=row.dataset.active!=='false';
-      row.dataset.active=active?'false':'true';
-      row.classList.toggle('is-inactive',active);
-      button.innerHTML=dualLabel(active?'Dùng lại':'Ngừng dùng',active?'重新啟用':'停用');
     });
     const addProcessButton=body.querySelector('[data-add-process]');
     if(addProcessButton&&!secondsAllowed()) addProcessButton.disabled=true;

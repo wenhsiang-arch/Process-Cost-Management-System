@@ -156,10 +156,9 @@ function rSum(){
     const expanded=_expandedSummaryCodes.has(d.code);
     const visibleColumns=tableControl.getVisibleKeys().length;
     const r=document.createElement('tr');
-    r.innerHTML=`<td data-ui-table-column="index" style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="Mở chi tiết công đoạn / 展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td class="ui-table-ellipsis" data-ui-table-column="code"><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td class="ui-table-ellipsis" data-ui-table-column="client">${hl(d.client,q)}</td><td class="ui-table-ellipsis" data-ui-table-column="zh">${hl(d.zh,q)}</td><td class="ui-table-ellipsis" data-ui-table-column="vi" style="color:var(--mu)">${hl(d.vi,q)}</td><td data-ui-table-column="size"><span class="tg tn">${summarySafeText(d.sz)}</span></td><td class="ui-table-number-cell" data-ui-table-column="ops"><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td class="ui-table-number-cell" data-ui-table-column="cost" style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td class="ui-table-center-cell summary-action-column" data-ui-table-column="action"><button class="btn bsm bd2 summary-delete"><i class="ti ti-trash"></i></button></td>`;
+    r.innerHTML=`<td data-ui-table-column="index" style="color:var(--hi)"><button class="summary-toggle${expanded?' open':''}" title="Mở chi tiết công đoạn / 展開工序明細"><i class="ti ti-chevron-right"></i></button>${st+i+1}</td><td class="ui-table-ellipsis" data-ui-table-column="code"><b class="summary-code" style="color:var(--navy)">${hl(d.code,q)}</b></td><td class="ui-table-ellipsis" data-ui-table-column="client">${hl(d.client,q)}</td><td class="ui-table-ellipsis" data-ui-table-column="zh">${hl(d.zh,q)}</td><td class="ui-table-ellipsis" data-ui-table-column="vi" style="color:var(--mu)">${hl(d.vi,q)}</td><td data-ui-table-column="size"><span class="tg tn">${summarySafeText(d.sz)}</span></td><td class="ui-table-number-cell" data-ui-table-column="ops"><span class="tg tb2">${d.ops.length}</span></td>`+(isA?`<td class="ui-table-number-cell" data-ui-table-column="cost" style="color:var(--accent);font-weight:500">${summarySafeText(fm(sv2))}</td>`:'')+`<td class="ui-table-center-cell summary-action-column" data-ui-table-column="action"></td>`;
     r.querySelector('.summary-toggle')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
     r.querySelector('.summary-code')?.addEventListener('click',()=>toggleSummaryDetail(d.code));
-    r.querySelector('.summary-delete')?.addEventListener('click',()=>askDel(d.code));
     bindSummaryProductQuickEdits(r,d);
     if(window.PCMSProductMasterEditor&&d.productId){
       const actionCell=r.querySelector('.summary-action-column');
@@ -211,30 +210,4 @@ function rDet(){
     tb.appendChild(tr);
   });
   mkPager('dp2',window.dPage,rows.length,pp,'goDP');
-}
-
-// ===== 刪除款號 =====
-function askDel(code){
-  g('del-code').value=code; g('del-show').textContent=code; g('del-inp').value=''; om('m-del');
-}
-async function confDel(){
-  const code=g('del-code').value, inp=g('del-inp').value.trim();
-  if(inp!==code){ await summaryMessage('Mã hàng không khớp.','款號輸入不符合。','warning'); return; }
-  const product=(window.D||[]).find(item=>item.code===code&&item.active!==false);
-  if(!product||!window.PCMSProductMasterService?.saveDraft){
-    await summaryMessage('Không tìm thấy dịch vụ mã hàng chính thức.','找不到正式款號主檔服務。','danger');
-    return;
-  }
-  try{
-    await window.PCMSProductMasterService.saveDraft({
-      base:product,draft:{...product,active:false},action:'productDeactivate',
-      note:'Ngừng sử dụng thay cho xóa vĩnh viễn / 以停用取代永久刪除'
-    });
-    window.D=window.D.filter(item=>item.productId!==product.productId);
-    cm('m-del');rSum();rDet();rExp();rBk();
-    await summaryMessage('Mã hàng đã ngừng sử dụng; dữ liệu lịch sử vẫn được giữ lại.','款號已停用，歷史資料仍完整保留。','success');
-  }catch(error){
-    console.error('Không thể ngừng mã hàng / 款號停用失敗',error);
-    await summaryMessage('Không thể ngừng mã hàng; dữ liệu chính thức chưa thay đổi.','款號停用失敗，正式資料未變更。','danger');
-  }
 }
