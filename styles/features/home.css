@@ -160,8 +160,35 @@
   line-height: 1.7;
 }
 
-.home-update-description p + p {
-  margin-top: 8px;
+.home-update-language-block + .home-update-language-block {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--bd);
+}
+
+.home-update-topic + .home-update-topic {
+  margin-top: 20px;
+}
+
+.home-update-topic h3 {
+  margin: 0 0 7px;
+  color: var(--tx);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.home-update-topic ol {
+  margin: 0;
+  padding-inline-start: 24px;
+}
+
+.home-update-topic li + li {
+  margin-top: 4px;
+}
+
+.home-update-topic p {
+  margin: 0;
 }
 
 .home-updates-footer {
