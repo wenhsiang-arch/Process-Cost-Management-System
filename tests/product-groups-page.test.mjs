@@ -53,6 +53,47 @@ test('同產品群組依款號表尺寸分成第二層且未設定尺寸獨立�
   assert.equal(groups[2].labelPair.zh,'未設定尺寸');
 });
 
+test('群組差異只在同尺寸內比較，單一款號與無明確主要版本不誤報三種異常',()=>{
+  const ui=loadGroupUi();
+  const operation=(no,vi,sec)=>({no:String(no),vi,sec});
+  const rows=[
+    {productId:'p-10-a',code:'10-A',sz:'10MM',ops:[operation(1,'May A',16),operation(2,'May B',20)]},
+    {productId:'p-10-b',code:'10-B',sz:'10MM',ops:[operation(1,'May A',16),operation(2,'May B',20)]},
+    {productId:'p-15-a',code:'15-A',sz:'15MM',ops:[operation(1,'Mô tả khác',30)]}
+  ];
+  const context=ui.comparisonContext(rows);
+  assert.equal(context.summaries.get('p-10-a').comparisonState,'consistent');
+  assert.equal(context.summaries.get('p-10-b').comparisonState,'consistent');
+  assert.equal(context.summaries.get('p-15-a').comparisonState,'single');
+  assert.equal(context.summaries.get('p-15-a').countDifferent,false);
+  assert.equal(context.summaries.get('p-15-a').descriptionDifferent,false);
+  assert.equal(context.summaries.get('p-15-a').secondsDifferent,false);
+
+  const tied=ui.comparisonContext([
+    {productId:'tie-a',code:'T-A',sz:'M',ops:[operation(1,'May A',10)]},
+    {productId:'tie-b',code:'T-B',sz:'M',ops:[operation(1,'May B',20)]}
+  ]);
+  assert.equal(tied.summaries.get('tie-a').comparisonState,'ambiguous');
+  assert.equal(tied.summaries.get('tie-b').comparisonState,'ambiguous');
+  assert.equal(tied.summaries.get('tie-a').descriptionDifferent,false);
+  assert.equal(tied.summaries.get('tie-b').secondsDifferent,false);
+});
+
+test('同尺寸有明確主要版本時只標記真正不同的款號與差異項目',()=>{
+  const ui=loadGroupUi();
+  const rows=[
+    {productId:'base-a',code:'A',sz:'M',ops:[{no:'1',vi:'May',sec:16}]},
+    {productId:'base-b',code:'B',sz:'M',ops:[{no:'1',vi:'May',sec:16}]},
+    {productId:'outlier',code:'C',sz:'M',ops:[{no:'1',vi:'May',sec:20}]}
+  ];
+  const summaries=ui.comparisonContext(rows).summaries;
+  assert.equal(summaries.get('base-a').consistent,true);
+  assert.equal(summaries.get('base-b').consistent,true);
+  assert.equal(summaries.get('outlier').countDifferent,false);
+  assert.equal(summaries.get('outlier').descriptionDifferent,false);
+  assert.equal(summaries.get('outlier').secondsDifferent,true);
+});
+
 test('群組頁先顯示全部清單，建立群組才開啟三步驟視窗',()=>{
   const page=read('js/production/product-groups.js');
   const html=read('index.html');
@@ -147,12 +188,18 @@ test('已有群組只列同客人款號並可依款號或越文名稱篩選',()=
 
 test('工序快速修改預設勾選可匹配群組且共用正式儲存服務',()=>{
   const page=read('js/product-quick-edit.js');
+  const groupUi=read('js/production/process-group-ui.js');
   assert.match(page,/function buildTargets/);
   assert.match(page,/memberProductIds/);
   assert.match(page,/matched:config\.scope==='product'\|\|!!operation/);
   assert.match(page,/selected:config\.scope==='product'\|\|!!operation/);
   assert.match(page,/目前群組預設全選；差異只作提醒，不阻止執行/);
   assert.match(page,/service\(\)\.saveManyDrafts/);
+  assert.match(page,/product-quick-summary/);
+  assert.match(page,/Tổng số công đoạn/);
+  assert.match(page,/data-product-quick-expand/);
+  assert.match(groupUi,/process-member-code-button/);
+  assert.match(groupUi,/Tổng số công đoạn/);
   assert.doesNotMatch(page,/工序優化|標準錯誤訂正|order-exception-button/);
 });
 

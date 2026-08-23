@@ -161,6 +161,10 @@ test('雲端狀態與款號快速修改使用中央三種語言節點',()=>{
   assert.doesNotMatch(firebase,/雲端同步中\.\.\. \/ Đang đồng bộ/);
   assert.match(processEdit,/ui-dual-copy/);
   assert.match(processEdit,/PCMSUIText/);
+  assert.match(processEdit,/Tổng số công đoạn/);
+  assert.match(processEdit,/總工序數量/);
+  assert.match(processEdit,/Không có mã cùng kích thước để so sánh/);
+  assert.match(processEdit,/無同尺寸款號可比較/);
   assert.match(read('styles/features/production-process-edit.css'),/data-ui-language-mode="vi"/);
   assert.match(read('styles/features/production-process-edit.css'),/data-ui-language-mode="zh"/);
 });

@@ -45,7 +45,43 @@
 
   function operationFor(product,processNo){
     return (Array.isArray(product?.ops)?product.ops:[])
-      .find(item=>String(item?.no)===String(processNo));
+      .find(item=>String(item?.no)===String(processNo)&&item?.active!==false);
+  }
+
+  function activeOperations(product){
+    return (Array.isArray(product?.ops)?product.ops:[])
+      .filter(item=>item?.active!==false)
+      .slice()
+      .sort((left,right)=>(Number(left?.no)||0)-(Number(right?.no)||0));
+  }
+
+  function normalizedDescription(value){
+    return normalize(value).normalize('NFKC').toLocaleLowerCase();
+  }
+
+  function processProfile(product){
+    return activeOperations(product).map(operation=>({
+      no:normalize(operation?.no),
+      vi:normalizedDescription(operation?.vi),
+      sec:Number(operation?.sec)||0
+    }));
+  }
+
+  function profileDifferences(profile,baseline){
+    const countDifferent=profile.length!==baseline.length;
+    const currentByNo=new Map(profile.map(item=>[item.no,item]));
+    const baselineByNo=new Map(baseline.map(item=>[item.no,item]));
+    const processNumbers=new Set([...currentByNo.keys(),...baselineByNo.keys()]);
+    let descriptionDifferent=false;
+    let secondsDifferent=false;
+    processNumbers.forEach(no=>{
+      const current=currentByNo.get(no);
+      const expected=baselineByNo.get(no);
+      if(!current||!expected){ descriptionDifferent=true;secondsDifferent=true;return; }
+      if(current.vi!==expected.vi) descriptionDifferent=true;
+      if(current.sec!==expected.sec) secondsDifferent=true;
+    });
+    return {countDifferent,descriptionDifferent,secondsDifferent};
   }
 
   function groupBySize(products=[]){
@@ -68,20 +104,44 @@
     return {checked,total:codes.length,all:codes.length>0&&checked===codes.length,partial:checked>0&&checked<codes.length};
   }
 
-  function consistencyDetails(products){
-    const summaries=new Map((window.PCMSProductModel?.compareGroupConsistency?.(products)||[]).map(item=>[item.productId,item]));
-    const profiles=(products||[]).map(product=>({product,profile:window.PCMSProductModel?.groupProcessProfile?.(product)||[]}));
-    const variants=new Map();
-    profiles.forEach(item=>{
-      const key=JSON.stringify(item.profile);
-      const current=variants.get(key)||{profile:item.profile,count:0};current.count+=1;variants.set(key,current);
+  // comparisonContext（同尺寸比較內容）：不同尺寸不得互相污染；沒有明確主要版本時只提醒人工確認。
+  function comparisonContext(products=[]){
+    const summaries=new Map();
+    const baselines=new Map();
+    groupBySize(products).forEach(sizeGroup=>{
+      const rows=sizeGroup.members.map(product=>({product,profile:processProfile(product)}));
+      const variants=new Map();
+      rows.forEach(row=>{
+        const key=JSON.stringify(row.profile);
+        const current=variants.get(key)||{key,profile:row.profile,count:0};
+        current.count+=1;
+        variants.set(key,current);
+      });
+      const ranked=[...variants.values()].sort((left,right)=>right.count-left.count||left.key.localeCompare(right.key));
+      const single=rows.length<=1;
+      const ambiguous=!single&&ranked.length>1&&ranked[0].count===ranked[1].count;
+      const baseline=ranked[0]?.profile||[];
+      baselines.set(sizeGroup.key,ambiguous?null:baseline);
+      rows.forEach(row=>{
+        const differences=single||ambiguous
+          ?{countDifferent:false,descriptionDifferent:false,secondsDifferent:false}
+          :profileDifferences(row.profile,baseline);
+        const consistent=!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent;
+        summaries.set(row.product.productId,{
+          productId:row.product.productId,
+          code:productCode(row.product),
+          ...differences,
+          consistent,
+          comparisonState:single?'single':(ambiguous?'ambiguous':(consistent?'consistent':'different'))
+        });
+      });
     });
-    const ranked=[...variants.values()].sort((left,right)=>right.count-left.count);
-    const baseline=ranked[0]?.profile||[];
-    return {summaries,baseline};
+    return {summaries,baselines};
   }
 
   function statusHtml(summary){
+    if(summary?.comparisonState==='single') return '<span class="process-group-status is-neutral"><span class="ui-dual-copy"><strong>Không có mã cùng kích thước để so sánh</strong><span>無同尺寸款號可比較</span></span></span>';
+    if(summary?.comparisonState==='ambiguous') return '<span class="process-group-status is-neutral"><span class="ui-dual-copy"><strong>Có nhiều phiên bản · cần kiểm tra</strong><span>存在多種版本・請確認</span></span></span>';
     if(!summary||summary.consistent) return '<span class="process-group-status is-consistent"><span class="ui-dual-copy"><strong>Đồng nhất</strong><span>資料一致</span></span></span>';
     const labels=[];
     if(summary.countDifferent) labels.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
@@ -91,12 +151,13 @@
   }
 
   function processDetailRows(product,baseline){
-    const expected=new Map((baseline||[]).map(item=>[String(item.no),item]));
-    const operations=(Array.isArray(product?.ops)?product.ops:[]).slice().sort((left,right)=>Number(left.no)-Number(right.no));
+    const comparable=Array.isArray(baseline);
+    const expected=new Map((comparable?baseline:[]).map(item=>[String(item.no),item]));
+    const operations=activeOperations(product);
     return operations.map(operation=>{
       const reference=expected.get(String(operation.no));
-      const viDifferent=!reference||normalize(operation.vi).normalize('NFKC').toLocaleLowerCase()!==normalize(reference.vi);
-      const secondsDifferent=!reference||Number(operation.sec)!==Number(reference.sec);
+      const viDifferent=comparable&&(!reference||normalizedDescription(operation.vi)!==normalize(reference.vi));
+      const secondsDifferent=comparable&&(!reference||Number(operation.sec)!==Number(reference.sec));
       return `<tr><td>${safe(operation.no||'—')}</td><td class="${viDifferent?'is-different':''}">${safe(operation.vi||'—')}</td><td class="ui-table-number-cell ${secondsDifferent?'is-different':''}">${safe(operation.sec||'—')}</td></tr>`;
     }).join('');
   }
@@ -113,7 +174,7 @@
     );
     required.forEach(code=>{ if(productMap.has(code)) selected.add(code); });
     const expanded=new Set((options.expandedCodes||[]).map(normalize).filter(code=>productMap.has(code)));
-    const consistency=consistencyDetails(products);
+    const consistency=comparisonContext(products);
     const preferredSize=normalize(options.activeSize)
       ||sizeKey(productMap.get(normalize(options.currentCode)))
       ||groups[0]?.key
@@ -137,20 +198,20 @@
       const showAction=typeof options.onEdit==='function';
       const showConsistency=options.consistency===true;
       const expandable=options.expandable===true;
-      const columnCount=(selectable?1:0)+(expandable?1:0)+5+(showSeconds?1:0)+(showConsistency?1:0)+(showAction?1:0);
+      const columnCount=(selectable?1:0)+6+(showSeconds?1:0)+(showConsistency?1:0)+(showAction?1:0);
       root.innerHTML=`
         <div class="process-size-tabs" role="tablist" aria-label="Kích thước / 尺寸">
           ${groups.map(group=>`<button type="button" role="tab" data-process-size="${safeAttribute(group.key)}" aria-selected="${group.key===active.key?'true':'false'}" class="${group.key===active.key?'is-active':''}"><span>${safe(group.labelPair.vi)}/${group.members.length}</span></button>`).join('')}
         </div>
         <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table process-size-member-table">
           <thead><tr>
-            ${expandable?'<th class="ui-table-center-cell is-expand"><span class="ui-dual-copy"><strong>Chi tiết</strong><span>明細</span></span></th>':''}
             ${selectable?`<th class="ui-table-center-cell is-select"><button type="button" class="process-size-select-heading${selection.partial?' is-partial':''}" data-process-select-all aria-pressed="${selection.all?'true':'false'}"><span class="ui-dual-copy"><strong>Chọn</strong><span>選取</span></span></button></th>`:''}
             <th class="is-client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th>
             <th class="is-code"><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號</span></span></th>
             <th class="is-zh"><span class="ui-dual-copy"><strong>Tên Trung</strong><span>中文名稱</span></span></th>
             <th class="is-vi"><span class="ui-dual-copy"><strong>Tên Việt</strong><span>越文名稱</span></span></th>
             <th class="is-size"><span class="ui-dual-copy"><strong>Kích thước</strong><span>尺寸</span></span></th>
+            <th class="ui-table-number-cell is-process-count"><span class="ui-dual-copy"><strong>Tổng số công đoạn</strong><span>總工序數量</span></span></th>
             ${showSeconds?'<th class="ui-table-number-cell is-seconds"><span class="ui-dual-copy"><strong>Giây hiện tại</strong><span>目前秒數</span></span></th>':''}
             ${showConsistency?'<th class="is-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>差異狀態</span></span></th>':''}
             ${showAction?'<th class="ui-table-center-cell is-action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>':''}
@@ -159,14 +220,14 @@
             const code=productCode(product);
             const operation=operationFor(product,options.processNo);
             const summary=consistency.summaries.get(product.productId);
+            const processCount=activeOperations(product).length;
             return `<tr class="${code===normalize(options.currentCode)?'is-current':''}">
-              ${expandable?`<td class="ui-table-center-cell"><button type="button" class="process-member-expand${expanded.has(code)?' is-open':''}" data-process-member-expand="${safeAttribute(code)}" aria-expanded="${expanded.has(code)?'true':'false'}" title="Mở chi tiết công đoạn / 展開工序明細"><i class="ti ti-chevron-right"></i></button></td>`:''}
               ${selectable?`<td class="ui-table-center-cell"><input type="checkbox" data-process-member="${safeAttribute(code)}" ${selected.has(code)?'checked':''} ${required.has(code)?'disabled':''} aria-label="${safeAttribute(code)}"></td>`:''}
-              <td title="${safeAttribute(product.client||'—')}">${safe(product.client||'—')}</td><td title="${safeAttribute(code)}"><b>${safe(code)}</b></td><td title="${safeAttribute(product.zh||'—')}">${safe(product.zh||'—')}</td><td title="${safeAttribute(product.vi||'—')}">${safe(product.vi||'—')}</td><td title="${safeAttribute(product.sz||'—')}">${safe(product.sz||'—')}</td>
+              <td title="${safeAttribute(product.client||'—')}">${safe(product.client||'—')}</td><td title="${safeAttribute(code)}">${expandable?`<button type="button" class="process-member-code-button${expanded.has(code)?' is-open':''}" data-process-member-expand="${safeAttribute(code)}" aria-expanded="${expanded.has(code)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(code)}</b></button>`:`<b>${safe(code)}</b>`}</td><td title="${safeAttribute(product.zh||'—')}">${safe(product.zh||'—')}</td><td title="${safeAttribute(product.vi||'—')}">${safe(product.vi||'—')}</td><td title="${safeAttribute(product.sz||'—')}">${safe(product.sz||'—')}</td><td class="ui-table-number-cell"><b>${safe(processCount)}</b></td>
               ${showSeconds?`<td class="ui-table-number-cell"><b>${operation&&Number(operation.sec)>0?safe(Math.round(Number(operation.sec))):'—'}</b></td>`:''}
               ${showConsistency?`<td class="process-group-status-cell">${statusHtml(summary)}</td>`:''}
               ${showAction?`<td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-process-member-edit="${safeAttribute(code)}"><i class="ti ti-edit"></i><span class="ui-dual-copy"><strong>Sửa công đoạn</strong><span>修改工序</span></span></button></td>`:''}
-            </tr>${expandable&&expanded.has(code)?`<tr class="process-member-detail-row"><td colspan="${columnCount}"><div class="process-member-detail"><table class="ui-table"><thead><tr><th><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span></th><th><span class="ui-dual-copy"><strong>Mô tả tiếng Việt</strong><span>越文工序描述</span></span></th><th><span class="ui-dual-copy"><strong>Giây tiêu chuẩn</strong><span>標準秒數</span></span></th></tr></thead><tbody>${processDetailRows(product,consistency.baseline)}</tbody></table></div></td></tr>`:''}`;
+            </tr>${expandable&&expanded.has(code)?`<tr class="process-member-detail-row"><td colspan="${columnCount}"><div class="process-member-detail"><table class="ui-table"><thead><tr><th><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span></th><th><span class="ui-dual-copy"><strong>Mô tả tiếng Việt</strong><span>越文工序描述</span></span></th><th><span class="ui-dual-copy"><strong>Giây tiêu chuẩn</strong><span>標準秒數</span></span></th></tr></thead><tbody>${processDetailRows(product,consistency.baselines.get(active.key))}</tbody></table></div></td></tr>`:''}`;
           }).join('')}</tbody>
         </table></div></div>`;
       const selectAll=root.querySelector('[data-process-select-all]');
@@ -222,6 +283,6 @@
 
   window.PCMSProcessGroupUI=Object.freeze({
     missingSizeKey:MISSING_SIZE,
-    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,createMemberSelector
+    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,processDetailRows,createMemberSelector
   });
 })();

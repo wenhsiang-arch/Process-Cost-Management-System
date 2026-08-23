@@ -42,6 +42,8 @@
   }
 
   function consistencyMap(products){
+    const shared=groupUI()?.comparisonContext?.(products);
+    if(shared?.summaries) return shared.summaries;
     return new Map((model().compareGroupConsistency?.(products)||[]).map(item=>[item.productId,item]));
   }
 
@@ -82,6 +84,29 @@
     return `<input data-common-value type="${config.type}"${limits}${maximum} value="${safeAttribute(sourceValue)}">`;
   }
 
+  function summaryPanel(config,input,sourceTarget){
+    const process=config.scope==='process';
+    const operation=sourceTarget.operation;
+    const groupName=text(input.group?.name||input.group?.groupId);
+    const identityLabel=process?{vi:'Số công đoạn',zh:'工序號'}:{vi:'Mã hàng',zh:'款號'};
+    const identityValue=process?(operation?.no||'—'):(sourceTarget.product.code||'—');
+    const nameLabel=process?{vi:'Tên công đoạn Việt',zh:'工序越文名稱'}:{vi:'Tên sản phẩm Việt',zh:'越文品名'};
+    const nameValue=process?(operation?.vi||'—'):(sourceTarget.product.vi||'—');
+    const currentValue=displayValue(fieldValue(sourceTarget.product,operation,config.key));
+    const nextControl=config.perProduct
+      ?`<div class="product-quick-summary-per-row">${dual('Nhập riêng trong bảng dưới','於下表逐款號輸入')}</div>`
+      :commonInput(config,currentValue==='—'?'':currentValue);
+    return `<section class="product-quick-summary">
+      <div><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><b>${safe(sourceTarget.product.client||'—')}</b></div>
+      <div><span class="ui-dual-copy"><strong>${safe(identityLabel.vi)}</strong><span>${safe(identityLabel.zh)}</span></span><b>${safe(identityValue)}</b></div>
+      <div class="is-name"><span class="ui-dual-copy"><strong>${safe(nameLabel.vi)}</strong><span>${safe(nameLabel.zh)}</span></span><b title="${safeAttribute(nameValue)}">${safe(nameValue)}</b></div>
+      <div><span class="ui-dual-copy"><strong>Hiện tại: ${safe(config.vi)}</strong><span>目前${safe(config.zh)}</span></span><b>${safe(currentValue)}</b></div>
+      <span class="product-quick-direction" aria-hidden="true"><i class="ti ti-arrow-right"></i></span>
+      <label class="is-next"><span class="ui-dual-copy"><strong>Sau sửa: ${safe(config.vi)}</strong><span>修改後${safe(config.zh)}</span></span>${nextControl}</label>
+      <div class="is-group"><span class="ui-dual-copy"><strong>${groupName?'Nhóm hiện tại':'Trạng thái nhóm'}</strong><span>${groupName?'目前群組':'群組狀態'}</span></span>${groupName?`<b title="${safeAttribute(groupName)}">${safe(groupName)}</b>`:dual('Chưa có nhóm','未有群組')}</div>
+    </section>`;
+  }
+
   function processOptions(product,selected=''){
     return `<option value="">Chọn công đoạn / 選擇工序</option>${(product.ops||[]).filter(operation=>operation.active!==false).map(operation=>
       `<option value="${safeAttribute(operation.processId)}"${operation.processId===selected?' selected':''}>${safe(operation.no)} · ${safe(operation.vi||operation.zh)}</option>`).join('')}`;
@@ -95,6 +120,8 @@
 
   function statusTags(target){
     if(!target.operation&&target.matched===false) return dual('Không có công đoạn tương ứng','無對應工序');
+    if(target.consistency?.comparisonState==='single') return `<span class="product-quick-status-tag is-neutral">${dual('Không có mã cùng kích thước để so sánh','無同尺寸款號可比較')}</span>`;
+    if(target.consistency?.comparisonState==='ambiguous') return `<span class="product-quick-status-tag is-neutral">${dual('Có nhiều phiên bản · cần kiểm tra','存在多種版本・請確認')}</span>`;
     const tags=[];
     if(target.consistency?.countDifferent) tags.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
     if(target.consistency?.descriptionDifferent) tags.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
@@ -112,7 +139,7 @@
 
   function tableHead(config){
     const process=config.scope==='process';
-    const cells=[dual('Chọn','選擇'),dual('Mã hàng','款號'),dual('Kích thước','尺寸')];
+    const cells=[dual('Chọn','選擇'),dual('Mã hàng','款號'),dual('Kích thước','尺寸'),dual('Tổng số công đoạn','總工序數量')];
     if(process){
       cells.push(dual('Số công đoạn','工序號'),dual('Mô tả tiếng Việt','越文工序描述'));
       if(!['processSeconds','processNo'].includes(config.key)) cells.push(dual('Giây hiện tại','目前秒數'));
@@ -123,7 +150,14 @@
     return cells.map(cell=>`<th>${cell}</th>`).join('');
   }
 
-  function renderRows(host,targets,config,activeSize,selected,commonValue,rowValues){
+  function tableColumnCount(config){
+    let count=4;
+    if(config.scope==='process') count+=2+(!['processSeconds','processNo'].includes(config.key)?1:0);
+    count+=2+(config.key==='processSeconds'?1:0)+1;
+    return count;
+  }
+
+  function renderRows(host,targets,config,activeSize,selected,commonValue,rowValues,expanded,comparison){
     host.replaceChildren();
     targets.filter(target=>groupUI().sizeKey(target.product)===activeSize).forEach(target=>{
       const actualIndex=targets.indexOf(target);
@@ -144,12 +178,20 @@
         :safe(current);
       const next=config.perProduct?pending:afterValue(config,target,commonValue,row);
       row.innerHTML=`<td class="ui-table-center-cell"><input type="checkbox" data-select${selected.has(target.product.productId)?' checked':''}${target.matched?'':' disabled'}></td>
-        <td><b>${safe(target.product.code)}</b></td><td>${safe(target.product.sz||'—')}</td>
+        <td><button type="button" class="product-quick-code-button${expanded.has(target.product.productId)?' is-open':''}" data-product-quick-expand="${safeAttribute(target.product.productId)}" aria-expanded="${expanded.has(target.product.productId)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(target.product.code)}</b></button></td><td>${safe(target.product.sz||'—')}</td><td class="ui-table-number-cell"><b>${safe(groupUI().activeOperations(target.product).length)}</b></td>
         ${processCells.map(value=>`<td>${value}</td>`).join('')}
         <td>${perProductInput}</td><td data-after>${safe(next)}</td>
         ${config.key==='processSeconds'?`<td class="ui-table-number-cell" data-capacity>${next!=='—'?safe(capacity(next)):'—'}</td>`:''}
         <td class="product-quick-status" data-status>${statusTags(target)}</td>`;
       host.appendChild(row);
+      if(expanded.has(target.product.productId)){
+        const detail=document.createElement('tr');
+        detail.className='process-member-detail-row product-quick-detail-row';
+        detail.dataset.detailFor=target.product.productId;
+        const baseline=comparison?.baselines?.get(groupUI().sizeKey(target.product));
+        detail.innerHTML=`<td colspan="${tableColumnCount(config)}"><div class="process-member-detail"><table class="ui-table"><thead><tr><th>${dual('Số công đoạn','工序號')}</th><th>${dual('Mô tả tiếng Việt','越文工序描述')}</th><th>${dual('Giây tiêu chuẩn','標準秒數')}</th></tr></thead><tbody>${groupUI().processDetailRows(target.product,baseline)}</tbody></table></div></td>`;
+        host.appendChild(detail);
+      }
     });
   }
 
@@ -264,13 +306,14 @@
     const targets=buildTargets({...input,products});
     const sourceTarget=targets.find(target=>target.product.productId===input.sourceProductId)||targets[0];
     const selected=new Set(targets.filter(target=>target.selected).map(target=>target.product.productId));
+    const expanded=new Set();
     const rowValues=new Map(targets.map(target=>[target.product.productId,String(target.value??'')]));
     const sizes=groupUI().groupBySize(targets.map(target=>target.product));
+    const comparison=groupUI().comparisonContext(targets.map(target=>target.product));
     let activeSize=groupUI().sizeKey(sourceTarget.product);
     const body=document.createElement('div');
     body.className='product-quick-edit';
-    const editor=config.perProduct?'':`<section class="product-quick-value"><label>${dual(config.vi,config.zh)}${commonInput(config,sourceTarget.value)}</label></section>`;
-    body.innerHTML=`<header class="product-quick-heading"><div>${dual(input.group?.name||sourceTarget.product.vi||sourceTarget.product.code,'同產品群組修改')}</div><span>${safe(sourceTarget.product.client||'—')}</span></header>${editor}
+    body.innerHTML=`${summaryPanel(config,input,sourceTarget)}
       <div class="ui-notice is-info"><i class="ti ti-checkbox"></i>${dual('Nhóm hiện tại được chọn sẵn; khác biệt chỉ để nhắc, không chặn thao tác.','目前群組預設全選；差異只作提醒，不阻止執行。')}</div>
       <div class="process-size-tabs product-quick-size-tabs" data-size-tabs></div>
       <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-quick-table"><thead><tr data-table-head></tr></thead><tbody data-target-body></tbody></table></div></div>`;
@@ -282,10 +325,10 @@
     function render(){
       const tabs=body.querySelector('[data-size-tabs]');
       tabs.innerHTML=sizes.map(group=>`<button type="button" role="tab" data-size="${safeAttribute(group.key)}" aria-selected="${group.key===activeSize?'true':'false'}" class="${group.key===activeSize?'is-active':''}"><span>${safe(group.labelPair.vi)}/${group.members.length}</span></button>`).join('');
-      renderRows(rowsHost,targets,config,activeSize,selected,common?.value,rowValues);
+      renderRows(rowsHost,targets,config,activeSize,selected,common?.value,rowValues,expanded,comparison);
     }
     function refreshAfterValues(){
-      rowsHost.querySelectorAll('tr').forEach(row=>{
+      rowsHost.querySelectorAll('tr[data-index]').forEach(row=>{
         const target=targets[Number(row.dataset.index)];
         const next=afterValue(config,target,common?.value,row);
         row.querySelector('[data-after]').textContent=next;
@@ -296,6 +339,12 @@
     body.addEventListener('click',event=>{
       const tab=event.target.closest('[data-size]');
       if(tab){ activeSize=tab.dataset.size;render(); }
+      const expandButton=event.target.closest('[data-product-quick-expand]');
+      if(expandButton){
+        const id=expandButton.dataset.productQuickExpand;
+        if(expanded.has(id)) expanded.delete(id);else expanded.add(id);
+        render();
+      }
     });
     body.addEventListener('change',event=>{
       const checkbox=event.target.closest('[data-select]');

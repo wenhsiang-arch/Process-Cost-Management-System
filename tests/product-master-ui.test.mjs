@@ -96,12 +96,19 @@ test('完整編輯與快速修改保留尺寸分頁、差異提醒、拖曳、�
   assert.match(quick,/createPreviewBody/);
   assert.match(quick,/progressDialog/);
   assert.match(quick,/createResultBody/);
+  assert.match(quick,/product-quick-summary/);
+  assert.match(quick,/Hiện tại:/);
+  assert.match(quick,/Sau sửa:/);
+  assert.match(quick,/Tổng số công đoạn/);
+  assert.match(quick,/data-product-quick-expand/);
   assert.match(quick,/尚未選擇對應工序/);
   assert.match(quick,/沒有可選擇的工序/);
   assert.match(groupUi,/Khác số lượng công đoạn/);
   assert.match(groupUi,/Khác mô tả tiếng Việt/);
   assert.match(groupUi,/Khác giây tiêu chuẩn/);
   assert.match(groupUi,/data-process-member-expand/);
+  assert.match(groupUi,/Không có mã cùng kích thước để so sánh/);
+  assert.match(groupUi,/Có nhiều phiên bản · cần kiểm tra/);
 });
 
 test('生產登記款號、工序號、工序名稱及秒數都接到同一款號主檔快速修改流程',()=>{
