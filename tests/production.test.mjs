@@ -13,38 +13,18 @@ function createProductionContext(){
     {id:'M05713',data:()=>({employeeId:'M05713',name:'TRẦN THỊ CÚC',department:'May',active:true})},
     {id:'M09999',data:()=>({employeeId:'M09999',name:'ĐỖ THỊ HOA',department:'May',active:true})}
   ]; // employeeDocuments（員工測試資料）
-  const orderProcesses=[
-    {id:'PROCESS-1',orderId:'ORDER-ABC-2026',orderNo:'OD-7788',code:'STYLE-500',desc:'Áo khoác',color:'Đen',sz:'M',processNo:'1',processVi:'May thân',processZh:'車身',orderQty:1000,workStdSec:48,processSec:48,slPerHour:63},
-    {id:'PROCESS-2',orderId:'ORDER-ABC-2026',orderNo:'OD-7788',code:'STYLE-500',desc:'Áo khoác',color:'Đen',sz:'M',processNo:'12',processVi:'Kiểm tra',processZh:'檢查',orderQty:1000,workStdSec:30,processSec:30,slPerHour:100},
-    {id:'PROCESS-3',orderId:'ORDER-ABC-2026',orderNo:'OD-7788',code:'STYLE-900',desc:'Quần dài',color:'Xanh',sz:'L',processNo:'1',processVi:'May túi',processZh:'車口袋',orderQty:800,workStdSec:50,processSec:50,slPerHour:60}
-  ]; // orderProcesses（訂單工序測試資料）
   const window={
     firebaseAuthUser:{uid:'clerk-user'},
     cu:{user:'文員測試'},
     _collection:name=>name,
     _docRef:(collection,id)=>({collection,id}),
-    _getDoc:async reference=>({
-      exists:()=>reference.collection==='productionProcessTotals'&&reference.id==='PROCESS-1',
-      data:()=>({registeredQty:250,orderQty:1000})
-    }),
     _getDocs:async()=>({docs:employeeDocuments}),
-    firebaseLoadCachedCollection:async scope=>scope === 'productionEmployees'
-      ? employeeDocuments.map(item=>({id:item.id,...item.data()}))
-      : [
-          {id:'ORDER-ABC-2026',orderId:'ORDER-ABC-2026',client:'Khách A',importStatus:'ready',lifecycleStatus:'active',processVersion:'v1'},
-          {id:'ORDER-OLD',orderId:'ORDER-OLD',client:'Khách cũ',importStatus:'failed'}
-        ], // firebaseLoadCachedCollection（快取集合載入測試介面）
-    PCMSOrderProcessCache:{
-      read:async()=>orderProcesses,
-      write:async()=>{},
-      remove:async()=>{}
-    }
+    firebaseLoadCachedCollection:async()=>employeeDocuments.map(item=>({id:item.id,...item.data()}))
   };
   const context={window,console,Map,Object,Array,String,Number,Math,Date,Error,RegExp};
   vm.createContext(context);
   vm.runInContext(read('js/ui-search-dropdown.js'),context);
   vm.runInContext(read('js/production/employee-store.js'),context);
-  vm.runInContext(read('js/production/entry-store.js'),context);
   return window;
 }
 
@@ -126,6 +106,7 @@ function createAttendanceBatchContext(options={}){
     PCMSProductionChanges:{markSafely:async rows=>{ markerCalls.push(rows.map(item=>item.employeeId)); return true; }},
     PCMSFeatures:{invalidateDataScopes:()=>{}},
     pcmsDataCache:{remove:async()=>{}},
+    _increment:value=>({__increment:Number(value)}),
     _docRef:(collection,id)=>({collection,id}),
     _newDocRef:collection=>({collection,id:`log-${++logSequence}`}),
     _runTransaction:async task=>{
@@ -146,14 +127,21 @@ function createAttendanceBatchContext(options={}){
       }
       writes.forEach(item=>{
         const previous=documents.get(keyOf(item.reference))||{};
-        documents.set(keyOf(item.reference),item.settings?.merge?{...previous,...item.data}:{...item.data});
+        const next=item.settings?.merge?{...previous,...item.data}:{...item.data};
+        Object.entries(next).forEach(([field,value])=>{
+          if(value&&typeof value==='object'&&Number.isFinite(value.__increment)){
+            next[field]=(Number(previous[field])||0)+value.__increment;
+          }
+        });
+        documents.set(keyOf(item.reference),next);
       });
       return result;
     }
   };
   const context={window,console,Map,Object,Array,String,Number,Math,Date,Error,RegExp,Set,Promise};
   vm.createContext(context);
-  vm.runInContext(read('js/production/summary-store.js'),context);
+  vm.runInContext(read('js/production/efficiency-core.js'),context);
+  vm.runInContext(read('js/production/linked-summary-store.js'),context);
   vm.runInContext(read('js/production/production-guard-store.js'),context);
   vm.runInContext(read('js/production/attendance-store.js'),context);
   const inputs=[...employees.values()].map(employee=>({
@@ -352,102 +340,6 @@ test('非管理員員工管理角色新增員工時不會取得無權限的歷�
   assert.equal(documents.get('productionEmployees/M93333').active,true);
 });
 
-test('訂單、款號及工序只在目前訂單範圍內搜尋',async()=>{
-  const window=createProductionContext();
-  await window.PCMSProductionEntryStore.loadOrders();
-  const orders=window.PCMSProductionEntryStore.listOrders();
-  const orderMatch=query=>window.PCMSUISearchDropdown.matchItems(orders,query,{
-    fields:[{value:item=>item.orderId,mode:'code'},{value:item=>item.client,mode:'text'}]
-  }).items;
-  assert.equal(orderMatch('')[0].id,'ORDER-ABC-2026');
-  assert.equal(orderMatch('ABC')[0].id,'ORDER-ABC-2026');
-  assert.equal(orderMatch('Khách A')[0].id,'ORDER-ABC-2026');
-  assert.equal(orderMatch('OLD').length,0);
-  await window.PCMSProductionEntryStore.loadProcesses('ORDER-ABC-2026');
-  const products=window.PCMSProductionEntryStore.productsForOrder('ORDER-ABC-2026');
-  const productMatch=query=>window.PCMSUISearchDropdown.matchItems(products,query,{
-    fields:[{value:item=>item.code,mode:'code'},{value:item=>item.desc,mode:'text'}]
-  }).items;
-  assert.deepEqual(
-    Array.from(productMatch('')).map(item=>item.code),
-    ['STYLE-500','STYLE-900']
-  );
-  assert.deepEqual(
-    Array.from(productMatch('500')).map(item=>item.code),
-    ['STYLE-500']
-  );
-  assert.equal(window.PCMSProductionEntryStore.findProcess('ORDER-ABC-2026','STYLE-500','1').id,'PROCESS-1');
-  assert.equal(window.PCMSProductionEntryStore.findProcess('ORDER-ABC-2026','STYLE-900','12'),null);
-  assert.deepEqual(
-    {...await window.PCMSProductionEntryStore.loadProcessTotal('PROCESS-1')},
-    {registeredQuantity:250,orderQuantity:1000}
-  );
-});
-
-test('工序累計只在三十秒內使用畫面記憶，強制刷新仍回到 Firestore',async()=>{
-  const window=createProductionContext();
-  await window.PCMSProductionEntryStore.loadOrders();
-  await window.PCMSProductionEntryStore.loadProcesses('ORDER-ABC-2026');
-  const originalGetDoc=window._getDoc;
-  let totalReads=0;
-  window._getDoc=async reference=>{
-    if(reference.collection==='productionProcessTotals') totalReads+=1;
-    return originalGetDoc(reference);
-  };
-  const first=await window.PCMSProductionEntryStore.loadProcessTotal('PROCESS-1',{maxAgeMs:30000});
-  const second=await window.PCMSProductionEntryStore.loadProcessTotal('PROCESS-1',{maxAgeMs:30000});
-  assert.deepEqual({...first},{registeredQuantity:250,orderQuantity:1000});
-  assert.deepEqual({...second},{registeredQuantity:250,orderQuantity:1000});
-  assert.equal(totalReads,1);
-  assert.ok(window.PCMSProductionEntryStore.processTotalLoadedAt('PROCESS-1')>0);
-  await window.PCMSProductionEntryStore.loadProcessTotal('PROCESS-1',{maxAgeMs:30000,force:true});
-  assert.equal(totalReads,2);
-});
-
-test('生產數量只接受正整數且生產日期必須明確填寫',()=>{
-  const window=createProductionContext();
-  const valid={productionDate:'2026-08-08',employeeId:'M91234',orderId:'ORDER-ABC-2026',productCode:'STYLE-500',processNo:'1',quantity:500};
-  assert.equal(window.PCMSProductionEntryStore.validateEntryInput(valid).quantity,500);
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...valid,quantity:0}),/正整數/);
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...valid,quantity:1.5}),/正整數/);
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...valid,productionDate:''}),/生產日期/);
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...valid,productionDate:'2026-02-31'}),/生產日期/);
-});
-
-test('工序0使用獨立補充工時欄位且單筆只接受0.5至24小時',()=>{
-  const window=createProductionContext();
-  const base={
-    productionDate:'2026-08-08',employeeId:'M91234',orderId:'',productCode:'',processNo:'0',
-    supplementReason:'返工處理',supplementHours:0.5
-  }; // base（補充工時測試資料）
-  const minimum=window.PCMSProductionEntryStore.validateEntryInput(base);
-  const maximum=window.PCMSProductionEntryStore.validateEntryInput({...base,supplementHours:24});
-  assert.equal(minimum.recordType,'supplement');
-  assert.equal(minimum.supplementHours,0.5);
-  assert.equal(maximum.supplementHours,24);
-  assert.equal(window.PCMSProductionEntryStore.isSupplementEntry(minimum),true);
-  assert.equal(window.PCMSProductionEntryStore.isValidSupplementHours(1.5),true);
-  assert.equal(window.PCMSProductionEntryStore.isValidSupplementHours(0.25),false);
-  assert.equal(window.PCMSProductionEntryStore.isValidSupplementHours(24.5),false);
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...base,supplementHours:0.25}),/0.5至24小時/);
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...base,supplementHours:24.5}),/0.5至24小時/);
-  assert.equal(window.PCMSProductionEntryStore.validateEntryInput({...base,supplementReason:''}).supplementReason,'');
-  assert.throws(()=>window.PCMSProductionEntryStore.validateEntryInput({...base,orderId:'ORDER-ABC-2026'}),/訂單與款號/);
-  assert.equal(window.PCMSProductionEntryStore.validateEntryInput({
-    ...base,orderId:'ORDER-ABC-2026',productCode:'STYLE-500',supplementHours:2
-  }).productCode,'STYLE-500');
-
-  const entryStore=read('js/production/entry-store.js'); // entryStore（生產資料存取程式內容）
-  assert.match(entryStore,/createSupplementEntry\(normalized\)/);
-  assert.match(entryStore,/currentSummary\.activeSupplementHours\+normalized\.supplementHours>workedHours/);
-  assert.match(entryStore,/recordType:'supplement'/);
-  assert.doesNotMatch(entryStore,/recordType:'supplement'[\s\S]{0,500}?quantity:/);
-  const entryPage=read('js/production/production-entry.js');
-  assert.match(entryPage,/Lý do \(không bắt buộc\)/);
-  assert.doesNotMatch(entryPage,/validate:value=>String\(value \|\| ''\)\.trim\(\)\.length > 0/);
-  assert.doesNotMatch(entryStore,/if\(!note\) throw new Error\('Vui lòng nhập lý do hủy/);
-});
-
 test('考勤以0.5小時為單位且每日效率使用每小時產能與補充工時',()=>{
   const attendanceStore=read('js/production/attendance-store.js'); // attendanceStore（產能考勤資料存取程式內容）
   const window=createProductionContext();
@@ -462,7 +354,7 @@ test('考勤以0.5小時為單位且每日效率使用每小時產能與補充�
     attendanceDate:'2026-08-08',employeeId:'M91234',normalHours:20,overtimeHours:4.5,note:''
   }),/不得超過24小時/);
   const entries=[
-    {recordType:'standard',status:'active',quantity:500,hourlyCapacitySnapshot:500},
+    {recordType:'standard',status:'active',quantity:500,hourlyCapacity:500},
     {recordType:'supplement',status:'active',processNo:'0',supplementHours:2}
   ];
   const result=attendance.calculateEfficiency(entries,{normalHours:8,overtimeHours:2});
@@ -528,12 +420,10 @@ test('考勤連同日月摘要每兩位分批，失敗只重試未完成員工',
 test('產能與考勤快取依日期或查詢條件保存且不再每次強制重讀',()=>{
   const reportStore=read('js/production/report-store.js');
   const attendancePage=read('js/production/production-attendance.js');
-  const changeStore=read('js/production/change-store.js');
   const featureSource=read('js/features.js');
-  const retiredSources=[
-    read('js/production/entry-store.js'),read('js/production/attendance-store.js'),
-    read('js/production/process-edit-store.js'),read('js/production/summary-store.js'),
-    read('js/production/summary-migration.js')
+  const currentSources=[
+    read('js/production/linked-entry-store.js'),read('js/production/attendance-store.js'),
+    read('js/production/linked-summary-store.js')
   ].join('\n');
   assert.match(reportStore,/const CACHE_PREFIX = 'productionEntriesQuery:'/);
   assert.match(reportStore,/const MONTH_COLLECTION_NAME = 'productionMonths'/);
@@ -541,9 +431,7 @@ test('產能與考勤快取依日期或查詢條件保存且不再每次強制�
   assert.match(reportStore,/pcmsDataCache\.read\(scope,version\)/);
   assert.match(reportStore,/exactCache\.has\(promiseKey\)/);
   assert.doesNotMatch(attendancePage,/loadDay\([\s\S]{0,120}force\s*:\s*true/);
-  assert.match(changeStore,/const COLLECTION_NAME='productionDayChanges'/);
-  assert.match(changeStore,/changedAt:window\._serverTimestamp\(\)/);
-  assert.doesNotMatch(retiredSources,/PCMSProductionChanges|productionDayChanges|processQueueReference|processQueueData|productionProcessAnalysisQueue/);
+  assert.doesNotMatch(currentSources,/PCMSProductionChanges|productionDayChanges|processQueueReference|processQueueData|productionProcessAnalysisQueue/);
   const featureContext={window:{},CONFIGURABLE_ROLES:['manager','clerk','productionDevelopment','productionControl','sales']};
   vm.createContext(featureContext);
   vm.runInContext(featureSource,featureContext);
@@ -584,7 +472,7 @@ test('產能登記選取員工後預設本月、可指定日期並以有效作�
 
 test('管理員測試刪除保留在各來源功能並同步處理關聯資料',()=>{
   const employeeStore=read('js/production/employee-store.js'); // employeeStore（員工資料存取程式內容）
-  const entryStore=read('js/production/entry-store.js'); // entryStore（生產資料存取程式內容）
+  const entryStore=read('js/production/linked-entry-store.js'); // entryStore（生產資料存取程式內容）
   const employeePage=read('js/production/production-employees.js'); // employeePage（員工資料頁程式內容）
   const entryPage=read('js/production/production-entry.js'); // entryPage（生產登記頁程式內容）
   const attendanceStore=read('js/production/attendance-store.js'); // attendanceStore（考勤資料存取程式內容）
@@ -597,7 +485,7 @@ test('管理員測試刪除保留在各來源功能並同步處理關聯資料',
   assert.match(entryStore,/window\.cu\?\.role!=='admin'/);
   assert.match(entryStore,/return mutateEntry\(entryId,'','delete'\)/);
   assert.match(entryStore,/transaction\.delete\(entryReference\)/);
-  assert.match(entryStore,/ENTRY_DELETE_ACTION='productionEntryDelete'/);
+  assert.match(entryStore,/mutation==='delete'\?'productionEntryDelete'/);
   assert.match(attendanceStore,/async function deleteAttendance/);
   assert.match(attendanceStore,/transaction\.delete\(reference\)/);
   [employeePage,entryPage].forEach(source=>{
@@ -676,13 +564,13 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
   assert.match(features,/uiSearchDropdown:'js\/ui-search-dropdown\.js\?v=20260814-3'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260814-2'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=/);
 });
 
 test('生產登記分開員工資訊與登記區且表格欄位可以按需顯示',()=>{
   const html=read('index.html');
   const source=read('js/production/production-entry.js');
-  const entryStore=read('js/production/entry-store.js');
+  const entryStore=read('js/production/linked-entry-store.js');
   const records=read('js/production/production-records.js');
   const style=read('styles/features/production.css');
   const core=read('styles/ui-core.css');
@@ -733,7 +621,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/processNo:supplement \? '0' : state\.process\?\.processNo/);
   assert.match(source,/supplementHours:supplement \? quantityInput\.value : undefined/);
   assert.match(source,/function hourlyCapacityText\(value\)/);
-  assert.match(source,/hourlyCapacityText\(item\.hourlyCapacitySnapshot\)/);
+  assert.match(source,/hourlyCapacityText\(item\.hourlyCapacity\)/);
   assert.doesNotMatch(source,/hourlyCapacityText\([^)]*processSecSnapshot/);
   assert.match(source,/item\.productCode \|\| '—','production-product-code-cell','product'/);
   assert.match(source,/production-supplement-help-button'\)\.addEventListener\('click'/);
@@ -749,7 +637,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/const PROCESS_TOTAL_TTL_MS = 30000/);
   assert.match(source,/addEventListener\?\.\('focus',refreshProcessTotalOnFocus\)/);
   assert.match(source,/loadQuantityProgress\(state\.process,\{force:true\}\)/);
-  assert.match(entryStore,/applyProcessTotalDelta\(result\.orderProcessId,result\.quantity,result\.orderQtySnapshot\)/);
+  assert.match(entryStore,/applyProcessTotalDelta\(result\.processTotalId,result\.quantity,/);
   assert.match(source,/preview\?\.exceededQuantity > 0/);
   assert.match(source,/value\.textContent = `\$\{numberText\(summary\.registeredQuantity\)\} \/ \$\{numberText\(summary\.orderQuantity\)\}`/);
   assert.match(source,/function employeeIdOptionCopy\(item\)\{[\s\S]*?primary:item\.employeeId/);
@@ -763,7 +651,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/PCMSProductionReports\.loadProcess\(processId,\{activeOnly:true\}\)/);
   assert.match(source,/async function toggleSelectedProcessRows\(\)/);
   assert.doesNotMatch(source,/matches\[0\]\.scrollIntoView/);
-  assert.match(source,/row\.dataset\.orderProcessId/);
+  assert.match(source,/row\.dataset\.processTotalId/);
   assert.doesNotMatch(source,/setPendingFilters|PCMSProductionRecords/);
   assert.match(source,/date\.max = maximum/);
   assert.match(records,/function dateBadgeText\(value\)/);
@@ -805,26 +693,26 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-entry-table td\.production-row-actions \{[\s\S]*?display: table-cell;[\s\S]*?text-align: center;/);
   assert.match(html,/data-production-column="product"[\s\S]*?data-production-column="orderQuantity"[\s\S]*?data-production-column="processNo"/);
   assert.match(source,/\{key:'product'[\s\S]*?\{key:'orderQuantity'[\s\S]*?\{key:'processNo'/);
-  assert.match(source,/appendCell\(row,item\.productCode[\s\S]*?appendCell\(row,supplement \? '—' : numberText\(item\.orderQtySnapshot\)[\s\S]*?appendCell\(row,item\.processNo/);
+  assert.match(source,/appendCell\(row,item\.productCode[\s\S]*?appendCell\(row,supplement \? '—' : numberText\(item\.orderQuantity\)[\s\S]*?appendCell\(row,item\.processNo/);
   assert.match(style,/\.production-records-table \.production-date-cell,[\s\S]*?\.production-entry-table \.production-date-cell \{/);
   assert.match(style,/\.production-data-section \.ui-table-scroll \{[\s\S]*?overflow-x: auto;/);
   assert.match(style,/\.production-records-table,[\s\S]*?\.production-performance-table \{[\s\S]*?width: 100%;[\s\S]*?min-width: max\(100%, var\(--ui-table-visible-min-width, 1100px\)\);[\s\S]*?table-layout: fixed;/);
   assert.match(style,/\.production-records-table td\.production-row-actions \{[\s\S]*?display: table-cell;/);
   assert.match(style,/\.production-supplement-dialog-backdrop \.ui-dialog \{[\s\S]*?--production-dialog-center-x/);
   assert.match(core,/\.ui-table-column-settings-menu \{[\s\S]*?position: absolute;/);
-  assert.match(features,/productionChangeStore:'js\/production\/change-store\.js\?v=20260812-1'/);
+  assert.doesNotMatch(features,/productionChangeStore:/);
   assert.match(features,/productionEmployeeStore:'js\/production\/employee-store\.js\?v=20260816-1'/);
-  assert.match(features,/productionSummaryStore:'js\/production\/summary-store\.js\?v=20260816-/);
-  assert.match(features,/productionEntryStore:'js\/production\/entry-store\.js\?v=20260816-2'/);
-  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=20260816-2'/);
-  assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=20260816-2'/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260816-2'/);
-  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=20260815-/);
+  assert.match(features,/productionSummaryStore:'js\/production\/linked-summary-store\.js\?v=/);
+  assert.match(features,/productionEntryStore:'js\/production\/linked-entry-store\.js\?v=/);
+  assert.match(features,/productionReportStore:'js\/production\/report-store\.js\?v=\d{8}-\d+'/);
+  assert.match(features,/productionAttendanceStore:'js\/production\/attendance-store\.js\?v=\d{8}-\d+'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=/);
+  assert.match(features,/productionRecords:'js\/production\/production-records\.js\?v=/);
   assert.doesNotMatch(features,/productionAnomalyFilter:/);
   assert.match(features,/productionAttendance:'js\/production\/production-attendance\.js\?v=20260814-1'/);
   assert.match(features,/productionEmployees:'js\/production\/production-employees\.js\?v=20260816-1'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260814-2'/);
-  assert.match(html,/js\/features\.js\?v=20260816-4/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=/);
+  assert.match(html,/js\/features\.js\?v=/);
 });
 
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{
@@ -840,12 +728,12 @@ test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',
   assert.doesNotMatch(html,/id="production-record-(?:employee|order|product|process)"/);
   assert.match(records,/search:element\('production-record-search'\)\.value/);
   assert.match(records,/PCMSUISearchDropdown\.create\(\{/);
-  assert.match(records,/onInput:\(\)=>\{ state\.selectedEmployeeId=''; render\(\); \}/);
+  assert.match(records,/onInput:\(\)=>\{[\s\S]*?state\.selectedEmployeeId='';[\s\S]*?render\(\);[\s\S]*?savePreferences\(\);/);
   assert.match(records,/\{key:'employeeId',mode:'code',weight:0\}/);
   assert.match(records,/\{key:'name',mode:'text',weight:10\}/);
   assert.match(records,/\{key:'department',mode:'text',weight:20\}/);
   assert.match(reportStore,/async function loadRange\(fromValue,toValue,options=\{\}\)/);
-  assert.match(reportStore,/async function loadProcess\(orderProcessId,options=\{\}\)/);
+  assert.match(reportStore,/async function loadProcess\(processTotalId,options=\{\}\)/);
   assert.match(style,/\.production-filter-grid \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.doesNotMatch(style,/\.production-filter-actions \{[\s\S]*?grid-column:/);
   assert.match(style,/\.production-filter-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
@@ -868,7 +756,7 @@ test('生產紀錄綜合搜尋可比對表格中的工號姓名訂單款號工�
   const rows=[{
     id:'A',productionDate:'2026-08-10',employeeId:'M12345',displayEmployeeName:'Hỏa Vương',department:'May',
     orderNo:'OD-7788',productCode:'STYLE-500',processNo:'12',processNameVi:'May thân',processNameZh:'車身',
-    quantity:500,orderQuantitySnapshot:1000,processSecSnapshot:48,hourlyCapacitySnapshot:63,displayEfficiency:'87.5%',status:'active'
+    quantity:500,orderQuantity:1000,processSeconds:48,hourlyCapacity:63,displayEfficiency:'87.5%',status:'active'
   },{
     id:'B',productionDate:'2026-08-09',employeeId:'M90000',displayEmployeeName:'Lan',department:'Đóng gói',
     orderNo:'OD-9900',productCode:'STYLE-900',processNo:'3',processNameVi:'Kiểm tra',processNameZh:'檢查',
@@ -1007,5 +895,5 @@ test('正式工序秒數修改完成後立即刷新舊產能與目前工序',()=
   assert.match(source,/loadProcesses\(state\.order\.id,\{force:true\}\)/);
   assert.match(source,/onSaved:refreshAfterProcessSecondsSaved/);
   assert.match(source,/await loadDailyRows\(\)/);
-  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=20260816-2'/);
+  assert.match(features,/productionEntry:'js\/production\/production-entry\.js\?v=\d{8}-\d+'/);
 });

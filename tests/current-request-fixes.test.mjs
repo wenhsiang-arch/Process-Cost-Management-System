@@ -36,9 +36,9 @@ test('未出勤不列入績效，同日依績效由高到低且異常放最後',
   const attendance=loadAttendance();
   const performance=loadPerformance(attendance);
   const entries=[
-    {status:'active',productionDate:'2026-08-14',employeeId:'M1',quantity:80,hourlyCapacitySnapshot:10,processNo:'1'},
-    {status:'active',productionDate:'2026-08-14',employeeId:'M2',quantity:40,hourlyCapacitySnapshot:10,processNo:'1'},
-    {status:'active',productionDate:'2026-08-14',employeeId:'M4',quantity:10,hourlyCapacitySnapshot:10,processNo:'1'}
+    {status:'active',productionDate:'2026-08-14',employeeId:'M1',quantity:80,hourlyCapacity:10,processNo:'1'},
+    {status:'active',productionDate:'2026-08-14',employeeId:'M2',quantity:40,hourlyCapacity:10,processNo:'1'},
+    {status:'active',productionDate:'2026-08-14',employeeId:'M4',quantity:10,hourlyCapacity:10,processNo:'1'}
   ];
   const attendanceByDate=new Map([['2026-08-14',[
     {employeeId:'M1',normalHours:8,overtimeHours:0},
@@ -94,7 +94,7 @@ test('一般訂單可在前置說明後辨識 STYLE 與 PCS 並核對總數量',
   assert.doesNotMatch(source,/Math\.min\(10,rows\.length\)/);
 });
 
-test('一般訂單阻止空白款號、空白數量、零、小數及大小寫重複款號',()=>{
+test('一般訂單阻止空白款號、空白數量、零與小數，但保留大小寫相同款號的各列',()=>{
   const validation=loadOrderValidation();
   const result=validation.parseRows([
     ['MÃ HÀNG','SL:PO PCS'],
@@ -105,13 +105,14 @@ test('一般訂單阻止空白款號、空白數量、零、小數及大小寫�
     ['abc-04',10],
     ['ABC-04',20]
   ],'Order');
-  assert.equal(result.items.length,0);
-  assert.equal(result.errors.length,5);
+  assert.equal(result.items.length,2);
+  assert.equal(result.errors.length,4);
+  assert.deepEqual(Array.from(result.items,item=>item.qty),[10,20]);
   assert.match(result.errors.join('\n'),/款號空白/);
   assert.match(result.errors.join('\n'),/訂單數量空白/);
   assert.match(result.errors.join('\n'),/訂單數量為 0/);
   assert.match(result.errors.join('\n'),/小數/);
-  assert.match(result.errors.join('\n'),/重複出現/);
+  assert.doesNotMatch(result.errors.join('\n'),/重複出現/);
 });
 
 test('左側選單標題與收合按鍵固定在可視區頂端',()=>{

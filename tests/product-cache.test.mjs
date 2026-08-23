@@ -26,6 +26,28 @@ test('planChanges（增量規劃）遇到缺少序號會要求完整重讀',()=>
   assert.equal(plan.valid,false);
 });
 
+test('固定 productId 增量可跨款號改名更新同一份快取',()=>{
+  const plan=cache.planChanges([
+    {sequence:21,changedProductIds:['prd_product000001'],deletedProductIds:[]}
+  ],20);
+  assert.deepEqual(Array.from(plan.changedProductIds),['prd_product000001']);
+  const result=cache.merge(
+    [{productId:'prd_product000001',code:'OLD',ops:[]}],
+    [{productId:'prd_product000001',code:'NEW',ops:[]}]
+  );
+  assert.deepEqual(Array.from(result,item=>item.code),['NEW']);
+});
+
+test('第三版版本提示只補讀緊接的一次異動，漏多版改用完整重讀',()=>{
+  assert.deepEqual(
+    {...cache.planLatestMetaChange(8,{schemaVersion:3,changeSequence:9,lastProductId:'prd_product000001',lastRevision:2})},
+    {valid:true,sequence:9,productId:'prd_product000001',revision:2}
+  );
+  assert.equal(cache.planLatestMetaChange(8,{
+    schemaVersion:3,changeSequence:10,lastProductId:'prd_product000001',lastRevision:3
+  }).valid,false);
+});
+
 test('merge（款號合併）只更新變動款號並移除刪除款號',()=>{
   const result=cache.merge(
     [{code:'A',ops:[]},{code:'B',ops:[]}],

@@ -296,6 +296,7 @@
   }
 
   window.PCMSProductMasterService=Object.freeze({
-    createProduct,saveDraft,saveField,saveManyDrafts,importProducts,draftWithField,createGroup,updateGroup,updateGroupMembers
+    createProduct,saveDraft,saveField,saveManyDrafts,importProducts,draftWithField,
+    createGroup,updateGroup,updateGroupMembers
   });
 })();

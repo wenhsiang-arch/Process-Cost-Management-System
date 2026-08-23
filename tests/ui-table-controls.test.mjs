@@ -52,10 +52,11 @@ function loadResizeHarness(){
     getComputedStyle(){
       return {font:'400 12px sans-serif',fontSize:'12px',fontWeight:'400',fontFamily:'sans-serif',paddingLeft:'10px',paddingRight:'10px',gap:'3px',columnGap:'3px'};
     },
-    localStorage:{
-      getItem:key=>stored.get(key)||null,
-      setItem:(key,value)=>stored.set(key,String(value)),
-      removeItem:key=>stored.delete(key)
+    cu:{authUid:'ui-user'},firebaseAuthUser:{uid:'ui-user'},
+    pcmsDataCache:{
+      read:async scope=>structuredClone(stored.get(scope)||null),
+      write:async(scope,_version,value)=>{stored.set(scope,structuredClone(value));return true;},
+      remove:async scope=>stored.delete(scope)
     },
     PCMSUIRuntime:{getLanguageMode:()=>languageMode}
   });
@@ -169,6 +170,7 @@ function loadResizeHarness(){
   }
   return {
     api:window.PCMSUITableControls,window,stored,makeTable,
+    async settleWrites(){ await new Promise(resolve=>setTimeout(resolve,0)); },
     setLanguageMode(mode){ languageMode=mode; document.dispatch('pcms:languagechange',{detail:{mode}}); }
   };
 }
@@ -195,8 +197,9 @@ test('共用欄位清單只保留功能已判定可用的欄位',()=>{
   assert.deepEqual(columns.map(column=>column.key),['code']);
 });
 
-test('試點表格可以拖曳、雙擊自動符合並保存與恢復欄寬',()=>{
+test('試點表格可以拖曳、雙擊自動符合並保存與恢復欄寬',async()=>{
   const harness=loadResizeHarness();
+  await harness.api.preparePagePreferences('test-page');
   const first=harness.makeTable();
   const columns=[
     {key:'code',label:{vi:'Mã hàng',zh:'款號'},minimum:90,preferred:120,maximum:220},
@@ -211,18 +214,21 @@ test('試點表格可以拖曳、雙擊自動符合並保存與恢復欄寬',()=
   assert.equal(first.headers[0].style.width,'170px');
   assert.equal(first.cells[0].style.width,'170px');
   harness.window.dispatch('pointerup',{preventDefault(){}});
-  const saved=JSON.parse(harness.stored.get('pcms.ui.table-widths.v1.resize-table'));
+  await harness.settleWrites();
+  const saved=harness.stored.get('uiTablePreferences').tables['resize-table'];
   assert.equal(saved.widths.code,170);
   assert.equal(saved.widths.name,200);
 
   first.table.dispatch('dblclick',{target:first.headers[1].children[0],preventDefault(){},stopPropagation(){}});
   assert.equal(first.headers[1].style.width,'260px');
-  assert.equal(JSON.parse(harness.stored.get('pcms.ui.table-widths.v1.resize-table')).widths.name,260);
+  await harness.settleWrites();
+  assert.equal(harness.stored.get('uiTablePreferences').tables['resize-table'].widths.name,260);
 
   control.resetColumnWidths();
+  await harness.settleWrites();
   assert.equal(first.headers[0].style.width,undefined);
   assert.equal(first.headers[1].style.width,undefined);
-  assert.equal(harness.stored.has('pcms.ui.table-widths.v1.resize-table'),false);
+  assert.deepEqual(harness.stored.get('uiTablePreferences').tables['resize-table'].widths,{});
 
   first.table.dispatch('pointerdown',{target:codeHandle,button:0,clientX:100,preventDefault(){},stopPropagation(){}});
   harness.window.dispatch('pointermove',{clientX:-100,preventDefault(){}});
@@ -234,8 +240,9 @@ test('試點表格可以拖曳、雙擊自動符合並保存與恢復欄寬',()=
   control.destroy();
 });
 
-test('語言切換只改目前顯示下限且不覆蓋使用者保存欄寬',()=>{
+test('語言切換只改目前顯示下限且不覆蓋使用者保存欄寬',async()=>{
   const harness=loadResizeHarness();
+  await harness.api.preparePagePreferences('test-page');
   harness.setLanguageMode('vi');
   const fixture=harness.makeTable('language-width-table');
   const control=harness.api.create({
@@ -301,12 +308,14 @@ test('共用控制只管理介面狀態且保留功能回呼',()=>{
   assert.match(source,/options\.onColumnsChanged\?\.\(/);
   assert.match(source,/options\.onSortChanged\?\.\(sortState\)/);
   assert.match(source,/data-ui-table-resize-handle/);
-  assert.match(source,/window\.localStorage\?\.setItem/);
+  assert.match(source,/window\.pcmsDataCache\.write\(TABLE_PREFERENCE_SCOPE,TABLE_PREFERENCE_VERSION/);
   assert.match(source,/handleResizeDoubleClick/);
   assert.match(source,/resetColumnWidths/);
   assert.match(source,/SORT_TRIGGER_SELECTOR = '\[data-ui-table-sort-trigger\]'/);
   assert.match(source,/function headerMinimumWidth\(column\)/);
   assert.match(source,/ti ti-arrows-horizontal/);
   assert.match(source,/createDualCopy\(\{vi:'Mặc định',zh:'恢復預設'\}\)/);
-  assert.doesNotMatch(source,/userAccess|firebase|firestore|UID|canViewCosts|isAdmin/);
+  assert.doesNotMatch(source,/_getDoc|_setDoc|_runTransaction|userAccess|canViewCosts|isAdmin/);
+  assert.match(source,/pcmsDataCache/);
+  assert.match(source,/firebaseAuthUser\?\.uid/);
 });

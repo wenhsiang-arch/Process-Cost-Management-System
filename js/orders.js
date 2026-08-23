@@ -1067,7 +1067,7 @@ function toggleProgCodeDetail(ordId,itemIdentity,detailId){
     <th style="padding:4px 6px;text-align:left;width:90px;font-size:11px">Phân loại<br><span style="font-weight:400;color:var(--mu)">加工分類</span></th>
     <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
     <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
-    <th style="padding:4px 6px;text-align:right;width:115px;font-size:11px">Giây công đoạn của đơn<br><span style="font-weight:400;color:var(--mu)">訂單工序快照秒數</span></th>
+    <th style="padding:4px 6px;text-align:right;width:115px;font-size:11px">Giây công đoạn hiện tại<br><span style="font-weight:400;color:var(--mu)">目前主檔工序秒數</span></th>
     <th style="padding:4px 6px;text-align:right;width:90px;font-size:11px">SL tiêu chuẩn/giờ<br><span style="font-weight:400;color:var(--mu)">標準產量/時</span></th>
   </tr></thead><tbody>${procRows}</tbody></table>`;
   detail.style.display='';

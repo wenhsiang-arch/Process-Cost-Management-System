@@ -38,9 +38,10 @@ test('只有相關資料異動才讓對應功能在背景重新檢查',async()=>
   window.ensureOperationSettingsLoaded=async()=>{ settingReads+=1; };
   window.loadOrderData=async()=>{ orderReads+=1; };
   await window.PCMSFeatures.ensurePageData('progress');
-  window.PCMSFeatures.invalidateDataScopes(['products']);
+  window.PCMSFeatures.invalidateDataScopes(['productionEntries']);
   assert.equal(window.PCMSFeatures.isPageDataFresh('progress'),true);
-  window.PCMSFeatures.invalidateDataScopes(['orders']);
+  // 訂單畫面會以目前款號主檔解析名稱與工序，因此 products（款號）異動也是直接相關來源。
+  window.PCMSFeatures.invalidateDataScopes(['products']);
   assert.equal(window.PCMSFeatures.isPageDataFresh('progress'),false);
   await window.PCMSFeatures.refreshPageDataInBackground('progress');
   assert.equal(settingReads,2);

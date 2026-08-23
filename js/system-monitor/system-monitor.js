@@ -33,7 +33,7 @@
     productionEntries:['Dữ liệu sản lượng','產能資料'],productionAttendance:['Dữ liệu chấm công','考勤資料'],
     productionAnalysis:['Dữ liệu phân tích','分析資料'],productionEmployees:['Dữ liệu nhân viên','員工資料'],
     productionDepartments:['Dữ liệu bộ phận','部門資料'],orders:['Dữ liệu đơn hàng','訂單資料'],
-    orderProcesses:['Công đoạn đơn hàng','訂單工序'],products:['Dữ liệu mã hàng','款號資料'],
+    products:['Dữ liệu mã hàng','款號資料'],
     operationSettings:['Cài đặt vận hành','運算設定'],costSettings:['Cài đặt chi phí','成本設定'],
     performanceBonusSettings:['Tham số thưởng','獎金參數'],performanceBonusTables:['Bảng đối chiếu thưởng','獎金對照表'],
     performanceBonusMonths:['Kết quả thưởng tháng','月份獎金結果'],performanceBonusPrivateMonths:['Lãi lỗ hiệu suất','效率損益']
@@ -104,7 +104,6 @@
   function cacheGroup(scope){
     if(scope.startsWith('productionEntries')) return 'productionEntries';
     if(scope.startsWith('productionAttendance')) return 'productionAttendance';
-    if(scope.startsWith('orderProcesses:')) return 'orderProcesses';
     return scope.split(':')[0]||'other';
   }
   function summarizeCacheEntries(entries){

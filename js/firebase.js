@@ -49,6 +49,67 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+const RUNTIME_VERSION = '20260824-3'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
+let runtimeVersionPromise=null;
+let runtimeVersionStale=false;
+let runtimeVersionDialogPromise=null;
+
+function runtimeVersionError(code,message){
+  const error=new Error(message);
+  error.code=code;
+  return error;
+}
+
+function showRuntimeVersionDialog(error){
+  if(runtimeVersionDialogPromise) return runtimeVersionDialogPromise;
+  const stale=error?.code==='runtime-reload-required';
+  const message=stale
+    ?{vi:'Trang web đã được cập nhật. Phiên bản cũ không thể lưu dữ liệu; vui lòng tải lại trang để tiếp tục.',zh:'網站版本已更新，舊分頁不能儲存資料；請重新載入頁面後繼續。'}
+    :{vi:'Không thể xác nhận phiên bản trang web. Vui lòng kiểm tra mạng rồi thử lại; dữ liệu chưa được ghi.',zh:'目前無法確認網站版本，請檢查網路後重試；資料尚未寫入。'};
+  const dialog=window.PCMSUIComponents?.alertDialog?.({kind:'danger',
+    title:stale?{vi:'Cần tải lại trang',zh:'需要重新載入'}:{vi:'Không thể xác nhận phiên bản',zh:'無法確認網站版本'},message});
+  runtimeVersionDialogPromise=Promise.resolve(dialog).catch(()=>undefined).then(()=>{
+    runtimeVersionDialogPromise=null;
+    if(stale) window.location.reload();
+  });
+  return runtimeVersionDialogPromise;
+}
+
+async function verifyRuntimeVersion(){
+  if(runtimeVersionStale){
+    const error=runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
+    void showRuntimeVersionDialog(error);
+    throw error;
+  }
+  if(runtimeVersionPromise) return runtimeVersionPromise;
+  runtimeVersionPromise=(async()=>{
+    let response;
+    try{
+      response=await fetch(RUNTIME_VERSION_URL,{cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}});
+      if(!response.ok) throw new Error(`HTTP ${response.status}`);
+      const manifest=await response.json();
+      if(String(manifest?.version||'')!==RUNTIME_VERSION){
+        runtimeVersionStale=true;
+        throw runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
+      }
+      return Object.freeze({version:RUNTIME_VERSION,verified:true});
+    }catch(error){
+      const normalized=error?.code==='runtime-reload-required'
+        ?error:runtimeVersionError('runtime-version-unavailable','Không thể xác nhận phiên bản trang web. / 無法確認網站版本。');
+      void showRuntimeVersionDialog(normalized);
+      throw normalized;
+    }
+  })().finally(()=>{runtimeVersionPromise=null;});
+  return runtimeVersionPromise;
+}
+
+window.PCMSRuntimeVersionGuard=Object.freeze({version:RUNTIME_VERSION,verify:verifyRuntimeVersion,isStale:()=>runtimeVersionStale});
+window.addEventListener('focus',()=>{ void verifyRuntimeVersion().catch(()=>undefined); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') void verifyRuntimeVersion().catch(()=>undefined);
+});
+
 // 以下包裝只記錄呼叫與文件數量，不記錄查詢條件或資料內容。
 async function getDoc(reference){
   const snapshot=await firestoreGetDoc(reference);
@@ -72,6 +133,7 @@ async function getCountFromServer(reference){
   return snapshot;
 }
 async function setDoc(reference,data,options){
+  await verifyRuntimeVersion();
   const result=options===undefined
     ? await firestoreSetDoc(reference,data)
     : await firestoreSetDoc(reference,data,options);
@@ -79,11 +141,13 @@ async function setDoc(reference,data,options){
   return result;
 }
 async function updateDoc(reference,data){
+  await verifyRuntimeVersion();
   const result=await firestoreUpdateDoc(reference,data);
   window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:1});
   return result;
 }
 async function deleteDoc(reference){
+  await verifyRuntimeVersion();
   const result=await firestoreDeleteDoc(reference);
   window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:1});
   return result;
@@ -96,6 +160,7 @@ function writeBatch(database){
     update(reference,data){ writeCount+=1; raw.update(reference,data); return wrapped; },
     delete(reference){ writeCount+=1; raw.delete(reference); return wrapped; },
     async commit(){
+      await verifyRuntimeVersion();
       const result=await raw.commit();
       if(writeCount>0) window.PCMSUsageMetrics?.recordCloudWrite?.({writeRequestCount:1,documentWrites:writeCount});
       return result;
@@ -104,6 +169,7 @@ function writeBatch(database){
   return wrapped;
 }
 async function runTransaction(database,worker){
+  await verifyRuntimeVersion();
   let committedWrites=0;
   const result=await firestoreRunTransaction(database,async raw=>{
     let attemptWrites=0;
@@ -976,8 +1042,7 @@ async function fbInitForAuthorizedUser(){
       window.pcmsDataCache?.remove('performanceBonusTable'),
       window.pcmsDataCache?.remove('performanceBonusTables'),
       window.pcmsDataCache?.remove('performanceBonusMonths'),
-      window.pcmsDataCache?.remove('performanceBonusPrivateMonths'),
-      window.pcmsDataCache?.remove('productionAnalysisSummaries')
+      window.pcmsDataCache?.remove('performanceBonusPrivateMonths')
     ]);
     try{
       localStorage.removeItem('impHist');

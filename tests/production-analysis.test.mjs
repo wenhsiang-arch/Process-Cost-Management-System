@@ -14,9 +14,10 @@ const calc=context.window.PCMSProductionAnalysisCalculations;
 function entry(options={}){
   return {
     status:'active',recordType:'standard',productionDate:'2026-08-10',
-    employeeId:'M001',employeeName:'An',department:'May',productCode:'P001',
-    processNo:'1',processNameVi:'May',processNameZh:'車縫',processSecSnapshot:15,
-    hourlyCapacitySnapshot:200,quantity:400,...options
+    employeeId:'M001',employeeName:'An',department:'May',
+    productId:'prd_product000001',processId:'prc_process000001',productCode:'P001',
+    processNo:'1',processNameVi:'May',processNameZh:'車縫',processSeconds:15,
+    hourlyCapacity:200,quantity:400,...options
   };
 }
 
@@ -27,7 +28,7 @@ function attendance(options={}){
   };
 }
 
-test('標準有效工時沿用每小時產能快照',()=>{
+test('標準有效工時使用 Resolver 提供的目前每小時產能',()=>{
   assert.equal(calc.calculationVersion,'production-analysis-v1');
   assert.equal(calc.standardHoursForEntry(entry()),2);
   assert.equal(calc.standardHoursForEntry(entry({recordType:'supplement',processNo:'0',quantity:0})),0);
@@ -36,7 +37,7 @@ test('標準有效工時沿用每小時產能快照',()=>{
 test('扣除補充工時後依標準有效工時比例回推每道工序時間',()=>{
   const entries=[
     entry({processNo:'1',quantity:400}),
-    entry({processNo:'2',processSecSnapshot:30,hourlyCapacitySnapshot:100,quantity:300}),
+    entry({processId:'prc_process000002',processNo:'2',processSeconds:30,hourlyCapacity:100,quantity:300}),
     entry({recordType:'supplement',processNo:'0',quantity:undefined,supplementHours:1})
   ];
   const dataset=calc.buildDataset({entries,attendance:[attendance()]});
@@ -48,12 +49,12 @@ test('扣除補充工時後依標準有效工時比例回推每道工序時間',
   assert.equal(Math.round(day.processes.reduce((sum,item)=>sum+item.inferredHours,0)*10)/10,7);
 });
 
-test('工序秒數版本不同時分開統計且建議秒數由回推時間直接計算',()=>{
+test('相同固定工序不因顯示秒數差異拆成兩個身分',()=>{
   const dataset=calc.buildDataset({
-    entries:[entry(),entry({productionDate:'2026-08-11',processSecSnapshot:22,hourlyCapacitySnapshot:136,quantity:272})],
+    entries:[entry(),entry({productionDate:'2026-08-11',processSeconds:22,hourlyCapacity:136,quantity:272})],
     attendance:[attendance(),attendance({attendanceDate:'2026-08-11'})]
   });
-  assert.equal(dataset.processStats.length,2);
+  assert.equal(dataset.processStats.length,1);
   assert.equal(dataset.processStats[0].suggestedSeconds>0,true);
 });
 
@@ -62,23 +63,24 @@ function ieSample(seconds,index,options={}){
   const quantity=options.quantity??100;
   const inferredHours=options.inferredHours??1;
   return {
-    key:`P001||1||${seconds}||${capacity}`,productCode:'P001',processNo:'1',
-    processNameVi:'May',processNameZh:'車縫',processSecSnapshot:seconds,
-    hourlyCapacitySnapshot:capacity,employeeId:`M${String(index+1).padStart(3,'0')}`,
+    key:'prd_product000001||prc_process000001',productId:'prd_product000001',processId:'prc_process000001',
+    productCode:'P001',processNo:'1',processNameVi:'May',processNameZh:'車縫',processSeconds:seconds,
+    hourlyCapacity:capacity,employeeId:`M${String(index+1).padStart(3,'0')}`,
     date:`2026-08-${String(index%28+1).padStart(2,'0')}`,
     standardHours:quantity/capacity,inferredHours,quantity
   };
 }
 
 function ieRows(samples,currentSeconds){
-  const standards={'P001||1':{
+  const standards={'prd_product000001||prc_process000001':{
+    productId:'prd_product000001',processId:'prc_process000001',
     productCode:'P001',processNo:'1',processNameVi:'May',processNameZh:'車縫',
-    processSec:currentSeconds,active:true
+    processSeconds:currentSeconds,active:true
   }};
   return calc.ieAnalysisRows({processSamples:samples,analysisIndex:{dayMap:new Map()}},{},standards);
 }
 
-test('工序優化後 IE 只統計目前正式秒數，舊版本不影響建議值',()=>{
+test('IE 只統計 Resolver 已解析為目前正式秒數的未鎖樣本',()=>{
   const oldSamples=Array.from({length:30},(_,index)=>ieSample(20,index,{inferredHours:2}));
   const currentSamples=Array.from({length:5},(_,index)=>ieSample(18,index,{inferredHours:0.55+index*0.05}));
   const mixed=ieRows([...oldSamples,...currentSamples],18);
@@ -95,7 +97,7 @@ test('目前正式秒數沒有有效樣本時 IE 不回退舊版本',()=>{
   assert.equal(ieRows(historical,18).length,0);
 });
 
-test('標準錯誤訂正後只納入已改為目前秒數的 open 月份樣本',()=>{
+test('未鎖樣本更新為目前秒數後納入，凍結的不同秒數樣本不混入',()=>{
   const corrected=Array.from({length:8},(_,index)=>ieSample(18,index));
   const lockedHistorical=Array.from({length:2},(_,index)=>ieSample(20,index+8));
   const rows=ieRows([...corrected,...lockedHistorical],18);
@@ -104,12 +106,12 @@ test('標準錯誤訂正後只納入已改為目前秒數的 open 月份樣本',
   assert.equal(rows[0].sampleCount,8);
 });
 
-test('多個歷史秒數只保留目前版本且相同秒數的異常產能快照不拆列',()=>{
+test('不同凍結秒數不混入目前分析且相同固定工序不因產能值拆列',()=>{
   const rows=ieRows([
     ieSample(15,0),ieSample(20,1),ieSample(18,2,{capacity:166}),ieSample(18,3,{capacity:167})
   ],18);
   assert.equal(rows.length,1);
-  assert.equal(rows[0].key,'P001||1');
+  assert.equal(rows[0].key,'prd_product000001||prc_process000001');
   assert.equal(rows[0].currentSeconds,18);
   assert.equal(rows[0].sampleCount,2);
 });
@@ -117,9 +119,9 @@ test('多個歷史秒數只保留目前版本且相同秒數的異常產能快�
 test('IE 目前版本篩選不改變員工與部門歷史分析',()=>{
   const dataset=calc.buildDataset({
     entries:[
-      entry({employeeId:'M001',productionDate:'2026-08-09',processSecSnapshot:15,hourlyCapacitySnapshot:200}),
-      entry({employeeId:'M001',productionDate:'2026-08-10',processSecSnapshot:20,hourlyCapacitySnapshot:150}),
-      entry({employeeId:'M002',productionDate:'2026-08-10',processSecSnapshot:18,hourlyCapacitySnapshot:167})
+      entry({employeeId:'M001',productionDate:'2026-08-09',processSeconds:15,hourlyCapacity:200}),
+      entry({employeeId:'M001',productionDate:'2026-08-10',processSeconds:20,hourlyCapacity:150}),
+      entry({employeeId:'M002',productionDate:'2026-08-10',processSeconds:18,hourlyCapacity:167})
     ],
     attendance:[attendance({employeeId:'M001',attendanceDate:'2026-08-09'}),
       attendance({employeeId:'M001'}),attendance({employeeId:'M002'})]
@@ -136,8 +138,9 @@ test('IE 目前版本篩選不改變員工與部門歷史分析',()=>{
 
 test('十人以上排除最高與最低各百分之二十後使用中間六成',()=>{
   const samples=Array.from({length:10},(_,index)=>({
-    key:'P001||1||15||200',productCode:'P001',processNo:'1',processNameVi:'May',processNameZh:'車縫',
-    processSecSnapshot:15,hourlyCapacitySnapshot:200,employeeId:`M${index}`,
+    key:'prd_product000001||prc_process000001',productId:'prd_product000001',processId:'prc_process000001',
+    productCode:'P001',processNo:'1',processNameVi:'May',processNameZh:'車縫',
+    processSeconds:15,hourlyCapacity:200,employeeId:`M${index}`,
     date:`2026-08-${String(index+1).padStart(2,'0')}`,standardHours:index+1,inferredHours:1,quantity:200
   }));
   const result=calc.aggregateProcess(samples);
@@ -180,7 +183,7 @@ test('缺少考勤、產能或標準產能時提供原因而不是可比較的�
   }
   const noAttendance=statusFor({entries:[entry()],attendance:[]});
   const noProduction=statusFor({entries:[],attendance:[attendance()]});
-  const noCapacity=statusFor({entries:[entry({hourlyCapacitySnapshot:0})],attendance:[attendance()]});
+  const noCapacity=statusFor({entries:[entry({hourlyCapacity:0})],attendance:[attendance()]});
   const invalidAttendance=statusFor({entries:[entry()],attendance:[attendance({normalHours:0})]});
   assert.equal(noAttendance.status,'attendance-missing');
   assert.equal(noProduction.status,'production-missing');
@@ -240,7 +243,7 @@ test('三個分析分頁把公式集中到使用說明並移除表格算法欄',
   assert.doesNotMatch(styleSource,/\.production-analysis-formula-button|\.production-analysis-explanation/);
   assert.match(styleSource,/\.production-analysis-dual-value \{[\s\S]*?display: inline-flex;[\s\S]*?width: fit-content;/);
   assert.match(featuresSource,/productionEmployeeAnalysis:'js\/production-analysis\/employee-analysis\.js\?v=20260815-/);
-  assert.match(featuresSource,/productionIeAnalysis:'js\/production-analysis\/ie-analysis\.js\?v=20260816-/);
+  assert.match(featuresSource,/productionIeAnalysis:'js\/production-analysis\/ie-analysis\.js\?v=\d{8}-\d+'/);
   assert.match(featuresSource,/productionDepartmentAnalysis:'js\/production-analysis\/department-analysis\.js\?v=20260815-/);
   assert.match(featuresSource,/productionAnalysis:'styles\/features\/production-analysis\.css\?v=20260813-1'/);
 });
@@ -363,8 +366,9 @@ test('月份摘要可直接建立員工日與工序分析結果',()=>{
     month:'2026-08',employeeId:'M001',employeeName:'An',department:'May',days:{
       '15':{productionDate:'2026-08-15',attendanceHours:8,standardHours:9,supplementHours:0,
         effectiveHours:9,activeEntryCount:1,invalidCapacityCount:0,efficiencyPercentage:112.5,
-        calculationStatus:'ready',processes:[{key:'P001||1||48||63',productCode:'P001',processNo:'1',
-          processNameVi:'May',processNameZh:'車縫',processSecSnapshot:48,hourlyCapacitySnapshot:63,
+        calculationStatus:'ready',processes:[{key:'prd_product000001||prc_process000001',
+          productId:'prd_product000001',processId:'prc_process000001',productCode:'P001',processNo:'1',
+          processNameVi:'May',processNameZh:'車縫',processSeconds:48,hourlyCapacity:63,
           quantity:100,standardHours:1.587302,inferredHours:1.410935,suggestedSeconds:42.32805}]}
     }
   }];
@@ -398,9 +402,9 @@ function rounded(value){
 
 function currentStandardsFor(dataset){
   return Object.fromEntries(dataset.processSamples.map(item=>[
-    `${item.productCode}||${item.processNo}`,
-    {productCode:item.productCode,processNo:item.processNo,processNameVi:item.processNameVi,
-      processNameZh:item.processNameZh,processSec:item.processSecSnapshot,active:true}
+    `${item.productId}||${item.processId}`,
+    {productId:item.productId,processId:item.processId,productCode:item.productCode,processNo:item.processNo,
+      processNameVi:item.processNameVi,processNameZh:item.processNameZh,processSeconds:item.processSeconds,active:true}
   ]));
 }
 
@@ -417,8 +421,10 @@ test('同一批原始資料與月份摘要的員工、工序及部門分析結�
       attendanceRows.push(attendance({attendanceDate:date,employeeId,employeeName:`Nhan vien ${employeeIndex}`,department}));
       for(let processIndex=1;processIndex<=4;processIndex+=1){
         entries.push(entry({productionDate:date,employeeId,employeeName:`Nhan vien ${employeeIndex}`,department,
-          productCode:`P00${processIndex}`,processNo:String(processIndex),processSecSnapshot:12+processIndex,
-          hourlyCapacitySnapshot:180-processIndex*10,quantity:180+employeeIndex*3+day+processIndex}));
+          productId:`prd_product${String(processIndex).padStart(6,'0')}`,
+          processId:`prc_process${String(processIndex).padStart(6,'0')}`,
+          productCode:`P00${processIndex}`,processNo:String(processIndex),processSeconds:12+processIndex,
+          hourlyCapacity:180-processIndex*10,quantity:180+employeeIndex*3+day+processIndex}));
       }
     }
   }
@@ -444,10 +450,12 @@ function syntheticMonthRows(employeeCount,dayCount=31,processCount=6){
         const standardHours=quantity/capacity;
         const inferredHours=8/processCount*(0.9+(employeeIndex%7)*0.025);
         return {
-          key:`P${String(processIndex+1).padStart(3,'0')}||${processIndex+1}||${currentSeconds}||${capacity}`,
+          key:`prd_product${String(processIndex+1).padStart(6,'0')}||prc_process${String(processIndex+1).padStart(6,'0')}`,
+          productId:`prd_product${String(processIndex+1).padStart(6,'0')}`,
+          processId:`prc_process${String(processIndex+1).padStart(6,'0')}`,
           productCode:`P${String(processIndex+1).padStart(3,'0')}`,processNo:String(processIndex+1),
           processNameVi:`Cong doan ${processIndex+1}`,processNameZh:`工序${processIndex+1}`,
-          processSecSnapshot:currentSeconds,hourlyCapacitySnapshot:capacity,quantity,standardHours,inferredHours,
+          processSeconds:currentSeconds,hourlyCapacity:capacity,quantity,standardHours,inferredHours,
           suggestedSeconds:inferredHours*3000/quantity
         };
       });
@@ -485,7 +493,7 @@ test('純瀏覽器分析支援 40、50、100 與 150 人的 31 天資料量',()=
 
 test('40 人月份分析冷讀 41 Reads、快取重開 1 Read，兩者皆為 0 Firestore Writes',async()=>{
   const calculationSource=fs.readFileSync(new URL('js/production-analysis/analysis-calculations.js',root),'utf8');
-  const summarySource=fs.readFileSync(new URL('js/production/summary-store.js',root),'utf8');
+  const summarySource=fs.readFileSync(new URL('js/production/linked-summary-store.js',root),'utf8');
   const storeSource=fs.readFileSync(new URL('js/production-analysis/analysis-store.js',root),'utf8');
   const cloudRows=syntheticMonthRows(40,31,4);
   const cacheEntries=new Map();
@@ -524,51 +532,24 @@ test('40 人月份分析冷讀 41 Reads、快取重開 1 Read，兩者皆為 0 F
 
 async function runCurrentStandardScenario(keyCount,scenario){
   const storeSource=fs.readFileSync(new URL('js/production-analysis/analysis-store.js',root),'utf8');
-  const productModelSource=fs.readFileSync(new URL('js/product-model.js',root),'utf8');
-  const products=Array.from({length:keyCount},(_,index)=>({
-    code:`P${String(index+1).padStart(4,'0')}`,
-    ops:[{no:'1',category:'SX',vi:`Cong doan ${index+1}`,zh:`工序${index+1}`,sec:18+index%7}]
-  }));
-  const dataset={processSamples:products.map(item=>({
-    productCode:item.code,processNo:'1',processSecSnapshot:item.ops[0].sec,hourlyCapacitySnapshot:3000/item.ops[0].sec
-  }))};
+  const dataset={processSamples:Array.from({length:keyCount},(_,index)=>{
+    const processSeconds=18+index%7;
+    return {
+      productId:`prd_product${String(index+1).padStart(6,'0')}`,
+      processId:`prc_process${String(index+1).padStart(6,'0')}`,
+      productCode:`P${String(index+1).padStart(4,'0')}`,processNo:'1',
+      processNameVi:`Cong doan ${index+1}`,processNameZh:`工序${index+1}`,
+      processSeconds,hourlyCapacity:3000/processSeconds
+    };
+  })};
   let queryCount=0;
   let metaCalls=0;
   let cacheCalls=0;
-  const fullProducts=scenario!=='analysis-only';
   const context={window:{},console,Date,setTimeout,clearTimeout,performance};
-  context.window.cu={role:fullProducts?'manager':'sales',authUid:'analysis-user'};
-  context.window.firebaseAuthUser={uid:'analysis-user'};
-  context.window.permissionSettings={
-    manager:{summary:true,productsMain:true},sales:{productionAnalysis:true}
-  };
-  context.window.D=scenario==='runtime'?products:[];
-  context.window.lastProductReadMetrics=scenario==='runtime'?{mode:'indexeddb',finishedAt:Date.now()}:null;
-  context.window.PCMSProductCache={async read(){cacheCalls+=1;return {version:'CACHE-1',items:products};}};
-  context.window.getProductsMetaForFeature=async()=>{
-    metaCalls+=1;
-    return {version:scenario==='indexeddb'?'CACHE-1':'CACHE-2'};
-  };
-  context.window._collection=collection=>({collection});
-  context.window._where=(field,operator,value)=>({field,operator,value});
-  context.window._query=(...parts)=>({parts});
-  context.window._getDocs=async request=>{
-    queryCount+=1;
-    const ids=request.parts.find(item=>item?.field==='standardId')?.value||[];
-    const docs=ids.map(id=>{
-      const [encodedCode,encodedNo]=id.split('__');
-      const productCode=decodeURIComponent(encodedCode);
-      const processNo=decodeURIComponent(encodedNo);
-      const product=products.find(item=>item.code===productCode);
-      return {id,data:()=>({
-        standardId:id,productCode,processNo,processSec:product.ops[0].sec,
-        processNameVi:product.ops[0].vi,processNameZh:product.ops[0].zh,active:true
-      })};
-    });
-    return {size:docs.length,docs};
-  };
+  context.window.getProductsMetaForFeature=async()=>{ metaCalls+=1; return {}; };
+  context.window.PCMSProductCache={async read(){ cacheCalls+=1; return null; }};
+  context.window._getDocs=async()=>{ queryCount+=1; return {size:0,docs:[]}; };
   vm.createContext(context);
-  vm.runInContext(productModelSource,context);
   vm.runInContext(storeSource,context);
   const started=performance.now();
   const result=await context.window.PCMSProductionAnalysisStore.loadCurrentStandards({dataset});
@@ -576,34 +557,20 @@ async function runCurrentStandardScenario(keyCount,scenario){
     standardCount:result.standards.size,metrics:context.window.lastProductionIEStandardReadMetrics};
 }
 
-test('IE 目前正式標準依 runtime、有效快取、過期快取及分析專用權限選擇最低 Reads',async()=>{
+test('IE 目前正式標準直接來自 Resolver 資料且不增加雲端 Reads',async()=>{
   const keyCounts=[20,100,500,1000];
   const results=[];
   for(const keyCount of keyCounts){
     for(const scenario of ['runtime','indexeddb','stale-cache','analysis-only']){
       const result=await runCurrentStandardScenario(keyCount,scenario);
       results.push({...result,metrics:{...result.metrics}});
-      const chunks=Math.ceil(keyCount/30);
       assert.equal(result.standardCount,keyCount);
-      if(scenario==='runtime'){
-        assert.equal(result.metrics.clientReadCount,0);
-        assert.equal(result.queryCount,0);
-        assert.equal(result.cacheCalls,0);
-      }else if(scenario==='indexeddb'){
-        assert.equal(result.metrics.clientReadCount,1);
-        assert.equal(result.metrics.rulesDependentReadCount,2);
-        assert.equal(result.queryCount,0);
-      }else if(scenario==='stale-cache'){
-        assert.equal(result.metrics.clientReadCount,keyCount+1);
-        assert.equal(result.metrics.rulesDependentReadCount,(chunks+1)*2);
-        assert.equal(result.queryCount,chunks);
-      }else{
-        assert.equal(result.metrics.clientReadCount,keyCount);
-        assert.equal(result.metrics.rulesDependentReadCount,chunks*2);
-        assert.equal(result.queryCount,chunks);
-        assert.equal(result.metaCalls,0);
-        assert.equal(result.cacheCalls,0);
-      }
+      assert.equal(result.metrics.source,'resolved-product-master');
+      assert.equal(result.metrics.clientReadCount,0);
+      assert.equal(result.metrics.rulesDependentReadCount,0);
+      assert.equal(result.queryCount,0);
+      assert.equal(result.metaCalls,0);
+      assert.equal(result.cacheCalls,0);
       assert.equal(result.metrics.fullProductReadCount,0);
     }
   }

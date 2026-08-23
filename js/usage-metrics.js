@@ -44,7 +44,6 @@
     if(value.startsWith('productionEntries')) return 'productionEntries';
     if(value.startsWith('productionAttendance')) return 'productionAttendance';
     if(value.startsWith('productionAnalysis')) return 'productionAnalysis';
-    if(value.startsWith('orderProcesses:')) return 'orderProcesses';
     return safeKey(value,'other');
   }
   function pageCounters(page){

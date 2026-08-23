@@ -211,10 +211,18 @@
     const normalized=text(month);if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(normalized)) throw new Error('Tháng không hợp lệ. / 月份不正確。');
     const supplied=Object.hasOwn(options,'version');const version=supplied?text(options.version)||'0':await monthVersion(normalized);
     const scope=`productionEmployeeMonths:${normalized}`;
-    if(options.force!==true){const cached=await window.pcmsDataCache?.read(scope,version);if(Array.isArray(cached)) return clone(cached);}
+    if(options.force!==true){
+      const cached=await window.pcmsDataCache?.read(scope,version);
+      if(Array.isArray(cached)){
+        options.onMetrics?.(Object.freeze({source:'indexeddb',versionReadCount:supplied?0:1,documentReadCount:0}));
+        return clone(cached);
+      }
+    }
     const snapshot=await window._getDocs(window._query(window._collection(MONTH_COLLECTION),window._where('month','==',normalized)));
     const rows=snapshot.docs.map(item=>({id:item.id,...item.data()})).filter(item=>Number(item.schemaVersion)===SCHEMA_VERSION);
-    await window.pcmsDataCache?.write(scope,version,rows);return clone(rows);
+    await window.pcmsDataCache?.write(scope,version,rows);
+    options.onMetrics?.(Object.freeze({source:'cloud',versionReadCount:supplied?0:1,documentReadCount:snapshot.docs.length}));
+    return clone(rows);
   }
   async function loadEmployeeMonths(month,options={}){
     const raw=await loadRawEmployeeMonths(month,options);if(options.raw===true) return raw;

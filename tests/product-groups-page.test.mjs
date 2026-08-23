@@ -20,54 +20,24 @@ function loadGroupUi(){
   return context.window.PCMSProcessGroupUI;
 }
 
-function loadGroupStoreForManualSelection(){
-  const products=[
-    {code:'A',client:'GT',vi:'Vòng cổ',sz:'6MM',ops:[{no:'1',category:'SX',vi:'May',sec:10}]},
-    {code:'A2',client:'GT',vi:'Vòng cổ',sz:'8MM',ops:[{no:'1',category:'SX',vi:'May',sec:12}]},
-    {code:'B',client:'GT',vi:'Vòng cổ',sz:'10MM',ops:[{no:'1',category:'SX',vi:'Đục lỗ',sec:9}]},
-    {code:'C',client:'SYLS',vi:'Vòng cổ',sz:'10MM',ops:[{no:'1',category:'SX',vi:'Đục lỗ',sec:9}]}
-  ];
-  const context={window:{D:products,firebaseAuthUser:{uid:'tester'},cu:{user:'Tester'}}};
-  vm.createContext(context);
-  vm.runInContext(read('js/product-model.js'),context);
-  const groupData={
-    groupId:'group-1',name:'Vòng cổ',signature:context.window.PCMSProductModel.groupSignature(products[0]),
-    memberCodes:['A','A2'],active:true
-  };
-  context.window._collection=name=>({collection:name});
-  context.window._docRef=(collection,id)=>({collection,id});
-  context.window._newDocRef=collection=>({collection,id:'new-group'});
-  context.window._getDocs=async()=>({docs:[{id:'group-1',data:()=>({...groupData,memberCodes:[...groupData.memberCodes]})}]});
-  context.window._runTransaction=async callback=>callback({
-    get:async reference=>reference.collection==='productGroups'
-      ?{exists:()=>true,data:()=>({...groupData,memberCodes:[...groupData.memberCodes]})}
-      :{exists:()=>false,data:()=>({})},
-    update:(reference,value)=>{ if(reference.collection==='productGroups') Object.assign(groupData,value); },
-    set:()=>{},delete:()=>{}
-  });
-  context.window.saveOperationLogToFB=async()=>true;
-  vm.runInContext(read('js/production/process-edit-store.js'),context);
-  return {store:context.window.PCMSProcessEditStore,groupData};
-}
-
-test('款號管理抬頭包含款號總表、工序修改及同產品群組',()=>{
+test('款號管理抬頭只保留款號總表及同產品群組，工序由快速修改進入',()=>{
   const {PCMSFeatures}=loadFeatures();
   assert.deepEqual(Array.from(PCMSFeatures.getModule('products').pages,item=>item.page),[
-    'summary','production-process-edit','product-groups'
+    'summary','product-groups'
   ]);
   assert.deepEqual(Array.from(PCMSFeatures.getModule('production').pages,item=>item.page),[
     'production-entry','production-records','production-bonus','production-attendance','production-employees'
   ]);
   assert.equal(PCMSFeatures.getPage('product-groups').feature,'productionProcessEdit');
-  assert.equal(PCMSFeatures.getPage('product-groups').permissionVisible,false);
-  assert.equal(PCMSFeatures.getModule('products').pages.filter(page=>page.feature==='productionProcessEdit').length,2);
+  assert.notEqual(PCMSFeatures.getPage('product-groups').permissionVisible,false);
+  assert.equal(PCMSFeatures.getModule('products').pages.filter(page=>page.feature==='productionProcessEdit').length,1);
   assert.equal(PCMSFeatures.permissionStructure.find(module=>module.id==='products').pages.filter(page=>page.key==='productionProcessEdit').length,1);
 });
 
-test('舊權限只開工序修改時仍能進入款號管理入口',()=>{
+test('款號管理主入口明確關閉時不由子權限偷偷開啟',()=>{
   const {normalizeFeaturePermissions}=loadFeatures();
   const normalized=normalizeFeaturePermissions({productsMain:false,productionMain:false,productionProcessEdit:true});
-  assert.equal(normalized.productsMain,true);
+  assert.equal(normalized.productsMain,false);
   assert.equal(normalized.productionMain,false);
   assert.equal(normalized.productionProcessEdit,true);
   assert.equal(normalized.processSecondsEdit,false);
@@ -103,7 +73,7 @@ test('群組頁先顯示全部清單，建立群組才開啟三步驟視窗',()=
 
 test('群組清單只顯示群組摘要且點名稱開啟可修改成員的緊湊視窗',()=>{
   const page=read('js/production/product-groups.js');
-  const store=read('js/production/process-edit-store.js');
+  const runtime=read('js/product-group-runtime.js');
   const style=read('styles/features/production-process-edit.css');
   assert.match(page,/class="product-group-name-button" data-product-group-view/);
   assert.doesNotMatch(page,/Xem thành viên|查看成員|data-product-group-edit|Sửa công đoạn/);
@@ -117,45 +87,29 @@ test('群組清單只顯示群組摘要且點名稱開啟可修改成員的緊�
   assert.match(page,/data-product-group-delete/);
   assert.match(page,/deleteGroup/);
   assert.match(page,/renameGroup/);
-  assert.match(page,/Xác nhận xóa vĩnh viễn nhóm/);
-  assert.match(store,/async function deleteGroup\(groupId\)/);
-  assert.match(store,/previousCodes\.forEach\(code=>transaction\.delete/);
-  assert.match(store,/transaction\.delete\(groupReference\)/);
-  assert.match(store,/action:'productGroupDelete'/);
-  assert.match(store,/async function renameGroup\(input=\{\}\)/);
-  assert.match(store,/action:'productGroupRename'/);
+  assert.doesNotMatch(page,/Xác nhận xóa vĩnh viễn nhóm|確認永久刪除群組/);
+  assert.match(page,/Xác nhận ngừng dùng nhóm/);
+  assert.match(page,/確認停用群組/);
+  assert.match(runtime,/async function deleteGroup\(groupId,options=\{\}\)/);
+  assert.match(runtime,/setActive\(current,false,options\)/);
+  assert.doesNotMatch(runtime,/transaction\.delete/);
+  assert.match(runtime,/async function renameGroup\(input,options=\{\}\)/);
   assert.match(page,/Khách hàng:<\/strong>/);
   assert.match(style,/\.product-group-detail-dialog \.process-size-tabs/);
   assert.match(style,/grid-template-columns:repeat\(auto-fit,minmax\(72px,1fr\)\)/);
   assert.match(style,/\.product-group-detail-dialog \.ui-table-scroll\{max-height:none;overflow:visible\}/);
 });
 
-test('建立新群組維持推薦條件，既有群組可人工加入同客人款號',()=>{
+test('建立新群組維持推薦條件，正式儲存只使用固定 productId',()=>{
   const page=read('js/production/product-groups.js');
-  const store=read('js/production/process-edit-store.js');
+  const runtime=read('js/product-group-runtime.js');
+  const service=read('js/product-master-service.js');
   assert.match(page,/matchesGroupSignature\(item,group\.signature\)/);
-  assert.match(store,/validateGroupMembers\(input\.memberCodes\)/);
-  assert.match(store,/allowManualSelection=false/);
-  assert.match(store,/validateGroupMembers\(input\.memberCodes,\{allowManualSelection:true,expectedClient\}\)/);
-  assert.match(store,/群組內款號必須屬於同一位客人/);
-  assert.match(store,/所選款號不屬於此群組的客人/);
-  assert.doesNotMatch(store,/matchesGroupSignature\(validated\.memberProducts\[0\],current\.signature\)/);
-});
-
-test('既有群組可人工加入推薦不符合款號，但不能跨客人',async()=>{
-  const {store,groupData}=loadGroupStoreForManualSelection();
-  await store.loadGroups();
-  const result=await store.updateGroupMembers({groupId:'group-1',memberCodes:['A','A2','B']});
-  assert.equal(result.changed,true);
-  assert.deepEqual([...groupData.memberCodes],['A','A2','B']);
-  await assert.rejects(
-    store.updateGroupMembers({groupId:'group-1',memberCodes:['A','A2','B','C']}),
-    /群組內款號必須屬於同一位客人/
-  );
-  await assert.rejects(
-    store.createGroup({memberCodes:['A','B']}),
-    /不能建立同產品群組/
-  );
+  assert.match(runtime,/memberProductIds/);
+  assert.match(runtime,/service\(\)\.createGroup/);
+  assert.match(service,/async function createGroup/);
+  assert.match(service,/productGroupMembers/);
+  assert.doesNotMatch(runtime,/process-edit-store|PCMSProcessEditStore/);
 });
 
 test('已有群組只列同客人款號並可依款號或越文名稱篩選',()=>{
@@ -191,32 +145,19 @@ test('已有群組只列同客人款號並可依款號或越文名稱篩選',()=
   assert.doesNotMatch(style,/\.product-group-add-dialog table\{min-width:820px\}/);
 });
 
-test('工序修改安全預設只改目前款號，主動選擇後才展開群組',()=>{
-  const page=read('js/production/process-edit.js');
-  assert.match(page,/process-edit-client-select/);
-  assert.match(page,/state\.selectedClient/);
-  assert.match(page,/applyMode:'current'/);
-  assert.match(page,/Chỉ sửa mã hiện tại/);
-  assert.match(page,/只修改目前款號/);
-  assert.match(page,/process-edit-group-targets/);
-  assert.match(page,/process-edit-toolbar-group/);
-  assert.match(page,/process-edit-operation-number/);
-  assert.match(page,/process-edit-operation-name/);
-  assert.match(page,/data-process-group-selector/);
-  assert.match(page,/createMemberSelector/);
-  assert.match(page,/data-ui-table-default-visible="false"/);
-  assert.match(page,/process-edit-drag-handle/);
-  assert.doesNotMatch(page,/class="process-edit-reason"/);
-  assert.doesNotMatch(page,/order-exception-button/);
-  assert.match(page,/sp\?\.\('product-groups'\)/);
-  assert.doesNotMatch(page,/data-process-switch/);
-  assert.doesNotMatch(page,/編輯此款/);
-  assert.doesNotMatch(page,/data-group-candidate/);
-  assert.doesNotMatch(page,/createSuggestedGroup/);
+test('工序快速修改預設勾選可匹配群組且共用正式儲存服務',()=>{
+  const page=read('js/product-quick-edit.js');
+  assert.match(page,/function buildTargets/);
+  assert.match(page,/memberProductIds/);
+  assert.match(page,/matched:config\.scope==='product'\|\|!!operation/);
+  assert.match(page,/selected:config\.scope==='product'\|\|!!operation/);
+  assert.match(page,/目前群組預設全選；取消不想修改的款號即可/);
+  assert.match(page,/service\(\)\.saveManyDrafts/);
+  assert.doesNotMatch(page,/工序優化|標準錯誤訂正|order-exception-button/);
 });
 
-test('工序修改與群組頁支援中央三種語言顯示模式',()=>{
-  const process=read('js/production/process-edit.js');
+test('工序快速修改與群組頁支援中央三種語言顯示模式',()=>{
+  const process=read('js/product-quick-edit.js');
   const groups=read('js/production/product-groups.js');
   const css=read('styles/features/production-process-edit.css');
   assert.match(process,/ui-dual-copy/);

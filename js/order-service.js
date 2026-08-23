@@ -178,16 +178,11 @@
 
   async function updateItemQuantity(currentInput,nextQuantity,options={}){
     requireCloud();
-    if(typeof window._getDocs!=='function'||typeof window._query!=='function'||typeof window._where!=='function'){
-      throw new Error('Dịch vụ tra cứu dữ liệu chưa sẵn sàng. / 雲端資料查詢服務尚未載入。');
-    }
     const currentActor=actor(options.actor);
     const logReference=window._newDocRef(COLLECTIONS.logs);
     const operationLogId=text(logReference.id);
     const itemId=model().fixedId(currentInput?.orderItemId,'orderItem');
     if(!itemId) throw new Error('Dòng đơn hàng không hợp lệ. / 訂單項目不正確。');
-    const totalSnapshot=await window._getDocs(window._query(window._collection(COLLECTIONS.totals),window._where('orderItemId','==',itemId)));
-    const totalReferences=(totalSnapshot.docs||[]).map(item=>item.ref);
     let saved;
     await window._runTransaction(async transaction=>{
       const itemReference=window._docRef(COLLECTIONS.items,itemId);
@@ -195,16 +190,23 @@
       if(!itemSnapshot.exists()) throw new Error('Không tìm thấy dòng đơn hàng. / 找不到訂單項目。');
       const remote={orderItemId:itemId,...itemSnapshot.data()};
       if(Number(remote.revision||1)!==Number(currentInput.revision||1)) throw new Error('Dòng đơn hàng đã được người khác sửa. / 訂單項目已由其他人修改。');
-      const totals=[];
-      for(const reference of totalReferences){
-        const snapshot=await transaction.get(reference);
-        if(snapshot.exists()) totals.push({id:reference.id,...snapshot.data()});
+      const productReference=window._docRef('products',model().fixedId(remote.productId,'product'));
+      const productSnapshot=await transaction.get(productReference);
+      if(!productSnapshot.exists()||productSnapshot.data()?.active===false){
+        throw new Error('Không tìm thấy dữ liệu mã hàng hiện tại. / 找不到目前款號主檔。');
       }
+      const processIds=[...new Set((productSnapshot.data()?.ops||[])
+        .filter(operation=>operation?.active!==false)
+        .map(operation=>model().fixedId(operation?.processId,'process'))
+        .filter(Boolean))];
+      const totalReferences=processIds.map(processId=>window._docRef(COLLECTIONS.totals,itemStore().processTotalId(itemId,processId)));
+      const orderReference=window._docRef(COLLECTIONS.orders,remote.orderId);
+      const [orderSnapshot,...totalSnapshots]=await Promise.all([orderReference,...totalReferences].map(reference=>transaction.get(reference)));
+      if(!orderSnapshot.exists()) throw new Error('Không tìm thấy đơn hàng. / 找不到訂單。');
+      const totals=totalSnapshots.map((snapshot,index)=>snapshot.exists()
+        ?{id:totalReferences[index].id,...snapshot.data()}:null).filter(Boolean);
       saved={...itemStore().validateQuantityChange(remote,nextQuantity,totals),revision:Number(remote.revision||1)+1,
         operationLogId};
-      const orderReference=window._docRef(COLLECTIONS.orders,remote.orderId);
-      const orderSnapshot=await transaction.get(orderReference);
-      if(!orderSnapshot.exists()) throw new Error('Không tìm thấy đơn hàng. / 找不到訂單。');
       const now=Date.now();
       transaction.set(itemReference,{quantity:saved.quantity,revision:saved.revision,updatedAt:now,
         updatedByUid:currentActor.uid,operationLogId},{merge:true});

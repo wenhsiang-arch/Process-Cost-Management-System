@@ -482,6 +482,12 @@ function showFeatureDataWarnings(warnings){
 function featureLoadErrorMessage(error){
   const code=String(error?.code||'');
   const message=String(error?.message||'');
+  if(code==='runtime-reload-required'){
+    return 'Trang web đã được cập nhật, vui lòng tải lại trang để tiếp tục. / 網站版本已更新，請重新載入頁面後繼續。';
+  }
+  if(code==='runtime-version-unavailable'){
+    return 'Không thể xác nhận phiên bản trang web, vui lòng kiểm tra mạng rồi thử lại. / 無法確認網站版本，請檢查網路後重試。';
+  }
   if(code==='failed-precondition'&&/index/i.test(message)){
     return 'Thiếu chỉ mục dữ liệu cần thiết, vui lòng liên hệ quản trị viên. / 缺少必要的資料索引，請聯絡管理員。';
   }

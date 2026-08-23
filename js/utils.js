@@ -1,5 +1,5 @@
 // ===== 共用常數 =====
-const COL = {orders:'orders', processes:'orderProcesses', orderAdjustments:'orderAdjustments', orderLocks:'orderLocks', secondSyncLogs:'secondSyncLogs'};
+const COL = {orders:'orders'};
 // CONFIGURABLE_ROLES（可設定權限角色）、DESK_ROLES（桌機系統角色）。
 const CONFIGURABLE_ROLES = ['manager','clerk','productionDevelopment','productionControl','sales'];
 const DESK_ROLES = ['admin',...CONFIGURABLE_ROLES];
@@ -31,18 +31,11 @@ function isOrderUsable(o){
     && (!o.importStatus||o.importStatus==='ready')
     && (!o.lifecycleStatus||o.lifecycleStatus==='active');
 }
-function isOrderMutationLocked(o){ return !!o&&(o.lifecycleStatus==='syncingSeconds'||o.lifecycleStatus==='deleting'); }
 function canManageOrders(){
   const role=window.cu?.role;
   if(role==='admin') return true;
   const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
   return permissions?.progress===true&&permissions?.orderImport===true;
-}
-function orderLockId(orderNo){ return encodeURIComponent(String(orderNo||'').trim().toUpperCase()); }
-// newOrderProcessVersion（建立訂單工序版本）：只讓有變動的訂單工序快取失效。
-function newOrderProcessVersion(){
-  const uid=String(window.firebaseAuthUser?.uid||'user').slice(0,12);
-  return `${Date.now()}-${uid}-${Math.random().toString(36).slice(2,8)}`;
 }
 function normalizeProcessNo(value){
   const raw=String(value??'').trim();

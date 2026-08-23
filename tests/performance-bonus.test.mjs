@@ -11,7 +11,8 @@ vm.runInContext(source,context);
 const bonus=context.window.PCMSPerformanceBonusCalculations;
 const settings={unitPrice:400,companyShare:50,efficiencyCap:120};
 const storeSource=fs.readFileSync(new URL('js/performance-bonus/bonus-store.js',root),'utf8');
-const summarySource=fs.readFileSync(new URL('js/production/summary-store.js',root),'utf8');
+const summarySource=fs.readFileSync(new URL('js/production/linked-summary-store.js',root),'utf8');
+const efficiencySource=fs.readFileSync(new URL('js/production/efficiency-core.js',root),'utf8');
 
 test('績效效率無條件捨去後才計算員工獎金',()=>{
   assert.equal(bonus.wholeEfficiency(81.9),81);
@@ -68,8 +69,8 @@ test('獎金設定與對照表只用工作階段記憶，不讀寫持久快取�
 
 test('獎金試算沿用 productionEmployeeMonths 月摘要持久快取，不重讀同月份摘要',async()=>{
   const monthRows=[{
-    month:'2026-08',employeeId:'M00001',employeeName:'An',department:'May',summaryComplete:true,schemaVersion:2,
-    days:{d01:{productionDate:'2026-08-01',attendanceHours:8,standardHours:8,supplementHours:0,
+    month:'2026-08',employeeId:'M00001',employeeName:'An',department:'May',summaryComplete:true,schemaVersion:3,
+    days:{d01:{productionDate:'2026-08-01',normalHours:8,overtimeHours:0,supplementHours:8,
       activeEntryCount:1,efficiencyPercentage:100,calculationStatus:'ready'}}
   }];
   const cacheEntries=new Map();
@@ -105,6 +106,7 @@ test('獎金試算沿用 productionEmployeeMonths 月摘要持久快取，不重
   };
   const appContext={window:appWindow,console,Object,Array,String,Number,Math,Date,Error,RegExp,Map,Set,JSON};
   vm.createContext(appContext);
+  vm.runInContext(efficiencySource,appContext);
   vm.runInContext(summarySource,appContext);
   vm.runInContext(source,appContext);
   vm.runInContext(storeSource,appContext);
