@@ -24,14 +24,18 @@ test('主頁提供最上方更新入口並記錄本次使用者功能',()=>{
   assert.match(html,/production-records-pagination/);
 });
 
-test('一般網站更新在側邊欄顯示雙語提醒且保留雙語登出倒數',()=>{
+test('側邊欄常駐顯示目前版本狀態並在一般更新時提供雙語提醒',()=>{
   const html=read('index.html');
   const source=read('js/firebase.js');
   const notice=html.indexOf('id="runtime-update-notice"');
   const idle=html.indexOf('id="idle-info"');
   assert.ok(notice>=0&&idle>notice);
-  assert.match(html,/id="runtime-update-notice" hidden[\s\S]*?ti-refresh/);
-  assert.match(html,/Có phiên bản mới[\s\S]*?有新版本/);
+  assert.match(html,/id="runtime-update-notice" disabled[\s\S]*?id="runtime-update-icon" class="ti ti-loader-2"/);
+  assert.match(html,/Đang kiểm tra cập nhật[\s\S]*?正在確認更新/);
+  assert.match(source,/Có phiên bản mới[\s\S]*?有新版本/);
+  assert.match(source,/current:\{vi:'Đã là phiên bản mới nhất',zh:'已是最新版本',icon:'ti-circle-check'\}/);
+  assert.match(source,/available:\{vi:'Có phiên bản mới',zh:'有新版本',icon:'ti-refresh'\}/);
+  assert.match(source,/void verifyRuntimeVersion\(\{silent:true\}\)\.catch\(\(\)=>undefined\)/);
   assert.match(html,/Tự động đăng xuất:[\s\S]*?自動登出：/);
   assert.equal((html.match(/data-idle-countdown/g)||[]).length,2);
   assert.match(source,/cancelText:\{vi:'Để sau',zh:'稍後'\}/);

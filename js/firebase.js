@@ -49,13 +49,14 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260824-10'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260825-1'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
 let runtimeVersionDialogPromise=null;
 let runtimeUpdateDialogPromise=null;
 let runtimeAvailableVersion='';
+let runtimeUpdateStatus='checking'; // runtimeUpdateStatus（網站更新狀態）：確認中、最新、有更新或無法確認。
 
 function runtimeVersionError(code,message){
   const error=new Error(message);
@@ -78,12 +79,36 @@ function showRuntimeVersionDialog(error){
   return runtimeVersionDialogPromise;
 }
 
-function setRuntimeUpdateNotice(visible,version=''){
-  runtimeAvailableVersion=visible?String(version||''):'';
+function setRuntimeUpdateStatus(status,version=''){
+  const normalized=['checking','current','available','unavailable'].includes(status)?status:'unavailable';
+  const available=normalized==='available';
+  const labels={
+    checking:{vi:'Đang kiểm tra cập nhật',zh:'正在確認更新',icon:'ti-loader-2'},
+    current:{vi:'Đã là phiên bản mới nhất',zh:'已是最新版本',icon:'ti-circle-check'},
+    available:{vi:'Có phiên bản mới',zh:'有新版本',icon:'ti-refresh'},
+    unavailable:{vi:'Chưa xác nhận cập nhật',zh:'尚未確認更新',icon:'ti-alert-circle'}
+  };
+  const label=labels[normalized];
+  runtimeUpdateStatus=normalized;
+  runtimeAvailableVersion=available?String(version||''):'';
   const notice=document.getElementById('runtime-update-notice');
+  const icon=document.getElementById('runtime-update-icon');
+  const dot=document.getElementById('runtime-update-dot');
+  const vi=document.getElementById('runtime-update-text-vi');
+  const zh=document.getElementById('runtime-update-text-zh');
   const shell=document.getElementById('app-shell');
-  if(notice) notice.hidden=!visible;
-  if(shell) shell.classList.toggle('has-runtime-update',visible);
+  if(notice){
+    notice.disabled=!available;
+    notice.classList.remove('is-checking','is-current','is-available','is-unavailable');
+    notice.classList.add(`is-${normalized}`);
+    notice.setAttribute('aria-label',`${label.vi} / ${label.zh}`);
+    notice.title=`${label.vi} / ${label.zh}`;
+  }
+  if(icon) icon.className=`ti ${label.icon}`;
+  if(dot) dot.hidden=!available;
+  if(vi) vi.textContent=label.vi;
+  if(zh) zh.textContent=label.zh;
+  if(shell) shell.classList.toggle('has-runtime-update',available);
 }
 
 function requestRuntimeUpdate(){
@@ -123,14 +148,13 @@ async function verifyRuntimeVersion(options={}){
         if(!availableVersion) throw new Error('runtime-version-empty');
         if(availableVersion!==RUNTIME_VERSION){
           if(manifest?.updateMode==='notice'){
-            setRuntimeUpdateNotice(true,availableVersion);
+            setRuntimeUpdateStatus('available',availableVersion);
             return Object.freeze({version:RUNTIME_VERSION,availableVersion,verified:true,updateAvailable:true});
           }
-          setRuntimeUpdateNotice(false);
           runtimeVersionStale=true;
           throw runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
         }
-        setRuntimeUpdateNotice(false);
+        setRuntimeUpdateStatus('current');
         return Object.freeze({version:RUNTIME_VERSION,verified:true,updateAvailable:false});
       }catch(error){
         throw error?.code?error:runtimeVersionError('runtime-version-unavailable','Không thể xác nhận phiên bản trang web. / 無法確認網站版本。');
@@ -140,6 +164,7 @@ async function verifyRuntimeVersion(options={}){
   try{
     return await runtimeVersionPromise;
   }catch(error){
+    if(error?.code!=='runtime-reload-required'&&runtimeUpdateStatus==='checking') setRuntimeUpdateStatus('unavailable');
     if(error?.code==='runtime-reload-required'||options.silent!==true) void showRuntimeVersionDialog(error);
     throw error;
   }
@@ -157,6 +182,7 @@ window.addEventListener('focus',()=>{ void verifyRuntimeVersion({silent:true}).c
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible') void verifyRuntimeVersion({silent:true}).catch(()=>undefined);
 });
+void verifyRuntimeVersion({silent:true}).catch(()=>undefined);
 
 // 以下包裝只記錄呼叫與文件數量，不記錄查詢條件或資料內容。
 async function getDoc(reference){
