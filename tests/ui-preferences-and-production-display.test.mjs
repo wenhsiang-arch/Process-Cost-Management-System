@@ -14,6 +14,10 @@ test('主頁提供最上方更新入口並記錄本次使用者功能',()=>{
   assert.ok(html.indexOf('id="nv-home-updates"')<html.indexOf('Đơn hàng / 訂單管理'));
   assert.match(html,/datetime="2026-08-21"/);
   assert.match(html,/openHomeUpdates/);
+  assert.match(html,/Trường mã hàng đã trở lại chỉ hiển thị mã hàng/);
+  assert.match(html,/Chức năng hủy bản ghi sản xuất đã hoạt động bình thường/);
+  assert.match(html,/款號欄位已恢復只顯示款號/);
+  assert.match(html,/生產紀錄作廢功能已恢復正常使用/);
   assert.match(html,/有效工時/);
   assert.match(html,/production-entry-record-search/);
   assert.match(html,/production-records-pagination/);
