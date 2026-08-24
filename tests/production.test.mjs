@@ -715,6 +715,16 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(html,/js\/features\.js\?v=/);
 });
 
+test('生產登記款號輸入只顯示款號並保留重複訂單項目的固定身分',()=>{
+  const source=read('js/production/production-entry.js');
+  const inputValueSource=source.slice(source.indexOf('function productInputValue'),source.indexOf('function processOptionCopy'));
+  assert.match(source,/function productInputValue\(item\)\{\s*return String\(item\?\.code\|\|''\);\s*\}/);
+  assert.match(source,/const selected=state\.product\?\.orderItemId[\s\S]*?item\.orderItemId\|\|''\)===String\(state\.product\.orderItemId\)/);
+  assert.match(source,/if\(selected&&window\.PCMSUISearchDropdown\.isExact\(value,selected\.code\)\) return selected;/);
+  assert.match(source,/return byCode\.length===1\?byCode\[0\]:null;/);
+  assert.doesNotMatch(inputValueSource,/lineNumber|item\.po|item\.color|join\(' · '\)/);
+});
+
 test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{
   const html=read('index.html');
   const records=read('js/production/production-records.js');

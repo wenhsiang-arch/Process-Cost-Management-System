@@ -512,8 +512,7 @@
   }
 
   function productInputValue(item){
-    if(!item?.orderItemId) return String(item?.code||'');
-    return [item.code,`#${item.lineNumber||'?'}`,item.po,item.color].filter(Boolean).join(' · ');
+    return String(item?.code||'');
   }
 
   function processOptionCopy(item){
@@ -947,8 +946,10 @@
     if(!state.orderReady||!state.order) return null;
     const value=element('production-product-input')?.value;
     const items=window.PCMSProductionEntryStore.productsForOrder(state.order.id);
-    const exact=items.find(item=>window.PCMSUISearchDropdown.isExact(value,productInputValue(item)));
-    if(exact) return exact;
+    const selected=state.product?.orderItemId
+      ?items.find(item=>String(item.orderItemId||'')===String(state.product.orderItemId))
+      :null;
+    if(selected&&window.PCMSUISearchDropdown.isExact(value,selected.code)) return selected;
     const byCode=items.filter(item=>window.PCMSUISearchDropdown.isExact(value,item.code));
     return byCode.length===1?byCode[0]:null;
   }

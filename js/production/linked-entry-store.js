@@ -362,7 +362,8 @@
     await window._runTransaction(async transaction=>{
       const entrySnapshot=await transaction.get(entryReference);
       if(!entrySnapshot.exists()) throw new Error('Không tìm thấy bản ghi sản xuất. / 找不到生產紀錄。');
-      const current={id,...entrySnapshot.data()};
+      const stored=entrySnapshot.data();
+      const current={id,...stored};
       if(current.status!=='active') throw new Error('Bản ghi đã được hủy. / 紀錄已經作廢。');
       const monthReference=window._docRef(COLLECTIONS.months,current.productionDate.slice(0,7));
       const aggregateReference=current.recordType==='supplement'
@@ -390,8 +391,11 @@
           lastDelta:-Number(current.quantity||0),lastEntryId:id,operationLogId},{merge:true});
       }
       if(mode==='delete'){transaction.delete(entryReference);result=current;}
-      else{result={...current,status:'voided',revision:targetRevision,voidedAt:now,voidedByUid:user.uid,
-        voidedBy:user.name,voidReason:text(reason).slice(0,500),updatedAt:now,updatedByUid:user.uid,updatedBy:user.name,operationLogId};transaction.set(entryReference,result);}
+      else{
+        const saved={...stored,status:'voided',revision:targetRevision,voidedAt:now,voidedByUid:user.uid,
+          voidedBy:user.name,voidReason:text(reason).slice(0,500),updatedAt:now,updatedByUid:user.uid,updatedBy:user.name,operationLogId};
+        result={id,...saved};transaction.set(entryReference,saved);
+      }
       if(summaries){
         const actor=operationActor(now,user,operationLogId);
         const day=summaries.applyEntry(daySummarySnapshot.exists()?daySummarySnapshot.data():null,{...current,mutation:mode},-1,actor);

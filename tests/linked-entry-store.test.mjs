@@ -129,6 +129,7 @@ test('作廢產能會以新操作識別碼同批更新累計與日月摘要',asy
     productId:ids.productId,processId:ids.processA,processNo:'1',quantity:40});
   const voided=await store.voidEntry(saved.id,'測試作廢');
   const raw=db.get('productionEntries',saved.id);
+  assert.equal('id' in raw,false);
   const total=db.get('productionProcessTotals',window.PCMSOrderItemStore.processTotalId(ids.itemA,ids.processA));
   const day=db.get('productionDaySummaries','2026-08-23__M001');
   assert.equal(voided.status,'voided');
