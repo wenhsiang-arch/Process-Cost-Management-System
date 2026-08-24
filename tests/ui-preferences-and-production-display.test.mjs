@@ -24,6 +24,22 @@ test('主頁提供最上方更新入口並記錄本次使用者功能',()=>{
   assert.match(html,/production-records-pagination/);
 });
 
+test('一般網站更新在側邊欄顯示雙語提醒且保留雙語登出倒數',()=>{
+  const html=read('index.html');
+  const source=read('js/firebase.js');
+  const notice=html.indexOf('id="runtime-update-notice"');
+  const idle=html.indexOf('id="idle-info"');
+  assert.ok(notice>=0&&idle>notice);
+  assert.match(html,/id="runtime-update-notice" hidden[\s\S]*?ti-refresh/);
+  assert.match(html,/Có phiên bản mới[\s\S]*?有新版本/);
+  assert.match(html,/Tự động đăng xuất:[\s\S]*?自動登出：/);
+  assert.equal((html.match(/data-idle-countdown/g)||[]).length,2);
+  assert.match(source,/cancelText:\{vi:'Để sau',zh:'稍後'\}/);
+  assert.match(source,/confirmText:\{vi:'Cập nhật ngay',zh:'立即更新'\}/);
+  assert.match(source,/if\(confirmed\) window\.location\.reload\(\)/);
+  assert.doesNotMatch(source,/requestRuntimeUpdate[\s\S]*?doLogout\(/);
+});
+
 test('產能紀錄的有效工時位於生產數量右側並共用每日績效計算來源',()=>{
   const html=read('index.html');
   const quantity=html.indexOf('data-production-column="quantity"');

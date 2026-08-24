@@ -149,7 +149,8 @@ function startIdle(){
     const p=Math.max(0,(idleT/IDLE)*100);
     g('idleprog').style.width=p+'%';
     const m=Math.floor(idleT/60), s=idleT%60;
-    g('idle-info').textContent='Tự động đăng xuất: '+m+':'+(s<10?'0':'')+s;
+    const countdown=m+':'+(s<10?'0':'')+s; // countdown（自動登出倒數文字）
+    document.querySelectorAll('[data-idle-countdown]').forEach(element=>{ element.textContent=countdown; });
     if(idleT<=0){ clearInterval(idleIv); doLogout('idle'); }
   },1000);
   ['click','keydown','mousemove'].forEach(e=>document.addEventListener(e,resetIdle,{passive:true}));

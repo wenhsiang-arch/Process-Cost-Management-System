@@ -1,4 +1,5 @@
 {
   "version": "20260824-10",
-  "schemaVersion": 1
+  "updateMode": "notice",
+  "schemaVersion": 2
 }

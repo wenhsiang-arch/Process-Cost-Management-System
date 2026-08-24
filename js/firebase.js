@@ -54,6 +54,8 @@ const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).hre
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
 let runtimeVersionDialogPromise=null;
+let runtimeUpdateDialogPromise=null;
+let runtimeAvailableVersion='';
 
 function runtimeVersionError(code,message){
   const error=new Error(message);
@@ -76,38 +78,84 @@ function showRuntimeVersionDialog(error){
   return runtimeVersionDialogPromise;
 }
 
-async function verifyRuntimeVersion(){
+function setRuntimeUpdateNotice(visible,version=''){
+  runtimeAvailableVersion=visible?String(version||''):'';
+  const notice=document.getElementById('runtime-update-notice');
+  const shell=document.getElementById('app-shell');
+  if(notice) notice.hidden=!visible;
+  if(shell) shell.classList.toggle('has-runtime-update',visible);
+}
+
+function requestRuntimeUpdate(){
+  if(!runtimeAvailableVersion) return Promise.resolve(false);
+  if(runtimeUpdateDialogPromise) return runtimeUpdateDialogPromise;
+  const ui=window.PCMSUIComponents;
+  if(typeof ui?.confirmDialog!=='function'||typeof ui?.createLanguageSections!=='function') return Promise.resolve(false);
+  runtimeUpdateDialogPromise=Promise.resolve(ui.confirmDialog({
+    title:{vi:'Có phiên bản mới',zh:'有新版本'},
+    body:ui.createLanguageSections({
+      vi:'Bạn có thể hoàn tất thao tác hiện tại trước. Chọn “Cập nhật ngay” chỉ tải lại trang web và giữ trạng thái đăng nhập Google.',
+      zh:'您可以先完成目前操作。選擇「立即更新」只會重新載入網站，並保留 Google 登入狀態。'
+    }),
+    cancelText:{vi:'Để sau',zh:'稍後'},
+    confirmText:{vi:'Cập nhật ngay',zh:'立即更新'}
+  })).then(confirmed=>{
+    if(confirmed) window.location.reload();
+    return confirmed;
+  }).finally(()=>{ runtimeUpdateDialogPromise=null; });
+  return runtimeUpdateDialogPromise;
+}
+
+async function verifyRuntimeVersion(options={}){
   if(runtimeVersionStale){
     const error=runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
     void showRuntimeVersionDialog(error);
     throw error;
   }
-  if(runtimeVersionPromise) return runtimeVersionPromise;
-  runtimeVersionPromise=(async()=>{
-    let response;
-    try{
-      response=await fetch(RUNTIME_VERSION_URL,{cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}});
-      if(!response.ok) throw new Error(`HTTP ${response.status}`);
-      const manifest=await response.json();
-      if(String(manifest?.version||'')!==RUNTIME_VERSION){
-        runtimeVersionStale=true;
-        throw runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
+  if(!runtimeVersionPromise){
+    runtimeVersionPromise=(async()=>{
+      let response;
+      try{
+        response=await fetch(RUNTIME_VERSION_URL,{cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}});
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        const manifest=await response.json();
+        const availableVersion=String(manifest?.version||'');
+        if(!availableVersion) throw new Error('runtime-version-empty');
+        if(availableVersion!==RUNTIME_VERSION){
+          if(manifest?.updateMode==='notice'){
+            setRuntimeUpdateNotice(true,availableVersion);
+            return Object.freeze({version:RUNTIME_VERSION,availableVersion,verified:true,updateAvailable:true});
+          }
+          setRuntimeUpdateNotice(false);
+          runtimeVersionStale=true;
+          throw runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
+        }
+        setRuntimeUpdateNotice(false);
+        return Object.freeze({version:RUNTIME_VERSION,verified:true,updateAvailable:false});
+      }catch(error){
+        throw error?.code?error:runtimeVersionError('runtime-version-unavailable','Không thể xác nhận phiên bản trang web. / 無法確認網站版本。');
       }
-      return Object.freeze({version:RUNTIME_VERSION,verified:true});
-    }catch(error){
-      const normalized=error?.code==='runtime-reload-required'
-        ?error:runtimeVersionError('runtime-version-unavailable','Không thể xác nhận phiên bản trang web. / 無法確認網站版本。');
-      void showRuntimeVersionDialog(normalized);
-      throw normalized;
-    }
-  })().finally(()=>{runtimeVersionPromise=null;});
-  return runtimeVersionPromise;
+    })().finally(()=>{runtimeVersionPromise=null;});
+  }
+  try{
+    return await runtimeVersionPromise;
+  }catch(error){
+    if(error?.code==='runtime-reload-required'||options.silent!==true) void showRuntimeVersionDialog(error);
+    throw error;
+  }
 }
 
-window.PCMSRuntimeVersionGuard=Object.freeze({version:RUNTIME_VERSION,verify:verifyRuntimeVersion,isStale:()=>runtimeVersionStale});
-window.addEventListener('focus',()=>{ void verifyRuntimeVersion().catch(()=>undefined); });
+window.PCMSRuntimeVersionGuard=Object.freeze({
+  version:RUNTIME_VERSION,
+  verify:verifyRuntimeVersion,
+  isStale:()=>runtimeVersionStale,
+  hasUpdate:()=>!!runtimeAvailableVersion,
+  availableVersion:()=>runtimeAvailableVersion,
+  requestUpdate:requestRuntimeUpdate
+});
+window.addEventListener('focus',()=>{ void verifyRuntimeVersion({silent:true}).catch(()=>undefined); });
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible') void verifyRuntimeVersion().catch(()=>undefined);
+  if(document.visibilityState==='visible') void verifyRuntimeVersion({silent:true}).catch(()=>undefined);
 });
 
 // 以下包裝只記錄呼叫與文件數量，不記錄查詢條件或資料內容。

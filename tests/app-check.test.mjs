@@ -25,20 +25,23 @@ test('正式網站使用背景評分型 App Check 且先於 Firebase 服務初�
 
 test('主頁載入新版 App Check 核心程式',()=>{
   const html=read('index.html');
-  const manifest=JSON.parse(read('runtime-version.json'));
   const loadedVersion=html.match(/js\/firebase\.js\?v=([^"'&\s]+)/)?.[1];
-  assert.equal(loadedVersion,manifest.version);
+  assert.equal(loadedVersion,'20260825-1');
 });
 
-test('正式寫入先核對靜態執行版本且不消耗 Firestore Reads',()=>{
+test('正式寫入先核對靜態執行版本並依更新類型提醒或阻擋',()=>{
   const source=read('js/firebase.js');
   const manifest=JSON.parse(read('runtime-version.json'));
   const guardedVersion=source.match(/const RUNTIME_VERSION = '([^']+)'/)?.[1];
   assert.equal(guardedVersion,manifest.version);
+  assert.equal(manifest.updateMode,'notice');
   assert.match(source,/fetch\(RUNTIME_VERSION_URL,\{cache:'no-store'/);
-  assert.match(source,/async function verifyRuntimeVersion\(\)/);
+  assert.match(source,/async function verifyRuntimeVersion\(options=\{\}\)/);
   assert.match(source,/async function setDoc\([^)]*\)\{[\s\S]*?await verifyRuntimeVersion\(\)/);
   assert.match(source,/async function runTransaction\([^)]*\)\{[\s\S]*?await verifyRuntimeVersion\(\)/);
+  assert.match(source,/manifest\?\.updateMode==='notice'/);
+  assert.match(source,/setRuntimeUpdateNotice\(true,availableVersion\)/);
+  assert.match(source,/requestUpdate:requestRuntimeUpdate/);
   assert.match(source,/runtime-reload-required/);
   assert.doesNotMatch(source,/getDoc\([^)]*runtime|runtimeVersion[^\n]*_getDoc/i);
 });
