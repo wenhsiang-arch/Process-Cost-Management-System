@@ -51,6 +51,10 @@ test('同產品群組依款號表尺寸分成第二層且未設定尺寸獨立�
   assert.deepEqual(Array.from(groups,item=>item.label),['15MM','20MM','—']);
   assert.deepEqual(Array.from(groups[0].members,item=>item.code),['A','C']);
   assert.equal(groups[2].labelPair.zh,'未設定尺寸');
+  const recommended=ui.groupBySize([
+    {code:'A',sz:'15MM'},{code:'B',sz:'15MM'},{code:'C',sz:'15MM'}
+  ],{orderCodes:['C','A','B']});
+  assert.deepEqual(Array.from(recommended[0].members,item=>item.code),['C','A','B']);
 });
 
 test('群組差異只在同尺寸內比較，單一款號與無明確主要版本不誤報三種異常',()=>{
@@ -92,6 +96,28 @@ test('同尺寸有明確主要版本時只標記真正不同的款號與差異�
   assert.equal(summaries.get('outlier').countDifferent,false);
   assert.equal(summaries.get('outlier').descriptionDifferent,false);
   assert.equal(summaries.get('outlier').secondsDifferent,true);
+});
+
+test('未分組推薦依每個尺寸各自的多數款號判定，不讓其他尺寸污染基準',()=>{
+  const ui=loadGroupUi();
+  const operation=(no,vi,sec)=>({no:String(no),vi,sec});
+  const rows=[
+    {productId:'s-a',code:'S-A',vi:'Vòng cổ',sz:'S',ops:[operation(1,'May',60)]},
+    {productId:'s-b',code:'S-B',vi:'Vòng cổ',sz:'S',ops:[operation(1,'May',60)]},
+    {productId:'s-c',code:'S-C',vi:'Vòng cổ thun',sz:'S',ops:[operation(1,'May',75)]},
+    {productId:'m-a',code:'M-A',vi:'Dây đeo',sz:'M',ops:[operation(1,'Cắt',30)]},
+    {productId:'m-b',code:'M-B',vi:'Dây đeo',sz:'M',ops:[operation(1,'Cắt',30)]},
+    {productId:'m-c',code:'M-C',vi:'Dây đeo',sz:'M',ops:[operation(1,'Cắt khác',30)]}
+  ];
+  const summaries=ui.comparisonContext(rows,{includeProductName:true}).summaries;
+  assert.equal(summaries.get('s-a').comparisonState,'consistent');
+  assert.equal(summaries.get('s-b').comparisonState,'consistent');
+  assert.equal(summaries.get('s-c').productNameDifferent,true);
+  assert.equal(summaries.get('s-c').secondsDifferent,true);
+  assert.equal(summaries.get('m-a').comparisonState,'consistent');
+  assert.equal(summaries.get('m-b').comparisonState,'consistent');
+  assert.equal(summaries.get('m-c').descriptionDifferent,true);
+  assert.equal(summaries.get('m-c').secondsDifferent,false);
 });
 
 test('群組頁先顯示全部清單，建立群組才開啟三步驟視窗',()=>{
@@ -141,7 +167,7 @@ test('群組清單只顯示群組摘要且點名稱開啟可修改成員的緊�
   assert.match(style,/\.product-group-detail-dialog \.ui-table-scroll\{max-height:none;overflow:visible\}/);
 });
 
-test('建立新群組維持推薦條件，正式儲存只使用固定 productId',()=>{
+test('建立新群組列出同客人候選並明確標示差異，正式儲存只使用固定 productId',()=>{
   const page=read('js/production/product-groups.js');
   const runtime=read('js/product-group-runtime.js');
   const groupUi=read('js/production/process-group-ui.js');
@@ -153,6 +179,7 @@ test('建立新群組維持推薦條件，正式儲存只使用固定 productId'
   assert.match(page,/disabledCodes:plan\.disabledCodes/);
   assert.match(groupUi,/Khớp cao/);
   assert.match(groupUi,/高度符合/);
+  assert.match(groupUi,/Khác tên sản phẩm Việt/);
   assert.match(groupUi,/Khác số lượng công đoạn/);
   assert.match(groupUi,/Khác mô tả tiếng Việt/);
   assert.match(groupUi,/Khác giây tiêu chuẩn/);
@@ -203,9 +230,12 @@ test('工序快速修改預設勾選可匹配群組且共用正式儲存服務',
   const groupUi=read('js/production/process-group-ui.js');
   assert.match(page,/function buildTargets/);
   assert.match(page,/memberProductIds/);
-  assert.match(page,/matched:config\.scope==='product'\|\|!!operation/);
-  assert.match(page,/selected:config\.scope==='product'\|\|!!operation/);
-  assert.match(page,/目前群組預設全選；差異只作提醒，不阻止執行/);
+  assert.match(page,/const matched=config\.scope==='product'\|\|!!operation/);
+  assert.match(page,/selected:matched&&\(group\?true:/);
+  assert.match(page,/candidatePlan/);
+  assert.match(page,/prepareGroupContext/);
+  assert.match(page,/已有群組只顯示目前群組；沒有群組才尋找推薦/);
+  assert.match(page,/高度符合者預設勾選；有差異者預設不勾選/);
   assert.match(page,/service\(\)\.saveManyDrafts/);
   assert.match(page,/product-quick-summary/);
   assert.match(page,/Tổng số công đoạn/);

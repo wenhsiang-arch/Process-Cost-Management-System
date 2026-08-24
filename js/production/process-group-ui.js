@@ -109,28 +109,36 @@
   }
 
   // comparisonContext（同尺寸比較內容）：不同尺寸不得互相污染；沒有明確主要版本時只提醒人工確認。
-  function comparisonContext(products=[]){
+  function comparisonContext(products=[],options={}){
+    const includeProductName=options.includeProductName===true;
     const summaries=new Map();
     const baselines=new Map();
     groupBySize(products).forEach(sizeGroup=>{
-      const rows=sizeGroup.members.map(product=>({product,profile:processProfile(product)}));
+      const rows=sizeGroup.members.map(product=>({
+        product,
+        productName:includeProductName?normalizedDescription(product?.vi):'',
+        profile:processProfile(product)
+      }));
       const variants=new Map();
       rows.forEach(row=>{
-        const key=JSON.stringify(row.profile);
-        const current=variants.get(key)||{key,profile:row.profile,count:0};
+        const key=JSON.stringify({productName:row.productName,profile:row.profile});
+        const current=variants.get(key)||{key,productName:row.productName,profile:row.profile,count:0};
         current.count+=1;
         variants.set(key,current);
       });
       const ranked=[...variants.values()].sort((left,right)=>right.count-left.count||left.key.localeCompare(right.key));
       const single=rows.length<=1;
       const ambiguous=!single&&ranked.length>1&&ranked[0].count===ranked[1].count;
-      const baseline=ranked[0]?.profile||[];
-      baselines.set(sizeGroup.key,ambiguous?null:baseline);
+      const baseline=ranked[0]||{productName:'',profile:[]};
+      baselines.set(sizeGroup.key,ambiguous?null:baseline.profile);
       rows.forEach(row=>{
         const differences=single||ambiguous
-          ?{countDifferent:false,descriptionDifferent:false,secondsDifferent:false}
-          :profileDifferences(row.profile,baseline);
-        const consistent=!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent;
+          ?{productNameDifferent:false,countDifferent:false,descriptionDifferent:false,secondsDifferent:false}
+          :{
+            productNameDifferent:includeProductName&&row.productName!==baseline.productName,
+            ...profileDifferences(row.profile,baseline.profile)
+          };
+        const consistent=!differences.productNameDifferent&&!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent;
         summaries.set(row.product.productId,{
           productId:row.product.productId,
           code:productCode(row.product),
@@ -148,6 +156,7 @@
     if(summary?.comparisonState==='ambiguous') return '<span class="process-group-status is-neutral"><span class="ui-dual-copy"><strong>Có nhiều phiên bản · cần kiểm tra</strong><span>存在多種版本・請確認</span></span></span>';
     if(!summary||summary.consistent) return '<span class="process-group-status is-consistent"><span class="ui-dual-copy"><strong>Đồng nhất</strong><span>資料一致</span></span></span>';
     const labels=[];
+    if(summary.productNameDifferent) labels.push({vi:'Khác tên sản phẩm Việt',zh:'越文品名不同'});
     if(summary.countDifferent) labels.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
     if(summary.descriptionDifferent) labels.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
     if(summary.secondsDifferent) labels.push({vi:'Khác giây tiêu chuẩn',zh:'標準秒數不同'});
@@ -169,6 +178,23 @@
     return labels.map(item=>`<span class="process-group-status is-warning"><span class="ui-dual-copy"><strong>${safe(item.vi)}</strong><span>${safe(item.zh)}</span></span></span>`).join('');
   }
 
+  // sizeRecommendationStatusHtml（同尺寸推薦狀態）：以每個尺寸自己的多數版本顯示高度符合與差異。
+  function sizeRecommendationStatusHtml(summary={},assignedGroup=null){
+    if(assignedGroup){
+      const name=safe(assignedGroup.name||assignedGroup.groupId||'—');
+      return `<span class="process-group-status product-group-blocked"><span class="ui-dual-copy"><strong>Đã thuộc nhóm: ${name}</strong><span>已在其他群組：${name}</span></span></span>`;
+    }
+    if(summary.comparisonState==='single') return '<span class="process-group-status is-neutral"><span class="ui-dual-copy"><strong>Không có mã cùng kích thước để so sánh</strong><span>無同尺寸款號可比較</span></span></span>';
+    if(summary.comparisonState==='ambiguous') return '<span class="process-group-status is-neutral"><span class="ui-dual-copy"><strong>Có nhiều phiên bản · cần kiểm tra</strong><span>存在多種版本・請確認</span></span></span>';
+    if(summary.consistent) return '<span class="process-group-status is-consistent"><span class="ui-dual-copy"><strong>Khớp cao</strong><span>高度符合</span></span></span>';
+    const labels=[];
+    if(summary.productNameDifferent) labels.push({vi:'Khác tên sản phẩm Việt',zh:'越文品名不同'});
+    if(summary.countDifferent) labels.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
+    if(summary.descriptionDifferent) labels.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
+    if(summary.secondsDifferent) labels.push({vi:'Khác giây tiêu chuẩn',zh:'標準秒數不同'});
+    return labels.map(item=>`<span class="process-group-status is-warning"><span class="ui-dual-copy"><strong>${safe(item.vi)}</strong><span>${safe(item.zh)}</span></span></span>`).join('');
+  }
+
   function processDetailRows(product,baseline){
     const comparable=Array.isArray(baseline);
     const expected=new Map((comparable?baseline:[]).map(item=>[String(item.no),item]));
@@ -187,14 +213,17 @@
     const productMap=new Map(products.map(item=>[productCode(item),item]));
     const required=new Set((options.requiredCodes||[]).map(normalize).filter(Boolean));
     const disabled=new Set((options.disabledCodes||[]).map(normalize).filter(Boolean));
+    const consistency=comparisonContext(products,{includeProductName:options.includeProductName===true});
+    const defaultCodes=options.selectConsistentByDefault===true
+      ?products.filter(product=>consistency.summaries.get(product?.productId)?.comparisonState==='consistent').map(productCode)
+      :products.map(productCode);
     const selected=new Set(
       options.selectedCodes===undefined
-        ? products.map(productCode).filter(code=>!disabled.has(code))
+        ? defaultCodes.filter(code=>!disabled.has(code))
         : (options.selectedCodes||[]).map(normalize).filter(code=>productMap.has(code)&&!disabled.has(code))
     );
     required.forEach(code=>{ if(productMap.has(code)) selected.add(code); });
     const expanded=new Set((options.expandedCodes||[]).map(normalize).filter(code=>productMap.has(code)));
-    const consistency=comparisonContext(products);
     const preferredSize=normalize(options.activeSize)
       ||sizeKey(productMap.get(normalize(options.currentCode)))
       ||groups[0]?.key
@@ -306,6 +335,6 @@
 
   window.PCMSProcessGroupUI=Object.freeze({
     missingSizeKey:MISSING_SIZE,
-    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,processDetailRows,recommendationStatusHtml,createMemberSelector
+    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,processDetailRows,recommendationStatusHtml,sizeRecommendationStatusHtml,createMemberSelector
   });
 })();

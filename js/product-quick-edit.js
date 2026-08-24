@@ -80,8 +80,8 @@
     return values[field]??'';
   }
 
-  function consistencyMap(products){
-    const shared=groupUI()?.comparisonContext?.(products);
+  function consistencyMap(products,options={}){
+    const shared=groupUI()?.comparisonContext?.(products,options);
     if(shared?.summaries) return shared.summaries;
     return new Map((model().compareGroupConsistency?.(products)||[]).map(item=>[item.productId,item]));
   }
@@ -102,7 +102,7 @@
     const rowById=new Map(rows.map(product=>[productId(product?.productId),product]).filter(([id])=>id));
     const members=[...new Set(orderedIds.filter(Boolean))].map(id=>rowById.get(id)).filter(Boolean);
     if(!members.some(product=>productId(product?.productId)===productId(source.productId))) members.unshift(source);
-    const statuses=consistencyMap(members);
+    const statuses=consistencyMap(members,{includeProductName:Boolean(candidateMode)});
     const selectedCodes=new Set((candidatePlan?.selectedCodes||[]).map(text));
     const disabledCodes=new Set((candidatePlan?.disabledCodes||[]).map(text));
     const sourceOperation=config.scope==='process'
@@ -119,11 +119,13 @@
       const isSource=productId(product.productId)===productId(source.productId);
       const matched=config.scope==='product'||!!operation;
       const assignedGroup=candidateMode&&!isSource?groupRuntime()?.groupForProduct?.(product.productId||product.code):null;
+      const consistency=statuses.get(productId(product.productId))||null;
+      const recommended=consistency?.comparisonState==='consistent';
       return {
         product,operation,matched,isSource,required:isSource,disabled:Boolean(assignedGroup)||disabledCodes.has(text(product.code)),assignedGroup,
         recommendation:candidateMode&&!isSource?model().groupRecommendation(source,product):null,
-        selected:matched&&(group?true:(isSource||selectedCodes.has(text(product.code)))),
-        value:fieldValue(product,operation,field),consistency:statuses.get(productId(product.productId))||null
+        selected:matched&&(group?true:(isSource||(candidateMode?recommended:selectedCodes.has(text(product.code))))),
+        value:fieldValue(product,operation,field),consistency
       };
     });
   }
@@ -171,12 +173,13 @@
 
   function statusTags(target){
     if(target.isSource) return `<span class="product-quick-status-tag is-neutral">${dual('Mã đang sửa','目前款號')}</span>`;
-    if(target.assignedGroup) return groupUI().recommendationStatusHtml(target.recommendation||{},target.assignedGroup);
+    if(target.assignedGroup) return groupUI().sizeRecommendationStatusHtml(target.consistency||{},target.assignedGroup);
     if(!target.operation&&target.matched===false) return dual('Không có công đoạn tương ứng','無對應工序');
-    if(target.recommendation) return groupUI().recommendationStatusHtml(target.recommendation,null);
+    if(target.recommendation) return groupUI().sizeRecommendationStatusHtml(target.consistency||{},null);
     if(target.consistency?.comparisonState==='single') return `<span class="product-quick-status-tag is-neutral">${dual('Không có mã cùng kích thước để so sánh','無同尺寸款號可比較')}</span>`;
     if(target.consistency?.comparisonState==='ambiguous') return `<span class="product-quick-status-tag is-neutral">${dual('Có nhiều phiên bản · cần kiểm tra','存在多種版本・請確認')}</span>`;
     const tags=[];
+    if(target.consistency?.productNameDifferent) tags.push({vi:'Khác tên sản phẩm Việt',zh:'越文品名不同'});
     if(target.consistency?.countDifferent) tags.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
     if(target.consistency?.descriptionDifferent) tags.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
     if(target.consistency?.secondsDifferent) tags.push({vi:'Khác giây tiêu chuẩn',zh:'標準秒數不同'});
@@ -352,9 +355,10 @@
     return pair||{vi:text(error?.message||error)||'Không rõ nguyên nhân',zh:text(error?.message||error)||'原因不明'};
   }
 
-  function recommendationStatus(source,candidate){
+  function recommendationStatus(source,candidate,summary){
     const assigned=groupRuntime().groupForProduct(candidate.productId||candidate.code);
-    return groupUI().recommendationStatusHtml(model().groupRecommendation(source,candidate),assigned);
+    if(productId(source.productId)===productId(candidate.productId)) return `<span class="product-quick-status-tag is-neutral">${dual('Mã đang sửa','目前款號')}</span>`;
+    return groupUI().sizeRecommendationStatusHtml(summary||{},assigned);
   }
 
   // openGroupCreation（未分組款號建立群組）：群組寫入獨立完成，不與後續款號修改綁成同一筆資料操作。
@@ -388,10 +392,10 @@
       const selector=groupUI().createMemberSelector({
         products:[product,...plan.candidates],currentCode:product.code,activeSize:product.sz,
         orderCodes:[product.code,...plan.candidates.map(candidate=>candidate.code)],
-        selectedCodes:options.selectedCodes?.length?options.selectedCodes:plan.selectedCodes,
+        selectedCodes:options.selectedCodes?.length?options.selectedCodes:undefined,
         requiredCodes:[product.code],disabledCodes:plan.disabledCodes,
-        selectable:true,consistency:true,expandable:true,
-        statusRenderer:item=>recommendationStatus(product,item)
+        selectable:true,consistency:true,expandable:true,includeProductName:true,selectConsistentByDefault:true,
+        statusRenderer:(item,summary)=>recommendationStatus(product,item,summary)
       });
       body.append(notice,selector.element);
       ui().openDialog({
@@ -519,14 +523,27 @@
     const products=Array.isArray(input.products)?input.products:window.D||[];
     const targets=buildTargets({...input,products});
     const sourceTarget=targets.find(target=>target.product.productId===input.sourceProductId)||targets[0];
-    const selected=new Set(targets.filter(target=>target.selected).map(target=>target.product.productId));
+    const selected=new Set(targets.filter(target=>target.selected&&!target.disabled).map(target=>target.product.productId));
     const expanded=new Set();
     const rowValues=new Map(targets.map(target=>[target.product.productId,String(target.value??'')]));
     const sizes=groupUI().groupBySize(targets.map(target=>target.product),{
       orderCodes:targets.map(target=>target.product.code)
     });
-    const comparison=groupUI().comparisonContext(targets.map(target=>target.product));
+    let comparison=groupUI().comparisonContext(targets.map(target=>target.product),{includeProductName:Boolean(input.candidatePlan)});
     let activeSize=groupUI().sizeKey(sourceTarget.product);
+    const commonValues=new Map();
+    const targetsInSize=size=>targets.filter(target=>groupUI().sizeKey(target.product)===size);
+    const representativeTarget=size=>{
+      const rows=targetsInSize(size);
+      return rows.find(target=>target.isSource)
+        ||rows.find(target=>target.consistency?.comparisonState==='consistent'&&!target.disabled&&target.matched)
+        ||rows.find(target=>!target.disabled&&target.matched)
+        ||rows[0];
+    };
+    sizes.forEach(group=>{
+      const target=representativeTarget(group.key);
+      commonValues.set(group.key,String(target?.value??''));
+    });
     const body=document.createElement('div');
     body.className='product-quick-edit';
     const selectionNotice=input.group
@@ -534,21 +551,32 @@
       :input.candidatePlan?.candidates?.length
         ?dual('Mã khớp cao được chọn sẵn; mã khác biệt không chọn sẵn nhưng vẫn có thể tự chọn. Mã thuộc nhóm khác chỉ để đối chiếu.','高度符合者預設勾選；有差異者預設不勾選，但仍可自行選擇。已在其他群組者只供比對。')
         :dual('Mã này chưa có nhóm và chưa tìm thấy mã khác cùng khách hàng.','此款號尚未有群組，且找不到同客人的其他款號。');
-    body.innerHTML=`${summaryPanel(config,input,sourceTarget)}
+    body.innerHTML=`<div data-summary-panel></div>
       <div class="ui-notice is-info"><i class="ti ti-checkbox"></i>${selectionNotice}</div>
       <div class="process-size-tabs product-quick-size-tabs" data-size-tabs></div>
       <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-quick-table"><thead><tr data-table-head></tr></thead><tbody data-target-body></tbody></table></div></div>`;
     const rowsHost=body.querySelector('[data-target-body]');
-    const common=body.querySelector('[data-common-value]');
-    if(config.type==='select'&&common) common.value=String(sourceTarget.value);
     body.querySelector('[data-table-head]').innerHTML=tableHead(config);
 
+    function commonControl(){ return body.querySelector('[data-common-value]'); }
+    function captureCommonValue(){
+      const common=commonControl();
+      if(common) commonValues.set(activeSize,common.value);
+    }
+
     function render(){
+      const activeTarget=representativeTarget(activeSize)||sourceTarget;
+      body.querySelector('[data-summary-panel]').innerHTML=summaryPanel(config,input,activeTarget);
+      const common=commonControl();
+      if(common){
+        common.value=commonValues.get(activeSize)??String(activeTarget?.value??'');
+      }
       const tabs=body.querySelector('[data-size-tabs]');
       tabs.innerHTML=sizes.map(group=>`<button type="button" role="tab" data-size="${safeAttribute(group.key)}" aria-selected="${group.key===activeSize?'true':'false'}" class="${group.key===activeSize?'is-active':''}"><span>${safe(group.labelPair.vi)}/${group.members.length}</span></button>`).join('');
       renderRows(rowsHost,targets,config,activeSize,selected,common?.value,rowValues,expanded,comparison);
     }
     function refreshAfterValues(){
+      const common=commonControl();
       rowsHost.querySelectorAll('tr[data-index]').forEach(row=>{
         const target=targets[Number(row.dataset.index)];
         const next=afterValue(config,target,common?.value,row);
@@ -559,7 +587,7 @@
     }
     body.addEventListener('click',event=>{
       const tab=event.target.closest('[data-size]');
-      if(tab){ activeSize=tab.dataset.size;render(); }
+      if(tab){ captureCommonValue();activeSize=tab.dataset.size;render(); }
       const expandButton=event.target.closest('[data-product-quick-expand]');
       if(expandButton){
         const id=expandButton.dataset.productQuickExpand;
@@ -588,6 +616,7 @@
     body.addEventListener('input',event=>{
       const rowInput=event.target.closest('[data-row-value]');
       if(rowInput) rowValues.set(rowInput.closest('tr').dataset.productId,rowInput.value);
+      if(event.target.closest('[data-common-value]')) commonValues.set(activeSize,event.target.value);
       refreshAfterValues();
     });
     render();
@@ -598,9 +627,11 @@
       actions:[
         {text:{vi:'Hủy',zh:'取消'}},
         {text:{vi:'Xem trước mục đã chọn',zh:'預覽已選項目'},icon:'ti-eye-check',kind:'primary',onClick:async()=>{
+          captureCommonValue();
           const requests=[];
           const skipped=[];
-          targets.forEach(target=>{
+          const activeTargets=targetsInSize(activeSize);
+          activeTargets.forEach(target=>{
             if(config.scope==='process'&&!target.operation){
               const hasAvailable=(target.product.ops||[]).some(operation=>operation.active!==false);
               skipped.push({product:target.product,reason:hasAvailable
@@ -609,16 +640,38 @@
               return;
             }
             if(!selected.has(target.product.productId)) return;
-            const value=config.perProduct?(rowValues.get(target.product.productId)??target.value):(common?.value??'');
+            const value=config.perProduct?(rowValues.get(target.product.productId)??target.value):(commonValues.get(activeSize)??'');
             requests.push({base:clone(target.product),draft:service().draftWithField(target.product,{field:config.key,value,processId:target.operation?.processId||''}),action:'productGroupQuickEdit'});
           });
           const selectedCodesForGroup=targets.filter(target=>selected.has(target.product.productId)&&!target.disabled)
             .map(target=>target.product.code);
           const result=await saveWithWorkflow(requests,{
-            skipped,onSaved:input.onSaved,keepPrevious:input.keepPrevious===true,
+            skipped,onSaved:input.onSaved,keepPrevious:true,
             beforeCommit:()=>confirmGroupBeforeCommit(input,sourceTarget.product,selectedCodesForGroup)
           });
-          return result.cancelled?false:true;
+          if(result.cancelled) return false;
+          (result.successes||[]).forEach(item=>{
+            const target=targets.find(row=>productId(row.product.productId)===productId(item.productId));
+            if(!target||!item.product) return;
+            const currentProcessId=target.operation?.processId||'';
+            target.product=item.product;
+            target.operation=config.scope==='process'
+              ?(item.product.ops||[]).find(operation=>processId(operation.processId)===processId(currentProcessId))||null
+              :null;
+            target.matched=config.scope==='product'||Boolean(target.operation);
+            target.value=fieldValue(target.product,target.operation,config.key);
+            rowValues.set(target.product.productId,String(target.value??''));
+          });
+          comparison=groupUI().comparisonContext(targets.map(target=>target.product),{includeProductName:Boolean(input.candidatePlan)});
+          targets.forEach(target=>{ target.consistency=comparison.summaries.get(target.product.productId)||null; });
+          if(sizes.length<=1) return true;
+          const continueOtherSize=await ui().confirmDialog({
+            title:{vi:'Tiếp tục sửa kích thước khác?',zh:'是否繼續修改其他尺寸'},
+            body:{vi:'Bạn có thể quay lại cùng màn hình để chọn kích thước khác hoặc sửa lại kích thước vừa xử lý.',zh:'你可以回到同一個修改面板，選擇其他尺寸，或重新訂正剛處理的尺寸。'},
+            confirmText:{vi:'Tiếp tục sửa',zh:'繼續修改'},cancelText:{vi:'Kết thúc',zh:'結束'},keepPrevious:true
+          });
+          if(continueOtherSize){ render();return false; }
+          return true;
         }}
       ],
       onError:error=>ui().alertDialog({message:resultError(error),kind:'danger',keepPrevious:true}),

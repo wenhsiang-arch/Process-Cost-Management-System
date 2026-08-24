@@ -7,9 +7,10 @@ const root=new URL('../',import.meta.url);
 const read=path=>fs.readFileSync(new URL(path,root),'utf8');
 
 function loadQuickEdit(){
-  const context={window:{},TextEncoder,console};
+  const context={window:{PCMSSafe:{text:value=>String(value??''),attribute:value=>String(value??'')}},TextEncoder,console};
   vm.createContext(context);
   vm.runInContext(read('js/product-model.js'),context);
+  vm.runInContext(read('js/production/process-group-ui.js'),context);
   vm.runInContext(read('js/product-quick-edit.js'),context);
   return context.window;
 }
@@ -37,6 +38,51 @@ test('群組快速修改預設全選，找不到相同工序號的款號不猜�
   assert.equal(targets[1].selected,true);
   assert.equal(targets[2].matched,false);
   assert.equal(targets[2].selected,false);
+});
+
+test('沒有群組時每個尺寸只有單一款號就不誤判為高度符合',()=>{
+  const window=loadQuickEdit();
+  const rows=products(window.PCMSProductModel);
+  const candidatePlan={source:rows[0],candidates:[rows[1],rows[2]],selectedCodes:['P1','P2'],disabledCodes:[]};
+  Object.keys(window.PCMSProductQuickEdit.FIELD_CONFIG).forEach(field=>{
+    const processField=field.startsWith('process');
+    const targets=window.PCMSProductQuickEdit.buildTargets({
+      field,sourceProductId:rows[0].productId,sourceProcessId:processField?rows[0].ops[0].processId:'',products:rows,candidatePlan
+    });
+    assert.equal(targets.length,3,field);
+    assert.equal(targets[0].isSource,true,field);
+    assert.equal(targets[0].selected,true,field);
+    assert.equal(targets[1].selected,false,field);
+    assert.equal(targets[2].selected,false,field);
+  });
+});
+
+test('沒有群組時依各尺寸多數版本推薦，高度符合預選且少數差異不預選',()=>{
+  const window=loadQuickEdit();
+  const model=window.PCMSProductModel;
+  const row=(key,code,vi,sz,seconds)=>({
+    productId:model.deterministicLegacyId('product',key),code,client:'C',vi,sz,
+    ops:[{processId:model.deterministicLegacyId('process',`${key}-1`),no:'1',vi:'May',sec:seconds}]
+  });
+  const rows=[
+    row('s-source','S-A','Vòng cổ','S',60),
+    row('s-match-1','S-B','Vòng cổ','S',60),
+    row('s-match-2','S-C','Vòng cổ','S',60),
+    row('s-outlier','S-D','Vòng cổ thun','S',75),
+    row('m-single','M-A','Vòng cổ','M',60)
+  ];
+  const targets=window.PCMSProductQuickEdit.buildTargets({
+    field:'vi',sourceProductId:rows[0].productId,products:rows,
+    candidatePlan:{source:rows[0],candidates:rows.slice(1),selectedCodes:rows.map(item=>item.code),disabledCodes:[]}
+  });
+  const selected=new Map(targets.map(target=>[target.product.productId,target.selected]));
+  assert.equal(selected.get(rows[0].productId),true);
+  assert.equal(selected.get(rows[1].productId),true);
+  assert.equal(selected.get(rows[2].productId),true);
+  assert.equal(selected.get(rows[3].productId),false);
+  assert.equal(selected.get(rows[4].productId),false);
+  assert.equal(targets.find(target=>target.product.productId===rows[3].productId).consistency.productNameDifferent,true);
+  assert.equal(targets.find(target=>target.product.productId===rows[3].productId).consistency.secondsDifferent,true);
 });
 
 test('款號代碼不提供快速修改欄位，底層也拒絕建立改碼目標',()=>{
@@ -122,6 +168,12 @@ test('完整編輯只顯示單一款號，欄位點擊共用群組面板並保�
   assert.match(quick,/data-product-quick-expand/);
   assert.match(quick,/尚未選擇對應工序/);
   assert.match(quick,/沒有可選擇的工序/);
+  assert.match(quick,/const activeTargets=targetsInSize\(activeSize\)/);
+  assert.match(quick,/commonValues\.get\(activeSize\)/);
+  assert.match(quick,/if\(sizes\.length<=1\) return true/);
+  assert.match(quick,/是否繼續修改其他尺寸/);
+  assert.ok(quick.indexOf("title:{vi:'Kết quả cập nhật'")<quick.indexOf('是否繼續修改其他尺寸'));
+  assert.match(quick,/skipped,onSaved:input\.onSaved,keepPrevious:true/);
   assert.match(groupUi,/Khác số lượng công đoạn/);
   assert.match(groupUi,/Khác mô tả tiếng Việt/);
   assert.match(groupUi,/Khác giây tiêu chuẩn/);
@@ -138,12 +190,13 @@ test('生產登記款號維持只讀，工序號、工序名稱及秒數接到�
     .forEach(pattern=>assert.match(entry,pattern));
   assert.doesNotMatch(entry,/field:\s*'code'/);
   assert.match(adapter,/if\(field==='code'\) return false/);
-  assert.match(adapter,/loadForProduct/);
+  assert.match(adapter,/prepareGroupContext/);
+  assert.match(adapter,/candidatePlan:groupInput\.candidatePlan/);
   assert.match(adapter,/activeOpenPromise/);
   assert.match(adapter,/runOpenPreparation/);
   assert.match(adapter,/Đang tải bảng mã hàng hiện tại/);
   assert.match(adapter,/Đang kiểm tra nhóm của mã hàng/);
-  assert.doesNotMatch(adapter,/ProductGroupRuntime\?\.load\?\./);
+  assert.match(adapter,/已有群組只開啟目前群組；沒有群組才準備推薦/);
 });
 
 test('完整編輯的結構儲存只建立目前款號一筆請求，既有欄位不再直接輸入',()=>{
@@ -168,7 +221,7 @@ test('共用群組修改樣式由三個入口共同載入，數量與工序號�
   assert.match(components,/keepPrevious:options\.keepPrevious===true/);
 });
 
-test('生產登記按款號載入群組最多兩筆文件，重複開啟不再完整讀取',async()=>{
+test('生產登記已有群組時最多讀取兩筆且不掃描群組清單，只有未分組才建立推薦',async()=>{
   const context={window:{},document:{dispatchEvent:null},TextEncoder,console};
   vm.createContext(context);
   vm.runInContext(read('js/product-model.js'),context);
@@ -180,16 +233,19 @@ test('生產登記按款號載入群組最多兩筆文件，重複開啟不再�
   context.window.D=[{productId:first,code:'P1',ops:[]},{productId:second,code:'P2',ops:[]}];
   let reads=0;
   context.window._docRef=(collection,id)=>({collection,id});
+  context.window._collection=collection=>({collection});
+  context.window._getDocs=async()=>{ throw new Error('已有群組不應掃描群組清單'); };
   context.window._getDoc=async reference=>{
     reads+=1;
     if(reference.collection==='productGroupMembers') return {id:reference.id,exists:()=>true,data:()=>({productId:first,groupId})};
     return {id:groupId,exists:()=>true,data:()=>({name:'G',memberProductIds:[first,second],active:true,revision:1})};
   };
   vm.runInContext(read('js/product-group-runtime.js'),context);
-  const firstResult=await context.window.PCMSProductGroupRuntime.loadForProduct(first);
-  const secondResult=await context.window.PCMSProductGroupRuntime.loadForProduct(first);
-  assert.equal(firstResult.groupId,groupId);
-  assert.equal(secondResult.groupId,groupId);
+  const firstResult=await context.window.PCMSProductGroupRuntime.prepareQuickEdit(first);
+  const secondResult=await context.window.PCMSProductGroupRuntime.prepareQuickEdit(first);
+  assert.equal(firstResult.group.groupId,groupId);
+  assert.equal(secondResult.group.groupId,groupId);
+  assert.equal(firstResult.plan,null);
   assert.equal(reads,2);
 });
 
