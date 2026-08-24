@@ -25,14 +25,16 @@ test('正式網站使用背景評分型 App Check 且先於 Firebase 服務初�
 
 test('主頁載入新版 App Check 核心程式',()=>{
   const html=read('index.html');
-  assert.match(html,/js\/firebase\.js\?v=20260824-7/);
+  const manifest=JSON.parse(read('runtime-version.json'));
+  const loadedVersion=html.match(/js\/firebase\.js\?v=([^"'&\s]+)/)?.[1];
+  assert.equal(loadedVersion,manifest.version);
 });
 
 test('正式寫入先核對靜態執行版本且不消耗 Firestore Reads',()=>{
   const source=read('js/firebase.js');
   const manifest=JSON.parse(read('runtime-version.json'));
-  assert.equal(manifest.version,'20260824-7');
-  assert.match(source,/const RUNTIME_VERSION = '20260824-7'/);
+  const guardedVersion=source.match(/const RUNTIME_VERSION = '([^']+)'/)?.[1];
+  assert.equal(guardedVersion,manifest.version);
   assert.match(source,/fetch\(RUNTIME_VERSION_URL,\{cache:'no-store'/);
   assert.match(source,/async function verifyRuntimeVersion\(\)/);
   assert.match(source,/async function setDoc\([^)]*\)\{[\s\S]*?await verifyRuntimeVersion\(\)/);
