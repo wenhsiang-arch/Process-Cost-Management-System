@@ -110,10 +110,18 @@
   function findCandidates(identity){
     const source=productByIdentity(identity);
     if(!source) return [];
-    const signature=window.PCMSProductModel.groupSignature(source);
-    return products().filter(item=>item.productId!==source.productId&&!groupForProduct(item.productId)
-      &&window.PCMSProductModel.groupSignature(item)===signature)
-      .sort((left,right)=>String(left.sz||'').localeCompare(String(right.sz||''),'zh-Hant',{numeric:true,sensitivity:'base'}));
+    const recommendation=item=>window.PCMSProductModel.groupRecommendation(source,item);
+    return products().filter(item=>item.productId!==source.productId&&recommendation(item).eligible)
+      .sort((left,right)=>{
+        const leftGroup=Boolean(groupForProduct(left.productId));
+        const rightGroup=Boolean(groupForProduct(right.productId));
+        if(leftGroup!==rightGroup) return leftGroup?1:-1;
+        const leftExact=recommendation(left).exact;
+        const rightExact=recommendation(right).exact;
+        if(leftExact!==rightExact) return leftExact?-1:1;
+        return String(left.sz||'').localeCompare(String(right.sz||''),'zh-Hant',{numeric:true,sensitivity:'base'})
+          ||String(left.code||'').localeCompare(String(right.code||''),'zh-Hant',{numeric:true,sensitivity:'base'});
+      });
   }
   function invalidate(){ loaded=false;loadingPromise=null;groups=[];productLookups.clear();window.productMasterGroups=[]; }
 

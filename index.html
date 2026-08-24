@@ -324,6 +324,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                       <ol><li>Nhấn trực tiếp vào các trường trong bảng mã hàng để sửa; không còn màn hình chỉnh sửa công đoạn riêng.</li><li>Tại trang ghi nhận sản xuất, có thể nhấn mã hàng, số công đoạn, tên công đoạn hoặc số giây để mở cùng chức năng chỉnh sửa.</li><li>Chỉnh sửa nhóm được chia theo kích thước, hiển thị tổng số công đoạn và chỉ so sánh các mã hàng cùng kích thước.</li><li>Nhấn mã hàng để mở toàn bộ công đoạn; khác biệt chỉ để nhắc, không chặn thao tác. Trước khi lưu có xem trước, tiến độ và kết quả.</li></ol>
                     </section>
                     <section class="home-update-topic">
+                      <h3>Tối ưu đề xuất nhóm và xác nhận thay đổi</h3>
+                      <ol><li>Khi tạo nhóm, hệ thống liệt kê các mã cùng khách hàng và cùng tên tiếng Việt; mã có toàn bộ công đoạn giống nhau được đánh dấu “Khớp cao” và chọn sẵn.</li><li>Mã khác số lượng công đoạn, mô tả tiếng Việt hoặc giây tiêu chuẩn vẫn có thể chọn, nhưng từng khác biệt được ghi rõ. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu và không thể chọn trùng.</li><li>Màn hình xem trước và kết quả hiển thị mã hàng, kích thước, số công đoạn, tên công đoạn tiếng Việt, giây hiện tại, nội dung trước/sau, ảnh hưởng, kết quả và nguyên nhân.</li></ol>
+                    </section>
+                    <section class="home-update-topic">
                       <h3>Nhập Excel mã hàng</h3>
                       <ol><li>Nhập lại cùng mã hàng sẽ thay thế toàn bộ danh sách công đoạn theo tệp mới, không để sót công đoạn cũ.</li><li>Công đoạn có cùng số giữ liên kết cũ; phiếu sản xuất chưa khóa tự dùng tên, phân loại và số giây mới.</li><li>Trước khi ghi đè, hệ thống hiển thị các phiếu sản xuất bị ảnh hưởng để xác nhận.</li><li>Nếu công đoạn đã có sản lượng bị xóa và tệp mới không có cùng số để tiếp nhận, mã hàng đó sẽ dừng và nêu rõ nguyên nhân.</li></ol>
                     </section>
@@ -344,6 +348,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     <section class="home-update-topic">
                       <h3>款號與工序修改</h3>
                       <ol><li>直接點擊款號總表的正式欄位即可修改，不再使用獨立工序修改頁面。</li><li>生產登記頁可點擊款號、工序號、工序名稱或秒數，開啟同一套修改功能。</li><li>群組修改依尺寸分頁，顯示總工序數量，並且只比較同尺寸款號。</li><li>點擊款號可展開全部工序；差異只作為提醒，不會阻止操作。儲存前提供預覽、進度及結果。</li></ol>
+                    </section>
+                    <section class="home-update-topic">
+                      <h3>群組推薦與修改確認優化</h3>
+                      <ol><li>建立群組時，系統會列出同客人且同越文品名的款號；全部工序一致者標示「高度符合」並預設勾選。</li><li>工序數量、越文描述或標準秒數不同的款號仍可選擇，但會逐項標示差異。已在其他群組的款號只供比對，不可重複勾選。</li><li>修改預覽與結果會完整顯示款號、尺寸、工序號、越文工序名稱、目前秒數、修改前後內容、影響、結果及原因。</li></ol>
                     </section>
                     <section class="home-update-topic">
                       <h3>Excel 款號匯入</h3>
@@ -1404,11 +1412,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260824-5"></script>
+  <script src="js/features.js?v=20260824-6"></script>
 <script src="js/auth.js?v=20260823-2"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260824-5"></script>
+<script type="module" src="js/firebase.js?v=20260824-6"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

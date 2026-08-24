@@ -206,28 +206,90 @@
     });
   }
 
+  const PRODUCT_CHANGE_FIELDS=new Set(['code','client','zh','vi','sz','operationCount']);
+
+  function productContext(product={}){
+    return `<div class="product-change-product"><b>${safe(product.code||'—')}</b><span>${safe(product.client||'—')}</span><span>${safe(product.zh||'—')}</span><span>${safe(product.vi||'—')}</span></div>`;
+  }
+
+  function operationContext(difference,request){
+    if(PRODUCT_CHANGE_FIELDS.has(difference.field)) return {no:'—',vi:'—',seconds:'—'};
+    const before=difference.operationBefore||null;
+    const after=difference.operationAfter||null;
+    const byId=product=>product?.ops?.find(operation=>processId(operation?.processId)===processId(difference.processId));
+    const byNo=product=>product?.ops?.find(operation=>String(operation?.no)===String(difference.operationNo));
+    const fallbackAfter=byId(request.draft)||byNo(request.draft);
+    const fallbackBefore=byId(request.base)||byNo(request.base);
+    const operation=after||before||fallbackAfter||fallbackBefore||{};
+    return {
+      no:after?.no||before?.no||operation.no||difference.operationNo||'—',
+      vi:after?.vi||before?.vi||operation.vi||'—',
+      seconds:before?.sec||after?.sec||operation.sec||'—'
+    };
+  }
+
+  function impactCopy(difference){
+    if(difference.field==='sec'){
+      return {
+        vi:`SL/giờ ${capacity(difference.before)} → ${capacity(difference.after)}`,
+        zh:`每小時產能 ${capacity(difference.before)} → ${capacity(difference.after)}`
+      };
+    }
+    if(difference.field==='operationCount') return {vi:'Cập nhật tổng số công đoạn',zh:'更新總工序數量'};
+    if(difference.field==='no'){
+      if(displayValue(difference.before)==='—') return {vi:'Thêm công đoạn mới',zh:'新增工序'};
+      if(displayValue(difference.after)==='—') return {vi:'Xóa khỏi danh sách công đoạn hiện tại',zh:'自目前工序清單移除'};
+      return {vi:'Cập nhật số và thứ tự công đoạn',zh:'更新工序號與順序'};
+    }
+    if(['client','zh','vi','sz'].includes(difference.field)) return {vi:'Dữ liệu chưa khóa tự dùng giá trị mới',zh:'未鎖定資料自動使用新值'};
+    return {vi:'Dữ liệu công đoạn chưa khóa tự cập nhật',zh:'未鎖定工序資料自動更新'};
+  }
+
+  function workflowTable(){
+    return `<div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-change-workflow-table"><thead><tr>
+      <th class="is-product">${dual('Thông tin mã hàng','款號資料')}</th><th class="ui-table-center-cell is-size">${dual('Kích thước','尺寸')}</th>
+      <th class="ui-table-center-cell is-process-no">${dual('Số công đoạn','工序號')}</th><th class="is-process-name">${dual('Tên công đoạn Việt','越文工序名稱')}</th><th class="ui-table-number-cell is-seconds">${dual('Giây hiện tại','目前秒數')}</th>
+      <th class="is-field">${dual('Mục sửa','修改項目')}</th><th class="is-value">${dual('Trước sửa','修改前')}</th><th class="is-value">${dual('Sau sửa','修改後')}</th>
+      <th class="is-impact">${dual('Ảnh hưởng','影響結果')}</th><th class="is-result">${dual('Kết quả','結果')}</th><th class="is-detail">${dual('Chi tiết','說明')}</th>
+    </tr></thead><tbody></tbody></table></div></div>`;
+  }
+
+  function changeRow(request,difference,{status,detail,className=''}={}){
+    const product=request.draft||request.base||{};
+    const operation=operationContext(difference,request);
+    const impact=impactCopy(difference);
+    const row=document.createElement('tr');
+    if(className) row.className=className;
+    row.innerHTML=`<td>${productContext(product)}</td><td class="ui-table-center-cell">${safe(product.sz||'—')}</td>
+      <td class="ui-table-center-cell">${safe(operation.no)}</td><td>${safe(operation.vi)}</td><td class="ui-table-number-cell">${safe(operation.seconds)}</td>
+      <td>${dual(difference.label?.vi||difference.field,difference.label?.zh||difference.field)}</td><td class="product-change-before">${safe(displayValue(difference.before))}</td><td class="product-change-after">${safe(displayValue(difference.after))}</td>
+      <td>${dual(impact.vi,impact.zh)}</td><td>${dual(status.vi,status.zh)}</td><td>${dual(detail.vi,detail.zh)}</td>`;
+    return row;
+  }
+
+  function skippedRow(item){
+    const product=item.product||{};
+    const row=document.createElement('tr');
+    row.className='is-warning';
+    row.innerHTML=`<td>${productContext(product)}</td><td class="ui-table-center-cell">${safe(product.sz||'—')}</td><td class="ui-table-center-cell">—</td><td>—</td><td class="ui-table-number-cell">—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>${dual('Không xử lý','未處理')}</td><td>${dual(item.reason?.vi||'Không có công đoạn tương ứng',item.reason?.zh||'無對應工序')}</td>`;
+    return row;
+  }
+
   function createPreviewBody(requests,skipped=[]){
     const body=document.createElement('div');
     body.className='product-change-preview';
-    body.innerHTML=`<div class="ui-notice is-info"><i class="ti ti-eye-check"></i>${dual('Kiểm tra nội dung trước và sau khi sửa rồi mới xác nhận.','請先確認修改前後內容，再執行儲存。')}</div>
-      <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-change-preview-table"><thead><tr><th>${dual('Mã hàng','款號')}</th><th>${dual('Kích thước','尺寸')}</th><th>${dual('Nội dung thay đổi','修改內容')}</th><th>${dual('Trạng thái','狀態')}</th></tr></thead><tbody></tbody></table></div></div>`;
+    body.innerHTML=`<div class="ui-notice is-info"><i class="ti ti-eye-check"></i>${dual('Kiểm tra từng mục trước và sau khi sửa rồi mới xác nhận.','請逐項確認修改前後內容，再執行儲存。')}</div>${workflowTable()}`;
     const rows=body.querySelector('tbody');
     requests.forEach(request=>{
-      const differences=model().compareProducts(request.base,request.draft);
-      const row=document.createElement('tr');
-      const detail=differences.map(item=>{
-        const process=item.operationNo?`CĐ ${item.operationNo} / 工序 ${item.operationNo} · `:'';
-        return `<div>${safe(process)}${dual(item.label?.vi||item.field,item.label?.zh||item.field)}<span class="product-change-arrow">${safe(displayValue(item.before))} → ${safe(displayValue(item.after))}</span></div>`;
-      }).join('')||dual('Không có thay đổi thực tế','沒有實際變更');
       const warning=(request.warnings||[])[0];
-      row.innerHTML=`<td><b>${safe(request.base.code)}</b></td><td>${safe(request.base.sz||'—')}</td><td class="product-change-list">${detail}</td><td>${warning?dual(`Có nhắc nhở: ${warning.vi}`,`有提醒：${warning.zh}`):dual('Sẵn sàng','可執行')}</td>`;
-      rows.appendChild(row);
+      const detail=warning
+        ?{vi:`Có nhắc nhở: ${warning.vi}`,zh:`有提醒：${warning.zh}`}
+        :{vi:'Sẽ lưu sau khi người dùng xác nhận.',zh:'使用者確認後才會儲存。'};
+      model().compareProducts(request.base,request.draft).forEach(difference=>rows.appendChild(changeRow(request,difference,{
+        status:{vi:'Chờ thực hiện',zh:'待執行'},detail,className:warning?'is-warning':''
+      })));
     });
-    skipped.forEach(item=>{
-      const row=document.createElement('tr');row.className='is-warning';
-      row.innerHTML=`<td><b>${safe(item.product?.code||'—')}</b></td><td>${safe(item.product?.sz||'—')}</td><td>${dual(item.reason?.vi||'—',item.reason?.zh||'—')}</td><td>${dual('Không xử lý','未處理')}</td>`;
-      rows.appendChild(row);
-    });
+    skipped.forEach(item=>rows.appendChild(skippedRow(item)));
     return body;
   }
 
@@ -244,21 +306,21 @@
     body.innerHTML=`<div class="product-change-result-summary ${failure?'is-warning':'is-success'}">${dual(
       failure?`Hoàn tất ${success} mã, ${failure} mã thất bại.`:`Đã hoàn tất ${success} mã.`,
       failure?`已完成 ${success} 個款號，${failure} 個失敗。`:`已完成 ${success} 個款號。`
-    )}</div><div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table"><thead><tr><th>${dual('Mã hàng','款號')}</th><th>${dual('Kết quả','結果')}</th><th>${dual('Chi tiết','說明')}</th></tr></thead><tbody></tbody></table></div></div>`;
+    )}</div>${workflowTable()}`;
     const rows=body.querySelector('tbody');
     result.results.forEach(item=>{
-      const row=document.createElement('tr');
-      const code=item.product?.code||item.code||item.productId||'—';
       const error=item.ok?null:resultError(item.error);
       const warning=(item.warnings||[])[0];
-      row.innerHTML=`<td><b>${safe(code)}</b></td><td>${item.ok?dual('Hoàn tất','完成'):dual('Thất bại','失敗')}</td><td>${item.ok?(warning?dual(`Đã lưu phần phù hợp; ${warning.vi}`,`已儲存可套用內容；${warning.zh}`):dual('Đã lưu đầy đủ','已完整儲存')):dual(error.vi,error.zh)}</td>`;
-      rows.appendChild(row);
+      const request=item.request||{base:item.product||{},draft:item.product||{}};
+      const differences=model().compareProducts(request.base,request.draft);
+      const status=item.ok?{vi:'Hoàn tất',zh:'完成'}:{vi:'Thất bại',zh:'失敗'};
+      const detail=item.ok
+        ?(warning?{vi:`Đã lưu; ${warning.vi}`,zh:`已儲存；${warning.zh}`}:{vi:'Đã lưu đầy đủ.',zh:'已完整儲存。'})
+        :error;
+      if(differences.length) differences.forEach(difference=>rows.appendChild(changeRow(request,difference,{status,detail,className:item.ok?'':'is-warning'})));
+      else rows.appendChild(skippedRow({product:item.product||request.base,reason:detail}));
     });
-    skipped.forEach(item=>{
-      const row=document.createElement('tr');
-      row.innerHTML=`<td><b>${safe(item.product?.code||'—')}</b></td><td>${dual('Không xử lý','未處理')}</td><td>${dual(item.reason?.vi||'Không có công đoạn tương ứng',item.reason?.zh||'無對應工序')}</td>`;
-      rows.appendChild(row);
-    });
+    skipped.forEach(item=>rows.appendChild(skippedRow(item)));
     return body;
   }
 
@@ -290,7 +352,10 @@
         }
       });
       const requestById=new Map(requests.map(request=>[request.base.productId,request]));
-      result.results=result.results.map(item=>({...item,warnings:clone(requestById.get(item.productId)?.warnings||[])}));
+      result.results=result.results.map(item=>{
+        const request=requestById.get(item.productId);
+        return {...item,request:clone(request),warnings:clone(request?.warnings||[])};
+      });
       result.successes=result.results.filter(item=>item.ok);
       result.failures=result.results.filter(item=>!item.ok);
       progress.complete({vi:'Đã xử lý xong.',zh:'處理完成。'},{vi:`Hoàn tất ${result.successes.length} mã.`,zh:`完成 ${result.successes.length} 個款號。`});

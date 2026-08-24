@@ -55,3 +55,27 @@ test('群組建立、改名、停用及成員調整會更新同一份頁面狀�
   assert.equal(setup.window.PCMSProductGroupRuntime.all({includeInactive:true})[0].name,'Nhóm B');
   assert.equal(setup.window.PCMSProductGroupRuntime.all().length,0);
 });
+
+test('建立群組候選會列出同客人與同越文品名，完全一致優先且已分組款號保留在最後供比對',async()=>{
+  const setup=load();
+  const model=setup.window.PCMSProductModel;
+  const product=(code,ops,vi='Vòng cổ')=>model.normalizeProduct({
+    productId:model.deterministicLegacyId('product',code),code,client:'BK',vi,sz:'M',
+    ops:ops.map((item,index)=>({processId:model.deterministicLegacyId('process',`${code}-${index}`),no:String(index+1),vi:item.vi,zh:item.vi,sec:item.sec,category:'SX'}))
+  });
+  const standard=[{vi:'May',sec:60},{vi:'Kiểm tra',sec:30}];
+  const source=product('P1',standard);
+  const exact=product('P2',standard);
+  const different=product('P3',[{vi:'May khác',sec:60}]);
+  const grouped=product('P4',standard);
+  const otherName=product('P5',standard,'Tên khác');
+  const groupedSecond=product('P6',standard);
+  setup.window.D=[source,exact,different,grouped,otherName,groupedSecond];
+  setup.rows.push({groupId:'grp_existing_123456',name:'Nhóm cũ',memberProductIds:[grouped.productId,groupedSecond.productId],active:true,revision:1});
+  await setup.window.PCMSProductGroupRuntime.load();
+  const candidates=setup.window.PCMSProductGroupRuntime.findCandidates(source.productId);
+  assert.deepEqual(Array.from(candidates,item=>item.code),['P2','P3','P4','P6']);
+  assert.equal(model.groupRecommendation(source,candidates[0]).exact,true);
+  assert.equal(model.groupRecommendation(source,candidates[1]).countDifferent,true);
+  assert.equal(setup.window.PCMSProductGroupRuntime.groupForProduct(candidates[2].productId).groupId,'grp_existing_123456');
+});

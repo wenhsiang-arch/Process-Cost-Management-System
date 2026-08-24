@@ -101,6 +101,13 @@ test('完整編輯只顯示單一款號，欄位點擊共用群組面板並保�
   assert.match(quick,/createPreviewBody/);
   assert.match(quick,/progressDialog/);
   assert.match(quick,/createResultBody/);
+  assert.match(quick,/product-change-workflow-table/);
+  assert.match(quick,/Thông tin mã hàng/);
+  assert.match(quick,/Tên công đoạn Việt/);
+  assert.match(quick,/Trước sửa/);
+  assert.match(quick,/Sau sửa/);
+  assert.match(quick,/Ảnh hưởng/);
+  assert.match(quick,/request:clone\(request\)/);
   assert.match(quick,/product-quick-summary/);
   assert.match(quick,/Hiện tại:/);
   assert.match(quick,/Sau sửa:/);

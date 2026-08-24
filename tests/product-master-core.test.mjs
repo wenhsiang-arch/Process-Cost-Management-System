@@ -95,6 +95,33 @@ test('工序號就是排序，移到已存在位置會順移並保留全部固�
   assert.deepEqual(new Set(moved.map(item=>item.processId)),new Set(operations.map(item=>item.processId)));
 });
 
+test('修改預覽依固定 processId 對應工序，拖曳後只顯示真正的工序號變更',()=>{
+  const {PCMSProductModel:model}=load();
+  const operations=['A','B','C'].map((key,index)=>(
+    {processId:model.deterministicLegacyId('process',`PREVIEW-${key}`),no:String(index+1),sortOrder:index+1,category:'SX',zh:key,vi:key,sec:10}
+  ));
+  const base={...sourceProduct,ops:operations};
+  const draft={...base,ops:model.moveOperation(operations,operations[2].processId,2)};
+  const differences=model.compareProducts(base,draft);
+  assert.equal(differences.every(item=>item.field==='no'),true);
+  assert.equal(differences.length,2);
+  assert.deepEqual(new Set(differences.map(item=>item.processId)),new Set([operations[1].processId,operations[2].processId]));
+});
+
+test('群組推薦先依客人與越文品名列候選，再分別標示工序數量、描述與秒數差異',()=>{
+  const {PCMSProductModel:model}=load();
+  const source={...sourceProduct,client:'BK',vi:'Vòng cổ'};
+  assert.equal(model.groupRecommendation(source,{...source,code:'P2'}).exact,true);
+  const count=model.groupRecommendation(source,{...source,code:'P3',ops:source.ops.slice(0,1)});
+  assert.equal(count.eligible,true);
+  assert.equal(count.countDifferent,true);
+  assert.equal(count.descriptionDifferent,false);
+  assert.equal(count.secondsDifferent,false);
+  assert.equal(model.groupRecommendation(source,{...source,code:'P4',ops:source.ops.map((item,index)=>index?item:{...item,vi:'Khác'})}).descriptionDifferent,true);
+  assert.equal(model.groupRecommendation(source,{...source,code:'P5',ops:source.ops.map((item,index)=>index?item:{...item,sec:61})}).secondsDifferent,true);
+  assert.equal(model.groupRecommendation(source,{...source,code:'P6',client:'GT'}).eligible,false);
+});
+
 test('群組差異會分別標示工序數量、越文描述及標準秒數，僅供提醒',()=>{
   const {PCMSProductModel:model}=load();
   const productId=index=>model.deterministicLegacyId('product',`GROUP-${index}`);

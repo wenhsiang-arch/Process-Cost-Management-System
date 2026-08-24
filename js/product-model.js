@@ -282,8 +282,17 @@
     sec:{vi:'Giây tiêu chuẩn',zh:'標準秒數'}
   });
 
-  function difference(field,before,after,operationNo=''){
-    return {field,operationNo,label:FIELD_LABELS[field],before,after};
+  function difference(field,before,after,operationNo='',context={}){
+    return {
+      field,
+      operationNo,
+      processId:fixedId(context.processId,'process'),
+      operationBefore:context.operationBefore||null,
+      operationAfter:context.operationAfter||null,
+      label:FIELD_LABELS[field],
+      before,
+      after
+    };
   }
 
   function compareProducts(existing,incoming){
@@ -296,21 +305,45 @@
     if(before.ops.length!==after.ops.length){
       differences.push(difference('operationCount',before.ops.length,after.ops.length));
     }
-    const beforeByNo=new Map(before.ops.map(item=>[item.no,item]));
-    const afterByNo=new Map(after.ops.map(item=>[item.no,item]));
-    const operationNumbers=[...new Set([...beforeByNo.keys(),...afterByNo.keys()])]
-      .sort((left,right)=>Number(left)-Number(right));
-    operationNumbers.forEach(no=>{
-      const oldOperation=beforeByNo.get(no);
-      const newOperation=afterByNo.get(no);
+    const paired=[];
+    const usedBefore=new Set();
+    const usedAfter=new Set();
+    const beforeById=new Map(before.ops.map((item,index)=>[fixedId(item.processId,'process'),{item,index}]).filter(([id])=>id));
+    after.ops.forEach((item,index)=>{
+      const id=fixedId(item.processId,'process');
+      const match=id?beforeById.get(id):null;
+      if(!match) return;
+      paired.push({before:match.item,after:item,processId:id});
+      usedBefore.add(match.index);
+      usedAfter.add(index);
+    });
+    const remainingBefore=new Map(before.ops.map((item,index)=>({item,index})).filter(row=>!usedBefore.has(row.index)).map(row=>[row.item.no,row]));
+    after.ops.forEach((item,index)=>{
+      if(usedAfter.has(index)) return;
+      const match=remainingBefore.get(item.no);
+      if(match){
+        paired.push({before:match.item,after:item,processId:fixedId(match.item.processId||item.processId,'process')});
+        usedBefore.add(match.index);
+        usedAfter.add(index);
+        remainingBefore.delete(item.no);
+      }
+    });
+    before.ops.forEach((item,index)=>{ if(!usedBefore.has(index)) paired.push({before:item,after:null,processId:fixedId(item.processId,'process')}); });
+    after.ops.forEach((item,index)=>{ if(!usedAfter.has(index)) paired.push({before:null,after:item,processId:fixedId(item.processId,'process')}); });
+    paired.sort((left,right)=>compareOperationNumber(left.after||left.before,right.after||right.before)).forEach(pair=>{
+      const oldOperation=pair.before;
+      const newOperation=pair.after;
+      const no=newOperation?.no||oldOperation?.no||'';
+      const context={processId:pair.processId,operationBefore:oldOperation,operationAfter:newOperation};
       if(!oldOperation||!newOperation){
-        differences.push(difference('no',oldOperation?.no||'—',newOperation?.no||'—',no));
+        differences.push(difference('no',oldOperation?.no||'—',newOperation?.no||'—',no,context));
         return;
       }
-      if(oldOperation.category!==newOperation.category) differences.push(difference('category',oldOperation.category,newOperation.category,no));
-      if(oldOperation.zh!==newOperation.zh) differences.push(difference('operationZh',oldOperation.zh,newOperation.zh,no));
-      if(oldOperation.vi!==newOperation.vi) differences.push(difference('operationVi',oldOperation.vi,newOperation.vi,no));
-      if(oldOperation.sec!==newOperation.sec) differences.push(difference('sec',oldOperation.sec,newOperation.sec,no));
+      if(oldOperation.no!==newOperation.no) differences.push(difference('no',oldOperation.no,newOperation.no,no,context));
+      if(oldOperation.category!==newOperation.category) differences.push(difference('category',oldOperation.category,newOperation.category,no,context));
+      if(oldOperation.zh!==newOperation.zh) differences.push(difference('operationZh',oldOperation.zh,newOperation.zh,no,context));
+      if(oldOperation.vi!==newOperation.vi) differences.push(difference('operationVi',oldOperation.vi,newOperation.vi,no,context));
+      if(oldOperation.sec!==newOperation.sec) differences.push(difference('sec',oldOperation.sec,newOperation.sec,no,context));
     });
     return differences;
   }
@@ -421,13 +454,12 @@
     const countDifferent=profile.length!==baseline.length;
     const profileByNo=new Map(profile.map(item=>[item.no,item]));
     const baselineByNo=new Map(baseline.map(item=>[item.no,item]));
-    const numbers=[...new Set([...profileByNo.keys(),...baselineByNo.keys()])];
-    let descriptionDifferent=false;
+    const numbers=[...profileByNo.keys()].filter(no=>baselineByNo.has(no));
+    let descriptionDifferent=profileByNo.size===baselineByNo.size&&numbers.length!==profileByNo.size;
     let secondsDifferent=false;
     numbers.forEach(no=>{
       const current=profileByNo.get(no);
       const expected=baselineByNo.get(no);
-      if(!current||!expected){ descriptionDifferent=true;secondsDifferent=true;return; }
       if(current.vi!==expected.vi) descriptionDifferent=true;
       if(current.sec!==expected.sec) secondsDifferent=true;
     });
@@ -488,6 +520,30 @@
     });
   }
 
+  // groupRecommendation（群組推薦結果）：同客人與同越文品名先列為候選，再清楚標示工序差異；差異不阻擋人工選取。
+  function groupRecommendation(sourceInput,candidateInput){
+    const source=normalizeProduct(sourceInput);
+    const candidate=normalizeProduct(candidateInput);
+    const eligible=normalizedSignatureText(source.client)===normalizedSignatureText(candidate.client)
+      &&normalizedSignatureText(source.vi)===normalizedSignatureText(candidate.vi);
+    const sourceProfile=groupProcessProfile(source);
+    const candidateProfile=groupProcessProfile(candidate);
+    const sourceByNo=new Map(sourceProfile.map(item=>[item.no,item]));
+    const candidateByNo=new Map(candidateProfile.map(item=>[item.no,item]));
+    const sharedNumbers=[...sourceByNo.keys()].filter(no=>candidateByNo.has(no));
+    const numberSetDifferent=sourceByNo.size===candidateByNo.size&&sharedNumbers.length!==sourceByNo.size;
+    const differences=eligible?{
+      countDifferent:sourceProfile.length!==candidateProfile.length,
+      descriptionDifferent:numberSetDifferent||sharedNumbers.some(no=>sourceByNo.get(no).vi!==candidateByNo.get(no).vi),
+      secondsDifferent:sharedNumbers.some(no=>sourceByNo.get(no).sec!==candidateByNo.get(no).sec)
+    }:{countDifferent:false,descriptionDifferent:false,secondsDifferent:false};
+    return {
+      eligible,
+      exact:eligible&&!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent,
+      ...differences
+    };
+  }
+
   // matchesGroupSignature（符合既有群組特徵）：舊群組仍可沿用保存過的含中文特徵。
   function matchesGroupSignature(product,signature){
     return groupSignature(product)===canonicalGroupSignature(signature);
@@ -518,6 +574,7 @@
     groupProcessProfile,
     compareGroupConsistency,
     groupSignature,
+    groupRecommendation,
     matchesGroupSignature
   });
 })();

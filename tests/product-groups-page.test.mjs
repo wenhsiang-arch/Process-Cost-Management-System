@@ -146,7 +146,15 @@ test('建立新群組維持推薦條件，正式儲存只使用固定 productId'
   const runtime=read('js/product-group-runtime.js');
   const service=read('js/product-master-service.js');
   assert.match(page,/matchesGroupSignature\(item,group\.signature\)/);
+  assert.match(page,/groupRecommendation\(product,item\)/);
+  assert.match(page,/disabledCodes:disabled\.map/);
+  assert.match(page,/Khớp cao/);
+  assert.match(page,/高度符合/);
+  assert.match(page,/Khác số lượng công đoạn/);
+  assert.match(page,/Khác mô tả tiếng Việt/);
+  assert.match(page,/Khác giây tiêu chuẩn/);
   assert.match(runtime,/memberProductIds/);
+  assert.match(runtime,/recommendation\(item\)\.eligible/);
   assert.match(runtime,/service\(\)\.createGroup/);
   assert.match(service,/async function createGroup/);
   assert.match(service,/productGroupMembers/);

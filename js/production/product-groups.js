@@ -422,17 +422,36 @@
     }));
   }
 
+  function recommendationStatus(source,candidate){
+    const assigned=store().groupForProduct(candidate.productId||candidate.code);
+    if(assigned){
+      const name=safe(assigned.name||assigned.groupId||'—');
+      return `<span class="process-group-status product-group-blocked"><span class="ui-dual-copy"><strong>Đã thuộc nhóm: ${name}</strong><span>已在其他群組：${name}</span></span></span>`;
+    }
+    const result=window.PCMSProductModel.groupRecommendation(source,candidate);
+    if(result.exact) return '<span class="process-group-status is-consistent"><span class="ui-dual-copy"><strong>Khớp cao</strong><span>高度符合</span></span></span>';
+    const labels=[];
+    if(result.countDifferent) labels.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
+    if(result.descriptionDifferent) labels.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
+    if(result.secondsDifferent) labels.push({vi:'Khác giây tiêu chuẩn',zh:'標準秒數不同'});
+    return labels.map(item=>`<span class="process-group-status is-warning"><span class="ui-dual-copy"><strong>${safe(item.vi)}</strong><span>${safe(item.zh)}</span></span></span>`).join('');
+  }
+
   function renderWizardCandidates(host,product){
     const panel=host.querySelector('[data-product-groups-panel="3"]');
     const candidates=store().findCandidates(product.code);
+    const available=candidates.filter(item=>!store().groupForProduct(item.productId||item.code));
+    const selected=[product,...available.filter(item=>window.PCMSProductModel.groupRecommendation(product,item).exact)];
+    const disabled=candidates.filter(item=>store().groupForProduct(item.productId||item.code));
     panel.innerHTML=`<div class="product-groups-wizard-source"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><b>${safe(product.code)}</b><span>${safe(product.client||'—')} · ${safe(product.zh||'—')} · ${safe(product.vi||'—')} · ${safe(product.sz||'—')}</span></div>
-      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Hệ thống tự khớp mã cùng sản phẩm. Danh sách đã chia theo kích thước; hãy kiểm tra khách hàng, tên tiếng Việt và cấu trúc công đoạn trước khi tạo nhóm.</span><span class="ui-text-zh">系統已自動匹配同產品款號並依尺寸分組；建立前請確認客人、越文品名及工序結構。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
-      :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã cùng cấu trúc để lập nhóm</strong><span>找不到結構相同、可建立群組的其他款號</span></span></div>'}`;
+      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Các mã cùng khách hàng và cùng tên tiếng Việt đều được liệt kê. Mã khớp toàn bộ công đoạn được chọn sẵn; khác biệt chỉ để nhắc và vẫn có thể chọn. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu.</span><span class="ui-text-zh">同客人且同越文品名的款號都會列出。工序完全相同者預設勾選；差異只作提醒，仍可人工選擇。已在其他群組的款號只供比對。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
+      :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã cùng khách hàng và tên tiếng Việt</strong><span>找不到同客人且同越文品名的其他款號</span></span></div>'}`;
     host._groupSelector=null;
     if(candidates.length){
       host._groupSelector=groupUI().createMemberSelector({
         products:[product,...candidates],currentCode:product.code,activeSize:product.sz,
-        selectedCodes:[product,...candidates].map(item=>item.code),requiredCodes:[product.code],selectable:true,
+        selectedCodes:selected.map(item=>item.code),requiredCodes:[product.code],disabledCodes:disabled.map(item=>item.code),selectable:true,
+        consistency:true,expandable:true,statusRenderer:item=>recommendationStatus(product,item),
         onChange:()=>updateCreateCount(host)
       });
       panel.querySelector('[data-product-group-wizard-selector]').appendChild(host._groupSelector.element);
@@ -446,6 +465,8 @@
     if(!count) return;
     const selected=host._groupSelector?.selectedCodes().length||1;
     count.textContent=textApi().visibleText({vi:`Nhóm mới có ${selected} mã`,zh:`新群組共 ${selected} 個款號`});
+    const button=host.querySelector('#product-groups-create-button');
+    if(button) button.disabled=selected<2;
   }
 
   function openCreateWizard(prefillCode=''){

@@ -71,13 +71,12 @@
     const countDifferent=profile.length!==baseline.length;
     const currentByNo=new Map(profile.map(item=>[item.no,item]));
     const baselineByNo=new Map(baseline.map(item=>[item.no,item]));
-    const processNumbers=new Set([...currentByNo.keys(),...baselineByNo.keys()]);
-    let descriptionDifferent=false;
+    const sharedNumbers=[...currentByNo.keys()].filter(no=>baselineByNo.has(no));
+    let descriptionDifferent=currentByNo.size===baselineByNo.size&&sharedNumbers.length!==currentByNo.size;
     let secondsDifferent=false;
-    processNumbers.forEach(no=>{
+    sharedNumbers.forEach(no=>{
       const current=currentByNo.get(no);
       const expected=baselineByNo.get(no);
-      if(!current||!expected){ descriptionDifferent=true;secondsDifferent=true;return; }
       if(current.vi!==expected.vi) descriptionDifferent=true;
       if(current.sec!==expected.sec) secondsDifferent=true;
     });
@@ -167,10 +166,11 @@
     const groups=groupBySize(products);
     const productMap=new Map(products.map(item=>[productCode(item),item]));
     const required=new Set((options.requiredCodes||[]).map(normalize).filter(Boolean));
+    const disabled=new Set((options.disabledCodes||[]).map(normalize).filter(Boolean));
     const selected=new Set(
       options.selectedCodes===undefined
-        ? products.map(productCode)
-        : (options.selectedCodes||[]).map(normalize).filter(code=>productMap.has(code))
+        ? products.map(productCode).filter(code=>!disabled.has(code))
+        : (options.selectedCodes||[]).map(normalize).filter(code=>productMap.has(code)&&!disabled.has(code))
     );
     required.forEach(code=>{ if(productMap.has(code)) selected.add(code); });
     const expanded=new Set((options.expandedCodes||[]).map(normalize).filter(code=>productMap.has(code)));
@@ -191,7 +191,7 @@
 
     function render(){
       const active=groups.find(group=>group.key===activeSize)||groups[0]||{key:MISSING_SIZE,members:[]};
-      const currentCodes=active.members.map(productCode);
+      const currentCodes=active.members.map(productCode).filter(code=>!disabled.has(code));
       const selection=allSelectionState(currentCodes,selected);
       const showSeconds=options.processNo!==undefined&&options.processNo!==null&&options.processNo!=='';
       const selectable=options.selectable!==false;
@@ -221,11 +221,13 @@
             const operation=operationFor(product,options.processNo);
             const summary=consistency.summaries.get(product.productId);
             const processCount=activeOperations(product).length;
+            const unavailable=disabled.has(code);
+            const customStatus=typeof options.statusRenderer==='function'?options.statusRenderer(product,summary):'';
             return `<tr class="${code===normalize(options.currentCode)?'is-current':''}">
-              ${selectable?`<td class="ui-table-center-cell"><input type="checkbox" data-process-member="${safeAttribute(code)}" ${selected.has(code)?'checked':''} ${required.has(code)?'disabled':''} aria-label="${safeAttribute(code)}"></td>`:''}
+              ${selectable?`<td class="ui-table-center-cell"><input type="checkbox" data-process-member="${safeAttribute(code)}" ${selected.has(code)?'checked':''} ${required.has(code)||unavailable?'disabled':''} aria-label="${safeAttribute(code)}"></td>`:''}
               <td title="${safeAttribute(product.client||'—')}">${safe(product.client||'—')}</td><td title="${safeAttribute(code)}">${expandable?`<button type="button" class="process-member-code-button${expanded.has(code)?' is-open':''}" data-process-member-expand="${safeAttribute(code)}" aria-expanded="${expanded.has(code)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(code)}</b></button>`:`<b>${safe(code)}</b>`}</td><td title="${safeAttribute(product.zh||'—')}">${safe(product.zh||'—')}</td><td title="${safeAttribute(product.vi||'—')}">${safe(product.vi||'—')}</td><td title="${safeAttribute(product.sz||'—')}">${safe(product.sz||'—')}</td><td class="ui-table-number-cell"><b>${safe(processCount)}</b></td>
               ${showSeconds?`<td class="ui-table-number-cell"><b>${operation&&Number(operation.sec)>0?safe(Math.round(Number(operation.sec))):'—'}</b></td>`:''}
-              ${showConsistency?`<td class="process-group-status-cell">${statusHtml(summary)}</td>`:''}
+              ${showConsistency?`<td class="process-group-status-cell">${customStatus||statusHtml(summary)}</td>`:''}
               ${showAction?`<td class="ui-table-center-cell"><button type="button" class="ui-button is-compact" data-process-member-edit="${safeAttribute(code)}"><i class="ti ti-edit"></i><span class="ui-dual-copy"><strong>Sửa công đoạn</strong><span>修改工序</span></span></button></td>`:''}
             </tr>${expandable&&expanded.has(code)?`<tr class="process-member-detail-row"><td colspan="${columnCount}"><div class="process-member-detail"><table class="ui-table"><thead><tr><th><span class="ui-dual-copy"><strong>Số công đoạn</strong><span>工序號</span></span></th><th><span class="ui-dual-copy"><strong>Mô tả tiếng Việt</strong><span>越文工序描述</span></span></th><th><span class="ui-dual-copy"><strong>Giây tiêu chuẩn</strong><span>標準秒數</span></span></th></tr></thead><tbody>${processDetailRows(product,consistency.baselines.get(active.key))}</tbody></table></div></td></tr>`:''}`;
           }).join('')}</tbody>
@@ -244,7 +246,7 @@
       const allButton=event.target.closest('[data-process-select-all]');
       if(allButton){
         const active=groups.find(group=>group.key===activeSize);
-        const codes=(active?.members||[]).map(productCode);
+        const codes=(active?.members||[]).map(productCode).filter(code=>!disabled.has(code));
         const selection=allSelectionState(codes,selected);
         codes.forEach(code=>{ if(selection.all&&!required.has(code)) selected.delete(code); else selected.add(code); });
         required.forEach(code=>selected.add(code));
@@ -262,7 +264,8 @@
     root.addEventListener('change',event=>{
       const code=normalize(event.target?.dataset?.processMember);
       if(!code) return;
-      if(event.target.checked||required.has(code)) selected.add(code); else selected.delete(code);
+      if(disabled.has(code)) selected.delete(code);
+      else if(event.target.checked||required.has(code)) selected.add(code); else selected.delete(code);
       required.forEach(item=>selected.add(item));
       render();notify();
     });
@@ -274,7 +277,7 @@
       selectedCodes:()=>[...selected],
       selectedProducts:()=>[...selected].map(code=>productMap.get(code)).filter(Boolean),
       expandedCodes:()=>[...expanded],
-      setSelectedCodes(codes){ selected.clear();(codes||[]).map(normalize).filter(code=>productMap.has(code)).forEach(code=>selected.add(code));required.forEach(code=>selected.add(code));render();notify(); },
+      setSelectedCodes(codes){ selected.clear();(codes||[]).map(normalize).filter(code=>productMap.has(code)&&!disabled.has(code)).forEach(code=>selected.add(code));required.forEach(code=>selected.add(code));render();notify(); },
       render
     };
     render();
