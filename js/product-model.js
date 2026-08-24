@@ -520,12 +520,16 @@
     });
   }
 
-  // groupRecommendation（群組推薦結果）：同客人與同越文品名先列為候選，再清楚標示工序差異；差異不阻擋人工選取。
+  // groupRecommendation（群組推薦結果）：同客人的款號先列為可比較候選；同越文品名且工序完全一致才屬高度符合。
+  // 不同品名、工序數量、越文描述或秒數都只作提醒，保留給使用者人工判斷不同規格是否屬於同產品。
   function groupRecommendation(sourceInput,candidateInput){
     const source=normalizeProduct(sourceInput);
     const candidate=normalizeProduct(candidateInput);
-    const eligible=normalizedSignatureText(source.client)===normalizedSignatureText(candidate.client)
-      &&normalizedSignatureText(source.vi)===normalizedSignatureText(candidate.vi);
+    const sourceClient=normalizedSignatureText(source.client);
+    const candidateClient=normalizedSignatureText(candidate.client);
+    const sameClient=Boolean(sourceClient)&&sourceClient===candidateClient;
+    const sameProductName=normalizedSignatureText(source.vi)===normalizedSignatureText(candidate.vi);
+    const eligible=sameClient;
     const sourceProfile=groupProcessProfile(source);
     const candidateProfile=groupProcessProfile(candidate);
     const sourceByNo=new Map(sourceProfile.map(item=>[item.no,item]));
@@ -533,13 +537,16 @@
     const sharedNumbers=[...sourceByNo.keys()].filter(no=>candidateByNo.has(no));
     const numberSetDifferent=sourceByNo.size===candidateByNo.size&&sharedNumbers.length!==sourceByNo.size;
     const differences=eligible?{
+      productNameDifferent:!sameProductName,
       countDifferent:sourceProfile.length!==candidateProfile.length,
       descriptionDifferent:numberSetDifferent||sharedNumbers.some(no=>sourceByNo.get(no).vi!==candidateByNo.get(no).vi),
       secondsDifferent:sharedNumbers.some(no=>sourceByNo.get(no).sec!==candidateByNo.get(no).sec)
-    }:{countDifferent:false,descriptionDifferent:false,secondsDifferent:false};
+    }:{productNameDifferent:false,countDifferent:false,descriptionDifferent:false,secondsDifferent:false};
     return {
       eligible,
-      exact:eligible&&!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent,
+      sameClient,
+      sameProductName,
+      exact:eligible&&!differences.productNameDifferent&&!differences.countDifferent&&!differences.descriptionDifferent&&!differences.secondsDifferent,
       ...differences
     };
   }

@@ -116,9 +116,10 @@
         const leftGroup=Boolean(groupForProduct(left.productId));
         const rightGroup=Boolean(groupForProduct(right.productId));
         if(leftGroup!==rightGroup) return leftGroup?1:-1;
-        const leftExact=recommendation(left).exact;
-        const rightExact=recommendation(right).exact;
-        if(leftExact!==rightExact) return leftExact?-1:1;
+        const leftResult=recommendation(left);
+        const rightResult=recommendation(right);
+        if(leftResult.exact!==rightResult.exact) return leftResult.exact?-1:1;
+        if(leftResult.sameProductName!==rightResult.sameProductName) return leftResult.sameProductName?-1:1;
         return String(left.sz||'').localeCompare(String(right.sz||''),'zh-Hant',{numeric:true,sensitivity:'base'})
           ||String(left.code||'').localeCompare(String(right.code||''),'zh-Hant',{numeric:true,sensitivity:'base'});
       });
@@ -136,6 +137,20 @@
       if(window.PCMSProductModel.groupRecommendation(source,candidate).exact) selectedCodes.push(candidate.code);
     });
     return {source:clone(source),candidates:clone(candidates),selectedCodes,disabledCodes};
+  }
+
+  // prepareQuickEdit（準備快速修改群組內容）：已有群組只讀取並回傳該群組；沒有群組才載入群組清單並建立推薦。
+  async function prepareQuickEdit(identity){
+    const source=productByIdentity(identity);
+    if(!source) return {source:null,group:null,plan:{source:null,candidates:[],selectedCodes:[],disabledCodes:[]}};
+    const current=groupForProduct(source.productId);
+    if(current) return {source:clone(source),group:current,plan:null};
+    const direct=await loadForProduct(source.productId);
+    if(direct) return {source:clone(source),group:direct,plan:null};
+    await load();
+    const loadedGroup=groupForProduct(source.productId);
+    if(loadedGroup) return {source:clone(source),group:loadedGroup,plan:null};
+    return {source:clone(source),group:null,plan:candidatePlan(source.productId)};
   }
   function invalidate(){ loaded=false;loadingPromise=null;groups=[];productLookups.clear();window.productMasterGroups=[]; }
 
@@ -173,7 +188,7 @@
     return {group:view(saved),memberCodes:view(current).memberCodes,logSaved:true};
   }
 
-  window.PCMSProductGroupRuntime=Object.freeze({load,loadGroups:load,loadForProduct,all,listGroups,groupForProduct,findCandidates,candidatePlan,invalidate,
+  window.PCMSProductGroupRuntime=Object.freeze({load,loadGroups:load,loadForProduct,prepareQuickEdit,all,listGroups,groupForProduct,findCandidates,candidatePlan,invalidate,
     create,createGroup,update,rename,renameGroup,setActive,updateMembers,updateGroupMembers,deleteGroup});
   window.loadProductMasterGroups=options=>load(options);
 })();

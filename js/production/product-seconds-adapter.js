@@ -1,4 +1,4 @@
-// product-seconds-adapter（款號主檔快速修改轉接）：生產登記只在點擊欄位時載入所屬群組並沿用正式儲存流程。
+// product-seconds-adapter（款號主檔快速修改轉接）：生產登記只在點擊欄位時準備群組；已有群組只載入該群組，未有群組才建立推薦清單，並沿用正式儲存流程。
 (function(){
   'use strict';
 
@@ -50,16 +50,17 @@
         const product=productByIdentity(input);
         const operation=String(field).startsWith('process')?operationFor(product,input):null;
         if(!product||(String(field).startsWith('process')&&!operation)) return {missing:true,product,operation};
-        progress.update({value:65,indeterminate:true,text:{vi:'Đang kiểm tra nhóm của mã hàng...',zh:'正在確認款號所屬群組…'},detail:{vi:'Chỉ đọc liên kết nhóm cần thiết.',zh:'只讀取必要的群組關聯。'}});
-        await window.PCMSProductGroupRuntime?.loadForProduct?.(product.productId);
+        progress.update({value:60,indeterminate:true,text:{vi:'Đang kiểm tra nhóm của mã hàng...',zh:'正在確認款號所屬群組…'},detail:{vi:'Có nhóm thì chỉ mở nhóm hiện tại; chưa có nhóm mới chuẩn bị đề xuất.',zh:'已有群組只開啟目前群組；沒有群組才準備推薦。'}});
+        const groupInput={sourceProductId:product.productId};
+        await window.PCMSProductQuickEdit.prepareGroupContext(groupInput,progress);
         progress.update({value:90,indeterminate:true,text:{vi:'Đang mở bảng chỉnh sửa...',zh:'正在開啟修改面板…'}});
-        return {product,operation};
+        return {product,operation,groupInput};
       });
       if(prepared.missing){
         await window.PCMSUIComponents.alertDialog({kind:'danger',message:missingMessage(field)});
         return false;
       }
-      const {product,operation}=prepared;
+      const {product,operation,groupInput}=prepared;
       const currentValue={
         client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
         processNo:operation?.no,processCategory:operation?.category,
@@ -67,7 +68,7 @@
       }[field];
       return window.PCMSProductQuickEdit.open({
         field,value:input.value??currentValue,sourceProductId:product.productId,sourceProcessId:operation?.processId||'',
-        products:window.D||[],group:window.PCMSProductGroupRuntime?.groupForProduct?.(product.productId)||null,
+        products:window.D||[],group:groupInput.group||null,candidatePlan:groupInput.candidatePlan||null,groupContextPrepared:true,
         onSaved:input.onSaved,onClose:input.onClose
       });
     }catch(error){

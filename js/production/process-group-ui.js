@@ -83,7 +83,8 @@
     return {countDifferent,descriptionDifferent,secondsDifferent};
   }
 
-  function groupBySize(products=[]){
+  function groupBySize(products=[],options={}){
+    const order=new Map((options.orderCodes||[]).map((code,index)=>[normalize(code),index]));
     const groups=new Map();
     (Array.isArray(products)?products:[]).forEach(product=>{
       const key=sizeKey(product);
@@ -94,7 +95,11 @@
       key,
       label:sizeText(key),
       labelPair:sizePair(key),
-      members:members.slice().sort((a,b)=>productCode(a).localeCompare(productCode(b),undefined,{numeric:true,sensitivity:'base'}))
+      members:members.slice().sort((a,b)=>{
+        const left=order.has(productCode(a))?order.get(productCode(a)):Number.MAX_SAFE_INTEGER;
+        const right=order.has(productCode(b))?order.get(productCode(b)):Number.MAX_SAFE_INTEGER;
+        return left-right||productCode(a).localeCompare(productCode(b),undefined,{numeric:true,sensitivity:'base'});
+      })
     })).sort((a,b)=>compareSizeKeys(a.key,b.key));
   }
 
@@ -157,6 +162,7 @@
     }
     if(recommendation.exact) return '<span class="process-group-status is-consistent"><span class="ui-dual-copy"><strong>Khớp cao</strong><span>高度符合</span></span></span>';
     const labels=[];
+    if(recommendation.productNameDifferent) labels.push({vi:'Khác tên sản phẩm Việt',zh:'越文品名不同'});
     if(recommendation.countDifferent) labels.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
     if(recommendation.descriptionDifferent) labels.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
     if(recommendation.secondsDifferent) labels.push({vi:'Khác giây tiêu chuẩn',zh:'標準秒數不同'});
@@ -177,7 +183,7 @@
 
   function createMemberSelector(options={}){
     const products=(Array.isArray(options.products)?options.products:[]).filter(item=>productCode(item));
-    const groups=groupBySize(products);
+    const groups=groupBySize(products,{orderCodes:options.orderCodes});
     const productMap=new Map(products.map(item=>[productCode(item),item]));
     const required=new Set((options.requiredCodes||[]).map(normalize).filter(Boolean));
     const disabled=new Set((options.disabledCodes||[]).map(normalize).filter(Boolean));
