@@ -12,6 +12,7 @@ const read=path=>readFileSync(join(root,path),'utf8');
 test('主頁提供最上方更新入口並記錄本次使用者功能',()=>{
   const html=read('index.html');
   assert.ok(html.indexOf('id="nv-home-updates"')<html.indexOf('Đơn hàng / 訂單管理'));
+  assert.match(html,/datetime="2026-08-25"[\s\S]*?款號顯示與生產紀錄作廢功能更新/);
   assert.match(html,/datetime="2026-08-21"/);
   assert.match(html,/openHomeUpdates/);
   assert.match(html,/Trường mã hàng đã trở lại chỉ hiển thị mã hàng/);
