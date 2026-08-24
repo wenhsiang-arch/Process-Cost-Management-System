@@ -78,4 +78,8 @@ test('建立群組候選會列出同客人與同越文品名，完全一致優�
   assert.equal(model.groupRecommendation(source,candidates[0]).exact,true);
   assert.equal(model.groupRecommendation(source,candidates[1]).countDifferent,true);
   assert.equal(setup.window.PCMSProductGroupRuntime.groupForProduct(candidates[2].productId).groupId,'grp_existing_123456');
+  const plan=setup.window.PCMSProductGroupRuntime.candidatePlan(source.productId);
+  assert.deepEqual(Array.from(plan.selectedCodes),['P1','P2']);
+  assert.deepEqual(Array.from(plan.disabledCodes),['P4','P6']);
+  assert.equal(plan.selectedCodes.includes('P3'),false);
 });

@@ -109,6 +109,13 @@ test('完整編輯只顯示單一款號，欄位點擊共用群組面板並保�
   assert.match(quick,/Ảnh hưởng/);
   assert.match(quick,/request:clone\(request\)/);
   assert.match(quick,/product-quick-summary/);
+  assert.match(quick,/Mã hàng chưa có nhóm/);
+  assert.match(quick,/Bỏ qua và tiếp tục/);
+  assert.match(quick,/openGroupCreation/);
+  assert.match(quick,/candidatePlan/);
+  assert.match(quick,/Mã khớp cao được chọn sẵn/);
+  assert.match(quick,/runOpenPreparation/);
+  assert.match(quick,/không cần bấm lại/);
   assert.match(quick,/Hiện tại:/);
   assert.match(quick,/Sau sửa:/);
   assert.match(quick,/Tổng số công đoạn/);
@@ -132,6 +139,10 @@ test('生產登記款號維持只讀，工序號、工序名稱及秒數接到�
   assert.doesNotMatch(entry,/field:\s*'code'/);
   assert.match(adapter,/if\(field==='code'\) return false/);
   assert.match(adapter,/loadForProduct/);
+  assert.match(adapter,/activeOpenPromise/);
+  assert.match(adapter,/runOpenPreparation/);
+  assert.match(adapter,/Đang tải bảng mã hàng hiện tại/);
+  assert.match(adapter,/Đang kiểm tra nhóm của mã hàng/);
   assert.doesNotMatch(adapter,/ProductGroupRuntime\?\.load\?\./);
 });
 

@@ -123,6 +123,20 @@
           ||String(left.code||'').localeCompare(String(right.code||''),'zh-Hant',{numeric:true,sensitivity:'base'});
       });
   }
+  // candidatePlan（群組候選選取計畫）：來源款號與高度符合候選預設勾選；差異候選不勾選，已入組候選只供比對。
+  function candidatePlan(identity){
+    const source=productByIdentity(identity);
+    if(!source) return {source:null,candidates:[],selectedCodes:[],disabledCodes:[]};
+    const candidates=findCandidates(source.productId);
+    const selectedCodes=[source.code];
+    const disabledCodes=[];
+    candidates.forEach(candidate=>{
+      const assigned=groupForProduct(candidate.productId||candidate.code);
+      if(assigned){ disabledCodes.push(candidate.code);return; }
+      if(window.PCMSProductModel.groupRecommendation(source,candidate).exact) selectedCodes.push(candidate.code);
+    });
+    return {source:clone(source),candidates:clone(candidates),selectedCodes,disabledCodes};
+  }
   function invalidate(){ loaded=false;loadingPromise=null;groups=[];productLookups.clear();window.productMasterGroups=[]; }
 
   async function create(input,options={}){
@@ -159,7 +173,7 @@
     return {group:view(saved),memberCodes:view(current).memberCodes,logSaved:true};
   }
 
-  window.PCMSProductGroupRuntime=Object.freeze({load,loadGroups:load,loadForProduct,all,listGroups,groupForProduct,findCandidates,invalidate,
+  window.PCMSProductGroupRuntime=Object.freeze({load,loadGroups:load,loadForProduct,all,listGroups,groupForProduct,findCandidates,candidatePlan,invalidate,
     create,createGroup,update,rename,renameGroup,setActive,updateMembers,updateGroupMembers,deleteGroup});
   window.loadProductMasterGroups=options=>load(options);
 })();

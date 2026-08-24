@@ -149,6 +149,20 @@
     return labels.map(item=>`<span class="process-group-status is-warning"><span class="ui-dual-copy"><strong>${safe(item.vi)}</strong><span>${safe(item.zh)}</span></span></span>`).join('');
   }
 
+  // recommendationStatusHtml（群組推薦狀態）：建立群組的所有入口共用相同差異標示與已入組提示。
+  function recommendationStatusHtml(recommendation={},assignedGroup=null){
+    if(assignedGroup){
+      const name=safe(assignedGroup.name||assignedGroup.groupId||'—');
+      return `<span class="process-group-status product-group-blocked"><span class="ui-dual-copy"><strong>Đã thuộc nhóm: ${name}</strong><span>已在其他群組：${name}</span></span></span>`;
+    }
+    if(recommendation.exact) return '<span class="process-group-status is-consistent"><span class="ui-dual-copy"><strong>Khớp cao</strong><span>高度符合</span></span></span>';
+    const labels=[];
+    if(recommendation.countDifferent) labels.push({vi:'Khác số lượng công đoạn',zh:'工序數量不同'});
+    if(recommendation.descriptionDifferent) labels.push({vi:'Khác mô tả tiếng Việt',zh:'越文描述不同'});
+    if(recommendation.secondsDifferent) labels.push({vi:'Khác giây tiêu chuẩn',zh:'標準秒數不同'});
+    return labels.map(item=>`<span class="process-group-status is-warning"><span class="ui-dual-copy"><strong>${safe(item.vi)}</strong><span>${safe(item.zh)}</span></span></span>`).join('');
+  }
+
   function processDetailRows(product,baseline){
     const comparable=Array.isArray(baseline);
     const expected=new Map((comparable?baseline:[]).map(item=>[String(item.no),item]));
@@ -286,6 +300,6 @@
 
   window.PCMSProcessGroupUI=Object.freeze({
     missingSizeKey:MISSING_SIZE,
-    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,processDetailRows,createMemberSelector
+    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,processDetailRows,recommendationStatusHtml,createMemberSelector
   });
 })();

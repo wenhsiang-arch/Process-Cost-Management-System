@@ -2,6 +2,8 @@
 (function(){
   'use strict';
 
+  let activeOpenPromise=null;
+
   function text(value){ return String(value??'').trim(); }
   function allowed(field=''){
     if(field==='code') return false;
@@ -30,30 +32,56 @@
       :{vi:'Bạn không có quyền sửa bảng mã hàng.',zh:'你沒有修改款號主檔的權限。'};
   }
 
-  async function open(input={}){
+  function errorPair(error){
+    return window.PCMSUIText?.errorPair?.(error)||window.PCMSUIText?.fromError?.(error)
+      ||{vi:String(error?.message||error||'Không rõ nguyên nhân'),zh:String(error?.message||error||'原因不明')};
+  }
+
+  async function openPrepared(input={}){
     const field=text(input.field)||'processSeconds';
     if(!allowed(field)){
       await window.PCMSUIComponents.alertDialog({kind:'warning',message:deniedMessage(field)});
       return false;
     }
-    await window.ensureProductsLoaded?.({requireMeta:true});
-    const product=productByIdentity(input);
-    const operation=String(field).startsWith('process')?operationFor(product,input):null;
-    if(!product||(String(field).startsWith('process')&&!operation)){
-      await window.PCMSUIComponents.alertDialog({kind:'danger',message:missingMessage(field)});
+    try{
+      const prepared=await window.PCMSProductQuickEdit.runOpenPreparation(async progress=>{
+        progress.update({value:20,indeterminate:true,text:{vi:'Đang tải bảng mã hàng hiện tại...',zh:'正在載入目前款號主檔…'},detail:{vi:'Vui lòng chờ, không cần bấm lại.',zh:'請稍候，不需要重複點擊。'}});
+        await window.ensureProductsLoaded?.({requireMeta:true});
+        const product=productByIdentity(input);
+        const operation=String(field).startsWith('process')?operationFor(product,input):null;
+        if(!product||(String(field).startsWith('process')&&!operation)) return {missing:true,product,operation};
+        progress.update({value:65,indeterminate:true,text:{vi:'Đang kiểm tra nhóm của mã hàng...',zh:'正在確認款號所屬群組…'},detail:{vi:'Chỉ đọc liên kết nhóm cần thiết.',zh:'只讀取必要的群組關聯。'}});
+        await window.PCMSProductGroupRuntime?.loadForProduct?.(product.productId);
+        progress.update({value:90,indeterminate:true,text:{vi:'Đang mở bảng chỉnh sửa...',zh:'正在開啟修改面板…'}});
+        return {product,operation};
+      });
+      if(prepared.missing){
+        await window.PCMSUIComponents.alertDialog({kind:'danger',message:missingMessage(field)});
+        return false;
+      }
+      const {product,operation}=prepared;
+      const currentValue={
+        client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
+        processNo:operation?.no,processCategory:operation?.category,
+        processNameZh:operation?.zh,processNameVi:operation?.vi,processSeconds:operation?.sec
+      }[field];
+      return window.PCMSProductQuickEdit.open({
+        field,value:input.value??currentValue,sourceProductId:product.productId,sourceProcessId:operation?.processId||'',
+        products:window.D||[],group:window.PCMSProductGroupRuntime?.groupForProduct?.(product.productId)||null,
+        onSaved:input.onSaved,onClose:input.onClose
+      });
+    }catch(error){
+      await window.PCMSUIComponents.alertDialog({kind:'danger',message:errorPair(error)});
       return false;
     }
-    await window.PCMSProductGroupRuntime?.loadForProduct?.(product.productId);
-    const currentValue={
-      client:product.client,zh:product.zh,vi:product.vi,sz:product.sz,
-      processNo:operation?.no,processCategory:operation?.category,
-      processNameZh:operation?.zh,processNameVi:operation?.vi,processSeconds:operation?.sec
-    }[field];
-    return window.PCMSProductQuickEdit.open({
-      field,value:input.value??currentValue,sourceProductId:product.productId,sourceProcessId:operation?.processId||'',
-      products:window.D||[],group:window.PCMSProductGroupRuntime?.groupForProduct?.(product.productId)||null,
-      onSaved:input.onSaved,onClose:input.onClose
-    });
+  }
+
+  function open(input={}){
+    if(activeOpenPromise) return activeOpenPromise;
+    const pending=Promise.resolve().then(()=>openPrepared(input));
+    activeOpenPromise=pending;
+    pending.finally(()=>{ if(activeOpenPromise===pending) activeOpenPromise=null; });
+    return pending;
   }
 
   function createButton(input={}){
@@ -63,7 +91,12 @@
     button.className=field==='processSeconds'?'process-seconds-edit-button':'product-master-entry-edit-button';
     button.disabled=!allowed(field);
     button.textContent=String(input.value??'—');
-    if(!button.disabled) button.addEventListener('click',event=>{ event.stopPropagation();void open({...input,field}); });
+    if(!button.disabled) button.addEventListener('click',async event=>{
+      event.stopPropagation();
+      button.disabled=true;
+      try{ await open({...input,field}); }
+      finally{ button.disabled=!allowed(field); }
+    });
     return button;
   }
 

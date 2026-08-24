@@ -144,15 +144,19 @@ test('群組清單只顯示群組摘要且點名稱開啟可修改成員的緊�
 test('建立新群組維持推薦條件，正式儲存只使用固定 productId',()=>{
   const page=read('js/production/product-groups.js');
   const runtime=read('js/product-group-runtime.js');
+  const groupUi=read('js/production/process-group-ui.js');
   const service=read('js/product-master-service.js');
   assert.match(page,/matchesGroupSignature\(item,group\.signature\)/);
-  assert.match(page,/groupRecommendation\(product,item\)/);
-  assert.match(page,/disabledCodes:disabled\.map/);
-  assert.match(page,/Khớp cao/);
-  assert.match(page,/高度符合/);
-  assert.match(page,/Khác số lượng công đoạn/);
-  assert.match(page,/Khác mô tả tiếng Việt/);
-  assert.match(page,/Khác giây tiêu chuẩn/);
+  assert.match(page,/groupRecommendation\(source,candidate\)/);
+  assert.match(page,/candidatePlan\(product\.code\)/);
+  assert.match(page,/selectedCodes:plan\.selectedCodes/);
+  assert.match(page,/disabledCodes:plan\.disabledCodes/);
+  assert.match(groupUi,/Khớp cao/);
+  assert.match(groupUi,/高度符合/);
+  assert.match(groupUi,/Khác số lượng công đoạn/);
+  assert.match(groupUi,/Khác mô tả tiếng Việt/);
+  assert.match(groupUi,/Khác giây tiêu chuẩn/);
+  assert.match(groupUi,/recommendationStatusHtml/);
   assert.match(runtime,/memberProductIds/);
   assert.match(runtime,/recommendation\(item\)\.eligible/);
   assert.match(runtime,/service\(\)\.createGroup/);
