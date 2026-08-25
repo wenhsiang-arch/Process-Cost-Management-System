@@ -13,7 +13,7 @@
     productResolver:'js/product-resolver.js?v=20260823-1',
     productGroupStore:'js/product-group-store.js?v=20260823-1',
     productMasterService:'js/product-master-service.js?v=20260825-3',
-    productChangeLog:'js/product-change-log.js?v=20260825-2',
+    productChangeLog:'js/product-change-log.js?v=20260825-3',
     productImportImpact:'js/product-import-impact.js?v=20260824-1',
     productMasterEditor:'js/product-master-editor.js?v=20260825-1',
     productQuickEdit:'js/product-quick-edit.js?v=20260825-1',
@@ -69,7 +69,7 @@
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1',
-    productChangeLog:'styles/features/product-change-log.css?v=20260825-3'
+    productChangeLog:'styles/features/product-change-log.css?v=20260825-4'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([

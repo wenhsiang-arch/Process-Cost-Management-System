@@ -1,15 +1,28 @@
-// product-change-log（款號修改流水帳頁）：顯示一層操作摘要與一層完整明細。
+// product-change-log（款號修改流水帳頁）：顯示一層操作摘要與一層可分批展開的完整明細。
 (function(){
   'use strict';
 
   const PAGE_SIZE=50;
-  const state={rows:[],searchRows:[],cursor:null,done:false,promise:null,searchTimer:null,searchToken:0,selectedBatchId:'',details:new Map(),selectedProductId:'',initialized:false};
+  const DETAIL_PAGE_SIZE=100;
+  const naturalCollator=new Intl.Collator('vi',{numeric:true,sensitivity:'base'}); // naturalCollator（款號與工序自然排序器）
+  const state={
+    rows:[],searchRows:[],cursor:null,done:false,promise:null,searchTimer:null,searchToken:0,
+    openBatchIds:new Set(),details:new Map(),initialized:false
+  };
 
   function text(value){ return String(value??'').trim(); }
   function productCodeKey(value){ return text(value).normalize('NFKC').toLocaleUpperCase(); }
+  function searchKey(value){
+    return text(value).normalize('NFKC').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[Đđ]/g,'d').toLocaleLowerCase().replace(/\s+/g,' ');
+  }
   function escape(value){ return text(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
   function node(id){ return document.getElementById(id); }
   function pair(vi,zh){ return `<span class="ui-dual-copy"><strong>${escape(vi)}</strong><span>${escape(zh)}</span></span>`; }
+  function naturalCompare(left,right){ return naturalCollator.compare(text(left),text(right)); }
+  function batchKey(row){ return text(row?.batchId||row?.id); }
+  function mergedRows(){ return [...new Map([...state.rows,...state.searchRows].map(item=>[batchKey(item),item])).values()]; }
+  function findBatch(batchId){ return mergedRows().find(item=>batchKey(item)===batchId)||null; }
   function modeLabel(mode){
     return mode==='import'?pair('Nhập Excel','Excel 匯入'):mode==='group'?pair('Sửa theo nhóm','群組修改'):pair('Sửa một mã','單款修改');
   }
@@ -37,22 +50,269 @@
     return [row.createdBy,row.fileName,row.action,row.batchId,...(row.matchedProductCodes||[])].some(value=>text(value).toLocaleUpperCase().includes(keyword));
   }
 
+  function ensureDetailState(batch){
+    const batchId=batchKey(batch);
+    if(!state.details.has(batchId)){
+      state.details.set(batchId,{batch,items:[],cursor:null,done:false,promise:null,loading:false,error:'',search:'',selectedProductId:''});
+    }
+    const detailState=state.details.get(batchId);
+    detailState.batch=batch;
+    return detailState;
+  }
+  function detailCorpus(detail){
+    const productValues=product=>product?[
+      product.code,product.client,product.vi,product.sz,
+      ...(product.ops||[]).flatMap(operation=>[operation.no,operation.vi,operation.sec,operation.category])
+    ]:[];
+    return searchKey([
+      detail.productCode,detail.status,detail.error,
+      ...productValues(detail.before),...productValues(detail.after),
+      ...(detail.changes||[]).flatMap(change=>[change.field,change.processNo,change.processName,change.before,change.after,change.scope])
+    ].join(' '));
+  }
+  function filteredDetails(detailState){
+    const keyword=searchKey(detailState.search);
+    if(!keyword) return detailState.items;
+    return detailState.items.filter(detail=>detailCorpus(detail).includes(keyword));
+  }
+  function expectedDetailCount(batch){ return Math.max(0,Number(batch?.completedCount)||Number(batch?.targetCount)||0); }
+
+  function fieldLabel(change){
+    const field=change.field;
+    const labels={
+      client:['Khách hàng','客人'],zh:['Tên sản phẩm tiếng Trung','中文品名'],vi:['Tên sản phẩm tiếng Việt','越文品名'],sz:['Kích thước','尺寸'],
+      no:['Số công đoạn','工序號'],category:['Phân loại','分類'],sec:['Giây','秒數'],created:['Thêm mới','新增'],removed:['Loại bỏ','移除']
+    };
+    if(change.scope==='process'&&(field==='vi'||field==='zh')) return pair('Tên công đoạn','工序名稱');
+    const value=labels[field]||(field==='zh'||field==='vi'?labels[field]:['Tên công đoạn','工序名稱']);
+    return pair(value[0],value[1]);
+  }
+  function displayValue(change,value){
+    if(change.field==='sec'&&value!==''){
+      const seconds=Number(value)||0,capacity=window.PCMSProductionEfficiencyCore?.hourlyCapacity?.(seconds)||0;
+      return `${seconds} giây / 秒 · ${capacity}/giờ / 小時`;
+    }
+    return text(value)||'—';
+  }
+  function processNoCompare(left,right){
+    const leftNumber=Number(left),rightNumber=Number(right);
+    if(Number.isFinite(leftNumber)&&Number.isFinite(rightNumber)&&leftNumber!==rightNumber) return leftNumber-rightNumber;
+    return naturalCompare(left,right);
+  }
+  function changeCompare(left,right){
+    const leftScope=left.scope==='product'?0:1,rightScope=right.scope==='product'?0:1;
+    if(leftScope!==rightScope) return leftScope-rightScope;
+    if(leftScope===1){
+      const processOrder=processNoCompare(left.processNo,right.processNo);
+      if(processOrder) return processOrder;
+    }
+    const productOrder={client:0,vi:1,sz:2,zh:3,created:4,removed:5};
+    const processOrder={no:0,vi:1,sec:2,category:3,zh:4,created:5,removed:6};
+    const order=leftScope===0?productOrder:processOrder;
+    return (order[left.field]??99)-(order[right.field]??99);
+  }
+  function manualDetails(details,keywordInput=''){
+    const rows=[],keyword=searchKey(keywordInput);
+    details.forEach(detail=>{
+      const baseSearch=searchKey([
+        detail.productCode,detail.after?.client||detail.before?.client,detail.after?.vi||detail.before?.vi,
+        detail.after?.sz||detail.before?.sz,detail.status,detail.error
+      ].join(' '));
+      if(detail.status!=='success'){
+        if(keyword&&!detailCorpus(detail).includes(keyword)) return;
+        rows.push(`<tr class="is-${escape(detail.status)}"><td>${escape(detail.productCode||detail.productId)}</td><td colspan="8">${escape(detail.error||detail.status)}</td><td>${statusLabel(detail.status==='failed'?'failed':'running')}</td></tr>`);
+        return;
+      }
+      [...(detail.changes||[])].sort(changeCompare).forEach(change=>{
+        if(change.field==='category'&&text(change.before)===text(change.after)) return;
+        const changeSearch=searchKey([change.field,change.processNo,change.processName,change.before,change.after,change.scope].join(' '));
+        if(keyword&&!baseSearch.includes(keyword)&&!changeSearch.includes(keyword)) return;
+        rows.push(`<tr><td>${escape(detail.productCode)}</td><td>${escape(detail.after?.sz||detail.before?.sz||'—')}</td>
+          <td>${Number(detail.after?.ops?.length??detail.before?.ops?.length)||0}</td><td>${escape(change.processNo||'—')}</td>
+          <td>${escape(change.processName||'—')}</td><td>${fieldLabel(change)}</td>
+          <td>${escape(displayValue(change,change.before))}</td><td>${escape(displayValue(change,change.after))}</td>
+          <td>${escape(change.scope==='process'?'Công đoạn / 工序':'Mã hàng / 款號')}</td><td>${statusLabel('success')}</td></tr>`);
+      });
+    });
+    return `<div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-change-detail-table"><thead><tr>
+      <th>${pair('Mã hàng','款號')}</th><th>${pair('Kích thước','尺寸')}</th><th>${pair('Tổng công đoạn','總工序數')}</th>
+      <th>${pair('Số công đoạn','工序號')}</th><th>${pair('Tên công đoạn','工序名稱')}</th><th>${pair('Nội dung sửa','修改項目')}</th>
+      <th>${pair('Trước','修改前')}</th><th>${pair('Sau','修改後')}</th><th>${pair('Ảnh hưởng','影響')}</th><th>${pair('Kết quả','結果')}</th>
+      </tr></thead><tbody>${rows.join('')||`<tr><td colspan="10" class="product-change-empty">${pair('Không có chi tiết phù hợp','沒有符合的明細')}</td></tr>`}</tbody></table></div></div>`;
+  }
+
+  function operationName(operation){
+    const vi=text(operation?.vi),zh=text(operation?.zh);
+    return pair(vi||'—',zh||'—');
+  }
+  function processTable(product,other,side){
+    if(!product) return `<div class="product-change-no-baseline">${pair('Không có dữ liệu ban đầu','無原始資料')}</div>`;
+    const rows=(product.ops||[]).map((operation,index)=>{
+      const comparison=other?.ops?.[index];
+      const added=side==='after'&&!comparison,removed=side==='before'&&!comparison;
+      const rowClass=added?'is-added':removed?'is-removed':'';
+      const cell=(field,value)=>{
+        const changed=comparison&&(field==='name'
+          ?String(comparison.vi??'')!==String(operation.vi??'')||String(comparison.zh??'')!==String(operation.zh??'')
+          :String(comparison[field]??'')!==String(operation[field]??''));
+        return `<td class="${changed?'is-changed':''}">${field==='name'?operationName(operation):escape(value)}</td>`;
+      };
+      return `<tr class="${rowClass}">${cell('no',operation.no)}${cell('name','')}${cell('sec',operation.sec)}</tr>`;
+    }).join('');
+    return `<table class="ui-table product-change-process-table"><thead><tr><th>${pair('Số','工序號')}</th><th>${pair('Tên công đoạn','工序名稱')}</th><th>${pair('Giây','秒數')}</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  function importProduct(details,selectedId){
+    const selected=details.find(item=>item.productId===selectedId)||details[0];
+    if(!selected) return '';
+    if(selected.status!=='success') return `<div class="product-change-import-error">${statusLabel(selected.status==='failed'?'failed':'running')}<p>${escape(selected.error||'—')}</p></div>`;
+    const before=selected.before,after=selected.after;
+    return `<div class="product-change-compare-head"><strong>${escape(selected.productCode)}</strong><span>${before?.ops?.length||0} → ${after?.ops?.length||0}</span></div>
+      <div class="product-change-compare"><section><h4>${pair('Toàn bộ công đoạn trước','套用前全部工序')}</h4>${processTable(before,after,'before')}</section>
+      <section><h4>${pair('Toàn bộ công đoạn sau','套用後全部工序')}</h4>${processTable(after,before,'after')}</section></div>`;
+  }
+  function importDetails(detailState){
+    const details=filteredDetails(detailState);
+    if(!details.length) return `<div class="product-change-empty">${pair('Không có chi tiết phù hợp','沒有符合的明細')}</div>`;
+    const selected=details.find(item=>item.productId===detailState.selectedProductId)||details[0];
+    detailState.selectedProductId=selected?.productId||'';
+    return `<div class="product-change-import-layout"><aside><div class="product-change-product-list">${details.map(detail=>`<button type="button" data-product-id="${escape(detail.productId)}" data-detail-batch-id="${escape(batchKey(detailState.batch))}" class="${detail.productId===detailState.selectedProductId?'active':''}"><strong>${escape(detail.productCode||detail.productId)}</strong>${statusLabel(detail.status==='success'?'success':detail.status==='failed'?'failed':'running')}</button>`).join('')}</div></aside>
+      <div data-product-change-import-product>${importProduct(details,detailState.selectedProductId)}</div></div>`;
+  }
+  function detailBody(detailState){
+    if(detailState.loading&&!detailState.items.length) return `<div class="product-change-detail-loading">${pair('Đang tải chi tiết…','正在載入明細…')}</div>`;
+    if(detailState.error&&!detailState.items.length) return `<div class="product-change-empty is-error">${pair('Không thể tải chi tiết','無法載入明細')}</div>`;
+    if(detailState.batch.mode==='import') return importDetails(detailState);
+    return manualDetails(detailState.items,detailState.search);
+  }
+  function detailFooter(detailState){
+    const batch=detailState.batch,expected=expectedDetailCount(batch),loaded=detailState.items.length;
+    const matched=filteredDetails(detailState).length,hasSearch=Boolean(searchKey(detailState.search));
+    const countLabel=hasSearch
+      ?pair(`${matched} kết quả trong ${loaded} mục đã tải`,`已載入 ${loaded} 筆中符合 ${matched} 筆`)
+      :pair(`Đã tải ${loaded} / ${expected||loaded}`,`已載入 ${loaded}／${expected||loaded} 筆`);
+    const retry=detailState.error?`<button type="button" class="btn bsm" data-product-change-retry="${escape(batchKey(batch))}">${pair('Thử lại','重試')}</button>`:'';
+    const more=!detailState.done&&!detailState.error?`<button type="button" class="btn bsm product-change-detail-more" data-product-change-more-detail="${escape(batchKey(batch))}" ${detailState.loading?'disabled':''}><i class="ti ti-chevrons-down"></i>${detailState.loading?pair('Đang tải…','載入中…'):pair('Tải thêm chi tiết','載入更多明細')}</button>`:'';
+    return `<div class="product-change-detail-count">${countLabel}</div>${retry}${more}`;
+  }
+  function detailRow(batch){
+    const batchId=batchKey(batch),detailState=ensureDetailState(batch);
+    return `<tr class="product-change-detail-row" data-detail-row-batch-id="${escape(batchId)}"><td colspan="7">
+      <div class="product-change-detail-shell">
+        <div class="product-change-detail-toolbar">
+          <div class="product-change-detail-heading"><strong>${pair('Chi tiết thay đổi','修改明細')}</strong><span>${escape(time(batch.createdAt))} · ${escape(batch.createdBy)}</span></div>
+          <label class="product-change-detail-search"><span class="ui-dual-copy"><strong>Tìm trong chi tiết đã tải</strong><span>搜尋已載入明細</span></span><input type="search" value="${escape(detailState.search)}" data-product-change-detail-search="${escape(batchId)}" data-ui-localized-placeholder-vi="Nhập mã hàng, công đoạn hoặc nội dung" data-ui-localized-placeholder-zh="輸入款號、工序或修改內容" placeholder="Nhập mã hàng, công đoạn hoặc nội dung"></label>
+          <button type="button" class="btn bsm product-change-detail-close" data-product-change-close="${escape(batchId)}"><i class="ti ti-chevron-up"></i>${pair('Thu gọn chi tiết','收合明細')}</button>
+        </div>
+        <div class="product-change-detail-body" data-detail-body="${escape(batchId)}">${detailBody(detailState)}</div>
+        <div class="product-change-detail-footer" data-detail-footer="${escape(batchId)}">${detailFooter(detailState)}</div>
+      </div>
+    </td></tr>`;
+  }
+
   function renderRows(){
     const body=node('product-change-table-body');
     if(!body) return;
-    const rows=[...new Map([...state.rows,...state.searchRows].map(item=>[item.batchId||item.id,item])).values()]
-      .filter(matches).sort((left,right)=>(Number(right.createdAt)||0)-(Number(left.createdAt)||0));
+    const rows=mergedRows().filter(matches).sort((left,right)=>(Number(right.createdAt)||0)-(Number(left.createdAt)||0));
     if(!rows.length){
       body.innerHTML=`<tr><td colspan="7" class="product-change-empty">${pair('Chưa có thay đổi kể từ khi bắt đầu theo dõi','追蹤啟用後尚無修改紀錄')}</td></tr>`;
     }else{
-      body.innerHTML=rows.map(row=>`<tr data-batch-id="${escape(row.batchId)}">
-        <td>${escape(time(row.createdAt))}</td><td>${escape(row.createdBy||'—')}</td><td>${modeLabel(row.mode)}</td>
-        <td>${Number(row.targetCount)||0}</td><td class="product-change-result-count">${escape(summary(row))}</td>
-        <td>${statusLabel(row.status)}</td><td><button type="button" class="btn bsm product-change-view" data-batch-id="${escape(row.batchId)}">${pair('Xem chi tiết','查看明細')}</button></td>
-      </tr>`).join('');
+      body.innerHTML=rows.map(row=>{
+        const batchId=batchKey(row),expanded=state.openBatchIds.has(batchId);
+        return `<tr data-batch-id="${escape(batchId)}">
+          <td>${escape(time(row.createdAt))}</td><td>${escape(row.createdBy||'—')}</td><td>${modeLabel(row.mode)}</td>
+          <td>${Number(row.targetCount)||0}</td><td class="product-change-result-count">${escape(summary(row))}</td>
+          <td>${statusLabel(row.status)}</td><td><button type="button" class="btn bsm product-change-view" data-batch-id="${escape(batchId)}" aria-expanded="${expanded}">${expanded?pair('Thu gọn chi tiết','收合明細'):pair('Xem chi tiết','查看明細')}</button></td>
+        </tr>${expanded?detailRow(row):''}`;
+      }).join('');
     }
-    body.querySelectorAll('.product-change-view').forEach(button=>button.addEventListener('click',()=>openDetails(button.dataset.batchId)));
+    window.PCMSUIText?.refreshLocalizedAttributes?.(body);
     const more=node('product-change-more'); if(more) more.hidden=state.done;
+  }
+
+  function detailRowNode(batchId){
+    return [...(node('product-change-table-body')?.querySelectorAll('[data-detail-row-batch-id]')||[])]
+      .find(row=>row.dataset.detailRowBatchId===batchId)||null;
+  }
+  function refreshDetailContents(batchId){
+    const detailState=state.details.get(batchId),row=detailRowNode(batchId);
+    if(!detailState||!row) return;
+    const body=row.querySelector('[data-detail-body]'),footer=row.querySelector('[data-detail-footer]');
+    if(body) body.innerHTML=detailBody(detailState);
+    if(footer) footer.innerHTML=detailFooter(detailState);
+    window.PCMSUIText?.refreshLocalizedAttributes?.(row);
+  }
+  async function loadDetailPage(batchId){
+    const batch=findBatch(batchId); if(!batch) return [];
+    const detailState=ensureDetailState(batch);
+    if(detailState.done||detailState.promise) return detailState.promise||detailState.items;
+    detailState.loading=true;detailState.error='';refreshDetailContents(batchId);
+    detailState.promise=(async()=>{
+      const constraints=[window._where('batchId','==',batchId)];
+      if(detailState.cursor) constraints.push(window._startAfter(detailState.cursor));
+      constraints.push(window._limit(DETAIL_PAGE_SIZE));
+      const snapshot=await window._getDocs(window._query(window._collection('productChangeItems'),...constraints));
+      detailState.cursor=snapshot.docs.at(-1)||detailState.cursor;
+      const next=snapshot.docs.map(item=>({id:item.id,...item.data()}));
+      detailState.items=[...new Map([...detailState.items,...next].map(item=>[item.id,item])).values()]
+        .sort((left,right)=>naturalCompare(left.productCode,right.productCode));
+      const expected=expectedDetailCount(batch);
+      detailState.done=snapshot.size<DETAIL_PAGE_SIZE||(batch.status!=='running'&&expected>0&&detailState.items.length>=expected);
+      if(!detailState.selectedProductId) detailState.selectedProductId=detailState.items[0]?.productId||'';
+      return detailState.items;
+    })().catch(error=>{
+      console.error('Không thể tải chi tiết thay đổi / 無法載入修改明細',error);
+      detailState.error=text(error?.message||error)||'detail-load-failed';
+      return detailState.items;
+    }).finally(()=>{
+      detailState.loading=false;detailState.promise=null;refreshDetailContents(batchId);
+    });
+    return detailState.promise;
+  }
+  function closeDetails(batchId,restorePosition=false){
+    state.openBatchIds.delete(batchId);
+    renderRows();
+    if(!restorePosition) return;
+    requestAnimationFrame(()=>{
+      const row=[...(node('product-change-table-body')?.querySelectorAll('[data-batch-id]')||[])].find(item=>item.dataset.batchId===batchId);
+      row?.scrollIntoView?.({behavior:'smooth',block:'center'});
+      row?.querySelector?.('.product-change-view')?.focus?.();
+    });
+  }
+  async function toggleDetails(batchId){
+    if(state.openBatchIds.has(batchId)){closeDetails(batchId,false);return;}
+    const batch=findBatch(batchId); if(!batch) return;
+    state.openBatchIds.add(batchId);ensureDetailState(batch);renderRows();
+    detailRowNode(batchId)?.scrollIntoView?.({behavior:'smooth',block:'nearest'});
+    if(!state.details.get(batchId)?.items.length) await loadDetailPage(batchId);
+  }
+  async function handleTableClick(event){
+    const toggle=event.target.closest?.('.product-change-view');
+    if(toggle){await toggleDetails(text(toggle.dataset.batchId));return;}
+    const close=event.target.closest?.('[data-product-change-close]');
+    if(close){closeDetails(text(close.dataset.productChangeClose),true);return;}
+    const more=event.target.closest?.('[data-product-change-more-detail]');
+    if(more){await loadDetailPage(text(more.dataset.productChangeMoreDetail));return;}
+    const retry=event.target.closest?.('[data-product-change-retry]');
+    if(retry){
+      const batchId=text(retry.dataset.productChangeRetry),detailState=state.details.get(batchId);
+      if(detailState) detailState.error='';
+      await loadDetailPage(batchId);return;
+    }
+    const product=event.target.closest?.('[data-product-id][data-detail-batch-id]');
+    if(product){
+      const batchId=text(product.dataset.detailBatchId),detailState=state.details.get(batchId);
+      if(!detailState) return;
+      detailState.selectedProductId=text(product.dataset.productId);
+      refreshDetailContents(batchId);
+    }
+  }
+  function handleTableInput(event){
+    const input=event.target.closest?.('[data-product-change-detail-search]');
+    if(!input) return;
+    const batchId=text(input.dataset.productChangeDetailSearch),detailState=state.details.get(batchId);
+    if(!detailState) return;
+    detailState.search=input.value;
+    refreshDetailContents(batchId);
   }
 
   async function searchByProductCode(){
@@ -90,7 +350,10 @@
 
   async function load(reset=false){
     if(state.promise) return state.promise;
-    if(reset){state.rows=[];state.searchRows=[];state.cursor=null;state.done=false;state.details.clear();state.selectedBatchId='';}
+    if(reset){
+      state.rows=[];state.searchRows=[];state.cursor=null;state.done=false;
+      state.openBatchIds.clear();state.details.clear();
+    }
     if(state.done&&!reset) return state.rows;
     state.promise=(async()=>{
       const constraints=[window._orderBy('createdAt','desc')];
@@ -100,7 +363,7 @@
       state.cursor=snapshot.docs.at(-1)||state.cursor;
       state.done=snapshot.size<PAGE_SIZE;
       const next=snapshot.docs.map(item=>({id:item.id,...item.data()}));
-      state.rows=[...new Map([...state.rows,...next].map(item=>[item.batchId||item.id,item])).values()];
+      state.rows=[...new Map([...state.rows,...next].map(item=>[batchKey(item),item])).values()];
       renderRows();
       return state.rows;
     })().catch(async error=>{
@@ -111,104 +374,6 @@
     return state.promise;
   }
 
-  function fieldLabel(field){
-    const labels={
-      client:['Khách hàng','客人'],zh:['Tên sản phẩm tiếng Trung','中文品名'],vi:['Tên sản phẩm tiếng Việt','越文品名'],sz:['Kích thước','尺寸'],
-      no:['Số công đoạn','工序號'],category:['Phân loại','分類'],sec:['Giây','秒數'],created:['Thêm mới','新增'],removed:['Loại bỏ','移除']
-    };
-    const value=labels[field]||(field==='zh'||field==='vi'?labels[field]:['Tên công đoạn','工序名稱']);
-    return pair(value[0],value[1]);
-  }
-  function displayValue(change,value){
-    if(change.field==='sec'&&value!==''){
-      const seconds=Number(value)||0,capacity=window.PCMSProductionEfficiencyCore?.hourlyCapacity?.(seconds)||0;
-      return `${seconds} giây / 秒 · ${capacity}/giờ / 小時`;
-    }
-    return text(value)||'—';
-  }
-  function manualDetails(details){
-    const rows=[];
-    details.forEach(detail=>{
-      if(detail.status!=='success'){
-        rows.push(`<tr class="is-${escape(detail.status)}"><td>${escape(detail.productCode||detail.productId)}</td><td colspan="8">${escape(detail.error||detail.status)}</td><td>${statusLabel(detail.status==='failed'?'failed':'running')}</td></tr>`);
-        return;
-      }
-      (detail.changes||[]).forEach(change=>{
-        if(change.field==='category'&&text(change.before)===text(change.after)) return;
-        rows.push(`<tr><td>${escape(detail.productCode)}</td><td>${escape(detail.after?.sz||detail.before?.sz||'—')}</td>
-          <td>${Number(detail.after?.ops?.length??detail.before?.ops?.length)||0}</td><td>${escape(change.processNo||'—')}</td>
-          <td>${escape(change.processName||'—')}</td><td>${fieldLabel(change.field)}</td>
-          <td>${escape(displayValue(change,change.before))}</td><td>${escape(displayValue(change,change.after))}</td>
-          <td>${escape(change.scope==='process'?'Công đoạn / 工序':'Mã hàng / 款號')}</td><td>${statusLabel('success')}</td></tr>`);
-      });
-    });
-    return `<div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-change-detail-table"><thead><tr>
-      <th>${pair('Mã hàng','款號')}</th><th>${pair('Kích thước','尺寸')}</th><th>${pair('Tổng công đoạn','總工序數')}</th>
-      <th>${pair('Số công đoạn','工序號')}</th><th>${pair('Tên công đoạn','工序名稱')}</th><th>${pair('Nội dung sửa','修改項目')}</th>
-      <th>${pair('Trước','修改前')}</th><th>${pair('Sau','修改後')}</th><th>${pair('Ảnh hưởng','影響')}</th><th>${pair('Kết quả','結果')}</th>
-      </tr></thead><tbody>${rows.join('')||`<tr><td colspan="10" class="product-change-empty">${pair('Không có thay đổi','沒有變更')}</td></tr>`}</tbody></table></div></div>`;
-  }
-
-  function operationName(operation){
-    const vi=text(operation?.vi),zh=text(operation?.zh);
-    return pair(vi||'—',zh||'—');
-  }
-  function processTable(product,other,side){
-    if(!product) return `<div class="product-change-no-baseline">${pair('Không có dữ liệu ban đầu','無原始資料')}</div>`;
-    const rows=(product.ops||[]).map((operation,index)=>{
-      const comparison=other?.ops?.[index];
-      const added=side==='after'&&!comparison,removed=side==='before'&&!comparison;
-      const rowClass=added?'is-added':removed?'is-removed':'';
-      const cell=(field,value)=>{
-        const changed=comparison&&(field==='name'
-          ?String(comparison.vi??'')!==String(operation.vi??'')||String(comparison.zh??'')!==String(operation.zh??'')
-          :String(comparison[field]??'')!==String(operation[field]??''));
-        return `<td class="${changed?'is-changed':''}">${field==='name'?operationName(operation):escape(value)}</td>`;
-      };
-      return `<tr class="${rowClass}">${cell('no',operation.no)}${cell('name','')}${cell('sec',operation.sec)}</tr>`;
-    }).join('');
-    return `<table class="ui-table product-change-process-table"><thead><tr><th>${pair('Số','工序號')}</th><th>${pair('Tên công đoạn','工序名稱')}</th><th>${pair('Giây','秒數')}</th></tr></thead><tbody>${rows}</tbody></table>`;
-  }
-  function importProduct(details,selectedId){
-    const selected=details.find(item=>item.productId===selectedId)||details[0];
-    if(!selected) return '';
-    if(selected.status!=='success') return `<div class="product-change-import-error">${statusLabel(selected.status==='failed'?'failed':'running')}<p>${escape(selected.error||'—')}</p></div>`;
-    const before=selected.before,after=selected.after;
-    return `<div class="product-change-compare-head"><strong>${escape(selected.productCode)}</strong><span>${before?.ops?.length||0} → ${after?.ops?.length||0}</span></div>
-      <div class="product-change-compare"><section><h4>${pair('Toàn bộ công đoạn trước','套用前全部工序')}</h4>${processTable(before,after,'before')}</section>
-      <section><h4>${pair('Toàn bộ công đoạn sau','套用後全部工序')}</h4>${processTable(after,before,'after')}</section></div>`;
-  }
-  function importDetails(details){
-    const selected=details.find(item=>item.productId===state.selectedProductId)||details[0];
-    state.selectedProductId=selected?.productId||'';
-    return `<div class="product-change-import-layout"><aside><div class="product-change-product-list">${details.map(detail=>`<button type="button" data-product-id="${escape(detail.productId)}" class="${detail.productId===state.selectedProductId?'active':''}"><strong>${escape(detail.productCode||detail.productId)}</strong>${statusLabel(detail.status==='success'?'success':detail.status==='failed'?'failed':'running')}</button>`).join('')}</div></aside>
-      <div id="product-change-import-product">${importProduct(details,state.selectedProductId)}</div></div>`;
-  }
-
-  async function openDetails(batchId){
-    const batch=state.rows.find(item=>(item.batchId||item.id)===batchId); if(!batch) return;
-    state.selectedBatchId=batchId;state.selectedProductId='';
-    let details=state.details.get(batchId);
-    if(!details){
-      const snapshot=await window._getDocs(window._query(
-        window._collection('productChangeItems'),window._where('batchId','==',batchId),window._limit(5000)
-      ));
-      details=snapshot.docs.map(item=>({id:item.id,...item.data()})).sort((a,b)=>text(a.productCode).localeCompare(text(b.productCode)));
-      state.details.set(batchId,details);
-    }
-    const host=node('product-change-details');
-    host.hidden=false;
-    host.innerHTML=`<header class="ui-section-header"><div><h3>${pair('Chi tiết thay đổi','修改明細')}</h3><p>${escape(time(batch.createdAt))} · ${escape(batch.createdBy)}</p></div><button type="button" class="btn bsm" id="product-change-close-detail">${pair('Đóng','關閉')}</button></header>
-      <div class="product-change-detail-body">${batch.mode==='import'?importDetails(details):manualDetails(details)}</div>`;
-    node('product-change-close-detail')?.addEventListener('click',()=>{host.hidden=true;host.replaceChildren();});
-    host.querySelectorAll('[data-product-id]').forEach(button=>button.addEventListener('click',()=>{
-      state.selectedProductId=button.dataset.productId;
-      host.querySelector('#product-change-import-product').innerHTML=importProduct(details,state.selectedProductId);
-      host.querySelectorAll('[data-product-id]').forEach(item=>item.classList.toggle('active',item.dataset.productId===state.selectedProductId));
-    }));
-    host.scrollIntoView({behavior:'smooth',block:'start'});
-  }
-
   async function init(){
     if(!state.initialized){
       node('product-change-search')?.addEventListener('input',scheduleSearch);
@@ -216,14 +381,19 @@
       node('product-change-status')?.addEventListener('change',renderRows);
       node('product-change-refresh')?.addEventListener('click',async()=>{await load(true);await searchByProductCode();});
       node('product-change-more')?.addEventListener('click',()=>load(false));
+      node('product-change-table-body')?.addEventListener('click',handleTableClick);
+      node('product-change-table-body')?.addEventListener('input',handleTableInput);
       state.initialized=true;
     }
     await load(false);
   }
   function leave(){ state.promise=null;if(state.searchTimer) clearTimeout(state.searchTimer);state.searchTimer=null; }
-  function invalidate(){ state.rows=[];state.searchRows=[];state.cursor=null;state.done=false;state.details.clear(); }
+  function invalidate(){
+    state.rows=[];state.searchRows=[];state.cursor=null;state.done=false;
+    state.openBatchIds.clear();state.details.clear();
+  }
 
   window.productChangeLogInit=init;
   window.productChangeLogLeave=leave;
-  window.PCMSProductChangeLog=Object.freeze({load,openDetails,invalidate});
+  window.PCMSProductChangeLog=Object.freeze({load,toggleDetails,invalidate});
 })();
