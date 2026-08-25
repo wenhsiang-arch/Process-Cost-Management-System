@@ -11,8 +11,8 @@ window.dPage   = 1;
 // cLog（成本變動紀錄）依帳號即時查詢獨立操作紀錄，不使用跨帳號本機儲存。
 try{ localStorage.removeItem('cLog'); }catch(e){}
 
-const IDLE = 30*60;
-let idleT = IDLE, idleIv = null;
+const IDLE_MS = 30*60*1000;
+let idleIv = null, idleLastActivityAt = 0, idleActive = false, idleLogoutPending = false;
 
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
@@ -140,20 +140,46 @@ function uNav(){
 }
 
 // ===== Idle 計時 =====
-function startIdle(){
-  idleT=IDLE; if(idleIv) clearInterval(idleIv);
-  idleIv=setInterval(()=>{
-    idleT--;
-    const p=Math.max(0,(idleT/IDLE)*100);
-    g('idleprog').style.width=p+'%';
-    const m=Math.floor(idleT/60), s=idleT%60;
-    const countdown=m+':'+(s<10?'0':'')+s; // countdown（自動登出倒數文字）
-    document.querySelectorAll('[data-idle-countdown]').forEach(element=>{ element.textContent=countdown; });
-    if(idleT<=0){ clearInterval(idleIv); doLogout('idle'); }
-  },1000);
-  ['click','keydown','mousemove'].forEach(e=>document.addEventListener(e,resetIdle,{passive:true}));
+function idleEventNames(){ return ['click','keydown','mousemove']; }
+function idleExpired(now=Date.now()){
+  return idleActive&&idleLastActivityAt>0&&Number(now)-idleLastActivityAt>=IDLE_MS;
 }
-function resetIdle(){ idleT=IDLE; }
+function stopIdle(){
+  idleActive=false;
+  idleLastActivityAt=0;
+  clearInterval(idleIv);
+  idleIv=null;
+  idleEventNames().forEach(eventName=>document.removeEventListener(eventName,resetIdle));
+  document.removeEventListener('visibilitychange',checkIdleAfterResume);
+  window.removeEventListener('focus',checkIdleAfterResume);
+  window.removeEventListener('pageshow',checkIdleAfterResume);
+}
+function expireIdleSession(){
+  if(idleLogoutPending) return true;
+  idleLogoutPending=true;
+  stopIdle();
+  void Promise.resolve(doLogout('idle')).finally(()=>{ idleLogoutPending=false; });
+  return true;
+}
+function checkIdleAfterResume(){
+  if(!idleActive) return false;
+  if(idleExpired()) return expireIdleSession();
+  return false;
+}
+function startIdle(){
+  stopIdle();
+  idleActive=true;
+  idleLastActivityAt=Date.now();
+  idleIv=setInterval(checkIdleAfterResume,1000);
+  idleEventNames().forEach(eventName=>document.addEventListener(eventName,resetIdle,{passive:true}));
+  document.addEventListener('visibilitychange',checkIdleAfterResume);
+  window.addEventListener('focus',checkIdleAfterResume);
+  window.addEventListener('pageshow',checkIdleAfterResume);
+}
+function resetIdle(){
+  if(checkIdleAfterResume()) return;
+  if(idleActive) idleLastActivityAt=Date.now();
+}
 
 // ===== Firebase Authentication（Firebase 身分驗證）登入 =====
 let firebaseAuthStateBusy = false;
@@ -246,8 +272,7 @@ function showMaintenanceDialog(){
 
 function clearSessionUi(){
   stopRolePermissionMonitor();
-  clearInterval(idleIv);
-  ['click','keydown','mousemove'].forEach(e=>document.removeEventListener(e,resetIdle));
+  stopIdle();
   window.PCMSFeatures?.resetActivePage?.();
   window.PCMSFeatures?.resetPageDataStates?.();
   window.PCMSHistory?.clearSession?.();

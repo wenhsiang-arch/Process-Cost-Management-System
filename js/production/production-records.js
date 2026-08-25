@@ -3,7 +3,7 @@
   'use strict';
 
   const MAX_RANGE_DAYS = 31; // MAX_RANGE_DAYS（每日績效單次最多查詢天數）
-  const WEEK_PAGE_DAYS = 7; // WEEK_PAGE_DAYS（每日績效每頁固定顯示七個日曆日）
+  const WEEK_PAGE_DAYS = 7; // WEEK_PAGE_DAYS（全部或多位員工時，每頁固定顯示七個日曆日）
   const PREFERENCE_SCOPE = 'productionRecordsPreferences'; // PREFERENCE_SCOPE（依 UID 隔離的每日績效條件）
   const PREFERENCE_VERSION = '1'; // PREFERENCE_VERSION（每日績效偏好格式版本）
   const state = {
@@ -420,13 +420,32 @@
     }catch(error){ await showError(error); }
   }
 
-  function weekPageInfo(){
+  function performancePeriods(from,to,singleEmployee=false){
     let dates=[];
-    try{ dates=rangeDates(filters().from,filters().to); }catch(_error){}
-    const totalPages=Math.max(1,Math.ceil(dates.length/WEEK_PAGE_DAYS));
+    try{ dates=rangeDates(from,to); }catch(_error){}
+    if(singleEmployee){
+      const months=new Map();
+      dates.forEach(date=>{
+        const key=String(date).slice(0,7);
+        months.set(key,[...(months.get(key)||[]),date]);
+      });
+      return [...months.values()].reverse().map(monthDates=>({from:monthDates[0]||'',to:monthDates.at(-1)||''}));
+    }
+    const periods=[];
+    for(let end=dates.length;end>0;end-=WEEK_PAGE_DAYS){
+      const pageDates=dates.slice(Math.max(0,end-WEEK_PAGE_DAYS),end);
+      periods.push({from:pageDates[0]||'',to:pageDates.at(-1)||''});
+    }
+    return periods;
+  }
+
+  function periodPageInfo(){
+    const current=filters();
+    const singleEmployee=Boolean(current.employeeId);
+    const periods=performancePeriods(current.from,current.to,singleEmployee);
+    const totalPages=Math.max(1,periods.length);
     state.weekPage=Math.max(1,Math.min(state.weekPage,totalPages));
-    const endIndex=dates.length-1-((state.weekPage-1)*WEEK_PAGE_DAYS);
-    const pageDates=endIndex>=0?dates.slice(Math.max(0,endIndex-WEEK_PAGE_DAYS+1),endIndex+1):[];
+    const period=periods[state.weekPage-1]||{from:'',to:''};
     const host=element('production-records-pagination');
     const previous=element('production-records-page-previous');
     const next=element('production-records-page-next');
@@ -435,13 +454,17 @@
     if(host) host.hidden=totalPages<=1;
     if(previous) previous.disabled=state.weekPage<=1;
     if(next) next.disabled=state.weekPage>=totalPages;
-    if(vi) vi.textContent=`Tuần ${state.weekPage} / ${totalPages}`;
-    if(zh) zh.textContent=`第 ${state.weekPage} / ${totalPages} 週`;
-    return {totalPages,from:pageDates[0]||'',to:pageDates.at(-1)||''};
+    if(vi) vi.textContent=`${singleEmployee?'Tháng':'Tuần'} ${state.weekPage} / ${totalPages}`;
+    if(zh) zh.textContent=`第 ${state.weekPage} / ${totalPages} ${singleEmployee?'月':'週'}`;
+    const previousText=singleEmployee?{vi:'Tháng mới hơn',zh:'較新的月份'}:{vi:'Tuần mới hơn',zh:'較新的週'};
+    const nextText=singleEmployee?{vi:'Tháng cũ hơn',zh:'較早的月份'}:{vi:'Tuần cũ hơn',zh:'較早的週'};
+    if(previous){ window.PCMSUIText?.setLocalizedAttribute?.(previous,'aria-label',previousText);window.PCMSUIText?.setLocalizedAttribute?.(previous,'title',previousText); }
+    if(next){ window.PCMSUIText?.setLocalizedAttribute?.(next,'aria-label',nextText);window.PCMSUIText?.setLocalizedAttribute?.(next,'title',nextText); }
+    return {totalPages,...period,singleEmployee};
   }
 
   function shiftWeekPage(offset){
-    const info=weekPageInfo();
+    const info=periodPageInfo();
     const nextPage=Math.max(1,Math.min(state.weekPage+Number(offset||0),info.totalPages));
     if(nextPage===state.weekPage) return;
     state.weekPage=nextPage;
@@ -451,8 +474,8 @@
 
   function render(){
     const matched=filteredRows();
-    const week=weekPageInfo();
-    state.filtered = matched.filter(item=>(!week.from||item.productionDate>=week.from)&&(!week.to||item.productionDate<=week.to));
+    const period=periodPageInfo();
+    state.filtered = matched.filter(item=>(!period.from||item.productionDate>=period.from)&&(!period.to||item.productionDate<=period.to));
     const body = element('production-records-table-body');
     body.replaceChildren();
     state.filtered.forEach((item,index)=>{
@@ -654,7 +677,7 @@
   window.productionRecordsInit = productionRecordsInit;
   window.productionRecordsLeave = productionRecordsLeave;
   window.PCMSProductionPerformance=Object.freeze({
-    aggregatePerformance,loadPerformanceRange,
+    aggregatePerformance,loadPerformanceRange,performancePeriods,
     setPendingContext:context=>{ state.pendingContext={...(context||{})}; }
   });
 })();

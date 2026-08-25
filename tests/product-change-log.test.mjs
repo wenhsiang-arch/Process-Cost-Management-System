@@ -49,9 +49,14 @@ test('Excel 匯入保存整套前後工序，支援十一道變十道或十二�
 });
 
 test('款號搜尋直接查找全部流水帳明細，點開批次時才載入該批內容',()=>{
-  assert.match(pageSource,/_where\('productCodeKey','==',keyword\)/);
+  assert.match(pageSource,/productCodeCandidates\(inputValue\)/);
+  assert.match(pageSource,/_where\('productCodeKey',keys\.length===1\?'==':'in'/);
+  assert.match(pageSource,/_where\('productCodeKey','>=',key\)/);
+  assert.match(pageSource,/_where\('productCodeKey','<=',`\$\{key\}\\uf8ff`\)/);
   assert.match(pageSource,/_where\('batchId','==',batchId\)/);
   assert.match(pageSource,/_limit\(PAGE_SIZE\)/);
+  assert.match(pageSource,/addEventListener\('keydown',handleSearchKeydown\)/);
+  assert.doesNotMatch(pageSource,/setTimeout\(searchByProductCode/);
 });
 
 test('載入更多固定在流水帳標題右側且沒有下一批時隱藏',()=>{
@@ -74,6 +79,9 @@ test('修改明細在原摘要列下方獨立展開並可由摘要或固定抬�
   assert.match(pageSource,/aria-expanded="\$\{expanded\}"/);
   assert.doesNotMatch(htmlSource,/id="product-change-details"/);
   assert.match(styleSource,/\.product-change-detail-toolbar\{[^}]*position:sticky/);
+  assert.match(pageSource,/class="ui-button is-compact product-change-detail-close"/);
+  assert.match(styleSource,/\.product-change-detail-close\{[^}]*align-self:end;[^}]*justify-self:end/);
+  assert.match(styleSource,/\.product-change-view\{[^}]*min-width:132px;[^}]*justify-content:center/);
 });
 
 test('明細每次最多讀取一百筆並使用游標載入更多，同頁重開沿用記憶內容',()=>{
@@ -92,6 +100,8 @@ test('已載入明細支援本機搜尋與自然排序且中文名稱不作為�
   assert.match(pageSource,/const productOrder=\{client:0,vi:1,sz:2,zh:3/);
   assert.match(pageSource,/const processOrder=\{no:0,vi:1,sec:2,category:3,zh:4/);
   assert.match(pageSource,/change\.scope==='process'&&\(field==='vi'\|\|field==='zh'\)/);
+  assert.match(pageSource,/PCMSUISearchDropdown\?\.scoreText/);
+  assert.match(pageSource,/handleTableKeydown/);
 });
 
 test('Excel 匯入仍保留每款整套套用前後工序比較',()=>{

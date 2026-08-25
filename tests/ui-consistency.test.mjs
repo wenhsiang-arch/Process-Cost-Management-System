@@ -7,11 +7,11 @@ const root=new URL('../',import.meta.url); // root（專案根目錄）
 const read=file=>fs.readFileSync(new URL(file,root),'utf8');
 
 const featurePages=[
-  'summary','cutting','progress','settings','export','costlog','accounts','permissions',
+  'summary','product-change-log','cutting','progress','settings','export','costlog','accounts','permissions',
   'production-entry','production-records','production-bonus','production-attendance','production-employees','performance-bonus-settings'
 ]; // featurePages（正式功能頁）
 const featureScripts=['cutting','orders','summary','data','settings','accounts','permissions']; // featureScripts（本輪介面功能程式）
-const featureStyles=['cutting','orders','products','cost','accounts','production','production-process-edit','performance-bonus']; // featureStyles（功能專屬樣式）
+const featureStyles=['cutting','orders','products','product-change-log','cost','accounts','production','production-process-edit','performance-bonus']; // featureStyles（功能專屬樣式）
 
 test('全部正式功能頁均接上共用頁面與功能樣式',()=>{
   const html=read('index.html');
@@ -50,11 +50,11 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
   assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260825-6/);
+  assert.match(html,/js\/features\.js\?v=20260825-7/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260813-1'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);
-  assert.match(features,/productionProcessEdit:'styles\/features\/production-process-edit\.css\?v=20260824-4'/);
+  assert.match(features,/productionProcessEdit:'styles\/features\/production-process-edit\.css\?v=20260825-5'/);
   assert.match(features,/cost:'styles\/features\/cost\.css\?v=20260810-4'/);
   assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260813-1'/);
   assert.match(features,/production:'styles\/features\/production\.css\?v=20260824-1'/);
@@ -116,7 +116,7 @@ test('超寬正式表格使用共用浮動水平捲軸且不建立第二條垂�
   assert.match(source,/activeTarget\.scrollLeft = floatingScroll\.scrollLeft/);
   assert.match(source,/contentRect\.bottom-barHeight/);
   assert.doesNotMatch(source,/DATA_SECTION_SELECTOR|resolveFloatingAnchor|activeAnchor|anchorRect|showFloatingOnly|floatingOnly:/);
-  assert.equal((commonTableSources.match(/data-ui-floating-scroll="only"/g)||[]).length,12);
+  assert.equal((commonTableSources.match(/data-ui-floating-scroll="only"/g)||[]).length,13);
   assert.match(core,/\.ui-table-floating-scroll \{[\s\S]*?position: fixed;[\s\S]*?overflow-x: auto;[\s\S]*?overflow-y: hidden;/);
   assert.match(core,/\.ui-table-floating-scroll\.is-visible \{[\s\S]*?pointer-events: auto;/);
   assert.doesNotMatch(core,/ui-table-floating-anchor|is-ui-floating-anchor/);
@@ -339,7 +339,7 @@ test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇�
   assert.match(core,/th\.ui-table-center-cell \.ui-table-sort-heading \{[\s\S]*?justify-content: center;/);
   assert.match(core,/th\.ui-table-center-cell\.ui-table-sortable-header > \.tv \{[\s\S]*?padding-inline-end: var\(--ui-table-sort-control-space\);[\s\S]*?text-align: center;/);
   assert.match(core,/\.ui-table \.is-column-hidden \{[\s\S]*?display: none;/);
-  assert.match(features,/summary:'js\/summary\.js\?v=20260825-1'/);
+  assert.match(features,/summary:'js\/summary\.js\?v=20260825-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);
 });
 

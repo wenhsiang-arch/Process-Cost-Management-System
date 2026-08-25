@@ -71,10 +71,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .runtime-update-copy{display:flex;min-width:0;flex:1;flex-direction:column;justify-content:center;gap:2px;line-height:1.2}
 .runtime-update-copy .ui-text-vi{font-size:11px;font-weight:650}
 .runtime-update-copy .ui-text-zh{font-size:10px;color:rgba(255,255,255,.66)}
-.sidebar-idle-info{display:grid;justify-items:center;gap:2px;margin:0;padding:0 4px;color:rgba(255,255,255,.46);font-size:10px;line-height:1.3;text-align:center}
-.sidebar-idle-info .ui-text-vi,.sidebar-idle-info .ui-text-zh{display:block}
 .app.sidebar-collapsed .sb>.sb-ft{display:flex;min-width:44px;padding:8px 6px 10px;align-items:center;justify-content:center}
-.app.sidebar-collapsed .sidebar-idle-info,.app.sidebar-collapsed .runtime-update-copy{display:none}
+.app.sidebar-collapsed .runtime-update-copy{display:none}
 .app.sidebar-collapsed .runtime-update-notice{display:flex;width:32px;margin:0;padding:2px;align-items:center;justify-content:center;border:none;background:transparent}
 .mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .tb{padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
@@ -92,8 +90,6 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .logout-btn{height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--bd);font-size:12px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
 .logout-btn:hover{background:#f1f5f9;color:var(--navy)}
 @media(max-width:520px){.tb{padding:0 8px;gap:6px}.tb .up{display:none}.logout-btn{width:34px;flex:0 0 34px;margin-left:auto;padding:0}.logout-btn span{display:none}}
-.idle-bar{height:3px;background:var(--al)}
-.idle-prog{height:100%;background:var(--accent);transition:width 1s linear}
 .ct{flex:1;overflow:auto;padding:var(--ui-page-padding,12px);background:var(--bg)}
 .pg{display:none}.pg.active{display:block}
 .card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
@@ -290,10 +286,6 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         <span class="runtime-update-icon" aria-hidden="true"><i id="runtime-update-icon" class="ti ti-loader-2"></i><span class="runtime-update-dot" id="runtime-update-dot" hidden></span></span>
         <span class="runtime-update-copy ui-bilingual"><span class="ui-text-vi" id="runtime-update-text-vi">Đang kiểm tra cập nhật</span><span class="ui-text-zh" id="runtime-update-text-zh">正在確認更新</span></span>
       </button>
-      <div id="idle-info" class="sidebar-idle-info ui-bilingual">
-        <span class="ui-text-vi">Tự động đăng xuất: <span data-idle-countdown>30:00</span></span>
-        <span class="ui-text-zh">自動登出：<span data-idle-countdown>30:00</span></span>
-      </div>
     </div>
   </div>
   <div class="mn">
@@ -310,8 +302,6 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </label>
       <button class="logout-btn" onclick="doLogout()" title="Đăng xuất / 登出"><i class="ti ti-logout"></i><span>Đăng xuất / 登出</span></button>
     </div>
-    <div class="idle-bar"><div class="idle-prog" id="idleprog" style="width:100%"></div></div>
-
     <div class="ct">
 
       <!-- module-tabs-host（功能抬頭顯示位置）由 auth.js（登入與權限程式）依權限產生。 -->
@@ -985,7 +975,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               <span class="ui-dual-copy"><strong>Danh sách mã hàng</strong><span>款號列表</span></span>
             </div>
             <div class="products-filter-row ui-toolbar">
-              <label class="products-filter-field products-search-field" for="s-search"><span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span><span class="products-search-control"><i class="ti ti-search"></i><input type="text" placeholder="Nhập từ khóa / 輸入關鍵字..." id="s-search" oninput="window.sPage=1;rSum()"></span></label>
+              <label class="products-filter-field products-search-field" for="s-search"><span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span><span class="products-search-control"><i class="ti ti-search"></i><input type="text" placeholder="Nhập từ khóa / 輸入關鍵字..." id="s-search" oninput="window.sPage=1;rSum()" onkeydown="if(event.key==='Enter'){event.preventDefault();window.sPage=1;rSum()}"></span></label>
               <label class="products-filter-field" for="s-client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><select id="s-client" onchange="window.sPage=1;rSum()"><option value="">Tất cả KH / 全部客人</option></select></label>
               <div class="products-filter-field"><span class="ui-dual-copy"><strong>Tiền tệ hiển thị</strong><span>顯示幣別</span></span><div class="cg" id="summary-currency">
                 <button class="cb active" id="cur-VND" onclick="setCur('VND')">VND</button>
@@ -1479,11 +1469,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260825-6&amp;pc=20260825-6"></script>
-<script src="js/auth.js?v=20260825-2"></script>
+  <script src="js/features.js?v=20260825-7&amp;pc=20260825-7"></script>
+<script src="js/auth.js?v=20260825-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260825-11"></script>
+<script type="module" src="js/firebase.js?v=20260825-12"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

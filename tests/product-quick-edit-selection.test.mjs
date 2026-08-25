@@ -39,12 +39,12 @@ test('已有群組只預選來源與一致款號，差異款號保留未勾選',
   ]);
 });
 
-test('來源款號即使狀態未判定仍保持必要勾選',()=>{
+test('來源款號預設勾選但可由使用者取消',()=>{
   const products=[product('p1','A')];
   const targets=quickEdit({summaries:new Map()}).buildTargets({
     field:'processSeconds',sourceProductId:'p1',sourceProcessId:'p1-13',products,
     group:{memberProductIds:['p1']}
   });
   assert.equal(targets[0].selected,true);
-  assert.equal(targets[0].required,true);
+  assert.equal(targets[0].required,false);
 });

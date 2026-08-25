@@ -32,7 +32,7 @@ test('共用表格操作只在使用功能開啟後按需載入',()=>{
   const products=source.slice(productsStart,productsEnd);
   assert.doesNotMatch(html,/js\/ui-table-controls\.js/);
   assert.match(source,/uiTableControls:'js\/ui-table-controls\.js\?v=20260821-1'/);
-  assert.match(products,/scripts:\['history','fileIo','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','summary','data'\]/);
+  assert.match(products,/scripts:\['history','fileIo','productCache','productModel','productionEfficiencyCore','productChangeLogStore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','uiSearchDropdown','summary','data'\]/);
   assert.doesNotMatch(products,/productVersionStore/);
   assert.match(products,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
 });
@@ -64,7 +64,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','performance-bonus-settings','permissions','product-groups',
+    'accounts','costlog','cutting','export','performance-bonus-settings','permissions','product-change-log','product-groups',
     'production-analysis','production-attendance','production-bonus','production-employees','production-entry','production-records','progress','settings','summary','system-monitor'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
@@ -81,7 +81,10 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const settings=feature.getPage('settings');
   assert.equal(orders.restrictions?.length||0,0);
   assert.deepEqual(Array.from(products.pages[0].restrictions||[]).map(item=>item.key),['costView']);
-  assert.deepEqual(Array.from(products.pages[1].restrictions||[]).map(item=>item.key),[]);
+  assert.equal(products.pages[1].page,'product-change-log');
+  assert.equal(products.pages[1].feature,'productsMain');
+  assert.equal(products.pages[1].permissionVisible,false);
+  assert.deepEqual(Array.from(products.pages[2].restrictions||[]).map(item=>item.key),[]);
   assert.equal(settings.feature,'settings');
   assert.equal(settings.adminOnly===true,false);
   assert.deepEqual(Array.from(settings.scripts),['history','uiTableControls','summary','data','settings']);
@@ -114,7 +117,20 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const navigationHtml=read('index.html');
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260825-6/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260825-7/);
+});
+
+test('款號快取依唯一遞增序號同步且不要求群組序號連續',()=>{
+  const firebase=read('js/firebase.js');
+  const cache=read('js/product-cache.js');
+  const store=read('js/product-master-store.js');
+  assert.match(firebase,/where\('active','==',true\)/);
+  assert.match(firebase,/where\('changeSequence','>',fromSequence\)[\s\S]*where\('changeSequence','<=',targetSequence\)/);
+  assert.match(firebase,/PCMSProductCache\.merge\(cache\.items,changed,targetMeta\.deletedProductIds\)/);
+  assert.match(cache,/cacheSequence>=startSequence[\s\S]*trackingEpoch/);
+  assert.match(store,/previousSequence[\s\S]*sequence=previousSequence\+1/);
+  assert.match(store,/changeSequence:sequence[\s\S]*incrementalStartSequence[\s\S]*deletedProductIds/);
+  assert.doesNotMatch(firebase,/sequence\s*===\s*fromSequence\s*\+\s*1/);
 });
 
 test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
@@ -131,8 +147,9 @@ test('操作歷史依使用者動作載入且不阻止主功能開啟',()=>{
   assert.equal(summaryLoaders.some(item=>(typeof item==='string'?item:item?.name)==='ensureImportHistoryLoaded'),false);
   assert.equal(feature.getPage('summary').scripts.includes('history'),true);
   assert.equal(costLogLoaders.includes('ensureCostLogLoaded'),true);
-  assert.match(read('index.html'),/onclick="openImportHistory\(\)"/);
-  assert.match(read('js/data.js'),/async function openImportHistory\(force=false\)/);
+  assert.match(read('index.html'),/onclick="sp\('product-change-log'\)"/);
+  assert.doesNotMatch(read('js/data.js'),/openImportHistory|rHist/);
+  assert.doesNotMatch(read('js/history.js'),/ensureImportHistoryLoaded|saveHistoryToFB/);
 });
 
 test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
@@ -146,7 +163,7 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
   const scriptFiles={
     history:'js/history.js',fileIo:'js/file-io.js',costLog:'js/cost-log.js',
     settings:'js/settings.js',uiTableControls:'js/ui-table-controls.js',uiSearchDropdown:'js/ui-search-dropdown.js',
-    productCache:'js/product-cache.js',
+    productCache:'js/product-cache.js',productChangeLogStore:'js/product-change-log-store.js',productChangeLog:'js/product-change-log.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     accounts:'js/accounts.js',orders:'js/orders.js',permissions:'js/permissions.js',
     productModel:'js/product-model.js',productMasterStore:'js/product-master-store.js',productResolver:'js/product-resolver.js',
@@ -232,7 +249,9 @@ test('操作歷史查詢所需複合索引已登記',()=>{
   assert.deepEqual(correctionIndex?.fields,[
     {fieldPath:'productCode',order:'ASCENDING'},
     {fieldPath:'processNo',order:'ASCENDING'},
-    {fieldPath:'createdAt',order:'ASCENDING'}
+    {fieldPath:'recordType',order:'ASCENDING'},
+    {fieldPath:'status',order:'ASCENDING'},
+    {fieldPath:'productionDate',order:'ASCENDING'}
   ]);
   const pendingJobIndex=indexes.indexes.find(item=>item.collectionGroup==='processEditJobs');
   assert.deepEqual(pendingJobIndex?.fields,[
@@ -373,15 +392,37 @@ test('訂單開頁只讀訂單項目並由目前款號主檔解析工序',()=>{
   assert.doesNotMatch(source,/orderProcesses|orderProcessCache/);
 });
 
-test('款號版本不同時重讀目前主檔且不依賴永久增量變更集合',()=>{
+test('款號版本不同時優先讀序號差異且不建立永久增量變更集合',()=>{
   const source=read('js/firebase.js');
   const store=read('js/product-master-store.js');
   const service=read('js/product-master-service.js');
   assert.match(source,/loadProductsMeta\(metrics,force\)/);
-  assert.match(source,/let saved=await loadProductsData\(metrics\)/);
+  assert.match(source,/tryIncrementalProducts\(cache,meta,metrics,requestId\)/);
+  assert.match(source,/loadStableFullProducts\(meta,metrics,requestId\)/);
   assert.doesNotMatch(source,/PRODUCT_CHANGES_COL|loadProductChangesAfter|applyProductChanges/);
   assert.match(service,/window\._runTransaction/);
-  assert.match(store,/operationLogId/);
+  assert.match(store,/lastChangeBatchId/);
+  assert.match(store,/productChangeBatches/);
+  assert.doesNotMatch(store,/productHistory|historyId|targetHistoryId/);
+});
+
+test('正式查詢完整驗證後才發布，舊背景請求不得覆蓋新資料',()=>{
+  const source=read('js/firebase.js');
+  const cache=read('js/product-cache.js');
+  const fullStart=source.indexOf('async function loadStableFullProducts');
+  const fullEnd=source.indexOf('function replaceRuntimeProducts',fullStart);
+  const fullBody=source.slice(fullStart,fullEnd);
+  assert.match(source,/getDocsFromServer as firestoreGetDocsFromServer/);
+  assert.match(source,/const snapshot=await firestoreGetDocsFromServer\(reference\)/);
+  assert.match(fullBody,/validateAuthoritativeSnapshot\(\{[\s\S]*querySucceeded:true,[\s\S]*fromServer:true/);
+  assert.doesNotMatch(fullBody,/for\(let attempt=/);
+  assert.match(source,/publishLatestAuthoritative\('products',requestId/);
+  assert.match(source,/assertLatestAuthoritativeRequest\('products',requestId\)[\s\S]*replaceRuntimeProducts\(items\)/);
+  assert.match(source,/invalidateAuthoritativeRequests\(\);[\s\S]*productsLoadPromise=null/);
+  assert.match(cache,/input\.querySucceeded!==true/);
+  assert.match(cache,/input\.fromServer!==true/);
+  assert.match(cache,/counted\.productCount!==expectedProductCount/);
+  assert.match(cache,/expectedProductCount===0/);
 });
 
 test('檔案儲存只由共用程式選擇位置與安全寫入',()=>{

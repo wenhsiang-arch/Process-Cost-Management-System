@@ -120,3 +120,29 @@ test('左側選單標題與收合按鍵固定在可視區頂端',()=>{
   assert.match(html,/\.sb-logo\{position:sticky;top:0;z-index:3;flex-shrink:0;[\s\S]*?background:var\(--navy\)\}/);
   assert.match(html,/<div class="sb-logo">[\s\S]*?id="primary-sidebar-toggle"/);
 });
+
+test('自動登出使用實際經過時間且背景恢復時立即核對，不在畫面顯示倒數',()=>{
+  const auth=read('js/auth.js');
+  const html=read('index.html');
+  assert.match(auth,/const IDLE_MS = 30\*60\*1000/);
+  assert.match(auth,/function idleExpired\(now=Date\.now\(\)\)/);
+  assert.match(auth,/Number\(now\)-idleLastActivityAt>=IDLE_MS/);
+  assert.match(auth,/document\.addEventListener\('visibilitychange',checkIdleAfterResume\)/);
+  assert.match(auth,/window\.addEventListener\('focus',checkIdleAfterResume\)/);
+  assert.match(auth,/window\.addEventListener\('pageshow',checkIdleAfterResume\)/);
+  assert.match(auth,/doLogout\('idle'\)/);
+  assert.doesNotMatch(auth,/idleT--|data-idle-countdown|idleprog/);
+  assert.doesNotMatch(html,/data-idle-countdown|id="idleprog"|sidebar-idle-info/);
+});
+
+test('員工績效日期範圍仍是上限，全部員工按七天、精確單人按月份分頁',()=>{
+  const performance=loadPerformance(loadAttendance());
+  const weekly=performance.performancePeriods('2026-08-01','2026-08-14',false);
+  const monthly=performance.performancePeriods('2026-07-25','2026-08-24',true);
+  assert.deepEqual(Array.from(weekly,item=>[item.from,item.to]),[
+    ['2026-08-08','2026-08-14'],['2026-08-01','2026-08-07']
+  ]);
+  assert.deepEqual(Array.from(monthly,item=>[item.from,item.to]),[
+    ['2026-08-01','2026-08-24'],['2026-07-25','2026-07-31']
+  ]);
+});

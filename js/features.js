@@ -11,16 +11,16 @@
     productChangeLogStore:'js/product-change-log-store.js?v=20260825-3',
     productMasterStore:'js/product-master-store.js?v=20260825-3',
     productResolver:'js/product-resolver.js?v=20260823-1',
-    productGroupStore:'js/product-group-store.js?v=20260823-1',
+    productGroupStore:'js/product-group-store.js?v=20260825-2',
     productMasterService:'js/product-master-service.js?v=20260825-3',
-    productChangeLog:'js/product-change-log.js?v=20260825-3',
+    productChangeLog:'js/product-change-log.js?v=20260825-4',
     productImportImpact:'js/product-import-impact.js?v=20260824-1',
     productMasterEditor:'js/product-master-editor.js?v=20260825-1',
-    productQuickEdit:'js/product-quick-edit.js?v=20260825-2',
+    productQuickEdit:'js/product-quick-edit.js?v=20260825-3',
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
     orderService:'js/order-service.js?v=20260824-1',
-    summary:'js/summary.js?v=20260825-1',
+    summary:'js/summary.js?v=20260825-2',
     data:'js/data.js?v=20260825-1',
     costLog:'js/cost-log.js?v=20260813-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',
@@ -38,7 +38,7 @@
     productionReportStore:'js/production/report-store.js?v=20260823-3',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260823-3',
     productionEntry:'js/production/production-entry.js?v=20260824-3',
-    productionRecords:'js/production/production-records.js?v=20260823-2',
+    productionRecords:'js/production/production-records.js?v=20260825-3',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
     performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20260823-2',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260824-1',
@@ -48,7 +48,7 @@
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260824-6',
     productionProcessSecondsQuickEdit:'js/production/product-seconds-adapter.js?v=20260825-1',
-    productionProductGroups:'js/production/product-groups.js?v=20260824-5',
+    productionProductGroups:'js/production/product-groups.js?v=20260825-6',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260823-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260823-3',
     productionAnalysisExport:'js/production-analysis/analysis-export.js?v=20260815-1',
@@ -65,11 +65,11 @@
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260813-1',
     production:'styles/features/production.css?v=20260824-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260824-4',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260825-5',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1',
-    productChangeLog:'styles/features/product-change-log.css?v=20260825-4'
+    productChangeLog:'styles/features/product-change-log.css?v=20260825-5'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -95,7 +95,7 @@
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
           styles:['products','productionProcessEdit'],
-          scripts:['history','fileIo','productCache','productModel','productionEfficiencyCore','productChangeLogStore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','summary','data'],
+          scripts:['history','fileIo','productCache','productModel','productionEfficiencyCore','productChangeLogStore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','uiSearchDropdown','summary','data'],
           dataScopes:['operationSettings','costSettings','products','productsMeta','productGroups','productGroupMembers'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
@@ -109,13 +109,13 @@
         },
         {
           page:'product-change-log',feature:'productsMain',permissionVisible:false,icon:'ti-history',vi:'Nhật ký thay đổi mã hàng',zh:'款號修改流水帳',
-          styles:['productChangeLog'],scripts:['productChangeLogStore','productionEfficiencyCore','productChangeLog'],
+          styles:['productChangeLog'],scripts:['productChangeLogStore','productionEfficiencyCore','uiSearchDropdown','productChangeLog'],
           dataScopes:['productChangeBatches','productChangeItems'],dataLoaders:[],onOpen:['productChangeLogInit'],onLeave:['productChangeLogLeave']
         },
         {
           page:'product-groups',feature:'productionProcessEdit',icon:'ti-box-multiple',vi:'Sửa công đoạn (gồm nhóm)',zh:'工序修改（含群組）',
           styles:['productionProcessEdit'],
-          scripts:['productCache','productModel','productChangeLogStore','productMasterStore','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productionProductGroups'],
+          scripts:['productCache','productModel','productChangeLogStore','productMasterStore','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','uiTableControls','uiSearchDropdown','productionProductGroups'],
           dataScopes:['products','productGroups','productGroupMembers'],
           dataLoaders:['loadProductionProductGroupsData'],onOpen:['productionProductGroupsInit'],onLeave:['productionProductGroupsLeave']
         }

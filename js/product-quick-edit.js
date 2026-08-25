@@ -127,7 +127,7 @@
       const consistency=statuses.get(productId(product.productId))||null;
       const recommended=consistency?.comparisonState==='consistent';
       return {
-        product,operation,matched,isSource,required:isSource,disabled:Boolean(assignedGroup)||disabledCodes.has(text(product.code)),assignedGroup,
+        product,operation,matched,isSource,required:false,disabled:Boolean(assignedGroup)||disabledCodes.has(text(product.code)),assignedGroup,
         recommendation:candidateMode&&!isSource?model().groupRecommendation(source,product):null,
         selected:matched&&(isSource||recommended),
         value:fieldValue(product,operation,field),consistency
@@ -202,26 +202,48 @@
   function tableHead(config){
     const process=config.scope==='process';
     const cells=[
-      {value:dual('Chọn','選擇'),className:'ui-table-center-cell is-select'},
-      {value:dual('Mã hàng','款號'),className:'is-code'},
-      {value:dual('Tên sản phẩm Việt','越文品名'),className:'is-product-vi'},
-      {value:dual('Kích thước','尺寸'),className:'ui-table-center-cell is-size'},
-      {value:dual('Tổng số công đoạn','總工序數量'),className:'ui-table-center-cell is-process-count'}
+      {key:'select',value:dual('Chọn','選擇'),className:'ui-table-center-cell is-select'},
+      {key:'code',value:dual('Mã hàng','款號'),className:'is-code'},
+      {key:'productVi',value:dual('Tên sản phẩm Việt','越文品名'),className:'is-product-vi'},
+      {key:'size',value:dual('Kích thước','尺寸'),className:'ui-table-center-cell is-size'},
+      {key:'processCount',value:dual('Tổng số công đoạn','總工序數量'),className:'ui-table-center-cell is-process-count'}
     ];
     if(process){
       cells.push(
-        {value:dual('Số công đoạn','工序號'),className:'ui-table-center-cell is-process-no'},
-        {value:dual('Mô tả tiếng Việt','越文工序描述'),className:'is-process-description'}
+        {key:'processNo',value:dual('Số công đoạn','工序號'),className:'ui-table-center-cell is-process-no'},
+        {key:'processDescription',value:dual('Mô tả tiếng Việt','越文工序描述'),className:'is-process-description'}
       );
-      if(!['processSeconds','processNo'].includes(config.key)) cells.push({value:dual('Giây hiện tại','目前秒數'),className:'ui-table-number-cell is-current-seconds'});
+      if(!['processSeconds','processNo'].includes(config.key)) cells.push({key:'currentSeconds',value:dual('Giây hiện tại','目前秒數'),className:'ui-table-number-cell is-current-seconds'});
     }
     cells.push(
-      {value:dual(`Hiện tại: ${config.vi}`,`目前${config.zh}`),className:config.type==='number'?'ui-table-number-cell':''},
-      {value:dual(`Sau sửa: ${config.vi}`,`修改後${config.zh}`),className:config.type==='number'?'ui-table-number-cell':''}
+      {key:'currentValue',value:dual(`Hiện tại: ${config.vi}`,`目前${config.zh}`),className:config.type==='number'?'ui-table-number-cell':''},
+      {key:'nextValue',value:dual(`Sau sửa: ${config.vi}`,`修改後${config.zh}`),className:config.type==='number'?'ui-table-number-cell':''}
     );
-    if(config.key==='processSeconds') cells.push({value:dual('SL/giờ sau sửa','修改後每小時產能'),className:'ui-table-number-cell'});
-    cells.push({value:dual('Trạng thái','差異狀態'),className:'is-status'});
-    return cells.map(cell=>`<th${cell.className?` class="${cell.className}"`:''}>${cell.value}</th>`).join('');
+    if(config.key==='processSeconds') cells.push({key:'capacity',value:dual('SL/giờ sau sửa','修改後每小時產能'),className:'ui-table-number-cell'});
+    cells.push({key:'status',value:dual('Trạng thái','差異狀態'),className:'is-status'});
+    return cells.map(cell=>`<th data-ui-table-column="${cell.key}"${cell.className?` class="${cell.className}"`:''}>${cell.value}</th>`).join('');
+  }
+
+  function quickTableColumns(config){
+    const columns=[
+      {key:'select',label:{vi:'Chọn',zh:'選擇'},minimum:48,preferred:48,maximum:56,resizable:false},
+      {key:'code',label:{vi:'Mã hàng',zh:'款號'},minimum:104,preferred:124,maximum:220},
+      {key:'productVi',label:{vi:'Tên sản phẩm Việt',zh:'越文品名'},minimum:150,preferred:205,maximum:420},
+      {key:'size',label:{vi:'Kích thước',zh:'尺寸'},minimum:72,preferred:84,maximum:150},
+      {key:'processCount',label:{vi:'Tổng số công đoạn',zh:'總工序數量'},minimum:76,preferred:86,maximum:130}
+    ];
+    if(config.scope==='process') columns.push(
+      {key:'processNo',label:{vi:'Số công đoạn',zh:'工序號'},minimum:68,preferred:76,maximum:120},
+      {key:'processDescription',label:{vi:'Mô tả tiếng Việt',zh:'越文工序描述'},minimum:180,preferred:280,maximum:560},
+      ...(!['processSeconds','processNo'].includes(config.key)?[{key:'currentSeconds',label:{vi:'Giây hiện tại',zh:'目前秒數'},minimum:78,preferred:88,maximum:130}]:[])
+    );
+    columns.push(
+      {key:'currentValue',label:{vi:`Hiện tại: ${config.vi}`,zh:`目前${config.zh}`},minimum:82,preferred:96,maximum:200},
+      {key:'nextValue',label:{vi:`Sau sửa: ${config.vi}`,zh:`修改後${config.zh}`},minimum:82,preferred:96,maximum:200},
+      ...(config.key==='processSeconds'?[{key:'capacity',label:{vi:'SL/giờ sau sửa',zh:'修改後每小時產能'},minimum:88,preferred:100,maximum:150}]:[]),
+      {key:'status',label:{vi:'Trạng thái',zh:'差異狀態'},minimum:132,preferred:156,maximum:250}
+    );
+    return columns;
   }
 
   function tableColumnCount(config){
@@ -245,9 +267,9 @@
       row.dataset.processId=target.operation?.processId||'';
       const operation=target.operation;
       const processCells=config.scope==='process'?[
-        {value:operation?safe(operation.no):`<select data-process-select${target.disabled?' disabled':''}>${processOptions(target.product)}</select>`,className:'ui-table-center-cell is-process-no'},
-        {value:safe(operation?.vi||'—'),className:'is-process-description'},
-        ...(!['processSeconds','processNo'].includes(config.key)?[{value:safe(displayValue(operation?.sec)),className:'ui-table-number-cell is-current-seconds'}]:[])
+        {key:'processNo',value:operation?safe(operation.no):`<select data-process-select${target.disabled?' disabled':''}>${processOptions(target.product)}</select>`,className:'ui-table-center-cell is-process-no'},
+        {key:'processDescription',value:safe(operation?.vi||'—'),title:operation?.vi||'—',className:'is-process-description'},
+        ...(!['processSeconds','processNo'].includes(config.key)?[{key:'currentSeconds',value:safe(displayValue(operation?.sec)),className:'ui-table-number-cell is-current-seconds'}]:[])
       ]:[];
       const current=displayValue(fieldValue(target.product,operation,config.key));
       const pending=rowValues?.get(target.product.productId)??(current==='—'?'':current);
@@ -255,12 +277,12 @@
         ?`<input type="text" maxlength="${config.maxLength||200}" data-row-value value="${safeAttribute(pending)}">`
         :safe(current);
       const next=config.perProduct?pending:afterValue(config,target,commonValue,row);
-      row.innerHTML=`<td class="ui-table-center-cell"><input type="checkbox" data-select${selected.has(target.product.productId)?' checked':''}${target.required||target.disabled||!target.matched?' disabled':''}></td>
-        <td><button type="button" class="product-quick-code-button${expanded.has(target.product.productId)?' is-open':''}" data-product-quick-expand="${safeAttribute(target.product.productId)}" aria-expanded="${expanded.has(target.product.productId)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(target.product.code)}</b></button></td><td class="is-product-vi" title="${safeAttribute(target.product.vi||'—')}">${safe(target.product.vi||'—')}</td><td class="ui-table-center-cell">${safe(target.product.sz||'—')}</td><td class="ui-table-center-cell is-process-count"><b>${safe(groupUI().activeOperations(target.product).length)}</b></td>
-        ${processCells.map(cell=>`<td class="${cell.className}">${cell.value}</td>`).join('')}
-        <td class="${config.type==='number'?'ui-table-number-cell':''}">${perProductInput}</td><td class="${config.type==='number'?'ui-table-number-cell':''}" data-after>${safe(next)}</td>
-        ${config.key==='processSeconds'?`<td class="ui-table-number-cell" data-capacity>${next!=='—'?safe(capacity(next)):'—'}</td>`:''}
-        <td class="product-quick-status" data-status>${statusTags(target)}</td>`;
+      row.innerHTML=`<td data-ui-table-column="select" class="ui-table-center-cell"><input type="checkbox" data-select${selected.has(target.product.productId)?' checked':''}${target.required||target.disabled||!target.matched?' disabled':''}></td>
+        <td data-ui-table-column="code"><button type="button" class="product-quick-code-button${expanded.has(target.product.productId)?' is-open':''}" data-product-quick-expand="${safeAttribute(target.product.productId)}" aria-expanded="${expanded.has(target.product.productId)?'true':'false'}"><i class="ti ti-chevron-right" aria-hidden="true"></i><b>${safe(target.product.code)}</b></button></td><td data-ui-table-column="productVi" class="is-product-vi" title="${safeAttribute(target.product.vi||'—')}">${safe(target.product.vi||'—')}</td><td data-ui-table-column="size" class="ui-table-center-cell">${safe(target.product.sz||'—')}</td><td data-ui-table-column="processCount" class="ui-table-center-cell is-process-count"><b>${safe(groupUI().activeOperations(target.product).length)}</b></td>
+        ${processCells.map(cell=>`<td data-ui-table-column="${cell.key}" class="${cell.className}"${cell.title?` title="${safeAttribute(cell.title)}"`:''}>${cell.value}</td>`).join('')}
+        <td data-ui-table-column="currentValue" class="${config.type==='number'?'ui-table-number-cell':''}">${perProductInput}</td><td data-ui-table-column="nextValue" class="${config.type==='number'?'ui-table-number-cell':''}" data-after>${safe(next)}</td>
+        ${config.key==='processSeconds'?`<td data-ui-table-column="capacity" class="ui-table-number-cell" data-capacity>${next!=='—'?safe(capacity(next)):'—'}</td>`:''}
+        <td data-ui-table-column="status" class="product-quick-status" data-status>${statusTags(target)}</td>`;
       host.appendChild(row);
       if(expanded.has(target.product.productId)){
         const detail=document.createElement('tr');
@@ -384,20 +406,15 @@
     });
     const existing=groupRuntime().groupForProduct(product.productId||product.code);
     if(existing) return existing;
-    if(!plan.candidates.length){
-      await ui().alertDialog({
-        message:{vi:'Không tìm thấy mã cùng khách hàng và cùng tên sản phẩm Việt để tạo nhóm. Hãy quay lại và chọn Bỏ qua nếu vẫn muốn tiếp tục sửa.',zh:'找不到同一客人且越文品名相同的其他候選款號。若仍要繼續修改，請返回後選擇略過。'},
-        kind:'warning',keepPrevious:true
-      });
-      return null;
-    }
     return new Promise(resolve=>{
       let settled=false;
       const body=document.createElement('div');
       body.className='product-group-detail-dialog product-quick-group-create';
       const notice=ui().createNotice({
         kind:'info',
-        text:{vi:'Mã khớp cao được chọn sẵn. Mã có khác biệt không được chọn sẵn nhưng vẫn có thể tự chọn.',zh:'高度符合者預設勾選；有差異者預設不勾選，但仍可由使用者自行選擇。'}
+        text:plan.candidates.length
+          ?{vi:'Mã khớp cao được chọn sẵn. Mã có khác biệt không được chọn sẵn nhưng vẫn có thể tự chọn.',zh:'高度符合者預設勾選；有差異者預設不勾選，但仍可由使用者自行選擇。'}
+          :{vi:'Chưa có mã phù hợp khác. Có thể tạo nhóm chỉ gồm mã hiện tại để theo dõi trước.',zh:'目前沒有其他合適款號，可先建立只含目前款號的群組。'}
       });
       const selector=groupUI().createMemberSelector({
         products:[product,...plan.candidates],currentCode:product.code,activeSize:product.sz,
@@ -414,8 +431,8 @@
           {text:{vi:'Quay lại',zh:'返回'},onClick:()=>{ settled=true;resolve(null); }},
           {text:{vi:'Xác nhận tạo nhóm',zh:'確認建立群組'},icon:'ti-box-multiple',kind:'primary',onClick:async()=>{
             const memberCodes=selector.selectedCodes();
-            if(memberCodes.length<2){
-              await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 2 mã hàng.',zh:'新群組至少需要2個款號。'},kind:'warning',keepPrevious:true});
+            if(memberCodes.length<1){
+              await ui().alertDialog({message:{vi:'Nhóm mới phải có ít nhất 1 mã hàng.',zh:'新群組至少需要1個款號。'},kind:'warning',keepPrevious:true});
               return false;
             }
             const created=await groupRuntime().createGroup({memberCodes,name:product.vi||product.zh||product.code});
@@ -568,8 +585,14 @@
       <div class="process-size-tabs product-quick-size-tabs" data-size-tabs></div>
       <div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-quick-table"><thead><tr data-table-head></tr></thead><tbody data-target-body></tbody></table></div></div>`;
     const rowsHost=body.querySelector('[data-target-body]');
-    body.querySelector('.product-quick-table').dataset.scope=config.scope;
+    const quickTable=body.querySelector('.product-quick-table');
+    quickTable.dataset.scope=config.scope;
+    quickTable.dataset.uiTableResizable='true';
     body.querySelector('[data-table-head]').innerHTML=tableHead(config);
+    const tableControl=window.PCMSUITableControls?.create?.({
+      root:body,table:quickTable,frame:body.querySelector('.ui-table-frame'),columns:quickTableColumns(config),
+      resizable:true,preferenceKey:`productQuickEdit:${config.scope}:${config.key}`
+    })||null;
 
     function commonControl(){ return body.querySelector('[data-common-value]'); }
     function captureCommonValue(){
@@ -587,6 +610,7 @@
       const tabs=body.querySelector('[data-size-tabs]');
       tabs.innerHTML=sizes.map(group=>`<button type="button" role="tab" data-size="${safeAttribute(group.key)}" aria-selected="${group.key===activeSize?'true':'false'}" class="${group.key===activeSize?'is-active':''}"><span>${safe(group.labelPair.vi)}/${group.members.length}</span></button>`).join('');
       renderRows(rowsHost,targets,config,activeSize,selected,common?.value,rowValues,expanded,comparison);
+      tableControl?.refresh?.();
     }
     function refreshAfterValues(){
       const common=commonControl();
@@ -690,7 +714,7 @@
         }}
       ],
       onError:error=>ui().alertDialog({message:resultError(error),kind:'danger',keepPrevious:true}),
-      onClose:()=>input.onClose?.()
+      onClose:()=>{ tableControl?.destroy?.();input.onClose?.(); }
     });
     return true;
   }

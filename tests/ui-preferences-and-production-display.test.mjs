@@ -28,16 +28,17 @@ test('側邊欄常駐顯示目前版本狀態並在一般更新時提供雙語�
   const html=read('index.html');
   const source=read('js/firebase.js');
   const notice=html.indexOf('id="runtime-update-notice"');
-  const idle=html.indexOf('id="idle-info"');
-  assert.ok(notice>=0&&idle>notice);
+  assert.ok(notice>=0);
   assert.match(html,/id="runtime-update-notice" disabled[\s\S]*?id="runtime-update-icon" class="ti ti-loader-2"/);
   assert.match(html,/Đang kiểm tra cập nhật[\s\S]*?正在確認更新/);
   assert.match(source,/Có phiên bản mới[\s\S]*?有新版本/);
   assert.match(source,/current:\{vi:'Đã là phiên bản mới nhất',zh:'已是最新版本',icon:'ti-circle-check'\}/);
   assert.match(source,/available:\{vi:'Có phiên bản mới',zh:'有新版本',icon:'ti-refresh'\}/);
   assert.match(source,/void verifyRuntimeVersion\(\{silent:true\}\)\.catch\(\(\)=>undefined\)/);
-  assert.match(html,/Tự động đăng xuất:[\s\S]*?自動登出：/);
-  assert.equal((html.match(/data-idle-countdown/g)||[]).length,2);
+  assert.doesNotMatch(html,/Tự động đăng xuất:|自動登出：|data-idle-countdown|idleprog/);
+  assert.doesNotMatch(html,/<div class="sb-ft-t">M9<\/div>/);
+  assert.doesNotMatch(html,/sidebar-session-meta/);
+  assert.doesNotMatch(html,/sidebar-idle-info/);
   assert.match(source,/cancelText:\{vi:'Để sau',zh:'稍後'\}/);
   assert.match(source,/confirmText:\{vi:'Cập nhật ngay',zh:'立即更新'\}/);
   assert.match(source,/if\(confirmed\) window\.location\.reload\(\)/);
@@ -59,10 +60,13 @@ test('產能紀錄的有效工時位於生產數量右側並共用每日績效�
   assert.match(source,/hủy bỏ 作廢/);
 });
 
-test('每日績效固定每頁七天且翻週只重新顯示目前結果',()=>{
+test('每日績效全部員工按週、精確單一員工按月且翻頁只重新顯示目前結果',()=>{
   const source=read('js/production/production-records.js');
   assert.match(source,/const WEEK_PAGE_DAYS = 7/);
   assert.match(source,/shiftDate\(-6\)/);
+  assert.match(source,/function performancePeriods\(from,to,singleEmployee=false\)/);
+  assert.match(source,/const singleEmployee=Boolean\(current\.employeeId\)/);
+  assert.match(source,/singleEmployee\?'Tháng':'Tuần'/);
   const shiftFunction=source.match(/function shiftWeekPage\(offset\)\{([\s\S]*?)\n  \}/)?.[1]||'';
   assert.match(shiftFunction,/render\(\)/);
   assert.doesNotMatch(shiftFunction,/load\(/);

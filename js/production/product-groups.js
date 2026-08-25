@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const state={initialized:false,languageBound:false,listClient:'',listQuery:'',selectedGroupId:'',dialog:null};
+  const state={initialized:false,languageBound:false,listClient:'',listQuery:'',selectedGroupId:'',dialog:null,listTableControl:null};
   const safe=value=>window.PCMSSafe.text(value);
   const textApi=()=>window.PCMSUIText;
   const ui=()=>window.PCMSUIComponents;
@@ -39,8 +39,8 @@
           <label class="product-groups-field"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><select id="product-groups-list-client"></select></label>
           <label class="product-groups-field is-search"><span class="ui-dual-copy"><strong>Tìm nhóm hoặc mã hàng</strong><span>搜尋群組或款號</span></span><input type="search" id="product-groups-search-input"></label>
         </div>
-        <div class="ui-table-frame"><div class="ui-table-scroll product-groups-table-scroll"><table class="ui-table product-groups-table">
-          <thead><tr><th><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th><th><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span></th><th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số kích thước</strong><span>尺寸群組數</span></span></th><th class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số mã</strong><span>款號數</span></span></th><th class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th></tr></thead>
+        <div class="ui-table-frame" id="product-groups-table-frame"><div class="ui-table-scroll product-groups-table-scroll"><table class="ui-table product-groups-table" id="product-groups-table" data-ui-table-resizable="true">
+          <thead><tr><th data-ui-table-column="client" data-ui-table-sort-key="client"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span></th><th data-ui-table-column="name" data-ui-table-sort-key="name"><span class="ui-dual-copy"><strong>Tên nhóm</strong><span>群組名稱</span></span></th><th data-ui-table-column="sizeCount" data-ui-table-sort-key="sizeCount" class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số kích thước</strong><span>尺寸群組數</span></span></th><th data-ui-table-column="memberCount" data-ui-table-sort-key="memberCount" class="ui-table-number-cell"><span class="ui-dual-copy"><strong>Số mã</strong><span>款號數</span></span></th><th data-ui-table-column="action" class="ui-table-center-cell"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th></tr></thead>
           <tbody id="product-groups-table-body"></tbody>
         </table></div></div>
         <div class="product-groups-empty ui-empty-state" id="product-groups-empty" hidden><i class="ti ti-box-off"></i><span class="ui-dual-copy"><strong>Không tìm thấy nhóm phù hợp</strong><span>找不到符合條件的群組</span></span></div>
@@ -75,16 +75,71 @@
   function groupMembers(group){ return (group?.memberCodes||[]).map(code=>productByCode(code)||{code,client:'',sz:''}); }
   function groupClient(group){ return clientName(groupMembers(group).find(item=>clientName(item)))||'—'; }
 
+  function groupSearchScore(group,query){
+    if(!query) return 0;
+    const members=groupMembers(group);
+    const fields=[
+      {value:group.name||group.groupId,mode:'text'},{value:groupClient(group),mode:'text'},
+      ...members.flatMap(item=>[{value:item.code,mode:'code'},{value:item.sz,mode:'text'},{value:item.vi,mode:'text'},{value:item.zh,mode:'text'}])
+    ];
+    const scorer=window.PCMSUISearchDropdown?.scoreText;
+    if(typeof scorer==='function'){
+      const scores=fields.map(field=>scorer(query,field.value,field.mode)).filter(Number.isFinite);
+      return scores.length?Math.min(...scores):Number.POSITIVE_INFINITY;
+    }
+    const needle=searchable(query);
+    return fields.some(field=>searchable(field.value).includes(needle))?1:0;
+  }
+
+  function groupSortValue(group,key){
+    if(key==='client') return groupClient(group);
+    if(key==='name') return normalize(group.name||group.groupId);
+    if(key==='sizeCount') return groupUI().groupBySize(groupMembers(group)).length;
+    if(key==='memberCount') return groupMembers(group).length;
+    return '';
+  }
+
+  function compareGroupValues(left,right,key){
+    if(['sizeCount','memberCount'].includes(key)) return Number(left)-Number(right);
+    return normalize(left).localeCompare(normalize(right),'vi',{numeric:true,sensitivity:'base'});
+  }
+
   function visibleGroups(){
-    const query=state.listQuery.toLocaleLowerCase();
-    return store().listGroups().filter(group=>{
+    const query=state.listQuery;
+    const ranked=store().listGroups().map(group=>({group,score:groupSearchScore(group,query)})).filter(item=>{
+      const group=item.group;
       if(state.listClient&&groupClient(group)!==state.listClient) return false;
-      if(!query) return true;
-      const members=groupMembers(group);
-      return [group.name,group.groupId,groupClient(group),...members.flatMap(item=>[item.code,item.sz,item.vi,item.zh])]
-        .map(normalize).join(' ').toLocaleLowerCase().includes(query);
-    }).sort((a,b)=>groupClient(a).localeCompare(groupClient(b),'vi',{numeric:true,sensitivity:'base'})
-      ||normalize(a.name||a.groupId).localeCompare(normalize(b.name||b.groupId),'vi',{numeric:true,sensitivity:'base'}));
+      return !query||Number.isFinite(item.score);
+    });
+    const sort=state.listTableControl?.getSort?.()||{key:'',direction:'none'};
+    ranked.sort((left,right)=>{
+      if(sort.key&&sort.direction!=='none'){
+        const compared=compareGroupValues(groupSortValue(left.group,sort.key),groupSortValue(right.group,sort.key),sort.key);
+        if(compared) return sort.direction==='descending'?-compared:compared;
+      }
+      if(query&&left.score!==right.score) return left.score-right.score;
+      return groupClient(left.group).localeCompare(groupClient(right.group),'vi',{numeric:true,sensitivity:'base'})
+        ||normalize(left.group.name||left.group.groupId).localeCompare(normalize(right.group.name||right.group.groupId),'vi',{numeric:true,sensitivity:'base'});
+    });
+    return ranked.map(item=>item.group);
+  }
+
+  function ensureGroupTableControl(){
+    if(state.listTableControl) return state.listTableControl;
+    const table=document.getElementById('product-groups-table');
+    if(!table||!window.PCMSUITableControls?.create) return null;
+    state.listTableControl=window.PCMSUITableControls.create({
+      table,frame:document.getElementById('product-groups-table-frame'),resizable:true,preferenceKey:'productGroups:list',
+      columns:[
+        {key:'client',label:{vi:'Khách hàng',zh:'客人'},minimum:120,preferred:180,maximum:320},
+        {key:'name',label:{vi:'Tên nhóm',zh:'群組名稱'},minimum:220,preferred:420,maximum:720},
+        {key:'sizeCount',label:{vi:'Số kích thước',zh:'尺寸群組數'},minimum:100,preferred:130,maximum:180},
+        {key:'memberCount',label:{vi:'Số mã',zh:'款號數'},minimum:90,preferred:120,maximum:170},
+        {key:'action',label:{vi:'Thao tác',zh:'操作'},minimum:124,preferred:150,maximum:190,resizable:false}
+      ],
+      onSortChanged:()=>renderGroupList()
+    });
+    return state.listTableControl;
   }
 
   function renderGroupList(){
@@ -100,8 +155,9 @@
     body.innerHTML=groups.map(group=>{
       const members=groupMembers(group);
       const sizeCount=groupUI().groupBySize(members).length;
-      return `<tr data-product-group-row="${safe(group.groupId)}" class="${group.groupId===state.selectedGroupId?'is-selected':''}"><td>${safe(groupClient(group))}</td><td><button type="button" class="product-group-name-button" data-product-group-view="${safe(group.groupId)}"><i class="ti ti-box-multiple"></i><b>${safe(group.name||group.groupId)}</b></button></td><td class="ui-table-number-cell"><b>${sizeCount}</b></td><td class="ui-table-number-cell"><b>${members.length}</b></td><td class="ui-table-center-cell"><button type="button" class="ui-button is-compact is-danger product-group-delete-button" data-product-group-delete="${safe(group.groupId)}"><i class="ti ti-player-stop"></i><span class="ui-dual-copy"><strong>Ngừng dùng</strong><span>停用</span></span></button></td></tr>`;
+      return `<tr data-product-group-row="${safe(group.groupId)}" class="${group.groupId===state.selectedGroupId?'is-selected':''}"><td data-ui-table-column="client">${safe(groupClient(group))}</td><td data-ui-table-column="name"><button type="button" class="product-group-name-button" data-product-group-view="${safe(group.groupId)}"><i class="ti ti-box-multiple"></i><b>${safe(group.name||group.groupId)}</b></button></td><td data-ui-table-column="sizeCount" class="ui-table-number-cell"><b>${sizeCount}</b></td><td data-ui-table-column="memberCount" class="ui-table-number-cell"><b>${members.length}</b></td><td data-ui-table-column="action" class="ui-table-center-cell"><button type="button" class="ui-button is-compact is-danger product-group-delete-button" data-product-group-delete="${safe(group.groupId)}"><i class="ti ti-player-stop"></i><span class="ui-dual-copy"><strong>Ngừng dùng</strong><span>停用</span></span></button></td></tr>`;
     }).join('');
+    state.listTableControl?.refresh?.();
     empty.hidden=groups.length>0;
     if(state.selectedGroupId&&!groups.some(group=>group.groupId===state.selectedGroupId)) state.selectedGroupId='';
   }
@@ -432,19 +488,16 @@
     const plan=store().candidatePlan(product.code);
     const candidates=plan.candidates;
     panel.innerHTML=`<div class="product-groups-wizard-source"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><b>${safe(product.code)}</b><span>${safe(product.client||'—')} · ${safe(product.zh||'—')} · ${safe(product.vi||'—')} · ${safe(product.sz||'—')}</span></div>
-      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Chỉ liệt kê mã cùng khách hàng và cùng tên sản phẩm Việt, sau đó chia theo kích thước. Mã đồng nhất được chọn sẵn; mã khác biệt chỉ để nhắc và vẫn có thể chọn. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu.</span><span class="ui-text-zh">只列出同一客人且越文品名相同的款號，再依尺寸分頁。一致者預設勾選；差異只作提醒，仍可人工選擇。已在其他群組的款號只供比對。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
-      :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã cùng khách hàng và cùng tên sản phẩm Việt</strong><span>找不到同一客人且越文品名相同的其他款號</span></span></div>'}`;
+      <div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Chỉ liệt kê mã cùng khách hàng và cùng tên sản phẩm Việt, sau đó chia theo kích thước. Mã đồng nhất được chọn sẵn; mã khác biệt chỉ để nhắc và vẫn có thể chọn. Nếu chưa có mã phù hợp, vẫn có thể tạo nhóm một mã để theo dõi trước.</span><span class="ui-text-zh">只列出同一客人且越文品名相同的款號，再依尺寸分頁。一致者預設勾選；差異只作提醒，仍可人工選擇。若暫時沒有合適款號，仍可先建立單款群組。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`;
     host._groupSelector=null;
-    if(candidates.length){
-      host._groupSelector=groupUI().createMemberSelector({
-        products:[product,...candidates],currentCode:product.code,activeSize:product.sz,
-        orderCodes:[product.code,...candidates.map(candidate=>candidate.code)],
-        requiredCodes:[product.code],disabledCodes:plan.disabledCodes,selectable:true,
-        consistency:true,expandable:true,selectConsistentByDefault:true,statusRenderer:(item,summary)=>recommendationStatus(product,item,summary),
-        onChange:()=>updateCreateCount(host)
-      });
-      panel.querySelector('[data-product-group-wizard-selector]').appendChild(host._groupSelector.element);
-    }
+    host._groupSelector=groupUI().createMemberSelector({
+      products:[product,...candidates],currentCode:product.code,activeSize:product.sz,
+      orderCodes:[product.code,...candidates.map(candidate=>candidate.code)],
+      requiredCodes:[product.code],disabledCodes:plan.disabledCodes,selectable:true,
+      consistency:true,expandable:true,selectConsistentByDefault:true,statusRenderer:(item,summary)=>recommendationStatus(product,item,summary),
+      onChange:()=>updateCreateCount(host)
+    });
+    panel.querySelector('[data-product-group-wizard-selector]').appendChild(host._groupSelector.element);
     updateCreateCount(host);
     setWizardStep(host,3);
   }
@@ -455,7 +508,7 @@
     const selected=host._groupSelector?.selectedCodes().length||1;
     count.textContent=textApi().visibleText({vi:`Nhóm mới có ${selected} mã`,zh:`新群組共 ${selected} 個款號`});
     const button=host.querySelector('#product-groups-create-button');
-    if(button) button.disabled=selected<2;
+    if(button) button.disabled=selected<1;
   }
 
   function openCreateWizard(prefillCode=''){
@@ -520,7 +573,7 @@
     const product=productByCode(host.dataset.sourceCode);
     if(!product) return;
     const memberCodes=host._groupSelector?.selectedCodes()||[product.code];
-    if(memberCodes.length<2){ setWizardStatus(host,{vi:'Phải chọn ít nhất 2 mã hàng.',zh:'至少必須選擇2個款號。'},'warning'); return; }
+    if(memberCodes.length<1){ setWizardStatus(host,{vi:'Phải chọn ít nhất 1 mã hàng.',zh:'至少必須選擇1個款號。'},'warning'); return; }
     clearWizardStatus(host);
     try{
       const button=host.querySelector('#product-groups-create-button');
@@ -545,6 +598,7 @@
     document.getElementById('product-groups-new-button')?.addEventListener('click',()=>openCreateWizard());
     document.getElementById('product-groups-list-client')?.addEventListener('change',event=>{ state.listClient=normalize(event.currentTarget.value); renderGroupList(); });
     document.getElementById('product-groups-search-input')?.addEventListener('input',event=>{ state.listQuery=normalize(event.currentTarget.value); renderGroupList(); });
+    document.getElementById('product-groups-search-input')?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault();state.listQuery=normalize(event.currentTarget.value);renderGroupList(); } });
     document.getElementById('product-groups-table-body')?.addEventListener('click',event=>{
       const deleteButton=event.target.closest('[data-product-group-delete]');
       if(deleteButton){ deleteGroup(deleteButton.dataset.productGroupDelete);return; }
@@ -561,6 +615,7 @@
 
   async function productionProductGroupsInit(){
     buildRoot();
+    ensureGroupTableControl();
     if(!state.initialized){ bindEvents(); state.initialized=true; }
     textApi().setLocalizedAttribute(document.getElementById('product-groups-search-input'),'placeholder',{vi:'Nhập tên nhóm, mã hàng hoặc kích thước',zh:'輸入群組名稱、款號或尺寸'});
     if(!state.languageBound){ document.addEventListener('pcms:languagechange',handleLanguageChange); state.languageBound=true; }
@@ -574,6 +629,7 @@
     clearStatus();
     state.dialog?.close?.('leave');
     state.dialog=null;
+    state.listTableControl?.deactivate?.({resetSort:true});
     if(state.languageBound){ document.removeEventListener('pcms:languagechange',handleLanguageChange); state.languageBound=false; }
   }
 

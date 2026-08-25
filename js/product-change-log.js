@@ -16,6 +16,27 @@
     return text(value).normalize('NFKC').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .replace(/[Đđ]/g,'d').toLocaleLowerCase().replace(/\s+/g,' ');
   }
+  function smartScore(query,value,mode='text'){
+    const score=window.PCMSUISearchDropdown?.scoreText?.(query,value,mode);
+    if(Number.isFinite(score)) return score;
+    const keyword=searchKey(query),candidate=searchKey(value);
+    return keyword&&candidate.includes(keyword)?200+candidate.indexOf(keyword):Number.POSITIVE_INFINITY;
+  }
+  function rankBySearch(items,query,fields){
+    const keyword=text(query);
+    if(!keyword) return Array.from(items||[]);
+    return Array.from(items||[]).map((item,index)=>{
+      let score=Number.POSITIVE_INFINITY;
+      fields.forEach(field=>{
+        const resolved=field.value(item);
+        const values=Array.isArray(resolved)?resolved:[resolved];
+        values.forEach(value=>{ score=Math.min(score,smartScore(keyword,value,field.mode||'text')+(field.weight||0)); });
+      });
+      return {item,index,score};
+    }).filter(entry=>Number.isFinite(entry.score))
+      .sort((left,right)=>left.score-right.score||left.index-right.index)
+      .map(entry=>entry.item);
+  }
   function escape(value){ return text(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])); }
   function node(id){ return document.getElementById(id); }
   function pair(vi,zh){ return `<span class="ui-dual-copy"><strong>${escape(vi)}</strong><span>${escape(zh)}</span></span>`; }
@@ -41,13 +62,18 @@
     if(row.status==='running') return `${Number(row.targetCount)||0}`;
     return `${success} / ${failure} / ${unprocessed}`;
   }
-  function matches(row){
-    const keyword=productCodeKey(node('product-change-search')?.value);
+  function visibleRows(){
+    const keyword=text(node('product-change-search')?.value);
     const mode=text(node('product-change-mode')?.value),status=text(node('product-change-status')?.value);
-    if(mode&&row.mode!==mode) return false;
-    if(status&&row.status!==status) return false;
-    if(!keyword) return true;
-    return [row.createdBy,row.fileName,row.action,row.batchId,...(row.matchedProductCodes||[])].some(value=>text(value).toLocaleUpperCase().includes(keyword));
+    const rows=mergedRows().filter(row=>(!mode||row.mode===mode)&&(!status||row.status===status));
+    const ranked=rankBySearch(rows,keyword,[
+      {value:row=>row.matchedProductCodes||[],mode:'code',weight:0},
+      {value:row=>row.createdBy,mode:'text',weight:10},
+      {value:row=>row.fileName,mode:'text',weight:20},
+      {value:row=>row.action,mode:'text',weight:30},
+      {value:row=>row.batchId,mode:'code',weight:40}
+    ]);
+    return keyword?ranked:ranked.sort((left,right)=>(Number(right.createdAt)||0)-(Number(left.createdAt)||0));
   }
 
   function ensureDetailState(batch){
@@ -71,9 +97,10 @@
     ].join(' '));
   }
   function filteredDetails(detailState){
-    const keyword=searchKey(detailState.search);
-    if(!keyword) return detailState.items;
-    return detailState.items.filter(detail=>detailCorpus(detail).includes(keyword));
+    return rankBySearch(detailState.items,detailState.search,[
+      {value:detail=>detail.productCode,mode:'code',weight:0},
+      {value:detail=>detailCorpus(detail),mode:'text',weight:10}
+    ]);
   }
   function expectedDetailCount(batch){ return Math.max(0,Number(batch?.completedCount)||Number(batch?.targetCount)||0); }
 
@@ -114,19 +141,20 @@
   function manualDetails(details,keywordInput=''){
     const rows=[],keyword=searchKey(keywordInput);
     details.forEach(detail=>{
-      const baseSearch=searchKey([
+      const baseSearch=[
         detail.productCode,detail.after?.client||detail.before?.client,detail.after?.vi||detail.before?.vi,
         detail.after?.sz||detail.before?.sz,detail.status,detail.error
-      ].join(' '));
+      ].join(' ');
+      const baseMatches=!keywordInput||Number.isFinite(smartScore(keywordInput,detail.productCode,'code'))||Number.isFinite(smartScore(keywordInput,baseSearch));
       if(detail.status!=='success'){
-        if(keyword&&!detailCorpus(detail).includes(keyword)) return;
+        if(keyword&&!baseMatches&&!Number.isFinite(smartScore(keywordInput,detailCorpus(detail)))) return;
         rows.push(`<tr class="is-${escape(detail.status)}"><td>${escape(detail.productCode||detail.productId)}</td><td colspan="8">${escape(detail.error||detail.status)}</td><td>${statusLabel(detail.status==='failed'?'failed':'running')}</td></tr>`);
         return;
       }
       [...(detail.changes||[])].sort(changeCompare).forEach(change=>{
         if(change.field==='category'&&text(change.before)===text(change.after)) return;
-        const changeSearch=searchKey([change.field,change.processNo,change.processName,change.before,change.after,change.scope].join(' '));
-        if(keyword&&!baseSearch.includes(keyword)&&!changeSearch.includes(keyword)) return;
+        const changeSearch=[change.field,change.processNo,change.processName,change.before,change.after,change.scope].join(' ');
+        if(keyword&&!baseMatches&&!Number.isFinite(smartScore(keywordInput,changeSearch))) return;
         rows.push(`<tr><td>${escape(detail.productCode)}</td><td>${escape(detail.after?.sz||detail.before?.sz||'—')}</td>
           <td>${Number(detail.after?.ops?.length??detail.before?.ops?.length)||0}</td><td>${escape(change.processNo||'—')}</td>
           <td>${escape(change.processName||'—')}</td><td>${fieldLabel(change)}</td>
@@ -182,7 +210,7 @@
     if(detailState.loading&&!detailState.items.length) return `<div class="product-change-detail-loading">${pair('Đang tải chi tiết…','正在載入明細…')}</div>`;
     if(detailState.error&&!detailState.items.length) return `<div class="product-change-empty is-error">${pair('Không thể tải chi tiết','無法載入明細')}</div>`;
     if(detailState.batch.mode==='import') return importDetails(detailState);
-    return manualDetails(detailState.items,detailState.search);
+    return manualDetails(filteredDetails(detailState),detailState.search);
   }
   function detailFooter(detailState){
     const batch=detailState.batch,expected=expectedDetailCount(batch),loaded=detailState.items.length;
@@ -201,7 +229,7 @@
         <div class="product-change-detail-toolbar">
           <div class="product-change-detail-heading"><strong>${pair('Chi tiết thay đổi','修改明細')}</strong><span>${escape(time(batch.createdAt))} · ${escape(batch.createdBy)}</span></div>
           <label class="product-change-detail-search"><span class="ui-dual-copy"><strong>Tìm trong chi tiết đã tải</strong><span>搜尋已載入明細</span></span><input type="search" value="${escape(detailState.search)}" data-product-change-detail-search="${escape(batchId)}" data-ui-localized-placeholder-vi="Nhập mã hàng, công đoạn hoặc nội dung" data-ui-localized-placeholder-zh="輸入款號、工序或修改內容" placeholder="Nhập mã hàng, công đoạn hoặc nội dung"></label>
-          <button type="button" class="btn bsm product-change-detail-close" data-product-change-close="${escape(batchId)}"><i class="ti ti-chevron-up"></i>${pair('Thu gọn chi tiết','收合明細')}</button>
+          <button type="button" class="ui-button is-compact product-change-detail-close" data-product-change-close="${escape(batchId)}"><i class="ti ti-chevron-up"></i>${pair('Thu gọn chi tiết','收合明細')}</button>
         </div>
         <div class="product-change-detail-body" data-detail-body="${escape(batchId)}">${detailBody(detailState)}</div>
         <div class="product-change-detail-footer" data-detail-footer="${escape(batchId)}">${detailFooter(detailState)}</div>
@@ -212,7 +240,7 @@
   function renderRows(){
     const body=node('product-change-table-body');
     if(!body) return;
-    const rows=mergedRows().filter(matches).sort((left,right)=>(Number(right.createdAt)||0)-(Number(left.createdAt)||0));
+    const rows=visibleRows();
     if(!rows.length){
       body.innerHTML=`<tr><td colspan="7" class="product-change-empty">${pair('Chưa có thay đổi kể từ khi bắt đầu theo dõi','追蹤啟用後尚無修改紀錄')}</td></tr>`;
     }else{
@@ -221,7 +249,7 @@
         return `<tr data-batch-id="${escape(batchId)}">
           <td>${escape(time(row.createdAt))}</td><td>${escape(row.createdBy||'—')}</td><td>${modeLabel(row.mode)}</td>
           <td>${Number(row.targetCount)||0}</td><td class="product-change-result-count">${escape(summary(row))}</td>
-          <td>${statusLabel(row.status)}</td><td><button type="button" class="btn bsm product-change-view" data-batch-id="${escape(batchId)}" aria-expanded="${expanded}">${expanded?pair('Thu gọn chi tiết','收合明細'):pair('Xem chi tiết','查看明細')}</button></td>
+          <td>${statusLabel(row.status)}</td><td><button type="button" class="ui-button is-compact product-change-view" data-batch-id="${escape(batchId)}" aria-expanded="${expanded}">${expanded?pair('Thu gọn chi tiết','收合明細'):pair('Xem chi tiết','查看明細')}</button></td>
         </tr>${expanded?detailRow(row):''}`;
       }).join('');
     }
@@ -315,13 +343,29 @@
     refreshDetailContents(batchId);
   }
 
+  function productCodeCandidates(query){
+    const products=Array.isArray(window.D)?window.D:[];
+    const matches=window.PCMSUISearchDropdown?.matchItems?.(products,query,{
+      limit:20,fields:[{key:'code',mode:'code'}]
+    })?.items||[];
+    const keys=[...new Set(matches.map(item=>productCodeKey(item.code)).filter(Boolean))];
+    return keys;
+  }
   async function searchByProductCode(){
-    const keyword=productCodeKey(node('product-change-search')?.value);
+    const inputValue=text(node('product-change-search')?.value);
     const token=++state.searchToken;
-    if(!keyword){state.searchRows=[];renderRows();return;}
+    if(!inputValue){state.searchRows=[];renderRows();return;}
     try{
+      const key=productCodeKey(inputValue);
+      const keys=productCodeCandidates(inputValue);
+      const codeConstraint=keys.length
+        ?window._where('productCodeKey',keys.length===1?'==':'in',keys.length===1?keys[0]:keys)
+        :window._where('productCodeKey','>=',key);
+      const constraints=keys.length
+        ?[codeConstraint,window._limit(PAGE_SIZE)]
+        :[codeConstraint,window._where('productCodeKey','<=',`${key}\uf8ff`),window._limit(PAGE_SIZE)];
       const detailSnapshot=await window._getDocs(window._query(
-        window._collection('productChangeItems'),window._where('productCodeKey','==',keyword),window._limit(PAGE_SIZE)
+        window._collection('productChangeItems'),...constraints
       ));
       const byBatch=new Map();
       detailSnapshot.docs.forEach(item=>{
@@ -343,9 +387,20 @@
     }
   }
   function scheduleSearch(){
+    state.searchRows=[];
+    state.searchToken+=1;
     renderRows();
-    if(state.searchTimer) clearTimeout(state.searchTimer);
-    state.searchTimer=setTimeout(searchByProductCode,350);
+  }
+  function handleSearchKeydown(event){
+    if(event.key!=='Enter') return;
+    event.preventDefault();
+    void searchByProductCode();
+  }
+  function handleTableKeydown(event){
+    const input=event.target.closest?.('[data-product-change-detail-search]');
+    if(!input||event.key!=='Enter') return;
+    event.preventDefault();
+    handleTableInput(event);
   }
 
   async function load(reset=false){
@@ -377,12 +432,14 @@
   async function init(){
     if(!state.initialized){
       node('product-change-search')?.addEventListener('input',scheduleSearch);
+      node('product-change-search')?.addEventListener('keydown',handleSearchKeydown);
       node('product-change-mode')?.addEventListener('change',renderRows);
       node('product-change-status')?.addEventListener('change',renderRows);
       node('product-change-refresh')?.addEventListener('click',async()=>{await load(true);await searchByProductCode();});
       node('product-change-more')?.addEventListener('click',()=>load(false));
       node('product-change-table-body')?.addEventListener('click',handleTableClick);
       node('product-change-table-body')?.addEventListener('input',handleTableInput);
+      node('product-change-table-body')?.addEventListener('keydown',handleTableKeydown);
       state.initialized=true;
     }
     await load(false);

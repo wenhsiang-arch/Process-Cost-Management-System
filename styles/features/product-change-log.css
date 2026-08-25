@@ -12,7 +12,9 @@
 .product-change-result-count{font-variant-numeric:tabular-nums}
 .product-change-empty{padding:28px!important;text-align:center;color:var(--ui-color-text-muted)}
 .product-change-empty.is-error{color:var(--ui-color-danger-text)}
-.product-change-view[aria-expanded="true"]{border-color:var(--ui-color-primary);color:var(--ui-color-primary)}
+.product-change-page #product-change-table th:nth-child(7),.product-change-page #product-change-table td:nth-child(7){width:154px;text-align:center}
+.product-change-view{min-width:132px;justify-content:center;white-space:nowrap}
+.product-change-view[aria-expanded="true"]{border-color:var(--ui-color-primary);background:var(--ui-color-primary-soft);color:var(--ui-color-primary)}
 
 .product-change-detail-row>td{padding:0!important;background:var(--ui-color-page-background)}
 .product-change-detail-shell{min-width:0;border:1px solid var(--ui-color-operation-border);border-left:4px solid var(--ui-color-primary);background:var(--ui-color-surface)}
@@ -23,7 +25,7 @@
 .product-change-detail-search{display:grid;gap:4px;min-width:0;margin:0}
 .product-change-detail-search>.ui-dual-copy{gap:0}
 .product-change-detail-search input{box-sizing:border-box;width:100%;min-width:0;height:36px;padding:6px 9px;border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-control);background:var(--ui-color-surface);color:var(--ui-color-text);font:inherit}
-.product-change-detail-close{align-self:center;white-space:nowrap}
+.product-change-detail-close{min-width:132px;align-self:end;justify-self:end;justify-content:center;white-space:nowrap}
 .product-change-detail-body{min-width:0;padding:12px}
 .product-change-detail-loading{display:grid;min-height:120px;place-items:center;color:var(--ui-color-text-muted)}
 .product-change-detail-footer{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:9px 12px;border-top:1px solid var(--ui-color-border);background:var(--ui-color-surface-muted)}
@@ -55,3 +57,4 @@
 .product-change-view .ui-dual-copy strong,.product-change-status .ui-dual-copy strong,.product-change-detail-close .ui-dual-copy strong,.product-change-detail-more .ui-dual-copy strong{font-size:inherit}
 
 html[data-ui-language-mode="vi"] .product-change-detail-toolbar,html[data-ui-language-mode="zh"] .product-change-detail-toolbar{align-items:center}
+html[data-ui-language-mode="vi"] .product-change-detail-close,html[data-ui-language-mode="zh"] .product-change-detail-close{align-self:center}

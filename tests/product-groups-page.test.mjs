@@ -20,18 +20,23 @@ function loadGroupUi(){
   return context.window.PCMSProcessGroupUI;
 }
 
-test('款號管理抬頭只保留款號總表及同產品群組，工序由快速修改進入',()=>{
+test('款號管理抬頭提供款號總表、修改流水帳及工序修改（含群組）',()=>{
   const {PCMSFeatures}=loadFeatures();
   assert.deepEqual(Array.from(PCMSFeatures.getModule('products').pages,item=>item.page),[
-    'summary','product-groups'
+    'summary','product-change-log','product-groups'
   ]);
   assert.deepEqual(Array.from(PCMSFeatures.getModule('production').pages,item=>item.page),[
     'production-entry','production-records','production-bonus','production-attendance','production-employees'
   ]);
+  assert.equal(PCMSFeatures.getPage('product-change-log').feature,'productsMain');
+  assert.equal(PCMSFeatures.getPage('product-change-log').permissionVisible,false);
   assert.equal(PCMSFeatures.getPage('product-groups').feature,'productionProcessEdit');
+  assert.equal(PCMSFeatures.getPage('product-groups').zh,'工序修改（含群組）');
+  assert.equal(PCMSFeatures.getPage('product-groups').vi,'Sửa công đoạn (gồm nhóm)');
   assert.notEqual(PCMSFeatures.getPage('product-groups').permissionVisible,false);
   assert.equal(PCMSFeatures.getModule('products').pages.filter(page=>page.feature==='productionProcessEdit').length,1);
   assert.equal(PCMSFeatures.permissionStructure.find(module=>module.id==='products').pages.filter(page=>page.key==='productionProcessEdit').length,1);
+  assert.equal(PCMSFeatures.permissionKeys.includes('processSecondsEdit'),false);
 });
 
 test('款號管理主入口明確關閉時不由子權限偷偷開啟',()=>{
@@ -40,7 +45,7 @@ test('款號管理主入口明確關閉時不由子權限偷偷開啟',()=>{
   assert.equal(normalized.productsMain,false);
   assert.equal(normalized.productionMain,false);
   assert.equal(normalized.productionProcessEdit,true);
-  assert.equal(normalized.processSecondsEdit,false);
+  assert.equal('processSecondsEdit' in normalized,false);
 });
 
 test('同產品群組依款號表尺寸分成第二層且未設定尺寸獨立顯示',()=>{
@@ -98,26 +103,45 @@ test('同尺寸有明確主要版本時只標記真正不同的款號與差異�
   assert.equal(summaries.get('outlier').secondsDifferent,true);
 });
 
-test('未分組推薦依每個尺寸各自的多數款號判定，不讓其他尺寸污染基準',()=>{
+test('未分組推薦的來源尺寸以來源款號為準，其他尺寸各自使用多數版本',()=>{
   const ui=loadGroupUi();
   const operation=(no,vi,sec)=>({no:String(no),vi,sec});
   const rows=[
     {productId:'s-a',code:'S-A',vi:'Vòng cổ',sz:'S',ops:[operation(1,'May',60)]},
     {productId:'s-b',code:'S-B',vi:'Vòng cổ',sz:'S',ops:[operation(1,'May',60)]},
-    {productId:'s-c',code:'S-C',vi:'Vòng cổ thun',sz:'S',ops:[operation(1,'May',75)]},
+    {productId:'s-c',code:'S-C',vi:'Vòng cổ',sz:'S',ops:[operation(1,'May',75)]},
+    {productId:'s-d',code:'S-D',vi:'Vòng cổ',sz:'S',ops:[operation(1,'May',75)]},
     {productId:'m-a',code:'M-A',vi:'Dây đeo',sz:'M',ops:[operation(1,'Cắt',30)]},
     {productId:'m-b',code:'M-B',vi:'Dây đeo',sz:'M',ops:[operation(1,'Cắt',30)]},
     {productId:'m-c',code:'M-C',vi:'Dây đeo',sz:'M',ops:[operation(1,'Cắt khác',30)]}
   ];
-  const summaries=ui.comparisonContext(rows,{includeProductName:true}).summaries;
+  const summaries=ui.comparisonContext(rows,{includeProductName:true,referenceProductId:'s-a'}).summaries;
   assert.equal(summaries.get('s-a').comparisonState,'consistent');
   assert.equal(summaries.get('s-b').comparisonState,'consistent');
-  assert.equal(summaries.get('s-c').productNameDifferent,true);
   assert.equal(summaries.get('s-c').secondsDifferent,true);
+  assert.equal(summaries.get('s-d').secondsDifferent,true);
   assert.equal(summaries.get('m-a').comparisonState,'consistent');
   assert.equal(summaries.get('m-b').comparisonState,'consistent');
   assert.equal(summaries.get('m-c').descriptionDifferent,true);
   assert.equal(summaries.get('m-c').secondsDifferent,false);
+});
+
+test('推薦狀態固定依一致、差異、其他群組排序且同層保留原順序',()=>{
+  const ui=loadGroupUi();
+  const rows=[
+    {productId:'different',code:'D'},
+    {productId:'blocked',code:'B'},
+    {productId:'consistent',code:'C'},
+    {productId:'source',code:'S'}
+  ];
+  const summaries=new Map([
+    ['different',{comparisonState:'different'}],
+    ['blocked',{comparisonState:'consistent'}],
+    ['consistent',{comparisonState:'consistent'}],
+    ['source',{comparisonState:'different'}]
+  ]);
+  const sorted=ui.sortRecommendationMembers(rows,{summaries,requiredCodes:['S'],disabledCodes:['B']});
+  assert.deepEqual(Array.from(sorted,item=>item.code),['C','S','D','B']);
 });
 
 test('群組頁先顯示全部清單，建立群組才開啟三步驟視窗',()=>{
@@ -167,15 +191,17 @@ test('群組清單只顯示群組摘要且點名稱開啟可修改成員的緊�
   assert.match(style,/\.product-group-detail-dialog \.ui-table-scroll\{max-height:none;overflow:visible\}/);
 });
 
-test('建立新群組列出同客人候選並明確標示差異，正式儲存只使用固定 productId',()=>{
+test('建立新群組只列同客人同越文品名候選，依尺寸預選一致款號並只使用固定 productId',()=>{
   const page=read('js/production/product-groups.js');
   const runtime=read('js/product-group-runtime.js');
   const groupUi=read('js/production/process-group-ui.js');
   const service=read('js/product-master-service.js');
   assert.match(page,/matchesGroupSignature\(item,group\.signature\)/);
-  assert.match(page,/groupRecommendation\(source,candidate\)/);
+  assert.match(page,/sizeRecommendationStatusHtml\(summary\|\|\{\},assigned\)/);
   assert.match(page,/candidatePlan\(product\.code\)/);
-  assert.match(page,/selectedCodes:plan\.selectedCodes/);
+  assert.doesNotMatch(page,/selectedCodes:plan\.selectedCodes/);
+  assert.match(page,/selectConsistentByDefault:true/);
+  assert.match(page,/同一客人且越文品名相同/);
   assert.match(page,/disabledCodes:plan\.disabledCodes/);
   assert.match(groupUi,/Khớp cao/);
   assert.match(groupUi,/高度符合/);
@@ -186,6 +212,7 @@ test('建立新群組列出同客人候選並明確標示差異，正式儲存�
   assert.match(groupUi,/recommendationStatusHtml/);
   assert.match(runtime,/memberProductIds/);
   assert.match(runtime,/recommendation\(item\)\.eligible/);
+  assert.match(runtime,/const selectedCodes=\[source\.code\]/);
   assert.match(runtime,/service\(\)\.createGroup/);
   assert.match(service,/async function createGroup/);
   assert.match(service,/productGroupMembers/);
@@ -232,6 +259,7 @@ test('工序快速修改只預設勾選來源與一致款號且共用正式儲�
   assert.match(page,/memberProductIds/);
   assert.match(page,/const matched=config\.scope==='product'\|\|!!operation/);
   assert.match(page,/selected:matched&&\(isSource\|\|recommended\)/);
+  assert.match(page,/required:false/);
   assert.doesNotMatch(page,/selected:matched&&\(group\?true/);
   assert.match(page,/candidatePlan/);
   assert.match(page,/prepareGroupContext/);
@@ -246,6 +274,19 @@ test('工序快速修改只預設勾選來源與一致款號且共用正式儲�
   assert.doesNotMatch(page,/工序優化|標準錯誤訂正|order-exception-button/);
 });
 
+test('群組可由單一款號建立但仍拒絕空群組',()=>{
+  const page=read('js/production/product-groups.js');
+  const quick=read('js/product-quick-edit.js');
+  const store=read('js/product-group-store.js');
+  const rules=read('firestore.rules');
+  assert.match(page,/selected<1/);
+  assert.match(page,/memberCodes\.length<1/);
+  assert.match(quick,/memberCodes\.length<1/);
+  assert.match(store,/memberProductIds\.length<1/);
+  assert.match(rules,/memberProductIds\.size\(\) >= 1/);
+  assert.doesNotMatch(rules,/memberProductIds\.size\(\) >= 2/);
+});
+
 test('工序快速修改與群組頁支援中央三種語言顯示模式',()=>{
   const process=read('js/product-quick-edit.js');
   const groups=read('js/production/product-groups.js');
@@ -255,4 +296,26 @@ test('工序快速修改與群組頁支援中央三種語言顯示模式',()=>{
   assert.match(groups,/pcms:languagechange/);
   assert.match(css,/data-ui-language-mode="vi"/);
   assert.match(css,/data-ui-language-mode="zh"/);
+});
+
+test('工序差異底色不會被滑鼠移入狀態覆蓋',()=>{
+  const css=read('styles/features/production-process-edit.css');
+  assert.match(css,/\.process-member-detail td\.is-different,\.process-member-detail tr:hover td\.is-different/);
+});
+
+test('群組清單與快速修改表格共用欄寬控制，搜尋支援智慧比對與 Enter',()=>{
+  const groups=read('js/production/product-groups.js');
+  const quick=read('js/product-quick-edit.js');
+  const summary=read('js/summary.js');
+  const features=read('js/features.js');
+  assert.match(groups,/PCMSUITableControls\.create/);
+  assert.match(groups,/data-ui-table-resizable="true"/);
+  assert.match(groups,/PCMSUISearchDropdown\?\.scoreText/);
+  assert.match(groups,/event\.key==='Enter'/);
+  assert.match(quick,/quickTableColumns/);
+  assert.match(quick,/preferenceKey:`productQuickEdit:\$\{config\.scope\}:\$\{config\.key\}`/);
+  assert.match(quick,/key:'processDescription'/);
+  assert.match(summary,/function summarySearchScore/);
+  assert.match(summary,/PCMSUISearchDropdown\?\.scoreText/);
+  assert.match(features,/page:'product-groups'[\s\S]*?'uiTableControls','uiSearchDropdown','productionProductGroups'/);
 });

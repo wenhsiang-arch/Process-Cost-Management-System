@@ -82,7 +82,7 @@ test('非管理員登入與在線使用期間都受維護狀態攔截',()=>{
   const auth=read('js/auth.js');
   const firebase=read('js/firebase.js');
   assert.match(auth,/startRolePermissionMonitor\(window\.cu\.role\)/);
-  assert.match(auth,/stopRolePermissionMonitor\(\);[\s\S]*?clearInterval\(idleIv\)/);
+  assert.match(auth,/stopRolePermissionMonitor\(\);[\s\S]*?stopIdle\(\)/);
   assert.match(auth,/error\.code=maintenance\?'system-maintenance':'role-permissions-not-ready'/);
   assert.match(auth,/function showMaintenanceDialog\(\)[\s\S]*?PCMSUIComponents\.alertDialog\(\{[\s\S]*?kind:'danger'/);
   assert.match(auth,/await doLogout\('system-maintenance'\);[\s\S]*?await showMaintenanceDialog\(\)/);
