@@ -23,6 +23,12 @@
   function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
   function same(left,right){ return JSON.stringify(left)===JSON.stringify(right); }
   function positiveInteger(value){ return Number.isInteger(Number(value))&&Number(value)>0; }
+  function nonNegativeInteger(value){ return Number.isInteger(Number(value))&&Number(value)>=0; }
+  function deletedProductIds(value){
+    return [...new Set((Array.isArray(value)?value:[])
+      .map(item=>model().fixedId(item,'product'))
+      .filter(Boolean))];
+  }
 
   function actorData(actor={}){
     const uid=text(actor.uid||actor.userId||window.firebaseAuthUser?.uid);
@@ -167,7 +173,7 @@
     return {productCount:products.length,opCount:products.reduce((sum,item)=>sum+(Array.isArray(item?.ops)?item.ops.length:0),0)};
   }
 
-  // finalizeFreshnessPlan（完成款號新舊版本計畫）：交易讀到最新版本後才分配連續序號，避免多電腦漏讀變更。
+  // finalizeFreshnessPlan（完成款號新舊版本計畫）：交易讀到最新版本後才分配唯一遞增序號，群組序號可被其他使用者穿插。
   function finalizeFreshnessPlan(planInput,metadataInput={},previousProduct=null,currentProducts=[]){
     const plan=clone(planInput);
     if(Number(metadataInput?.schemaVersion)!==4||!text(metadataInput?.trackingEpoch)){
@@ -180,16 +186,30 @@
     const fallback=productCounts(currentProducts);
     const baseProductCount=Number.isInteger(Number(direct.productCount))?Number(direct.productCount):fallback.productCount;
     const baseOpCount=Number.isInteger(Number(direct.opCount))?Number(direct.opCount):fallback.opCount;
-    const sequence=Math.max(0,Math.trunc(Number(direct.changeSequence)||0))+1;
+    const previousSequence=Math.max(0,Math.trunc(Number(direct.changeSequence)||0));
+    const sequence=previousSequence+1;
     const previousOps=Array.isArray(previousProduct?.ops)?previousProduct.ops.length:0;
     const productDelta=previousProduct?0:1;
     const opDelta=plan.product.ops.length-previousOps;
     const version=`pmv3-${String(plan.product.updatedAt)}-${String(sequence)}-${plan.product.productId.slice(-12)}`;
+    const hasIncrementalProtocol=Number(direct.incrementalSchemaVersion)===1
+      && nonNegativeInteger(direct.incrementalStartSequence)
+      && Number(direct.incrementalStartSequence)<=previousSequence;
+    const incrementalStartSequence=hasIncrementalProtocol
+      ?Number(direct.incrementalStartSequence)
+      :previousSequence;
+    const sequencedProduct={...plan.product,changeSequence:sequence};
     const metaData={version,changeSequence:sequence,productCount:baseProductCount+productDelta,
       opCount:baseOpCount+opDelta,lastProductId:plan.product.productId,
       lastRevision:plan.product.revision,lastChangeBatchId:plan.batchId,trackingEpoch:direct.trackingEpoch,
-      updatedAt:plan.product.updatedAt,updatedByUid:plan.product.updatedByUid,schemaVersion:4};
+      updatedAt:plan.product.updatedAt,updatedByUid:plan.product.updatedByUid,schemaVersion:4,
+      incrementalSchemaVersion:1,incrementalStartSequence,
+      deletedProductIds:deletedProductIds(direct.deletedProductIds)};
+    plan.product=sequencedProduct;
     plan.writes=plan.writes.map(write=>{
+      if(write.collection===COLLECTIONS.products&&write.id===sequencedProduct.productId){
+        return {...write,data:clone(sequencedProduct)};
+      }
       if(write.collection===COLLECTIONS.metadata&&write.id==='productsMeta') return {...write,data:metaData,merge:false};
       return write;
     });

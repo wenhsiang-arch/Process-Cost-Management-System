@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260825-6'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260825-7'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -456,7 +456,7 @@ function showLoading(show){
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
 const PRODUCTS_META_KEY = 'productsMeta';
-// 每次版本只以 productsMeta（款號版本資料）判斷新舊；版本不同時重讀目前 Product Master（款號主檔）。
+// 每次版本只以 productsMeta（款號版本資料）判斷新舊；有安全同步位置時只讀取序號差異。
 const PRODUCTS_MAX_BATCH_ITEMS = 400;
 const PRODUCT_META_MEMORY_MS = 15000;
 let productsLoadPromise=null;
@@ -738,8 +738,9 @@ async function verifyProductsVersionBeforeWrite(base){
 
 async function loadProductsData(metrics=null){
   const items=[];
-  const snap=await getDocs(collection(db, PRODUCTS_COL));
-  if(metrics) metrics.productReads+=snap.size;
+  const snap=await getDocs(query(collection(db,PRODUCTS_COL),where('active','==',true)));
+  if(metrics) metrics.productReads+=Math.max(1,snap.size);
+  window.PCMSUsageMetrics?.recordFullLoad?.({scope:'products'});
   snap.docs.forEach(d=>{
     const data=d.data();
     const code=String(data.code||d.id||'').trim();
@@ -748,6 +749,69 @@ async function loadProductsData(metrics=null){
     items.push(normalizeProductDoc(data,code));
   });
   return items.sort((a,b)=>a.code.localeCompare(b.code));
+}
+
+function sameProductsMetaPosition(left,right){
+  return !!left&&!!right
+    && String(left.version||'')===String(right.version||'')
+    && Number(left.changeSequence)===Number(right.changeSequence)
+    && String(left.trackingEpoch||'')===String(right.trackingEpoch||'');
+}
+
+function verifyProductsMetaAnchor(meta,items){
+  if(Number(meta?.incrementalSchemaVersion)!==1) return;
+  const lastProductId=String(meta?.lastProductId||'');
+  if(!lastProductId||Number(meta?.changeSequence)===0) return;
+  const deletedIds=new Set(window.PCMSProductCache?.normalizeDeletedProductIds?.(meta.deletedProductIds)||[]);
+  if(deletedIds.has(lastProductId)) return;
+  const lastProduct=(Array.isArray(items)?items:[]).find(item=>String(item?.productId||'')===lastProductId);
+  if(!lastProduct
+    || Number(lastProduct.revision)!==Number(meta.lastRevision)
+    || Number(lastProduct.changeSequence)!==Number(meta.changeSequence)){
+    throw new Error(PRODUCT_SYNC_MESSAGES.localDataMismatch);
+  }
+}
+
+async function loadIncrementalProducts(cache,targetMeta,metrics){
+  const fromSequence=Number(cache.sequence)||0;
+  const targetSequence=Number(targetMeta.changeSequence)||0;
+  const changesQuery=query(
+    collection(db,PRODUCTS_COL),
+    where('changeSequence','>',fromSequence),
+    where('changeSequence','<=',targetSequence),
+    orderBy('changeSequence','asc')
+  );
+  const snap=await getDocs(changesQuery);
+  if(metrics) metrics.productReads+=Math.max(1,snap.size);
+  const changed=snap.docs.map(item=>normalizeProductDoc(item.data(),item.id));
+  return window.PCMSProductCache.merge(cache.items,changed,targetMeta.deletedProductIds);
+}
+
+async function tryIncrementalProducts(cache,initialMeta,metrics){
+  let targetMeta=initialMeta;
+  for(let attempt=0;attempt<2;attempt+=1){
+    if(!window.PCMSProductCache.canIncrementallySync(cache,targetMeta)) return null;
+    const merged=await loadIncrementalProducts(cache,targetMeta,metrics);
+    const latestMeta=await loadProductsMeta(metrics,true);
+    if(sameProductsMetaPosition(targetMeta,latestMeta)){
+      verifyProductsMetaCounts(latestMeta,merged);
+      verifyProductsMetaAnchor(latestMeta,merged);
+      return {items:merged,meta:latestMeta};
+    }
+    targetMeta=latestMeta;
+  }
+  return null;
+}
+
+async function loadStableFullProducts(initialMeta,metrics){
+  let targetMeta=initialMeta;
+  for(let attempt=0;attempt<3;attempt+=1){
+    const items=await loadProductsData(metrics);
+    const latestMeta=await loadProductsMeta(metrics,true);
+    if((!targetMeta&&!latestMeta)||sameProductsMetaPosition(targetMeta,latestMeta)) return {items,meta:latestMeta||targetMeta};
+    targetMeta=latestMeta;
+  }
+  throw new Error(PRODUCT_SYNC_MESSAGES.versionChanged);
 }
 
 function replaceRuntimeProducts(items){
@@ -781,7 +845,7 @@ async function ensureProductsLoaded(options=false){
     try{
       if(!window.PCMSProductCache) throw new Error('Thiếu chương trình bộ nhớ đệm mã hàng / 缺少款號快取程式');
       if(force) await window.PCMSProductCache.remove();
-      const [cache,meta]=await Promise.all([loadProductsCache(),loadProductsMeta(metrics,force)]);
+      let [cache,meta]=await Promise.all([loadProductsCache(),loadProductsMeta(metrics,force)]);
       activeMeta=meta;
       if(!force && meta?.version && runtimeProductsVersion===String(meta.version) && Array.isArray(window.D)){
         metrics.mode='runtime';
@@ -790,24 +854,42 @@ async function ensureProductsLoaded(options=false){
         return true;
       }
       if(!force && cache && meta?.version && cache.version===String(meta.version)){
-        runtimeProductsVersion=String(meta.version);
-        runtimeProductsSequence=Number(meta.changeSequence)||Number(cache.sequence)||0;
-        replaceRuntimeProducts(cache.items);
-        metrics.mode='indexeddb';
-        renderProductViews();
-        publishProductReadMetrics(metrics,meta);
-        return true;
+        try{
+          verifyProductsMetaCounts(meta,cache.items);
+          replaceRuntimeProducts(cache.items);
+          await saveProductsCache(cache.items,meta); // 補上舊第四版快取缺少的追蹤起點，不增加雲端讀取。
+          runtimeProductsVersion=String(meta.version);
+          runtimeProductsSequence=Number(meta.changeSequence)||Number(cache.sequence)||0;
+          metrics.mode='indexeddb';
+          renderProductViews();
+          publishProductReadMetrics(metrics,meta);
+          return true;
+        }catch(error){
+          console.warn('本機款號快取驗證失敗，改用安全完整讀取。',error);
+          cache=null;
+        }
       }
-      let saved=await loadProductsData(metrics);
-      let latestMeta=await loadProductsMeta(metrics,true);
-      if(meta?.version&&latestMeta?.version&&String(meta.version)!==String(latestMeta.version)){
-        saved=await loadProductsData(metrics);
-        latestMeta=await loadProductsMeta(metrics,true);
+      if(!force&&cache&&meta){
+        const incremental=await tryIncrementalProducts(cache,meta,metrics);
+        if(incremental){
+          activeMeta=incremental.meta;
+          replaceRuntimeProducts(incremental.items);
+          await saveProductsCache(incremental.items,incremental.meta);
+          runtimeProductsVersion=String(incremental.meta.version);
+          runtimeProductsSequence=Number(incremental.meta.changeSequence)||0;
+          metrics.mode='incremental';
+          renderProductViews();
+          publishProductReadMetrics(metrics,incremental.meta);
+          return true;
+        }
       }
-      activeMeta=latestMeta||meta;
+      const full=await loadStableFullProducts(meta,metrics);
+      const saved=full.items;
+      activeMeta=full.meta||meta;
       replaceRuntimeProducts(saved);
       if(activeMeta?.version){
         verifyProductsMetaCounts(activeMeta,saved);
+        verifyProductsMetaAnchor(activeMeta,saved);
         await saveProductsCache(saved,activeMeta);
         runtimeProductsVersion=String(activeMeta.version);
         runtimeProductsSequence=Number(activeMeta.changeSequence)||0;
