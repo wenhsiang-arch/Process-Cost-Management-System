@@ -18,6 +18,10 @@
     if(!window.PCMSProductGroupStore) throw new Error('Dịch vụ nhóm mã hàng chưa sẵn sàng. / 款號群組資料核心尚未載入。');
     return window.PCMSProductGroupStore;
   }
+  function changeStore(){
+    if(!window.PCMSProductChangeLogStore) throw new Error('Dịch vụ sổ thay đổi mã hàng chưa sẵn sàng. / 款號修改流水帳尚未載入。');
+    return window.PCMSProductChangeLogStore;
+  }
   function requireCloud(){
     if(typeof window._runTransaction!=='function'||typeof window._docRef!=='function'){
       throw new Error('Dịch vụ cơ sở dữ liệu chưa sẵn sàng. / 雲端資料庫服務尚未載入。');
@@ -47,6 +51,65 @@
   function applyPlan(transaction,plan){
     (plan.writes||[]).forEach(write=>transaction.set(reference(write),clone(write.data),write.merge?{merge:true}:undefined));
     (plan.deletes||[]).forEach(item=>transaction.delete(reference(item)));
+  }
+
+  function verifyActiveBatch(snapshot,batch,currentActor){
+    if(!snapshot?.exists?.()) throw new Error('Không tìm thấy thao tác sổ thay đổi. / 找不到流水帳操作。');
+    const remote=snapshot.data();
+    if(text(remote?.batchId)!==text(batch?.batchId)||text(remote?.trackingEpoch)!==text(batch?.trackingEpoch)
+      ||remote?.status!=='running'||text(remote?.createdByUid)!==currentActor.uid){
+      throw new Error('Thao tác sổ thay đổi không còn hiệu lực. / 流水帳操作已失效。');
+    }
+  }
+
+  async function beginChangeBatch(options={}){
+    requireCloud();
+    const currentActor=actor(options.actor),now=Number(options.now)||Date.now();
+    let prepared;
+    await window._runTransaction(async transaction=>{
+      const metaReference=window._docRef(store().COLLECTIONS.metadata,'productsMeta');
+      const metaSnapshot=await transaction.get(metaReference);
+      const meta=metaSnapshot.exists()?metaSnapshot.data():null;
+      if(Number(meta?.schemaVersion)!==4||!text(meta?.trackingEpoch)){
+        throw new Error('Mốc theo dõi mã hàng chưa được đặt lại. / 款號追蹤起點尚未重設。');
+      }
+      prepared=changeStore().beginBatch({...options,actor:currentActor,now,trackingEpoch:meta.trackingEpoch});
+      const batchReference=window._docRef(changeStore().BATCH_COLLECTION,prepared.batch.batchId);
+      const batchSnapshot=await transaction.get(batchReference);
+      if(batchSnapshot.exists()) throw new Error('Mã thao tác sổ thay đổi đã tồn tại. / 流水帳操作識別碼已存在。');
+      transaction.set(batchReference,prepared.batch);
+      transaction.set(window._docRef(changeStore().LOG_COLLECTION,prepared.startLogId),prepared.startLog);
+    },{skipDataVersions:true});
+    return clone(prepared.batch);
+  }
+
+  async function recordBatchItem(batch,input={},options={}){
+    const currentActor=actor(options.actor),now=Number(options.now)||Date.now();
+    const detail=changeStore().detail({...input,batchId:batch.batchId,trackingEpoch:batch.trackingEpoch,
+      mode:batch.mode,actor:currentActor,now});
+    await window._runTransaction(async transaction=>{
+      const batchReference=window._docRef(changeStore().BATCH_COLLECTION,batch.batchId);
+      const itemReference=window._docRef(changeStore().ITEM_COLLECTION,changeStore().itemId(batch.batchId,detail.productId));
+      const [batchSnapshot,itemSnapshot]=await Promise.all([transaction.get(batchReference),transaction.get(itemReference)]);
+      verifyActiveBatch(batchSnapshot,batch,currentActor);
+      if(itemSnapshot.exists()) return;
+      transaction.set(itemReference,detail);
+    },{skipDataVersions:true});
+    return detail;
+  }
+
+  async function finalizeChangeBatch(batch,counts,options={}){
+    const currentActor=actor(options.actor),now=Number(options.now)||Date.now();
+    let result;
+    await window._runTransaction(async transaction=>{
+      const batchReference=window._docRef(changeStore().BATCH_COLLECTION,batch.batchId);
+      const batchSnapshot=await transaction.get(batchReference);
+      verifyActiveBatch(batchSnapshot,batch,currentActor);
+      result=changeStore().finalizeBatch({batchId:batch.batchId,...batchSnapshot.data()},counts,{...options,actor:currentActor,now});
+      transaction.set(batchReference,result.batch);
+      transaction.set(window._docRef(changeStore().LOG_COLLECTION,result.resultLogId),result.resultLog);
+    },{skipDataVersions:true});
+    return clone(result.batch);
   }
 
   function verifyCodeOwner(snapshot,productId){
@@ -80,7 +143,40 @@
     return error;
   }
 
-  async function createProduct(input,options={}){
+  function onlySecondsChanged(base={},draft={}){
+    const productFields=store().EDITABLE_PRODUCT_FIELDS;
+    if(productFields.some(field=>JSON.stringify(base?.[field])!==JSON.stringify(draft?.[field]))) return false;
+    const beforeOps=Array.isArray(base?.ops)?base.ops:[],afterOps=Array.isArray(draft?.ops)?draft.ops:[];
+    if(beforeOps.length!==afterOps.length) return false;
+    const afterById=new Map(afterOps.map(item=>[text(item?.processId),item]));
+    return beforeOps.every(before=>{
+      const after=afterById.get(text(before?.processId));
+      if(!after) return false;
+      return store().PROCESS_FIELDS.every(field=>field==='sec'||JSON.stringify(before?.[field])===JSON.stringify(after?.[field]));
+    });
+  }
+
+  function manualPermissionForRows(rows=[]){
+    return rows.length&&rows.every(row=>onlySecondsChanged(row?.base,row?.draft))
+      ?'processSecondsEdit'
+      :'productionProcessEdit';
+  }
+
+  async function recordAndFinalizeFailure(batch,item,options,error){
+    try{
+      await recordBatchItem(batch,item,options);
+      await finalizeChangeBatch(batch,{successCount:0,failureCount:1,unprocessedCount:0},options);
+    }catch(ledgerError){
+      const combined=new Error('Không thể hoàn tất sổ thay đổi mã hàng; vui lòng kiểm tra lại trước khi thao tác tiếp. / 款號修改流水帳未能完整結案，請先檢查後再繼續操作。');
+      combined.code='product-change-ledger-incomplete';
+      combined.operationError=error;
+      combined.ledgerError=ledgerError;
+      throw combined;
+    }
+    throw error;
+  }
+
+  async function createProductInBatch(input,options={}){
     requireCloud();
     const currentActor=actor(options.actor);
     const now=Number(options.now)||Date.now();
@@ -93,6 +189,7 @@
       const codeSnapshot=snapshotFor(snapshots,store().COLLECTIONS.codeIndex,plan.codeKey);
       if(codeSnapshot?.exists?.()) throw new Error('Mã hàng đã tồn tại. / 款號代碼已存在。');
       const metaSnapshot=snapshotFor(snapshots,store().COLLECTIONS.metadata,'productsMeta');
+      verifyActiveBatch(snapshotFor(snapshots,store().COLLECTIONS.batches,plan.batchId),options.batch,currentActor);
       plan=store().finalizeFreshnessPlan(preparedPlan,metaSnapshot?.exists?.()?metaSnapshot.data():{},null,window.D||[]);
       applyPlan(transaction,plan);
     },{skipDataVersions:true});
@@ -100,7 +197,22 @@
     return clone(plan.product);
   }
 
-  async function saveDraft({base,draft,actor:actorInput,now:time,action='productUpdate',note='',publish=true}={}){
+  async function createProduct(input,options={}){
+    if(options.batch) return createProductInBatch(input,options);
+    const mode=options.mode||(options.action==='productImport'?'import':'single');
+    const batch=await beginChangeBatch({...options,mode,targetCount:1,action:options.action||'productCreate',
+      writePermissionKey:mode==='import'?'summary':'productionProcessEdit'});
+    try{
+      const product=await createProductInBatch(input,{...options,batch});
+      await finalizeChangeBatch(batch,{successCount:1,failureCount:0,unprocessedCount:0},options);
+      return product;
+    }catch(error){
+      return recordAndFinalizeFailure(batch,{status:'failed',productId:model().fixedId(input?.productId,'product')||`failed_${batch.batchId}`,
+        productCode:text(input?.code),before:null,after:null,error:error?.message},options,error);
+    }
+  }
+
+  async function saveDraftInBatch({base,draft,actor:actorInput,now:time,action='productUpdate',note='',publish=true,batch}={}){
     requireCloud();
     const currentActor=actor(actorInput);
     const now=Number(time)||Date.now();
@@ -112,7 +224,7 @@
       const productSnapshot=await transaction.get(productReference);
       if(!productSnapshot.exists()) throw new Error('Không tìm thấy mã hàng cần sửa. / 找不到要修改的款號。');
       const current={productId,...productSnapshot.data()};
-      const prepared=store().prepareUpdate({base,current,draft,actor:currentActor,now,action,note});
+      const prepared=store().prepareUpdate({base,current,draft,actor:currentActor,now,action,note,batch});
       if(prepared.hasConflicts) throw conflictError(prepared);
       let plan=prepared.plan;
       const additional=(plan.deletes||[]).filter(item=>item.collection===store().COLLECTIONS.codeIndex);
@@ -124,6 +236,7 @@
         if(oldIndex?.exists?.()) verifyCodeOwner(oldIndex,productId);
       }
       const metaSnapshot=snapshotFor(snapshots,store().COLLECTIONS.metadata,'productsMeta');
+      verifyActiveBatch(snapshotFor(snapshots,store().COLLECTIONS.batches,plan.batchId),batch,currentActor);
       plan=store().finalizeFreshnessPlan(plan,metaSnapshot?.exists?.()?metaSnapshot.data():{},current,window.D||[]);
       applyPlan(transaction,plan);
       saved=plan.product;
@@ -132,8 +245,22 @@
     return clone(saved);
   }
 
+  async function saveDraft(input={}){
+    if(input.batch) return saveDraftInBatch(input);
+    const batch=await beginChangeBatch({actor:input.actor,now:input.now,mode:'single',targetCount:1,action:input.action||'productUpdate',
+      writePermissionKey:manualPermissionForRows([input])});
+    try{
+      const product=await saveDraftInBatch({...input,batch});
+      await finalizeChangeBatch(batch,{successCount:1,failureCount:0,unprocessedCount:0},{actor:input.actor});
+      return product;
+    }catch(error){
+      return recordAndFinalizeFailure(batch,{status:'failed',productId:text(input?.base?.productId||input?.draft?.productId),
+        productCode:text(input?.base?.code||input?.draft?.code),before:input?.base,after:null,error:error?.message},{actor:input.actor},error);
+    }
+  }
+
   // replaceImportedProduct（覆蓋單一既有款號）：以預覽時修訂號防止等待確認期間的新修改被蓋掉。
-  async function replaceImportedProduct(request={},options={}){
+  async function replaceImportedProductInBatch(request={},options={}){
     requireCloud();
     const currentActor=actor(options.actor);
     const now=Number(options.now)||Date.now();
@@ -157,7 +284,8 @@
         actor:currentActor,
         now,
         note:text(options.fileName||options.note),
-        tokenProvider:options.tokenProvider
+        tokenProvider:options.tokenProvider,
+        batch:options.batch
       }).plan;
       const additional=(plan.deletes||[]).filter(item=>item.collection===store().COLLECTIONS.codeIndex);
       const seeded=new Map([[`${store().COLLECTIONS.products}/${expectedProductId}`,productSnapshot]]);
@@ -168,12 +296,26 @@
         if(oldIndex?.exists?.()) verifyCodeOwner(oldIndex,expectedProductId);
       }
       const metaSnapshot=snapshotFor(snapshots,store().COLLECTIONS.metadata,'productsMeta');
+      verifyActiveBatch(snapshotFor(snapshots,store().COLLECTIONS.batches,plan.batchId),options.batch,currentActor);
       plan=store().finalizeFreshnessPlan(plan,metaSnapshot?.exists?.()?metaSnapshot.data():{},current,window.D||[]);
       applyPlan(transaction,plan);
       saved=plan.product;
     },{skipDataVersions:true});
     if(options.publish!==false) publishProduct(saved);
     return clone(saved);
+  }
+
+  async function replaceImportedProduct(request={},options={}){
+    if(options.batch) return replaceImportedProductInBatch(request,options);
+    const batch=await beginChangeBatch({...options,mode:'import',targetCount:1,action:'productImport',writePermissionKey:'summary'});
+    try{
+      const product=await replaceImportedProductInBatch(request,{...options,batch});
+      await finalizeChangeBatch(batch,{successCount:1,failureCount:0,unprocessedCount:0},options);
+      return product;
+    }catch(error){
+      return recordAndFinalizeFailure(batch,{status:'failed',productId:text(request?.existing?.productId||request?.productId),
+        productCode:text(request?.incoming?.code||request?.existing?.code),before:request?.existing,after:null,error:error?.message},options,error);
+    }
   }
 
   function draftWithField(product,{field,value,processId=''}){
@@ -204,26 +346,38 @@
   async function saveManyDrafts(requests,options={}){
     const results=[];
     const rows=Array.isArray(requests)?requests:[];
+    if(!rows.length) return {results,successes:[],failures:[],batch:null};
+    const batch=options.batch||await beginChangeBatch({...options,mode:rows.length>1?'group':'single',targetCount:rows.length,
+      action:rows.length>1?'productGroupQuickEdit':text(rows[0]?.action)||'productUpdate',
+      writePermissionKey:manualPermissionForRows(rows)});
     for(let index=0;index<rows.length;index+=1){
       const request=rows[index];
       await options.onProgress?.({phase:'start',index,completed:index,total:rows.length,productId:text(request?.base?.productId)});
       try{
-        const product=await saveDraft({...request,actor:options.actor||request.actor,action:request.action||'productGroupQuickEdit',publish:false});
+        const product=await saveDraftInBatch({...request,actor:options.actor||request.actor,
+          action:request.action||'productGroupQuickEdit',publish:false,batch});
         results.push({ok:true,productId:product.productId,product});
         await options.onProgress?.({phase:'complete',index,completed:index+1,total:rows.length,productId:product.productId,product});
       }catch(error){
         results.push({ok:false,productId:text(request?.base?.productId||request?.draft?.productId),error});
+        await recordBatchItem(batch,{status:'failed',productId:text(request?.base?.productId||request?.draft?.productId),
+          productCode:text(request?.base?.code||request?.draft?.code),before:request?.base,after:null,error:error?.message},
+          {actor:options.actor||request.actor});
         await options.onProgress?.({phase:'failed',index,completed:index+1,total:rows.length,productId:text(request?.base?.productId),error});
       }
     }
     const successes=results.filter(item=>item.ok);
     if(successes.length&&options.publish!==false) publishProducts(successes.map(item=>item.product));
-    return {results,successes,failures:results.filter(item=>!item.ok)};
+    const failures=results.filter(item=>!item.ok);
+    if(!options.batch) await finalizeChangeBatch(batch,{successCount:successes.length,failureCount:failures.length,unprocessedCount:0},options);
+    return {results,successes,failures,batch};
   }
 
   async function importProducts(products,options={}){
     const results=[];
     const rows=Array.isArray(products)?products:[];
+    if(!rows.length) return {results,successes:[],failures:[],remaining:0,batch:null};
+    const batch=options.batch||await beginChangeBatch({...options,mode:'import',targetCount:rows.length,action:'productImport',writePermissionKey:'summary'});
     for(let index=0;index<rows.length;index+=1){
       const request=rows[index]||{};
       const mode=request.mode==='replace'?'replace':'create';
@@ -233,25 +387,37 @@
         const commonOptions={
           actor:options.actor,action:'productImport',note:text(options.fileName||options.note),
           sourceKey:options.sourceKeys?.[index],processSourceKeys:options.processSourceKeys?.[index],
-          tokenProvider:options.tokenProvider,publish:false
+          tokenProvider:options.tokenProvider,publish:false,batch
         };
         const product=mode==='replace'
-          ?await replaceImportedProduct({...request,incoming:item},commonOptions)
-          :await createProduct(item,commonOptions);
+          ?await replaceImportedProductInBatch({...request,incoming:item},commonOptions)
+          :await createProductInBatch(item,commonOptions);
         const result={ok:true,index,mode,code:text(item?.code),productId:product.productId,product};
         results.push(result);
         await options.onProgress?.({phase:'complete',index,completed:index+1,total:rows.length,mode,code:result.code,product});
       }catch(error){
         const failed={ok:false,index,mode,code:text(item?.code),error};
         results.push(failed);
+        await recordBatchItem(batch,{status:'failed',productId:text(request?.existing?.productId||request?.productId)||`failed_${index+1}`,
+          productCode:text(item?.code),before:request?.existing||null,after:null,error:error?.message},options);
         await options.onProgress?.({phase:'failed',index,completed:index,total:rows.length,mode,code:failed.code,error});
         if(options.stopOnFailure!==false) break;
       }
     }
     const successes=results.filter(item=>item.ok);
     const failures=results.filter(item=>!item.ok);
+    const remaining=Math.max(0,rows.length-results.length);
+    if(remaining){
+      for(let index=results.length;index<rows.length;index+=1){
+        const request=rows[index]||{},item=request.incoming||request.product||request;
+        await recordBatchItem(batch,{status:'unprocessed',productId:text(request?.existing?.productId||request?.productId)||`unprocessed_${index+1}`,
+          productCode:text(item?.code),before:request?.existing||null,after:null,error:'not-processed-after-failure'},options);
+      }
+    }
     publishProducts(successes.map(item=>item.product));
-    return {results,successes,failures,remaining:Math.max(0,rows.length-results.length)};
+    if(!options.batch) await finalizeChangeBatch(batch,{successCount:successes.length,failureCount:failures.length,
+      unprocessedCount:remaining},options);
+    return {results,successes,failures,remaining,batch};
   }
 
   function groupLog(action,group,currentActor,now,detailCount,note=''){
@@ -373,6 +539,6 @@
 
   window.PCMSProductMasterService=Object.freeze({
     createProduct,saveDraft,saveField,saveManyDrafts,replaceImportedProduct,importProducts,draftWithField,
-    createGroup,updateGroup,updateGroupMembers
+    createGroup,updateGroup,updateGroupMembers,beginChangeBatch,finalizeChangeBatch
   });
 })();

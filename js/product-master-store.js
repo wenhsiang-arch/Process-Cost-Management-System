@@ -3,9 +3,8 @@
   'use strict';
 
   const COLLECTIONS=Object.freeze({
-    products:'products',codeIndex:'productCodeIndex',history:'productHistory',
-    metadata:'system',logs:'operationLogs',legacyMappings:'productMasterLegacyMappings',
-    migrationExceptions:'productMasterMigrationExceptions'
+    products:'products',codeIndex:'productCodeIndex',metadata:'system',
+    batches:'productChangeBatches',logs:'operationLogs'
   });
   const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz']);
   const EDITABLE_PRODUCT_FIELDS=Object.freeze(['client','zh','vi','sz']);
@@ -15,6 +14,10 @@
   function model(){
     if(!window.PCMSProductModel) throw new Error('Thiếu mô hình dữ liệu mã hàng. / 缺少款號資料模型。');
     return window.PCMSProductModel;
+  }
+  function changeLog(){
+    if(!window.PCMSProductChangeLogStore) throw new Error('Thiếu sổ thay đổi mã hàng. / 缺少款號修改流水帳。');
+    return window.PCMSProductChangeLogStore;
   }
   function text(value){ return String(value??'').trim().replace(/\s+/g,' '); }
   function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
@@ -127,54 +130,37 @@
     return {merged,conflicts,hasConflicts:conflicts.length>0};
   }
 
-  function operationLog({action,product,actor,now,detailCount=0,note='',codeKey,historyId}){
-    const importing=action==='productImport';
-    return {
-      permissionKey:importing?'summary':'productionProcessEdit',feature:importing?'products':'productionProcessEdit',
-      action:importing?'productImport':'productMasterUpdate',status:'success',
-      targetType:'product',targetId:product.productId,itemCount:1,detailCount,
-      targetRevision:product.revision,targetCodeKey:codeKey,targetHistoryId:historyId,
-      freshnessSequence:0,schemaVersion:3,
-      note:text(note||`${product.productId} · ${product.code}`).slice(0,500),createdAt:now,
-      createdByUid:actor.uid,createdBy:actor.name
-    };
-  }
-
-  function documentPlan(product,{actor,now,action,previousCodeKey='',note=''}){
+  function documentPlan(product,{actor,now,action,previousCodeKey='',note='',beforeProduct=null,batch}={}){
+    const batchId=text(batch?.batchId),trackingEpoch=text(batch?.trackingEpoch),mode=text(batch?.mode)||'single';
+    if(!batchId||!trackingEpoch) throw new Error('Thiếu thao tác sổ thay đổi mã hàng. / 缺少款號流水帳操作。');
     const codeKey=model().safeProductCodeKey(product.code);
     const revision=Number(product.revision)||1;
-    const versionId=`${product.productId}__${String(revision).padStart(8,'0')}`;
-    const mutationId=`${String(now).padStart(16,'0')}__${product.productId}__${String(revision).padStart(8,'0')}`;
-    const logId=`${mutationId}__${action}`;
-    const savedProduct={...clone(product),codeKey,historyId:versionId,operationLogId:logId};
-    const history={...clone(savedProduct),versionId,productRevision:revision,createdAt:now,createdByUid:actor.uid,createdBy:actor.name};
+    const savedProduct={...clone(product),codeKey,trackingEpoch,lastChangeBatchId:batchId};
+    const detail=changeLog().detail({batchId,trackingEpoch,mode,status:'success',before:beforeProduct,after:savedProduct,
+      actor,now,productId:savedProduct.productId,productCode:savedProduct.code});
     // 款號代碼未改時沿用既有索引，避免增加交易寫入與安全規則運算量。
     const codeIndexWrites=!previousCodeKey||previousCodeKey!==codeKey?[{
       collection:COLLECTIONS.codeIndex,id:codeKey,
-      data:{codeKey,code:product.code,productId:product.productId,operationLogId:logId,updatedAt:now,updatedByUid:actor.uid}
+      data:{codeKey,code:product.code,productId:product.productId,trackingEpoch,updatedAt:now,updatedByUid:actor.uid}
     }]:[];
     return {
       atomic:true,
       reads:[
         {collection:COLLECTIONS.products,id:product.productId},
         {collection:COLLECTIONS.codeIndex,id:codeKey},
-        {collection:COLLECTIONS.metadata,id:'productsMeta'}
+        {collection:COLLECTIONS.metadata,id:'productsMeta'},
+        {collection:COLLECTIONS.batches,id:batchId}
       ],
       writes:[
         {collection:COLLECTIONS.products,id:product.productId,data:clone(savedProduct)},
         ...codeIndexWrites,
-        {collection:COLLECTIONS.history,id:versionId,data:history},
-        {collection:COLLECTIONS.metadata,id:'productsMeta',data:{updatedAt:now,updatedByUid:actor.uid,lastProductId:product.productId,lastRevision:revision,operationLogId:logId},merge:true},
-        {collection:COLLECTIONS.logs,id:logId,
-          data:operationLog({action,product,actor,now,detailCount:product.ops.length,note,codeKey,historyId:versionId})}
+        {collection:changeLog().ITEM_COLLECTION,id:changeLog().itemId(batchId,product.productId),data:detail},
+        {collection:COLLECTIONS.metadata,id:'productsMeta',data:{updatedAt:now,updatedByUid:actor.uid,
+          lastProductId:product.productId,lastRevision:revision,lastChangeBatchId:batchId},merge:true}
       ],
       deletes:previousCodeKey&&previousCodeKey!==codeKey?[{collection:COLLECTIONS.codeIndex,id:previousCodeKey}]:[],
-      product:clone(savedProduct),codeKey,versionId,logId
+      product:clone(savedProduct),codeKey,batchId,detail,action:text(action),note:text(note)
     };
-  }
-
-  function legacyMetadata(data={}){
-    try{ return data?.data?JSON.parse(data.data):{}; }catch(_error){ return {}; }
   }
   function productCounts(items){
     const products=Array.isArray(items)?items:[];
@@ -184,7 +170,13 @@
   // finalizeFreshnessPlan（完成款號新舊版本計畫）：交易讀到最新版本後才分配連續序號，避免多電腦漏讀變更。
   function finalizeFreshnessPlan(planInput,metadataInput={},previousProduct=null,currentProducts=[]){
     const plan=clone(planInput);
-    const direct=Number(metadataInput?.schemaVersion)===3?metadataInput:legacyMetadata(metadataInput);
+    if(Number(metadataInput?.schemaVersion)!==4||!text(metadataInput?.trackingEpoch)){
+      throw new Error('Mốc theo dõi mã hàng chưa được đặt lại. / 款號追蹤起點尚未重設。');
+    }
+    if(text(metadataInput.trackingEpoch)!==text(plan.product.trackingEpoch)){
+      throw new Error('Mốc theo dõi mã hàng đã thay đổi; vui lòng tải lại. / 款號追蹤起點已變更，請重新載入。');
+    }
+    const direct=metadataInput;
     const fallback=productCounts(currentProducts);
     const baseProductCount=Number.isInteger(Number(direct.productCount))?Number(direct.productCount):fallback.productCount;
     const baseOpCount=Number.isInteger(Number(direct.opCount))?Number(direct.opCount):fallback.opCount;
@@ -195,13 +187,10 @@
     const version=`pmv3-${String(plan.product.updatedAt)}-${String(sequence)}-${plan.product.productId.slice(-12)}`;
     const metaData={version,changeSequence:sequence,productCount:baseProductCount+productDelta,
       opCount:baseOpCount+opDelta,lastProductId:plan.product.productId,
-      lastRevision:plan.product.revision,updatedAt:plan.product.updatedAt,updatedByUid:plan.product.updatedByUid,
-      operationLogId:plan.logId,schemaVersion:3};
+      lastRevision:plan.product.revision,lastChangeBatchId:plan.batchId,trackingEpoch:direct.trackingEpoch,
+      updatedAt:plan.product.updatedAt,updatedByUid:plan.product.updatedByUid,schemaVersion:4};
     plan.writes=plan.writes.map(write=>{
       if(write.collection===COLLECTIONS.metadata&&write.id==='productsMeta') return {...write,data:metaData,merge:false};
-      if(write.collection===COLLECTIONS.logs&&write.id===plan.logId){
-        return {...write,data:{...write.data,freshnessSequence:sequence}};
-      }
       return write;
     });
     plan.freshness={version,sequence,metaData};
@@ -215,10 +204,10 @@
     const normalized=normalizeAndValidateProduct(activeInput,options);
     const product={...normalized,revision:1,createdAt:now,createdByUid:actor.uid,createdBy:actor.name,
       updatedAt:now,updatedByUid:actor.uid,updatedBy:actor.name};
-    return documentPlan(product,{actor,now,action:text(options.action)||'productCreate',note:options.note});
+    return documentPlan(product,{actor,now,action:text(options.action)||'productCreate',note:options.note,batch:options.batch});
   }
 
-  function prepareUpdate({base,current,draft,actor:actorInput,now:time,action='productUpdate',note=''}={}){
+  function prepareUpdate({base,current,draft,actor:actorInput,now:time,action='productUpdate',note='',batch}={}){
     const actor=actorData(actorInput);
     const now=Number(time)||Date.now();
     const result=mergeProductDraft(base,current,draft);
@@ -229,11 +218,12 @@
       createdByUid:text(current?.createdByUid||base?.createdByUid),createdBy:text(current?.createdBy||base?.createdBy),
       updatedAt:now,updatedByUid:actor.uid,updatedBy:actor.name};
     const previousCodeKey=model().safeProductCodeKey(current.code);
-    return {...result,merged:product,plan:documentPlan(product,{actor,now,action:text(action)||'productUpdate',previousCodeKey,note})};
+    return {...result,merged:product,plan:documentPlan(product,{actor,now,action:text(action)||'productUpdate',previousCodeKey,note,
+      beforeProduct:current,batch})};
   }
 
   // prepareImportReplacement（準備匯入完整覆蓋）：只供已確認的 Excel 匯入使用，不放寬一般編輯的工序移除限制。
-  function prepareImportReplacement({current,incoming,actor:actorInput,now:time,note='',tokenProvider}={}){
+  function prepareImportReplacement({current,incoming,actor:actorInput,now:time,note='',tokenProvider,batch}={}){
     const actor=actorData(actorInput);
     const now=Number(time)||Date.now();
     const replacement=model().reconcileImportReplacement(current,incoming);
@@ -251,7 +241,7 @@
     const previousCodeKey=model().safeProductCodeKey(current.code);
     return {
       merged:product,
-      plan:documentPlan(product,{actor,now,action:'productImport',previousCodeKey,note})
+      plan:documentPlan(product,{actor,now,action:'productImport',previousCodeKey,note,beforeProduct:current,batch})
     };
   }
 

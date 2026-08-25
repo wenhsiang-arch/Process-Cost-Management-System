@@ -5,12 +5,10 @@ window.cur  = 'VND';
 // S（系統計算設定）：公開程式只保留非敏感預設值；薪資與成本由授權後的雲端資料載入。
 window.S    = {sal:0,ins:0,meal:0,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
 window.D    = [];
-window.impHist = [];
 window.cLog    = [];
 window.sPage   = 1;
 window.dPage   = 1;
-// impHist（匯入紀錄）與 cLog（成本變動紀錄）改為依帳號即時查詢獨立操作紀錄，不使用跨帳號本機儲存。
-try{ localStorage.removeItem('impHist'); }catch(e){}
+// cLog（成本變動紀錄）依帳號即時查詢獨立操作紀錄，不使用跨帳號本機儲存。
 try{ localStorage.removeItem('cLog'); }catch(e){}
 
 const IDLE = 30*60;
@@ -260,7 +258,6 @@ function clearSessionUi(){
   if(typeof resetOrderRuntimeCache==='function') resetOrderRuntimeCache();
   window.allOrders=[];
   window.allProcesses=[];
-  window.impHist=[];
   window.cLog=[];
   // 登出時立即清除記憶體中的薪資與成本，避免同一分頁換帳號後殘留。
   window.S={sal:0,ins:0,meal:0,usd:25400,twd:780,ws:3000,eff:80,mc:null,mh:null};
@@ -270,7 +267,6 @@ function clearSessionUi(){
   window.D=[];
   if(typeof resetPermissionsToDefaults==='function') resetPermissionsToDefaults();
   try{
-    localStorage.removeItem('impHist');
     localStorage.removeItem('cLog');
   }catch(e){}
   const appEl=document.querySelector('#ma .app');

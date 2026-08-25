@@ -6,12 +6,14 @@
     settings:'js/settings.js?v=20260809-3',
     uiTableControls:'js/ui-table-controls.js?v=20260821-1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-3',
-    productCache:'js/product-cache.js?v=20260823-2',
+    productCache:'js/product-cache.js?v=20260825-1',
     productModel:'js/product-model.js?v=20260824-5',
-    productMasterStore:'js/product-master-store.js?v=20260824-2',
+    productChangeLogStore:'js/product-change-log-store.js?v=20260825-2',
+    productMasterStore:'js/product-master-store.js?v=20260825-2',
     productResolver:'js/product-resolver.js?v=20260823-1',
     productGroupStore:'js/product-group-store.js?v=20260823-1',
-    productMasterService:'js/product-master-service.js?v=20260824-2',
+    productMasterService:'js/product-master-service.js?v=20260825-2',
+    productChangeLog:'js/product-change-log.js?v=20260825-2',
     productImportImpact:'js/product-import-impact.js?v=20260824-1',
     productMasterEditor:'js/product-master-editor.js?v=20260824-2',
     productQuickEdit:'js/product-quick-edit.js?v=20260824-7',
@@ -66,7 +68,8 @@
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260824-4',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
-    systemMonitor:'styles/features/system-monitor.css?v=20260813-1'
+    systemMonitor:'styles/features/system-monitor.css?v=20260813-1',
+    productChangeLog:'styles/features/product-change-log.css?v=20260825-2'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -92,7 +95,7 @@
         {
           page:'summary',feature:'summary',icon:'ti-layout-list',vi:'Tổng hợp mã hàng',zh:'款號總表',
           styles:['products','productionProcessEdit'],
-          scripts:['history','fileIo','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','summary','data'],
+          scripts:['history','fileIo','productCache','productModel','productionEfficiencyCore','productChangeLogStore','productMasterStore','productResolver','productGroupStore','productMasterService','productImportImpact','productGroupRuntime','productionProcessGroupUi','productMasterEditor','productQuickEdit','uiTableControls','summary','data'],
           dataScopes:['operationSettings','costSettings','products','productsMeta','productGroups','productGroupMembers'],
           dataLoaders:[
             'ensureOperationSettingsLoaded',
@@ -105,9 +108,14 @@
           ]
         },
         {
+          page:'product-change-log',feature:'productsMain',permissionVisible:false,icon:'ti-history',vi:'Nhật ký thay đổi mã hàng',zh:'款號修改流水帳',
+          styles:['productChangeLog'],scripts:['productChangeLogStore','productionEfficiencyCore','productChangeLog'],
+          dataScopes:['productChangeBatches','productChangeItems'],dataLoaders:[],onOpen:['productChangeLogInit'],onLeave:['productChangeLogLeave']
+        },
+        {
           page:'product-groups',feature:'productionProcessEdit',icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
           styles:['productionProcessEdit'],
-          scripts:['productCache','productModel','productMasterStore','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productionProductGroups'],
+          scripts:['productCache','productModel','productChangeLogStore','productMasterStore','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productionProductGroups'],
           dataScopes:['products','productGroups','productGroupMembers'],
           dataLoaders:['loadProductionProductGroupsData'],onOpen:['productionProductGroupsInit'],onLeave:['productionProductGroupsLeave']
         }
@@ -131,7 +139,7 @@
         {
           page:'production-entry',feature:'productionEntry',icon:'ti-clipboard-plus',vi:'Ghi nhận sản xuất',zh:'生產登記',
           styles:['production','productionProcessEdit'],
-          scripts:['history','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productQuickEdit','productionProcessSecondsQuickEdit','uiTableControls','uiSearchDropdown','orderItemStore','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionEntry'],
+          scripts:['history','productCache','productModel','productionEfficiencyCore','productChangeLogStore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productQuickEdit','productionProcessSecondsQuickEdit','uiTableControls','uiSearchDropdown','orderItemStore','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionEntry'],
           dataScopes:['products','productsMeta','productGroups','productionEmployees','orders','orderItems','productionEntries','productionProcessTotals','productionAttendance','productionDaySummaries','productionEmployeeMonths','productionMonths'],
           dataLoaders:['loadProductionEntryData'],onOpen:['productionEntryInit'],onLeave:['productionEntryLeave']
         },
@@ -176,7 +184,7 @@
           page:'production-analysis',feature:'productionAnalysis',icon:'ti-chart-histogram',vi:'Phân tích sản xuất',zh:'生產分析',
           styles:['productionAnalysis','productionProcessEdit'],
           scripts:[
-            'history','productCache','productModel','productionEfficiencyCore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productQuickEdit','productionProcessSecondsQuickEdit','uiTableControls','productionEmployeeStore',
+            'history','productCache','productModel','productionEfficiencyCore','productChangeLogStore','productMasterStore','productResolver','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productQuickEdit','productionProcessSecondsQuickEdit','uiTableControls','productionEmployeeStore',
             'productionSummaryStore','productionAnalysisCalculations','productionAnalysisStore','productionAnalysisExport',
             'productionEmployeeAnalysis','productionIeAnalysis','productionDepartmentAnalysis','productionAnalysis'
           ],
@@ -290,7 +298,7 @@
   function getPage(name){ return pageMap.get(name)||null; }
   function getModule(name){ return moduleMap.get(name)||null; }
   function getModules(){ return FEATURE_MODULES.slice(); }
-  function getEntryOrder(){ return ['progress','summary','product-groups','cutting','production-entry','production-bonus','production-analysis','performance-bonus-settings','costlog','export']; }
+  function getEntryOrder(){ return ['progress','summary','product-change-log','product-groups','cutting','production-entry','production-bonus','production-analysis','performance-bonus-settings','costlog','export']; }
 
   // createEmptyPermissionSet（建立全關閉權限）：沒有明確設定時一律拒絕。
   function createEmptyPermissionSet(){

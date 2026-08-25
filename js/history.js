@@ -235,16 +235,6 @@
     queryStates.clear();
   }
 
-  async function ensureImportHistoryLoaded(options={}){
-    window.impHist=await loadOperationLogs({
-      ...options,
-      force:options.force===true||options.background===true,
-      permissionKey:'summary',
-      actions:['productImport']
-    });
-    return window.impHist;
-  }
-
   async function ensureCostLogLoaded(options={}){
     const role=window.cu?.role;
     const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）
@@ -280,17 +270,6 @@
     clearSession
   });
   window.saveOperationLogToFB=saveOperationLog;
-  window.saveHistoryToFB=history=>saveOperationLog({
-    permissionKey:'summary',
-    feature:'products',
-    action:'productImport',
-    status:'success',
-    itemCount:history?.c,
-    detailCount:history?.o,
-    overwriteCount:history?.ow,
-    skippedCount:history?.sk,
-    fileName:history?.fileName
-  });
   window.saveCostLogToFB=costLog=>saveOperationLog({
     permissionKey:'costlog',
     feature:'cost',
@@ -300,7 +279,6 @@
     detailCount:0,
     changes:costLog?.changes||[]
   });
-  window.ensureImportHistoryLoaded=ensureImportHistoryLoaded;
   window.ensureCostLogLoaded=ensureCostLogLoaded;
   window.ensureCuttingHistoryLoaded=ensureCuttingHistoryLoaded;
 })();

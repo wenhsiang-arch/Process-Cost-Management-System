@@ -429,7 +429,7 @@ async function cImp(){
   let msgZh=`已完成覆蓋 ${importImpactPlan.overwriteCount} 個款號、新增 ${importImpactPlan.newCount} 個款號，共 ${to} 道工序。`;
   if(skippedCount){ msgVi+=` Bỏ qua ${skippedCount} mã không thay đổi.`; msgZh+=`另略過 ${skippedCount} 個無變更款號。`; }
   detailImportFileName=''; importImpactPlan=null; g('fi').value='';
-  rHist();
+  window.PCMSProductChangeLog?.invalidate?.();
   await dataMessage(msgVi,msgZh,'success');
 }
 
@@ -779,40 +779,5 @@ async function doBackup(){
   }catch(err){
     console.error('Xuất tệp sao lưu thất bại / 備份檔匯出失敗',err);
     await dataMessage('Xuất tệp sao lưu thất bại. Vui lòng kiểm tra rồi thử lại.','備份檔匯出失敗，請檢查後再試。','danger');
-  }
-}
-
-// ===== 匯入記錄 =====
-function rHist(){
-  const el=g('hist-list'); if(!el) return;
-  if(!window.impHist.length){
-    const empty=document.createElement('p');
-    empty.style.cssText='color:var(--mu);font-size:13px';
-    window.PCMSUIText.set(empty,{vi:'Chưa có lịch sử',zh:'尚無記錄'});
-    el.replaceChildren(empty);
-    return;
-  }
-  el.innerHTML=window.impHist.map(h=>{
-    const time=h.createdAt?new Date(h.createdAt).toLocaleString('zh-TW'):h.t;
-    const user=h.createdBy||h.u||'';
-    const count=h.itemCount??h.c??0;
-    const details=h.detailCount??h.o??0;
-    const overwritten=h.overwriteCount??h.ow??0;
-    return`<div class="hi2"><i class="ti ti-file-spreadsheet" style="color:var(--accent)"></i><span style="color:var(--mu);min-width:140px">${dataSafeText(time)}</span><span style="color:var(--mu)">${dataSafeText(user)}</span><span class="tg tb2"><span class="ui-text-vi">${Number(count)||0} mã</span><span class="ui-text-zh">${Number(count)||0} 款號</span></span><span class="tg tg2"><span class="ui-text-vi">${Number(details)||0} công đoạn</span><span class="ui-text-zh">${Number(details)||0} 工序</span></span>${Number(overwritten)>0?`<span class="tg ta"><span class="ui-text-vi">Ghi đè ${Number(overwritten)}</span><span class="ui-text-zh">覆蓋 ${Number(overwritten)}</span></span>`:''}</div>`;
-  }).join('');
-}
-
-// openImportHistory（開啟款號匯入歷史）：使用者實際點擊後才讀取，切換頁面不預先呼叫。
-async function openImportHistory(force=false){
-  try{
-    if(typeof window.ensureImportHistoryLoaded!=='function'){
-      throw new Error('Chức năng lịch sử chưa sẵn sàng / 歷史功能尚未就緒');
-    }
-    await window.ensureImportHistoryLoaded({limit:50,force});
-    rHist();
-    om('m-history');
-  }catch(error){
-    console.error('Không thể tải lịch sử nhập mã hàng / 無法載入款號匯入歷史：',error);
-    await dataMessage('Không thể tải lịch sử nhập.','無法載入匯入歷史。','danger');
   }
 }

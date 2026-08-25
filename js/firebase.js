@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260825-1'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260825-2'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -453,7 +453,6 @@ function showLoading(show){
 // ===== Firebase 讀寫 =====
 const PRODUCTS_COL = 'products';
 const PRODUCTS_META_KEY = 'productsMeta';
-const PRODUCTS_SCHEMA_VERSION = 2;
 // 每次版本只以 productsMeta（款號版本資料）判斷新舊；版本不同時重讀目前 Product Master（款號主檔）。
 const PRODUCTS_MAX_BATCH_ITEMS = 400;
 const PRODUCT_META_MEMORY_MS = 15000;
@@ -633,10 +632,6 @@ function productDocId(code){
   return encodeURIComponent(String(code||'').trim());
 }
 
-function currentProductsVersion(){
-  return String(Date.now())+'-'+Math.random().toString(36).slice(2,8);
-}
-
 function escapeHtml(text){
   return String(text||'').replace(/[&<>"']/g, ch=>({
     '&':'&amp;',
@@ -664,9 +659,7 @@ async function loadProductsMeta(metrics=null,forceServer=false){
     if(!snap.exists()) productsMetaMemory=null;
     else{
       const raw=snap.data();
-      productsMetaMemory=Number(raw.schemaVersion)===3&&raw.version
-        ?raw
-        :JSON.parse(raw.data||'{}');
+      productsMetaMemory=Number(raw.schemaVersion)===4&&raw.version&&raw.trackingEpoch?raw:null;
     }
     productsMetaReadAt=Date.now();
     return productsMetaMemory;
@@ -695,31 +688,11 @@ function getProductsBase(){
   return normalizeProductsList(Array.isArray(window.D)?window.D:[]);
 }
 
-function mergeProducts(base, rows){
-  const merged=new Map(normalizeProductsList(base).map(item=>[String(item.code||'').trim(),item]));
-  normalizeProductsList(rows).forEach(item=>merged.set(String(item.code||'').trim(),item));
-  return normalizeProductsList([...merged.values()]);
-}
-
 function countProductOps(items){
   const list=normalizeProductsList(items);
   return {
     productCount:list.length,
     opCount:list.reduce((sum,item)=>sum+(Array.isArray(item.ops)?item.ops.length:0),0)
-  };
-}
-
-function buildProductsMeta(items,lastAction,previousMeta={}){
-  const counts=countProductOps(items);
-  return {
-    version:currentProductsVersion(),
-    updatedAt:Date.now(),
-    updatedBy:window.cu?.user||'',
-    productCount:counts.productCount,
-    opCount:counts.opCount,
-    schemaVersion:PRODUCTS_SCHEMA_VERSION,
-    changeSequence:(Number(previousMeta?.changeSequence)||0)+1,
-    lastAction
   };
 }
 
@@ -1108,7 +1081,6 @@ async function fbInitForAuthorizedUser(){
       window.pcmsDataCache?.remove('reports'),
       window.pcmsDataCache?.remove('attendance'),
       window.pcmsDataCache?.remove('employeeUserHistory'),
-      window.pcmsDataCache?.remove('impHist'),
       window.pcmsDataCache?.remove('cLog'),
       window.pcmsDataCache?.remove('operationSettings'),
       window.pcmsDataCache?.remove('costSettings'),
@@ -1119,7 +1091,6 @@ async function fbInitForAuthorizedUser(){
       window.pcmsDataCache?.remove('performanceBonusPrivateMonths')
     ]);
     try{
-      localStorage.removeItem('impHist');
       localStorage.removeItem('cLog');
     }catch(e){}
     try{ localStorage.removeItem('mob_rej_read'); }catch(e){}
