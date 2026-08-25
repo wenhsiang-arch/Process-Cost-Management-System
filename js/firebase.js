@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260825-3'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260825-4'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -62,6 +62,12 @@ function runtimeVersionError(code,message){
   const error=new Error(message);
   error.code=code;
   return error;
+}
+
+function runtimeVersionRequestUrl(){
+  const url=new URL(RUNTIME_VERSION_URL);
+  url.searchParams.set('_pcms_check',String(Date.now())); // _pcms_check（版本核對參數）：避免網站主機回傳先前更新等級的舊快取。
+  return url.href;
 }
 
 function showRuntimeVersionDialog(error){
@@ -132,28 +138,25 @@ function requestRuntimeUpdate(){
 }
 
 async function verifyRuntimeVersion(options={}){
-  if(runtimeVersionStale){
-    const error=runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
-    void showRuntimeVersionDialog(error);
-    throw error;
-  }
   if(!runtimeVersionPromise){
     runtimeVersionPromise=(async()=>{
       let response;
       try{
-        response=await fetch(RUNTIME_VERSION_URL,{cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}});
+        response=await fetch(runtimeVersionRequestUrl(),{cache:'no-store',credentials:'same-origin',headers:{Accept:'application/json'}});
         if(!response.ok) throw new Error(`HTTP ${response.status}`);
         const manifest=await response.json();
         const availableVersion=String(manifest?.version||'');
         if(!availableVersion) throw new Error('runtime-version-empty');
         if(availableVersion!==RUNTIME_VERSION){
           if(manifest?.updateMode==='notice'){
+            runtimeVersionStale=false;
             setRuntimeUpdateStatus('available',availableVersion);
             return Object.freeze({version:RUNTIME_VERSION,availableVersion,verified:true,updateAvailable:true});
           }
           runtimeVersionStale=true;
           throw runtimeVersionError('runtime-reload-required','Trang web đã được cập nhật; vui lòng tải lại. / 網站版本已更新，請重新載入。');
         }
+        runtimeVersionStale=false;
         setRuntimeUpdateStatus('current');
         return Object.freeze({version:RUNTIME_VERSION,verified:true,updateAvailable:false});
       }catch(error){
