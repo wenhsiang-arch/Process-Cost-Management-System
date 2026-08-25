@@ -6,7 +6,7 @@
     settings:'js/settings.js?v=20260809-3',
     uiTableControls:'js/ui-table-controls.js?v=20260821-1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-3',
-    productCache:'js/product-cache.js?v=20260825-2',
+    productCache:'js/product-cache.js?v=20260825-3',
     productModel:'js/product-model.js?v=20260824-5',
     productChangeLogStore:'js/product-change-log-store.js?v=20260825-3',
     productMasterStore:'js/product-master-store.js?v=20260825-3',

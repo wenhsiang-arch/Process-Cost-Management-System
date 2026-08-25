@@ -3,7 +3,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js";
 import {
   getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
-  setDoc as firestoreSetDoc,collection,getDocs as firestoreGetDocs,getCountFromServer as firestoreGetCountFromServer,updateDoc as firestoreUpdateDoc,
+  setDoc as firestoreSetDoc,collection,getDocsFromServer as firestoreGetDocsFromServer,getCountFromServer as firestoreGetCountFromServer,updateDoc as firestoreUpdateDoc,
   deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,
   increment,serverTimestamp,onSnapshot,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260825-7'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260825-8'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -199,8 +199,8 @@ async function getDocFromServer(reference){
   return snapshot;
 }
 async function getDocs(reference){
-  const snapshot=await firestoreGetDocs(reference);
-  window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:snapshot.size});
+  const snapshot=await firestoreGetDocsFromServer(reference);
+  window.PCMSUsageMetrics?.recordCloudRead?.({queryCount:1,documentReads:Math.max(1,snapshot.size)});
   return snapshot;
 }
 async function getCountFromServer(reference){
@@ -464,6 +464,43 @@ let runtimeProductsVersion='';
 let runtimeProductsSequence=0;
 let productsMetaMemory=null;
 let productsMetaReadAt=0;
+let authoritativeRequestSerial=0;
+const latestAuthoritativeRequestByScope=new Map();
+const authoritativePublishQueueByScope=new Map();
+
+function beginAuthoritativeRequest(scope){
+  authoritativeRequestSerial+=1;
+  latestAuthoritativeRequestByScope.set(scope,authoritativeRequestSerial);
+  return authoritativeRequestSerial;
+}
+
+function assertLatestAuthoritativeRequest(scope,requestId){
+  if(latestAuthoritativeRequestByScope.get(scope)===requestId) return true;
+  const error=new Error(`較舊的 ${scope} 資料載入結果已取消發布。`);
+  error.code='data-load-superseded';
+  throw error;
+}
+
+async function publishLatestAuthoritative(scope,requestId,publisher){
+  const previous=authoritativePublishQueueByScope.get(scope)||Promise.resolve();
+  const current=previous.catch(()=>undefined).then(async()=>{
+    assertLatestAuthoritativeRequest(scope,requestId);
+    const result=await publisher();
+    assertLatestAuthoritativeRequest(scope,requestId);
+    return result;
+  });
+  authoritativePublishQueueByScope.set(scope,current);
+  try{
+    return await current;
+  }finally{
+    if(authoritativePublishQueueByScope.get(scope)===current) authoritativePublishQueueByScope.delete(scope);
+  }
+}
+
+function invalidateAuthoritativeRequests(){
+  authoritativeRequestSerial+=1;
+  latestAuthoritativeRequestByScope.clear();
+}
 
 function newProductReadMetrics(){
   return {mode:'pending',metaReads:0,productReads:0,totalReads:0,startedAt:Date.now()};
@@ -508,7 +545,7 @@ async function readScopedDataVersion(scope,force=false){
     && now-(scopedDataVersionReadAt.get(scope)||0)<DATA_VERSION_MEMORY_MS){
     return {online:true,allowOfflineCache:false,scope,version:String(dataVersionsMemory.get(scope)||'0'),source:'memory'};
   }
-  if(scopedDataVersionPromises.has(scope)) return scopedDataVersionPromises.get(scope);
+  if(!force&&scopedDataVersionPromises.has(scope)) return scopedDataVersionPromises.get(scope);
   const promise=(async()=>{
     try{
       const snapshot=await getDocFromServer(doc(db,DATA_VERSION_COLLECTION,scope));
@@ -525,8 +562,10 @@ async function readScopedDataVersion(scope,force=false){
         version:String(dataVersionsMemory.get(scope)||'0'),
         source:'unavailable'
       };
+    }finally{
+      if(scopedDataVersionPromises.get(scope)===promise) scopedDataVersionPromises.delete(scope);
     }
-  })().finally(()=>scopedDataVersionPromises.delete(scope));
+  })();
   scopedDataVersionPromises.set(scope,promise);
   return promise;
 }
@@ -608,20 +647,33 @@ async function readCachedScope(scope){
 
 async function loadCollectionWithCache(scope,collectionName,options={}){
   if(!CACHEABLE_COLLECTIONS.has(scope)||scope!==collectionName) throw new Error(`不允許的 data-cache（資料快取）集合：${scope}`);
-  if(options.force===true) await window.pcmsDataCache?.remove(scope);
   const cached=await readCachedScope(scope);
-  if(cached.data!==null&&Array.isArray(cached.data)){
+  if(options.force!==true&&cached.data!==null&&Array.isArray(cached.data)){
     window.lastCollectionReadMetrics=Object.freeze({scope,mode:'indexeddb',documentReads:0,finishedAt:Date.now()});
     return cached.data;
   }
+  if(cached.online!==true){
+    const error=new Error(`${scope} 的雲端版本目前無法確認，保留原有資料。`);
+    error.code='data-version-unavailable';
+    throw error;
+  }
+  const requestId=beginAuthoritativeRequest(scope);
   const snap=await getDocs(collection(db,collectionName));
   const rows=snap.docs.map(item=>({id:item.id,...item.data()}));
-  window.PCMSUsageMetrics?.recordFullLoad?.({scope,documentReads:snap.size});
   const latest=await readDataVersions([scope],true);
-  const version=String(latest.data?.[scope]||cached.expectedVersion||'0');
-  await window.pcmsDataCache?.write(scope,version,rows);
-  window.lastCollectionReadMetrics=Object.freeze({scope,mode:'full',documentReads:snap.size,finishedAt:Date.now()});
-  return rows;
+  const version=String(latest.data?.[scope]||'0');
+  if(latest.online!==true||version!==String(cached.expectedVersion||'0')){
+    const error=new Error(`${scope} 在載入期間已更新，保留原有資料並等待下次同步。`);
+    error.code='data-version-changed';
+    throw error;
+  }
+  return publishLatestAuthoritative(scope,requestId,async()=>{
+    await window.pcmsDataCache?.write(scope,version,rows);
+    assertLatestAuthoritativeRequest(scope,requestId);
+    window.PCMSUsageMetrics?.recordFullLoad?.({scope,documentReads:Math.max(1,snap.size)});
+    window.lastCollectionReadMetrics=Object.freeze({scope,mode:'full',documentReads:Math.max(1,snap.size),finishedAt:Date.now()});
+    return rows;
+  });
 }
 
 function normalizeProductDoc(data,id){
@@ -666,8 +718,10 @@ async function loadProductsMeta(metrics=null,forceServer=false){
     }
     productsMetaReadAt=Date.now();
     return productsMetaMemory;
-  }catch(e){ console.error('讀取款號版本資料失敗：', e); }
-  return null;
+  }catch(e){
+    console.error('讀取款號版本資料失敗：', e);
+    throw e;
+  }
 }
 
 async function loadProductsCache(){
@@ -752,10 +806,7 @@ async function loadProductsData(metrics=null){
 }
 
 function sameProductsMetaPosition(left,right){
-  return !!left&&!!right
-    && String(left.version||'')===String(right.version||'')
-    && Number(left.changeSequence)===Number(right.changeSequence)
-    && String(left.trackingEpoch||'')===String(right.trackingEpoch||'');
+  return window.PCMSProductCache?.sameSyncPosition?.(left,right)===true;
 }
 
 function verifyProductsMetaAnchor(meta,items){
@@ -787,12 +838,14 @@ async function loadIncrementalProducts(cache,targetMeta,metrics){
   return window.PCMSProductCache.merge(cache.items,changed,targetMeta.deletedProductIds);
 }
 
-async function tryIncrementalProducts(cache,initialMeta,metrics){
+async function tryIncrementalProducts(cache,initialMeta,metrics,requestId){
   let targetMeta=initialMeta;
   for(let attempt=0;attempt<2;attempt+=1){
+    assertLatestAuthoritativeRequest('products',requestId);
     if(!window.PCMSProductCache.canIncrementallySync(cache,targetMeta)) return null;
     const merged=await loadIncrementalProducts(cache,targetMeta,metrics);
     const latestMeta=await loadProductsMeta(metrics,true);
+    assertLatestAuthoritativeRequest('products',requestId);
     if(sameProductsMetaPosition(targetMeta,latestMeta)){
       verifyProductsMetaCounts(latestMeta,merged);
       verifyProductsMetaAnchor(latestMeta,merged);
@@ -803,15 +856,27 @@ async function tryIncrementalProducts(cache,initialMeta,metrics){
   return null;
 }
 
-async function loadStableFullProducts(initialMeta,metrics){
-  let targetMeta=initialMeta;
-  for(let attempt=0;attempt<3;attempt+=1){
-    const items=await loadProductsData(metrics);
-    const latestMeta=await loadProductsMeta(metrics,true);
-    if((!targetMeta&&!latestMeta)||sameProductsMetaPosition(targetMeta,latestMeta)) return {items,meta:latestMeta||targetMeta};
-    targetMeta=latestMeta;
+async function loadStableFullProducts(initialMeta,metrics,requestId){
+  if(!initialMeta?.version) throw new Error(PRODUCT_SYNC_MESSAGES.missingMeta);
+  const items=await loadProductsData(metrics);
+  const latestMeta=await loadProductsMeta(metrics,true);
+  assertLatestAuthoritativeRequest('products',requestId);
+  const validation=window.PCMSProductCache.validateAuthoritativeSnapshot({
+    querySucceeded:true,
+    fromServer:true,
+    items,
+    beforeMeta:initialMeta,
+    afterMeta:latestMeta
+  });
+  if(!validation.ok){
+    const error=new Error(validation.reason==='sync-position-changed'
+      ?PRODUCT_SYNC_MESSAGES.versionChanged
+      :PRODUCT_SYNC_MESSAGES.localDataMismatch);
+    error.code=`products-${validation.reason}`;
+    throw error;
   }
-  throw new Error(PRODUCT_SYNC_MESSAGES.versionChanged);
+  verifyProductsMetaAnchor(latestMeta,validation.items);
+  return {items:validation.items,meta:latestMeta,legalEmpty:validation.legalEmpty};
 }
 
 function replaceRuntimeProducts(items){
@@ -829,6 +894,20 @@ function renderProductViews(){
   });
 }
 
+async function publishProductsResult({requestId,items,meta,metrics,mode,writeCache=true}){
+  return publishLatestAuthoritative('products',requestId,async()=>{
+    if(writeCache) await saveProductsCache(items,meta);
+    assertLatestAuthoritativeRequest('products',requestId);
+    replaceRuntimeProducts(items);
+    runtimeProductsVersion=String(meta?.version||'');
+    runtimeProductsSequence=Number(meta?.changeSequence)||0;
+    metrics.mode=mode;
+    renderProductViews();
+    publishProductReadMetrics(metrics,meta);
+    return true;
+  });
+}
+
 async function refreshProductsFromCloud(){
   await ensureProductsLoaded({force:true});
   return window.D;
@@ -837,89 +916,67 @@ async function refreshProductsFromCloud(){
 async function ensureProductsLoaded(options=false){
   const opts=typeof options==='object'&&options!==null ? options : {force:!!options};
   const force=!!opts.force;
-  const requireMeta=!!opts.requireMeta;
   if(productsLoadPromise) return productsLoadPromise;
-  productsLoadPromise=(async()=>{
+  const requestId=beginAuthoritativeRequest('products');
+  const loadPromise=(async()=>{
     const metrics=newProductReadMetrics();
     let activeMeta=null;
     try{
       if(!window.PCMSProductCache) throw new Error('Thiếu chương trình bộ nhớ đệm mã hàng / 缺少款號快取程式');
-      if(force) await window.PCMSProductCache.remove();
       let [cache,meta]=await Promise.all([loadProductsCache(),loadProductsMeta(metrics,force)]);
       activeMeta=meta;
+      if(!meta?.version) throw new Error(PRODUCT_SYNC_MESSAGES.missingMeta);
+      assertLatestAuthoritativeRequest('products',requestId);
       if(!force && meta?.version && runtimeProductsVersion===String(meta.version) && Array.isArray(window.D)){
-        metrics.mode='runtime';
-        renderProductViews();
-        publishProductReadMetrics(metrics,meta);
-        return true;
-      }
-      if(!force && cache && meta?.version && cache.version===String(meta.version)){
         try{
-          verifyProductsMetaCounts(meta,cache.items);
-          replaceRuntimeProducts(cache.items);
-          await saveProductsCache(cache.items,meta); // 補上舊第四版快取缺少的追蹤起點，不增加雲端讀取。
-          runtimeProductsVersion=String(meta.version);
-          runtimeProductsSequence=Number(meta.changeSequence)||Number(cache.sequence)||0;
-          metrics.mode='indexeddb';
+          verifyProductsMetaCounts(meta,window.D);
+          verifyProductsMetaAnchor(meta,window.D);
+          metrics.mode='runtime';
           renderProductViews();
           publishProductReadMetrics(metrics,meta);
           return true;
         }catch(error){
+          console.warn('目前工作階段款號資料驗證失敗，改用安全同步。',error);
+        }
+      }
+      if(!force && cache && meta?.version && cache.version===String(meta.version)){
+        try{
+          verifyProductsMetaCounts(meta,cache.items);
+          verifyProductsMetaAnchor(meta,cache.items);
+        }catch(error){
+          if(error?.code==='data-load-superseded') throw error;
           console.warn('本機款號快取驗證失敗，改用安全完整讀取。',error);
           cache=null;
         }
+        if(cache) return publishProductsResult({requestId,items:cache.items,meta,metrics,mode:'indexeddb'});
       }
       if(!force&&cache&&meta){
-        const incremental=await tryIncrementalProducts(cache,meta,metrics);
+        const incremental=await tryIncrementalProducts(cache,meta,metrics,requestId);
         if(incremental){
           activeMeta=incremental.meta;
-          replaceRuntimeProducts(incremental.items);
-          await saveProductsCache(incremental.items,incremental.meta);
-          runtimeProductsVersion=String(incremental.meta.version);
-          runtimeProductsSequence=Number(incremental.meta.changeSequence)||0;
-          metrics.mode='incremental';
-          renderProductViews();
-          publishProductReadMetrics(metrics,incremental.meta);
-          return true;
+          return publishProductsResult({requestId,items:incremental.items,meta:incremental.meta,metrics,mode:'incremental'});
         }
       }
-      const full=await loadStableFullProducts(meta,metrics);
-      const saved=full.items;
-      activeMeta=full.meta||meta;
-      replaceRuntimeProducts(saved);
-      if(activeMeta?.version){
-        verifyProductsMetaCounts(activeMeta,saved);
-        verifyProductsMetaAnchor(activeMeta,saved);
-        await saveProductsCache(saved,activeMeta);
-        runtimeProductsVersion=String(activeMeta.version);
-        runtimeProductsSequence=Number(activeMeta.changeSequence)||0;
-      } else {
-        runtimeProductsVersion='';
-        runtimeProductsSequence=0;
-        if(requireMeta){
-          setProductSyncError(PRODUCT_SYNC_MESSAGES.missingMeta);
-          renderProductViews();
-          metrics.mode='missing-meta';
-          publishProductReadMetrics(metrics,activeMeta);
-          return false;
-        }
-      }
-      metrics.mode='full';
-      renderProductViews();
-      publishProductReadMetrics(metrics,activeMeta);
-      return true;
+      const full=await loadStableFullProducts(meta,metrics,requestId);
+      activeMeta=full.meta;
+      return publishProductsResult({requestId,items:full.items,meta:full.meta,metrics,mode:'full'});
     }catch(e){
+      if(e?.code==='data-load-superseded') return false;
       console.error('載入款號資料失敗：', e);
       setSyncState('failed');
       showSyncError();
       metrics.mode='failed';
       publishProductReadMetrics(metrics,activeMeta);
+      if(opts.background===true||opts.pageName) throw e;
       return false;
-    }finally{
-      productsLoadPromise=null;
     }
   })();
-  return productsLoadPromise;
+  productsLoadPromise=loadPromise;
+  try{
+    return await loadPromise;
+  }finally{
+    if(productsLoadPromise===loadPromise) productsLoadPromise=null;
+  }
 }
 
 // ===== 掛到 window =====
@@ -1205,6 +1262,7 @@ async function fbInitForAuthorizedUser(){
 window.fbInitForAuthorizedUser = fbInitForAuthorizedUser;
 window.resetAuthorizedFirebaseInit = () => {
   authorizedInitPromise=null;
+  invalidateAuthoritativeRequests();
   dataVersionsMemory.clear();
   scopedDataVersionReadAt.clear();
   scopedDataVersionPromises.clear();

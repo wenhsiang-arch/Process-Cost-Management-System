@@ -14,6 +14,56 @@
     return [...new Set((Array.isArray(value)?value:[]).map(item=>String(item||'').trim()).filter(Boolean))];
   }
 
+  function countSnapshot(items){
+    const normalized=normalizeItems(items);
+    return {
+      items:normalized,
+      productCount:normalized.length,
+      opCount:normalized.reduce((sum,item)=>sum+item.ops.length,0)
+    };
+  }
+
+  function sameSyncPosition(left,right){
+    return !!left&&!!right
+      && String(left.version||'')!==''
+      && String(left.version)===String(right.version||'')
+      && Number.isInteger(Number(left.changeSequence))
+      && Number(left.changeSequence)===Number(right.changeSequence)
+      && String(left.trackingEpoch||'')!==''
+      && String(left.trackingEpoch)===String(right.trackingEpoch||'');
+  }
+
+  // validateAuthoritativeSnapshot（驗證正式查詢結果）：合法 0 筆必須同時通過查詢、雲端來源、同步位置及筆數驗證。
+  function validateAuthoritativeSnapshot(input={}){
+    const counted=countSnapshot(input.items);
+    if(input.querySucceeded!==true) return {...counted,ok:false,legalEmpty:false,reason:'query-failed'};
+    if(input.fromServer!==true) return {...counted,ok:false,legalEmpty:false,reason:'query-not-authoritative'};
+    if(!sameSyncPosition(input.beforeMeta,input.afterMeta)){
+      return {...counted,ok:false,legalEmpty:false,reason:'sync-position-changed'};
+    }
+    const expectedProductCount=Number(input.afterMeta?.productCount);
+    const expectedOpCount=Number(input.afterMeta?.opCount);
+    if(!Number.isInteger(expectedProductCount)||expectedProductCount<0
+      ||!Number.isInteger(expectedOpCount)||expectedOpCount<0){
+      return {...counted,ok:false,legalEmpty:false,reason:'invalid-meta-counts'};
+    }
+    if(counted.productCount!==expectedProductCount||counted.opCount!==expectedOpCount){
+      return {...counted,ok:false,legalEmpty:false,reason:'incomplete-snapshot'};
+    }
+    return {...counted,ok:true,legalEmpty:expectedProductCount===0,reason:'verified'};
+  }
+
+  // createLatestRequestGate（最新請求閘門）：較舊請求即使較晚返回，也不能發布結果。
+  function createLatestRequestGate(){
+    let latestRequestId=0;
+    return Object.freeze({
+      begin(){ latestRequestId+=1; return latestRequestId; },
+      isLatest(requestId){ return Number(requestId)===latestRequestId; },
+      invalidate(){ latestRequestId+=1; return latestRequestId; },
+      current(){ return latestRequestId; }
+    });
+  }
+
   function canIncrementallySync(cache,meta){
     const cacheSequence=Number(cache?.sequence);
     const startSequence=Number(meta?.incrementalStartSequence);
@@ -73,6 +123,10 @@
     remove,
     normalizeItems,
     normalizeDeletedProductIds,
+    countSnapshot,
+    sameSyncPosition,
+    validateAuthoritativeSnapshot,
+    createLatestRequestGate,
     canIncrementallySync,
     merge
   });
