@@ -520,8 +520,8 @@
     });
   }
 
-  // groupRecommendation（群組推薦結果）：同客人的款號先列為可比較候選；同越文品名且工序完全一致才屬高度符合。
-  // 不同品名、工序數量、越文描述或秒數都只作提醒，保留給使用者人工判斷不同規格是否屬於同產品。
+  // groupRecommendation（群組推薦結果）：只有同客人且同越文品名才列為候選；工序內容只決定一致或差異狀態。
+  // 工序數量、越文描述或秒數不同仍保留給使用者人工確認，不額外限制勾選或儲存。
   function groupRecommendation(sourceInput,candidateInput){
     const source=normalizeProduct(sourceInput);
     const candidate=normalizeProduct(candidateInput);
@@ -529,7 +529,7 @@
     const candidateClient=normalizedSignatureText(candidate.client);
     const sameClient=Boolean(sourceClient)&&sourceClient===candidateClient;
     const sameProductName=normalizedSignatureText(source.vi)===normalizedSignatureText(candidate.vi);
-    const eligible=sameClient;
+    const eligible=sameClient&&sameProductName;
     const sourceProfile=groupProcessProfile(source);
     const candidateProfile=groupProcessProfile(candidate);
     const sourceByNo=new Map(sourceProfile.map(item=>[item.no,item]));

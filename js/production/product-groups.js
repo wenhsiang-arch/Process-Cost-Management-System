@@ -422,9 +422,9 @@
     }));
   }
 
-  function recommendationStatus(source,candidate){
+  function recommendationStatus(source,candidate,summary){
     const assigned=store().groupForProduct(candidate.productId||candidate.code);
-    return groupUI().recommendationStatusHtml(window.PCMSProductModel.groupRecommendation(source,candidate),assigned);
+    return groupUI().sizeRecommendationStatusHtml(summary||{},assigned);
   }
 
   function renderWizardCandidates(host,product){
@@ -432,15 +432,15 @@
     const plan=store().candidatePlan(product.code);
     const candidates=plan.candidates;
     panel.innerHTML=`<div class="product-groups-wizard-source"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><b>${safe(product.code)}</b><span>${safe(product.client||'—')} · ${safe(product.zh||'—')} · ${safe(product.vi||'—')} · ${safe(product.sz||'—')}</span></div>
-      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Các mã khác của cùng khách hàng đều được liệt kê để so sánh theo kích thước. Mã cùng tên tiếng Việt và khớp toàn bộ công đoạn được chọn sẵn; khác biệt chỉ để nhắc và vẫn có thể chọn. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu.</span><span class="ui-text-zh">同一客人的其他款號都會依尺寸列出供比對。越文品名及工序完全相同者預設勾選；差異只作提醒，仍可人工選擇。已在其他群組的款號只供比對。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
-      :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã khác của cùng khách hàng</strong><span>找不到同一客人的其他款號</span></span></div>'}`;
+      ${candidates.length?`<div class="product-groups-wizard-note ui-bilingual"><span class="ui-text-vi">Chỉ liệt kê mã cùng khách hàng và cùng tên sản phẩm Việt, sau đó chia theo kích thước. Mã đồng nhất được chọn sẵn; mã khác biệt chỉ để nhắc và vẫn có thể chọn. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu.</span><span class="ui-text-zh">只列出同一客人且越文品名相同的款號，再依尺寸分頁。一致者預設勾選；差異只作提醒，仍可人工選擇。已在其他群組的款號只供比對。</span></div><div data-product-group-wizard-selector></div><div class="product-groups-wizard-final"><b id="product-groups-create-count"></b><button type="button" class="ui-button is-primary" id="product-groups-create-button"><i class="ti ti-check"></i><span class="ui-dual-copy"><strong>Xác nhận tạo 1 nhóm</strong><span>確認建立1個群組</span></span></button></div>`
+      :'<div class="ui-notice"><i class="ti ti-info-circle"></i><span class="ui-dual-copy"><strong>Không tìm thấy mã cùng khách hàng và cùng tên sản phẩm Việt</strong><span>找不到同一客人且越文品名相同的其他款號</span></span></div>'}`;
     host._groupSelector=null;
     if(candidates.length){
       host._groupSelector=groupUI().createMemberSelector({
         products:[product,...candidates],currentCode:product.code,activeSize:product.sz,
         orderCodes:[product.code,...candidates.map(candidate=>candidate.code)],
-        selectedCodes:plan.selectedCodes,requiredCodes:[product.code],disabledCodes:plan.disabledCodes,selectable:true,
-        consistency:true,expandable:true,statusRenderer:item=>recommendationStatus(product,item),
+        requiredCodes:[product.code],disabledCodes:plan.disabledCodes,selectable:true,
+        consistency:true,expandable:true,selectConsistentByDefault:true,statusRenderer:(item,summary)=>recommendationStatus(product,item,summary),
         onChange:()=>updateCreateCount(host)
       });
       panel.querySelector('[data-product-group-wizard-selector]').appendChild(host._groupSelector.element);

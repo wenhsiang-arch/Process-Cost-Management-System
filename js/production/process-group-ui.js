@@ -108,9 +108,11 @@
     return {checked,total:codes.length,all:codes.length>0&&checked===codes.length,partial:checked>0&&checked<codes.length};
   }
 
-  // comparisonContext（同尺寸比較內容）：不同尺寸不得互相污染；沒有明確主要版本時只提醒人工確認。
+  // comparisonContext（同尺寸比較內容）：來源尺寸以來源款號為準，其他尺寸以各自多數版本為準，不跨尺寸比較。
   function comparisonContext(products=[],options={}){
     const includeProductName=options.includeProductName===true;
+    const referenceProductId=normalize(options.referenceProductId);
+    const referenceCode=normalize(options.referenceCode);
     const summaries=new Map();
     const baselines=new Map();
     groupBySize(products).forEach(sizeGroup=>{
@@ -128,8 +130,10 @@
       });
       const ranked=[...variants.values()].sort((left,right)=>right.count-left.count||left.key.localeCompare(right.key));
       const single=rows.length<=1;
-      const ambiguous=!single&&ranked.length>1&&ranked[0].count===ranked[1].count;
-      const baseline=ranked[0]||{productName:'',profile:[]};
+      const reference=rows.find(row=>(referenceProductId&&normalize(row.product?.productId)===referenceProductId)
+        ||(referenceCode&&productCode(row.product)===referenceCode));
+      const ambiguous=!reference&&!single&&ranked.length>1&&ranked[0].count===ranked[1].count;
+      const baseline=reference||ranked[0]||{productName:'',profile:[]};
       baselines.set(sizeGroup.key,ambiguous?null:baseline.profile);
       rows.forEach(row=>{
         const differences=single||ambiguous
@@ -149,6 +153,20 @@
       });
     });
     return {summaries,baselines};
+  }
+
+  // sortRecommendationMembers（排序推薦成員）：一致在上、差異在中、已屬其他群組在下；同層保留原候選順序。
+  function sortRecommendationMembers(members=[],options={}){
+    const summaries=typeof options.summaries?.get==='function'?options.summaries:new Map();
+    const required=new Set((options.requiredCodes||[]).map(normalize));
+    const disabled=new Set((options.disabledCodes||[]).map(normalize));
+    const rank=product=>{
+      const code=productCode(product);
+      if(disabled.has(code)) return 2;
+      if(required.has(code)||summaries.get(product?.productId)?.comparisonState==='consistent') return 0;
+      return 1;
+    };
+    return (Array.isArray(members)?members:[]).slice().sort((left,right)=>rank(left)-rank(right));
   }
 
   function statusHtml(summary){
@@ -213,7 +231,12 @@
     const productMap=new Map(products.map(item=>[productCode(item),item]));
     const required=new Set((options.requiredCodes||[]).map(normalize).filter(Boolean));
     const disabled=new Set((options.disabledCodes||[]).map(normalize).filter(Boolean));
-    const consistency=comparisonContext(products,{includeProductName:options.includeProductName===true});
+    const referenceProduct=productMap.get(normalize(options.currentCode));
+    const consistency=comparisonContext(products,{
+      includeProductName:options.includeProductName===true,
+      referenceProductId:referenceProduct?.productId,
+      referenceCode:options.currentCode
+    });
     const defaultCodes=options.selectConsistentByDefault===true
       ?products.filter(product=>consistency.summaries.get(product?.productId)?.comparisonState==='consistent').map(productCode)
       :products.map(productCode);
@@ -240,13 +263,16 @@
 
     function render(){
       const active=groups.find(group=>group.key===activeSize)||groups[0]||{key:MISSING_SIZE,members:[]};
-      const currentCodes=active.members.map(productCode).filter(code=>!disabled.has(code));
-      const selection=allSelectionState(currentCodes,selected);
       const showSeconds=options.processNo!==undefined&&options.processNo!==null&&options.processNo!=='';
       const selectable=options.selectable!==false;
       const showAction=typeof options.onEdit==='function';
       const showConsistency=options.consistency===true;
       const expandable=options.expandable===true;
+      const visibleMembers=showConsistency?sortRecommendationMembers(active.members,{
+        summaries:consistency.summaries,requiredCodes:[...required],disabledCodes:[...disabled]
+      }):active.members;
+      const currentCodes=visibleMembers.map(productCode).filter(code=>!disabled.has(code));
+      const selection=allSelectionState(currentCodes,selected);
       const columnCount=(selectable?1:0)+6+(showSeconds?1:0)+(showConsistency?1:0)+(showAction?1:0);
       root.innerHTML=`
         <div class="process-size-tabs" role="tablist" aria-label="Kích thước / 尺寸">
@@ -265,7 +291,7 @@
             ${showConsistency?'<th class="is-status"><span class="ui-dual-copy"><strong>Trạng thái</strong><span>差異狀態</span></span></th>':''}
             ${showAction?'<th class="ui-table-center-cell is-action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>':''}
           </tr></thead>
-          <tbody>${active.members.map(product=>{
+          <tbody>${visibleMembers.map(product=>{
             const code=productCode(product);
             const operation=operationFor(product,options.processNo);
             const summary=consistency.summaries.get(product.productId);
@@ -335,6 +361,6 @@
 
   window.PCMSProcessGroupUI=Object.freeze({
     missingSizeKey:MISSING_SIZE,
-    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,processDetailRows,recommendationStatusHtml,sizeRecommendationStatusHtml,createMemberSelector
+    sizeKey,sizePair,compareSizeKeys,groupBySize,operationFor,activeOperations,comparisonContext,sortRecommendationMembers,processDetailRows,recommendationStatusHtml,sizeRecommendationStatusHtml,createMemberSelector
   });
 })();
