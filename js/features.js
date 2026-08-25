@@ -20,7 +20,7 @@
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
     orderService:'js/order-service.js?v=20260824-1',
-    summary:'js/summary.js?v=20260824-2',
+    summary:'js/summary.js?v=20260825-1',
     data:'js/data.js?v=20260825-1',
     costLog:'js/cost-log.js?v=20260813-1',
     cuttingStore:'js/cutting-store.js?v=20260804-4',

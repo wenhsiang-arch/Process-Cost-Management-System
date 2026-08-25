@@ -50,7 +50,7 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
   assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260825-5/);
+  assert.match(html,/js\/features\.js\?v=20260825-6/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260813-1'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);
@@ -339,7 +339,7 @@ test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇�
   assert.match(core,/th\.ui-table-center-cell \.ui-table-sort-heading \{[\s\S]*?justify-content: center;/);
   assert.match(core,/th\.ui-table-center-cell\.ui-table-sortable-header > \.tv \{[\s\S]*?padding-inline-end: var\(--ui-table-sort-control-space\);[\s\S]*?text-align: center;/);
   assert.match(core,/\.ui-table \.is-column-hidden \{[\s\S]*?display: none;/);
-  assert.match(features,/summary:'js\/summary\.js\?v=20260824-2'/);
+  assert.match(features,/summary:'js\/summary\.js\?v=20260825-1'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);
 });
 
