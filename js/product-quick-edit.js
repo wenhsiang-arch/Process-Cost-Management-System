@@ -26,9 +26,11 @@
   function groupRuntime(){ return window.PCMSProductGroupRuntime; }
   function allowed(field=''){
     if(!FIELD_CONFIG[field]) return false;
-    if(window.cu?.role==='admin') return true;
-    if(field==='processSeconds') return window.cu?.features?.processSecondsEdit===true;
-    return window.cu?.features?.productionProcessEdit===true;
+    const role=window.cu?.role;
+    return role==='admin'||(
+      window.permissionSettings?.[role]?.productsMain===true
+      &&window.permissionSettings?.[role]?.productionProcessEdit===true
+    );
   }
   function productId(value){ return model().fixedId(value,'product'); }
   function processId(value){ return model().fixedId(value,'process'); }

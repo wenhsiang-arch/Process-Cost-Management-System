@@ -19,8 +19,13 @@
     if(!window.PCMSProductQuickEdit) throw new Error('Thiếu quy trình cập nhật nhóm. / 缺少群組修改流程。');
     return window.PCMSProductQuickEdit;
   }
-  function allowed(){ return window.cu?.role==='admin'||window.cu?.features?.productionProcessEdit===true; }
-  function secondsAllowed(){ return window.cu?.role==='admin'||window.cu?.features?.processSecondsEdit===true; }
+  function allowed(){
+    const role=window.cu?.role;
+    return role==='admin'||(
+      window.permissionSettings?.[role]?.productsMain===true
+      &&window.permissionSettings?.[role]?.productionProcessEdit===true
+    );
+  }
   function dualLabel(vi,zh){ return `<span class="ui-dual-copy"><strong>${safe(vi)}</strong><span>${safe(zh)}</span></span>`; }
   function categoryOptions(selected){
     return CATEGORIES.map(category=>`<option value="${category}"${category===selected?' selected':''}>${category}</option>`).join('');
@@ -43,7 +48,7 @@
       <td><select data-field="category">${categoryOptions(operation.category)}</select></td>
       <td><input type="text" maxlength="200" data-field="zh" value="${safeAttribute(operation.zh)}"></td>
       <td><input type="text" maxlength="200" data-field="vi" value="${safeAttribute(operation.vi)}"></td>
-      <td><input type="number" min="1" max="86400" step="1" inputmode="numeric" data-field="sec" value="${safeAttribute(operation.sec)}"${secondsAllowed()?'':' disabled'}></td>
+      <td><input type="number" min="1" max="86400" step="1" inputmode="numeric" data-field="sec" value="${safeAttribute(operation.sec)}"></td>
       <td class="product-master-capacity" data-capacity></td>`;
     return row;
   }
@@ -223,7 +228,6 @@
     });
 
     const addProcessButton=body.querySelector('[data-add-process]');
-    if(addProcessButton&&!secondsAllowed()) addProcessButton.disabled=true;
     addProcessButton?.addEventListener('click',()=>{
       const rows=[...processBody.querySelectorAll('tr')];
       const operation={

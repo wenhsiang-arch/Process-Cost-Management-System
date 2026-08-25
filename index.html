@@ -1011,11 +1011,13 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
             </div>
           </section>
           <section class="ui-data-section">
-            <div class="ui-section-header"><span class="ui-dual-copy"><strong>Nhật ký thay đổi mã hàng</strong><span>款號修改流水帳</span></span></div>
+            <div class="ui-section-header product-change-list-header">
+              <span class="ui-dual-copy"><strong>Nhật ký thay đổi mã hàng</strong><span>款號修改流水帳</span></span>
+              <button type="button" class="btn bsm product-change-more-button" id="product-change-more" hidden><i class="ti ti-chevrons-down"></i><span class="ui-dual-copy"><strong>Tải thêm</strong><span>載入更多</span></span></button>
+            </div>
             <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table" id="product-change-table"><thead><tr>
               <th>Thời gian<br><span class="tv">時間</span></th><th>Người thao tác<br><span class="tv">操作者</span></th><th>Loại thao tác<br><span class="tv">操作類型</span></th><th>Số mã hàng<br><span class="tv">款號數</span></th><th>Thành công / Lỗi / Chưa xử lý<br><span class="tv">成功／失敗／未處理</span></th><th>Trạng thái<br><span class="tv">狀態</span></th><th>Thao tác<br><span class="tv">操作</span></th>
             </tr></thead><tbody id="product-change-table-body"><tr><td colspan="7" class="product-change-empty">Đang tải... / 載入中…</td></tr></tbody></table></div></div>
-            <div class="product-change-more-row"><button type="button" class="btn" id="product-change-more"><span class="ui-dual-copy"><strong>Tải thêm</strong><span>載入更多</span></span></button></div>
           </section>
           <section class="ui-data-section" id="product-change-details" hidden></section>
         </div>
@@ -1478,11 +1480,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260825-2"></script>
-<script src="js/auth.js?v=20260825-1"></script>
+  <script src="js/features.js?v=20260825-3"></script>
+<script src="js/auth.js?v=20260825-2"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260825-4"></script>
+<script type="module" src="js/firebase.js?v=20260825-6"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

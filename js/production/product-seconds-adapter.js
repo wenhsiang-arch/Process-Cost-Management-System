@@ -7,9 +7,11 @@
   function text(value){ return String(value??'').trim(); }
   function allowed(field=''){
     if(field==='code') return false;
-    if(window.cu?.role==='admin') return true;
-    if(field==='processSeconds') return window.cu?.features?.processSecondsEdit===true;
-    return window.cu?.features?.productionProcessEdit===true;
+    const role=window.cu?.role;
+    return role==='admin'||(
+      window.permissionSettings?.[role]?.productsMain===true
+      &&window.permissionSettings?.[role]?.productionProcessEdit===true
+    );
   }
   function productByIdentity(input={}){
     const productId=text(input.productId);

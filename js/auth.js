@@ -35,16 +35,16 @@ function canLoadCostSettings(){
     && (permissions?.settings===true||permissions?.export===true)
   );
 }
-// canEditProcessSeconds（可修改正式工序標準）：敏感權限必須連同款號管理及工序修改頁權限一起開啟。
-function canEditProcessSeconds(){
+// canEditProductMaster（可修改款號主檔）：同一權限控制款號欄位、工序結構及標準秒數。
+function canEditProductMaster(){
   if(isAdm()) return true;
   const role=window.cu?.role;
   const permissions=window.permissionSettings?.[role];
   return CONFIGURABLE_ROLES.includes(role)
     && permissions?.productsMain===true
-    && permissions?.productionProcessEdit===true
-    && permissions?.processSecondsEdit===true;
+    && permissions?.productionProcessEdit===true;
 }
+function canEditProcessSeconds(){ return canEditProductMaster(); }
 function isCurrentDeskAccount(){
   return !!(
     window.cu?.authUid

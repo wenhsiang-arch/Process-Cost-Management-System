@@ -102,10 +102,9 @@
     const batchId=batchIdFor(now,input.batchId),trackingEpoch=text(input.trackingEpoch);
     if(!trackingEpoch) throw new Error('Thiếu mốc bắt đầu nhật ký mã hàng. / 缺少款號流水帳起始標記。');
     const targetCount=Math.max(1,count(input.targetCount));
-    const requestedPermission=text(input.writePermissionKey||input.permissionKey);
     const writePermissionKey=mode==='import'
       ?'summary'
-      :(requestedPermission==='processSecondsEdit'?'processSecondsEdit':'productionProcessEdit');
+      :'productionProcessEdit';
     const batch={
       batchId,trackingEpoch,mode,status:'running',action:text(input.action||mode).slice(0,100),
       writePermissionKey,targetCount,

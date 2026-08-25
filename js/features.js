@@ -8,15 +8,15 @@
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260814-3',
     productCache:'js/product-cache.js?v=20260825-1',
     productModel:'js/product-model.js?v=20260824-5',
-    productChangeLogStore:'js/product-change-log-store.js?v=20260825-2',
+    productChangeLogStore:'js/product-change-log-store.js?v=20260825-3',
     productMasterStore:'js/product-master-store.js?v=20260825-2',
     productResolver:'js/product-resolver.js?v=20260823-1',
     productGroupStore:'js/product-group-store.js?v=20260823-1',
-    productMasterService:'js/product-master-service.js?v=20260825-2',
+    productMasterService:'js/product-master-service.js?v=20260825-3',
     productChangeLog:'js/product-change-log.js?v=20260825-2',
     productImportImpact:'js/product-import-impact.js?v=20260824-1',
-    productMasterEditor:'js/product-master-editor.js?v=20260824-2',
-    productQuickEdit:'js/product-quick-edit.js?v=20260824-7',
+    productMasterEditor:'js/product-master-editor.js?v=20260825-1',
+    productQuickEdit:'js/product-quick-edit.js?v=20260825-1',
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
     orderService:'js/order-service.js?v=20260824-1',
@@ -47,7 +47,7 @@
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260824-6',
-    productionProcessSecondsQuickEdit:'js/production/product-seconds-adapter.js?v=20260824-4',
+    productionProcessSecondsQuickEdit:'js/production/product-seconds-adapter.js?v=20260825-1',
     productionProductGroups:'js/production/product-groups.js?v=20260824-5',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260823-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260823-3',
@@ -69,7 +69,7 @@
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
     performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1',
-    productChangeLog:'styles/features/product-change-log.css?v=20260825-2'
+    productChangeLog:'styles/features/product-change-log.css?v=20260825-3'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
@@ -113,7 +113,7 @@
           dataScopes:['productChangeBatches','productChangeItems'],dataLoaders:[],onOpen:['productChangeLogInit'],onLeave:['productChangeLogLeave']
         },
         {
-          page:'product-groups',feature:'productionProcessEdit',icon:'ti-box-multiple',vi:'Nhóm cùng sản phẩm',zh:'同產品群組',
+          page:'product-groups',feature:'productionProcessEdit',icon:'ti-box-multiple',vi:'Sửa công đoạn (gồm nhóm)',zh:'工序修改（含群組）',
           styles:['productionProcessEdit'],
           scripts:['productCache','productModel','productChangeLogStore','productMasterStore','productGroupStore','productMasterService','productGroupRuntime','productionProcessGroupUi','productionProductGroups'],
           dataScopes:['products','productGroups','productGroupMembers'],
@@ -257,7 +257,7 @@
 
   const PERMISSION_KEYS = Object.freeze([
     'progress','orderImport','productsMain','summary','costView','preparationMain','cutting',
-    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit','processSecondsEdit',
+    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit',
     'productionAnalysis','performanceBonus','performanceBonusUnlock',
     'costMain','settings','performanceBonusSettings','costlog','export','accounts'
   ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
@@ -321,8 +321,7 @@
     if(!features||typeof features.productsMain!=='boolean'){
       normalized.productsMain=normalized.summary===true
         ||normalized.costView===true
-        ||normalized.productionProcessEdit===true
-        ||normalized.processSecondsEdit===true;
+        ||normalized.productionProcessEdit===true;
     }
     // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
     normalized.orderImport=normalized.progress===true;

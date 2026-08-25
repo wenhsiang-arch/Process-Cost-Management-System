@@ -143,25 +143,6 @@
     return error;
   }
 
-  function onlySecondsChanged(base={},draft={}){
-    const productFields=store().EDITABLE_PRODUCT_FIELDS;
-    if(productFields.some(field=>JSON.stringify(base?.[field])!==JSON.stringify(draft?.[field]))) return false;
-    const beforeOps=Array.isArray(base?.ops)?base.ops:[],afterOps=Array.isArray(draft?.ops)?draft.ops:[];
-    if(beforeOps.length!==afterOps.length) return false;
-    const afterById=new Map(afterOps.map(item=>[text(item?.processId),item]));
-    return beforeOps.every(before=>{
-      const after=afterById.get(text(before?.processId));
-      if(!after) return false;
-      return store().PROCESS_FIELDS.every(field=>field==='sec'||JSON.stringify(before?.[field])===JSON.stringify(after?.[field]));
-    });
-  }
-
-  function manualPermissionForRows(rows=[]){
-    return rows.length&&rows.every(row=>onlySecondsChanged(row?.base,row?.draft))
-      ?'processSecondsEdit'
-      :'productionProcessEdit';
-  }
-
   async function recordAndFinalizeFailure(batch,item,options,error){
     try{
       await recordBatchItem(batch,item,options);
@@ -248,7 +229,7 @@
   async function saveDraft(input={}){
     if(input.batch) return saveDraftInBatch(input);
     const batch=await beginChangeBatch({actor:input.actor,now:input.now,mode:'single',targetCount:1,action:input.action||'productUpdate',
-      writePermissionKey:manualPermissionForRows([input])});
+      writePermissionKey:'productionProcessEdit'});
     try{
       const product=await saveDraftInBatch({...input,batch});
       await finalizeChangeBatch(batch,{successCount:1,failureCount:0,unprocessedCount:0},{actor:input.actor});
@@ -349,7 +330,7 @@
     if(!rows.length) return {results,successes:[],failures:[],batch:null};
     const batch=options.batch||await beginChangeBatch({...options,mode:rows.length>1?'group':'single',targetCount:rows.length,
       action:rows.length>1?'productGroupQuickEdit':text(rows[0]?.action)||'productUpdate',
-      writePermissionKey:manualPermissionForRows(rows)});
+      writePermissionKey:'productionProcessEdit'});
     for(let index=0;index<rows.length;index+=1){
       const request=rows[index];
       await options.onProgress?.({phase:'start',index,completed:index,total:rows.length,productId:text(request?.base?.productId)});
