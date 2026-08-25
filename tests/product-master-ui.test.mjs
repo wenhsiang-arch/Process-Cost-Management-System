@@ -26,7 +26,7 @@ function products(model){
   ];
 }
 
-test('群組快速修改預設全選，找不到相同工序號的款號不猜測且預設不選',()=>{
+test('群組快速修改只預選一致款號，找不到相同工序號的款號不猜測且預設不選',()=>{
   const window=loadQuickEdit();
   const rows=products(window.PCMSProductModel);
   const group={memberProductIds:rows.map(item=>item.productId)};
@@ -35,7 +35,7 @@ test('群組快速修改預設全選，找不到相同工序號的款號不猜�
   });
   assert.equal(targets.length,3);
   assert.equal(targets[0].selected,true);
-  assert.equal(targets[1].selected,true);
+  assert.equal(targets[1].selected,false);
   assert.equal(targets[2].matched,false);
   assert.equal(targets[2].selected,false);
 });

@@ -109,7 +109,6 @@
       referenceProductId:source.productId,
       referenceCode:source.code
     });
-    const selectedCodes=new Set((candidatePlan?.selectedCodes||[]).map(text));
     const disabledCodes=new Set((candidatePlan?.disabledCodes||[]).map(text));
     const sourceOperation=config.scope==='process'
       ?(source.ops||[]).find(operation=>processId(operation?.processId)===processId(sourceProcessId))
@@ -130,7 +129,7 @@
       return {
         product,operation,matched,isSource,required:isSource,disabled:Boolean(assignedGroup)||disabledCodes.has(text(product.code)),assignedGroup,
         recommendation:candidateMode&&!isSource?model().groupRecommendation(source,product):null,
-        selected:matched&&(group?true:(isSource||(candidateMode?recommended:selectedCodes.has(text(product.code))))),
+        selected:matched&&(isSource||recommended),
         value:fieldValue(product,operation,field),consistency
       };
     });

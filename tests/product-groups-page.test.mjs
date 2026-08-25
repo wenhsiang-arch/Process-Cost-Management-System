@@ -225,13 +225,14 @@ test('已有群組只列同客人款號並可依款號或越文名稱篩選',()=
   assert.doesNotMatch(style,/\.product-group-add-dialog table\{min-width:820px\}/);
 });
 
-test('工序快速修改預設勾選可匹配群組且共用正式儲存服務',()=>{
+test('工序快速修改只預設勾選來源與一致款號且共用正式儲存服務',()=>{
   const page=read('js/product-quick-edit.js');
   const groupUi=read('js/production/process-group-ui.js');
   assert.match(page,/function buildTargets/);
   assert.match(page,/memberProductIds/);
   assert.match(page,/const matched=config\.scope==='product'\|\|!!operation/);
-  assert.match(page,/selected:matched&&\(group\?true:/);
+  assert.match(page,/selected:matched&&\(isSource\|\|recommended\)/);
+  assert.doesNotMatch(page,/selected:matched&&\(group\?true/);
   assert.match(page,/candidatePlan/);
   assert.match(page,/prepareGroupContext/);
   assert.match(page,/已有群組只顯示目前群組；沒有群組才尋找推薦/);

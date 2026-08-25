@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260825-9'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260825-10'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;

@@ -1318,8 +1318,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <div id="imp-err" style="display:none" class="nt nd"><i class="ti ti-alert-triangle"></i><div id="imp-err-msg"></div></div>
     <div class="dv"></div>
     <div class="ui-language-sections product-import-column-help">
-      <div class="ui-language-section is-vi">Thứ tự cột: Mã hàng · Khách hàng · Tên Trung · Tên Việt · Kích thước · Số công đoạn · Phân loại (BL/SX/QC/DG) · Tên công đoạn Trung · Tên công đoạn Việt · Giây. Có thể để trống tên công đoạn Trung; các trường khác không được để trống.</div>
-      <div class="ui-language-section is-zh">欄位順序：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 加工分類（BL/SX/QC/DG）· 工序中文 · 工序越文 · 秒數。工序中文可空白，其餘欄位皆不得空白。</div>
+      <div class="ui-language-section is-vi">Hệ thống nhận cột theo tên tiêu đề trong 20 dòng đầu; có thể đổi thứ tự cột hoặc thêm cột khác. Cần đủ và không trùng: Mã hàng · Khách hàng · Tên Trung · Tên Việt · Kích thước · Số công đoạn · Bộ phận (BL/SX/QC/DG) · Tên công đoạn Trung · Tên công đoạn Việt · Thời gian. Cột Số lượng/1 giờ sẽ được bỏ qua.</div>
+      <div class="ui-language-section is-zh">系統會在前 20 行依表頭名稱辨識欄位；欄位可調整順序，也可加入其他欄。下列表頭必須齊全且不可重複：款號 · 客人 · 中文名稱 · 越文名稱 · 尺寸 · 工序號 · 加工分類（BL/SX/QC/DG）· 工序中文 · 工序越文 · 秒數。每小時數量欄會直接忽略。</div>
     </div>
   </div></div>
 
@@ -1479,11 +1479,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260825-4&amp;pc=20260825-4"></script>
+  <script src="js/features.js?v=20260825-5&amp;pc=20260825-5"></script>
 <script src="js/auth.js?v=20260825-2"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260825-9"></script>
+<script type="module" src="js/firebase.js?v=20260825-10"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

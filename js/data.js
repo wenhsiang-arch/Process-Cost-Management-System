@@ -3,6 +3,21 @@ let detailImportFileName='', importImpactPlan=null;
 let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
 let productFileDropTargetRegistered=false; // productFileDropTargetRegistered（款號全視窗匯入用途是否已登記）
 const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
+const PRODUCT_IMPORT_HEADER_SCAN_LIMIT=20; // PRODUCT_IMPORT_HEADER_SCAN_LIMIT（款號匯入表頭搜尋列數）：只在檔案前 20 列尋找完整表頭。
+const PRODUCT_IMPORT_COLUMNS=Object.freeze([
+  {key:'code',vi:'Mã hàng',zh:'款號',required:true,aliases:['款號','Mã hàng','款號 Mã hàng']},
+  {key:'client',vi:'Khách hàng',zh:'客人',required:true,aliases:['客人','Khách hàng','客人 Khách hàng']},
+  {key:'productZh',vi:'Tên Trung',zh:'中文名稱',required:true,aliases:['中文名稱','Tên Trung','Tên tiếng Trung','中文名稱 Tên tiếng Trung']},
+  {key:'productVi',vi:'Tên Việt',zh:'越文名稱',required:true,aliases:['越文名稱','Tên Việt','Tên tiếng Việt','越文名稱 Tên tiếng Việt']},
+  {key:'size',vi:'Kích thước',zh:'尺寸',required:true,aliases:['尺寸','Quy cách','Kích thước','尺寸 Quy cách']},
+  {key:'processNo',vi:'Số công đoạn',zh:'工序號',required:true,aliases:['工序號','Số công đoạn','工序號 Số công đoạn']},
+  {key:'category',vi:'Bộ phận',zh:'加工分類',required:true,aliases:['加工','加工分類','Bộ phận','Phân loại','加工 Bộ phận']},
+  {key:'processZh',vi:'Tên công đoạn Trung',zh:'工序中文',required:true,aliases:['工序中文','Tên công đoạn Trung','Công đoạn tiếng Trung','工序中文 Công đoạn tiếng Trung']},
+  {key:'processVi',vi:'Tên công đoạn Việt',zh:'工序越文',required:true,aliases:['工序越文','Tên công đoạn Việt','Công đoạn tiếng Việt','工序越文 Công đoạn tiếng Việt']},
+  {key:'seconds',vi:'Thời gian',zh:'秒數',required:true,aliases:['秒數','Giây','Thời gian','秒數 Thời gian']},
+  {key:'hourlyCapacity',vi:'Số lượng/1 giờ',zh:'每小時數量',required:false,ignored:true,aliases:['每小時數量','數量/1小時','Số lượng/1 giờ','數量/1小時 Số lượng/1 giờ']}
+]); // PRODUCT_IMPORT_COLUMNS（款號匯入欄位規格）：依表頭名稱定位，額外欄位不會改變正式資料位置。
+const PRODUCT_IMPORT_VALUE_KEYS=Object.freeze(PRODUCT_IMPORT_COLUMNS.filter(column=>column.required).map(column=>column.key));
 const EXPORT_PREVIEW_PAGE_SIZE=50; // EXPORT_PREVIEW_PAGE_SIZE（產品工價預覽每頁筆數）
 const EXPORT_PREVIEW_CURRENCIES=Object.freeze({
   vnd:{vi:'Tổng giá công (VND)',zh:'總工價（越盾）',format:value=>fV(value)},
@@ -77,6 +92,94 @@ function importProductCodeKey(value){
   try{ return window.PCMSProductModel?.productCodeComparisonKey?.(code)||code.toLocaleUpperCase('en-US'); }
   catch(_error){ return code.toLocaleUpperCase('en-US'); }
 }
+
+function normalizeProductImportHeader(value){
+  return String(value??'')
+    .normalize('NFKC')
+    .toLocaleUpperCase('vi-VN')
+    .replace(/[\s\u00A0/／|｜·・:：()（）._-]+/g,'');
+}
+
+const PRODUCT_IMPORT_ALIAS_MAP=(()=>{
+  const aliases=new Map();
+  PRODUCT_IMPORT_COLUMNS.forEach(column=>column.aliases.forEach(alias=>{
+    aliases.set(normalizeProductImportHeader(alias),column.key);
+  }));
+  return aliases;
+})(); // PRODUCT_IMPORT_ALIAS_MAP（款號匯入表頭別名表）：只接受已核准欄名，不以資料內容猜測欄位。
+
+function matchProductImportHeaderRow(row){
+  const indexes=new Map();
+  (Array.isArray(row)?row:[]).forEach((value,index)=>{
+    const key=PRODUCT_IMPORT_ALIAS_MAP.get(normalizeProductImportHeader(value));
+    if(!key) return;
+    if(!indexes.has(key)) indexes.set(key,[]);
+    indexes.get(key).push(index);
+  });
+  const missing=PRODUCT_IMPORT_VALUE_KEYS.filter(key=>(indexes.get(key)||[]).length===0);
+  const duplicates=PRODUCT_IMPORT_COLUMNS.map(column=>column.key).filter(key=>(indexes.get(key)||[]).length>1);
+  return {indexes,missing,duplicates,matched:PRODUCT_IMPORT_VALUE_KEYS.length-missing.length};
+}
+
+function productImportHeaderError(bestMatch){
+  const columnByKey=new Map(PRODUCT_IMPORT_COLUMNS.map(column=>[column.key,column]));
+  const missing=(bestMatch?.missing||PRODUCT_IMPORT_VALUE_KEYS).map(key=>columnByKey.get(key));
+  const duplicates=(bestMatch?.duplicates||[]).map(key=>columnByKey.get(key));
+  const viDetails=[];
+  const zhDetails=[];
+  if(missing.length){
+    viDetails.push(`Thiếu: ${missing.map(column=>column.vi).join(', ')}`);
+    zhDetails.push(`缺少：${missing.map(column=>column.zh).join('、')}`);
+  }
+  if(duplicates.length){
+    viDetails.push(`Trùng: ${duplicates.map(column=>column.vi).join(', ')}`);
+    zhDetails.push(`重複：${duplicates.map(column=>column.zh).join('、')}`);
+  }
+  return new Error(
+    `Không thể xác định hàng tiêu đề trong 20 dòng đầu. ${viDetails.join('; ')||'Vui lòng kiểm tra tên cột.'}`+
+    ` / 無法在前 20 行辨識完整款號匯入表頭。${zhDetails.join('；')||'請檢查欄位名稱。'}`
+  );
+}
+
+// resolveProductImportRows（辨識款號匯入資料）：表頭上方說明與不相關額外欄位會忽略，正式欄位依名稱重新排列。
+function resolveProductImportRows(rows){
+  const sourceRows=Array.isArray(rows)?rows:[];
+  let headerIndex=-1;
+  let headerMatch=null;
+  let bestMatch=null;
+  sourceRows.slice(0,PRODUCT_IMPORT_HEADER_SCAN_LIMIT).some((row,index)=>{
+    const match=matchProductImportHeaderRow(row);
+    if(!bestMatch||match.matched>bestMatch.matched) bestMatch=match;
+    if(match.missing.length||match.duplicates.length) return false;
+    headerIndex=index;
+    headerMatch=match;
+    return true;
+  });
+  if(headerIndex<0||!headerMatch) throw productImportHeaderError(bestMatch);
+
+  const canonicalRows=[];
+  sourceRows.slice(headerIndex+1).forEach((sourceRow,offset)=>{
+    const values=PRODUCT_IMPORT_VALUE_KEYS.map(key=>sourceRow?.[headerMatch.indexes.get(key)[0]]??'');
+    if(!values.some(value=>String(value??'').trim())) return;
+    values._excelRow=headerIndex+offset+2;
+    canonicalRows.push(values);
+  });
+  if(!canonicalRows.length){
+    throw new Error('Không có dữ liệu mã hàng bên dưới hàng tiêu đề. / 表頭下方沒有款號資料。');
+  }
+  return {
+    rows:canonicalRows,
+    headerRow:headerIndex+1,
+    ignoredHourlyCapacity:headerMatch.indexes.has('hourlyCapacity')
+  };
+}
+
+window.PCMSProductImportParser=Object.freeze({
+  HEADER_SCAN_LIMIT:PRODUCT_IMPORT_HEADER_SCAN_LIMIT,
+  normalizeHeader:normalizeProductImportHeader,
+  matchHeaderRow:matchProductImportHeaderRow,
+  resolveRows:resolveProductImportRows
+}); // PCMSProductImportParser（款號匯入解析介面）：供匯入流程與本機測試使用。
 
 function validateImportProcessRows(rows){
   const byCode={};
@@ -306,10 +409,7 @@ async function processDetailImportFile(file){
     const wb=XLSX.read(fileContent,{type:'array'});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    const dr=rows.map((r,i)=>{ r._excelRow=i+1; return r; }).filter(r=>{
-      const values=r.slice(0,10).map(v=>String(v??'').trim());
-      return values.some(Boolean)&&!['款號','mã hàng','Mã hàng'].includes(values[0]);
-    });
+    const dr=resolveProductImportRows(rows).rows;
     const errs=validateRequiredImportFields(dr);
     errs.push(...validateImportProcessRows(dr));
     errs.push(...validateImportProductRows(dr));
@@ -361,7 +461,7 @@ async function processDetailImportFile(file){
     hideProg();
     openDetailImportModal();
     g('imp-err').style.display='flex';
-    const pair=window.PCMSUIText?.fromError?.(error,{vi:'Không thể xử lý tệp nhập.',zh:'無法處理匯入檔。'})
+    const pair=window.PCMSUIText?.errorPair?.(error,{vi:'Không thể xử lý tệp nhập.',zh:'無法處理匯入檔。'})
       ||{vi:'Không thể xử lý tệp nhập.',zh:'無法處理匯入檔。'};
     setDataBilingual('imp-err-msg',pair.vi,pair.zh);
     return false;
