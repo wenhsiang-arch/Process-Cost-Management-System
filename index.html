@@ -53,29 +53,30 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .nvi{font-size:13px;line-height:1.2}
 .nzh{font-size:10px;color:rgba(255,255,255,.4);line-height:1.2}
 .ni.active .nzh{color:rgba(255,255,255,.6)}
-.sb-ft{margin-top:auto;padding:10px 12px 12px;border-top:1px solid rgba(255,255,255,.08)}
-.sb-ft-t{font-size:10px;color:rgba(255,255,255,.25)}
-.runtime-update-notice{width:100%;margin:0 0 9px;padding:6px;border:1px solid rgba(74,222,128,.24);border-radius:9px;background:rgba(34,197,94,.09);color:#fff;display:flex;align-items:center;gap:8px;cursor:default;text-align:left;opacity:1;transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast)}
+.sb-ft{display:grid;gap:9px;margin-top:auto;padding:11px 12px 13px;border-top:1px solid rgba(255,255,255,.08)}
+.sb-ft-t{font-size:11px;line-height:1.2;color:rgba(255,255,255,.42)}
+.runtime-update-notice{width:100%;min-height:54px;margin:0;padding:8px 9px;border:1px solid rgba(74,222,128,.24);border-radius:10px;background:rgba(34,197,94,.09);color:#fff;display:flex;align-items:center;gap:9px;cursor:default;text-align:left;opacity:1;transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast)}
 .runtime-update-notice.is-available{border-color:rgba(96,165,250,.38);background:rgba(59,130,246,.14);cursor:pointer}
 .runtime-update-notice.is-available:hover{background:rgba(59,130,246,.24);border-color:rgba(147,197,253,.58)}
 .runtime-update-notice.is-checking{border-color:rgba(148,163,184,.2);background:rgba(148,163,184,.07)}
 .runtime-update-notice.is-unavailable{border-color:rgba(251,191,36,.26);background:rgba(251,191,36,.08)}
 .runtime-update-notice:disabled{color:#fff;opacity:1}
 .runtime-update-notice:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
-.runtime-update-icon{position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;flex:0 0 28px;border-radius:50%;background:#16a34a;color:#fff}
+.runtime-update-icon{position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:0 0 32px;border-radius:50%;background:#16a34a;color:#fff}
 .runtime-update-notice.is-available .runtime-update-icon{background:#3b82f6}
 .runtime-update-notice.is-checking .runtime-update-icon{background:#64748b}
 .runtime-update-notice.is-unavailable .runtime-update-icon{background:#d97706}
-.runtime-update-icon i{font-size:16px}
+.runtime-update-icon i{font-size:17px}
 .runtime-update-dot{position:absolute;right:-1px;top:-1px;width:8px;height:8px;border:2px solid var(--navy);border-radius:50%;background:#fbbf24}
 .runtime-update-dot[hidden]{display:none}
-.runtime-update-copy{display:flex;min-width:0;flex-direction:column;gap:1px;line-height:1.2}
-.runtime-update-copy .ui-text-vi{font-size:11px;font-weight:600}
-.runtime-update-copy .ui-text-zh{font-size:10px;color:rgba(255,255,255,.62)}
-.sidebar-idle-info{margin-top:3px;color:rgba(255,255,255,.36);font-size:10px;line-height:1.35}
+.runtime-update-copy{display:flex;min-width:0;flex:1;flex-direction:column;justify-content:center;gap:2px;line-height:1.2}
+.runtime-update-copy .ui-text-vi{font-size:11px;font-weight:650}
+.runtime-update-copy .ui-text-zh{font-size:10px;color:rgba(255,255,255,.66)}
+.sidebar-session-meta{display:grid;gap:4px;padding:0 2px}
+.sidebar-idle-info{display:grid;gap:2px;margin:0;color:rgba(255,255,255,.46);font-size:10px;line-height:1.3}
 .sidebar-idle-info .ui-text-vi,.sidebar-idle-info .ui-text-zh{display:block}
 .app.sidebar-collapsed .sb>.sb-ft{display:flex;min-width:44px;padding:8px 6px 10px;align-items:center;justify-content:center}
-.app.sidebar-collapsed .sb-ft-t,.app.sidebar-collapsed .sidebar-idle-info,.app.sidebar-collapsed .runtime-update-copy{display:none}
+.app.sidebar-collapsed .sidebar-session-meta,.app.sidebar-collapsed .runtime-update-copy{display:none}
 .app.sidebar-collapsed .runtime-update-notice{display:flex;width:32px;margin:0;padding:2px;align-items:center;justify-content:center;border:none;background:transparent}
 .mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
 .tb{padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
@@ -291,10 +292,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
         <span class="runtime-update-icon" aria-hidden="true"><i id="runtime-update-icon" class="ti ti-loader-2"></i><span class="runtime-update-dot" id="runtime-update-dot" hidden></span></span>
         <span class="runtime-update-copy ui-bilingual"><span class="ui-text-vi" id="runtime-update-text-vi">Đang kiểm tra cập nhật</span><span class="ui-text-zh" id="runtime-update-text-zh">正在確認更新</span></span>
       </button>
-      <div class="sb-ft-t">M9</div>
-      <div id="idle-info" class="sidebar-idle-info ui-bilingual">
-        <span class="ui-text-vi">Tự động đăng xuất: <span data-idle-countdown>30:00</span></span>
-        <span class="ui-text-zh">自動登出：<span data-idle-countdown>30:00</span></span>
+      <div class="sidebar-session-meta">
+        <div class="sb-ft-t">M9</div>
+        <div id="idle-info" class="sidebar-idle-info ui-bilingual">
+          <span class="ui-text-vi">Tự động đăng xuất: <span data-idle-countdown>30:00</span></span>
+          <span class="ui-text-zh">自動登出：<span data-idle-countdown>30:00</span></span>
+        </div>
       </div>
     </div>
   </div>
@@ -347,9 +350,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 </h2>
                 <div class="home-update-description">
                   <div class="home-update-language-block ui-text-vi" lang="vi">
+                    <section class="home-update-topic"><h3>Nhật ký thay đổi mã hàng</h3><ol><li>Quản lý mã hàng đã có nhật ký chung để tra cứu toàn bộ thay đổi.</li><li>Sửa một mã, sửa theo nhóm và nhập Excel đều lưu phần tóm tắt cùng chi tiết trước và sau khi thay đổi.</li></ol></section>
                     <section class="home-update-topic"><h3>Ghi nhận sản xuất</h3><ol><li>Trường mã hàng đã trở lại chỉ hiển thị mã hàng, không còn kèm thêm nội dung mô tả phía sau.</li><li>Chức năng hủy bản ghi sản xuất đã hoạt động bình thường.</li></ol></section>
                   </div>
                   <div class="home-update-language-block ui-text-zh" lang="zh-Hant">
+                    <section class="home-update-topic"><h3>款號修改流水帳</h3><ol><li>款號管理新增共用流水帳，可集中回查全部款號異動。</li><li>單款修改、群組修改與 Excel 匯入都會保存主摘要及修改前後明細。</li></ol></section>
                     <section class="home-update-topic"><h3>生產登記</h3><ol><li>款號欄位已恢復只顯示款號，不再於後方附加其他說明。</li><li>生產紀錄作廢功能已恢復正常使用。</li></ol></section>
                   </div>
                 </div>
@@ -1482,7 +1487,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/auth.js?v=20260825-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260825-2"></script>
+<script type="module" src="js/firebase.js?v=20260825-3"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。
