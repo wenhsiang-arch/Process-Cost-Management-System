@@ -108,12 +108,17 @@
     return directRead('performanceBonusTable',async()=>snapshotData(await window._getDoc(tableRef())),options);
   }
   async function readControl(month){ return snapshotData(await window._getDoc(productionMonthRef(month))); }
-  function sourceState(data={}){
-    return {entries:String(data.entriesVersion||'0'),attendance:String(data.attendanceVersion||'0'),summary:String(data.summaryVersion||'0')};
+  function normalizedObject(data){
+    return data&&typeof data==='object'?data:{};
   }
-  function stableStateToken(data={}){
-    const source=sourceState(data);
-    return `${source.entries}|${source.attendance}|${source.summary}|${Number(data.revision)||0}|${String(data.status||'')}|${data.summaryReady===true}`;
+  function sourceState(data){
+    const value=normalizedObject(data);
+    return {entries:String(value.entriesVersion||'0'),attendance:String(value.attendanceVersion||'0'),summary:String(value.summaryVersion||'0')};
+  }
+  function stableStateToken(data){
+    const value=normalizedObject(data);
+    const source=sourceState(value);
+    return `${source.entries}|${source.attendance}|${source.summary}|${Number(value.revision)||0}|${String(value.status||'')}|${value.summaryReady===true}`;
   }
   async function readAdjustments(month){
     const snapshot=await window._getDocs(window._query(window._collection(ADJUSTMENT_COLLECTION),window._where('month','==',requireMonth(month))));
@@ -179,7 +184,8 @@
     const calculatedAt=now();
     return {
       month,status:'draft',settingsVersion:Number(table.version)||0,sourceEntriesVersion:stable.source.entries,
-      sourceAttendanceVersion:stable.source.attendance,sourceSummaryVersion:stable.source.summary,employeeCount:result.employees.length,
+      sourceAttendanceVersion:stable.source.attendance,sourceSummaryVersion:stable.source.summary,
+      sourceControlAvailable:stable.control!==null,employeeCount:result.employees.length,
       eligibleEmployeeCount:result.employees.filter(item=>item.finalBonus>0).length,
       baseBonusTotal:result.totals.baseBonus,adjustmentTotal:result.totals.adjustment,finalBonusTotal:result.totals.finalBonus,
       anomalyCount:anomalies.length,anomalies:anomalies.slice(0,100),requiresRecalculation:false,

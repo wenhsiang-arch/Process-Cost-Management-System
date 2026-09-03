@@ -19,7 +19,8 @@
       draft:{vi:'Đang thử tính',zh:'試算中'},
       locked:{vi:'Đã khóa',zh:'已鎖定'},
       exported:{vi:'Đã xuất',zh:'已匯出'},
-      paid:{vi:'Đã phát',zh:'已發放'}
+      paid:{vi:'Đã phát',zh:'已發放'},
+      notReady:{vi:'Chưa sẵn sàng',zh:'尚未就緒'}
     })[status]||{vi:'Chưa có dữ liệu',zh:'尚無資料'};
   }
   function errorDetails(error){
@@ -144,13 +145,16 @@
     return cell;
   }
   function render(){
-    const status=statusPair(state.metadata?.status);
+    const summaryReady=state.metadata?.summaryReady===true
+      ||Boolean(state.metadata&&state.metadata.status!=='draft');
+    const sourceControlMissing=Boolean(state.metadata)&&state.metadata.sourceControlAvailable===false;
+    const status=statusPair(sourceControlMissing?'notReady':state.metadata?.status);
     el('performance-bonus-status').replaceChildren(window.PCMSUIText.create(status));
     const note=el('performance-bonus-month-note');
     note.hidden=false;
-    const summaryReady=state.metadata?.summaryReady===true
-      ||Boolean(state.metadata&&state.metadata.status!=='draft');
-    note.replaceChildren(window.PCMSUIText.create(!summaryReady
+    note.replaceChildren(window.PCMSUIText.create(sourceControlMissing
+      ?{vi:'Tháng này chưa có trạng thái tháng và tóm tắt sản xuất hoàn chỉnh nên chưa thể khóa hoặc xuất thưởng.',zh:'此月份尚未建立月份狀態及完整生產摘要，因此暫時不能鎖定或匯出獎金。'}
+      :!summaryReady
       ?{vi:'Tóm tắt đang tạm dừng nên phân tích và thưởng chưa hiển thị. Chấm công và sản lượng của tháng đang mở vẫn hoạt động bình thường.',zh:'摘要目前暫停，因此分析與獎金暫不顯示；開放月份的考勤與報工仍可正常操作。'}
       :state.metadata
       ?{vi:`Cập nhật lần cuối: ${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('vi-VN')}`,zh:`最後更新：${new Date(Number(state.metadata.updatedAt||state.metadata.calculatedAt)||0).toLocaleString('zh-TW')}`}
