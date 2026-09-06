@@ -26,7 +26,7 @@
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260813-1',
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
-    pieceCutting:'js/piece-cutting.js?v=20260906-1',
+    pieceCutting:'js/piece-cutting.js?v=20260906-2',
     accounts:'js/accounts.js?v=20260813-2',
     orders:'js/orders.js?v=20260824-1',
     permissions:'js/permissions.js?v=20260823-1',
@@ -62,7 +62,7 @@
 
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260813-1',
-    pieceCutting:'styles/features/piece-cutting.css?v=20260906-1',
+    pieceCutting:'styles/features/piece-cutting.css?v=20260906-2',
     orders:'styles/features/orders.css?v=20260810-2',
     products:'styles/features/products.css?v=20260824-5',
     cost:'styles/features/cost.css?v=20260810-4',
@@ -125,16 +125,16 @@
       ]
     },
     {
-      id:'preparation',navId:'preparation',navGroup:'primary',icon:'ti-package',mainKey:'preparationMain',
+      id:'preparation',navId:'preparation',navGroup:'primary',icon:'ti-package',mainKey:'preparationMain',usesInternalTabs:true,
       vi:'Xuất phiếu chuẩn bị vật liệu',zh:'備料出單',
       pages:[
         {
-          page:'cutting',feature:'cutting',icon:'ti-scissors',vi:'Xuất phiếu cắt dây',zh:'裁帶出單',
+          page:'cutting',feature:'cutting',navId:'cutting',icon:'ti-scissors',vi:'Xuất phiếu cắt dây',zh:'裁帶出單',
           permissionVi:'Xuất phiếu chuẩn bị vật liệu',permissionZh:'備料出單（裁帶與裁片）',
           styles:['cutting'],scripts:['history','fileIo','uiTableControls','cuttingStore','cutting'],dataScopes:['cuttingTemplates'],dataLoaders:[],onOpen:['cuttingInit']
         },
         {
-          page:'piece-cutting',feature:'cutting',permissionVisible:false,icon:'ti-layout-grid',vi:'Xuất phiếu cắt chi tiết',zh:'裁片出單',
+          page:'piece-cutting',feature:'cutting',navId:'piece-cutting',permissionVisible:false,icon:'ti-layout-grid',vi:'Xuất phiếu cắt chi tiết',zh:'裁片出單',
           styles:['pieceCutting'],scripts:['history','fileIo','uiTableControls','cutting','pieceCuttingStore','pieceCutting'],
           dataScopes:['pieceCuttingTemplates','pieceCuttingTemplateChunks'],dataLoaders:[],onOpen:['pieceCuttingInit'],onLeave:['pieceCuttingLeave']
         }

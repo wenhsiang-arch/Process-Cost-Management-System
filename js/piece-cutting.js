@@ -227,20 +227,48 @@
     if(!root||root.dataset.ready==='1') return;
     root.dataset.ready='1';
     root.innerHTML=`<section class="piece-cutting-page ui-work-panel">
-      <nav class="pc-tabs" aria-label="Phân trang cắt chi tiết / 裁片功能分頁">
-        <button id="pc-tab-order" class="active" data-pc-tab="order"><span class="ui-text-vi">Nhập đơn hàng</span><span class="ui-text-zh">匯入訂單</span></button>
-        <button id="pc-tab-template" data-pc-tab="template"><span class="ui-text-vi">Nhập mẫu chính</span><span class="ui-text-zh">匯入主檔</span></button>
-        <button id="pc-tab-history" data-pc-tab="history"><span class="ui-text-vi">Lịch sử thao tác</span><span class="ui-text-zh">歷史操作紀錄</span></button>
+      <nav class="pc-tabs ui-tabs" aria-label="Phân trang cắt chi tiết / 裁片功能分頁">
+        <button id="pc-tab-order" class="ui-tab active" data-pc-tab="order"><span class="ui-text-vi">Nhập đơn hàng</span><span class="ui-text-zh">匯入訂單</span></button>
+        <button id="pc-tab-template" class="ui-tab" data-pc-tab="template"><span class="ui-text-vi">Nhập mẫu chính</span><span class="ui-text-zh">匯入主檔</span></button>
+        <button id="pc-tab-history" class="ui-tab" data-pc-tab="history"><span class="ui-text-vi">Lịch sử thao tác</span><span class="ui-text-zh">歷史操作紀錄</span></button>
       </nav>
       <section id="pc-panel-order" class="pc-panel">
-        <div class="pc-action-grid">
-          <button id="pc-order-drop" class="pc-file-card"><i class="ti ti-files"></i><span><b class="ui-text-vi">Tệp đơn hàng</b><b class="ui-text-zh">訂單檔案</b><small id="pc-order-file"><span class="ui-text-vi">Chọn hoặc kéo nhiều tệp .xlsx, .xls</span><span class="ui-text-zh">可選取或拖入多個 .xlsx、.xls</span></small></span></button>
-          <div id="pc-tool-status" class="pc-tool-status"><i class="ti ti-alert-circle"></i><span><b class="ui-text-vi">Chưa mở công cụ PDF cắt chi tiết</b><b class="ui-text-zh">裁片 PDF 工具尚未啟動</b></span></div>
-          <button id="pc-start-tool" class="pc-action"><i class="ti ti-player-play"></i><span><b class="ui-text-vi">Mở công cụ PDF</b><b class="ui-text-zh">啟動 PDF 工具</b></span></button>
-          <button id="pc-export" class="pc-action pc-primary" disabled><i class="ti ti-file-type-pdf"></i><span><b class="ui-text-vi">Xuất PDF cắt chi tiết</b><b class="ui-text-zh">匯出裁片 PDF</b></span></button>
+        <section class="pc-operation-panel ui-operation-panel">
+          <div class="pc-command-row ui-command-row">
+            <div class="pc-context-grid ui-context-grid">
+              <div class="pc-context-item ui-context-item">
+                <i class="ti ti-file-type-pdf"></i>
+                <div><span class="pc-context-copy ui-dual-copy"><strong>Công cụ PDF</strong><span>PDF 工具狀態</span></span><div id="pc-tool-status" class="pc-tool-status"><i class="ti ti-alert-circle"></i><span><b class="ui-text-vi">Chưa mở công cụ PDF cắt chi tiết</b><b class="ui-text-zh">裁片 PDF 工具尚未啟動</b></span></div></div>
+              </div>
+              <button id="pc-order-drop" type="button" class="pc-context-item ui-context-item pc-file-card ui-file-picker">
+                <i class="ti ti-files"></i><span><span class="pc-context-copy ui-dual-copy"><strong>Tệp đơn hàng</strong><span>訂單檔案</span></span><small id="pc-order-file"><span class="ui-text-vi">Chọn hoặc kéo nhiều tệp .xlsx, .xls</span><span class="ui-text-zh">可選取或拖入多個 .xlsx、.xls</span></small></span>
+              </button>
+            </div>
+            <div class="pc-command-actions ui-command-actions">
+              <details class="pc-disclosure pc-guide-disclosure" data-ui-dismiss-outside data-ui-dismiss-on-content>
+                <summary class="pc-command-summary ui-command-action"><i class="ti ti-book"></i><span class="pc-action-copy ui-dual-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
+                <div class="pc-guide-panel">
+                  <section class="ui-text-vi" lang="vi"><h3>Thiết lập lần đầu</h3><ol><li>Vào thư mục 「OneDrive\\1MAY9\\Công cụ chuyển đổi PDF chi tiết cắt」 và chọn 「Luôn giữ trên thiết bị này」.</li><li>Nhấp đúp 「Khởi động công cụ PDF cắt chi tiết.bat」 một lần trên máy tính này.</li><li>Quay lại hệ thống và nhấn 「Mở PDF」. Những lần sau chỉ cần nhấn nút này để sử dụng.</li></ol></section>
+                  <section class="ui-text-zh" lang="zh-Hant"><h3>第一次設定</h3><ol><li>進入「OneDrive\\1MAY9\\Công cụ chuyển đổi PDF chi tiết cắt」，將資料夾設為「永遠保留在此裝置」。</li><li>在這台電腦雙擊一次「Khởi động công cụ PDF cắt chi tiết.bat」。</li><li>回到系統點擊「啟動 PDF 工具」；設定完成後，日後只需點擊此按鈕。</li></ol></section>
+                </div>
+              </details>
+              <button id="pc-start-tool" type="button" class="pc-command-action ui-command-action"><i class="ti ti-player-play"></i><span class="pc-action-copy ui-dual-copy"><strong>Mở PDF</strong><span>啟動 PDF 工具</span></span></button>
+              <button id="pc-export" type="button" class="pc-command-action ui-command-action is-primary is-condition-dependent" disabled><i class="ti ti-file-export"></i><span class="pc-action-copy ui-dual-copy"><strong>Xuất PDF</strong><span>匯出裁片 PDF</span></span></button>
+              <button id="pc-clear-current" type="button" class="pc-command-action ui-command-action is-danger"><i class="ti ti-eraser"></i><span class="pc-action-copy ui-dual-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span></button>
+            </div>
+          </div>
+          <input id="pc-order-input" type="file" accept=".xlsx,.xls" multiple hidden>
+        </section>
+        <div class="pc-summary-row ui-summary-row">
+          <div class="pc-summary-item ui-summary-item"><div class="pc-summary-label ui-summary-label">Tổng mã hàng<span>總款號</span></div><div class="pc-summary-value ui-summary-value" id="pc-total">0</div></div>
+          <div class="pc-summary-item ui-summary-item is-success"><div class="pc-summary-label ui-summary-label">Đạt<span>通過</span></div><div class="pc-summary-value ui-summary-value" id="pc-pass">0</div></div>
+          <div class="pc-summary-item ui-summary-item is-warning"><div class="pc-summary-label ui-summary-label">Thiếu mẫu<span>缺少模板</span></div><div class="pc-summary-value ui-summary-value" id="pc-missing">0</div></div>
+          <div class="pc-summary-item ui-summary-item is-danger"><div class="pc-summary-label ui-summary-label">Lỗi<span>錯誤</span></div><div class="pc-summary-value ui-summary-value" id="pc-error">0</div></div>
         </div>
-        <input id="pc-order-input" type="file" accept=".xlsx,.xls" multiple hidden>
         <div id="pc-order-summary" class="pc-summary"></div>
+        <section class="pc-data-section ui-data-section pc-results-section">
+          <div class="pc-section-header ui-section-header"><i class="ti ti-list-check"></i><span class="pc-section-copy ui-dual-copy"><strong>Kết quả kiểm tra</strong><span>核對結果</span></span></div>
+          <div class="pc-results-frame ui-table-frame">
         <div class="pc-table-wrap pc-order-files-wrap"><table class="pc-table pc-order-files-table"><thead><tr>
           <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
           <th><span class="ui-text-vi">Số mã</span><span class="ui-text-zh">款號數</span></th><th><span class="ui-text-vi">Tổng số lượng</span><span class="ui-text-zh">總數量</span></th>
@@ -256,6 +284,8 @@
           <th><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></th><th><span class="ui-text-vi">Số lượng</span><span class="ui-text-zh">訂單數量</span></th>
           <th><span class="ui-text-vi">Size</span><span class="ui-text-zh">尺寸</span></th><th><span class="ui-text-vi">Vật liệu liên quan</span><span class="ui-text-zh">相關布料</span></th>
           <th><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th></tr></thead><tbody id="pc-order-body"></tbody></table></div>
+          </div>
+        </section>
       </section>
       <section id="pc-panel-template" class="pc-panel" hidden>
         <div class="pc-template-tools">
@@ -321,7 +351,17 @@
       body.appendChild(row);
     });
     if(!state.orderItems.length){ const row=document.createElement('tr'); row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có dữ liệu đơn hàng hợp lệ</span><span class="ui-text-zh">尚無有效訂單資料</span></td>'; body.appendChild(row); }
-    g('pc-export').disabled=!(model?.matched.length&&model?.materials.length&&!state.orderErrors.length&&!model?.missing?.length);
+    const totalCodes=new Set(state.orderItems.map(item=>normalizeKey(item.code)).filter(Boolean)).size;
+    const missingCount=missingMasterCodes(model).length;
+    const passCount=Math.max(0,totalCodes-missingCount);
+    g('pc-total').textContent=String(totalCodes);
+    g('pc-pass').textContent=String(passCount);
+    g('pc-missing').textContent=String(missingCount);
+    g('pc-error').textContent=String(state.orderErrors.length);
+    const canExport=!!(model?.matched.length&&model?.materials.length&&!state.orderErrors.length&&!model?.missing?.length);
+    const exportButton=g('pc-export');
+    exportButton.disabled=!canExport;
+    exportButton.classList.toggle('is-ready',canExport);
     if(state.orderErrors.length) setSummary('pc-order-summary',`${state.orderFiles.length} tệp · ${state.orderErrors.length} lỗi. Tệp hợp lệ vẫn được giữ; bỏ hoặc thay tệp lỗi trước khi xuất.`,`共 ${state.orderFiles.length} 個檔案、${state.orderErrors.length} 筆錯誤；有效檔案會保留，請移除或重新匯入錯誤檔案後再匯出。`,'danger');
     else if(model?.missing?.length) setSummary('pc-order-summary',`${state.orderFiles.length} tệp · thiếu ${missingMasterCodes(model).length} mã trong mẫu chính. Đã chặn xuất PDF để tránh tính thiếu.`,
       `共 ${state.orderFiles.length} 個檔案 · ${missingMasterCodes(model).length} 個款號在主檔中找不到。為避免少算，已禁止匯出 PDF。`,'danger');
@@ -499,6 +539,17 @@
     renderOrder();
   }
 
+  // clearCurrentOrders（清除目前訂單）：只清除尚未匯出的本頁資料，不影響裁片主檔或歷史紀錄。
+  function clearCurrentOrders(){
+    orderLoadRevision+=1;
+    state.orderFiles=[];
+    state.orderItems=[];
+    state.orderErrors=[];
+    state.orderNumbers=[];
+    state.exportModel=null;
+    renderOrder();
+  }
+
   async function fetchLocal(path,options={},timeout=10000){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);
     try{return await fetch(`${LOCAL_ORIGIN}${path}`,{...options,signal:controller.signal});}finally{clearTimeout(timer);}
@@ -589,7 +640,7 @@
     g('pc-order-files-body').addEventListener('click',event=>{const button=event.target.closest('[data-order-file-id]');if(button)void removeOrderFile(button.dataset.orderFileId);});
     g('pc-template-drop').addEventListener('click',()=>g('pc-template-input').click());g('pc-template-input').addEventListener('change',event=>{void handleTemplate(event.target.files?.[0]);event.target.value='';});
     g('pc-save-template').addEventListener('click',()=>void saveTemplate());g('pc-delete-template').addEventListener('click',()=>void deleteTemplate());
-    g('pc-start-tool').addEventListener('click',()=>void startTool());g('pc-export').addEventListener('click',()=>void exportPdf());g('pc-history-more').addEventListener('click',()=>void loadHistory(true));
+    g('pc-start-tool').addEventListener('click',()=>void startTool());g('pc-export').addEventListener('click',()=>void exportPdf());g('pc-clear-current').addEventListener('click',clearCurrentOrders);g('pc-history-more').addEventListener('click',()=>void loadHistory(true));
   }
 
   // resetUserState（切換登入工作階段時清除使用者訂單與歷史）：裁片主檔快取仍依核准規則在同一裝置共用。

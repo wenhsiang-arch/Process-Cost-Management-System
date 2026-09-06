@@ -123,6 +123,10 @@ function uNav(){
     const el=g('nv-'+module.navId); if(!el) return;
     el.className='ni'+(module.pages.some(item=>canOpenPage(item.page))?'':' locked');
   });
+  // pageNavItems（直接開啟子頁的側邊導覽）：沿用頁面既有權限，不建立另一套放行規則。
+  document.querySelectorAll('[data-page-nav]').forEach(el=>{
+    el.classList.toggle('locked',!canOpenPage(el.dataset.pageNav));
+  });
   const hasManagementAccess=modules.filter(module=>module.navGroup==='management').some(module=>{ // hasManagementAccess（具有管理分類功能）
     const item=g('nv-'+module.navId);
     return item&&!item.classList.contains('locked');
@@ -537,7 +541,7 @@ async function sp(name){
     document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
     const pg=g('pg-'+name); if(pg) pg.classList.add('active');
     const moduleConfig=window.PCMSFeatures.getModule(pageConfig.moduleId); // moduleConfig（頁面所屬主功能）
-    const nav=g('nv-'+(moduleConfig?.navId||name)); if(nav) nav.classList.add('active');
+    const nav=g('nv-'+(pageConfig.navId||moduleConfig?.navId||name)); if(nav) nav.classList.add('active');
     renderModuleTabs(name);
     await window.PCMSFeatures.enterPage(name);
     showFeatureDataWarnings(dataWarnings);

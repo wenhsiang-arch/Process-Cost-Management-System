@@ -64,7 +64,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','performance-bonus-settings','permissions','product-change-log','product-groups',
+    'accounts','costlog','cutting','export','performance-bonus-settings','permissions','piece-cutting','product-change-log','product-groups',
     'production-analysis','production-attendance','production-bonus','production-employees','production-entry','production-records','progress','settings','summary','system-monitor'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
@@ -111,13 +111,18 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.equal(context.window.PCMSFeatures.defaultPermissions.manager.productionAnalysis,false);
   const preparation=context.window.PCMSFeatures.getModule('preparation');
   assert.equal(preparation.mainKey,'preparationMain');
-  assert.deepEqual(Array.from(preparation.pages).map(page=>page.page),['cutting']);
+  assert.equal(preparation.usesInternalTabs,true);
+  assert.deepEqual(Array.from(preparation.pages).map(page=>page.page),['cutting','piece-cutting']);
+  assert.deepEqual(Array.from(preparation.pages).map(page=>page.navId),['cutting','piece-cutting']);
+  assert.equal(preparation.pages[1].feature,'cutting');
+  assert.equal(preparation.pages[1].permissionVisible,false);
   assert.equal(context.window.PCMSFeatures.defaultPermissions.manager.preparationMain,false);
   assert.equal(context.window.normalizeFeaturePermissions({cutting:true}).preparationMain,false);
   const navigationHtml=read('index.html');
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260825-7/);
+  assert.match(navigationHtml,/Xuất phiếu chuẩn bị vật liệu \/ 備料出單[\s\S]*?data-page-nav="cutting"[\s\S]*?id="nv-cutting"[\s\S]*?data-page-nav="piece-cutting"[\s\S]*?id="nv-piece-cutting"/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260906-2/);
 });
 
 test('款號快取依唯一遞增序號同步且不要求群組序號連續',()=>{
@@ -165,6 +170,7 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     settings:'js/settings.js',uiTableControls:'js/ui-table-controls.js',uiSearchDropdown:'js/ui-search-dropdown.js',
     productCache:'js/product-cache.js',productChangeLogStore:'js/product-change-log-store.js',productChangeLog:'js/product-change-log.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
+    pieceCuttingStore:'js/piece-cutting-store.js',pieceCutting:'js/piece-cutting.js',
     accounts:'js/accounts.js',orders:'js/orders.js',permissions:'js/permissions.js',
     productModel:'js/product-model.js',productMasterStore:'js/product-master-store.js',productResolver:'js/product-resolver.js',
     productGroupStore:'js/product-group-store.js',productMasterService:'js/product-master-service.js',

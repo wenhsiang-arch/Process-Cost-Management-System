@@ -50,7 +50,7 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
   assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260825-7/);
+  assert.match(html,/js\/features\.js\?v=20260906-2/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260813-1'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);
@@ -517,6 +517,10 @@ test('每個功能頁保留裁帶式平面抬頭且單頁不得省略',()=>{
   assert.match(auth,/class="module-tab-copy ui-dual-copy"/);
   assert.doesNotMatch(auth,/<i class="ti \$\{item\.icon\}"><\/i>/);
   assert.match(features,/id:'preparation'[\s\S]*?mainKey:'preparationMain'[\s\S]*?usesInternalTabs:true/);
+  assert.match(html,/data-page-nav="cutting" onclick="sp\('cutting'\)" id="nv-cutting"/);
+  assert.match(html,/data-page-nav="piece-cutting" onclick="sp\('piece-cutting'\)" id="nv-piece-cutting"/);
+  assert.match(auth,/document\.querySelectorAll\('\[data-page-nav\]'\)/);
+  assert.match(auth,/pageConfig\.navId\|\|moduleConfig\?\.navId\|\|name/);
   assert.match(specification,/只有一個頁面時仍顯示一格/);
 });
 
