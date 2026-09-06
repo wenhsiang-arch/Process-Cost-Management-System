@@ -1673,3 +1673,241 @@
 /* product-master-entry-edit-button（生產登記款號主檔欄位入口）：外觀與原秒數入口一致。 */
 .product-master-entry-edit-button{display:inline-flex;max-width:100%;align-items:center;justify-content:flex-start;padding:5px 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .product-master-entry-edit-button:not(:disabled):hover,.product-master-entry-edit-button:not(:disabled):focus-visible{border-color:var(--accent);background:#eaf2ff;color:var(--accent);outline:none}.product-master-entry-edit-button:disabled{cursor:default}.production-number-cell .product-master-entry-edit-button{justify-content:flex-end;margin-left:auto}
+
+/* production-entry-legibility-pilot（生產登記清晰度試做）：只調整此頁文字與寬度自動排列，不影響其他產能頁。 */
+#pg-production-entry {
+  font-size: 14px;
+}
+
+#pg-production-entry .ui-dual-copy > strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#pg-production-entry .ui-dual-copy > span {
+  margin-top: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#pg-production-entry .production-employee-inline-field > label,
+#pg-production-entry .production-inline-label,
+#pg-production-entry .production-field > label,
+#pg-production-entry .production-field-label {
+  line-height: 1.25;
+}
+
+#pg-production-entry .production-employee-inline-field > label strong,
+#pg-production-entry .production-inline-label strong,
+#pg-production-entry .production-field > label strong,
+#pg-production-entry .production-field-label strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+#pg-production-entry .production-employee-inline-field > label span,
+#pg-production-entry .production-inline-label span,
+#pg-production-entry .production-field > label span,
+#pg-production-entry .production-field-label span {
+  margin-top: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#pg-production-entry .production-field > label,
+#pg-production-entry .production-field-label,
+#pg-production-entry .production-field-label-row {
+  min-height: 34px;
+}
+
+#pg-production-entry .production-inline-value,
+#pg-production-entry .production-inline-attendance-value.ui-dual-copy strong,
+#pg-production-entry .production-field input,
+#pg-production-entry .production-field select,
+#pg-production-entry .production-process-name-output,
+#pg-production-entry .production-entry-table-search > input,
+#pg-production-entry .production-entry-table-filter select {
+  font-size: 14px;
+}
+
+#pg-production-entry .production-supplement-help {
+  min-height: 44px;
+}
+
+#pg-production-entry .production-anomaly-filter-card {
+  min-height: 46px;
+}
+
+#pg-production-entry .production-entry-status {
+  font-size: 12px;
+  line-height: 1.4;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+#pg-production-entry .production-registration-header + .production-entry-status:not([hidden]) {
+  min-height: 32px;
+}
+
+#pg-production-entry .production-quantity-progress {
+  min-height: 52px;
+}
+
+#pg-production-entry .production-entry-table-header {
+  min-height: 52px;
+  row-gap: 6px;
+}
+
+#pg-production-entry .production-entry-table-header > .ui-dual-copy > strong {
+  font-size: 14px;
+}
+
+#pg-production-entry .production-entry-table-header > .ui-dual-copy > span {
+  font-size: 12px;
+}
+
+#pg-production-entry .production-entry-table-filter-label {
+  min-width: 52px;
+  line-height: 1.2;
+}
+
+#pg-production-entry .production-record-date-filter-button {
+  min-width: 132px;
+  height: 44px;
+}
+
+#pg-production-entry .production-entry-table-filter select,
+#pg-production-entry .production-entry-table-search > input {
+  height: 40px;
+}
+
+#pg-production-entry #production-entry-page-indicator {
+  font-size: 12px;
+}
+
+#pg-production-entry .production-entry-table {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+#pg-production-entry .production-entry-table th {
+  padding: 6px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+#pg-production-entry .production-entry-table th .tv {
+  margin-top: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#pg-production-entry .production-entry-table td {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+#pg-production-entry .production-entry-table .production-status {
+  min-height: 26px;
+  font-size: 12px;
+}
+
+#pg-production-entry .production-entry-table .production-date-badge {
+  min-height: 44px;
+}
+
+#pg-production-entry .production-entry-table .production-date-badge strong {
+  font-size: 13px;
+}
+
+#pg-production-entry .production-entry-table .production-date-badge span {
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+}
+
+#pg-production-entry .ui-search-dropdown-option strong,
+#pg-production-entry .ui-table-column-settings-option {
+  font-size: 13px;
+}
+
+#pg-production-entry .ui-search-dropdown-option span,
+#pg-production-entry .ui-table-column-settings-menu .ui-dual-copy > span {
+  color: var(--ui-color-text-muted);
+  font-size: 12px;
+}
+
+html[data-ui-language-mode="vi"] #pg-production-entry .ui-dual-copy > strong,
+html[data-ui-language-mode="zh"] #pg-production-entry .ui-dual-copy > span {
+  margin-top: 0;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+html[data-ui-language-mode="zh"] #pg-production-entry .production-entry-table-header > .ui-dual-copy > span {
+  font-size: 14px;
+}
+
+/* 筆電寬度維持相同字級，只讓標題、篩選與進度自然換排。 */
+@media (max-width: 1366px) {
+  #pg-production-entry .production-entry-table-header {
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  #pg-production-entry .ui-table-column-settings {
+    order: 0;
+  }
+
+  #pg-production-entry .production-entry-table-header > .ui-dual-copy {
+    order: 1;
+    flex: 1 1 260px;
+  }
+
+  #pg-production-entry .production-entry-pagination {
+    order: 2;
+  }
+
+  #pg-production-entry .production-quantity-progress {
+    order: 3;
+    width: min(100%, 390px);
+  }
+
+  #pg-production-entry .production-entry-table-filters {
+    order: 4;
+    width: 100%;
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+
+  #pg-production-entry .production-entry-table-search {
+    min-width: 190px;
+    flex: 1 1 240px;
+  }
+}
+
+/* 高縮放或更窄視窗只重排人員資訊與篩選；高頻登記欄位仍維持既有單排操作。 */
+@media (max-width: 1050px) {
+  #pg-production-entry .production-employee-inline-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  #pg-production-entry .production-entry-table-filter {
+    flex: 1 1 210px;
+  }
+
+  #pg-production-entry .production-entry-table-filter select,
+  #pg-production-entry .production-record-date-filter,
+  #pg-production-entry .production-record-date-filter-button {
+    width: 100%;
+  }
+}
