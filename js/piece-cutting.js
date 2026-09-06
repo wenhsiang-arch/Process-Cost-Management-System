@@ -228,9 +228,9 @@
     root.dataset.ready='1';
     root.innerHTML=`<section class="piece-cutting-page ui-work-panel">
       <nav class="pc-tabs ui-tabs" aria-label="Phân trang cắt chi tiết / 裁片功能分頁">
-        <button id="pc-tab-order" class="ui-tab active" data-pc-tab="order"><span class="ui-text-vi">Nhập đơn hàng</span><span class="ui-text-zh">匯入訂單</span></button>
-        <button id="pc-tab-template" class="ui-tab" data-pc-tab="template"><span class="ui-text-vi">Nhập mẫu chính</span><span class="ui-text-zh">匯入主檔</span></button>
-        <button id="pc-tab-history" class="ui-tab" data-pc-tab="history"><span class="ui-text-vi">Lịch sử thao tác</span><span class="ui-text-zh">歷史操作紀錄</span></button>
+        <button id="pc-tab-order" class="ui-tab active" data-pc-tab="order"><span class="pc-tab-copy ui-dual-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
+        <button id="pc-tab-template" class="ui-tab" data-pc-tab="template"><span class="pc-tab-copy ui-dual-copy"><strong>Nhập mẫu chính</strong><span>匯入主檔</span></span></button>
+        <button id="pc-tab-history" class="ui-tab" data-pc-tab="history"><span class="pc-tab-copy ui-dual-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄</span></span></button>
       </nav>
       <section id="pc-panel-order" class="pc-panel">
         <section class="pc-operation-panel ui-operation-panel">
@@ -260,26 +260,27 @@
           <input id="pc-order-input" type="file" accept=".xlsx,.xls" multiple hidden>
         </section>
         <div class="pc-summary-row ui-summary-row">
-          <div class="pc-summary-item ui-summary-item"><div class="pc-summary-label ui-summary-label">Tổng mã hàng<span>總款號</span></div><div class="pc-summary-value ui-summary-value" id="pc-total">0</div></div>
-          <div class="pc-summary-item ui-summary-item is-success"><div class="pc-summary-label ui-summary-label">Đạt<span>通過</span></div><div class="pc-summary-value ui-summary-value" id="pc-pass">0</div></div>
-          <div class="pc-summary-item ui-summary-item is-warning"><div class="pc-summary-label ui-summary-label">Thiếu mẫu<span>缺少模板</span></div><div class="pc-summary-value ui-summary-value" id="pc-missing">0</div></div>
-          <div class="pc-summary-item ui-summary-item is-danger"><div class="pc-summary-label ui-summary-label">Lỗi<span>錯誤</span></div><div class="pc-summary-value ui-summary-value" id="pc-error">0</div></div>
+          <div class="pc-summary-item ui-summary-item"><div class="pc-summary-label ui-summary-label"><span class="ui-text-vi">Tổng mã hàng</span><span class="ui-text-zh">總款號</span></div><div class="pc-summary-value ui-summary-value" id="pc-total">0</div></div>
+          <div class="pc-summary-item ui-summary-item is-success"><div class="pc-summary-label ui-summary-label"><span class="ui-text-vi">Đạt</span><span class="ui-text-zh">通過</span></div><div class="pc-summary-value ui-summary-value" id="pc-pass">0</div></div>
+          <div class="pc-summary-item ui-summary-item is-warning"><div class="pc-summary-label ui-summary-label"><span class="ui-text-vi">Thiếu mẫu</span><span class="ui-text-zh">缺少模板</span></div><div class="pc-summary-value ui-summary-value" id="pc-missing">0</div></div>
+          <div class="pc-summary-item ui-summary-item is-danger"><div class="pc-summary-label ui-summary-label"><span class="ui-text-vi">Lỗi</span><span class="ui-text-zh">錯誤</span></div><div class="pc-summary-value ui-summary-value" id="pc-error">0</div></div>
         </div>
-        <div id="pc-order-summary" class="pc-summary"></div>
+        <div id="pc-order-summary" class="pc-summary" hidden></div>
         <section class="pc-data-section ui-data-section pc-results-section">
           <div class="pc-section-header ui-section-header"><i class="ti ti-list-check"></i><span class="pc-section-copy ui-dual-copy"><strong>Kết quả kiểm tra</strong><span>核對結果</span></span></div>
           <div class="pc-results-frame ui-table-frame">
-        <div class="pc-table-wrap pc-order-files-wrap"><table class="pc-table pc-order-files-table"><thead><tr>
+        <div id="pc-results-empty" class="pc-results-empty" role="status"><i class="ti ti-file-search" aria-hidden="true"></i><span class="pc-results-empty-copy ui-dual-copy"><strong>Chưa có kết quả kiểm tra.</strong><span>尚無核對結果。</span></span></div>
+        <div id="pc-order-files-wrap" class="pc-table-wrap pc-order-files-wrap" hidden><table class="pc-table ui-table pc-order-files-table"><thead><tr>
           <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
           <th><span class="ui-text-vi">Số mã</span><span class="ui-text-zh">款號數</span></th><th><span class="ui-text-vi">Tổng số lượng</span><span class="ui-text-zh">總數量</span></th>
           <th><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th><th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th>
         </tr></thead><tbody id="pc-order-files-body"></tbody></table></div>
-        <div id="pc-order-errors-wrap" class="pc-table-wrap pc-error-wrap" hidden><table class="pc-table pc-error-table"><thead><tr>
+        <div id="pc-order-errors-wrap" class="pc-table-wrap pc-error-wrap" hidden><table class="pc-table ui-table pc-error-table"><thead><tr>
           <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
           <th><span class="ui-text-vi">Vị trí</span><span class="ui-text-zh">位置</span></th><th><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></th>
           <th><span class="ui-text-vi">Nguyên nhân</span><span class="ui-text-zh">錯誤原因</span></th><th><span class="ui-text-vi">Cách sửa</span><span class="ui-text-zh">修正方式</span></th>
         </tr></thead><tbody id="pc-order-errors-body"></tbody></table></div>
-        <div class="pc-table-wrap"><table class="pc-table pc-order-items-table"><thead><tr>
+        <div id="pc-order-items-wrap" class="pc-table-wrap" hidden><table class="pc-table ui-table pc-order-items-table"><thead><tr>
           <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
           <th><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></th><th><span class="ui-text-vi">Số lượng</span><span class="ui-text-zh">訂單數量</span></th>
           <th><span class="ui-text-vi">Size</span><span class="ui-text-zh">尺寸</span></th><th><span class="ui-text-vi">Vật liệu liên quan</span><span class="ui-text-zh">相關布料</span></th>
@@ -297,7 +298,7 @@
         <div class="pc-template-help"><section><b>Quy tắc mẫu</b><p>Đọc tất cả trang tính có dữ liệu. Mỗi trang dùng cột A–G cố định: MÃ HÀNG, SIZE, TÊN VẬT LIỆU, BỘ PHẬN CẮT, SỐ KIỆN, GHI CHÚ, HÌNH ẢNH. Mã hàng không được trùng giữa các trang.</p></section><section><b>主檔規則</b><p>讀取所有非空白工作表；每頁 A–G 固定為款號、尺寸、布料名稱、裁片名稱、每件用量、備註、圖片。款號不得跨分頁重複。</p></section></div>
       </section>
       <section id="pc-panel-history" class="pc-panel" hidden><div id="pc-history-status" class="pc-summary"></div>
-        <div class="pc-table-wrap"><table class="pc-table"><thead><tr><th><span class="ui-text-vi">Thời gian</span><span class="ui-text-zh">時間</span></th><th><span class="ui-text-vi">Người thao tác</span><span class="ui-text-zh">操作者</span></th><th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th><th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Số mục</span><span class="ui-text-zh">影響筆數</span></th></tr></thead><tbody id="pc-history-body"></tbody></table></div>
+        <div class="pc-table-wrap"><table class="pc-table ui-table"><thead><tr><th><span class="ui-text-vi">Thời gian</span><span class="ui-text-zh">時間</span></th><th><span class="ui-text-vi">Người thao tác</span><span class="ui-text-zh">操作者</span></th><th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th><th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Số mục</span><span class="ui-text-zh">影響筆數</span></th></tr></thead><tbody id="pc-history-body"></tbody></table></div>
         <button id="pc-history-more" class="pc-more" hidden><span class="ui-text-vi">Tải thêm</span><span class="ui-text-zh">載入更多</span></button></section>
     </section>`;
   }
@@ -305,7 +306,14 @@
   function setSummary(id,vi,zh,kind='info'){
     const target=g(id); if(!target) return;
     target.className=`pc-summary pc-${kind}`;
+    target.hidden=false;
     target.replaceChildren(window.PCMSUIComponents.createLanguageSections(pair(vi,zh)));
+  }
+
+  function clearSummary(id){
+    const target=g(id); if(!target) return;
+    target.replaceChildren();
+    target.hidden=true;
   }
 
   function renderMeta(){
@@ -342,15 +350,17 @@
         errorBody.appendChild(errorRow);
       });
     });
-    if(!state.orderFiles.length){const row=document.createElement('tr');row.innerHTML='<td colspan="6" class="pc-empty"><span class="ui-text-vi">Chưa chọn tệp đơn hàng</span><span class="ui-text-zh">尚未選取訂單檔案</span></td>';fileBody.appendChild(row);}
-    g('pc-order-errors-wrap').hidden=!state.orderErrors.length;
+    const hasFiles=state.orderFiles.length>0,hasItems=state.orderItems.length>0,hasErrors=state.orderErrors.length>0;
+    g('pc-results-empty').hidden=hasFiles||hasItems||hasErrors;
+    g('pc-order-files-wrap').hidden=!hasFiles;
+    g('pc-order-errors-wrap').hidden=!hasErrors;
+    g('pc-order-items-wrap').hidden=!hasItems;
     state.orderItems.forEach(item=>{
       const row=document.createElement('tr'); const materials=[...new Set(materialByCode.get(normalizeKey(item.code))||[])];
       const occurrence=state.analysis?.groups.flatMap(group=>group.products).find(product=>normalizeKey(product.code)===normalizeKey(item.code));
       row.innerHTML=`<td title="${safe(item.fileName)}">${safe(item.fileName)}</td><td>${safe(item.orderLabel||'—')}</td><td><b>${safe(item.code)}</b></td><td>${safe(item.qty)}</td><td>${safe(occurrence?.size||'—')}</td><td title="${safe(materials.join(' · '))}">${safe(materials.join(' · ')||'—')}</td><td><span class="pc-badge ${missingKeys.has(normalizeKey(item.code))?'is-missing':'is-ready'}">${missingKeys.has(normalizeKey(item.code))?'<span class="ui-text-vi">Thiếu mẫu</span><span class="ui-text-zh">主檔缺少</span>':'<span class="ui-text-vi">Sẵn sàng</span><span class="ui-text-zh">可匯出</span>'}</span></td>`;
       body.appendChild(row);
     });
-    if(!state.orderItems.length){ const row=document.createElement('tr'); row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có dữ liệu đơn hàng hợp lệ</span><span class="ui-text-zh">尚無有效訂單資料</span></td>'; body.appendChild(row); }
     const totalCodes=new Set(state.orderItems.map(item=>normalizeKey(item.code)).filter(Boolean)).size;
     const missingCount=missingMasterCodes(model).length;
     const passCount=Math.max(0,totalCodes-missingCount);
@@ -367,7 +377,7 @@
       `共 ${state.orderFiles.length} 個檔案 · ${missingMasterCodes(model).length} 個款號在主檔中找不到。為避免少算，已禁止匯出 PDF。`,'danger');
     else if(model) setSummary('pc-order-summary',`${state.orderFiles.length} tệp · ${state.orderNumbers.length} đơn hàng · ${model.matched.length} dòng mã khớp · ${model.missing.length} mã thiếu mẫu · ${model.totalPieces.toLocaleString('vi-VN')} chi tiết cần cắt`,
       `${state.orderFiles.length} 個檔案 · ${state.orderNumbers.length} 張訂單 · ${model.matched.length} 筆款號符合 · ${model.missing.length} 款缺少主檔 · 共 ${model.totalPieces.toLocaleString('zh-TW')} 片`,'success');
-    else setSummary('pc-order-summary','Nhập đơn hàng để đối chiếu với mẫu chính.','匯入訂單後會與裁片主檔配對。','info');
+    else clearSummary('pc-order-summary');
     g('pc-order-file').replaceChildren(window.PCMSUIComponents.createLanguageSections(pair(
       state.orderFiles.length?`Đã chọn ${state.orderFiles.length} tệp; có thể chọn thêm`:'Chọn hoặc kéo nhiều tệp .xlsx, .xls',
       state.orderFiles.length?`已選 ${state.orderFiles.length} 個檔案；可繼續加入`:'可選取或拖入多個 .xlsx、.xls'

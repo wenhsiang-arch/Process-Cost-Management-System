@@ -269,6 +269,17 @@ test('裁片訂單頁沿用共用操作框架並提供專用工具說明與四�
   assert.match(source,/class="pc-command-row ui-command-row"/);
   assert.match(source,/class="pc-summary-row ui-summary-row"/);
   assert.match(source,/class="pc-data-section ui-data-section pc-results-section"/);
+  assert.match(source,/class="pc-tab-copy ui-dual-copy"/);
+  assert.match(source,/class="pc-table ui-table pc-order-files-table"/);
+  assert.match(source,/class="pc-table ui-table pc-order-items-table"/);
+  assert.match(source,/id="pc-results-empty" class="pc-results-empty"/);
+  assert.match(source,/id="pc-order-files-wrap"[^>]*hidden/);
+  assert.match(source,/id="pc-order-items-wrap"[^>]*hidden/);
+  assert.match(source,/g\('pc-results-empty'\)\.hidden=hasFiles\|\|hasItems\|\|hasErrors/);
+  assert.match(source,/else clearSummary\('pc-order-summary'\)/);
+  assert.doesNotMatch(source,/Nhập đơn hàng để đối chiếu với mẫu chính/);
+  assert.doesNotMatch(source,/Chưa chọn tệp đơn hàng/);
+  assert.doesNotMatch(source,/Chưa có dữ liệu đơn hàng hợp lệ/);
   assert.match(source,/id="pc-total"/);
   assert.match(source,/id="pc-pass"/);
   assert.match(source,/id="pc-missing"/);
@@ -279,6 +290,10 @@ test('裁片訂單頁沿用共用操作框架並提供專用工具說明與四�
   assert.match(source,/g\('pc-clear-current'\)\.addEventListener\('click',clearCurrentOrders\)/);
   assert.match(styleSource,/\.pc-guide-panel\{/);
   assert.match(styleSource,/#pg-piece-cutting,\.piece-cutting-page\{min-width:0\}/);
+  assert.match(styleSource,/\.pc-results-empty\{display:flex;min-height:46px/);
+  assert.match(styleSource,/\.pc-summary\[hidden\]\{display:none\}/);
+  assert.doesNotMatch(styleSource,/\.pc-tabs button\{min-width:190px\}/);
+  assert.doesNotMatch(styleSource,/\.pc-table th,\.pc-table td\{padding:10px 12px/);
 });
 
 test('裁片圖片只依 Excel 明確旋轉與裁切設定產生顯示內容',()=>{
