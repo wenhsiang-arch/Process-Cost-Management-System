@@ -261,6 +261,8 @@
   }
 
   window.PCMSHistory=Object.freeze({
+    buildOperationLog,
+    rememberOperationLog,
     saveOperationLog,
     loadOperationLogs,
     loadAllOperationLogs,

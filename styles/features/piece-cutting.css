@@ -1,0 +1,42 @@
+/* 裁片出單：桌機專用緊湊版面，沿用全系統越文／中文顯示模式。 */
+#pg-piece-cutting{padding:0 16px 18px}
+.piece-cutting-page{min-width:980px;border:1px solid var(--bd,#dbe4ef);border-radius:14px;background:#fff;overflow:hidden}
+.pc-tabs{display:flex;border-bottom:1px solid var(--bd,#dbe4ef);background:#f8fafc}
+.pc-tabs button{min-width:190px;padding:12px 22px;border:0;border-right:1px solid var(--bd,#dbe4ef);border-bottom:3px solid transparent;background:transparent;color:var(--tx,#17233a);font:inherit;font-weight:700;cursor:pointer}
+.pc-tabs button.active{border-bottom-color:var(--pr,#3565aa);color:var(--pr,#3565aa);background:#fff}
+.pc-tabs .ui-text-vi,.pc-tabs .ui-text-zh,.pc-action .ui-text-vi,.pc-action .ui-text-zh,.pc-file-card .ui-text-vi,.pc-file-card .ui-text-zh,.pc-tool-status .ui-text-vi,.pc-tool-status .ui-text-zh,.pc-badge .ui-text-vi,.pc-badge .ui-text-zh,.pc-more .ui-text-vi,.pc-more .ui-text-zh{display:block;white-space:nowrap}
+.pc-tabs .ui-text-zh,.pc-action .ui-text-zh,.pc-file-card .ui-text-zh,.pc-tool-status .ui-text-zh,.pc-badge .ui-text-zh,.pc-more .ui-text-zh{margin-top:2px;font-size:.82em;color:#6b7b91;font-weight:500}
+.pc-panel{padding:14px}
+.pc-action-grid{display:grid;grid-template-columns:minmax(360px,1fr) minmax(250px,.56fr) 150px 180px;gap:10px;align-items:stretch}
+.pc-file-card,.pc-action{display:flex;align-items:center;justify-content:center;gap:10px;min-height:76px;border:1px solid #cbd8e8;border-radius:12px;background:#fff;color:var(--tx,#17233a);font:inherit;cursor:pointer}
+.pc-file-card{justify-content:flex-start;padding:12px 16px;text-align:left;background:#edf5ff;border-style:dashed;border-color:#5d82bb}
+.pc-file-card>i,.pc-action>i{font-size:24px;color:var(--pr,#3565aa)}
+.pc-file-card small{display:block;margin-top:5px;color:#728198;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-action{padding:10px;font-weight:700}
+.pc-action.pc-primary{background:var(--pr,#3565aa);border-color:var(--pr,#3565aa);color:#fff}
+.pc-action.pc-primary>i,.pc-action.pc-primary .ui-text-zh{color:#fff}
+.pc-action.pc-danger{border-color:#efaaa5;color:#9b2c22}
+.pc-action.pc-danger>i{color:#b43b31}
+.pc-action:disabled{cursor:not-allowed;opacity:.45}
+.pc-tool-status{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 14px;border:1px solid #f0d990;border-radius:12px;background:#fff9df;color:#855d0a}
+.pc-tool-status>i{font-size:23px}.pc-tool-status.is-online{border-color:#9bdab0;background:#eaf9ee;color:#24703a}
+.pc-summary{margin-top:12px;padding:11px 14px;border:1px solid #cbd8e8;border-radius:10px;background:#f7faff;color:#41526a}
+.pc-summary.pc-success{border-color:#a7dfb7;background:#eefaf1;color:#25663a}.pc-summary.pc-warning{border-color:#ead794;background:#fff9df;color:#76560f}.pc-summary.pc-danger{border-color:#f1aaa6;background:#fff0ef;color:#942b24}
+.pc-summary .ui-language-section+.ui-language-section{margin-top:4px}
+.pc-table-wrap{margin-top:12px;border:1px solid var(--bd,#dbe4ef);border-radius:11px;overflow:auto}
+.pc-table{width:100%;border-collapse:collapse;table-layout:fixed}.pc-table th,.pc-table td{padding:10px 12px;border-bottom:1px solid var(--bd,#dbe4ef);vertical-align:middle;text-align:left;overflow-wrap:anywhere}
+.pc-table th{background:#edf4fd;font-weight:700}
+.pc-table th .ui-text-vi,.pc-table th .ui-text-zh{display:block;white-space:normal}.pc-table th .ui-text-zh{margin-top:2px;color:#6b7b91;font-size:.8em;font-weight:500}
+.pc-table tr:last-child td{border-bottom:0}
+.pc-order-files-table th:nth-child(1){width:30%}.pc-order-files-table th:nth-child(2){width:24%}.pc-order-files-table th:nth-child(3){width:10%}.pc-order-files-table th:nth-child(4){width:12%}.pc-order-files-table th:nth-child(5){width:14%}.pc-order-files-table th:nth-child(6){width:10%}
+.pc-order-items-table th:nth-child(1){width:18%}.pc-order-items-table th:nth-child(2){width:16%}.pc-order-items-table th:nth-child(3){width:13%}.pc-order-items-table th:nth-child(4){width:9%}.pc-order-items-table th:nth-child(5){width:8%}.pc-order-items-table th:nth-child(6){width:24%}.pc-order-items-table th:nth-child(7){width:12%}
+.pc-order-items-table td:nth-child(1),.pc-order-items-table td:nth-child(2),.pc-order-items-table td:nth-child(6){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-error-wrap{border-color:#efb3ae}.pc-error-table th{background:#fff0ef}.pc-error-table th:nth-child(1){width:15%}.pc-error-table th:nth-child(2){width:12%}.pc-error-table th:nth-child(3){width:14%}.pc-error-table th:nth-child(4){width:10%}.pc-error-table th:nth-child(5){width:25%}.pc-error-table th:nth-child(6){width:24%}
+.pc-error-table td .ui-text-vi,.pc-error-table td .ui-text-zh{display:block}.pc-error-table td .ui-text-zh{margin-top:4px;color:#6b3b37;font-size:.88em}
+.pc-remove-file{min-width:70px;padding:6px 10px;border:1px solid #e29b94;border-radius:8px;background:#fff;color:#9b2c22;font:inherit;font-weight:700;cursor:pointer}.pc-remove-file .ui-text-vi,.pc-remove-file .ui-text-zh{display:block;white-space:nowrap}.pc-remove-file .ui-text-zh{font-size:.8em;font-weight:500}
+.pc-badge{display:inline-flex;flex-direction:column;padding:5px 10px;border-radius:999px;border:1px solid}.pc-badge.is-ready{background:#eaf9ee;border-color:#9bdab0;color:#24703a}.pc-badge.is-missing{background:#fff3d9;border-color:#e8c66e;color:#825d0b}.pc-badge.is-error{background:#fff0ef;border-color:#e8a39d;color:#942b24}
+.pc-empty{text-align:center!important;color:#728198;padding:28px!important}.pc-template-tools{display:grid;grid-template-columns:minmax(420px,1fr) 170px 150px;gap:10px}
+.pc-template-help{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px;padding:14px;border:1px solid #dbe4ef;border-radius:10px;background:#fafcff}.pc-template-help section+section{border-left:1px solid #dbe4ef;padding-left:14px}.pc-template-help p{margin:6px 0 0;line-height:1.6;color:#5f6f84}
+.pc-more{margin-top:10px;min-width:120px;padding:8px 16px;border:1px solid #9fb3cf;border-radius:9px;background:#fff;color:var(--pr,#3565aa);font:inherit;font-weight:700;cursor:pointer}
+html[data-ui-language-mode="vi"] .pc-tabs button,html[data-ui-language-mode="zh"] .pc-tabs button{padding-top:9px;padding-bottom:9px}
+@media (max-width:1180px){.pc-action-grid{grid-template-columns:minmax(350px,1fr) 230px 140px 170px}.pc-panel{padding:10px}.pc-table th,.pc-table td{padding:8px}}

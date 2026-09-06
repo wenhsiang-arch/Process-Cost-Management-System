@@ -26,7 +26,7 @@
     systemMonitor:['Giám sát hệ thống','系統監控'],accounts:['Quản lý tài khoản','帳號管理'],
     products:['Quản lý mã hàng','款號管理'],orders:['Dữ liệu đơn hàng','訂單資料'],
     production:['Ghi nhận sản lượng','產能登記'],productionAnalysis:['Phân tích sản xuất','生產分析'],
-    cost:['Quản lý chi phí','成本管理'],cutting:['Thống kê dây cắt','裁帶統計'],
+    cost:['Quản lý chi phí','成本管理'],cutting:['Xuất phiếu chuẩn bị vật liệu','備料出單'],
     performanceBonus:['Thưởng hiệu suất','績效獎金'],performanceBonusSettings:['Tham số thưởng','獎金參數']
   };
   const CACHE_LABELS={
@@ -40,7 +40,7 @@
   };
   const PAGE_LABELS={
     home:['Trang chủ','首頁'],progress:['Dữ liệu đơn hàng','訂單資料'],summary:['Tổng hợp mã hàng','款號總表'],
-    cutting:['Thống kê dây cắt','裁帶統計'],'production-entry':['Ghi nhận sản lượng','生產登記'],
+    cutting:['Xuất phiếu chuẩn bị vật liệu','備料出單'],'production-entry':['Ghi nhận sản lượng','生產登記'],
     'production-records':['Hiệu suất nhân viên','員工績效'],'production-attendance':['Chấm công','考勤'],
     'production-employees':['Dữ liệu nhân viên','員工資料'],'production-bonus':['Thưởng hiệu suất tháng','月績效獎金'],'production-analysis':['Phân tích sản xuất','生產分析'],
     productionProcessEdit:['Chỉnh sửa công đoạn','工序修改'],settings:['Cài đặt chi phí','成本設定'],'performance-bonus-settings':['Tham số thưởng hiệu suất','績效獎金參數'],

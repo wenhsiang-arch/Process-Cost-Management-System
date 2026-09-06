@@ -268,8 +268,8 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Dữ liệu đơn hàng</span><span class="nzh">訂單資料</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
     <div class="ni active" onclick="openModule('products')" id="nv-products"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Quản lý mã hàng</span><span class="nzh">款號管理</span></div></div>
-    <div class="sb-sec">Thống kê dây cắt / 裁帶統計</div>
-    <div class="ni" onclick="openModule('preparation')" id="nv-preparation"><i class="ti ti-package"></i><div class="nl"><span class="nvi">Thống kê dây cắt</span><span class="nzh">裁帶統計</span></div></div>
+    <div class="sb-sec">Chuẩn bị vật liệu / 備料</div>
+    <div class="ni" onclick="openModule('preparation')" id="nv-preparation"><i class="ti ti-package"></i><div class="nl"><span class="nvi">Xuất phiếu chuẩn bị vật liệu</span><span class="nzh">備料出單</span></div></div>
     <div class="sb-sec">Sản lượng / 產能</div>
     <div class="ni locked" onclick="openModule('production')" id="nv-production"><i class="ti ti-clipboard-data"></i><div class="nl"><span class="nvi">Ghi nhận sản lượng</span><span class="nzh">產能登記</span></div></div>
     <div class="ni locked" onclick="openModule('production-analysis')" id="nv-production-analysis"><i class="ti ti-chart-histogram"></i><div class="nl"><span class="nvi">Phân tích sản xuất</span><span class="nzh">生產分析</span></div></div>
@@ -325,6 +325,20 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
           </header>
 
           <div class="home-update-timeline">
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-09-06">06/09/2026</time>
+                <h2 class="ui-dual-copy">
+                  <strong>Thêm mẫu cắt chi tiết và chức năng xuất phiếu</strong>
+                  <span>新增裁片模板與出單功能</span>
+                </h2>
+                <div class="home-update-description">
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Xuất phiếu chuẩn bị vật liệu</h3><ol><li>Chức năng chuẩn bị vật liệu nay gồm hai trang độc lập: xuất phiếu cắt dây và xuất phiếu cắt chi tiết.</li><li>Mẫu chính cắt chi tiết đọc tất cả trang tính có dữ liệu; có thể nhập nhiều đơn hàng và tự cộng số lượng theo vật liệu, bộ phận cắt và kích thước.</li><li>Hệ thống chặn mã hàng, bộ phận cắt hoặc số đơn hàng bị trùng; nếu mã đơn hàng chưa có trong mẫu chính cũng sẽ thông báo rõ và không cho xuất thiếu.</li><li>PDF được tạo theo khổ A4 ngang, tối đa 8 kích thước mỗi trang, có ghi chú và hình ảnh đại diện.</li><li>Công cụ PDF cắt chi tiết độc lập cần được thiết lập một lần trên từng máy tính sử dụng.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>備料出單</h3><ol><li>備料出單現在包含兩個獨立頁面：裁帶出單與裁片出單。</li><li>裁片主檔可讀取所有非空白工作表；可同時匯入多張訂單，並依布料、裁片及尺寸自動加總數量。</li><li>款號、裁片或訂單號重複時會阻擋；訂單款號缺少主檔時也會明確提醒，避免輸出少算的工作單。</li><li>輸出採 A4 橫式，每頁最多 8 個尺寸，並顯示備註與代表照片。</li><li>每台要使用裁片功能的電腦，都需要先完成一次獨立裁片 PDF 工具設定。</li></ol></section></div>
+                </div>
+              </div>
+            </article>
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
@@ -768,7 +782,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 款號總成本 -->
-      <!-- 裁帶統計 -->
+      <!-- 備料出單：裁帶與裁片 -->
       <div class="pg" id="pg-cutting">
         <div class="cutting-page ui-page">
         <div class="cutting-tabs ui-tabs">
@@ -952,6 +966,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
           </section>
         </div>
         </div>
+      </div>
+
+      <!-- 裁片出單：功能內容由 piece-cutting.js（裁片出單程式）按需建立。 -->
+      <div class="pg ui-page" id="pg-piece-cutting">
+        <div id="piece-cutting-root"></div>
       </div>
 
       <div class="pg ui-page" id="pg-summary">
@@ -1483,11 +1502,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260825-7&amp;pc=20260825-7"></script>
+  <script src="js/features.js?v=20260906-1&amp;pc=20260906-1"></script>
 <script src="js/auth.js?v=20260825-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260825-12"></script>
+<script type="module" src="js/firebase.js?v=20260906-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

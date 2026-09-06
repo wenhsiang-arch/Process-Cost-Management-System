@@ -16,11 +16,13 @@
       return null;
     }
     try{
-      return await window.showSaveFilePicker({
+      const pickerOptions={
         suggestedName:String(options.suggestedName||''),
         types:Array.isArray(options.types)?options.types:[],
         excludeAcceptAllOption:options.excludeAcceptAllOption!==false
-      });
+      }; // pickerOptions（儲存位置選擇設定）：id 只用來分開記住不同匯出功能最近使用的資料夾。
+      if(options.id) pickerOptions.id=String(options.id);
+      return await window.showSaveFilePicker(pickerOptions);
     }catch(error){
       if(error?.name==='AbortError') return null;
       if(error?.name==='SecurityError'||error?.name==='NotAllowedError'){

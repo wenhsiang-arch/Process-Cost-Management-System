@@ -1,4 +1,4 @@
-// cutting（裁帶統計）：獨立功能；模板輸出策略是保留原始 Excel（表格檔）副本，只填數量欄。
+// cutting（裁帶出單）：獨立功能；模板輸出策略是保留原始 Excel（表格檔）副本，只填數量欄。
 (function(){
   const state = {
     templates: [],
