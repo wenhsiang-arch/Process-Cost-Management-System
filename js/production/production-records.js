@@ -507,6 +507,28 @@
     window.PCMSUITable?.refresh?.();
   }
 
+  async function enrichDailyBonuses(rows,dates){
+    const sourceRows=Array.isArray(rows)?rows:[]; // sourceRows（已完成載入的日績效）：獎金異常時仍須保留。
+    if(window.canOpenPage?.('production-bonus')!==true||!window.PCMSPerformanceBonusStore){
+      return {rows:sourceRows,error:null};
+    }
+    try{
+      const months=[...new Set((dates||[]).map(date=>String(date||'').slice(0,7)).filter(Boolean))];
+      const bonusByDay=new Map();
+      const bonusMaps=await Promise.all(months.map(month=>window.PCMSPerformanceBonusStore.loadDailyBonuses(month,sourceRows)));
+      bonusMaps.forEach(map=>map.forEach((amount,key)=>bonusByDay.set(key,amount)));
+      return {
+        rows:sourceRows.map(item=>({...item,bonusAmount:bonusByDay.get(`${item.employeeId}|${item.productionDate}`)})),
+        error:null
+      };
+    }catch(error){
+      return {
+        rows:sourceRows.map(item=>({...item,bonusAmount:null})),
+        error
+      };
+    }
+  }
+
   async function load(){
     const current = filters();
     let dates;
@@ -518,6 +540,7 @@
     render();
     const searchButton = element('production-record-search-button');
     if(searchButton) searchButton.disabled = true;
+    let bonusError=null; // bonusError（獎金載入錯誤）：不影響日績效主資料顯示。
     try{
       const summariesReady=await window.PCMSProductionSummaries.rangeReady(current.from,current.to);
       if(summariesReady){
@@ -531,14 +554,10 @@
         state.rows = aggregatePerformance(entries,attendanceByDate);
       }
       if(request !== state.loadRequest) return;
-      if(window.canOpenPage?.('production-bonus')===true&&window.PCMSPerformanceBonusStore){
-        const months=[...new Set(dates.map(date=>date.slice(0,7)))];
-        const bonusByDay=new Map();
-        const bonusMaps=await Promise.all(months.map(month=>window.PCMSPerformanceBonusStore.loadDailyBonuses(month,state.rows)));
-        bonusMaps.forEach(map=>map.forEach((amount,key)=>bonusByDay.set(key,amount)));
-        state.rows=state.rows.map(item=>({...item,bonusAmount:bonusByDay.get(`${item.employeeId}|${item.productionDate}`)}));
-      }
+      const bonusResult=await enrichDailyBonuses(state.rows,dates);
       if(request !== state.loadRequest) return;
+      state.rows=bonusResult.rows;
+      bonusError=bonusResult.error;
       render();
     }catch(error){
       if(request !== state.loadRequest) return;
@@ -550,6 +569,11 @@
         state.loading = false;
         if(searchButton) searchButton.disabled = false;
       }
+    }
+    if(request === state.loadRequest&&bonusError){
+      console.error('[日績效] 每日獎金載入失敗',bonusError);
+      const warning=new Error('Không thể tải tiền thưởng ngày; dữ liệu hiệu suất vẫn được giữ lại. / 每日獎金載入失敗，日績效資料仍已保留。');
+      await showError(warning);
     }
   }
 
@@ -677,7 +701,7 @@
   window.productionRecordsInit = productionRecordsInit;
   window.productionRecordsLeave = productionRecordsLeave;
   window.PCMSProductionPerformance=Object.freeze({
-    aggregatePerformance,loadPerformanceRange,performancePeriods,
+    aggregatePerformance,loadPerformanceRange,performancePeriods,enrichDailyBonuses,
     setPendingContext:context=>{ state.pendingContext={...(context||{})}; }
   });
 })();

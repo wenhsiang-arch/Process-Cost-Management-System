@@ -836,7 +836,43 @@ test('員工績效依日期分組，姓名正常顯示且效率與異常狀態�
   assert.match(style,/\.production-performance-table\[data-ui-table-controls="auto"\] \{[\s\S]*?width: 100%;[\s\S]*?--ui-table-resized-min-width/);
   assert.match(style,/\.production-employee-edit-form \{/);
   assert.match(records,/Number\.isFinite\(Number\(item\.bonusAmount\)\)\?`\$\{Math\.round\(Number\(item\.bonusAmount\)\)\.toLocaleString\('vi-VN'\)\} VND`:'—'/);
-  assert.match(records,/PCMSPerformanceBonusStore\.loadDailyBonuses\(month,state\.rows\)/);
+  assert.match(records,/PCMSPerformanceBonusStore\.loadDailyBonuses\(month,sourceRows\)/);
+});
+
+test('鎖定月份獎金載入失敗時保留日績效資料',async()=>{
+  const window={
+    canOpenPage:()=>true,
+    PCMSPerformanceBonusStore:{loadDailyBonuses:async()=>{ throw new Error('snapshot unavailable'); }}
+  };
+  const context={window,console,Map,Set,Object,Array,String,Number,Math,Date,Error,RegExp,Promise};
+  vm.createContext(context);
+  vm.runInContext(read('js/production/production-records.js'),context);
+  const rows=[{employeeId:'M05713',productionDate:'2026-08-17',efficiency:98.3}];
+  const result=await window.PCMSProductionPerformance.enrichDailyBonuses(rows,['2026-08-17']);
+  assert.equal(result.rows.length,1);
+  assert.equal(result.rows[0].employeeId,'M05713');
+  assert.equal(result.rows[0].efficiency,98.3);
+  assert.equal(result.rows[0].bonusAmount,null);
+  assert.match(String(result.error?.message),/snapshot unavailable/);
+});
+
+test('鎖定月份獎金正常載入時依員工與日期附加金額',async()=>{
+  const window={
+    canOpenPage:()=>true,
+    PCMSPerformanceBonusStore:{
+      loadDailyBonuses:async month=>{
+        assert.equal(month,'2026-08');
+        return new Map([['M05713|2026-08-17',37260]]);
+      }
+    }
+  };
+  const context={window,console,Map,Set,Object,Array,String,Number,Math,Date,Error,RegExp,Promise};
+  vm.createContext(context);
+  vm.runInContext(read('js/production/production-records.js'),context);
+  const rows=[{employeeId:'M05713',productionDate:'2026-08-17',efficiency:98.3}];
+  const result=await window.PCMSProductionPerformance.enrichDailyBonuses(rows,['2026-08-17']);
+  assert.equal(result.error,null);
+  assert.equal(result.rows[0].bonusAmount,37260);
 });
 
 test('當日效率數值依三段範圍顯示紅藍綠底框且空值不套色',()=>{

@@ -40,7 +40,7 @@
     productionReportStore:'js/production/report-store.js?v=20260823-3',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260823-3',
     productionEntry:'js/production/production-entry.js?v=20260824-3',
-    productionRecords:'js/production/production-records.js?v=20260825-3',
+    productionRecords:'js/production/production-records.js?v=20260906-1',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
     performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20260823-2',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260824-1',
@@ -154,7 +154,7 @@
         {
           page:'production-records',feature:'productionRecords',icon:'ti-chart-bar',vi:'Hiệu suất nhân viên',zh:'員工績效',
           styles:['production'],
-          scripts:['productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','uiSearchDropdown','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','performanceBonusCalculations','performanceBonusStore','productionRecords'],
+          scripts:['productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','uiSearchDropdown','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','performanceBonusCalculations','performanceBonusLockService','performanceBonusStore','productionRecords'],
           dataScopes:['productionEmployees','productionEntries','productionProcessTotals','productionAttendance','productionDaySummaries','productionEmployeeMonths','productionMonths','performanceBonusTables','performanceBonusMonths'],
           dataLoaders:['loadProductionRecordsData'],onOpen:['productionRecordsInit'],onLeave:['productionRecordsLeave']
         },
@@ -216,7 +216,7 @@
         {
           page:'performance-bonus-settings',feature:'performanceBonusSettings',icon:'ti-adjustments-dollar',vi:'Tham số thưởng hiệu suất',zh:'績效獎金參數',
           styles:['production','performanceBonus'],
-          scripts:['productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusStore','performanceBonusSettingsPage'],
+          scripts:['productModel','productionEfficiencyCore','productResolver','orderItemStore','uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','performanceBonusCalculations','performanceBonusLockService','performanceBonusStore','performanceBonusSettingsPage'],
           dataScopes:['performanceBonusSettings','performanceBonusSettingVersions','performanceBonusTables','performanceBonusMonths','performanceBonusPrivateMonths','performanceBonusAdjustments','productionEmployeeMonths','productionMonths'],
           dataLoaders:['loadPerformanceBonusSettingsData'],onOpen:['performanceBonusSettingsInit'],onLeave:['performanceBonusSettingsLeave']
         },

@@ -50,7 +50,7 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
   assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260906-4/);
+  assert.match(html,/js\/features\.js\?v=20260906-5/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260813-1'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);

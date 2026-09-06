@@ -96,8 +96,14 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
     'production-entry','production-records','production-bonus','production-attendance','production-employees'
   ]);
   const productionEntry=production.pages.find(page=>page.page==='production-entry');
+  const productionRecords=production.pages.find(page=>page.page==='production-records');
+  const bonusSettings=context.window.PCMSFeatures.getPage('performance-bonus-settings');
   assert.equal(productionEntry.scripts.includes('history'),true);
   assert.equal(productionEntry.scripts.indexOf('history')<productionEntry.scripts.indexOf('productMasterStore'),true);
+  for(const page of [productionRecords,bonusSettings]){
+    assert.equal(page.scripts.includes('performanceBonusLockService'),true);
+    assert.equal(page.scripts.indexOf('performanceBonusLockService')<page.scripts.indexOf('performanceBonusStore'),true);
+  }
   assert.equal(production.pages.every(page=>page.scripts.some(name=>name.startsWith('production'))),true);
   assert.equal(context.window.normalizeFeaturePermissions({productionEntry:true}).productionMain,true);
   const productionAnalysis=context.window.PCMSFeatures.getModule('production-analysis');
@@ -122,7 +128,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
   assert.match(navigationHtml,/Xuất phiếu chuẩn bị vật liệu \/ 備料出單[\s\S]*?data-page-nav="cutting"[\s\S]*?id="nv-cutting"[\s\S]*?data-page-nav="piece-cutting"[\s\S]*?id="nv-piece-cutting"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260906-4/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260906-5/);
 });
 
 test('款號快取依唯一遞增序號同步且不要求群組序號連續',()=>{
