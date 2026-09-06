@@ -3,12 +3,19 @@
   const LOCAL_ORIGIN='http://127.0.0.1:8766';
   const HISTORY_ACTIONS=['pieceCuttingTemplateImport','pieceCuttingTemplateDelete','pieceCuttingPdfExport'];
   const state={initialized:false,authSession:null,activeTab:'order',meta:null,analysis:null,templateFile:null,pendingFile:null,pendingAnalysis:null,
-    orderFiles:[],orderItems:[],orderErrors:[],orderNumbers:[],exportModel:null,history:[],historyLoaded:false,toolOnline:null};
+    orderFiles:[],orderItems:[],orderErrors:[],orderNumbers:[],exportModel:null,history:[],historyLoaded:false,historyLoading:false,toolOnline:null};
   let fileDropRegistered=false,orderLoadRevision=0;
 
   const g=id=>document.getElementById(id);
   const safe=value=>window.PCMSSafe?.text?.(value)??String(value??'');
   const pair=(vi,zh)=>({vi:String(vi||''),zh:String(zh||'')});
+  const fmtNum=value=>{const number=Number(value||0);return Number.isFinite(number)?number.toLocaleString('en-US'):'0';};
+
+  const HISTORY_STATUSES=Object.freeze({
+    success:{vi:'Thành công',zh:'成功',className:'is-ready'},
+    partial:{vi:'Một phần',zh:'部分完成',className:'is-warning'},
+    failed:{vi:'Thất bại',zh:'失敗',className:'is-error'}
+  }); // HISTORY_STATUSES（裁片歷史狀態名稱）
 
   function message(vi,zh,kind='info'){
     return window.PCMSUIComponents?.alertDialog?.({kind,message:pair(vi,zh)})||Promise.resolve(false);
@@ -289,17 +296,58 @@
         </section>
       </section>
       <section id="pc-panel-template" class="pc-panel" hidden>
-        <div class="pc-template-tools">
-          <button id="pc-template-drop" class="pc-file-card"><i class="ti ti-photo-up"></i><span><b class="ui-text-vi">Mẫu chính cắt chi tiết</b><b class="ui-text-zh">裁片主檔</b><small id="pc-template-file"><span class="ui-text-vi">Nhấp để chọn hoặc kéo tệp .xlsx</span><span class="ui-text-zh">點擊選擇或拖入 .xlsx</span></small></span></button>
-          <button id="pc-save-template" class="pc-action pc-primary" disabled><i class="ti ti-device-floppy"></i><span><b class="ui-text-vi">Lưu mẫu chính</b><b class="ui-text-zh">儲存主檔</b></span></button>
-          <button id="pc-delete-template" class="pc-action pc-danger" disabled><i class="ti ti-trash"></i><span><b class="ui-text-vi">Xóa mẫu chính</b><b class="ui-text-zh">刪除主檔</b></span></button>
-        </div>
-        <input id="pc-template-input" type="file" accept=".xlsx" hidden><div id="pc-template-summary" class="pc-summary"></div>
-        <div class="pc-template-help"><section><b>Quy tắc mẫu</b><p>Đọc tất cả trang tính có dữ liệu. Mỗi trang dùng cột A–G cố định: MÃ HÀNG, SIZE, TÊN VẬT LIỆU, BỘ PHẬN CẮT, SỐ KIỆN, GHI CHÚ, HÌNH ẢNH. Mã hàng không được trùng giữa các trang.</p></section><section><b>主檔規則</b><p>讀取所有非空白工作表；每頁 A–G 固定為款號、尺寸、布料名稱、裁片名稱、每件用量、備註、圖片。款號不得跨分頁重複。</p></section></div>
+        <section class="pc-operation-panel ui-operation-panel">
+          <div class="pc-command-row ui-command-row pc-command-row-template">
+            <div class="pc-context-grid ui-context-grid is-single pc-template-context-grid">
+              <button id="pc-template-drop" type="button" class="pc-context-item ui-context-item pc-file-card ui-file-picker" aria-describedby="pc-template-file-helper">
+                <i class="ti ti-file-spreadsheet"></i><div>
+                  <span class="pc-context-copy ui-dual-copy"><strong>Tệp mẫu chính đang chọn</strong><span>目前選擇的主檔</span></span>
+                  <div id="pc-template-file-name" class="pc-file-name ui-file-name"></div>
+                  <div id="pc-template-file-helper" class="pc-context-note ui-context-note">Nhấp để chọn hoặc kéo tệp .xlsx.<br>點擊選擇或拖入 .xlsx 主檔。</div>
+                </div>
+              </button>
+            </div>
+            <div class="pc-command-actions ui-command-actions">
+              <details class="pc-disclosure pc-guide-disclosure" data-ui-dismiss-outside data-ui-dismiss-on-content>
+                <summary class="pc-command-summary ui-command-action"><i class="ti ti-book"></i><span class="pc-action-copy ui-dual-copy"><strong>Quy tắc mẫu chính</strong><span>主檔規則</span></span></summary>
+                <div class="pc-guide-panel pc-template-rules-panel">
+                  <section class="ui-text-vi" lang="vi"><h3>Quy tắc mẫu chính</h3><p>Đọc tất cả trang tính có dữ liệu. Mỗi trang dùng cột A–G cố định: MÃ HÀNG, SIZE, TÊN VẬT LIỆU, BỘ PHẬN CẮT, SỐ KIỆN, GHI CHÚ, HÌNH ẢNH. Mã hàng không được trùng giữa các trang.</p></section>
+                  <section class="ui-text-zh" lang="zh-Hant"><h3>主檔規則</h3><p>讀取所有非空白工作表；每頁 A–G 固定為款號、尺寸、布料名稱、裁片名稱、每件用量、備註、圖片。款號不得跨分頁重複。</p></section>
+                </div>
+              </details>
+              <button id="pc-save-template" type="button" class="pc-command-action ui-command-action is-primary is-condition-dependent" disabled><i class="ti ti-check"></i><span class="pc-action-copy ui-dual-copy"><strong>Xác nhận mẫu chính</strong><span>確認主檔</span></span></button>
+              <button id="pc-clear-template" type="button" class="pc-command-action ui-command-action is-danger"><i class="ti ti-eraser"></i><span class="pc-action-copy ui-dual-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span></button>
+            </div>
+          </div>
+          <input id="pc-template-input" type="file" accept=".xlsx" hidden>
+        </section>
+        <section id="pc-template-analysis" class="pc-data-section ui-data-section" hidden>
+          <div class="pc-section-header ui-section-header"><i class="ti ti-file-search"></i><span class="pc-section-copy ui-dual-copy"><strong>Kiểm tra mẫu chính</strong><span>主檔檢查</span></span></div>
+          <div id="pc-template-summary" class="pc-summary" hidden></div>
+        </section>
+        <section class="pc-data-section ui-data-section">
+          <div class="pc-section-header ui-section-header"><i class="ti ti-database"></i><span class="pc-section-copy ui-dual-copy"><strong>Dữ liệu mẫu chính đã lưu</strong><span>已儲存主檔</span></span></div>
+          <div class="pc-table-frame ui-table-frame"><div class="pc-table-scroll ui-table-scroll" data-ui-floating-scroll="only"><table id="pc-template-table" class="pc-table ui-table pc-template-table" data-ui-table-controls="auto" data-ui-table-sticky="original"><thead><tr>
+            <th><span class="ui-text-vi">Tệp mẫu chính</span><span class="ui-text-zh">主檔檔案</span></th><th><span class="ui-text-vi">Số mã</span><span class="ui-text-zh">款號數</span></th>
+            <th><span class="ui-text-vi">Số size</span><span class="ui-text-zh">尺寸數</span></th><th><span class="ui-text-vi">Vật liệu</span><span class="ui-text-zh">布料數</span></th>
+            <th><span class="ui-text-vi">Bộ phận cắt</span><span class="ui-text-zh">裁片數</span></th><th><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th>
+            <th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th>
+          </tr></thead><tbody id="pc-template-body"></tbody></table></div></div>
+        </section>
       </section>
-      <section id="pc-panel-history" class="pc-panel" hidden><div id="pc-history-status" class="pc-summary"></div>
-        <div class="pc-table-wrap"><table class="pc-table ui-table"><thead><tr><th><span class="ui-text-vi">Thời gian</span><span class="ui-text-zh">時間</span></th><th><span class="ui-text-vi">Người thao tác</span><span class="ui-text-zh">操作者</span></th><th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th><th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Số mục</span><span class="ui-text-zh">影響筆數</span></th></tr></thead><tbody id="pc-history-body"></tbody></table></div>
-        <button id="pc-history-more" class="pc-more" hidden><span class="ui-text-vi">Tải thêm</span><span class="ui-text-zh">載入更多</span></button></section>
+      <section id="pc-panel-history" class="pc-panel" hidden>
+        <section class="pc-data-section ui-data-section">
+          <div class="pc-section-header ui-section-header pc-history-title"><i class="ti ti-history"></i><span class="pc-section-copy ui-dual-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄（最近 50 筆）</span></span>
+            <button id="pc-history-refresh" class="btn bsm pc-history-refresh" type="button"><i class="ti ti-refresh"></i><span class="pc-action-copy ui-dual-copy"><strong>Làm mới</strong><span>重新整理</span></span></button>
+          </div>
+          <div class="pc-table-frame ui-table-frame"><div class="pc-table-scroll ui-table-scroll pc-history-scroll" data-ui-floating-scroll="only"><table id="pc-history-table" class="pc-table ui-table pc-history-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original"><thead><tr>
+            <th><span class="ui-text-vi">Thời gian</span><span class="ui-text-zh">時間</span></th><th><span class="ui-text-vi">Người thao tác</span><span class="ui-text-zh">操作者</span></th>
+            <th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th><th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th>
+            <th><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號數</span></th><th><span class="ui-text-vi">Chi tiết</span><span class="ui-text-zh">明細數</span></th>
+            <th><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th>
+          </tr></thead><tbody id="pc-history-body"><tr><td colspan="7" class="pc-empty"><span class="ui-text-vi">Chọn trang lịch sử để tải dữ liệu.</span><span class="ui-text-zh">開啟歷史分頁後才會讀取資料。</span></td></tr></tbody></table></div></div>
+        </section>
+      </section>
     </section>`;
   }
 
@@ -318,16 +366,25 @@
 
   function renderMeta(){
     const meta=state.meta,pending=state.pendingAnalysis;
-    g('pc-delete-template').disabled=!meta;
     g('pc-save-template').disabled=!pending;
+    g('pc-clear-template').disabled=!pending;
+    g('pc-template-file-name').textContent=state.pendingFile?.name||'';
+    g('pc-template-analysis').hidden=!pending;
     if(pending){
       setSummary('pc-template-summary',`Đã kiểm tra ${pending.sheetNames.length} trang tính · ${pending.productCount} mã · ${pending.sizeCount} size · ${pending.materialCount} vật liệu · ${pending.pieceCount} bộ phận · ${pending.imageGroupCount} nhóm hình. Nhấn lưu để thay mẫu chính.`,
         `已檢查 ${pending.sheetNames.length} 個工作表 · ${pending.productCount} 款 · ${pending.sizeCount} 尺寸 · ${pending.materialCount} 種布料 · ${pending.pieceCount} 筆裁片 · ${pending.imageGroupCount} 個圖片群組。按儲存才會取代主檔。`,'success');
-    }else if(meta){
-      const summary=meta.summary||{};
-      setSummary('pc-template-summary',`Mẫu hiện tại: ${meta.fileName} · ${summary.productCount||0} mã · cập nhật ${new Date(meta.updatedAt).toLocaleString('vi-VN')}`,
-        `目前主檔：${meta.fileName} · ${summary.productCount||0} 款 · 更新於 ${new Date(meta.updatedAt).toLocaleString('zh-TW')}`,'info');
-    }else setSummary('pc-template-summary','Chưa có mẫu chính cắt chi tiết.','尚未建立裁片主檔。','warning');
+    }else clearSummary('pc-template-summary');
+    renderTemplateTable(meta);
+  }
+
+  function renderTemplateTable(meta){
+    const body=g('pc-template-body');if(!body)return;body.replaceChildren();
+    if(!meta){
+      const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có dữ liệu mẫu chính.</span><span class="ui-text-zh">尚無主檔資料。</span></td>';body.appendChild(row);return;
+    }
+    const summary=meta.summary||{},row=document.createElement('tr');
+    row.innerHTML=`<td title="${safe(meta.fileName)}"><strong>${safe(meta.fileName||'—')}</strong><small class="pc-template-date"><span class="ui-text-vi">Cập nhật ${safe(new Date(meta.updatedAt).toLocaleString('vi-VN',{hour12:false}))}</span><span class="ui-text-zh">更新於 ${safe(new Date(meta.updatedAt).toLocaleString('zh-TW',{hour12:false}))}</span></small></td><td>${fmtNum(summary.productCount)}</td><td>${fmtNum(summary.sizeCount)}</td><td>${fmtNum(summary.materialCount)}</td><td>${fmtNum(summary.pieceCount)}</td><td><span class="pc-badge is-ready"><span class="ui-text-vi">Đã lưu</span><span class="ui-text-zh">已儲存</span></span></td><td><button id="pc-delete-template" class="pc-template-delete" type="button"><i class="ti ti-trash"></i><span><span class="ui-text-vi">Xóa</span><span class="ui-text-zh">刪除</span></span></button></td>`;
+    body.appendChild(row);
   }
 
   function renderOrder(){
@@ -404,7 +461,7 @@
     try{
       const analysis=analyzeTemplateWorkbook(file.name,await readWorkbook(file));
       state.pendingFile=file; state.pendingAnalysis=analysis;
-      g('pc-template-file').textContent=file.name; renderMeta();
+      renderMeta();
     }catch(error){
       state.pendingFile=null; state.pendingAnalysis=null; renderMeta();
       const details=(error.issues||[]).slice(0,12).join('\n');
@@ -421,7 +478,7 @@
       state.meta=await window.PCMSPieceCuttingStore.saveTemplate(state.pendingFile,state.pendingAnalysis);
       state.templateFile=state.pendingFile; state.analysis=state.pendingAnalysis; state.pendingFile=null; state.pendingAnalysis=null;
       if(state.orderFiles.length) await rebuildOrderModel();
-      g('pc-template-file').textContent=state.meta.fileName; renderMeta(); renderOrder();
+      g('pc-template-input').value='';renderMeta();renderOrder();
       window.PCMSUIComponents.showToast({kind:'success',text:pair('Đã lưu mẫu chính cắt chi tiết.','裁片主檔已儲存。')});
     }catch(error){ await message('Không thể lưu mẫu chính.','無法儲存裁片主檔。','danger'); console.error(error); renderMeta(); }
   }
@@ -436,6 +493,12 @@
       renderMeta();renderOrder();window.PCMSUIComponents.showToast({kind:'success',text:pair('Đã xóa mẫu chính.','裁片主檔已刪除。')});
       fetchLocal('/piece-cutting/cache',{method:'DELETE'},2500).catch(()=>false);
     }catch(error){ await message('Không thể xóa mẫu chính.','無法刪除裁片主檔。','danger'); console.error(error); }
+  }
+
+  function clearTemplateCurrent(){
+    state.pendingFile=null;state.pendingAnalysis=null;
+    g('pc-template-input').value='';
+    renderMeta();
   }
 
   function basicOrderError(fileName,sheetName,vi,zh,solutionVi,solutionZh){
@@ -619,15 +682,28 @@
 
   function renderHistory(){
     const body=g('pc-history-body');if(!body)return;body.replaceChildren();
-    state.history.forEach(log=>{const row=document.createElement('tr'),action=historyAction(log.action);row.innerHTML=`<td>${safe(new Date(log.createdAt).toLocaleString())}</td><td>${safe(log.createdBy||'—')}</td><td><span class="ui-text-vi">${safe(action.vi)}</span><span class="ui-text-zh">${safe(action.zh)}</span></td><td>${safe(log.fileName||'—')}</td><td>${safe(log.itemCount||0)}</td>`;body.appendChild(row);});
-    if(!state.history.length){const row=document.createElement('tr');row.innerHTML='<td colspan="5" class="pc-empty"><span class="ui-text-vi">Chưa có lịch sử thao tác</span><span class="ui-text-zh">尚無操作紀錄</span></td>';body.appendChild(row);}
-    g('pc-history-more').hidden=!window.PCMSHistory.hasMore('operationLogs',{permissionKey:'cutting',actions:HISTORY_ACTIONS,limit:50});
-    setSummary('pc-history-status',`${state.history.length} bản ghi đã tải. Mỗi lần tải tối đa 50 bản ghi.`,`已載入 ${state.history.length} 筆，每次最多讀取 50 筆。`,'info');
+    state.history.forEach(log=>{
+      const row=document.createElement('tr'),action=historyAction(log.action),status=HISTORY_STATUSES[log.status]||HISTORY_STATUSES.failed;
+      const time=new Date(Number(log.createdAt));
+      row.innerHTML=`<td>${safe(Number.isFinite(time.getTime())?time.toLocaleString('vi-VN',{hour12:false}):'—')}</td><td>${safe(log.createdBy||log.createdByUid||'—')}</td><td><strong class="ui-text-vi">${safe(action.vi)}</strong><span class="ui-text-zh">${safe(action.zh)}</span></td><td title="${safe(log.fileName||'—')}">${safe(log.fileName||'—')}</td><td>${fmtNum(log.itemCount)}</td><td>${fmtNum(log.detailCount)}</td><td><span class="pc-badge ${status.className}"><span class="ui-text-vi">${safe(status.vi)}</span><span class="ui-text-zh">${safe(status.zh)}</span></span></td>`;
+      body.appendChild(row);
+    });
+    if(!state.history.length){const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có lịch sử thao tác.</span><span class="ui-text-zh">尚無操作紀錄。</span></td>';body.appendChild(row);}
   }
 
-  async function loadHistory(loadMore=false){
-    try{state.history=await window.PCMSHistory.loadOperationLogs({permissionKey:'cutting',actions:HISTORY_ACTIONS,limit:50,loadMore});state.historyLoaded=true;renderHistory();}
-    catch(error){console.error(error);setSummary('pc-history-status','Không thể tải lịch sử.','無法載入歷史紀錄。','danger');}
+  async function loadHistory(force=false){
+    if(state.historyLoading)return;
+    if(state.historyLoaded&&!force){renderHistory();return;}
+    const body=g('pc-history-body'),button=g('pc-history-refresh');
+    state.historyLoading=true;if(button)button.disabled=true;
+    if(body)body.innerHTML='<tr><td colspan="7" class="pc-empty"><span class="ui-text-vi">Đang tải lịch sử...</span><span class="ui-text-zh">正在載入歷史紀錄...</span></td></tr>';
+    try{
+      state.history=await window.PCMSHistory.loadOperationLogs({permissionKey:'cutting',actions:HISTORY_ACTIONS,limit:50,force});
+      state.historyLoaded=true;renderHistory();
+    }catch(error){
+      console.error(error);state.historyLoaded=false;
+      if(body)body.innerHTML='<tr><td colspan="7" class="pc-empty pc-history-error"><span class="ui-text-vi">Không thể tải lịch sử thao tác, vui lòng thử lại.</span><span class="ui-text-zh">無法載入操作紀錄，請重試。</span></td></tr>';
+    }finally{state.historyLoading=false;if(button)button.disabled=false;}
   }
 
   function switchTab(tab){
@@ -649,15 +725,16 @@
     g('pc-order-drop').addEventListener('click',()=>g('pc-order-input').click());g('pc-order-input').addEventListener('change',event=>{void handleOrders(event.target.files);event.target.value='';});
     g('pc-order-files-body').addEventListener('click',event=>{const button=event.target.closest('[data-order-file-id]');if(button)void removeOrderFile(button.dataset.orderFileId);});
     g('pc-template-drop').addEventListener('click',()=>g('pc-template-input').click());g('pc-template-input').addEventListener('change',event=>{void handleTemplate(event.target.files?.[0]);event.target.value='';});
-    g('pc-save-template').addEventListener('click',()=>void saveTemplate());g('pc-delete-template').addEventListener('click',()=>void deleteTemplate());
-    g('pc-start-tool').addEventListener('click',()=>void startTool());g('pc-export').addEventListener('click',()=>void exportPdf());g('pc-clear-current').addEventListener('click',clearCurrentOrders);g('pc-history-more').addEventListener('click',()=>void loadHistory(true));
+    g('pc-save-template').addEventListener('click',()=>void saveTemplate());g('pc-clear-template').addEventListener('click',clearTemplateCurrent);
+    g('pc-template-body').addEventListener('click',event=>{if(event.target.closest('#pc-delete-template'))void deleteTemplate();});
+    g('pc-start-tool').addEventListener('click',()=>void startTool());g('pc-export').addEventListener('click',()=>void exportPdf());g('pc-clear-current').addEventListener('click',clearCurrentOrders);g('pc-history-refresh').addEventListener('click',()=>void loadHistory(true));
   }
 
   // resetUserState（切換登入工作階段時清除使用者訂單與歷史）：裁片主檔快取仍依核准規則在同一裝置共用。
   function resetUserState(authSession){
     state.authSession=authSession||null;state.activeTab='order';state.meta=null;state.analysis=null;state.templateFile=null;
     state.pendingFile=null;state.pendingAnalysis=null;state.orderFiles=[];state.orderItems=[];state.orderErrors=[];
-    state.orderNumbers=[];state.exportModel=null;state.history=[];state.historyLoaded=false;state.toolOnline=null;
+    state.orderNumbers=[];state.exportModel=null;state.history=[];state.historyLoaded=false;state.historyLoading=false;state.toolOnline=null;
     window.PCMSPieceCuttingStore?.resetSession?.();
     if(state.initialized){switchTab('order');renderOrder();}
   }

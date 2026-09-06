@@ -296,6 +296,23 @@ test('裁片訂單頁沿用共用操作框架並提供專用工具說明與四�
   assert.doesNotMatch(styleSource,/\.pc-table th,\.pc-table td\{padding:10px 12px/);
 });
 
+test('裁片主檔與歷史頁沿用裁帶框架並取消未建檔警告',()=>{
+  assert.match(source,/id="pc-panel-template"[\s\S]*class="pc-operation-panel ui-operation-panel"/);
+  assert.match(source,/id="pc-template-table" class="pc-table ui-table pc-template-table"/);
+  assert.match(source,/id="pc-template-analysis" class="pc-data-section ui-data-section"[^>]*hidden/);
+  assert.match(source,/Quy tắc mẫu chính/);
+  assert.match(source,/主檔規則/);
+  assert.match(source,/function clearTemplateCurrent\(\)/);
+  assert.doesNotMatch(source,/setSummary\('pc-template-summary','Chưa có mẫu chính cắt chi tiết\.'/);
+  assert.match(source,/id="pc-panel-history"[\s\S]*id="pc-history-table"/);
+  assert.match(source,/id="pc-history-refresh"/);
+  assert.match(source,/limit:50,force/);
+  assert.doesNotMatch(source,/id="pc-history-more"/);
+  assert.doesNotMatch(source,/loadMore\}\);state\.historyLoaded/);
+  assert.match(styleSource,/\.pc-template-table th:nth-child\(1\)/);
+  assert.match(styleSource,/\.pc-history-table th:nth-child\(1\)/);
+});
+
 test('裁片圖片只依 Excel 明確旋轉與裁切設定產生顯示內容',()=>{
   assert.match(serverSource,/Get-XmlNumber \$xfrm 'rot' 0\)\/60000\.0/);
   assert.match(serverSource,/Get-XmlNumber \$srcRect 'l' 0/);

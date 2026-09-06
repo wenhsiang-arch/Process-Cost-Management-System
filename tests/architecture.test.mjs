@@ -122,7 +122,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
   assert.match(navigationHtml,/Xuất phiếu chuẩn bị vật liệu \/ 備料出單[\s\S]*?data-page-nav="cutting"[\s\S]*?id="nv-cutting"[\s\S]*?data-page-nav="piece-cutting"[\s\S]*?id="nv-piece-cutting"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260906-3/);
+  assert.match(navigationHtml,/js\/features\.js\?v=20260906-4/);
 });
 
 test('款號快取依唯一遞增序號同步且不要求群組序號連續',()=>{
