@@ -153,7 +153,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  grid-template-columns: minmax(52px, 86px) minmax(0, 112px);
+  grid-template-columns: 100px minmax(0, 1fr);
   gap: clamp(4px, .55vw, 8px);
   align-items: center;
 }
@@ -161,6 +161,7 @@
 .production-employee-inline-field > label {
   color: var(--ui-color-text-muted);
   line-height: 1.15;
+  white-space: nowrap;
 }
 
 .production-employee-inline-field > label strong,
@@ -181,7 +182,7 @@
 }
 
 .production-employee-name-field {
-  grid-template-columns: minmax(52px, 78px) minmax(0, 1fr);
+  grid-template-columns: 100px minmax(0, 1fr);
 }
 
 .production-employee-inline-field input {
@@ -206,7 +207,7 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  grid-template-columns: minmax(0, .8fr) minmax(0, 1fr);
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 7px;
   align-items: center;
 }
@@ -217,7 +218,7 @@
   color: var(--ui-color-text-muted);
   line-height: 1.15;
   overflow-wrap: break-word;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .production-inline-value {
@@ -307,8 +308,8 @@
 }
 
 .production-entry-fields > .production-process-field {
-  min-width: 76px;
-  max-width: 96px;
+  min-width: 104px;
+  max-width: 112px;
   --production-field-grow: .45;
 }
 
@@ -1714,6 +1715,15 @@
   color: var(--ui-color-text-muted);
   font-size: 12px;
   font-weight: 400;
+}
+
+#pg-production-entry .production-field > label > strong,
+#pg-production-entry .production-field > label > span,
+#pg-production-entry .production-field-label > strong,
+#pg-production-entry .production-field-label > span,
+#pg-production-entry .production-entry-table-filter-label > strong,
+#pg-production-entry .production-entry-table-filter-label > span {
+  white-space: nowrap;
 }
 
 #pg-production-entry .production-field > label,
