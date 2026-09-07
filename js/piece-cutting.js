@@ -1,9 +1,11 @@
 // piece-cutting（裁片出單）：解析裁片主檔與訂單、顯示配對結果，並交給獨立本機工具產生 PDF（可攜式文件）。
 (function(){
   const LOCAL_ORIGIN='http://127.0.0.1:8766';
+  const LOCAL_API_VERSION=1;
+  const PDF_TOOL_START_TIMEOUT_MS=10000;
   const HISTORY_ACTIONS=['pieceCuttingTemplateImport','pieceCuttingTemplateDelete','pieceCuttingPdfExport'];
   const state={initialized:false,authSession:null,activeTab:'order',meta:null,analysis:null,templateFile:null,pendingFile:null,pendingAnalysis:null,
-    orderFiles:[],orderItems:[],orderErrors:[],orderNumbers:[],exportModel:null,history:[],historyLoaded:false,historyLoading:false,toolOnline:null};
+    orderFiles:[],orderItems:[],orderErrors:[],orderNumbers:[],exportModel:null,history:[],historyLoaded:false,historyLoading:false,toolOnline:null,toolNeedsUpdate:false};
   let fileDropRegistered=false,orderLoadRevision=0;
 
   const g=id=>document.getElementById(id);
@@ -22,7 +24,15 @@
   }
 
   function normalizeText(value){
-    return String(value??'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+    return String(value??'').replace(/[\u200B-\u200D\u2060\uFEFF\uFFFE\uFFFF]/g,'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim();
+  }
+
+  // sanitizeTransportValue（清理傳輸資料）：避免 Excel 隱藏格式字元讓舊版 Windows JSON 解析器拒絕整筆要求。
+  function sanitizeTransportValue(value){
+    if(typeof value==='string') return value.replace(/[\u200B-\u200D\u2060\uFEFF\uFFFE\uFFFF]/g,'');
+    if(Array.isArray(value)) return value.map(sanitizeTransportValue);
+    if(value&&typeof value==='object') return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,sanitizeTransportValue(item)]));
+    return value;
   }
 
   function normalizeKey(value){
@@ -637,14 +647,27 @@
 
   async function checkTool(silent=false){
     if(!silent) renderTool(null);
-    try{ const response=await fetchLocal('/health',{cache:'no-store'},1800); const data=response.ok?await response.json():null; const ready=data?.service==='piece-cutting-pdf-local'; renderTool(ready); return ready; }
-    catch(_){ renderTool(false); return false; }
+    try{
+      const response=await fetchLocal('/health',{cache:'no-store'},1800),data=response.ok?await response.json():null;
+      const correctService=data?.ok===true&&data?.service==='piece-cutting-pdf-local';
+      state.toolNeedsUpdate=correctService&&Number(data?.apiVersion)!==LOCAL_API_VERSION;
+      const ready=correctService&&!state.toolNeedsUpdate;renderTool(ready);return ready;
+    }catch(_){ state.toolNeedsUpdate=false;renderTool(false);return false; }
   }
 
   async function startTool(){
     if(await checkTool(true)) return true;
     const frame=document.createElement('iframe');frame.hidden=true;frame.src='piececuttingpdf://start';document.body.appendChild(frame);setTimeout(()=>frame.remove(),2500);
-    for(let index=0;index<10;index+=1){ await new Promise(resolve=>setTimeout(resolve,700)); if(await checkTool(true)) return true; }
+    const deadline=Date.now()+PDF_TOOL_START_TIMEOUT_MS;
+    while(Date.now()<deadline){
+      await new Promise(resolve=>setTimeout(resolve,Math.min(700,Math.max(0,deadline-Date.now()))));
+      if(Date.now()>=deadline) break;
+      if(await checkTool(true)) return true;
+    }
+    if(state.toolNeedsUpdate){
+      await message('Công cụ PDF cắt chi tiết đã cũ. Hãy đóng công cụ, chờ OneDrive đồng bộ rồi mở lại.','裁片 PDF 工具版本過舊，請關閉工具、等待 OneDrive 同步後重新啟動。','warning');
+      return false;
+    }
     await message('Không thể mở công cụ PDF cắt chi tiết. Hãy chạy trình khởi động đã cài trên máy này.','無法啟動裁片 PDF 工具，請先執行此電腦已安裝的啟動器。','warning');
     return false;
   }
@@ -658,16 +681,18 @@
     if(!handle) return;
     try{
       const meta=state.meta||await window.PCMSPieceCuttingStore.loadMeta();
-      const status=await fetchLocal('/piece-cutting/cache/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contentHash:meta.contentHash,fileSize:meta.fileSize})},5000);
-      const cached=status.ok&&(await status.json()).cached===true;
+      const status=await fetchLocal('/piece-cutting/cache/status',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify({contentHash:meta.contentHash,fileSize:meta.fileSize})},5000);
+      if(!status.ok){let detail='';try{detail=(await status.json()).error||'';}catch(_){}throw new Error(detail||`Không thể kiểm tra bộ nhớ đệm / 無法檢查本機快取；HTTP ${status.status}`);}
+      let statusData=null;try{statusData=await status.json();}catch(_){throw new Error('Phản hồi kiểm tra bộ nhớ đệm không hợp lệ. / 本機快取檢查回應格式無效。');}
+      const cached=statusData?.cached===true;
       if(!cached){
         const loaded=await window.PCMSPieceCuttingStore.loadTemplateFile(meta);
         const query=new URLSearchParams({contentHash:String(meta.contentHash||''),fileSize:String(meta.fileSize||0),fileName:String(meta.fileName||'')});
         const prepared=await fetchLocal(`/piece-cutting/cache?${query.toString()}`,{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:loaded.blob},15*60*1000);
         if(!prepared.ok){ let detail='';try{detail=(await prepared.json()).error||'';}catch(_){} throw new Error(detail||`HTTP ${prepared.status}`); }
       }
-      const payload={outputName:suggestedPdfName(),template:{contentHash:meta.contentHash,fileSize:meta.fileSize,fileName:meta.fileName},report:state.exportModel};
-      const response=await fetchLocal('/piece-cutting/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},15*60*1000);
+      const payload=sanitizeTransportValue({outputName:suggestedPdfName(),template:{contentHash:meta.contentHash,fileSize:meta.fileSize,fileName:meta.fileName},report:state.exportModel});
+      const response=await fetchLocal('/piece-cutting/pdf',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)},15*60*1000);
       if(!response.ok){ let detail='';try{detail=(await response.json()).error||'';}catch(_){} throw new Error(detail||`HTTP ${response.status}`); }
       await window.PCMSFileIO.writeToHandle(handle,await response.blob());
       try{
@@ -739,7 +764,7 @@
   function resetUserState(authSession){
     state.authSession=authSession||null;state.activeTab='order';state.meta=null;state.analysis=null;state.templateFile=null;
     state.pendingFile=null;state.pendingAnalysis=null;state.orderFiles=[];state.orderItems=[];state.orderErrors=[];
-    state.orderNumbers=[];state.exportModel=null;state.history=[];state.historyLoaded=false;state.historyLoading=false;state.toolOnline=null;
+    state.orderNumbers=[];state.exportModel=null;state.history=[];state.historyLoaded=false;state.historyLoading=false;state.toolOnline=null;state.toolNeedsUpdate=false;
     window.PCMSPieceCuttingStore?.resetSession?.();
     if(state.initialized){switchTab('order');renderOrder();}
   }

@@ -3,15 +3,12 @@
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-Add-Type -AssemblyName System.Web.Extensions
 $script:Prefix="http://127.0.0.1:$Port/"
+$script:ApiVersion=1
 $script:CacheRoot=Join-Path $PSScriptRoot 'piece-cutting-cache'
 $script:TempPrefix='piece-cutting-pdf-'
 $script:MaxRequestBytes=190MB
 $script:MaxTemplateBytes=100MB
-$script:JsonSerializer=[System.Web.Script.Serialization.JavaScriptSerializer]::new()
-$script:JsonSerializer.MaxJsonLength=[int]$script:MaxRequestBytes
-$script:JsonSerializer.RecursionLimit=128
 $script:CorsOrigin=''
 [System.IO.Directory]::CreateDirectory($script:CacheRoot)|Out-Null
 
@@ -38,12 +35,13 @@ function Send-Json($Response,[int]$Status,$Value){Send-Text $Response $Status ($
 
 function Read-Json($Request){
   if($Request.ContentLength64 -gt $script:MaxRequestBytes){throw 'REQUEST_TOO_LARGE / 要求內容超過上限'}
-  $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
+  $utf8=[Text.UTF8Encoding]::new($false,$true)
+  $reader=[IO.StreamReader]::new($Request.InputStream,$utf8,$true,4096,$true)
   try{$raw=$reader.ReadToEnd()}finally{$reader.Dispose()}
   $byteCount=[Text.Encoding]::UTF8.GetByteCount($raw)
   if($byteCount -gt $script:MaxRequestBytes){throw 'REQUEST_TOO_LARGE / 要求內容超過上限'}
   if([string]::IsNullOrWhiteSpace($raw)){return [pscustomobject]@{}}
-  try{return $script:JsonSerializer.DeserializeObject($raw)}catch{throw "INVALID_REQUEST_JSON / Dữ liệu gửi đến công cụ không hợp lệ / 傳入工具的資料格式無效；Bytes=$byteCount"}
+  try{return ($raw|ConvertFrom-Json -ErrorAction Stop)}catch{throw "INVALID_REQUEST_JSON / Dữ liệu gửi đến công cụ không hợp lệ / 傳入工具的資料格式無效；Bytes=$byteCount"}
 }
 
 function Read-Bytes($Request){
@@ -444,7 +442,7 @@ $listener=[Net.HttpListener]::new();$listener.Prefixes.Add($script:Prefix);$list
 while($listener.IsListening){$context=$listener.GetContext();$request=$context.Request;$response=$context.Response;$job=$null
   try{$script:CorsOrigin='';$origin=[string]$request.Headers['Origin'];if(-not(Test-AllowedOrigin $origin)){Send-Text $response 403 '{"ok":false,"error":"ORIGIN_NOT_ALLOWED / 不允許的網站來源"}';continue};if($origin){$script:CorsOrigin=$origin}
     if($request.HttpMethod-eq'OPTIONS'){Send-Text $response 204 '';continue};$path=$request.Url.AbsolutePath
-    if($path-eq'/health'-and$request.HttpMethod-eq'GET'){Send-Json $response 200 @{ok=$true;service='piece-cutting-pdf-local';port=$Port};continue}
+    if($path-eq'/health'-and$request.HttpMethod-eq'GET'){Send-Json $response 200 @{ok=$true;service='piece-cutting-pdf-local';apiVersion=$script:ApiVersion;port=$Port};continue}
     if($path-eq'/piece-cutting/cache/status'-and$request.HttpMethod-eq'POST'){$payload=Read-Json $request;Send-Json $response 200 (Get-CacheStatus $payload);continue}
     if($path-eq'/piece-cutting/cache'-and$request.HttpMethod-eq'POST'){Send-Json $response 200 (Prepare-TemplateCache $request);continue}
     if($path-eq'/piece-cutting/cache'-and$request.HttpMethod-eq'DELETE'){Send-Json $response 200 (Clear-Cache);continue}
