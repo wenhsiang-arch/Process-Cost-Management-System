@@ -5,8 +5,8 @@
   const PDF_TOOL_START_TIMEOUT_MS=10000;
   const HISTORY_ACTIONS=['pieceCuttingTemplateImport','pieceCuttingTemplateDelete','pieceCuttingPdfExport'];
   const state={initialized:false,authSession:null,activeTab:'order',meta:null,analysis:null,templateFile:null,pendingFile:null,pendingAnalysis:null,
-    orderFiles:[],orderItems:[],orderErrors:[],orderNumbers:[],exportModel:null,history:[],historyLoaded:false,historyLoading:false,toolOnline:null,toolNeedsUpdate:false};
-  let fileDropRegistered=false,orderLoadRevision=0;
+    orderFiles:[],orderItems:[],orderErrors:[],orderNumbers:[],exportModel:null,history:[],historyLoaded:false,historyLoading:false,toolOnline:null,toolNeedsUpdate:false,exporting:false};
+  let fileDropRegistered=false,orderLoadRevision=0,pdfProgress=null,pdfProgressCloseTimer=0;
 
   const g=id=>document.getElementById(id);
   const safe=value=>window.PCMSSafe?.text?.(value)??String(value??'');
@@ -21,6 +21,31 @@
 
   function message(vi,zh,kind='info'){
     return window.PCMSUIComponents?.alertDialog?.({kind,message:pair(vi,zh)})||Promise.resolve(false);
+  }
+
+  // PDF 匯出進度只呈現本機處理階段，不增加 Firebase（雲端資料庫）讀寫。
+  function openPdfProgress(){
+    if(pdfProgressCloseTimer){clearTimeout(pdfProgressCloseTimer);pdfProgressCloseTimer=0;}
+    pdfProgress?.close?.();
+    pdfProgress=window.PCMSUIComponents.progressDialog({title:pair('Tiến độ xuất PDF cắt chi tiết','裁片 PDF 匯出進度'),value:4,
+      text:pair('Đang chuẩn bị dữ liệu','正在準備資料'),detail:pair('Vui lòng chờ trong khi hệ thống xử lý.','系統處理中，請稍候。'),allowClose:true,
+      onClose:()=>{pdfProgress=null;}});
+    return pdfProgress;
+  }
+
+  function updatePdfProgress(value,vi,zh,detailVi,detailZh,indeterminate=false){
+    pdfProgress?.update({value,text:pair(vi,zh),detail:pair(detailVi,detailZh),indeterminate});
+  }
+
+  function completePdfProgress(){
+    const current=pdfProgress;if(!current)return;
+    current.complete(pair('Đã hoàn tất PDF cắt chi tiết','裁片 PDF 已完成'),pair('Tệp đã được lưu vào vị trí đã chọn.','檔案已儲存至選擇的位置。'));
+    pdfProgressCloseTimer=setTimeout(()=>{if(pdfProgress===current){current.close();pdfProgress=null;}pdfProgressCloseTimer=0;},1200);
+  }
+
+  function closePdfProgress(){
+    if(pdfProgressCloseTimer){clearTimeout(pdfProgressCloseTimer);pdfProgressCloseTimer=0;}
+    pdfProgress?.close?.();pdfProgress=null;
   }
 
   function normalizeText(value){
@@ -285,23 +310,25 @@
         <div id="pc-order-summary" class="pc-summary" hidden></div>
         <section class="pc-data-section ui-data-section pc-results-section">
           <div class="pc-section-header ui-section-header"><i class="ti ti-list-check"></i><span class="pc-section-copy ui-dual-copy"><strong>Kết quả kiểm tra</strong><span>核對結果</span></span></div>
-          <div class="pc-results-frame ui-table-frame">
+          <div class="pc-results-frame">
         <div id="pc-results-empty" class="pc-results-empty" role="status"><i class="ti ti-file-search" aria-hidden="true"></i><span class="pc-results-empty-copy ui-dual-copy"><strong>Chưa có kết quả kiểm tra.</strong><span>尚無核對結果。</span></span></div>
-        <div id="pc-order-files-wrap" class="pc-table-wrap pc-order-files-wrap" hidden><table class="pc-table ui-table pc-order-files-table"><thead><tr>
-          <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
-          <th><span class="ui-text-vi">Số mã</span><span class="ui-text-zh">款號數</span></th><th><span class="ui-text-vi">Tổng số lượng</span><span class="ui-text-zh">總數量</span></th>
-          <th><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th><th><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th>
-        </tr></thead><tbody id="pc-order-files-body"></tbody></table></div>
-        <div id="pc-order-errors-wrap" class="pc-table-wrap pc-error-wrap" hidden><table class="pc-table ui-table pc-error-table"><thead><tr>
-          <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
-          <th><span class="ui-text-vi">Vị trí</span><span class="ui-text-zh">位置</span></th><th><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></th>
-          <th><span class="ui-text-vi">Nguyên nhân</span><span class="ui-text-zh">錯誤原因</span></th><th><span class="ui-text-vi">Cách sửa</span><span class="ui-text-zh">修正方式</span></th>
-        </tr></thead><tbody id="pc-order-errors-body"></tbody></table></div>
-        <div id="pc-order-items-wrap" class="pc-table-wrap" hidden><table class="pc-table ui-table pc-order-items-table"><thead><tr>
-          <th><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
-          <th><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></th><th><span class="ui-text-vi">Số lượng</span><span class="ui-text-zh">訂單數量</span></th>
-          <th><span class="ui-text-vi">Size</span><span class="ui-text-zh">尺寸</span></th><th><span class="ui-text-vi">Vật liệu liên quan</span><span class="ui-text-zh">相關布料</span></th>
-          <th><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th></tr></thead><tbody id="pc-order-body"></tbody></table></div>
+        <section id="pc-order-files-wrap" class="pc-result-table-group pc-order-files-wrap" hidden>
+          <div id="pc-order-files-tools" class="pc-result-table-tools ui-toolbar"><span class="pc-result-table-title ui-dual-copy"><strong>Danh sách tệp đã nhập</strong><span>已匯入檔案</span></span></div>
+          <div class="pc-table-wrap ui-table-frame"><div class="pc-table-scroll ui-table-scroll" data-ui-floating-scroll="only"><table id="pc-order-files-table" class="pc-table ui-table pc-order-files-table" data-ui-table-controls="auto" data-ui-table-resizable="true" data-ui-table-sticky="original" data-ui-table-settings-target="#pc-order-files-tools"><thead><tr>
+            <th data-ui-table-column="fileName" data-ui-table-width="360" data-ui-table-min-width="180" data-ui-table-max-width="520" data-ui-table-ellipsis="true"><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th data-ui-table-column="order" data-ui-table-width="260" data-ui-table-min-width="150" data-ui-table-max-width="420" data-ui-table-ellipsis="true"><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
+            <th class="ui-table-number-cell" data-ui-table-column="codeCount" data-ui-table-sort-type="number" data-ui-table-width="110" data-ui-table-min-width="90" data-ui-table-max-width="160"><span class="ui-text-vi">Số mã</span><span class="ui-text-zh">款號數</span></th><th class="ui-table-number-cell" data-ui-table-column="quantity" data-ui-table-sort-type="number" data-ui-table-width="130" data-ui-table-min-width="105" data-ui-table-max-width="190"><span class="ui-text-vi">Tổng số lượng</span><span class="ui-text-zh">總數量</span></th>
+            <th class="ui-table-center-cell" data-ui-table-column="status" data-ui-table-width="130" data-ui-table-min-width="105" data-ui-table-max-width="180"><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th><th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-resizable="false" data-ui-table-width="105" data-ui-table-min-width="90" data-ui-table-max-width="130"><span class="ui-text-vi">Thao tác</span><span class="ui-text-zh">操作</span></th>
+          </tr></thead><tbody id="pc-order-files-body"></tbody></table></div></div>
+        </section>
+        <div id="pc-order-errors-wrap" class="pc-error-wrap" hidden><div id="pc-order-errors-body" class="pc-error-list"></div></div>
+        <section id="pc-order-items-wrap" class="pc-result-table-group" hidden>
+          <div id="pc-order-items-tools" class="pc-result-table-tools ui-toolbar"><span class="pc-result-table-title ui-dual-copy"><strong>Chi tiết mã hàng</strong><span>款號明細</span></span></div>
+          <div class="pc-table-wrap ui-table-frame"><div class="pc-table-scroll ui-table-scroll" data-ui-floating-scroll="only"><table id="pc-order-items-table" class="pc-table ui-table pc-order-items-table" data-ui-table-controls="auto" data-ui-table-resizable="true" data-ui-table-sticky="original" data-ui-table-settings-target="#pc-order-items-tools"><thead><tr>
+            <th data-ui-table-column="fileName" data-ui-table-width="270" data-ui-table-min-width="170" data-ui-table-max-width="440" data-ui-table-ellipsis="true"><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th data-ui-table-column="order" data-ui-table-width="220" data-ui-table-min-width="150" data-ui-table-max-width="360" data-ui-table-ellipsis="true"><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
+            <th data-ui-table-column="code" data-ui-table-width="155" data-ui-table-min-width="120" data-ui-table-max-width="240"><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></th><th class="ui-table-number-cell" data-ui-table-column="quantity" data-ui-table-sort-type="number" data-ui-table-width="120" data-ui-table-min-width="100" data-ui-table-max-width="170"><span class="ui-text-vi">Số lượng</span><span class="ui-text-zh">訂單數量</span></th>
+            <th class="ui-table-center-cell" data-ui-table-column="size" data-ui-table-width="95" data-ui-table-min-width="80" data-ui-table-max-width="150"><span class="ui-text-vi">Size</span><span class="ui-text-zh">尺寸</span></th><th data-ui-table-column="material" data-ui-table-width="390" data-ui-table-min-width="210" data-ui-table-max-width="620" data-ui-table-ellipsis="true"><span class="ui-text-vi">Vật liệu liên quan</span><span class="ui-text-zh">相關布料</span></th>
+            <th class="ui-table-center-cell" data-ui-table-column="status" data-ui-table-width="135" data-ui-table-min-width="110" data-ui-table-max-width="190"><span class="ui-text-vi">Tình trạng</span><span class="ui-text-zh">狀態</span></th></tr></thead><tbody id="pc-order-body"></tbody></table></div></div>
+        </section>
           </div>
         </section>
       </section>
@@ -412,9 +439,17 @@
       row.innerHTML=`<td title="${safe(record.fileName)}">${safe(record.fileName)}</td><td>${safe(record.orderNumbers.length?record.orderNumbers.join(' + '):'—')}</td><td>${safe(record.items.length)}</td><td>${safe(record.items.reduce((sum,item)=>sum+Number(item.qty||0),0).toLocaleString())}</td><td><span class="pc-badge ${hasErrors?'is-error':'is-ready'}">${hasErrors?'<span class="ui-text-vi">Có lỗi</span><span class="ui-text-zh">有錯誤</span>':'<span class="ui-text-vi">Hợp lệ</span><span class="ui-text-zh">有效</span>'}</span></td><td><button class="pc-remove-file" type="button" data-order-file-id="${safe(record.id)}"><span class="ui-text-vi">Bỏ tệp</span><span class="ui-text-zh">移除</span></button></td>`;
       fileBody.appendChild(row);
       recordErrors.forEach(error=>{
-        const errorRow=document.createElement('tr');
-        errorRow.innerHTML=`<td>${safe(record.fileName)}</td><td>${safe(record.orderNumbers.join(' + ')||'—')}</td><td><span class="ui-text-vi">${safe(error.locationVi||`Trang tính ${record.sheetName||'—'}`)}</span><span class="ui-text-zh">${safe(error.locationZh||`工作表 ${record.sheetName||'—'}`)}</span></td><td>${safe(error.code||'—')}</td><td><span class="ui-text-vi">${safe(error.detailReasonVi||error.reasonVi||'Dữ liệu không hợp lệ.')}</span><span class="ui-text-zh">${safe(error.detailReasonZh||error.reasonZh||'資料無效。')}</span></td><td><span class="ui-text-vi">${safe(error.solutionVi||'Kiểm tra và nhập lại tệp này.')}</span><span class="ui-text-zh">${safe(error.solutionZh||'請修正後重新匯入此檔案。')}</span></td>`;
-        errorBody.appendChild(errorRow);
+        const errorCard=document.createElement('article');errorCard.className='pc-error-card';
+        errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><span><strong class="ui-text-vi">Lỗi trong tệp</strong><strong class="ui-text-zh">檔案錯誤</strong></span></div>
+          <dl class="pc-error-details">
+            <div><dt><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></dt><dd>${safe(record.fileName)}</dd></div>
+            <div><dt><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></dt><dd>${safe(record.orderNumbers.join(' + ')||'—')}</dd></div>
+            <div><dt><span class="ui-text-vi">Vị trí</span><span class="ui-text-zh">位置</span></dt><dd><span class="ui-text-vi">${safe(error.locationVi||`Trang tính ${record.sheetName||'—'}`)}</span><span class="ui-text-zh">${safe(error.locationZh||`工作表 ${record.sheetName||'—'}`)}</span></dd></div>
+            <div><dt><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></dt><dd>${safe(error.code||'—')}</dd></div>
+            <div class="pc-error-detail-wide"><dt><span class="ui-text-vi">Nguyên nhân</span><span class="ui-text-zh">錯誤原因</span></dt><dd><span class="ui-text-vi">${safe(error.detailReasonVi||error.reasonVi||'Dữ liệu không hợp lệ.')}</span><span class="ui-text-zh">${safe(error.detailReasonZh||error.reasonZh||'資料無效。')}</span></dd></div>
+            <div class="pc-error-detail-wide"><dt><span class="ui-text-vi">Cách sửa</span><span class="ui-text-zh">修正方式</span></dt><dd><span class="ui-text-vi">${safe(error.solutionVi||'Kiểm tra và nhập lại tệp này.')}</span><span class="ui-text-zh">${safe(error.solutionZh||'請修正後重新匯入此檔案。')}</span></dd></div>
+          </dl>`;
+        errorBody.appendChild(errorCard);
       });
     });
     const hasFiles=state.orderFiles.length>0,hasItems=state.orderItems.length>0,hasErrors=state.orderErrors.length>0;
@@ -673,37 +708,49 @@
   }
 
   async function exportPdf(){
-    if(await showMissingMasterWarning(state.exportModel)) return;
-    if(!state.exportModel?.materials.length||state.orderErrors.length) return;
-    if(!(await startTool())) return;
-    const handle=await window.PCMSFileIO.chooseSaveHandle({id:'pcms-piece-cutting-pdf',suggestedName:suggestedPdfName(),types:[{description:'Tệp PDF / PDF 檔案',accept:{'application/pdf':['.pdf']}}],
-      onUnsupported:()=>message('Trình duyệt này không hỗ trợ chọn vị trí lưu.','此瀏覽器不支援選擇儲存位置。','warning')});
-    if(!handle) return;
+    if(state.exporting){window.PCMSUIComponents.showToast({kind:'info',text:pair('PDF đang được xử lý.','PDF 正在處理中。')});return;}
+    state.exporting=true;const exportButton=g('pc-export');if(exportButton)exportButton.disabled=true;
     try{
+      if(await showMissingMasterWarning(state.exportModel)) return;
+      if(!state.exportModel?.materials.length||state.orderErrors.length) return;
+      if(!(await startTool())) return;
+      const handle=await window.PCMSFileIO.chooseSaveHandle({id:'pcms-piece-cutting-pdf',suggestedName:suggestedPdfName(),types:[{description:'Tệp PDF / PDF 檔案',accept:{'application/pdf':['.pdf']}}],
+        onUnsupported:()=>message('Trình duyệt này không hỗ trợ chọn vị trí lưu.','此瀏覽器不支援選擇儲存位置。','warning')});
+      if(!handle) return;
+      openPdfProgress();
+      updatePdfProgress(10,'Đang kiểm tra bộ nhớ đệm mẫu chính','正在檢查主檔快取','Xác nhận dữ liệu ảnh và mẫu trên máy này.','正在確認此電腦的圖片及主檔資料。');
       const meta=state.meta||await window.PCMSPieceCuttingStore.loadMeta();
       const status=await fetchLocal('/piece-cutting/cache/status',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify({contentHash:meta.contentHash,fileSize:meta.fileSize})},5000);
       if(!status.ok){let detail='';try{detail=(await status.json()).error||'';}catch(_){}throw new Error(detail||`Không thể kiểm tra bộ nhớ đệm / 無法檢查本機快取；HTTP ${status.status}`);}
       let statusData=null;try{statusData=await status.json();}catch(_){throw new Error('Phản hồi kiểm tra bộ nhớ đệm không hợp lệ. / 本機快取檢查回應格式無效。');}
       const cached=statusData?.cached===true;
       if(!cached){
+        updatePdfProgress(25,'Đang chuẩn bị mẫu chính và hình ảnh','正在準備主檔與圖片','Lần đầu xử lý mẫu này có thể cần thêm thời gian.','第一次處理這份主檔可能需要較長時間。',true);
         const loaded=await window.PCMSPieceCuttingStore.loadTemplateFile(meta);
         const query=new URLSearchParams({contentHash:String(meta.contentHash||''),fileSize:String(meta.fileSize||0),fileName:String(meta.fileName||'')});
         const prepared=await fetchLocal(`/piece-cutting/cache?${query.toString()}`,{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:loaded.blob},15*60*1000);
         if(!prepared.ok){ let detail='';try{detail=(await prepared.json()).error||'';}catch(_){} throw new Error(detail||`HTTP ${prepared.status}`); }
       }
+      updatePdfProgress(55,'Đang gửi dữ liệu đã kiểm tra','正在傳送已核對資料','Số lượng và kích thước đã được tổng hợp.','數量與尺寸已完成彙整。');
       const payload=sanitizeTransportValue({outputName:suggestedPdfName(),template:{contentHash:meta.contentHash,fileSize:meta.fileSize,fileName:meta.fileName},report:state.exportModel});
+      updatePdfProgress(65,'Đang tạo PDF cắt chi tiết','正在產生裁片 PDF','Công cụ trên máy này đang sắp xếp trang và hình ảnh.','本機工具正在編排頁面與圖片。',true);
       const response=await fetchLocal('/piece-cutting/pdf',{method:'POST',headers:{'Content-Type':'application/json; charset=utf-8'},body:JSON.stringify(payload)},15*60*1000);
       if(!response.ok){ let detail='';try{detail=(await response.json()).error||'';}catch(_){} throw new Error(detail||`HTTP ${response.status}`); }
+      updatePdfProgress(92,'Đang lưu tệp PDF','正在儲存 PDF 檔案','Không đóng trang cho đến khi hoàn tất.','完成前請勿關閉頁面。');
       await window.PCMSFileIO.writeToHandle(handle,await response.blob());
+      updatePdfProgress(98,'Đang hoàn tất','正在完成','Đang ghi lịch sử thao tác.','正在寫入操作紀錄。');
       try{
         await window.PCMSHistory.saveOperationLog({permissionKey:'cutting',feature:'pieceCutting',action:'pieceCuttingPdfExport',status:'success',itemCount:state.exportModel.matched.length,detailCount:state.exportModel.totalPieces,fileName:handle.name||suggestedPdfName()});
       }catch(logError){
         console.error('裁片 PDF 操作紀錄寫入失敗：',logError);
+        completePdfProgress();
         await message('PDF đã được lưu, nhưng không thể ghi lịch sử thao tác. Hãy báo quản trị viên.','PDF 已儲存，但操作紀錄寫入失敗，請通知管理員。','warning');
         return;
       }
+      completePdfProgress();
       window.PCMSUIComponents.showToast({kind:'success',text:pair('Đã lưu PDF cắt chi tiết.','裁片 PDF 已儲存。')});
-    }catch(error){ console.error(error); await message(`Không thể xuất PDF. ${error.message||''}`,`無法匯出 PDF。${error.message||''}`,'danger'); }
+    }catch(error){ console.error(error);closePdfProgress();await message(`Không thể xuất PDF. ${error.message||''}`,`無法匯出 PDF。${error.message||''}`,'danger'); }
+    finally{state.exporting=false;renderOrder();}
   }
 
   function historyAction(action){
@@ -764,7 +811,7 @@
   function resetUserState(authSession){
     state.authSession=authSession||null;state.activeTab='order';state.meta=null;state.analysis=null;state.templateFile=null;
     state.pendingFile=null;state.pendingAnalysis=null;state.orderFiles=[];state.orderItems=[];state.orderErrors=[];
-    state.orderNumbers=[];state.exportModel=null;state.history=[];state.historyLoaded=false;state.historyLoading=false;state.toolOnline=null;state.toolNeedsUpdate=false;
+    state.orderNumbers=[];state.exportModel=null;state.history=[];state.historyLoaded=false;state.historyLoading=false;state.toolOnline=null;state.toolNeedsUpdate=false;state.exporting=false;closePdfProgress();
     window.PCMSPieceCuttingStore?.resetSession?.();
     if(state.initialized){switchTab('order');renderOrder();}
   }
