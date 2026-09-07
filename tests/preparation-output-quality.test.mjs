@@ -43,3 +43,13 @@ test('裁片錯誤直接顯示位置與具體問題',()=>{
   assert.match(pieceStyle,/\.pc-error-message\{/);
   assert.doesNotMatch(pieceStyle,/\.pc-error-details\{/);
 });
+
+test('重複訂單合併成一張簡單錯誤說明',()=>{
+  assert.match(piece,/function uniqueOrderErrors\(/);
+  assert.match(piece,/state\.orderErrors=uniqueOrderErrors\(state\.orderFiles\)/);
+  assert.match(piece,/recordErrors\.filter\(error=>!error\.duplicateOrderKey\)/);
+  assert.match(piece,/Trùng số đơn hàng:/);
+  assert.match(piece,/訂單號重複：/);
+  assert.match(piece,/duplicateFileNames/);
+  assert.match(piece,/請移除其中一個檔案。/);
+});

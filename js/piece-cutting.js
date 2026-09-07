@@ -449,7 +449,7 @@
       const row=document.createElement('tr'),hasErrors=recordErrors.length>0;
       row.innerHTML=`<td title="${safe(record.fileName)}">${safe(record.fileName)}</td><td>${safe(record.orderNumbers.length?record.orderNumbers.join(' + '):'—')}</td><td>${safe(record.items.length)}</td><td>${safe(record.items.reduce((sum,item)=>sum+Number(item.qty||0),0).toLocaleString())}</td><td><span class="pc-badge ${hasErrors?'is-error':'is-ready'}">${hasErrors?'<span class="ui-text-vi">Có lỗi</span><span class="ui-text-zh">有錯誤</span>':'<span class="ui-text-vi">Hợp lệ</span><span class="ui-text-zh">有效</span>'}</span></td><td><button class="pc-remove-file" type="button" data-order-file-id="${safe(record.id)}"><span class="ui-text-vi">Bỏ tệp</span><span class="ui-text-zh">移除</span></button></td>`;
       fileBody.appendChild(row);
-      recordErrors.forEach(error=>{
+      recordErrors.filter(error=>!error.duplicateOrderKey).forEach(error=>{
         const errorCard=document.createElement('article');errorCard.className='pc-error-card';
         const locationVi=shortOrderErrorLocation(error,record,'vi'),locationZh=shortOrderErrorLocation(error,record,'zh');
         const reasonVi=error.detailReasonVi||error.reasonVi||'Dữ liệu không hợp lệ.';
@@ -458,6 +458,15 @@
           <p class="pc-error-message"><span class="ui-text-vi">${safe(locationVi)}: ${safe(reasonVi)}</span><span class="ui-text-zh">${safe(locationZh)}：${safe(reasonZh)}</span></p>`;
         errorBody.appendChild(errorCard);
       });
+    });
+    state.orderErrors.filter(error=>error.duplicateOrderKey).forEach(error=>{
+      const fileNames=[...new Set((error.duplicateFileNames||[]).map(String).filter(Boolean))];
+      const viFiles=fileNames.map(fileName=>`<li title="${safe(fileName)}">${safe(fileName)}</li>`).join('');
+      const zhFiles=fileNames.map(fileName=>`<li title="${safe(fileName)}">${safe(fileName)}</li>`).join('');
+      const errorCard=document.createElement('article');errorCard.className='pc-error-card pc-duplicate-error-card';
+      errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><span class="ui-dual-copy"><strong class="ui-text-vi">Trùng số đơn hàng: ${safe(error.code||'—')}</strong><strong class="ui-text-zh">訂單號重複：${safe(error.code||'—')}</strong></span></div>
+        <div class="pc-error-message pc-duplicate-error-message"><section class="ui-text-vi"><strong>Tệp trùng:</strong><ol>${viFiles}</ol><p>Hãy bỏ một trong các tệp.</p></section><section class="ui-text-zh"><strong>重複檔案：</strong><ol>${zhFiles}</ol><p>請移除其中一個檔案。</p></section></div>`;
+      errorBody.appendChild(errorCard);
     });
     const hasFiles=state.orderFiles.length>0,hasItems=state.orderItems.length>0,hasErrors=state.orderErrors.length>0;
     if(!hasFiles){
@@ -568,6 +577,20 @@
     return [...(record?.errors||[]),...(record?.duplicateOrderErrors||[])];
   }
 
+  // uniqueOrderErrors（合併訂單錯誤）：同一個重複訂單只計算及顯示一次，相關檔案仍全部標示為錯誤。
+  function uniqueOrderErrors(records){
+    const result=[],seenDuplicateOrders=new Set();
+    (records||[]).forEach(record=>effectiveOrderErrors(record).forEach(error=>{
+      const duplicateKey=String(error.duplicateOrderKey||'');
+      if(duplicateKey){
+        if(seenDuplicateOrders.has(duplicateKey)) return;
+        seenDuplicateOrders.add(duplicateKey);
+      }
+      result.push(error);
+    }));
+    return result;
+  }
+
   function findDuplicateOrderErrors(records){
     const byOrder=new Map(),errorsByRecord=new Map();
     records.forEach(record=>(record.orderNumbers||[]).forEach(orderNumber=>{
@@ -575,7 +598,7 @@
       if(!byOrder.has(key)) byOrder.set(key,{orderNumber,records:[]});
       byOrder.get(key).records.push(record);
     }));
-    byOrder.forEach(({orderNumber,records:matchedRecords})=>{
+    byOrder.forEach(({orderNumber,records:matchedRecords},key)=>{
       if(matchedRecords.length<2) return;
       const fileNames=matchedRecords.map(record=>record.fileName).join('、');
       matchedRecords.forEach(record=>{
@@ -583,7 +606,8 @@
           `Số đơn hàng ${orderNumber} xuất hiện trong nhiều tệp: ${fileNames}.`,
           `訂單號 ${orderNumber} 同時出現在多個檔案：${fileNames}。`,
           'Chỉ giữ một tệp của đơn hàng này rồi nhập lại.',
-          '同一訂單只保留一個檔案，移除重複檔案後再匯入。'),code:orderNumber,fileName:record.fileName,orderLabel:record.orderLabel};
+          '同一訂單只保留一個檔案，移除重複檔案後再匯入。'),code:orderNumber,fileName:record.fileName,orderLabel:record.orderLabel,
+          duplicateOrderKey:key,duplicateFileNames:matchedRecords.map(item=>item.fileName)};
         if(!errorsByRecord.has(record.id)) errorsByRecord.set(record.id,[]);
         errorsByRecord.get(record.id).push(error);
       });
@@ -639,7 +663,7 @@
   async function rebuildOrderModel(){
     const duplicateErrors=findDuplicateOrderErrors(state.orderFiles);
     state.orderFiles.forEach(record=>{record.duplicateOrderErrors=duplicateErrors.get(record.id)||[];});
-    state.orderErrors=state.orderFiles.flatMap(effectiveOrderErrors);
+    state.orderErrors=uniqueOrderErrors(state.orderFiles);
     const validRecords=state.orderFiles.filter(record=>!effectiveOrderErrors(record).length);
     state.orderNumbers=[...new Map(validRecords.flatMap(record=>record.orderNumbers).map(value=>[normalizeKey(value),value])).values()];
     state.orderItems=validRecords.flatMap(record=>record.items.map(item=>({...item,fileName:record.fileName,orderLabel:record.orderLabel,orderNumbers:record.orderNumbers.slice()})));
