@@ -3,10 +3,15 @@
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.IO.Compression.FileSystem
+Add-Type -AssemblyName System.Web.Extensions
 $script:Prefix="http://127.0.0.1:$Port/"
 $script:CacheRoot=Join-Path $PSScriptRoot 'piece-cutting-cache'
 $script:TempPrefix='piece-cutting-pdf-'
 $script:MaxRequestBytes=190MB
+$script:MaxTemplateBytes=100MB
+$script:JsonSerializer=[System.Web.Script.Serialization.JavaScriptSerializer]::new()
+$script:JsonSerializer.MaxJsonLength=[int]$script:MaxRequestBytes
+$script:JsonSerializer.RecursionLimit=128
 $script:CorsOrigin=''
 [System.IO.Directory]::CreateDirectory($script:CacheRoot)|Out-Null
 
@@ -35,9 +40,23 @@ function Read-Json($Request){
   if($Request.ContentLength64 -gt $script:MaxRequestBytes){throw 'REQUEST_TOO_LARGE / 要求內容超過上限'}
   $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
   try{$raw=$reader.ReadToEnd()}finally{$reader.Dispose()}
-  if([Text.Encoding]::UTF8.GetByteCount($raw) -gt $script:MaxRequestBytes){throw 'REQUEST_TOO_LARGE / 要求內容超過上限'}
+  $byteCount=[Text.Encoding]::UTF8.GetByteCount($raw)
+  if($byteCount -gt $script:MaxRequestBytes){throw 'REQUEST_TOO_LARGE / 要求內容超過上限'}
   if([string]::IsNullOrWhiteSpace($raw)){return [pscustomobject]@{}}
-  return $raw|ConvertFrom-Json
+  try{return $script:JsonSerializer.DeserializeObject($raw)}catch{throw "INVALID_REQUEST_JSON / Dữ liệu gửi đến công cụ không hợp lệ / 傳入工具的資料格式無效；Bytes=$byteCount"}
+}
+
+function Read-Bytes($Request){
+  if($Request.ContentLength64-gt$script:MaxTemplateBytes){throw 'TEMPLATE_TOO_LARGE / Tệp mẫu vượt quá 100 MiB / 主檔超過 100 MiB 上限'}
+  $memory=[IO.MemoryStream]::new();$buffer=New-Object byte[] 65536
+  try{
+    while(($read=$Request.InputStream.Read($buffer,0,$buffer.Length))-gt 0){
+      if($memory.Length+$read-gt$script:MaxTemplateBytes){throw 'TEMPLATE_TOO_LARGE / Tệp mẫu vượt quá 100 MiB / 主檔超過 100 MiB 上限'}
+      $memory.Write($buffer,0,$read)
+    }
+    if($memory.Length-lt 1){throw 'EMPTY_TEMPLATE_FILE / Tệp mẫu trống / 主檔是空白檔案'}
+    return $memory.ToArray()
+  }finally{$memory.Dispose()}
 }
 
 function Get-SafeHash($Template){
@@ -74,6 +93,11 @@ function Get-XmlNumber($Node,[string]$Name,[double]$Default=0){
 function Get-ImageHash([string]$Path){
   $sha=[Security.Cryptography.SHA256]::Create()
   try{$stream=[IO.File]::OpenRead($Path);try{return ([BitConverter]::ToString($sha.ComputeHash($stream))-replace'-','').ToLowerInvariant()}finally{$stream.Dispose()}}finally{$sha.Dispose()}
+}
+
+function Get-BytesHash([byte[]]$Bytes){
+  $sha=[Security.Cryptography.SHA256]::Create()
+  try{return ([BitConverter]::ToString($sha.ComputeHash($Bytes))-replace'-','').ToLowerInvariant()}finally{$sha.Dispose()}
 }
 
 function Save-DisplayedTemplateImage([string]$Source,[string]$Target,[double]$RotationDegrees,[double]$CropLeft,[double]$CropTop,[double]$CropRight,[double]$CropBottom){
@@ -149,19 +173,49 @@ function Get-TemplateImages([string]$ExtractRoot,[string]$CacheDir){
   return @($result)
 }
 
-function Build-TemplateCache($Template){
+function Get-ValidTemplateCache($Template){
   $hash=Get-SafeHash $Template;$cacheDir=Get-CacheDir $Template;$indexPath=Get-CacheIndex $Template
   if(Test-Path -LiteralPath $indexPath){
     try{$existing=Get-Content -LiteralPath $indexPath -Raw -Encoding UTF8|ConvertFrom-Json;if([int]$existing.version-eq 3-and[string]$existing.contentHash-eq$hash-and[long]$existing.fileSize-eq[long]$Template.fileSize){return $existing}}catch{}
   }
-  if(-not$Template.base64){throw 'TEMPLATE_CACHE_MISS / 本機沒有裁片主檔快取'}
-  if(Test-Path -LiteralPath $cacheDir){Remove-Item -LiteralPath $cacheDir -Recurse -Force};[IO.Directory]::CreateDirectory($cacheDir)|Out-Null
-  $templatePath=Join-Path $cacheDir 'template.xlsx';[IO.File]::WriteAllBytes($templatePath,[Convert]::FromBase64String([string]$Template.base64))
-  if([long]$Template.fileSize-ne(Get-Item -LiteralPath $templatePath).Length){throw 'TEMPLATE_SIZE_MISMATCH / 主檔大小不一致'}
-  $extractRoot=Join-Path $cacheDir 'openxml';[IO.Compression.ZipFile]::ExtractToDirectory($templatePath,$extractRoot)
-  $images=@(Get-TemplateImages $extractRoot $cacheDir);Remove-Item -LiteralPath $extractRoot -Recurse -Force
-  $value=[pscustomobject]@{version=3;contentHash=$hash;fileSize=[long]$Template.fileSize;fileName=[string]$Template.fileName;images=$images;createdAt=(Get-Date).ToString('o')}
-  $value|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $indexPath -Encoding UTF8;return $value
+  return $null
+}
+
+function Build-TemplateCache($Template){
+  $existing=Get-ValidTemplateCache $Template
+  if($null-ne$existing){return $existing}
+  throw 'TEMPLATE_CACHE_MISS / Chưa chuẩn bị bộ nhớ đệm của mẫu / 本機尚未建立裁片主檔快取'
+}
+
+function Save-TemplateCache($Template,[byte[]]$Bytes){
+  $hash=Get-SafeHash $Template;$declaredSize=[long]$Template.fileSize
+  if($declaredSize-lt 1-or$declaredSize-gt$script:MaxTemplateBytes){throw 'INVALID_TEMPLATE_SIZE / Kích thước mẫu không hợp lệ / 主檔大小無效'}
+  if($Bytes.Length-ne$declaredSize){throw 'TEMPLATE_SIZE_MISMATCH / Kích thước mẫu không khớp / 主檔大小不一致'}
+  if((Get-BytesHash $Bytes)-ne$hash){throw 'TEMPLATE_HASH_MISMATCH / Nội dung mẫu không khớp / 主檔內容驗證不一致'}
+  $existing=Get-ValidTemplateCache $Template
+  if($null-ne$existing){return $existing}
+  $cacheDir=Get-CacheDir $Template;$indexPath=Get-CacheIndex $Template
+  if(Test-Path -LiteralPath $cacheDir){Remove-Item -LiteralPath $cacheDir -Recurse -Force}
+  [IO.Directory]::CreateDirectory($cacheDir)|Out-Null
+  try{
+    $templatePath=Join-Path $cacheDir 'template.xlsx';[IO.File]::WriteAllBytes($templatePath,$Bytes)
+    $extractRoot=Join-Path $cacheDir 'openxml';[IO.Compression.ZipFile]::ExtractToDirectory($templatePath,$extractRoot)
+    $images=@(Get-TemplateImages $extractRoot $cacheDir);Remove-Item -LiteralPath $extractRoot -Recurse -Force
+    $value=[pscustomobject]@{version=3;contentHash=$hash;fileSize=$declaredSize;fileName=[string]$Template.fileName;images=$images;createdAt=(Get-Date).ToString('o')}
+    $value|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $indexPath -Encoding UTF8
+    return $value
+  }catch{
+    if(Test-Path -LiteralPath $cacheDir){Remove-Item -LiteralPath $cacheDir -Recurse -Force -ErrorAction SilentlyContinue}
+    throw
+  }
+}
+
+function Prepare-TemplateCache($Request){
+  $size=0L;$sizeText=[string]$Request.QueryString['fileSize']
+  if(-not[long]::TryParse($sizeText,[ref]$size)){throw 'INVALID_TEMPLATE_SIZE / Kích thước mẫu không hợp lệ / 主檔大小無效'}
+  $template=[pscustomobject]@{contentHash=[string]$Request.QueryString['contentHash'];fileSize=$size;fileName=[string]$Request.QueryString['fileName']}
+  $bytes=Read-Bytes $Request;$index=Save-TemplateCache $template $bytes
+  return @{ok=$true;cached=$true;contentHash=[string]$index.contentHash;fileSize=[long]$index.fileSize;imageCount=@($index.images).Count}
 }
 
 function Get-CacheStatus($Template){
@@ -392,8 +446,9 @@ while($listener.IsListening){$context=$listener.GetContext();$request=$context.R
     if($request.HttpMethod-eq'OPTIONS'){Send-Text $response 204 '';continue};$path=$request.Url.AbsolutePath
     if($path-eq'/health'-and$request.HttpMethod-eq'GET'){Send-Json $response 200 @{ok=$true;service='piece-cutting-pdf-local';port=$Port};continue}
     if($path-eq'/piece-cutting/cache/status'-and$request.HttpMethod-eq'POST'){$payload=Read-Json $request;Send-Json $response 200 (Get-CacheStatus $payload);continue}
+    if($path-eq'/piece-cutting/cache'-and$request.HttpMethod-eq'POST'){Send-Json $response 200 (Prepare-TemplateCache $request);continue}
     if($path-eq'/piece-cutting/cache'-and$request.HttpMethod-eq'DELETE'){Send-Json $response 200 (Clear-Cache);continue}
     if($path-eq'/piece-cutting/pdf'-and$request.HttpMethod-eq'POST'){$payload=Read-Json $request;$job=New-PiecePdf $payload;Send-Pdf $response $job.pdf ([string]$payload.outputName);continue}
     Send-Text $response 404 '{"ok":false,"error":"NOT_FOUND"}'
-  }catch{$detail=($_.Exception.Message-replace'[\r\n"]',' ');try{Send-Json $response 500 @{ok=$false;error=$detail}}catch{try{$response.Close()}catch{}}}finally{if($null-ne$job-and$job.temp-and(Test-Path -LiteralPath $job.temp)){Remove-Item -LiteralPath $job.temp -Recurse -Force -ErrorAction SilentlyContinue}}
+  }catch{$detail=([string]$_.Exception.Message-replace'[\r\n"]',' ');if($detail.Length-gt 800){$detail=$detail.Substring(0,800)+'...'};try{Send-Json $response 500 @{ok=$false;error=$detail}}catch{try{$response.Close()}catch{}}}finally{if($null-ne$job-and$job.temp-and(Test-Path -LiteralPath $job.temp)){Remove-Item -LiteralPath $job.temp -Recurse -Force -ErrorAction SilentlyContinue}}
 }

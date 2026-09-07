@@ -660,8 +660,13 @@
       const meta=state.meta||await window.PCMSPieceCuttingStore.loadMeta();
       const status=await fetchLocal('/piece-cutting/cache/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contentHash:meta.contentHash,fileSize:meta.fileSize})},5000);
       const cached=status.ok&&(await status.json()).cached===true;
+      if(!cached){
+        const loaded=await window.PCMSPieceCuttingStore.loadTemplateFile(meta);
+        const query=new URLSearchParams({contentHash:String(meta.contentHash||''),fileSize:String(meta.fileSize||0),fileName:String(meta.fileName||'')});
+        const prepared=await fetchLocal(`/piece-cutting/cache?${query.toString()}`,{method:'POST',headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},body:loaded.blob},15*60*1000);
+        if(!prepared.ok){ let detail='';try{detail=(await prepared.json()).error||'';}catch(_){} throw new Error(detail||`HTTP ${prepared.status}`); }
+      }
       const payload={outputName:suggestedPdfName(),template:{contentHash:meta.contentHash,fileSize:meta.fileSize,fileName:meta.fileName},report:state.exportModel};
-      if(!cached){ const loaded=await window.PCMSPieceCuttingStore.loadTemplateFile(meta); payload.template.base64=await window.PCMSPieceCuttingStore.blobToBase64(loaded.blob); }
       const response=await fetchLocal('/piece-cutting/pdf',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},15*60*1000);
       if(!response.ok){ let detail='';try{detail=(await response.json()).error||'';}catch(_){} throw new Error(detail||`HTTP ${response.status}`); }
       await window.PCMSFileIO.writeToHandle(handle,await response.blob());
