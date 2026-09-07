@@ -25,7 +25,6 @@
   });
   const TEMPLATE_SCHEMA_VERSION = 'fixed-2026-07'; // TEMPLATE_SCHEMA_VERSION（固定模板規格版本）
   const TEMPLATE_ANALYSIS_VERSION = 'merge-v1'; // TEMPLATE_ANALYSIS_VERSION（合併儲存格分析版本）
-  const PDF_QUALITY_STORAGE_KEY = 'cuttingPdfQuality'; // PDF_QUALITY_STORAGE_KEY（PDF 品質記憶鍵）
   const LOCAL_PDF_REQUEST_TIMEOUT_MS = 15 * 60 * 1000; // LOCAL_PDF_REQUEST_TIMEOUT_MS（本機 PDF 要求等待上限）：最多等待十五分鐘。
   const PDF_TOOL_START_ACTION_KEY = 'cutting.pdfToolStart'; // PDF_TOOL_START_ACTION_KEY（PDF 工具啟動操作鍵）
   const PDF_EXPORT_OPEN_ACTION_KEY = 'cutting.openPdfExport'; // PDF_EXPORT_OPEN_ACTION_KEY（PDF 匯出入口操作鍵）
@@ -271,36 +270,6 @@
     if(!log || !state.historyLoaded) return;
     state.historyLogs = [log, ...state.historyLogs.filter(item => item?.id !== log.id)].slice(0, 50);
     renderCuttingHistory();
-  }
-
-  // normalizePdfQuality（標準化 PDF 品質）：high（高品質）以外一律使用 standard（標準品質）。
-  function normalizePdfQuality(value){
-    return value === 'high' ? 'high' : 'standard';
-  }
-
-  // getSavedPdfQuality（取得已記住的 PDF 品質）：無紀錄時維持 standard（標準品質）。
-  function getSavedPdfQuality(){
-    try{
-      return normalizePdfQuality(localStorage.getItem(PDF_QUALITY_STORAGE_KEY));
-    }catch(_){
-      return 'standard';
-    }
-  }
-
-  // restorePdfQualitySelection（還原 PDF 品質選擇）：開啟預覽時顯示上次選項。
-  function restorePdfQualitySelection(){
-    const select = g('cut-pdf-quality'); // select（品質選單）
-    if(select) select.value = getSavedPdfQuality();
-  }
-
-  // getSelectedPdfQuality（取得目前 PDF 品質）：產生檔案時記住使用者選擇。
-  function getSelectedPdfQuality(){
-    const select = g('cut-pdf-quality'); // select（品質選單）
-    const quality = normalizePdfQuality(select?.value); // quality（品質設定）
-    try{
-      localStorage.setItem(PDF_QUALITY_STORAGE_KEY, quality);
-    }catch(_){}
-    return quality;
   }
 
   function normalizeText(value){
@@ -1938,7 +1907,6 @@
       const exportBtn = g('cut-export-filled-btn');
       if(exportBtn) exportBtn.disabled = problems.length > 0;
       html('cut-preview-body', buildPreviewHtml());
-      restorePdfQualitySelection();
       om('m-cutting-preview');
       return true;
     }; // openPreview（開啟裁帶 PDF 匯出視窗）
@@ -2564,7 +2532,7 @@
         : {outputName: localMergedPdfName(state.detectedOrderNumber), templates: packages};
       payload.report = report;
       payload.orderLabel = confirmedOrderLabel; // orderLabel（PDF 左上角內容）：完全依照匯出前輸入框的確認值。
-      payload.pdfQuality = getSelectedPdfQuality(); // pdfQuality（PDF 品質）：standard（標準）或 high（高品質）。
+      payload.pdfQuality = 'high'; // pdfQuality（PDF 品質）：固定使用 300 DPI 高品質。
       setCuttingPdfProgress(35,'Đang gửi sang máy này…','正在傳送到本機後台…','Hệ thống sẽ tạo PDF theo thứ tự mẫu.','系統會依模板順序產生 PDF。');
       startCuttingPdfProgressLoop();
       const response = await fetchCuttingPdfTool('/cutting/pdf', {

@@ -382,7 +382,9 @@ function New-MaterialPages($Material,[string]$OrderLabel){
 }
 
 function Save-Page($Page,[string]$Path){
-  $bitmap=[Drawing.Bitmap]::new(1754,1240);$graphics=[Drawing.Graphics]::FromImage($bitmap);$graphics.SmoothingMode='HighQuality';$graphics.InterpolationMode='HighQualityBicubic';$graphics.TextRenderingHint='AntiAliasGridFit'
+  # 3508 x 2480 像素放入 A4 橫式頁面後，實際輸出解析度為 300 DPI（每英吋像素數）。
+  # 繪圖畫布保留原本的邏輯解析度，再放大兩倍，避免字體被重複放大並維持既定版面比例。
+  $bitmap=[Drawing.Bitmap]::new(3508,2480);$graphics=[Drawing.Graphics]::FromImage($bitmap);$graphics.SmoothingMode='HighQuality';$graphics.InterpolationMode='HighQualityBicubic';$graphics.PixelOffsetMode='HighQuality';$graphics.CompositingQuality='HighQuality';$graphics.TextRenderingHint='AntiAliasGridFit';$graphics.ScaleTransform([single]2.0,[single]2.0)
   $white=New-Brush '#ffffff';$navy=New-Brush '#162e5e';$soft=New-Brush '#eef4fb';$text=New-Brush '#111827';$muted=New-Brush '#516175';$pen=[Drawing.Pen]::new([Drawing.ColorTranslator]::FromHtml('#27364d'),2)
   $title=New-Font 46 Bold;$label=New-Font 19 Bold;$value=New-Font 27 Bold;$value12=New-Font 25 Bold;$value11=New-Font 23 Bold;$value10=New-Font 21 Bold;$value9=New-Font 19 Bold;$head=New-Font 22 Bold;$body=New-Font 22 Regular;$bodyBold=New-Font 22 Bold;$sizeFont=New-Font 29 Bold;$quantity14=New-Font 29 Bold;$quantity13=New-Font 27 Bold;$quantity12=New-Font 25 Bold;$noteFont=New-Font 21 Regular;$small=New-Font 19 Regular
   try{
@@ -410,7 +412,7 @@ function Save-Page($Page,[string]$Path){
     $noteTop=$noteY+$noteHeader;foreach($noteRow in @($Page.noteRows)){$height=[float]$noteRow.rowHeight;$values=@((@($noteRow.codes)-join', '),[string]$noteRow.size,[string]$noteRow.part,[string]$noteRow.note);$nx=$notesX;for($n=0;$n-lt$values.Count;$n++){Draw-Cell $graphics $pen $white ([Drawing.RectangleF]::new($nx,$noteTop,$noteWidths[$n],$height)) $values[$n] $noteFont $text 'Near';$nx+=$noteWidths[$n]};$noteTop+=$height}
     if($noteTop-lt$bottomY+$bottomHeight){$remaining=($bottomY+$bottomHeight)-$noteTop;$graphics.DrawRectangle($pen,$notesX,$noteTop,$notesWidth,$remaining);$lineX=$notesX;for($n=0;$n-lt$noteWidths.Count-1;$n++){$lineX+=$noteWidths[$n];$graphics.DrawLine($pen,$lineX,$noteTop,$lineX,$bottomY+$bottomHeight)}}
     $graphics.DrawRectangle($pen,$photoX,$bottomY,$photoWidth,$bottomHeight);$graphics.FillRectangle($soft,$photoX,$bottomY,$photoWidth,$sectionHeader);Draw-BoxText $graphics 'HÌNH ẢNH' $head $text ([Drawing.RectangleF]::new($photoX+10,$bottomY,$photoWidth-20,$sectionHeader)) 'Near' 'Center';Draw-RepresentativeImage $graphics $Page.images ($photoX+10) ($bottomY+$sectionHeader+8) ($photoWidth-20) ($bottomHeight-$sectionHeader-18)
-    $codec=[Drawing.Imaging.ImageCodecInfo]::GetImageEncoders()|Where-Object{$_.MimeType-eq'image/jpeg'}|Select-Object -First 1;$parameters=[Drawing.Imaging.EncoderParameters]::new(1);$parameters.Param[0]=[Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality,[long]92);try{$bitmap.Save($Path,$codec,$parameters)}finally{$parameters.Dispose()}
+    $codec=[Drawing.Imaging.ImageCodecInfo]::GetImageEncoders()|Where-Object{$_.MimeType-eq'image/jpeg'}|Select-Object -First 1;$parameters=[Drawing.Imaging.EncoderParameters]::new(1);$parameters.Param[0]=[Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality,[long]100);try{$bitmap.Save($Path,$codec,$parameters)}finally{$parameters.Dispose()}
   }finally{$graphics.Dispose();$bitmap.Dispose();$white.Dispose();$navy.Dispose();$soft.Dispose();$text.Dispose();$muted.Dispose();$pen.Dispose();$title.Dispose();$label.Dispose();$value.Dispose();$value12.Dispose();$value11.Dispose();$value10.Dispose();$value9.Dispose();$head.Dispose();$body.Dispose();$bodyBold.Dispose();$sizeFont.Dispose();$quantity14.Dispose();$quantity13.Dispose();$quantity12.Dispose();$noteFont.Dispose();$small.Dispose()}
 }
 

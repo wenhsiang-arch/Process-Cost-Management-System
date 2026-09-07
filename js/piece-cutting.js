@@ -311,8 +311,8 @@
         <section class="pc-data-section ui-data-section pc-results-section">
           <div class="pc-section-header ui-section-header"><i class="ti ti-list-check"></i><span class="pc-section-copy ui-dual-copy"><strong>Kết quả kiểm tra</strong><span>核對結果</span></span></div>
           <div class="pc-results-frame">
-        <div id="pc-results-empty" class="pc-results-empty" role="status"><i class="ti ti-file-search" aria-hidden="true"></i><span class="pc-results-empty-copy ui-dual-copy"><strong>Chưa có kết quả kiểm tra.</strong><span>尚無核對結果。</span></span></div>
-        <section id="pc-order-files-wrap" class="pc-result-table-group pc-order-files-wrap" hidden>
+        <div id="pc-results-empty" class="pc-results-empty" role="status" hidden><i class="ti ti-file-search" aria-hidden="true"></i><span class="pc-results-empty-copy ui-dual-copy"><strong>Chưa có kết quả kiểm tra.</strong><span>尚無核對結果。</span></span></div>
+        <section id="pc-order-files-wrap" class="pc-result-table-group pc-order-files-wrap">
           <div id="pc-order-files-tools" class="pc-result-table-tools ui-toolbar"><span class="pc-result-table-title ui-dual-copy"><strong>Danh sách tệp đã nhập</strong><span>已匯入檔案</span></span></div>
           <div class="pc-table-wrap ui-table-frame"><div class="pc-table-scroll ui-table-scroll" data-ui-floating-scroll="only"><table id="pc-order-files-table" class="pc-table ui-table pc-order-files-table" data-ui-table-controls="auto" data-ui-table-resizable="true" data-ui-table-sticky="original" data-ui-table-settings-target="#pc-order-files-tools"><thead><tr>
             <th data-ui-table-column="fileName" data-ui-table-width="360" data-ui-table-min-width="180" data-ui-table-max-width="520" data-ui-table-ellipsis="true"><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th data-ui-table-column="order" data-ui-table-width="260" data-ui-table-min-width="150" data-ui-table-max-width="420" data-ui-table-ellipsis="true"><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
@@ -321,7 +321,7 @@
           </tr></thead><tbody id="pc-order-files-body"></tbody></table></div></div>
         </section>
         <div id="pc-order-errors-wrap" class="pc-error-wrap" hidden><div id="pc-order-errors-body" class="pc-error-list"></div></div>
-        <section id="pc-order-items-wrap" class="pc-result-table-group" hidden>
+        <section id="pc-order-items-wrap" class="pc-result-table-group">
           <div id="pc-order-items-tools" class="pc-result-table-tools ui-toolbar"><span class="pc-result-table-title ui-dual-copy"><strong>Chi tiết mã hàng</strong><span>款號明細</span></span></div>
           <div class="pc-table-wrap ui-table-frame"><div class="pc-table-scroll ui-table-scroll" data-ui-floating-scroll="only"><table id="pc-order-items-table" class="pc-table ui-table pc-order-items-table" data-ui-table-controls="auto" data-ui-table-resizable="true" data-ui-table-sticky="original" data-ui-table-settings-target="#pc-order-items-tools"><thead><tr>
             <th data-ui-table-column="fileName" data-ui-table-width="270" data-ui-table-min-width="170" data-ui-table-max-width="440" data-ui-table-ellipsis="true"><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></th><th data-ui-table-column="order" data-ui-table-width="220" data-ui-table-min-width="150" data-ui-table-max-width="360" data-ui-table-ellipsis="true"><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></th>
@@ -424,6 +424,17 @@
     body.appendChild(row);
   }
 
+  // shortOrderErrorLocation（簡化訂單錯誤位置）：只保留工作表與第幾行，避免重複顯示檔名。
+  function shortOrderErrorLocation(error,record,language){
+    const isZh=language==='zh';
+    const fallback=isZh?`工作表 ${record.sheetName||'—'}`:`Trang tính ${record.sheetName||'—'}`;
+    let location=String((isZh?error.locationZh:error.locationVi)||'').trim();
+    const prefix=isZh?`檔案 ${record.fileName}`:`Tệp ${record.fileName}`;
+    if(location.startsWith(prefix)) location=location.slice(prefix.length).replace(/^\s*·\s*/,'').trim();
+    if(!location) location=fallback;
+    return isZh?location.replace(/第\s*(\d+)\s*列/g,'第$1行'):location;
+  }
+
   function renderOrder(){
     const body=g('pc-order-body'),fileBody=g('pc-order-files-body'),errorBody=g('pc-order-errors-body'); if(!body||!fileBody||!errorBody) return;
     body.replaceChildren();fileBody.replaceChildren();errorBody.replaceChildren();
@@ -440,29 +451,31 @@
       fileBody.appendChild(row);
       recordErrors.forEach(error=>{
         const errorCard=document.createElement('article');errorCard.className='pc-error-card';
-        errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><span><strong class="ui-text-vi">Lỗi trong tệp</strong><strong class="ui-text-zh">檔案錯誤</strong></span></div>
-          <dl class="pc-error-details">
-            <div><dt><span class="ui-text-vi">Tên tệp</span><span class="ui-text-zh">檔名</span></dt><dd>${safe(record.fileName)}</dd></div>
-            <div><dt><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></dt><dd>${safe(record.orderNumbers.join(' + ')||'—')}</dd></div>
-            <div><dt><span class="ui-text-vi">Vị trí</span><span class="ui-text-zh">位置</span></dt><dd><span class="ui-text-vi">${safe(error.locationVi||`Trang tính ${record.sheetName||'—'}`)}</span><span class="ui-text-zh">${safe(error.locationZh||`工作表 ${record.sheetName||'—'}`)}</span></dd></div>
-            <div><dt><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></dt><dd>${safe(error.code||'—')}</dd></div>
-            <div class="pc-error-detail-wide"><dt><span class="ui-text-vi">Nguyên nhân</span><span class="ui-text-zh">錯誤原因</span></dt><dd><span class="ui-text-vi">${safe(error.detailReasonVi||error.reasonVi||'Dữ liệu không hợp lệ.')}</span><span class="ui-text-zh">${safe(error.detailReasonZh||error.reasonZh||'資料無效。')}</span></dd></div>
-            <div class="pc-error-detail-wide"><dt><span class="ui-text-vi">Cách sửa</span><span class="ui-text-zh">修正方式</span></dt><dd><span class="ui-text-vi">${safe(error.solutionVi||'Kiểm tra và nhập lại tệp này.')}</span><span class="ui-text-zh">${safe(error.solutionZh||'請修正後重新匯入此檔案。')}</span></dd></div>
-          </dl>`;
+        const locationVi=shortOrderErrorLocation(error,record,'vi'),locationZh=shortOrderErrorLocation(error,record,'zh');
+        const reasonVi=error.detailReasonVi||error.reasonVi||'Dữ liệu không hợp lệ.';
+        const reasonZh=error.detailReasonZh||error.reasonZh||'資料無效。';
+        errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><strong>${safe(record.fileName)}</strong></div>
+          <p class="pc-error-message"><span class="ui-text-vi">${safe(locationVi)}: ${safe(reasonVi)}</span><span class="ui-text-zh">${safe(locationZh)}：${safe(reasonZh)}</span></p>`;
         errorBody.appendChild(errorCard);
       });
     });
     const hasFiles=state.orderFiles.length>0,hasItems=state.orderItems.length>0,hasErrors=state.orderErrors.length>0;
-    g('pc-results-empty').hidden=hasFiles||hasItems||hasErrors;
-    g('pc-order-files-wrap').hidden=!hasFiles;
+    if(!hasFiles){
+      const row=document.createElement('tr');row.innerHTML='<td colspan="6" class="pc-empty"><span class="ui-text-vi">Chưa chọn tệp đơn hàng.</span><span class="ui-text-zh">尚未選取訂單檔案。</span></td>';fileBody.appendChild(row);
+    }
+    g('pc-results-empty').hidden=true;
+    g('pc-order-files-wrap').hidden=false;
     g('pc-order-errors-wrap').hidden=!hasErrors;
-    g('pc-order-items-wrap').hidden=!hasItems;
+    g('pc-order-items-wrap').hidden=false;
     state.orderItems.forEach(item=>{
       const row=document.createElement('tr'); const materials=[...new Set(materialByCode.get(normalizeKey(item.code))||[])];
       const occurrence=state.analysis?.groups.flatMap(group=>group.products).find(product=>normalizeKey(product.code)===normalizeKey(item.code));
       row.innerHTML=`<td title="${safe(item.fileName)}">${safe(item.fileName)}</td><td>${safe(item.orderLabel||'—')}</td><td><b>${safe(item.code)}</b></td><td>${safe(item.qty)}</td><td>${safe(occurrence?.size||'—')}</td><td title="${safe(materials.join(' · '))}">${safe(materials.join(' · ')||'—')}</td><td><span class="pc-badge ${missingKeys.has(normalizeKey(item.code))?'is-missing':'is-ready'}">${missingKeys.has(normalizeKey(item.code))?'<span class="ui-text-vi">Thiếu mẫu</span><span class="ui-text-zh">主檔缺少</span>':'<span class="ui-text-vi">Sẵn sàng</span><span class="ui-text-zh">可匯出</span>'}</span></td>`;
       body.appendChild(row);
     });
+    if(!hasItems){
+      const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có dữ liệu đơn hàng hợp lệ.</span><span class="ui-text-zh">尚無有效訂單資料。</span></td>';body.appendChild(row);
+    }
     const totalCodes=new Set(state.orderItems.map(item=>normalizeKey(item.code)).filter(Boolean)).size;
     const missingCount=missingMasterCodes(model).length;
     const passCount=Math.max(0,totalCodes-missingCount);

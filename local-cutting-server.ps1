@@ -1442,15 +1442,11 @@ function Draw-ReportTable($graphics, [string]$title, $rows, [float]$x, [float]$y
 }
 
 function Get-PdfRenderOptions($payload) {
-  # renderOptions（繪圖品質設定）：mode（模式）、width（寬度）、height（高度）、jpegQuality（JPEG 品質）、isHighQuality（是否高品質）。
-  $mode = if ([string]$payload.pdfQuality -eq 'high') { 'high' } else { 'standard' } # mode（品質模式）
-  if ($mode -eq 'high') {
-    return [PSCustomObject]@{ mode = 'high'; width = 2480; height = 3508; jpegQuality = 100; isHighQuality = $true }
-  }
-  return [PSCustomObject]@{ mode = 'standard'; width = 1240; height = 1754; jpegQuality = 0; isHighQuality = $false }
+  # renderOptions（繪圖品質設定）：固定使用 A4 300 DPI 高品質，舊版前端未傳品質時也不會降級。
+  return [PSCustomObject]@{ mode = 'high'; width = 2480; height = 3508; jpegQuality = 100; isHighQuality = $true }
 }
 
-# Save-BitmapAsJpeg（儲存 JPEG 圖片）：標準品質沿用原本設定，高品質才指定壓縮品質。
+# Save-BitmapAsJpeg（儲存 JPEG 圖片）：依固定高品質設定輸出。
 function Save-BitmapAsJpeg([System.Drawing.Bitmap]$bitmap, [string]$path, [int]$jpegQuality = 0) {
   if ($jpegQuality -le 0) {
     $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Jpeg)
