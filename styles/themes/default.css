@@ -7,7 +7,7 @@
   --ui-browser-theme-color: #1a3a5c; /* ui-browser-theme-color（瀏覽器外框主題色） */
 
   --ui-color-navigation-background: #1a3a5c; /* ui-color-navigation-background（導覽背景色） */
-  --ui-color-navigation-text: #ffffff; /* ui-color-navigation-text（導覽主要文字色） */
+  --ui-color-navigation-text: #e2e8f0; /* ui-color-navigation-text（導覽主要文字色）：柔和灰白，避免深底純白刺眼。 */
   --ui-color-navigation-text-muted: #cbd5e1; /* ui-color-navigation-text-muted（導覽次要文字色） */
   --ui-color-navigation-secondary: var(--ui-color-navigation-text-muted); /* ui-color-navigation-secondary（導覽次要文字相容角色） */
   --ui-color-navigation-hover: rgba(255, 255, 255, .10); /* ui-color-navigation-hover（導覽滑鼠停留色） */

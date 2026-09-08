@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="styles/vendor/tabler-icons.min.css?v=2.47.0">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
 <link rel="stylesheet" href="styles/ui-core.css?v=20260908-3">
-<link rel="stylesheet" href="styles/themes/default.css?v=20260908-3">
+<link rel="stylesheet" href="styles/themes/default.css?v=20260908-3-sidebar1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
 <link rel="stylesheet" href="styles/features/home.css?v=20260908-3">
 <style>
@@ -26,7 +26,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 .sb>*{min-width:220px}
 .app.sidebar-collapsed .sb{width:44px}
 .sidebar-toggle{position:absolute;right:10px;top:14px;z-index:2;display:flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, var(--ui-color-navigation-text) 14%, transparent);border-radius:8px;background:var(--navy);color:var(--ui-color-navigation-text-muted);cursor:pointer;transition:background var(--ui-motion-fast)}
-.sidebar-toggle:hover{background:var(--navy2);color:var(--ui-color-on-primary)}
+.sidebar-toggle:hover{background:var(--navy2);color:var(--ui-color-navigation-text)}
 .sidebar-toggle:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
 .sidebar-toggle i{font-size:18px}
 .app.sidebar-collapsed .sb>*:not(.sb-logo){display:none}
@@ -34,7 +34,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 .app.sidebar-collapsed .sb-title,.app.sidebar-collapsed .sb-sub{display:none}
 .app.sidebar-collapsed .sidebar-toggle{right:6px}
 .sb-logo{position:sticky;top:0;z-index:3;flex-shrink:0;min-height:58px;padding:18px 52px 14px 16px;border-bottom:1px solid var(--ui-color-navigation-hover);background:var(--navy)}
-.sb-title{font-size:var(--ui-font-size-control-vi);font-weight:var(--ui-font-weight-primary);color:var(--ui-color-on-primary)}
+.sb-title{font-size:var(--ui-font-size-control-vi);font-weight:var(--ui-font-weight-primary);color:var(--ui-color-navigation-text)}
 .sb-sub{font-size:var(--ui-font-size-helper);color:var(--ui-color-navigation-secondary);margin-top:3px}
 .sb-badge{display:inline-block;margin-top:6px;font-size:var(--ui-font-size-helper);background:color-mix(in srgb, var(--ui-color-navigation-text) 15%, transparent);color:var(--ui-color-navigation-secondary);padding:2px 8px;border-radius:10px}
 .sb-sec{--ui-copy-size-primary:var(--ui-font-size-helper);--ui-copy-size-secondary:var(--ui-font-size-helper);padding:12px 16px 4px;font-size:var(--ui-font-size-helper);color:var(--ui-color-navigation-secondary)}
@@ -45,20 +45,20 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 .sb-group{display:none}
 .sb-group.open{display:block}
 .ni{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;color:var(--ui-color-navigation-text);font-size:var(--ui-font-size-control-vi);margin:1px 8px;border-radius:8px;transition:all .15s}
-.ni:hover{background:var(--ui-color-navigation-hover);color:var(--ui-color-on-primary)}
-.ni.active{background:var(--ui-color-navigation-active);color:var(--ui-color-on-primary);font-weight:var(--ui-font-weight-primary)}
+.ni:hover{background:var(--ui-color-navigation-hover);color:var(--ui-color-navigation-text)}
+.ni.active{background:var(--ui-color-navigation-active);color:var(--ui-color-navigation-text);font-weight:var(--ui-font-weight-primary)}
 .ni.locked{display:none}
 .ni i{font-size:15px;flex-shrink:0}
-.nl{--ui-copy-size-primary:var(--ui-font-size-control-vi);--ui-copy-size-secondary:var(--ui-font-size-control-zh);min-width:0;display:flex;flex-direction:column;gap:2px}
+.nl{--ui-copy-size-primary:var(--ui-font-size-control-vi);--ui-copy-size-secondary:var(--ui-font-size-control-zh);min-width:0;display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px}
 .nvi{line-height:1.2}
 .nzh{color:var(--ui-color-navigation-secondary);line-height:1.2}
 .sb-ft{display:grid;gap:10px;margin-top:auto;padding:12px;border-top:1px solid color-mix(in srgb, var(--ui-color-navigation-text) 8%, transparent)}
-.runtime-update-notice{width:100%;min-height:54px;margin:0;padding:8px 9px;border:1px solid color-mix(in srgb, var(--ui-color-success-border) 24%, transparent);border-radius:10px;background:color-mix(in srgb, var(--ui-color-success-border) 9%, transparent);color:var(--ui-color-on-primary);display:flex;align-items:center;gap:9px;cursor:default;text-align:left;opacity:1;transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast)}
+.runtime-update-notice{width:100%;min-height:54px;margin:0;padding:8px 9px;border:1px solid color-mix(in srgb, var(--ui-color-success-border) 24%, transparent);border-radius:10px;background:color-mix(in srgb, var(--ui-color-success-border) 9%, transparent);color:var(--ui-color-navigation-text);display:flex;align-items:center;gap:9px;cursor:default;text-align:left;opacity:1;transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast)}
 .runtime-update-notice.is-available{border-color:color-mix(in srgb, var(--ui-color-info-border) 38%, transparent);background:color-mix(in srgb, var(--ui-color-primary) 14%, transparent);cursor:pointer}
 .runtime-update-notice.is-available:hover{background:color-mix(in srgb, var(--ui-color-primary) 24%, transparent);border-color:color-mix(in srgb, var(--ui-color-info-border) 58%, transparent)}
 .runtime-update-notice.is-checking{border-color:color-mix(in srgb, var(--ui-color-navigation-text-muted) 20%, transparent);background:color-mix(in srgb, var(--ui-color-navigation-text-muted) 7%, transparent)}
 .runtime-update-notice.is-unavailable{border-color:color-mix(in srgb, var(--ui-color-warning-border) 26%, transparent);background:color-mix(in srgb, var(--ui-color-warning-border) 8%, transparent)}
-.runtime-update-notice:disabled{color:var(--ui-color-on-primary);opacity:1}
+.runtime-update-notice:disabled{color:var(--ui-color-navigation-text);opacity:1}
 .runtime-update-notice:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
 .runtime-update-icon{position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:0 0 32px;border-radius:50%;background:var(--ui-color-success-text);color:var(--ui-color-on-primary)}
 .runtime-update-notice.is-available .runtime-update-icon{background:var(--ui-color-primary)}
@@ -67,7 +67,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 .runtime-update-icon i{font-size:17px}
 .runtime-update-dot{position:absolute;right:-1px;top:-1px;width:8px;height:8px;border:2px solid var(--navy);border-radius:50%;background:var(--ui-color-warning-border)}
 .runtime-update-dot[hidden]{display:none}
-.runtime-update-copy{--ui-copy-size-primary:var(--ui-font-size-control-vi);--ui-copy-size-secondary:var(--ui-font-size-control-zh);display:flex;min-width:0;flex:1;flex-direction:column;justify-content:center;gap:2px;line-height:1.2}
+.runtime-update-copy{--ui-copy-size-primary:var(--ui-font-size-control-vi);--ui-copy-size-secondary:var(--ui-font-size-control-zh);display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;line-height:1.2}
 .runtime-update-copy .ui-text-vi{font-size:var(--ui-font-size-control-vi);font-weight:var(--ui-font-weight-primary)}
 .runtime-update-copy .ui-text-zh{font-size:var(--ui-font-size-control-zh);color:var(--ui-color-navigation-secondary)}
 .app.sidebar-collapsed .sb>.sb-ft{display:flex;min-width:44px;padding:8px 6px 10px;align-items:center;justify-content:center}
