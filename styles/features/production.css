@@ -1921,3 +1921,160 @@ html[data-ui-language-mode="zh"] #pg-production-entry .production-entry-table-he
     width: 100%;
   }
 }
+
+/* production-legibility-standard（產能五頁清晰閱讀標準）：放大文字後以減少留白與欄位重排維持桌機工作密度。 */
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard {
+  --mu: var(--ui-color-text-muted);
+  --hi: var(--ui-color-text-subtle);
+  font-size: var(--ui-font-size-body);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > strong {
+  font-size: var(--ui-font-size-control-vi);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > span {
+  margin-top: 2px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-control-zh);
+  font-weight: var(--ui-font-weight-secondary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-section-header > .ui-dual-copy > strong {
+  font-size: var(--ui-font-size-section-vi);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-section-header > .ui-dual-copy > span {
+  font-size: var(--ui-font-size-section-zh);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-field > label, .production-field-label) strong {
+  font-size: var(--ui-font-size-label-vi);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-field > label, .production-field-label) span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-label-zh);
+  font-weight: var(--ui-font-weight-secondary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(input, select, .production-inline-value, .production-process-name-output) {
+  font-size: var(--ui-font-size-body);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-entry-status, .production-section-count, .production-efficiency-status strong, .production-efficiency-status span, .production-status) {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-helper);
+  font-weight: var(--ui-font-weight-secondary);
+  line-height: 1.35;
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table {
+  font-size: var(--ui-font-size-body);
+  line-height: 1.35;
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table th {
+  padding: 6px 8px;
+  font-size: var(--ui-font-size-table-header-vi);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table th :is(.tv, .ui-text-zh) {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-table-header-zh);
+  font-weight: var(--ui-font-weight-secondary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table td {
+  padding: 6px 8px;
+  font-size: var(--ui-font-size-body);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .production-date-badge strong {
+  font-size: 13px;
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .production-date-badge span {
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-helper);
+  font-weight: var(--ui-font-weight-secondary);
+}
+
+:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-filter-panel, .production-attendance-panel, .production-employee-command > :first-child) {
+  padding: 10px;
+}
+
+#pg-production-records.ui-legibility-standard .production-filter-grid {
+  grid-template-columns: 138px 138px minmax(260px, 520px) minmax(150px, 260px) 212px;
+}
+
+#pg-production-attendance.ui-legibility-standard .production-attendance-fields {
+  grid-template-columns: 138px 132px minmax(220px, 420px) 108px 108px 210px;
+}
+
+#pg-production-employees.ui-legibility-standard .production-employee-fields {
+  grid-template-columns: minmax(128px, 180px) minmax(200px, 360px) minmax(180px, 300px) minmax(190px, 240px);
+}
+
+#pg-production-employees.ui-legibility-standard .production-employee-table-tools {
+  max-width: 620px;
+}
+
+body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tab .ui-dual-copy > strong {
+  font-size: var(--ui-font-size-control-vi);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tab .ui-dual-copy > span {
+  color: var(--ui-color-text-readable-muted);
+  font-size: var(--ui-font-size-control-zh);
+  font-weight: var(--ui-font-weight-secondary);
+}
+
+html[data-ui-language-mode="vi"] :is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > strong,
+html[data-ui-language-mode="zh"] :is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > span {
+  margin-top: 0;
+  color: inherit;
+  font-size: inherit;
+  font-weight: var(--ui-font-weight-primary);
+}
+
+/* 1100 像素以下代表窄桌機或高縮放：保留字級，將欄位換排而非整頁縮小。 */
+@media (max-width: 1100px) {
+  #pg-production-entry.ui-legibility-standard .production-entry-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  #pg-production-entry.ui-legibility-standard .production-entry-fields > .production-field {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    flex: none;
+  }
+
+  #pg-production-records.ui-legibility-standard .production-filter-grid,
+  #pg-production-attendance.ui-legibility-standard .production-attendance-fields,
+  #pg-production-employees.ui-legibility-standard .production-employee-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #pg-production-records.ui-legibility-standard .production-filter-actions,
+  #pg-production-attendance.ui-legibility-standard .production-attendance-actions,
+  #pg-production-employees.ui-legibility-standard .production-employee-form-actions {
+    grid-column: 1 / -1;
+  }
+
+  body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tabs {
+    flex-wrap: wrap;
+  }
+
+  body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tab {
+    min-width: 160px;
+    flex: 1 1 160px;
+  }
+}

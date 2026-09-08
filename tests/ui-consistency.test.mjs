@@ -48,16 +48,16 @@ test('全系統正式功能預設使用緊湊桌機密度且保留可讀控制�
   assert.match(core,/--ui-section-header-min-height:\s*34px/);
   assert.match(core,/--ui-table-cell-padding-block:\s*5px/);
   assert.match(core,/--ui-table-cell-padding-inline:\s*10px/);
-  assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260908-1/);
   assert.match(html,/\.ct\{[^}]*padding:var\(--ui-page-padding,12px\)/);
-  assert.match(html,/js\/features\.js\?v=20260907-2/);
+  assert.match(html,/js\/features\.js\?v=20260908-2/);
   assert.match(features,/cutting:'styles\/features\/cutting\.css\?v=20260813-1'/);
   assert.match(features,/orders:'styles\/features\/orders\.css\?v=20260810-2'/);
   assert.match(features,/products:'styles\/features\/products\.css\?v=20260824-5'/);
-  assert.match(features,/productionProcessEdit:'styles\/features\/production-process-edit\.css\?v=20260825-5'/);
+  assert.match(features,/productionProcessEdit:'styles\/features\/production-process-edit\.css\?v=20260908-1'/);
   assert.match(features,/cost:'styles\/features\/cost\.css\?v=20260810-4'/);
   assert.match(features,/accounts:'styles\/features\/accounts\.css\?v=20260813-1'/);
-  assert.match(features,/production:'styles\/features\/production\.css\?v=20260824-1'/);
+  assert.match(features,/production:'styles\/features\/production\.css\?v=20260908-1'/);
   assert.match(accounts,/\.permission-matrix-table tbody td \{[\s\S]*?height: 38px;[\s\S]*?padding: 4px 7px;/);
   assert.match(cost,/\.cost-log-table th \{[\s\S]*?height: 52px;/);
   assert.match(cost,/\.cost-log-table td \{[\s\S]*?height: 54px;/);
@@ -106,7 +106,7 @@ test('超寬正式表格使用共用浮動水平捲軸且不建立第二條垂�
   const core=read('styles/ui-core.css');
   const specification=read('UI設計規範與參照/介面設計規範.md');
   const commonTableSources=[html,read('js/orders.js'),read('js/cost-log.js')].join('\n');
-  assert.match(html,/styles\/ui-core\.css\?v=20260813-3/);
+  assert.match(html,/styles\/ui-core\.css\?v=20260908-1/);
   assert.match(html,/js\/ui-table\.js\?v=20260810-5/);
   assert.match(source,/TABLE_SCROLL_SELECTOR = '\.ui-table-scroll'/);
   assert.match(source,/function isManagedScroller\(element\)/);
@@ -295,7 +295,7 @@ test('產能登記維持快速輸入、雙語表頭與下方工序資料配置',
   assert.match(style,/\.production-filter-grid\s*\{[\s\S]*?height:\s*auto;[\s\S]*?grid-template-columns:/);
   assert.match(style,/\.production-command-actions\s*\{[\s\S]*?height:\s*auto;[\s\S]*?align-self:\s*stretch;/);
   assert.match(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-employee-inline-panel[\s\S]*?\.production-filter-grid[\s\S]*?\.production-employee-fields/);
-  assert.doesNotMatch(style,/@media \(max-width:\s*1366px\)[\s\S]*?\.production-entry-fields/);
+  assert.match(style,/@media \(max-width:\s*1100px\)[\s\S]*?#pg-production-entry\.ui-legibility-standard \.production-entry-fields\s*\{[\s\S]*?display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
 });
 
 test('款號總表使用同欄配置、標題右側排序箭頭及欄位選擇功能',()=>{

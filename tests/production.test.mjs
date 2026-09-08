@@ -725,7 +725,7 @@ test('生產登記款號輸入只顯示款號並保留重複訂單項目的固�
   assert.doesNotMatch(inputValueSource,/lineNumber|item\.po|item\.color|join\(' · '\)/);
 });
 
-test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',()=>{
+test('產能操作區正常寬度維持單排、高縮放換排且員工績效使用員工搜尋',()=>{
   const html=read('index.html');
   const records=read('js/production/production-records.js');
   const reportStore=read('js/production/report-store.js');
@@ -745,8 +745,8 @@ test('產能三個藍底操作區維持單排且員工績效使用員工搜尋',
   assert.match(reportStore,/async function loadRange\(fromValue,toValue,options=\{\}\)/);
   assert.match(reportStore,/async function loadProcess\(processTotalId,options=\{\}\)/);
   assert.match(style,/\.production-filter-grid \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
-  assert.doesNotMatch(style,/\.production-filter-actions \{[\s\S]*?grid-column:/);
   assert.match(style,/\.production-filter-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
+  assert.match(style,/@media \(max-width: 1100px\)[\s\S]*?#pg-production-records\.ui-legibility-standard \.production-filter-actions,[\s\S]*?grid-column: 1 \/ -1;/);
   assert.match(style,/\.production-attendance-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-employee-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-date-stepper \{[\s\S]*?width: 16px;[\s\S]*?height: 28px;/);

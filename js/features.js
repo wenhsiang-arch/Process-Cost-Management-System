@@ -62,15 +62,15 @@
 
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260813-1',
-    pieceCutting:'styles/features/piece-cutting.css?v=20260907-4',
+    pieceCutting:'styles/features/piece-cutting.css?v=20260908-2',
     orders:'styles/features/orders.css?v=20260810-2',
     products:'styles/features/products.css?v=20260824-5',
     cost:'styles/features/cost.css?v=20260810-4',
     accounts:'styles/features/accounts.css?v=20260813-1',
-    production:'styles/features/production.css?v=20260824-1',
-    productionProcessEdit:'styles/features/production-process-edit.css?v=20260825-5',
+    production:'styles/features/production.css?v=20260908-1',
+    productionProcessEdit:'styles/features/production-process-edit.css?v=20260908-1',
     productionAnalysis:'styles/features/production-analysis.css?v=20260813-1',
-    performanceBonus:'styles/features/performance-bonus.css?v=20260814-1',
+    performanceBonus:'styles/features/performance-bonus.css?v=20260908-1',
     systemMonitor:'styles/features/system-monitor.css?v=20260813-1',
     productChangeLog:'styles/features/product-change-log.css?v=20260825-5'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

@@ -26,6 +26,8 @@
   --ui-color-text: #1e293b; /* ui-color-text（主要文字色） */
   --ui-color-text-muted: #64748b; /* ui-color-text-muted（次要文字色） */
   --ui-color-text-subtle: #94a3b8; /* ui-color-text-subtle（提示文字色） */
+  --ui-color-text-readable-muted: #475569; /* ui-color-text-readable-muted（清晰閱讀次要文字色） */
+  --ui-color-text-readable-subtle: #64748b; /* ui-color-text-readable-subtle（清晰閱讀提示文字色） */
 
   --ui-color-operation-background: #eff6ff; /* ui-color-operation-background（整合操作區背景色） */
   --ui-color-operation-border: #bfdbfe; /* ui-color-operation-border（整合操作區邊框色） */
