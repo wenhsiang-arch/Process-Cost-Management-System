@@ -1,6 +1,7 @@
 // features（功能中央清單）：統一管理導覽、頁面、權限、程式依賴、資料載入與進入頁面動作。
 (function(){
   const SCRIPT_URLS = Object.freeze({
+    homeUpdates:'js/home-updates.js?v=20260908-1',
     history:'js/history.js?v=20260906-1',
     fileIo:'js/file-io.js?v=20260906-1',
     settings:'js/settings.js?v=20260908-3',
@@ -276,6 +277,9 @@
     moduleMap.set(module.id,module);
     module.pages.forEach(page=>pageMap.set(page.page,{...page,moduleId:module.id}));
   });
+  // 首頁歷史公告是公開靜態內容，只登記按需程式；不加入業務模組或角色權限清單。
+  pageMap.set('home',{page:'home',vi:'Cập nhật hệ thống',zh:'系統更新',scripts:['homeUpdates'],styles:[],dataScopes:[],dataLoaders:[]});
+  let homeArchiveGeneration=0; // homeArchiveGeneration（首頁要求世代）：離頁後忽略尚未載入的程式回應。
 
   const PERMISSION_STRUCTURE = Object.freeze(FEATURE_MODULES.map(module=>({
     id:module.id,
@@ -587,7 +591,35 @@
     title.hidden=false;
   }
 
+  // openHomeUpdatesArchive（開啟歷史公告入口）：沿用中央載入器，資料與呈現交由首頁模組。
+  async function openHomeUpdatesArchive(button){
+    if(!button||button.disabled) return;
+    const generation=homeArchiveGeneration;
+    const status=document.getElementById('home-updates-status');
+    button.disabled=true;
+    button.setAttribute('aria-busy','true');
+    window.PCMSUIText?.set?.(status,{vi:'Đang tải cập nhật…',zh:'正在載入更新…'});
+    try{
+      await ensurePageScripts('home');
+      if(generation!==homeArchiveGeneration) return;
+      await window.PCMSHomeUpdates.show();
+    }catch(error){
+      if(generation===homeArchiveGeneration) window.PCMSUIText?.set?.(status,{vi:'Không thể tải. Vui lòng nhấn lại để thử.',zh:'載入失敗，請再次點擊重試。'});
+    }finally{
+      if(generation===homeArchiveGeneration){button.disabled=false;button.removeAttribute('aria-busy');}
+    }
+  }
+
+  function leaveHomeUpdates(){
+    homeArchiveGeneration++;
+    window.PCMSHomeUpdates?.leave?.();
+    const button=document.getElementById('home-updates-load');
+    if(button){button.disabled=false;button.removeAttribute('aria-busy');}
+    document.getElementById('home-updates-status')?.replaceChildren();
+  }
+
   async function leaveActivePage(){
+    leaveHomeUpdates();
     if(!activePageName){
       window.PCMSUIFileDrop?.deactivatePage?.();
       window.PCMSUITableControls?.deactivatePage?.();
@@ -627,6 +659,7 @@
 
   // resetActivePage（重設目前頁面）：返回首頁或登出時同步停止全域拖曳接收。
   function resetActivePage(){
+    leaveHomeUpdates();
     const previousPageName=activePageName; // previousPageName（重設前的頁面名稱）
     activePageName='';
     updateActivePageTitle(null);
@@ -647,6 +680,7 @@
     getModules,
     getEntryOrder,
     ensurePageScripts,
+    openHomeUpdatesArchive,
     ensurePageData,
     isPageDataReady,
     isPageDataFresh,

@@ -17,7 +17,7 @@
 <link rel="stylesheet" href="styles/ui-core.css?v=20260908-3">
 <link rel="stylesheet" href="styles/themes/default.css?v=20260908-3-sidebar1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
-<link rel="stylesheet" href="styles/features/home.css?v=20260908-3">
+<link rel="stylesheet" href="styles/features/home.css?v=20260908-3-archive1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(--tx);background:var(--bg)}
@@ -316,7 +316,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             </span>
           </header>
 
-          <div class="home-update-timeline">
+          <div class="home-update-timeline" id="home-updates-latest-list">
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
@@ -443,41 +443,22 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 </div>
               </div>
             </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-08-21">21/08/2026</time>
-                <h2 class="ui-dual-copy">
-                  <strong>Cải thiện nhóm mã hàng, bảng sản xuất và thao tác hằng ngày</strong>
-                  <span>改善款號群組、生產表格與日常操作</span>
-                </h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi">
-                    <section class="home-update-topic"><h3>Nhóm mã hàng</h3><ol><li>Khi thêm mã hàng, có thể lọc theo mã hoặc tên tiếng Việt trong cùng khách hàng.</li><li>Sau khi thêm, hệ thống chuyển đến đúng kích thước và nhắc xác nhận lưu.</li><li>Đề xuất cùng sản phẩm được đối chiếu theo khách hàng, tên tiếng Việt, số công đoạn, phân loại và tên công đoạn tiếng Việt.</li></ol></section>
-                    <section class="home-update-topic"><h3>Bảng sản xuất và thao tác hằng ngày</h3><ol><li>Thưởng hiệu suất tháng được xếp từ cao xuống thấp.</li><li>Bản ghi sản xuất có thêm giờ hiệu lực, tìm kiếm toàn bảng và hiệu suất ngày theo từng tuần.</li><li>Hệ thống ghi nhớ cột hiển thị và độ rộng bảng theo từng tài khoản.</li><li>Có thể dùng phím Enter khi nhập hoặc tìm kiếm; menu trái có lối tắt Cập nhật hệ thống.</li></ol></section>
-                  </div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant">
-                    <section class="home-update-topic"><h3>款號群組</h3><ol><li>新增群組款號時，可在同一客人範圍內依款號或越文名稱篩選。</li><li>加入後會切換到正確尺寸，並提醒使用者完成儲存。</li><li>同產品推薦會依客人、越文品名、工序號、分類及越文工序名稱進行判斷。</li></ol></section>
-                    <section class="home-update-topic"><h3>生產表格與日常操作</h3><ol><li>月績效獎金改為由高至低排列。</li><li>生產紀錄新增有效工時、全表搜尋，日績效改為每週顯示。</li><li>系統會依各登入帳號記住顯示欄位及欄寬。</li><li>輸入與搜尋可使用 Enter；左側選單新增系統更新捷徑。</li></ol></section>
-                  </div>
-                </div>
-              </div>
-            </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-08-20">20/08/2026</time>
-                <h2 class="ui-dual-copy">
-                  <strong>Đã sửa lỗi chuyển đến màn hình chỉnh sửa giây của mã hàng</strong>
-                  <span>修復款號秒數修改畫面跳轉問題</span>
-                </h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Sửa lỗi chỉnh sửa số giây</h3><p>Một số mã hàng trước đây không thể mở màn hình chỉnh sửa giây công đoạn. Hiện tại người dùng có thể nhấn vào số giây để mở và chỉnh sửa bình thường.</p></section></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>修復秒數修改</h3><p>修復部分款號無法開啟工序秒數修改畫面的問題，現在可直接點擊秒數並正常進行修改。</p></section></div>
-                </div>
-              </div>
-            </article>
           </div>
+
+          <div class="home-updates-archive-controls">
+            <div class="ui-form-field">
+              <label class="ui-dual-copy" for="home-updates-year"><strong>Năm</strong><span>年份</span></label>
+              <select id="home-updates-year"><option value="2026" data-version="20260908-1">2026</option></select>
+            </div>
+            <button type="button" class="ui-button" id="home-updates-load" aria-controls="home-updates-archive" aria-expanded="false" onclick="void PCMSFeatures.openHomeUpdatesArchive(this)">
+              <span class="ui-dual-copy"><strong>Xem cập nhật trước</strong><span>查看較早更新</span></span>
+            </button>
+            <div id="home-updates-status" class="ui-helper-text" role="status" aria-live="polite"></div>
+          </div>
+          <section id="home-updates-archive" hidden aria-labelledby="home-updates-archive-title">
+            <h2 id="home-updates-archive-title" class="ui-dual-copy"></h2>
+            <div id="home-updates-archive-list" class="home-update-timeline"></div>
+          </section>
 
           <footer class="home-updates-footer">
             <i class="ti ti-layout-grid" aria-hidden="true"></i>
@@ -1498,7 +1479,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260908-3"></script>
+  <script src="js/features.js?v=20260908-3-archive1"></script>
 <script src="js/auth.js?v=20260908-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

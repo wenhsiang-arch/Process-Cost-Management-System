@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "year": 2026,
+  "entries": [
+    {
+      "date": "2026-08-21",
+      "title": {
+        "vi": "Cải thiện nhóm mã hàng, bảng sản xuất và thao tác hằng ngày",
+        "zh": "改善款號群組、生產表格與日常操作"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Nhóm mã hàng",
+            "items": [
+              "Khi thêm mã hàng, có thể lọc theo mã hoặc tên tiếng Việt trong cùng khách hàng.",
+              "Sau khi thêm, hệ thống chuyển đến đúng kích thước và nhắc xác nhận lưu.",
+              "Đề xuất cùng sản phẩm được đối chiếu theo khách hàng, tên tiếng Việt, số công đoạn, phân loại và tên công đoạn tiếng Việt."
+            ]
+          },
+          {
+            "heading": "Bảng sản xuất và thao tác hằng ngày",
+            "items": [
+              "Thưởng hiệu suất tháng được xếp từ cao xuống thấp.",
+              "Bản ghi sản xuất có thêm giờ hiệu lực, tìm kiếm toàn bảng và hiệu suất ngày theo từng tuần.",
+              "Hệ thống ghi nhớ cột hiển thị và độ rộng bảng theo từng tài khoản.",
+              "Có thể dùng phím Enter khi nhập hoặc tìm kiếm; menu trái có lối tắt Cập nhật hệ thống."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "款號群組",
+            "items": [
+              "新增群組款號時，可在同一客人範圍內依款號或越文名稱篩選。",
+              "加入後會切換到正確尺寸，並提醒使用者完成儲存。",
+              "同產品推薦會依客人、越文品名、工序號、分類及越文工序名稱進行判斷。"
+            ]
+          },
+          {
+            "heading": "生產表格與日常操作",
+            "items": [
+              "月績效獎金改為由高至低排列。",
+              "生產紀錄新增有效工時、全表搜尋，日績效改為每週顯示。",
+              "系統會依各登入帳號記住顯示欄位及欄寬。",
+              "輸入與搜尋可使用 Enter；左側選單新增系統更新捷徑。"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "date": "2026-08-20",
+      "title": {
+        "vi": "Đã sửa lỗi chuyển đến màn hình chỉnh sửa giây của mã hàng",
+        "zh": "修復款號秒數修改畫面跳轉問題"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Sửa lỗi chỉnh sửa số giây",
+            "paragraphs": [
+              "Một số mã hàng trước đây không thể mở màn hình chỉnh sửa giây công đoạn. Hiện tại người dùng có thể nhấn vào số giây để mở và chỉnh sửa bình thường."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "修復秒數修改",
+            "paragraphs": [
+              "修復部分款號無法開啟工序秒數修改畫面的問題，現在可直接點擊秒數並正常進行修改。"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
