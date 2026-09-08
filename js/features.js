@@ -26,7 +26,7 @@
     cuttingStore:'js/cutting-store.js?v=20260804-4',
     cutting:'js/cutting.js?v=20260907-1',
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
-    pieceCutting:'js/piece-cutting.js?v=20260907-6',
+    pieceCutting:'js/piece-cutting.js?v=20260908-1',
     accounts:'js/accounts.js?v=20260813-2',
     orders:'js/orders.js?v=20260824-1',
     permissions:'js/permissions.js?v=20260823-1',

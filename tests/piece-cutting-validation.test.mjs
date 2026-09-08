@@ -123,6 +123,19 @@ test('相同布料但圖片群組不同時必須分成不同工作頁',()=>{
   assert.equal(result.totalPieces,30);
 });
 
+test('裁片四張共用表格的表頭固定越文在上中文在下',()=>{
+  const tableIds=['pc-order-files-table','pc-order-items-table','pc-template-table','pc-history-table'];
+  tableIds.forEach((id,index)=>{
+    const nextId=tableIds[index+1];
+    const start=source.indexOf(`id="${id}"`);
+    const end=nextId?source.indexOf(`id="${nextId}"`,start):source.indexOf('</table>',start);
+    const tableSource=source.slice(start,end);
+    assert.ok(start>=0,`${id} 必須存在`);
+    assert.match(tableSource,/<th[^>]*><span class="ui-dual-copy"><strong>[^<]+<\/strong><span>[^<]+<\/span><\/span><\/th>/);
+    assert.doesNotMatch(tableSource,/<th[^>]*>\s*<span class="ui-text-vi">/);
+  });
+});
+
 test('同一圖片群組使用不同布料時仍各自分頁',()=>{
   const api=validation();
   const analysis={groups:[{
