@@ -308,7 +308,7 @@ async function saveSt(){
 async function fetchRates(){
   if(!canEditCostSettings()) return;
   const btn=g('btn-fetchrate'), info=g('rate-updated');
-  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i>'; }
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader ui-runtime-spinner"></i>'; }
   setSettingsStatus(info,'Đang tải...','抓取中...','var(--hi)');
   try{
     const res=await fetch('https://open.er-api.com/v6/latest/USD');

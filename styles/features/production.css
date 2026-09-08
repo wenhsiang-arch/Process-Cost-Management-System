@@ -59,7 +59,6 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  min-height: 36px;
   box-sizing: border-box;
   flex-direction: column;
   align-items: center;
@@ -71,6 +70,7 @@
   background: var(--ui-color-surface);
   color: var(--ui-color-primary);
   cursor: pointer;
+  min-height: 44px;
 }
 
 .production-supplement-help:hover,
@@ -93,19 +93,13 @@
   width: 100%;
   min-width: 0;
   align-items: center;
-  font-size: 10px;
-  line-height: 1.1;
   text-align: center;
-}
-
-.production-supplement-help .ui-dual-copy span {
-  font-size: 9px;
+  line-height: 1.25;
 }
 
 .production-anomaly-filter-card {
   display: grid;
   min-width: 0;
-  min-height: 40px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
@@ -116,12 +110,13 @@
   color: var(--ui-color-text-muted);
   cursor: default;
   font: inherit;
+  min-height: 46px;
+  --ui-copy-secondary-color: currentColor;
 }
 
 .production-anomaly-filter-card .ui-dual-copy {
   min-width: 0;
-  font-size: 10px;
-  line-height: 1.08;
+  line-height: 1.25;
 }
 
 .production-anomaly-filter-card > b {
@@ -160,19 +155,8 @@
 
 .production-employee-inline-field > label {
   color: var(--ui-color-text-muted);
-  line-height: 1.15;
   white-space: nowrap;
-}
-
-.production-employee-inline-field > label strong,
-.production-inline-label strong {
-  font-size: 11px;
-}
-
-.production-employee-inline-field > label span,
-.production-inline-label span {
-  margin-top: 2px;
-  font-size: 10px;
+  line-height: 1.25;
 }
 
 .production-employee-inline-field .ui-search-dropdown-control {
@@ -216,17 +200,17 @@
   display: flex;
   flex-direction: column;
   color: var(--ui-color-text-muted);
-  line-height: 1.15;
   overflow-wrap: break-word;
   white-space: nowrap;
+  line-height: 1.25;
 }
 
 .production-inline-value {
   min-width: 0;
   overflow: hidden;
   color: var(--ui-color-text);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--ui-font-size-body);
+  font-weight:var(--ui-font-weight-primary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -241,8 +225,7 @@
 .production-inline-attendance-value.ui-dual-copy strong {
   max-width: 100%;
   overflow: hidden;
-  font-size: 12px;
-  font-weight: 600;
+
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -345,11 +328,11 @@
 .production-field > label,
 .production-field-label {
   display: flex;
-  min-height: 28px;
   flex-direction: column;
   justify-content: flex-end;
   color: var(--ui-color-text-muted);
-  line-height: 1.2;
+  min-height: 34px;
+  line-height: 1.25;
 }
 
 .production-field > label > strong,
@@ -358,31 +341,19 @@
 .production-field-label > span {
   max-width: 100%;
   overflow-wrap: break-word;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .production-field-label-row {
   display: flex;
-  min-height: 28px;
   align-items: flex-end;
   justify-content: space-between;
   gap: 6px;
+  min-height: 34px;
 }
 
 .production-field-label-row .production-field-label {
   min-height: 0;
-}
-
-.production-field > label strong,
-.production-field-label strong {
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.production-field > label span,
-.production-field-label span {
-  margin-top: 2px;
-  font-size: 10px;
 }
 
 .production-field input,
@@ -417,8 +388,8 @@
   border-radius: var(--ui-radius-control);
   background: var(--ui-color-surface-muted);
   color: var(--ui-color-text);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--ui-font-size-body);
+  font-weight:var(--ui-font-weight-primary);
   line-height: 34px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -426,7 +397,7 @@
 
 .production-entry-context-panel.is-supplement-mode .production-process-name-output {
   background: var(--ui-color-surface);
-  font-weight: 400;
+  font-weight:var(--ui-font-weight-secondary);
 }
 
 .production-entry-context-panel.is-supplement-mode .production-process-name-output:focus {
@@ -567,20 +538,20 @@
   min-width: 0;
   flex: 1 1 auto;
   color: var(--ui-color-text-muted);
-  font-size: 10px;
-  line-height: 1.25;
+  font-size: var(--ui-font-size-helper);
   overflow: hidden;
   text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .production-registration-header + .production-entry-status:not([hidden]) {
-  min-height: 26px;
   box-sizing: border-box;
   padding: 6px 10px;
   border-bottom: 1px solid var(--ui-color-operation-divider);
   background: var(--ui-color-surface);
+  min-height: 32px;
 }
 
 .production-quantity-progress {
@@ -588,7 +559,6 @@
   width: clamp(210px, 31%, 390px);
   min-width: 0;
   max-width: 100%;
-  min-height: 44px;
   grid-template-columns: minmax(0, 1fr) auto;
   box-sizing: border-box;
   flex: 0 1 390px;
@@ -602,6 +572,8 @@
   color: var(--ui-color-primary);
   cursor: pointer;
   text-align: left;
+  min-height: 52px;
+  --ui-copy-secondary-color: currentColor;
 }
 
 .production-quantity-progress:hover:not(:disabled),
@@ -620,14 +592,6 @@
   white-space: normal;
 }
 
-.production-quantity-progress-label > strong {
-  font-size: 10px;
-}
-
-.production-quantity-progress-label > span {
-  font-size: 9px;
-}
-
 .production-quantity-progress-metric {
   display: flex;
   min-width: 0;
@@ -638,9 +602,9 @@
 }
 
 #production-quantity-progress-value {
-  font-size: 20px;
+  font-size: var(--ui-font-size-metric);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight:var(--ui-font-weight-strong);
   white-space: nowrap;
 }
 
@@ -648,11 +612,8 @@
   align-items: flex-end;
   margin-top: 3px;
   color: var(--ui-color-danger-text);
-}
-
-.production-quantity-progress-over > strong,
-.production-quantity-progress-over > span {
-  font-size: 9px;
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
 }
 
 .production-quantity-progress-over[hidden] {
@@ -713,10 +674,11 @@
 
 .production-entry-table-header {
   position: relative;
-  min-height: 44px;
   padding-top: 3px;
   padding-bottom: 3px;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  min-height: 52px;
+  row-gap: 6px;
 }
 
 .production-entry-table-header > .ui-dual-copy {
@@ -727,6 +689,7 @@
 
 .production-entry-table-filters {
   display: flex;
+  flex-wrap: wrap;
   min-width: 0;
   flex: 0 1 auto;
   align-items: center;
@@ -756,13 +719,13 @@
 .production-entry-table-search > input {
   width: 100%;
   min-width: 0;
-  height: 36px;
   padding: 0 9px 0 30px;
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
   font: inherit;
+  height: 40px;
 }
 
 .production-entry-table-search > input:hover {
@@ -783,24 +746,17 @@
 }
 
 .production-entry-table-filter-label {
-  min-width: 42px;
   flex: 0 0 auto;
   align-items: flex-start;
-  line-height: 1.05;
-}
-
-.production-entry-table-filter-label > strong {
-  font-size: 10px;
-}
-
-.production-entry-table-filter-label > span {
-  font-size: 9px;
+  min-width: 52px;
+  line-height: 1.25;
 }
 
 .production-record-date-filter {
   position: relative;
   display: flex;
-  min-width: 0;
+  min-width: 132px;
+  flex-shrink: 0;
   align-items: center;
 }
 
@@ -816,13 +772,14 @@
 
 .production-record-date-filter-button {
   display: flex;
-  min-width: 118px;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
   padding: 3px 30px 3px 9px;
   cursor: pointer;
   text-align: left;
+  min-width: 132px;
+  height: 44px;
 }
 
 .production-record-date-filter-button > i {
@@ -835,14 +792,6 @@
   min-width: 0;
   align-items: flex-start;
   line-height: 1.05;
-}
-
-.production-record-date-filter-button > .ui-dual-copy > strong {
-  font-size: 11px;
-}
-
-.production-record-date-filter-button > .ui-dual-copy > span {
-  font-size: 9px;
 }
 
 #production-record-date-filter-input {
@@ -878,7 +827,8 @@
 .production-entry-table-filter select {
   min-width: 116px;
   padding: 0 26px 0 8px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-body);
+  height: 40px;
 }
 
 .production-record-date-filter-button:hover,
@@ -929,7 +879,7 @@
 #production-entry-page-indicator {
   min-width: 34px;
   color: var(--ui-color-text-muted);
-  font-size: 10px;
+  font-size: var(--ui-font-size-helper);
   text-align: center;
 }
 
@@ -945,13 +895,14 @@
   min-width: 66px;
   align-items: center;
   color: var(--ui-color-text-muted);
-  font-size: 10px;
+  font-size: var(--ui-font-size-helper);
   line-height: 1.05;
   text-align: center;
 }
 
 .production-entry-table {
   width: 100%;
+  --ui-table-default-min-width: 1100px;
   min-width: max(100%, var(--ui-table-visible-min-width, 1100px));
   max-width: none;
   table-layout: fixed;
@@ -979,6 +930,7 @@
 }
 
 .production-anomaly-table {
+  --ui-table-default-min-width: 760px;
   min-width: 760px;
 }
 
@@ -1048,6 +1000,7 @@
   width: 106px;
 }
 
+.production-entry-table td[data-production-column="employeeName"],
 .production-entry-table td[data-production-column="order"],
 .production-entry-table td[data-production-column="product"],
 .production-entry-table td[data-production-column="processName"] {
@@ -1057,7 +1010,7 @@
 }
 
 .production-entry-table td.production-product-code-cell {
-  font-weight: 700;
+  font-weight:var(--ui-font-weight-strong);
 }
 
 #production-entry-table-frame[hidden],
@@ -1068,7 +1021,7 @@
 .production-section-count {
   margin-left: auto;
   color: var(--ui-color-text-muted);
-  font-size: 11px;
+  font-size: var(--ui-font-size-helper);
 }
 
 .production-number-cell {
@@ -1105,7 +1058,7 @@
   border-radius: 8px;
   background: var(--ui-color-primary-soft);
   color: var(--ui-color-primary);
-  font-weight: 600;
+  font-weight:var(--ui-font-weight-primary);
   line-height: 1;
   white-space: nowrap;
 }
@@ -1138,7 +1091,7 @@
 }
 
 .production-filter-panel {
-  padding: var(--ui-space-3);
+  padding: 10px;
 }
 
 .production-filter-grid {
@@ -1148,9 +1101,9 @@
   min-width: 0;
   height: auto;
   box-sizing: border-box;
-  grid-template-columns: 138px 138px minmax(240px, 1.5fr) minmax(150px, .8fr) 212px;
   gap: 10px;
   align-items: end;
+  grid-template-columns: 138px 138px minmax(220px, 520px) minmax(150px, 260px) 212px;
 }
 
 .production-filter-actions {
@@ -1178,6 +1131,7 @@
 .production-records-table,
 .production-performance-table {
   width: 100%;
+  --ui-table-default-min-width: 1100px;
   min-width: max(100%, var(--ui-table-visible-min-width, 1100px));
   max-width: none;
   table-layout: fixed;
@@ -1185,6 +1139,7 @@
 
 .production-performance-table[data-ui-table-controls="auto"] {
   width: 100%;
+  --ui-table-default-min-width: 860px;
   min-width: max(100%, var(--ui-table-resized-min-width, var(--ui-table-visible-min-width, 860px)));
   max-width: none;
 }
@@ -1197,7 +1152,7 @@
 
 .production-efficiency-cell {
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight:var(--ui-font-weight-strong);
 }
 
 .production-efficiency-badge {
@@ -1211,7 +1166,7 @@
   border: 1px solid transparent;
   border-radius: var(--ui-radius-control);
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight:var(--ui-font-weight-strong);
   white-space: nowrap;
   cursor: pointer;
   font: inherit;
@@ -1243,13 +1198,11 @@
 .production-efficiency-status {
   align-items: center;
   color: var(--ui-color-text-muted);
-  font-weight: 400;
+  font-weight:var(--ui-font-weight-secondary);
   line-height: 1.1;
-}
-
-.production-efficiency-status strong,
-.production-efficiency-status span {
-  font-size: 9px;
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
+  --ui-copy-secondary-color: currentColor;
 }
 
 .production-records-table .production-record-text-cell,
@@ -1284,7 +1237,6 @@
 .production-date-badge {
   display: grid;
   width: 100%;
-  min-height: 40px;
   align-content: center;
   gap: 2px;
   box-sizing: border-box;
@@ -1293,6 +1245,7 @@
   background: var(--ui-color-surface);
   color: var(--ui-color-primary);
   line-height: 1.15;
+  min-height: 44px;
 }
 
 .production-employee-detail-cell {
@@ -1300,12 +1253,12 @@
 }
 
 .production-date-badge strong {
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
 }
 
 .production-date-badge span {
   color: var(--ui-color-text-muted);
-  font-size: 10px;
+  font-size: var(--ui-font-size-helper);
 }
 
 .production-records-table tr.production-date-group-start > td,
@@ -1319,7 +1272,7 @@
 }
 
 .production-attendance-panel {
-  padding: var(--ui-space-3);
+  padding: 10px;
 }
 
 .production-attendance-command {
@@ -1330,10 +1283,10 @@
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 138px 132px minmax(190px, 1fr) 108px 108px 210px;
   gap: 10px;
   align-items: end;
   justify-content: start;
+  grid-template-columns: 138px 132px minmax(190px, 420px) 108px 108px 210px;
 }
 
 .production-attendance-actions {
@@ -1350,14 +1303,6 @@
   flex: 1 1 0;
   min-height: 44px;
   padding: 4px 7px;
-}
-
-.production-attendance-actions .ui-dual-copy > strong {
-  font-size: 11px;
-}
-
-.production-attendance-actions .ui-dual-copy > span {
-  font-size: 9px;
 }
 
 .production-attendance-table {
@@ -1421,19 +1366,19 @@
 }
 
 .production-attendance-total {
-  font-weight: 700;
+  font-weight:var(--ui-font-weight-strong);
 }
 
 .production-employee-fields {
   display: grid;
-  grid-template-columns: minmax(128px, .65fr) minmax(180px, 1.15fr) minmax(170px, 1fr) minmax(190px, auto);
   gap: 10px;
   align-items: end;
+  grid-template-columns: minmax(128px, 180px) minmax(200px, 360px) minmax(180px, 300px) minmax(190px, 240px);
 }
 
 .production-employee-command > :first-child {
   min-width: 0;
-  padding: var(--ui-space-3);
+  padding: 10px;
 }
 
 .production-employee-form-actions {
@@ -1495,10 +1440,10 @@
 .production-employee-table-tools {
   display: flex;
   min-width: 0;
-  max-width: 560px;
   flex: 1 1 420px;
   gap: 8px;
   margin-left: auto;
+  max-width: 620px;
 }
 
 .production-employee-table-tools input,
@@ -1526,8 +1471,11 @@
   justify-content: center;
   border-radius: 999px;
   padding: 3px 9px;
-  font-size: 10px;
+  font-size: var(--ui-font-size-helper);
   white-space: nowrap;
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
+  --ui-copy-secondary-color: currentColor;
 }
 
 .production-status.is-active {
@@ -1569,8 +1517,8 @@
 }
 
 .production-entry-table .production-status {
-  min-height: 22px;
   padding: 2px 7px;
+  min-height: 26px;
 }
 
 .production-entry-table .production-row-button {
@@ -1631,9 +1579,9 @@
   }
 
   .production-attendance-fields {
-    grid-template-columns: 134px 124px minmax(170px, 1fr) 100px 100px 190px;
-    gap: 8px;
-  }
+  gap: 8px;
+  grid-template-columns: 138px 132px minmax(190px, 420px) 108px 108px 210px;
+}
 
   .production-command-action {
     width: 132px;
@@ -1642,18 +1590,18 @@
   }
 
   .production-filter-grid {
-    grid-template-columns: 134px 134px minmax(220px, 1fr) minmax(140px, .75fr) 198px;
-    gap: 8px;
-  }
+  gap: 8px;
+  grid-template-columns: 138px 138px minmax(220px, 520px) minmax(150px, 260px) 212px;
+}
 
   .production-employee-fields {
-    grid-template-columns: minmax(112px, .65fr) minmax(0, 1.15fr) minmax(0, 1fr) minmax(176px, auto);
-    gap: 8px;
-  }
+  gap: 8px;
+  grid-template-columns: minmax(128px, 180px) minmax(200px, 360px) minmax(180px, 300px) minmax(190px, 240px);
+}
 
   .production-employee-table-tools {
-    max-width: 470px;
-  }
+  max-width: 620px;
+}
 }
 
 .production-supplement-dialog-backdrop .ui-dialog {
@@ -1673,408 +1621,94 @@
 
 /* product-master-entry-edit-button（生產登記款號主檔欄位入口）：外觀與原秒數入口一致。 */
 .product-master-entry-edit-button{display:inline-flex;max-width:100%;align-items:center;justify-content:flex-start;padding:5px 7px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.product-master-entry-edit-button:not(:disabled):hover,.product-master-entry-edit-button:not(:disabled):focus-visible{border-color:var(--accent);background:#eaf2ff;color:var(--accent);outline:none}.product-master-entry-edit-button:disabled{cursor:default}.production-number-cell .product-master-entry-edit-button{justify-content:flex-end;margin-left:auto}
-
-/* production-entry-legibility-pilot（生產登記清晰度試做）：只調整此頁文字與寬度自動排列，不影響其他產能頁。 */
-#pg-production-entry {
-  font-size: 14px;
-}
-
-#pg-production-entry .ui-dual-copy > strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-#pg-production-entry .ui-dual-copy > span {
-  margin-top: 2px;
-  color: var(--ui-color-text-muted);
-  font-size: 12px;
-  font-weight: 400;
-}
-
-#pg-production-entry .production-employee-inline-field > label,
-#pg-production-entry .production-inline-label,
-#pg-production-entry .production-field > label,
-#pg-production-entry .production-field-label {
-  line-height: 1.25;
-}
-
-#pg-production-entry .production-employee-inline-field > label strong,
-#pg-production-entry .production-inline-label strong,
-#pg-production-entry .production-field > label strong,
-#pg-production-entry .production-field-label strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-#pg-production-entry .production-employee-inline-field > label span,
-#pg-production-entry .production-inline-label span,
-#pg-production-entry .production-field > label span,
-#pg-production-entry .production-field-label span {
-  margin-top: 2px;
-  color: var(--ui-color-text-muted);
-  font-size: 12px;
-  font-weight: 400;
-}
-
-#pg-production-entry .production-field > label > strong,
-#pg-production-entry .production-field > label > span,
-#pg-production-entry .production-field-label > strong,
-#pg-production-entry .production-field-label > span,
-#pg-production-entry .production-entry-table-filter-label > strong,
-#pg-production-entry .production-entry-table-filter-label > span {
-  white-space: nowrap;
-}
-
-#pg-production-entry .production-field > label,
-#pg-production-entry .production-field-label,
-#pg-production-entry .production-field-label-row {
-  min-height: 34px;
-}
-
-#pg-production-entry .production-inline-value,
-#pg-production-entry .production-inline-attendance-value.ui-dual-copy strong,
-#pg-production-entry .production-field input,
-#pg-production-entry .production-field select,
-#pg-production-entry .production-process-name-output,
-#pg-production-entry .production-entry-table-search > input,
-#pg-production-entry .production-entry-table-filter select {
-  font-size: 14px;
-}
-
-#pg-production-entry .production-supplement-help {
-  min-height: 44px;
-}
-
-#pg-production-entry .production-anomaly-filter-card {
-  min-height: 46px;
-}
-
-#pg-production-entry .production-entry-status {
-  font-size: 12px;
-  line-height: 1.4;
-  text-overflow: clip;
-  white-space: normal;
-}
-
-#pg-production-entry .production-registration-header + .production-entry-status:not([hidden]) {
-  min-height: 32px;
-}
-
-#pg-production-entry .production-quantity-progress {
-  min-height: 52px;
-}
-
-#pg-production-entry .production-entry-table-header {
-  min-height: 52px;
-  row-gap: 6px;
-}
-
-#pg-production-entry .production-entry-table-header > .ui-dual-copy > strong {
-  font-size: 14px;
-}
-
-#pg-production-entry .production-entry-table-header > .ui-dual-copy > span {
-  font-size: 12px;
-}
-
-#pg-production-entry .production-entry-table-filter-label {
-  min-width: 52px;
-  line-height: 1.2;
-}
-
-#pg-production-entry .production-record-date-filter-button {
-  min-width: 132px;
-  height: 44px;
-}
-
-#pg-production-entry .production-entry-table-filter select,
-#pg-production-entry .production-entry-table-search > input {
-  height: 40px;
-}
-
-#pg-production-entry #production-entry-page-indicator {
-  font-size: 12px;
-}
-
-#pg-production-entry .production-entry-table {
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-#pg-production-entry .production-entry-table th {
-  padding: 6px 8px;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-#pg-production-entry .production-entry-table th .tv {
-  margin-top: 2px;
-  color: var(--ui-color-text-muted);
-  font-size: 12px;
-  font-weight: 400;
-}
-
-#pg-production-entry .production-entry-table td {
-  padding: 6px 8px;
-  font-size: 13px;
-}
-
-#pg-production-entry .production-entry-table .production-status {
-  min-height: 26px;
-  font-size: 12px;
-}
-
-#pg-production-entry .production-entry-table .production-date-badge {
-  min-height: 44px;
-}
-
-#pg-production-entry .production-entry-table .production-date-badge strong {
-  font-size: 13px;
-}
-
-#pg-production-entry .production-entry-table .production-date-badge span {
-  color: var(--ui-color-text-muted);
-  font-size: 12px;
-}
-
-#pg-production-entry .ui-search-dropdown-option strong,
-#pg-production-entry .ui-table-column-settings-option {
-  font-size: 13px;
-}
-
-#pg-production-entry .ui-search-dropdown-option span,
-#pg-production-entry .ui-table-column-settings-menu .ui-dual-copy > span {
-  color: var(--ui-color-text-muted);
-  font-size: 12px;
-}
-
-html[data-ui-language-mode="vi"] #pg-production-entry .ui-dual-copy > strong,
-html[data-ui-language-mode="zh"] #pg-production-entry .ui-dual-copy > span {
-  margin-top: 0;
-  color: inherit;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-html[data-ui-language-mode="zh"] #pg-production-entry .production-entry-table-header > .ui-dual-copy > span {
-  font-size: 14px;
-}
+.product-master-entry-edit-button:not(:disabled):hover,.product-master-entry-edit-button:not(:disabled):focus-visible{border-color:var(--accent);background:color-mix(in srgb,var(--ui-color-primary-soft) 60%,var(--ui-color-surface));color:var(--accent);outline:none}.product-master-entry-edit-button:disabled{cursor:default}.production-number-cell .product-master-entry-edit-button{justify-content:flex-end;margin-left:auto}
 
 /* 筆電寬度維持相同字級，只讓標題、篩選與進度自然換排。 */
 @media (max-width: 1366px) {
-  #pg-production-entry .production-entry-table-header {
+  .production-entry-table-header {
     align-items: center;
     flex-wrap: wrap;
     padding-top: 6px;
     padding-bottom: 6px;
   }
 
-  #pg-production-entry .ui-table-column-settings {
+  .ui-table-column-settings {
     order: 0;
   }
 
-  #pg-production-entry .production-entry-table-header > .ui-dual-copy {
+  .production-entry-table-header > .ui-dual-copy {
     order: 1;
     flex: 1 1 260px;
   }
 
-  #pg-production-entry .production-entry-pagination {
+  .production-entry-pagination {
     order: 2;
   }
 
-  #pg-production-entry .production-quantity-progress {
+  .production-quantity-progress {
     order: 3;
     width: min(100%, 390px);
   }
 
-  #pg-production-entry .production-entry-table-filters {
+  .production-entry-table-filters {
     order: 4;
     width: 100%;
     flex: 1 1 100%;
     flex-wrap: wrap;
   }
 
-  #pg-production-entry .production-entry-table-search {
+  .production-entry-table-search {
     min-width: 190px;
     flex: 1 1 240px;
   }
 }
 
-/* 高縮放或更窄視窗只重排人員資訊與篩選；高頻登記欄位仍維持既有單排操作。 */
-@media (max-width: 1050px) {
-  #pg-production-entry .production-employee-inline-panel {
+/* 高縮放或更窄視窗只重排人員資訊與篩選；登記欄位於更窄寬度再換排。 */
+@media (max-width: 1200px) {
+  .production-employee-inline-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
     padding-top: 8px;
     padding-bottom: 8px;
   }
 
-  #pg-production-entry .production-entry-table-filter {
+  .production-entry-table-filter {
     flex: 1 1 210px;
   }
 
-  #pg-production-entry .production-entry-table-filter select,
-  #pg-production-entry .production-record-date-filter,
-  #pg-production-entry .production-record-date-filter-button {
+  .production-entry-table-filter select,
+  .production-record-date-filter,
+  .production-record-date-filter-button {
     width: 100%;
   }
 }
 
-/* production-legibility-standard（產能五頁清晰閱讀標準）：放大文字後以減少留白與欄位重排維持桌機工作密度。 */
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard {
-  --mu: var(--ui-color-text-muted);
-  --hi: var(--ui-color-text-subtle);
-  font-size: var(--ui-font-size-body);
+/* 可視桌機寬度不足時重新分配欄位；不覆蓋任何表格的使用者欄寬。 */
+@media (max-width: 1300px) {
+  .production-filter-grid,
+  .production-attendance-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .production-filter-actions { grid-column: 2 / -1; }
 }
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > strong {
-  font-size: var(--ui-font-size-control-vi);
-  font-weight: var(--ui-font-weight-primary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > span {
-  margin-top: 2px;
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-control-zh);
-  font-weight: var(--ui-font-weight-secondary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-section-header > .ui-dual-copy > strong {
-  font-size: var(--ui-font-size-section-vi);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-section-header > .ui-dual-copy > span {
-  font-size: var(--ui-font-size-section-zh);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-field > label, .production-field-label) strong {
-  font-size: var(--ui-font-size-label-vi);
-  font-weight: var(--ui-font-weight-primary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-field > label, .production-field-label) span {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-label-zh);
-  font-weight: var(--ui-font-weight-secondary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(input, select, .production-inline-value, .production-process-name-output) {
-  font-size: var(--ui-font-size-body);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-entry-status, .production-section-count, .production-efficiency-status strong, .production-efficiency-status span, .production-status) {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-helper);
-  font-weight: var(--ui-font-weight-secondary);
-  line-height: 1.35;
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table {
-  font-size: var(--ui-font-size-body);
-  line-height: 1.35;
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table th {
-  padding: 6px 8px;
-  font-size: var(--ui-font-size-table-header-vi);
-  font-weight: var(--ui-font-weight-primary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table th :is(.tv, .ui-text-zh) {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-table-header-zh);
-  font-weight: var(--ui-font-weight-secondary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-table td {
-  padding: 6px 8px;
-  font-size: var(--ui-font-size-body);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .production-date-badge strong {
-  font-size: 13px;
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .production-date-badge span {
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-helper);
-  font-weight: var(--ui-font-weight-secondary);
-}
-
-:is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard :is(.production-filter-panel, .production-attendance-panel, .production-employee-command > :first-child) {
-  padding: 10px;
-}
-
-#pg-production-records.ui-legibility-standard .production-filter-grid {
-  grid-template-columns: 138px 138px minmax(260px, 520px) minmax(150px, 260px) 212px;
-}
-
-#pg-production-attendance.ui-legibility-standard .production-attendance-fields {
-  grid-template-columns: 138px 132px minmax(220px, 420px) 108px 108px 210px;
-}
-
-#pg-production-employees.ui-legibility-standard .production-employee-fields {
-  grid-template-columns: minmax(128px, 180px) minmax(200px, 360px) minmax(180px, 300px) minmax(190px, 240px);
-}
-
-#pg-production-employees.ui-legibility-standard .production-employee-table-tools {
-  max-width: 620px;
-}
-
-body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tab .ui-dual-copy > strong {
-  font-size: var(--ui-font-size-control-vi);
-  font-weight: var(--ui-font-weight-primary);
-}
-
-body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tab .ui-dual-copy > span {
-  color: var(--ui-color-text-readable-muted);
-  font-size: var(--ui-font-size-control-zh);
-  font-weight: var(--ui-font-weight-secondary);
-}
-
-html[data-ui-language-mode="vi"] :is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > strong,
-html[data-ui-language-mode="zh"] :is(#pg-production-entry, #pg-production-records, #pg-production-bonus, #pg-production-attendance, #pg-production-employees).ui-legibility-standard .ui-dual-copy > span {
-  margin-top: 0;
-  color: inherit;
-  font-size: inherit;
-  font-weight: var(--ui-font-weight-primary);
-}
-
-/* 1100 像素以下代表窄桌機或高縮放：保留字級，將欄位換排而非整頁縮小。 */
 @media (max-width: 1100px) {
-  #pg-production-entry.ui-legibility-standard .production-entry-fields {
+  .production-entry-fields {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
-
-  #pg-production-entry.ui-legibility-standard .production-entry-fields > .production-field {
+  .production-entry-fields > .production-field {
     width: 100%;
     max-width: none;
     min-width: 0;
     flex: none;
   }
-
-  #pg-production-records.ui-legibility-standard .production-filter-grid,
-  #pg-production-attendance.ui-legibility-standard .production-attendance-fields,
-  #pg-production-employees.ui-legibility-standard .production-employee-fields {
+  .production-filter-grid,
+  .production-attendance-fields,
+  .production-employee-fields {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  #pg-production-records.ui-legibility-standard .production-filter-actions,
-  #pg-production-attendance.ui-legibility-standard .production-attendance-actions,
-  #pg-production-employees.ui-legibility-standard .production-employee-form-actions {
-    grid-column: 1 / -1;
-  }
-
-  body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tabs {
-    flex-wrap: wrap;
-  }
-
-  body:has(#pg-production-entry.active, #pg-production-records.active, #pg-production-bonus.active, #pg-production-attendance.active, #pg-production-employees.active) #module-tabs-host .ui-tab {
-    min-width: 160px;
-    flex: 1 1 160px;
-  }
+  .production-filter-actions,
+  .production-attendance-actions,
+  .production-employee-form-actions { grid-column: 1 / -1; }
 }

@@ -239,10 +239,10 @@ function refreshGoogleLoginButton(){
   const busy=checking||firebaseAuthStateBusy||googleLoginRequestBusy;
   btn.disabled=busy;
   btn.innerHTML=checking
-    ? '<i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy"><span>Đang kiểm tra trạng thái đăng nhập...</span><span class="login-btn-zh">正在確認登入狀態…</span></span>'
+    ? '<i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy ui-bilingual"><span class="ui-text-vi">Đang kiểm tra trạng thái đăng nhập...</span><span class="login-btn-zh ui-text-zh">正在確認登入狀態…</span></span>'
     : busy
-      ? '<i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy"><span>Đang xác minh...</span><span class="login-btn-zh">驗證中…</span></span>'
-      : '<span class="google-login-logo" aria-hidden="true"><img src="google-g.svg" alt=""></span><span class="login-btn-copy"><span>Đăng nhập bằng Google</span><span class="login-btn-zh">使用 Google 登入</span></span>';
+      ? '<i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy ui-bilingual"><span class="ui-text-vi">Đang xác minh...</span><span class="login-btn-zh ui-text-zh">驗證中…</span></span>'
+      : '<span class="google-login-logo" aria-hidden="true"><img src="google-g.svg" alt=""></span><span class="login-btn-copy ui-bilingual"><span class="ui-text-vi">Đăng nhập bằng Google</span><span class="login-btn-zh ui-text-zh">使用 Google 登入</span></span>';
 }
 
 function setGoogleLoginBusy(busy){
@@ -484,20 +484,22 @@ function showFeatureDataWarnings(warnings){
   if(!toast){
     toast=document.createElement('div');
     toast.id='feature-data-warning';
-    toast.style.cssText='position:fixed;right:18px;bottom:18px;z-index:10020;max-width:390px;background:#fff7ed;color:#9a3412;border:1px solid #fdba74;border-radius:12px;padding:12px 14px;box-shadow:0 8px 24px rgba(15,23,42,.18);font-size:13px;line-height:1.55';
+    toast.className='ui-runtime-notice is-warning is-feature-warning';
     document.body.appendChild(toast);
   }
   const labels=[...new Map(rows.map(row=>[`${row.vi}|${row.zh}`,{vi:String(row.vi||''),zh:String(row.zh||'')}])).values()];
   toast.replaceChildren();
   const title=document.createElement('strong');
+  title.className='ui-runtime-notice-title';
   window.PCMSUIText.set(title,{vi:'Một số dữ liệu phụ chưa tải được',zh:'部分附屬資料暫時無法載入'});
   const detail=window.PCMSUIComponents.createLanguageSections({
     vi:labels.map(label=>label.vi).filter(Boolean).join('、'),
     zh:labels.map(label=>label.zh).filter(Boolean).join('、')
   });
+  detail.classList.add('ui-runtime-notice-detail');
   const note=document.createElement('div');
+  note.className='ui-runtime-notice-note';
   window.PCMSUIText.set(note,{vi:'Chức năng chính vẫn có thể sử dụng.',zh:'主功能仍可正常使用。'});
-  note.style.marginTop='4px';
   toast.append(title,detail,note);
   toast.style.display='block';
   clearTimeout(window._featureDataWarningTimer); // _featureDataWarningTimer（附屬資料警告計時器）

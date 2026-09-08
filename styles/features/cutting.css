@@ -8,26 +8,16 @@
   min-width: 0;
 }
 
-/* 舊裁帶回歸檢查相容層：實際骨架由 ui-command-row（共用操作列）提供。 */
-.cutting-command-row {
-  min-height: var(--ui-action-tile-height);
-  height: auto;
-}
-
-/* 舊裁帶回歸檢查相容層：共用停用狀態仍由 ui-command-action（共用操作方塊）完整定義。 */
-.cutting-command-action.is-primary:disabled {
-  background: color-mix(in srgb, var(--ui-color-primary) 12%, var(--ui-color-surface-muted));
-}
-
 #pg-cutting #cut-pdf-tool-status {
   min-height: 0;
-  max-height: 44px;
+  max-height: none;
+  flex-wrap: wrap;
   margin: 4px 0 0;
   padding: 4px 6px;
   border-radius: var(--ui-radius-control);
-  font-size: 9px;
-  line-height: 1.2;
-  overflow: hidden;
+  font-size: var(--ui-font-size-helper);
+  line-height: 1.35;
+  overflow: visible;
 }
 
 #pg-cutting #cut-pdf-tool-status > i {
@@ -42,19 +32,14 @@
 
 .cutting-status-vi,
 .cutting-status-zh {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-}
-
-.cutting-status-vi {
-  -webkit-line-clamp: 2;
+  display: block;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 .cutting-status-zh {
   color: inherit;
-  opacity: .82;
-  -webkit-line-clamp: 1;
+  font-weight: var(--ui-font-weight-secondary);
 }
 
 .cutting-disclosure[hidden],
@@ -104,9 +89,9 @@
   left: 50%;
   width: min(620px, calc(100% - 32px));
   max-height: 58vh;
-  padding: 18px 20px;
+  padding: 12px 16px;
   color: var(--ui-color-text);
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.7;
   overflow-y: auto;
   text-align: left;
@@ -116,7 +101,7 @@
 .cutting-guide-panel h3 {
   margin-bottom: 8px;
   color: var(--ui-color-text);
-  font-size: 13px;
+  font-size: var(--ui-font-size-section-vi);
 }
 
 .cutting-guide-panel ol {
@@ -129,14 +114,14 @@
 
 .cutting-guide-dialog-content {
   color: var(--ui-color-text);
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.7;
 }
 
 .cutting-guide-dialog-content h3 {
   margin-bottom: 8px;
   color: var(--ui-color-text);
-  font-size: 13px;
+  font-size: var(--ui-font-size-section-vi);
 }
 
 .cutting-guide-dialog-content ol {
@@ -149,7 +134,7 @@
 
 .cutting-template-dialog-content {
   color: var(--ui-color-text);
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.65;
 }
 
@@ -223,7 +208,7 @@
   min-height: 0;
   padding: 8px 11px;
   margin-bottom: var(--ui-space-3);
-  font-size: 11px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.35;
 }
 
@@ -234,7 +219,7 @@
 .cutting-inline-result {
   margin: 0;
   padding: 8px 11px;
-  font-size: 11px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.35;
 }
 
@@ -283,8 +268,7 @@
 
 .cutting-results-empty-copy > span {
   color: inherit;
-  font-size: 10px;
-  opacity: .82;
+  font-size: var(--ui-font-size-body);
 }
 
 .cutting-result-group + .cutting-result-group {
@@ -313,6 +297,7 @@
 /* cutting-error-table（裁帶錯誤表格）：保留完整雙語內容，以約六比四分配原因與處理方式並讓資料列自然增高。 */
 #cut-error-box .cutting-error-table {
   width: 100%;
+  --ui-table-default-min-width: 0px;
   min-width: 0;
   table-layout: fixed;
 }
@@ -340,7 +325,7 @@
 
 .cutting-error-language-sections {
   color: var(--ui-color-text);
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.55;
 }
 
@@ -357,6 +342,16 @@
 
 .cutting-history-title {
   margin-bottom: 0;
+}
+
+td.cutting-history-message {
+  --ui-copy-secondary-color: currentColor;
+  text-align: center;
+  color: var(--ui-color-text-muted);
+}
+
+td.cutting-history-message.is-error {
+  color: var(--ui-color-danger-text);
 }
 
 .cutting-history-title .btn {
@@ -387,8 +382,8 @@
 
 .cut-template-file-note {
   margin-top: 6px;
-  color: var(--ui-color-text-subtle);
-  font-size: 12px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-helper);
   line-height: 1.25;
 }
 
@@ -402,12 +397,13 @@
 
 .cut-template-action {
   width: 87px;
-  height: 40px;
+  min-height: 44px;
+  height: auto;
   padding: 4px 6px;
   justify-content: center;
   flex-direction: column;
   gap: 2px;
-  line-height: 1.05;
+  line-height: 1.3;
   white-space: normal;
 }
 
@@ -425,14 +421,14 @@
 }
 
 .cut-template-action-vi {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--ui-font-size-control-vi);
+  font-weight: var(--ui-font-weight-primary);
 }
 
 .cut-template-action-zh {
-  color: var(--ui-color-text-subtle);
-  font-size: 9px;
-  font-weight: 400;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-control-zh);
+  font-weight: var(--ui-font-weight-secondary);
 }
 
 .cut-template-download {
@@ -446,11 +442,21 @@
 
 .cut-template-action.bd2 .cut-template-action-zh {
   color: inherit;
-  opacity: .82;
 }
 
-@media (max-width: 1365px) {
-  #pg-cutting {
-    --ui-action-tile-width: 100px;
+html[data-ui-language-mode="zh"] .cut-template-action-zh {
+  font-size: var(--ui-font-size-control-vi);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+@media (max-width: 1100px) {
+  .cutting-command-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cutting-disclosure {
+    height: auto;
+    min-width: 120px;
+    flex: 1 1 120px;
   }
 }

@@ -115,10 +115,15 @@
     const fragment = document.createDocumentFragment();
     const primary = document.createElement('strong');
     primary.textContent = String(copy?.primary || '');
+    // 搜尋結果是原始資料，省略顯示時仍提供全文，且不因單語模式拆分。
+    primary.setAttribute('data-ui-neutral-title','');
+    primary.title = primary.textContent;
     fragment.appendChild(primary);
     if(copy?.secondary){
       const secondary = document.createElement('span');
       secondary.textContent = String(copy.secondary);
+      secondary.setAttribute('data-ui-neutral-title','');
+      secondary.title = secondary.textContent;
       fragment.appendChild(secondary);
     }
     return fragment;

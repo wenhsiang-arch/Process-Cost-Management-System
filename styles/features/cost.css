@@ -79,25 +79,21 @@
   cursor: default;
 }
 
-#pg-settings .settings-matrix-label .ui-dual-copy strong {
-  font-size: 12px;
-  font-weight: 500;
-}
-
 #pg-settings .settings-matrix-unit,
 #pg-settings .settings-matrix-value {
   border-left: 1px solid var(--ui-color-border);
 }
 
 #pg-settings .settings-matrix-unit {
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
   color: var(--ui-color-text-muted);
-  font-size: 11px;
+  font-size: var(--ui-font-size-helper);
   line-height: 1.35;
 }
 
 #pg-settings .settings-matrix-unit span + span {
   margin-top: 2px;
-  font-size: 10px;
 }
 
 #pg-settings .settings-matrix-value {
@@ -115,7 +111,10 @@
 #pg-settings .settings-field-error {
   grid-column: 1 / -1;
   color: var(--ui-color-danger-text);
-  font-size: 10px;
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
+  --ui-copy-secondary-color: currentColor;
+  font-size: var(--ui-font-size-helper);
   line-height: 1.35;
 }
 
@@ -134,7 +133,7 @@
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
   font-variant-numeric: tabular-nums;
 }
 
@@ -182,31 +181,16 @@
 }
 
 #pg-settings .settings-rate-status {
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
   display: inline-flex;
   min-width: 0;
   align-items: center;
   margin-left: auto;
-  color: var(--hi);
-  font-size: 10px;
-  line-height: 1.25;
-  white-space: nowrap;
-}
-
-#pg-settings .settings-rate-status .ui-bilingual {
-  flex-direction: row;
-  align-items: center;
-  gap: 5px;
-}
-
-#pg-settings .settings-rate-status .ui-text-vi::after {
-  margin-left: 5px;
   color: var(--ui-color-text-muted);
-  content: '/';
-}
-
-#pg-settings .settings-rate-status .ui-text-zh {
-  margin-top: 0;
-  font-size: inherit;
+  font-size: var(--ui-font-size-helper);
+  line-height: 1.25;
+  white-space: normal;
 }
 
 #pg-settings .settings-rate-status:empty {
@@ -248,6 +232,8 @@
 }
 
 #pg-settings .settings-help-popover {
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
   position: absolute;
   top: calc(100% - 2px);
   left: 10px;
@@ -259,9 +245,9 @@
   border: 1px solid var(--ui-color-border);
   border-radius: var(--ui-radius-control);
   background: var(--ui-color-surface);
-  box-shadow: 0 8px 24px rgba(26, 53, 88, .14);
+  box-shadow: 0 8px 24px var(--ui-color-shadow);
   color: var(--ui-color-text);
-  font-size: 10px;
+  font-size: var(--ui-font-size-helper);
   line-height: 1.45;
 }
 
@@ -307,12 +293,11 @@
 
 #pg-settings .settings-summary-row .ui-summary-label {
   width: 100%;
-  font-size: 11px;
 }
 
 #pg-settings .settings-summary-row .ui-summary-value {
   justify-self: end;
-  font-size: 18px;
+  font-size: var(--ui-font-size-metric-small);
   line-height: 1.15;
 }
 
@@ -334,17 +319,19 @@
 }
 
 #pg-settings .settings-summary-unit {
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
   display: flex;
   flex-direction: column;
   color: var(--ui-color-text-muted);
-  font-size: 9px;
+  font-size: var(--ui-font-size-helper);
   line-height: 1.25;
   white-space: nowrap;
 }
 
 /* 產品工價匯出 */
 #pg-export .export-context-grid {
-  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  grid-template-columns: repeat(3, minmax(150px, 280px));
 }
 
 #pg-export .export-context-item > div {
@@ -363,7 +350,7 @@
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
 }
 
 #pg-export .export-context-item select:focus {
@@ -377,7 +364,7 @@
 }
 
 #pg-export .export-preview-header {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 #pg-export .export-preview-currency {
@@ -401,8 +388,8 @@
   color: var(--ui-color-text-muted);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--ui-font-size-control-vi);
+  font-weight: var(--ui-font-weight-primary);
 }
 
 #pg-export .export-preview-currency-button:hover {
@@ -511,11 +498,7 @@
 }
 
 #pg-costlog .costlog-refresh.is-loading > i {
-  animation: cost-log-spin 1s linear infinite;
-}
-
-@keyframes cost-log-spin {
-  to { transform: rotate(360deg); }
+  animation: ui-runtime-spin 1s linear infinite;
 }
 
 #pg-costlog .costlog-list {
@@ -532,6 +515,7 @@
 
 #pg-costlog .cost-log-table {
   width: 100%;
+  --ui-table-default-min-width: 990px;
   min-width: 990px;
   table-layout: fixed;
   border-collapse: separate;
@@ -539,6 +523,7 @@
 }
 
 #pg-costlog .cost-log-table-scroll.is-extra-expanded .cost-log-table {
+  --ui-table-default-min-width: 1230px;
   min-width: 1230px;
 }
 
@@ -563,9 +548,9 @@
 #pg-costlog .cost-log-table th {
   height: 52px;
   background: var(--ui-color-table-header);
-  color: var(--ui-color-text-muted);
-  font-size: 12px;
-  font-weight: 600;
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-table-header-vi);
+  font-weight: var(--ui-font-weight-primary);
   line-height: 1.2;
 }
 
@@ -576,16 +561,16 @@
 
 #pg-costlog .cost-log-table th > small {
   margin-top: 3px;
-  color: var(--ui-color-text-subtle);
-  font-size: 11px;
-  font-weight: 500;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-table-header-zh);
+  font-weight: var(--ui-font-weight-secondary);
 }
 
 #pg-costlog .cost-log-table td {
   height: 54px;
   background: var(--ui-color-surface);
   color: var(--ui-color-text);
-  font-size: 13px;
+  font-size: var(--ui-font-size-body);
 }
 
 #pg-costlog .cost-log-table tbody tr:hover td {
@@ -636,12 +621,12 @@
 }
 
 #pg-costlog .cost-log-value-cell.is-changed {
-  background: #fff8e6;
-  box-shadow: inset 0 0 0 1px #f4d893;
+  background: var(--ui-color-change-background);
+  box-shadow: inset 0 0 0 1px var(--ui-color-change-border);
 }
 
 #pg-costlog .cost-log-table tbody tr:hover .cost-log-value-cell.is-changed {
-  background: #fff3d3;
+  background: var(--ui-color-change-hover);
 }
 
 #pg-costlog .cost-log-value,
@@ -651,14 +636,14 @@
 }
 
 #pg-costlog .cost-log-value {
-  font-weight: 600;
+  font-weight: var(--ui-font-weight-primary);
 }
 
 #pg-costlog .cost-log-percent {
   margin-top: 3px;
-  color: #b96a00;
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--ui-color-warning-text);
+  font-size: var(--ui-font-size-helper);
+  font-weight:var(--ui-font-weight-strong);
 }
 
 #pg-costlog .cost-log-value-cell.is-missing {
@@ -720,10 +705,12 @@
 
 @media (max-width: 1365px) {
   #pg-costlog .cost-log-table {
+    --ui-table-default-min-width: 950px;
     min-width: 950px;
   }
 
   #pg-costlog .cost-log-table-scroll.is-extra-expanded .cost-log-table {
+    --ui-table-default-min-width: 1190px;
     min-width: 1190px;
   }
 
@@ -744,12 +731,6 @@
   #pg-costlog .cost-log-value-cell {
     width: 96px;
     padding-inline: 6px;
-  }
-
-  #pg-costlog .cost-log-value,
-  #pg-costlog .cost-log-time-cell,
-  #pg-costlog .cost-log-user-cell {
-    font-size: 12px;
   }
 
   #pg-export .cols3 {
@@ -775,10 +756,28 @@
   }
 
   #pg-export .export-command-row {
-    grid-template-columns: minmax(520px, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   #pg-export .export-context-item {
     padding-inline: 8px;
+  }
+}
+
+/* 成本設定保留自身矩陣；可視空間不足時上下換排，不縮小閱讀字體。 */
+@media (max-width: 1200px) {
+  #pg-settings .settings-matrix,
+  #pg-settings .settings-command-content,
+  #pg-export .export-command-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #pg-settings .settings-context-grid {
+    border-right: 0;
+    border-bottom: 1px solid var(--ui-color-operation-border);
+  }
+
+  #pg-export .export-context-grid {
+    grid-template-columns: repeat(3, minmax(0, 280px));
   }
 }

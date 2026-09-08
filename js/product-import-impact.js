@@ -225,7 +225,7 @@
         size:'xlarge',
         closeOnBackdrop:false,
         actions:[
-          {text:{vi:'Hủy',zh:'取消'},onClick:()=>{ settled=true; resolve(false); }},
+          {text:'common.cancel',onClick:()=>{ settled=true; resolve(false); }},
           {text:{vi:'Xác nhận ghi đè',zh:'確認覆蓋'},kind:'primary',disabled:plan.hasBlockingImpact||!plan.requests.length,
             onClick:()=>{ settled=true; resolve(true); }}
         ],

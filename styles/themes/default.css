@@ -8,7 +8,8 @@
 
   --ui-color-navigation-background: #1a3a5c; /* ui-color-navigation-background（導覽背景色） */
   --ui-color-navigation-text: #ffffff; /* ui-color-navigation-text（導覽主要文字色） */
-  --ui-color-navigation-text-muted: rgba(255, 255, 255, .62); /* ui-color-navigation-text-muted（導覽次要文字色） */
+  --ui-color-navigation-text-muted: #cbd5e1; /* ui-color-navigation-text-muted（導覽次要文字色） */
+  --ui-color-navigation-secondary: var(--ui-color-navigation-text-muted); /* ui-color-navigation-secondary（導覽次要文字相容角色） */
   --ui-color-navigation-hover: rgba(255, 255, 255, .10); /* ui-color-navigation-hover（導覽滑鼠停留色） */
   --ui-color-navigation-active: rgba(255, 255, 255, .18); /* ui-color-navigation-active（導覽選取色） */
   --ui-color-topbar-background: #ffffff; /* ui-color-topbar-background（頂部列背景色） */
@@ -24,10 +25,11 @@
   --ui-color-surface-muted: #f8fafc; /* ui-color-surface-muted（次要內容表面色） */
   --ui-color-border: #e2e8f0; /* ui-color-border（共用邊框色） */
   --ui-color-text: #1e293b; /* ui-color-text（主要文字色） */
-  --ui-color-text-muted: #64748b; /* ui-color-text-muted（次要文字色） */
-  --ui-color-text-subtle: #94a3b8; /* ui-color-text-subtle（提示文字色） */
-  --ui-color-text-readable-muted: #475569; /* ui-color-text-readable-muted（清晰閱讀次要文字色） */
-  --ui-color-text-readable-subtle: #64748b; /* ui-color-text-readable-subtle（清晰閱讀提示文字色） */
+  --ui-color-text-muted: #475569; /* ui-color-text-muted（清晰閱讀次要文字色） */
+  --ui-color-text-subtle: #64748b; /* ui-color-text-subtle（清晰閱讀提示文字色） */
+  --ui-color-loading-overlay: rgba(26, 58, 92, .85); /* ui-color-loading-overlay（載入遮罩底色） */
+  --ui-color-on-loading: #ffffff; /* ui-color-on-loading（載入遮罩文字色） */
+  --ui-color-loading-spinner-track: rgba(255, 255, 255, .2); /* ui-color-loading-spinner-track（載入動畫軌道色） */
 
   --ui-color-operation-background: #eff6ff; /* ui-color-operation-background（整合操作區背景色） */
   --ui-color-operation-border: #bfdbfe; /* ui-color-operation-border（整合操作區邊框色） */
@@ -36,6 +38,27 @@
   --ui-color-row-hover: #f8fbff; /* ui-color-row-hover（資料列滑鼠停留色） */
   --ui-color-drop-overlay: rgba(239, 246, 255, .94); /* ui-color-drop-overlay（拖曳匯入覆蓋色） */
   --ui-color-overlay: rgba(15, 23, 42, .52); /* ui-color-overlay（視窗遮罩色） */
+
+  --ui-color-shadow: rgba(15, 23, 42, .14); /* ui-color-shadow（一般浮層陰影色） */
+  --ui-color-shadow-soft: rgba(26, 53, 88, .06); /* ui-color-shadow-soft（低干擾內容陰影色） */
+  --ui-color-shadow-strong: rgba(15, 35, 65, .16); /* ui-color-shadow-strong（說明與較高浮層陰影色） */
+
+  --ui-color-change-background: #fff8e6; /* ui-color-change-background（已變動內容淡色背景） */
+  --ui-color-change-border: #f4d893; /* ui-color-change-border（已變動內容辨識邊框） */
+  --ui-color-change-hover: #fff3d3; /* ui-color-change-hover（已變動內容停留背景） */
+
+  /* 登入識別色組只保存配色；漸層方向、元件尺寸與位置仍由共用版面管理。 */
+  --ui-color-login-background-start: #071d3f; /* ui-color-login-background-start（登入背景起始色） */
+  --ui-color-login-background-middle: #0b2d63; /* ui-color-login-background-middle（登入背景中段色） */
+  --ui-color-login-background-end: #164b91; /* ui-color-login-background-end（登入背景結束色） */
+  --ui-color-login-surface: #0a2459; /* ui-color-login-surface（登入圖片未顯示時的底色） */
+  --ui-color-login-accent: #e4ae35; /* ui-color-login-accent（登入識別強調色） */
+  --ui-color-login-button-start: #1f5ec0; /* ui-color-login-button-start（登入主要按鈕起始色） */
+  --ui-color-login-button-end: #102f72; /* ui-color-login-button-end（登入主要按鈕結束色） */
+  --ui-color-login-button-hover-start: #1b55ad; /* ui-color-login-button-hover-start（登入按鈕停留起始色） */
+  --ui-color-login-button-hover-end: #0c285f; /* ui-color-login-button-hover-end（登入按鈕停留結束色） */
+  --ui-color-login-foreground: #09275f; /* ui-color-login-foreground（登入主要標題色） */
+  --ui-color-login-secondary: #4c6281; /* ui-color-login-secondary（登入次要標題色） */
 
   --ui-color-info-text: #1e4f82; /* ui-color-info-text（資訊文字色） */
   --ui-color-info-background: #eff6ff; /* ui-color-info-background（資訊背景色） */

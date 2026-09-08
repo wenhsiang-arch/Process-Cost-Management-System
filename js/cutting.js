@@ -211,7 +211,7 @@
     const body = g('cut-history-tb'); // body（裁帶歷史表格內容）
     if(!body) return;
     if(!state.historyLogs.length){
-      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mu)">Chưa có lịch sử thao tác.<br><span class="tv">尚無操作紀錄。</span></td></tr>';
+      body.innerHTML = `<tr><td colspan="7" class="cutting-history-message ui-status-text">${cuttingDualHtml('Chưa có lịch sử thao tác.','尚無操作紀錄。')}</td></tr>`;
       return;
     }
     body.innerHTML = state.historyLogs.map(log => {
@@ -225,11 +225,11 @@
       return `<tr>
         <td>${esc(cuttingHistoryTime(log?.createdAt))}</td>
         <td>${esc(operator)}</td>
-        <td><strong>${esc(action.vi)}</strong><br><span class="tv">${esc(action.zh)}</span></td>
+        <td>${cuttingDualHtml(action.vi,action.zh)}</td>
         <td>${esc(fileName)}</td>
         <td style="text-align:right">${fmtNum(log?.itemCount)}</td>
         <td style="text-align:right">${fmtNum(log?.detailCount)}</td>
-        <td><span class="tg ${status.className}">${esc(status.vi)}<br>${esc(status.zh)}</span></td>
+        <td><span class="tg ${status.className} ui-status-text">${cuttingDualHtml(status.vi,status.zh)}</span></td>
       </tr>`;
     }).join('');
   }
@@ -244,7 +244,7 @@
     const button = g('cut-history-refresh-btn'); // button（重新整理按鈕）
     state.historyLoading = true;
     if(button) button.disabled = true;
-    if(body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--mu)">Đang tải lịch sử...<br><span class="tv">正在載入歷史紀錄...</span></td></tr>';
+    if(body) body.innerHTML = `<tr><td colspan="7" class="cutting-history-message ui-status-text">${cuttingDualHtml('Đang tải lịch sử...','正在載入歷史紀錄...')}</td></tr>`;
     try{
       if(typeof window.ensureCuttingHistoryLoaded !== 'function'){
         throw new Error('Chức năng lịch sử chưa sẵn sàng / 歷史功能尚未就緒');
@@ -255,7 +255,7 @@
     }catch(error){
       state.historyLoaded = false;
       console.error('Không thể tải operationLogs / 無法載入操作紀錄：', error);
-      if(body) body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--err)">Không thể tải lịch sử thao tác, vui lòng thử lại.<br><span class="tv">無法載入操作紀錄，請重試。</span></td></tr>';
+      if(body) body.innerHTML = `<tr><td colspan="7" class="cutting-history-message is-error ui-status-text">${cuttingDualHtml('Không thể tải lịch sử thao tác, vui lòng thử lại.','無法載入操作紀錄，請重試。')}</td></tr>`;
     }finally{
       state.historyLoading = false;
       if(button) button.disabled = false;
@@ -790,7 +790,7 @@
         body: `<div class="ui-language-sections"><div class="ui-language-section">Đã có mẫu cùng tên tệp.<br>Bạn muốn ghi đè mẫu cũ không?</div><div class="ui-language-section">已存在相同檔名的模板。<br>是否要覆蓋原本的模板？</div></div><div class="cutting-template-conflict-list"><b>${esc(book.fileName)}</b></div>`,
         buttons: [
           {text:'Ghi đè / 覆蓋', value:'overwrite', className:'btn bp'},
-          {text:'Hủy / 取消', value:'cancel', className:'btn'}
+          {text:window.PCMSUIText.get('common.cancel'), value:'cancel', className:'btn'}
         ]
       });
       return action === 'overwrite';

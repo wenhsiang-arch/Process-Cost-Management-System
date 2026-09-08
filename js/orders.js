@@ -911,18 +911,17 @@ async function renderProgress(){
       content.innerHTML='<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng</div><div>尚無訂單</div></div>';
       return;
     }
-    const thS='padding:6px 8px;text-align:left;background:var(--sf);border-bottom:1px solid var(--bd);white-space:nowrap;font-size:11px;font-weight:500;color:var(--mu)';
     let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
-    html+=`<th style="${thS};width:36px">No</th>`;
-    html+=`<th style="${thS};width:80px">${ordersPairHtml('Khách hàng','客人')}</th>`;
-    html+=`<th style="${thS};width:110px">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
-    html+=`<th style="${thS};width:70px">${ordersPairHtml('Số lượng','數量')}</th>`;
-    html+=`<th style="${thS};width:100px">${ordersPairHtml('Số công đoạn','工序數')}</th>`;
-    html+=`<th style="${thS};width:90px">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
-    html+=`<th style="${thS};width:120px">${ordersPairHtml('Hoàn thành','實際完成日')}</th>`;
-    html+=`<th style="${thS};width:120px">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
-    html+=`<th style="${thS}">${ordersPairHtml('Ghi chú','備註')}</th>`;
-    html+=`<th style="${thS};width:60px"></th>`;
+    html+=`<th data-orders-column="index">#</th>`;
+    html+=`<th data-orders-column="client">${ordersPairHtml('Khách hàng','客人')}</th>`;
+    html+=`<th data-orders-column="orderId">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
+    html+=`<th data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
+    html+=`<th data-orders-column="processCount" class="ui-table-number-cell">${ordersPairHtml('Số công đoạn','工序數')}</th>`;
+    html+=`<th data-orders-column="dueDate">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
+    html+=`<th data-orders-column="completeDate">${ordersPairHtml('Hoàn thành','實際完成日')}</th>`;
+    html+=`<th data-orders-column="shipDate">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
+    html+=`<th data-orders-column="remark">${ordersPairHtml('Ghi chú','備註')}</th>`;
+    html+=`<th data-orders-column="action">${ordersPairHtml('Thao tác','操作')}</th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const totalQty=o.totalQty||0;
@@ -934,23 +933,23 @@ async function renderProgress(){
       const safeId=ordersSafeAttr(o.id);
       const remarkVal=ordersSafeAttr(o.remark||'');
       html+=`<tr class="orders-progress-row" onclick="toggleProgDetail(${idArg})">
-        <td style="color:var(--mu);padding:6px 8px;font-size:12px">${idx+1}</td>
-        <td style="padding:6px 8px;font-size:12px"><b>${ordersSafeText(o.client||'-')}</b></td>
-        <td style="font-family:var(--font-mono,monospace);font-size:11px;padding:6px 8px">${ordersSafeText(o.orderId)}</td>
-        <td style="padding:6px 8px;font-size:12px">${totalQty.toLocaleString()}</td>
-        <td style="padding:6px 8px;font-size:12px">${o.processCount===null?'—':o.processCount.toLocaleString()}</td>
+        <td class="orders-row-index">${idx+1}</td>
+        <td><b>${ordersSafeText(o.client||'-')}</b></td>
+        <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
+        <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
+        <td class="ui-table-number-cell">${o.processCount===null?'—':o.processCount.toLocaleString()}</td>
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualCompleteDateVal)}" onchange="saveProgField(${idArg},'actualCompleteDate',this.value)"></td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
-        <td onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" title="${remarkVal}" style="cursor:pointer;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:6px 8px;font-size:12px;color:${o.remark?'var(--navy)':'var(--mu)'}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
-        <td style="padding:6px 8px" onclick="event.stopPropagation()">
+        <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
+        <td onclick="event.stopPropagation()">
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-trash"></i></button>
           ${window.cu?.role==='admin'?`<button class="btn bsm bd2" style="background:var(--errl);color:var(--err)" title="Xóa vĩnh viễn / 永久刪除" onclick="openOrderDeleteWarning('purge',${idArg},${orderArg})"><i class="ti ti-database-off"></i></button>`:''}
         </td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">
-        <td colspan="10" style="padding:0;background:var(--bg)">
-          <div id="prog-detail-body-${safeId}" style="padding:10px 16px"></div>
+        <td colspan="10" class="orders-expanded-cell">
+          <div id="prog-detail-body-${safeId}" class="orders-expanded-body"></div>
         </td>
       </tr>`;
     });
@@ -1003,12 +1002,12 @@ async function toggleProgDetail(ordId){
   if(btn) btn.innerHTML='<i class="ti ti-chevron-up"></i>';
   const body=document.getElementById('prog-detail-body-'+ordId);
   if(!body) return;
-  body.innerHTML='<div class="ui-language-sections" style="color:var(--mu);font-size:12px"><div class="ui-language-section">Đang tải công đoạn...</div><div class="ui-language-section">正在載入工序...</div></div>';
+  body.innerHTML='<div class="orders-process-status ui-helper-text ui-bilingual"><span class="ui-text-vi">Đang tải công đoạn...</span><span class="ui-text-zh">正在載入工序...</span></div>';
   try{
     await ensureOrderProcessesLoaded(ordId);
   }catch(error){
     console.error('Không thể tải công đoạn / 工序載入失敗',error);
-    body.innerHTML='<div class="ui-language-sections" style="color:var(--err);font-size:12px"><div class="ui-language-section">Không thể tải công đoạn.</div><div class="ui-language-section">工序載入失敗。</div></div>';
+    body.innerHTML='<div class="orders-process-status is-danger ui-helper-text ui-status-text ui-bilingual"><span class="ui-text-vi">Không thể tải công đoạn.</span><span class="ui-text-zh">工序載入失敗。</span></div>';
     return;
   }
   if(row.style.display==='none') return;
@@ -1028,11 +1027,12 @@ async function toggleProgDetail(ordId){
     const ordArg=ordersInlineArg(ordId);
     const itemArg=ordersInlineArg(itemIdentity);
     const detailArg=ordersInlineArg(detailId);
-    html+=`<div style="margin-bottom:10px">
-      <div onclick="toggleProgCodeDetail(${ordArg},${itemArg},${detailArg})" style="cursor:pointer;font-size:12px;font-weight:500;color:var(--navy);padding:8px 4px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:8px;white-space:nowrap">
+    const descriptionText=`${cp[0].po?`PO ${cp[0].po} · `:''}${cp[0].desc||''} ${cp[0].color||''}`; // descriptionText（訂單描述全文）：畫面與滑鼠提示共用同一原始資料，不依語言拆分。
+    html+=`<div class="orders-item-group">
+      <div class="orders-item-toggle" onclick="toggleProgCodeDetail(${ordArg},${itemArg},${detailArg})">
         <i id="${ordersSafeAttr(detailId)}-icon" class="ti ti-chevron-right" style="color:var(--accent)"></i>
-        <b>${ordersSafeText(code)}</b><span style="font-size:11px;color:var(--mu);overflow:hidden;text-overflow:ellipsis;min-width:80px;max-width:320px">${ordersSafeText(cp[0].po?`PO ${cp[0].po} · `:'')}${ordersSafeText(cp[0].desc||'')} ${ordersSafeText(cp[0].color||'')}</span>
-        <span style="margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--accent);min-width:0">
+        <b>${ordersSafeText(code)}</b><span class="orders-item-description" data-ui-neutral-title title="${ordersSafeAttr(descriptionText)}">${ordersSafeText(descriptionText)}</span>
+        <span class="orders-item-summary">
           ${ordersPairHtml(`${cp.length} công đoạn · ${(cp[0].orderQty||0).toLocaleString()} sản phẩm`,`${cp.length} 道工序 · ${(cp[0].orderQty||0).toLocaleString()} 件`)}
           ${canManageOrders()?`<button class="btn bsm" title="Điều chỉnh SL / 調整數量" aria-label="Điều chỉnh SL / 調整數量" onclick="event.stopPropagation();openOrderQtyAdjust(${ordArg},${itemArg})"><i class="ti ti-edit"></i></button>`:''}
         </span>
@@ -1040,7 +1040,7 @@ async function toggleProgDetail(ordId){
       <div id="${ordersSafeAttr(detailId)}" style="display:none"></div>
     </div>`;
   });
-  body.innerHTML=html||'<div class="ui-language-sections" style="color:var(--mu);font-size:12px"><div class="ui-language-section">Chưa có dữ liệu công đoạn.</div><div class="ui-language-section">尚無工序資料。</div></div>';
+  body.innerHTML=html||'<div class="orders-process-status ui-helper-text ui-bilingual"><span class="ui-text-vi">Chưa có dữ liệu công đoạn.</span><span class="ui-text-zh">尚無工序資料。</span></div>';
 }
 
 function toggleProgCodeDetail(ordId,itemIdentity,detailId){
@@ -1054,21 +1054,21 @@ function toggleProgCodeDetail(ordId,itemIdentity,detailId){
   const cp=(window.allProcesses||[]).filter(p=>p.orderId===ordId&&(p.orderItemId||p.code)===itemIdentity);
   const procRows=cp.sort((a,b)=>compareProcessNo(a.processNo,b.processNo)).map(p=>{
     return`<tr>
-      <td style="padding:3px 6px;font-size:12px">${ordersSafeText(p.processNo)}</td>
-      <td style="padding:3px 6px;font-size:12px">${ordersSafeText(p.processCategory||'—')} · ${ordersSafeText(processCategoryLabel(p.processCategory))}</td>
-      <td style="padding:3px 6px;font-size:12px">${ordersSafeText(p.processVi||p.processZh||'')}</td>
-      <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.orderQty||0).toLocaleString()}</td>
-      <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.workStdSec||p.processSec||0).toLocaleString()}</td>
-      <td style="padding:3px 6px;text-align:right;font-size:12px">${(p.slPerHour||0).toLocaleString()}</td>
+      <td>${ordersSafeText(p.processNo)}</td>
+      <td>${ordersSafeText(p.processCategory||'—')} · ${ordersSafeText(processCategoryLabel(p.processCategory))}</td>
+      <td>${ordersSafeText(p.processVi||p.processZh||'')}</td>
+      <td class="ui-table-number-cell">${(p.orderQty||0).toLocaleString()}</td>
+      <td class="ui-table-number-cell">${(p.workStdSec||p.processSec||0).toLocaleString()}</td>
+      <td class="ui-table-number-cell">${(p.slPerHour||0).toLocaleString()}</td>
     </tr>`;
   }).join('');
-  detail.innerHTML=`<table class="orders-detail-table ui-table" data-ui-table-layout="special" style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="background:var(--sf)">
-    <th style="padding:4px 6px;text-align:left;width:60px;font-size:11px">Số CĐ<br><span style="font-weight:400;color:var(--mu)">工序號</span></th>
-    <th style="padding:4px 6px;text-align:left;width:90px;font-size:11px">Phân loại<br><span style="font-weight:400;color:var(--mu)">加工分類</span></th>
-    <th style="padding:4px 6px;text-align:left;font-size:11px">Tên CĐ<br><span style="font-weight:400;color:var(--mu)">工序名稱</span></th>
-    <th style="padding:4px 6px;text-align:right;width:70px;font-size:11px">SL đơn<br><span style="font-weight:400;color:var(--mu)">訂單量</span></th>
-    <th style="padding:4px 6px;text-align:right;width:115px;font-size:11px">Giây công đoạn hiện tại<br><span style="font-weight:400;color:var(--mu)">目前主檔工序秒數</span></th>
-    <th style="padding:4px 6px;text-align:right;width:90px;font-size:11px">SL tiêu chuẩn/giờ<br><span style="font-weight:400;color:var(--mu)">標準產量/時</span></th>
+  detail.innerHTML=`<table class="orders-detail-table ui-table" data-ui-table-layout="special"><thead><tr>
+    <th data-orders-column="processNo">${ordersPairHtml('Số CĐ','工序號')}</th>
+    <th data-orders-column="category">${ordersPairHtml('Phân loại','加工分類')}</th>
+    <th data-orders-column="name">${ordersPairHtml('Tên CĐ','工序名稱')}</th>
+    <th data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('SL đơn','訂單量')}</th>
+    <th data-orders-column="seconds" class="ui-table-number-cell">${ordersPairHtml('Giây công đoạn hiện tại','目前主檔工序秒數')}</th>
+    <th data-orders-column="hourlyQty" class="ui-table-number-cell">${ordersPairHtml('SL tiêu chuẩn/giờ','標準產量/時')}</th>
   </tr></thead><tbody>${procRows}</tbody></table>`;
   detail.style.display='';
   if(icon) icon.className='ti ti-chevron-down';
@@ -1134,7 +1134,7 @@ function renderOrderAdjustmentHistory(rows){
   if(body){
     body.innerHTML=rows.length?rows.map(r=>{
       const quantity=(r.changes||[]).find(change=>change.field==='quantity')||{};
-      return `<tr><td>${ordersSafeText(r.targetId||'—')}</td><td>—</td><td>${Number(quantity.before||0).toLocaleString()}</td><td>${Number(quantity.after||0).toLocaleString()}</td><td>${ordersSafeText(r.note||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span style="font-size:10px;color:var(--mu)">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`;
+      return `<tr><td>${ordersSafeText(r.targetId||'—')}</td><td>—</td><td>${Number(quantity.before||0).toLocaleString()}</td><td>${Number(quantity.after||0).toLocaleString()}</td><td>${ordersSafeText(r.note||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span class="orders-history-time ui-helper-text">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`;
     }).join(''):'<tr><td colspan="6"><div class="ui-language-sections"><div class="ui-language-section is-vi">Chưa có dữ liệu</div><div class="ui-language-section is-zh">尚無資料</div></div></td></tr>';
   }
   const moreButton=g('order-adjust-history-more'); // moreButton（載入更多按鈕）

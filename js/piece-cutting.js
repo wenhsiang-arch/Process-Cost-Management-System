@@ -280,10 +280,10 @@
             <div class="pc-context-grid ui-context-grid">
               <div class="pc-context-item ui-context-item">
                 <i class="ti ti-file-type-pdf"></i>
-                <div><span class="pc-context-copy ui-dual-copy"><strong>Công cụ PDF</strong><span>PDF 工具狀態</span></span><div id="pc-tool-status" class="pc-tool-status"><i class="ti ti-alert-circle"></i><span><b class="ui-text-vi">Chưa mở công cụ PDF cắt chi tiết</b><b class="ui-text-zh">裁片 PDF 工具尚未啟動</b></span></div></div>
+                <div><span class="pc-context-copy ui-dual-copy"><strong>Công cụ PDF</strong><span>PDF 工具狀態</span></span><div id="pc-tool-status" class="pc-tool-status"><i class="ti ti-alert-circle"></i><span class="ui-bilingual"><b class="ui-text-vi">Chưa mở công cụ PDF cắt chi tiết</b><b class="ui-text-zh">裁片 PDF 工具尚未啟動</b></span></div></div>
               </div>
               <button id="pc-order-drop" type="button" class="pc-context-item ui-context-item pc-file-card ui-file-picker">
-                <i class="ti ti-files"></i><span><span class="pc-context-copy ui-dual-copy"><strong>Tệp đơn hàng</strong><span>訂單檔案</span></span><small id="pc-order-file"><span class="ui-text-vi">Chọn hoặc kéo nhiều tệp .xlsx, .xls</span><span class="ui-text-zh">可選取或拖入多個 .xlsx、.xls</span></small></span>
+                <i class="ti ti-files"></i><span><span class="pc-context-copy ui-dual-copy"><strong>Tệp đơn hàng</strong><span>訂單檔案</span></span><small id="pc-order-file" class="ui-bilingual"><span class="ui-text-vi">Chọn hoặc kéo nhiều tệp .xlsx, .xls</span><span class="ui-text-zh">可選取或拖入多個 .xlsx、.xls</span></small></span>
               </button>
             </div>
             <div class="pc-command-actions ui-command-actions">
@@ -340,7 +340,7 @@
                 <i class="ti ti-file-spreadsheet"></i><div>
                   <span class="pc-context-copy ui-dual-copy"><strong>Tệp mẫu chính đang chọn</strong><span>目前選擇的主檔</span></span>
                   <div id="pc-template-file-name" class="pc-file-name ui-file-name"></div>
-                  <div id="pc-template-file-helper" class="pc-context-note ui-context-note">Nhấp để chọn hoặc kéo tệp .xlsx.<br>點擊選擇或拖入 .xlsx 主檔。</div>
+                  <div id="pc-template-file-helper" class="pc-context-note ui-context-note ui-bilingual"><span class="ui-text-vi">Nhấp để chọn hoặc kéo tệp .xlsx.</span><span class="ui-text-zh">點擊選擇或拖入 .xlsx 主檔。</span></div>
                 </div>
               </button>
             </div>
@@ -377,12 +377,12 @@
           <div class="pc-section-header ui-section-header pc-history-title"><i class="ti ti-history"></i><span class="pc-section-copy ui-dual-copy"><strong>Lịch sử thao tác</strong><span>歷史操作紀錄（最近 50 筆）</span></span>
             <button id="pc-history-refresh" class="btn bsm pc-history-refresh" type="button"><i class="ti ti-refresh"></i><span class="pc-action-copy ui-dual-copy"><strong>Làm mới</strong><span>重新整理</span></span></button>
           </div>
-          <div class="pc-table-frame ui-table-frame"><div class="pc-table-scroll ui-table-scroll pc-history-scroll" data-ui-floating-scroll="only"><table id="pc-history-table" class="pc-table ui-table pc-history-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original"><thead><tr>
+          <div class="pc-table-frame ui-table-frame"><div class="pc-table-scroll ui-table-scroll" data-ui-floating-scroll="only"><table id="pc-history-table" class="pc-table ui-table pc-history-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original"><thead><tr>
             <th><span class="ui-dual-copy"><strong>Thời gian</strong><span>時間</span></span></th><th><span class="ui-dual-copy"><strong>Người thao tác</strong><span>操作者</span></span></th>
             <th><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th><th><span class="ui-dual-copy"><strong>Tên tệp</strong><span>檔名</span></span></th>
             <th><span class="ui-dual-copy"><strong>Mã hàng</strong><span>款號數</span></span></th><th><span class="ui-dual-copy"><strong>Chi tiết</strong><span>明細數</span></span></th>
             <th><span class="ui-dual-copy"><strong>Tình trạng</strong><span>狀態</span></span></th>
-          </tr></thead><tbody id="pc-history-body"><tr><td colspan="7" class="pc-empty"><span class="ui-text-vi">Chọn trang lịch sử để tải dữ liệu.</span><span class="ui-text-zh">開啟歷史分頁後才會讀取資料。</span></td></tr></tbody></table></div></div>
+          </tr></thead><tbody id="pc-history-body"><tr><td colspan="7" class="pc-empty ui-status-text"><span class="ui-text-vi">Chọn trang lịch sử để tải dữ liệu.</span><span class="ui-text-zh">開啟歷史分頁後才會讀取資料。</span></td></tr></tbody></table></div></div>
         </section>
       </section>
     </section>`;
@@ -417,10 +417,10 @@
   function renderTemplateTable(meta){
     const body=g('pc-template-body');if(!body)return;body.replaceChildren();
     if(!meta){
-      const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có dữ liệu mẫu chính.</span><span class="ui-text-zh">尚無主檔資料。</span></td>';body.appendChild(row);return;
+      const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty ui-status-text"><span class="ui-text-vi">Chưa có dữ liệu mẫu chính.</span><span class="ui-text-zh">尚無主檔資料。</span></td>';body.appendChild(row);return;
     }
     const summary=meta.summary||{},row=document.createElement('tr');
-    row.innerHTML=`<td title="${safe(meta.fileName)}"><strong>${safe(meta.fileName||'—')}</strong><small class="pc-template-date"><span class="ui-text-vi">Cập nhật ${safe(new Date(meta.updatedAt).toLocaleString('vi-VN',{hour12:false}))}</span><span class="ui-text-zh">更新於 ${safe(new Date(meta.updatedAt).toLocaleString('zh-TW',{hour12:false}))}</span></small></td><td>${fmtNum(summary.productCount)}</td><td>${fmtNum(summary.sizeCount)}</td><td>${fmtNum(summary.materialCount)}</td><td>${fmtNum(summary.pieceCount)}</td><td><span class="pc-badge is-ready"><span class="ui-text-vi">Đã lưu</span><span class="ui-text-zh">已儲存</span></span></td><td><button id="pc-delete-template" class="pc-template-delete" type="button"><i class="ti ti-trash"></i><span><span class="ui-text-vi">Xóa</span><span class="ui-text-zh">刪除</span></span></button></td>`;
+    row.innerHTML=`<td title="${safe(meta.fileName)}"><strong>${safe(meta.fileName||'—')}</strong><small class="pc-template-date ui-bilingual"><span class="ui-text-vi">Cập nhật ${safe(new Date(meta.updatedAt).toLocaleString('vi-VN',{hour12:false}))}</span><span class="ui-text-zh">更新於 ${safe(new Date(meta.updatedAt).toLocaleString('zh-TW',{hour12:false}))}</span></small></td><td>${fmtNum(summary.productCount)}</td><td>${fmtNum(summary.sizeCount)}</td><td>${fmtNum(summary.materialCount)}</td><td>${fmtNum(summary.pieceCount)}</td><td><span class="pc-badge ui-bilingual is-ready"><span class="ui-text-vi">Đã lưu</span><span class="ui-text-zh">已儲存</span></span></td><td><button id="pc-delete-template" class="pc-template-delete" type="button"><i class="ti ti-trash"></i><span class="ui-bilingual"><span class="ui-text-vi">Xóa</span><span class="ui-text-zh">刪除</span></span></button></td>`;
     body.appendChild(row);
   }
 
@@ -447,7 +447,7 @@
     state.orderFiles.forEach(record=>{
       const recordErrors=effectiveOrderErrors(record);
       const row=document.createElement('tr'),hasErrors=recordErrors.length>0;
-      row.innerHTML=`<td title="${safe(record.fileName)}">${safe(record.fileName)}</td><td>${safe(record.orderNumbers.length?record.orderNumbers.join(' + '):'—')}</td><td>${safe(record.items.length)}</td><td>${safe(record.items.reduce((sum,item)=>sum+Number(item.qty||0),0).toLocaleString())}</td><td><span class="pc-badge ${hasErrors?'is-error':'is-ready'}">${hasErrors?'<span class="ui-text-vi">Có lỗi</span><span class="ui-text-zh">有錯誤</span>':'<span class="ui-text-vi">Hợp lệ</span><span class="ui-text-zh">有效</span>'}</span></td><td><button class="pc-remove-file" type="button" data-order-file-id="${safe(record.id)}"><span class="ui-text-vi">Bỏ tệp</span><span class="ui-text-zh">移除</span></button></td>`;
+      row.innerHTML=`<td title="${safe(record.fileName)}">${safe(record.fileName)}</td><td>${safe(record.orderNumbers.length?record.orderNumbers.join(' + '):'—')}</td><td>${safe(record.items.length)}</td><td>${safe(record.items.reduce((sum,item)=>sum+Number(item.qty||0),0).toLocaleString())}</td><td><span class="pc-badge ui-bilingual ${hasErrors?'is-error':'is-ready'}">${hasErrors?'<span class="ui-text-vi">Có lỗi</span><span class="ui-text-zh">有錯誤</span>':'<span class="ui-text-vi">Hợp lệ</span><span class="ui-text-zh">有效</span>'}</span></td><td><button class="pc-remove-file" type="button" data-order-file-id="${safe(record.id)}"><span class="ui-bilingual"><span class="ui-text-vi">Bỏ tệp</span><span class="ui-text-zh">移除</span></span></button></td>`;
       fileBody.appendChild(row);
       recordErrors.filter(error=>!error.duplicateOrderKey).forEach(error=>{
         const errorCard=document.createElement('article');errorCard.className='pc-error-card';
@@ -455,7 +455,7 @@
         const reasonVi=error.detailReasonVi||error.reasonVi||'Dữ liệu không hợp lệ.';
         const reasonZh=error.detailReasonZh||error.reasonZh||'資料無效。';
         errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><strong>${safe(record.fileName)}</strong></div>
-          <p class="pc-error-message"><span class="ui-text-vi">${safe(locationVi)}: ${safe(reasonVi)}</span><span class="ui-text-zh">${safe(locationZh)}：${safe(reasonZh)}</span></p>`;
+          <p class="pc-error-message ui-bilingual"><span class="ui-text-vi">${safe(locationVi)}: ${safe(reasonVi)}</span><span class="ui-text-zh">${safe(locationZh)}：${safe(reasonZh)}</span></p>`;
         errorBody.appendChild(errorCard);
       });
     });
@@ -464,13 +464,13 @@
       const viFiles=fileNames.map(fileName=>`<li title="${safe(fileName)}">${safe(fileName)}</li>`).join('');
       const zhFiles=fileNames.map(fileName=>`<li title="${safe(fileName)}">${safe(fileName)}</li>`).join('');
       const errorCard=document.createElement('article');errorCard.className='pc-error-card pc-duplicate-error-card';
-      errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><span class="ui-dual-copy"><strong class="ui-text-vi">Trùng số đơn hàng: ${safe(error.code||'—')}</strong><strong class="ui-text-zh">訂單號重複：${safe(error.code||'—')}</strong></span></div>
+      errorCard.innerHTML=`<div class="pc-error-card-title"><i class="ti ti-alert-circle"></i><span class="ui-dual-copy"><strong class="ui-text-vi">Trùng số đơn hàng: ${safe(error.code||'—')}</strong><span class="ui-text-zh">訂單號重複：${safe(error.code||'—')}</span></span></div>
         <div class="pc-error-message pc-duplicate-error-message"><section class="ui-text-vi"><strong>Tệp trùng:</strong><ol>${viFiles}</ol><p>Hãy bỏ một trong các tệp.</p></section><section class="ui-text-zh"><strong>重複檔案：</strong><ol>${zhFiles}</ol><p>請移除其中一個檔案。</p></section></div>`;
       errorBody.appendChild(errorCard);
     });
     const hasFiles=state.orderFiles.length>0,hasItems=state.orderItems.length>0,hasErrors=state.orderErrors.length>0;
     if(!hasFiles){
-      const row=document.createElement('tr');row.innerHTML='<td colspan="6" class="pc-empty"><span class="ui-text-vi">Chưa chọn tệp đơn hàng.</span><span class="ui-text-zh">尚未選取訂單檔案。</span></td>';fileBody.appendChild(row);
+      const row=document.createElement('tr');row.innerHTML='<td colspan="6" class="pc-empty ui-status-text"><span class="ui-text-vi">Chưa chọn tệp đơn hàng.</span><span class="ui-text-zh">尚未選取訂單檔案。</span></td>';fileBody.appendChild(row);
     }
     g('pc-results-empty').hidden=true;
     g('pc-order-files-wrap').hidden=false;
@@ -479,11 +479,11 @@
     state.orderItems.forEach(item=>{
       const row=document.createElement('tr'); const materials=[...new Set(materialByCode.get(normalizeKey(item.code))||[])];
       const occurrence=state.analysis?.groups.flatMap(group=>group.products).find(product=>normalizeKey(product.code)===normalizeKey(item.code));
-      row.innerHTML=`<td title="${safe(item.fileName)}">${safe(item.fileName)}</td><td>${safe(item.orderLabel||'—')}</td><td><b>${safe(item.code)}</b></td><td>${safe(item.qty)}</td><td>${safe(occurrence?.size||'—')}</td><td title="${safe(materials.join(' · '))}">${safe(materials.join(' · ')||'—')}</td><td><span class="pc-badge ${missingKeys.has(normalizeKey(item.code))?'is-missing':'is-ready'}">${missingKeys.has(normalizeKey(item.code))?'<span class="ui-text-vi">Thiếu mẫu</span><span class="ui-text-zh">主檔缺少</span>':'<span class="ui-text-vi">Sẵn sàng</span><span class="ui-text-zh">可匯出</span>'}</span></td>`;
+      row.innerHTML=`<td title="${safe(item.fileName)}">${safe(item.fileName)}</td><td>${safe(item.orderLabel||'—')}</td><td><b>${safe(item.code)}</b></td><td>${safe(item.qty)}</td><td>${safe(occurrence?.size||'—')}</td><td title="${safe(materials.join(' · '))}">${safe(materials.join(' · ')||'—')}</td><td><span class="pc-badge ui-bilingual ${missingKeys.has(normalizeKey(item.code))?'is-missing':'is-ready'}">${missingKeys.has(normalizeKey(item.code))?'<span class="ui-text-vi">Thiếu mẫu</span><span class="ui-text-zh">主檔缺少</span>':'<span class="ui-text-vi">Sẵn sàng</span><span class="ui-text-zh">可匯出</span>'}</span></td>`;
       body.appendChild(row);
     });
     if(!hasItems){
-      const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có dữ liệu đơn hàng hợp lệ.</span><span class="ui-text-zh">尚無有效訂單資料。</span></td>';body.appendChild(row);
+      const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty ui-status-text"><span class="ui-text-vi">Chưa có dữ liệu đơn hàng hợp lệ.</span><span class="ui-text-zh">尚無有效訂單資料。</span></td>';body.appendChild(row);
     }
     const totalCodes=new Set(state.orderItems.map(item=>normalizeKey(item.code)).filter(Boolean)).size;
     const missingCount=missingMasterCodes(model).length;
@@ -713,8 +713,8 @@
   function renderTool(online){
     state.toolOnline=online; const target=g('pc-tool-status'); if(!target) return;
     target.classList.toggle('is-online',online===true); target.classList.toggle('is-checking',online===null);
-    target.innerHTML=online===true?'<i class="ti ti-circle-check"></i><span><b class="ui-text-vi">Công cụ PDF cắt chi tiết đã mở</b><b class="ui-text-zh">裁片 PDF 工具已啟動</b></span>':
-      '<i class="ti ti-alert-circle"></i><span><b class="ui-text-vi">Chưa mở công cụ PDF cắt chi tiết</b><b class="ui-text-zh">裁片 PDF 工具尚未啟動</b></span>';
+    target.innerHTML=online===true?'<i class="ti ti-circle-check"></i><span class="ui-bilingual"><b class="ui-text-vi">Công cụ PDF cắt chi tiết đã mở</b><b class="ui-text-zh">裁片 PDF 工具已啟動</b></span>':
+      '<i class="ti ti-alert-circle"></i><span class="ui-bilingual"><b class="ui-text-vi">Chưa mở công cụ PDF cắt chi tiết</b><b class="ui-text-zh">裁片 PDF 工具尚未啟動</b></span>';
   }
 
   async function checkTool(silent=false){
@@ -799,10 +799,10 @@
     state.history.forEach(log=>{
       const row=document.createElement('tr'),action=historyAction(log.action),status=HISTORY_STATUSES[log.status]||HISTORY_STATUSES.failed;
       const time=new Date(Number(log.createdAt));
-      row.innerHTML=`<td>${safe(Number.isFinite(time.getTime())?time.toLocaleString('vi-VN',{hour12:false}):'—')}</td><td>${safe(log.createdBy||log.createdByUid||'—')}</td><td><strong class="ui-text-vi">${safe(action.vi)}</strong><span class="ui-text-zh">${safe(action.zh)}</span></td><td title="${safe(log.fileName||'—')}">${safe(log.fileName||'—')}</td><td>${fmtNum(log.itemCount)}</td><td>${fmtNum(log.detailCount)}</td><td><span class="pc-badge ${status.className}"><span class="ui-text-vi">${safe(status.vi)}</span><span class="ui-text-zh">${safe(status.zh)}</span></span></td>`;
+      row.innerHTML=`<td>${safe(Number.isFinite(time.getTime())?time.toLocaleString('vi-VN',{hour12:false}):'—')}</td><td>${safe(log.createdBy||log.createdByUid||'—')}</td><td><span class="ui-bilingual"><strong class="ui-text-vi">${safe(action.vi)}</strong><span class="ui-text-zh">${safe(action.zh)}</span></span></td><td title="${safe(log.fileName||'—')}">${safe(log.fileName||'—')}</td><td>${fmtNum(log.itemCount)}</td><td>${fmtNum(log.detailCount)}</td><td><span class="pc-badge ui-bilingual ${status.className}"><span class="ui-text-vi">${safe(status.vi)}</span><span class="ui-text-zh">${safe(status.zh)}</span></span></td>`;
       body.appendChild(row);
     });
-    if(!state.history.length){const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty"><span class="ui-text-vi">Chưa có lịch sử thao tác.</span><span class="ui-text-zh">尚無操作紀錄。</span></td>';body.appendChild(row);}
+    if(!state.history.length){const row=document.createElement('tr');row.innerHTML='<td colspan="7" class="pc-empty ui-status-text"><span class="ui-text-vi">Chưa có lịch sử thao tác.</span><span class="ui-text-zh">尚無操作紀錄。</span></td>';body.appendChild(row);}
   }
 
   async function loadHistory(force=false){
@@ -810,13 +810,13 @@
     if(state.historyLoaded&&!force){renderHistory();return;}
     const body=g('pc-history-body'),button=g('pc-history-refresh');
     state.historyLoading=true;if(button)button.disabled=true;
-    if(body)body.innerHTML='<tr><td colspan="7" class="pc-empty"><span class="ui-text-vi">Đang tải lịch sử...</span><span class="ui-text-zh">正在載入歷史紀錄...</span></td></tr>';
+    if(body)body.innerHTML='<tr><td colspan="7" class="pc-empty ui-status-text"><span class="ui-text-vi">Đang tải lịch sử...</span><span class="ui-text-zh">正在載入歷史紀錄...</span></td></tr>';
     try{
       state.history=await window.PCMSHistory.loadOperationLogs({permissionKey:'cutting',actions:HISTORY_ACTIONS,limit:50,force});
       state.historyLoaded=true;renderHistory();
     }catch(error){
       console.error(error);state.historyLoaded=false;
-      if(body)body.innerHTML='<tr><td colspan="7" class="pc-empty pc-history-error"><span class="ui-text-vi">Không thể tải lịch sử thao tác, vui lòng thử lại.</span><span class="ui-text-zh">無法載入操作紀錄，請重試。</span></td></tr>';
+      if(body)body.innerHTML='<tr><td colspan="7" class="pc-empty pc-history-error ui-status-text"><span class="ui-text-vi">Không thể tải lịch sử thao tác, vui lòng thử lại.</span><span class="ui-text-zh">無法載入操作紀錄，請重試。</span></td></tr>';
     }finally{state.historyLoading=false;if(button)button.disabled=false;}
   }
 

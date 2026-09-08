@@ -296,15 +296,15 @@ function renderImportErrors(errors){
     let content=`<div>${summary}</div>`;
     Object.entries(grouped).forEach(([code,list])=>{
       const total=errors.filter(e=>(e.code||'Khác / 其他')===code).length;
-      content+=`<div style="margin-top:8px;font-weight:600">▼ ${dataSafeText(code)}　${total} ${language==='vi'?'lỗi':'筆錯誤'}</div>`;
-      list.forEach(error=>{ content+=`<div style="margin:5px 0 0 18px">${dataSafeText(error[language])}</div>`; });
+      content+=`<div class="product-import-error-group">▼ ${dataSafeText(code)}　${total} ${language==='vi'?'lỗi':'筆錯誤'}</div>`;
+      list.forEach(error=>{ content+=`<div class="product-import-error-item">${dataSafeText(error[language])}</div>`; });
     });
-    if(errors.length>10) content+=`<div style="margin-top:10px">${more}</div>`;
+    if(errors.length>10) content+=`<div class="product-import-error-more">${more}</div>`;
     return content;
   }; // buildLanguage（建立單一語言錯誤內容）
   const vi=buildLanguage('vi',`Phát hiện ${errors.length} lỗi trong ${codes.length} mã hàng.`,`Hiển thị 10/${errors.length} lỗi.`);
   const zh=buildLanguage('zh',`發現 ${codes.length} 個款號，共 ${errors.length} 筆錯誤。`,`目前顯示 10/${errors.length} 筆錯誤。`);
-  return `<div class="ui-language-sections"><div class="ui-language-section">${vi}</div><div class="ui-language-section">${zh}</div></div>`;
+  return `<div class="ui-language-sections"><div class="ui-language-section is-vi">${vi}</div><div class="ui-language-section is-zh">${zh}</div></div>`;
 }
 
 function setProg(p,l,s){

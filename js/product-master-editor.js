@@ -243,7 +243,7 @@
     ui().openDialog({
       title:{vi:'Chỉnh sửa đầy đủ mã hàng',zh:'完整編輯款號'},body,size:'xlarge',
       actions:[
-        {text:{vi:'Hủy',zh:'取消'}},
+        {text:'common.cancel'},
         {text:{vi:'Xem trước thay đổi',zh:'預覽修改內容'},icon:'ti-eye-check',kind:'primary',onClick:async()=>{
           renumberRows(processBody);
           const draft={...clone(base),ops:[...processBody.querySelectorAll('tr')].map(operationFromRow)};

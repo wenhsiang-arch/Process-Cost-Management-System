@@ -194,7 +194,7 @@
         vi:`Nhóm “${group.name||group.groupId}” sẽ ngừng áp dụng cho ${members.length} mã hàng. Mã hàng, công đoạn, đơn hàng và sản lượng không thay đổi.`,
         zh:`群組「${group.name||group.groupId}」將停止套用於 ${members.length} 個款號；款號、工序、訂單與產能都不會改變。`
       },
-      confirmText:{vi:'Ngừng dùng',zh:'確認停用'},cancelText:{vi:'Hủy',zh:'取消'}
+      confirmText:{vi:'Ngừng dùng',zh:'確認停用'},cancelText:'common.cancel'
     });
     if(!confirmed) return;
     try{
@@ -217,7 +217,7 @@
       ui().openDialog({
         title:{vi:'Đổi tên nhóm',zh:'修改群組名稱'},body:field,keepPrevious:true,
         actions:[
-          {text:{vi:'Hủy',zh:'取消'},onClick:()=>{ settled=true;resolve(null); }},
+          {text:'common.cancel',onClick:()=>{ settled=true;resolve(null); }},
           {text:{vi:'Tiếp tục',zh:'繼續'},kind:'primary',onClick:()=>{
             const name=normalize(input.value);
             const duplicate=store().listGroups().some(item=>item.groupId!==group.groupId
@@ -381,7 +381,7 @@
     document.addEventListener('pcms:languagechange',handleAddLanguageChange);
     ui().openDialog({
       title:{vi:'Thêm mã hàng vào nhóm',zh:'新增款號到群組'},body,size:'xlarge',keepPrevious:true,
-      actions:[{text:{vi:'Hủy',zh:'取消'}},{text:{vi:'Thêm mã đã chọn',zh:'加入所選款號'},icon:'ti-plus',kind:'primary',onClick:()=>{
+      actions:[{text:'common.cancel'},{text:{vi:'Thêm mã đã chọn',zh:'加入所選款號'},icon:'ti-plus',kind:'primary',onClick:()=>{
         const added=candidates.filter(item=>chosen.has(normalize(item.code))&&!store().groupForProduct(item.code));
         if(!added.length){
           setAddStatus({vi:'Vui lòng chọn ít nhất 1 mã có thể thêm.',zh:'請先勾選至少1個可加入的款號。'});
@@ -434,7 +434,7 @@
     const dialog=ui().openDialog({
       title:{vi:'Chi tiết nhóm cùng sản phẩm',zh:'同產品群組明細'},body,size:'xlarge',
       actions:[
-        {text:{vi:'Hủy',zh:'取消'}},
+        {text:'common.cancel'},
         {text:{vi:'Xác nhận và lưu',zh:'確認並儲存'},icon:'ti-device-floppy',kind:'primary',onClick:async()=>{
           const selectedProducts=selector.selectedProducts();
           if(selectedProducts.length<2){
@@ -518,7 +518,7 @@
       <section data-product-groups-panel="1" class="product-groups-wizard-panel"><label class="product-groups-field"><span class="ui-dual-copy"><strong>Khách hàng</strong><span>客人</span></span><select id="product-groups-wizard-client"></select></label><button type="button" class="ui-button is-primary" id="product-groups-client-next"><span class="ui-dual-copy"><strong>Tiếp tục chọn mã hàng</strong><span>下一步選擇款號</span></span><i class="ti ti-arrow-right"></i></button></section>
       <section data-product-groups-panel="2" class="product-groups-wizard-panel" hidden><div class="product-groups-wizard-selected-client"></div><label class="product-groups-field is-product"><span class="ui-dual-copy"><strong>Mã hàng gốc</strong><span>來源款號</span></span><input type="search" id="product-groups-wizard-source" list="product-groups-wizard-options" autocomplete="off"><datalist id="product-groups-wizard-options"></datalist></label><div class="product-groups-wizard-actions"><button type="button" class="ui-button" data-product-groups-back="1"><i class="ti ti-arrow-left"></i><span class="ui-dual-copy"><strong>Quay lại</strong><span>上一步</span></span></button><button type="button" class="ui-button is-primary" id="product-groups-source-next"><span class="ui-dual-copy"><strong>Tìm mã cùng sản phẩm</strong><span>尋找同產品款號</span></span><i class="ti ti-arrow-right"></i></button></div></section>
       <section data-product-groups-panel="3" class="product-groups-wizard-panel" hidden></section>`;
-    const dialog=ui().openDialog({title:{vi:'Tạo nhóm cùng sản phẩm mới',zh:'建立新的同產品群組'},body,size:'xlarge',actions:[{text:{vi:'Đóng',zh:'關閉'},onClick:()=>true}]});
+    const dialog=ui().openDialog({title:{vi:'Tạo nhóm cùng sản phẩm mới',zh:'建立新的同產品群組'},body,size:'xlarge',actions:[{text:'common.close',onClick:()=>true}]});
     state.dialog=dialog;
     const clientSelect=body.querySelector('#product-groups-wizard-client');
     fillClientSelect(clientSelect,'',{requireClient:true});

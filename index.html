@@ -14,121 +14,120 @@
 <title>M9</title>
 <link rel="stylesheet" href="styles/vendor/tabler-icons.min.css?v=2.47.0">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260908-1">
-<link rel="stylesheet" href="styles/themes/default.css?v=20260908-1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260908-3">
+<link rel="stylesheet" href="styles/themes/default.css?v=20260908-3">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
-<link rel="stylesheet" href="styles/features/home.css?v=20260824-1">
+<link rel="stylesheet" href="styles/features/home.css?v=20260908-3">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(--bg)}
+body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(--tx);background:var(--bg)}
 .app{display:flex;height:100vh;min-height:640px}
-.sb{position:relative;width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-x:hidden;overflow-y:auto;transition:width var(--ui-motion-fast)}
+.sb{--ui-copy-secondary-color:var(--ui-color-navigation-secondary);--ui-color-text-muted:var(--ui-color-navigation-secondary);position:relative;width:220px;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;overflow-x:hidden;overflow-y:auto;transition:width var(--ui-motion-fast)}
 .sb>*{min-width:220px}
 .app.sidebar-collapsed .sb{width:44px}
-.sidebar-toggle{position:absolute;right:10px;top:14px;z-index:2;display:flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:var(--navy);color:rgba(255,255,255,.82);cursor:pointer;transition:background var(--ui-motion-fast)}
-.sidebar-toggle:hover{background:var(--navy2);color:#fff}
+.sidebar-toggle{position:absolute;right:10px;top:14px;z-index:2;display:flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid color-mix(in srgb, var(--ui-color-navigation-text) 14%, transparent);border-radius:8px;background:var(--navy);color:var(--ui-color-navigation-text-muted);cursor:pointer;transition:background var(--ui-motion-fast)}
+.sidebar-toggle:hover{background:var(--navy2);color:var(--ui-color-on-primary)}
 .sidebar-toggle:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
 .sidebar-toggle i{font-size:18px}
 .app.sidebar-collapsed .sb>*:not(.sb-logo){display:none}
 .app.sidebar-collapsed .sb .sb-logo{min-width:44px;min-height:58px;padding:0}
 .app.sidebar-collapsed .sb-title,.app.sidebar-collapsed .sb-sub{display:none}
 .app.sidebar-collapsed .sidebar-toggle{right:6px}
-.sb-logo{position:sticky;top:0;z-index:3;flex-shrink:0;min-height:58px;padding:18px 52px 14px 16px;border-bottom:1px solid rgba(255,255,255,.1);background:var(--navy)}
-.sb-title{font-size:14px;font-weight:500;color:#fff}
-.sb-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:3px}
-.sb-badge{display:inline-block;margin-top:6px;font-size:10px;background:rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:2px 8px;border-radius:10px}
-.sb-sec{padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase}
-.sb-sec-toggle{width:100%;border:none;background:transparent;display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px;font-size:10px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase;cursor:pointer;text-align:left}
-.sb-sec-toggle:hover{color:rgba(255,255,255,.55)}
+.sb-logo{position:sticky;top:0;z-index:3;flex-shrink:0;min-height:58px;padding:18px 52px 14px 16px;border-bottom:1px solid var(--ui-color-navigation-hover);background:var(--navy)}
+.sb-title{font-size:var(--ui-font-size-control-vi);font-weight:var(--ui-font-weight-primary);color:var(--ui-color-on-primary)}
+.sb-sub{font-size:var(--ui-font-size-helper);color:var(--ui-color-navigation-secondary);margin-top:3px}
+.sb-badge{display:inline-block;margin-top:6px;font-size:var(--ui-font-size-helper);background:color-mix(in srgb, var(--ui-color-navigation-text) 15%, transparent);color:var(--ui-color-navigation-secondary);padding:2px 8px;border-radius:10px}
+.sb-sec{--ui-copy-size-primary:var(--ui-font-size-helper);--ui-copy-size-secondary:var(--ui-font-size-helper);padding:12px 16px 4px;font-size:var(--ui-font-size-helper);color:var(--ui-color-navigation-secondary)}
+.sb-sec-toggle{--ui-copy-size-primary:var(--ui-font-size-helper);--ui-copy-size-secondary:var(--ui-font-size-helper);width:100%;border:none;background:transparent;display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;font-size:var(--ui-font-size-helper);color:var(--ui-color-navigation-secondary);cursor:pointer;text-align:left}
+.sb-sec-toggle:hover{color:var(--ui-color-navigation-secondary)}
 .sb-sec-toggle i{font-size:13px;transition:transform .15s}
 .sb-sec-toggle.open i{transform:rotate(90deg)}
 .sb-group{display:none}
 .sb-group.open{display:block}
-.ni{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;color:rgba(255,255,255,.6);font-size:13px;margin:1px 8px;border-radius:8px;transition:all .15s}
-.ni:hover{background:rgba(255,255,255,.1);color:#fff}
-.ni.active{background:rgba(255,255,255,.18);color:#fff;font-weight:500}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 14px;cursor:pointer;color:var(--ui-color-navigation-text);font-size:var(--ui-font-size-control-vi);margin:1px 8px;border-radius:8px;transition:all .15s}
+.ni:hover{background:var(--ui-color-navigation-hover);color:var(--ui-color-on-primary)}
+.ni.active{background:var(--ui-color-navigation-active);color:var(--ui-color-on-primary);font-weight:var(--ui-font-weight-primary)}
 .ni.locked{display:none}
 .ni i{font-size:15px;flex-shrink:0}
-.nl{display:flex;flex-direction:column;gap:2px}
-.nvi{font-size:13px;line-height:1.2}
-.nzh{font-size:10px;color:rgba(255,255,255,.4);line-height:1.2}
-.ni.active .nzh{color:rgba(255,255,255,.6)}
-.sb-ft{display:grid;gap:10px;margin-top:auto;padding:12px;border-top:1px solid rgba(255,255,255,.08)}
-.runtime-update-notice{width:100%;min-height:54px;margin:0;padding:8px 9px;border:1px solid rgba(74,222,128,.24);border-radius:10px;background:rgba(34,197,94,.09);color:#fff;display:flex;align-items:center;gap:9px;cursor:default;text-align:left;opacity:1;transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast)}
-.runtime-update-notice.is-available{border-color:rgba(96,165,250,.38);background:rgba(59,130,246,.14);cursor:pointer}
-.runtime-update-notice.is-available:hover{background:rgba(59,130,246,.24);border-color:rgba(147,197,253,.58)}
-.runtime-update-notice.is-checking{border-color:rgba(148,163,184,.2);background:rgba(148,163,184,.07)}
-.runtime-update-notice.is-unavailable{border-color:rgba(251,191,36,.26);background:rgba(251,191,36,.08)}
-.runtime-update-notice:disabled{color:#fff;opacity:1}
+.nl{--ui-copy-size-primary:var(--ui-font-size-control-vi);--ui-copy-size-secondary:var(--ui-font-size-control-zh);min-width:0;display:flex;flex-direction:column;gap:2px}
+.nvi{line-height:1.2}
+.nzh{color:var(--ui-color-navigation-secondary);line-height:1.2}
+.sb-ft{display:grid;gap:10px;margin-top:auto;padding:12px;border-top:1px solid color-mix(in srgb, var(--ui-color-navigation-text) 8%, transparent)}
+.runtime-update-notice{width:100%;min-height:54px;margin:0;padding:8px 9px;border:1px solid color-mix(in srgb, var(--ui-color-success-border) 24%, transparent);border-radius:10px;background:color-mix(in srgb, var(--ui-color-success-border) 9%, transparent);color:var(--ui-color-on-primary);display:flex;align-items:center;gap:9px;cursor:default;text-align:left;opacity:1;transition:background var(--ui-motion-fast),border-color var(--ui-motion-fast)}
+.runtime-update-notice.is-available{border-color:color-mix(in srgb, var(--ui-color-info-border) 38%, transparent);background:color-mix(in srgb, var(--ui-color-primary) 14%, transparent);cursor:pointer}
+.runtime-update-notice.is-available:hover{background:color-mix(in srgb, var(--ui-color-primary) 24%, transparent);border-color:color-mix(in srgb, var(--ui-color-info-border) 58%, transparent)}
+.runtime-update-notice.is-checking{border-color:color-mix(in srgb, var(--ui-color-navigation-text-muted) 20%, transparent);background:color-mix(in srgb, var(--ui-color-navigation-text-muted) 7%, transparent)}
+.runtime-update-notice.is-unavailable{border-color:color-mix(in srgb, var(--ui-color-warning-border) 26%, transparent);background:color-mix(in srgb, var(--ui-color-warning-border) 8%, transparent)}
+.runtime-update-notice:disabled{color:var(--ui-color-on-primary);opacity:1}
 .runtime-update-notice:focus-visible{outline:3px solid var(--ui-color-focus-ring);outline-offset:2px}
-.runtime-update-icon{position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:0 0 32px;border-radius:50%;background:#16a34a;color:#fff}
-.runtime-update-notice.is-available .runtime-update-icon{background:#3b82f6}
-.runtime-update-notice.is-checking .runtime-update-icon{background:#64748b}
-.runtime-update-notice.is-unavailable .runtime-update-icon{background:#d97706}
+.runtime-update-icon{position:relative;width:32px;height:32px;display:flex;align-items:center;justify-content:center;flex:0 0 32px;border-radius:50%;background:var(--ui-color-success-text);color:var(--ui-color-on-primary)}
+.runtime-update-notice.is-available .runtime-update-icon{background:var(--ui-color-primary)}
+.runtime-update-notice.is-checking .runtime-update-icon{background:var(--ui-color-text-subtle)}
+.runtime-update-notice.is-unavailable .runtime-update-icon{background:var(--ui-color-warning-text)}
 .runtime-update-icon i{font-size:17px}
-.runtime-update-dot{position:absolute;right:-1px;top:-1px;width:8px;height:8px;border:2px solid var(--navy);border-radius:50%;background:#fbbf24}
+.runtime-update-dot{position:absolute;right:-1px;top:-1px;width:8px;height:8px;border:2px solid var(--navy);border-radius:50%;background:var(--ui-color-warning-border)}
 .runtime-update-dot[hidden]{display:none}
-.runtime-update-copy{display:flex;min-width:0;flex:1;flex-direction:column;justify-content:center;gap:2px;line-height:1.2}
-.runtime-update-copy .ui-text-vi{font-size:11px;font-weight:650}
-.runtime-update-copy .ui-text-zh{font-size:10px;color:rgba(255,255,255,.66)}
+.runtime-update-copy{--ui-copy-size-primary:var(--ui-font-size-control-vi);--ui-copy-size-secondary:var(--ui-font-size-control-zh);display:flex;min-width:0;flex:1;flex-direction:column;justify-content:center;gap:2px;line-height:1.2}
+.runtime-update-copy .ui-text-vi{font-size:var(--ui-font-size-control-vi);font-weight:var(--ui-font-weight-primary)}
+.runtime-update-copy .ui-text-zh{font-size:var(--ui-font-size-control-zh);color:var(--ui-color-navigation-secondary)}
 .app.sidebar-collapsed .sb>.sb-ft{display:flex;min-width:44px;padding:8px 6px 10px;align-items:center;justify-content:center}
 .app.sidebar-collapsed .runtime-update-copy{display:none}
 .app.sidebar-collapsed .runtime-update-notice{display:flex;width:32px;margin:0;padding:2px;align-items:center;justify-content:center;border:none;background:transparent}
 .mn{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
-.tb{padding:0 16px;height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
-.tb-title{display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start;justify-content:center;color:var(--navy);line-height:1.15;text-align:left}
+.tb{padding:0 16px;min-height:50px;background:var(--sf);border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.tb-title{--ui-copy-size-primary:var(--ui-font-size-section-vi);--ui-copy-size-secondary:var(--ui-font-size-section-zh);display:flex;min-width:0;flex:1;flex-direction:column;align-items:flex-start;justify-content:center;color:var(--navy);line-height:1.15;text-align:left}
 .tb-title[hidden]{display:none}
-.tb-title .ui-text-vi{overflow:hidden;font-size:14px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
-.tb-title .ui-text-zh{overflow:hidden;margin-top:1px;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
-.cg{display:flex;gap:2px;background:#f1f5f9;padding:3px;border-radius:8px}
-.cb{padding:4px 11px;border-radius:6px;border:none;font-size:12px;cursor:pointer;background:transparent;color:var(--mu);transition:all .15s}
-.cb.active{background:var(--accent);color:#fff;font-weight:500}
-.up{display:flex;align-items:center;gap:5px;margin-left:auto;padding:4px 11px;border-radius:20px;font-size:12px;background:#f1f5f9;color:var(--mu)}
+.tb-title .ui-text-vi{overflow:hidden;font-size:var(--ui-font-size-section-vi);font-weight:var(--ui-font-weight-primary);text-overflow:ellipsis;white-space:nowrap}
+.tb-title .ui-text-zh{overflow:hidden;margin-top:1px;font-size:var(--ui-font-size-section-zh);text-overflow:ellipsis;white-space:nowrap}
+.cg{display:flex;gap:2px;background:var(--ui-color-surface-muted);padding:3px;border-radius:8px}
+.cb{padding:4px 11px;border-radius:6px;border:none;font-size:var(--ui-font-size-control-vi);cursor:pointer;background:transparent;color:var(--mu);transition:all .15s}
+.cb.active{background:var(--accent);color:var(--ui-color-on-primary);font-weight:var(--ui-font-weight-primary)}
+.up{display:flex;align-items:center;gap:5px;margin-left:auto;padding:4px 11px;border-radius:20px;font-size:var(--ui-font-size-body);background:var(--ui-color-surface-muted);color:var(--mu)}
 .up.adm{background:var(--okl);color:var(--ok)}
 .ib{width:32px;height:32px;border-radius:8px;border:1px solid var(--bd);font-size:13px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center}
-.ib:hover{background:#f1f5f9}
-.logout-btn{height:32px;padding:0 11px;border-radius:8px;border:1px solid var(--bd);font-size:12px;cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
-.logout-btn:hover{background:#f1f5f9;color:var(--navy)}
+.ib:hover{background:var(--ui-color-surface-muted)}
+.logout-btn{min-height:var(--ui-control-height-bilingual);height:auto;padding:0 11px;border-radius:8px;border:1px solid var(--bd);font-size:var(--ui-font-size-control-vi);cursor:pointer;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.logout-btn:hover{background:var(--ui-color-surface-muted);color:var(--navy)}
 @media(max-width:520px){.tb{padding:0 8px;gap:6px}.tb .up{display:none}.logout-btn{width:34px;flex:0 0 34px;margin-left:auto;padding:0}.logout-btn span{display:none}}
 .ct{flex:1;overflow:auto;padding:var(--ui-page-padding,12px);background:var(--bg)}
 .pg{display:none}.pg.active{display:block}
-.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
-.ct-title{font-size:13px;font-weight:500;margin-bottom:14px;color:var(--mu);display:flex;align-items:center;gap:7px;padding-bottom:10px;border-bottom:1px solid var(--bd)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:var(--ui-space-3)}
+.ct-title{font-size:var(--ui-font-size-section-vi);font-weight:var(--ui-font-weight-primary);margin-bottom:var(--ui-space-2);color:var(--mu);display:flex;align-items:center;gap:7px;padding-bottom:10px;border-bottom:1px solid var(--bd)}
 .ct-title i{font-size:15px;color:var(--accent)}
 .mg{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
-.mc{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:14px;position:relative;overflow:hidden}
+.mc{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:12px;position:relative;overflow:hidden}
 .mc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
-.ml{font-size:11px;color:var(--mu);margin-bottom:1px}
-.mvi{font-size:10px;color:var(--hi);margin-bottom:7px}
-.mv{font-size:21px;font-weight:500;color:var(--navy)}
+.ml{font-size:var(--ui-font-size-label-vi);color:var(--mu);margin-bottom:1px}
+.mvi{font-size:var(--ui-font-size-label-zh);color:var(--hi);margin-bottom:7px}
+.mv{font-size:var(--ui-font-size-metric);font-weight:var(--ui-font-weight-primary);color:var(--navy)}
 .fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:12px}
-.fg.cols2{grid-template-columns:repeat(2,1fr)}
-.fg.cols3{grid-template-columns:repeat(3,1fr)}
-.fgrp{display:flex;flex-direction:column;gap:4px}
-.fgrp label{font-size:12px;color:var(--mu);line-height:1.4}
-.lvi{font-size:10px;color:var(--hi);display:block;margin-top:1px}
-.fgrp input,.fgrp select{padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:13px;height:36px;width:100%}
+.fg.cols2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fg.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fgrp{min-width:0;display:flex;flex-direction:column;gap:4px}
+.fgrp label{font-size:var(--ui-font-size-label-vi);color:var(--mu);line-height:1.4}
+.lvi{font-size:var(--ui-font-size-label-zh);color:var(--hi);display:block;margin-top:1px}
+.fgrp input,.fgrp select{min-width:0;max-width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:var(--ui-font-size-body);height:36px;width:100%}
 .fgrp input:focus,.fgrp select:focus{outline:none;border-color:var(--accent)}
-.at{font-size:10px;color:var(--accent);background:var(--al);padding:1px 6px;border-radius:4px;font-weight:500}
-.mt{font-size:10px;color:var(--warn);background:var(--warnl);padding:1px 6px;border-radius:4px;font-weight:500}
-.eb{background:linear-gradient(135deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.at{font-size:var(--ui-font-size-helper);color:var(--accent);background:var(--al);padding:1px 6px;border-radius:4px;font-weight:var(--ui-font-weight-primary)}
+.mt{font-size:var(--ui-font-size-helper);color:var(--warn);background:var(--warnl);padding:1px 6px;border-radius:4px;font-weight:var(--ui-font-weight-primary)}
+.eb{background:linear-gradient(135deg,var(--ui-color-info-background),var(--ui-color-success-background));border:1px solid var(--ui-color-info-border);border-radius:10px;padding:14px;margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .ei{text-align:center}
-.el{font-size:10px;color:var(--accent);margin-bottom:3px;font-weight:500}
-.ev{font-size:18px;font-weight:500;color:var(--navy)}
-.ef{font-size:11px;color:var(--mu);margin-top:2px}
-.btn{padding:6px 13px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;height:34px;white-space:nowrap}
-.btn:hover{background:#f1f5f9}
-.bp{background:var(--accent);color:#fff;border-color:var(--accent)}.bp:hover{background:var(--navy2)}
-.bs{background:#16a34a;color:#fff;border-color:#16a34a}.bs:hover{background:var(--ok)}
-.bd2{color:var(--err);border-color:#fca5a5}.bd2:hover{background:var(--errl)}
-.bsm{padding:3px 8px;font-size:11px;height:26px}
+.el{font-size:var(--ui-font-size-label-vi);color:var(--accent);margin-bottom:3px;font-weight:var(--ui-font-weight-primary)}
+.ev{font-size:var(--ui-font-size-metric-small);font-weight:var(--ui-font-weight-primary);color:var(--navy)}
+.ef{font-size:var(--ui-font-size-helper);color:var(--mu);margin-top:2px}
+.btn{padding:6px 13px;border-radius:8px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-size:var(--ui-font-size-control-vi);cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .15s;min-height:var(--ui-control-height-bilingual);height:auto;white-space:nowrap}
+.btn:hover{background:var(--ui-color-surface-muted)}
+.bp{background:var(--accent);color:var(--ui-color-on-primary);border-color:var(--accent)}.bp:hover{background:var(--navy2)}
+.bs{background:var(--ui-color-success-text);color:var(--ui-color-on-primary);border-color:var(--ui-color-success-text)}.bs:hover{background:var(--ok)}
+.bd2{color:var(--err);border-color:var(--ui-color-danger-border)}.bd2:hover{background:var(--errl)}
+.bsm{padding:3px 8px;font-size:var(--ui-font-size-control-vi);min-height:var(--ui-control-height-single);height:auto}
 .br{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
 .sr{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
-.sw{position:relative;flex:1;min-width:160px}
+.sw{position:relative;flex:1;min-width:160px;max-width:520px}
 .sw i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--hi);font-size:14px;pointer-events:none}
-.sw input{width:100%;padding:7px 10px 7px 32px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:13px;height:36px}
+.sw input{width:100%;padding:7px 10px 7px 32px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:var(--ui-font-size-body);height:36px}
 .sw input:focus{outline:none;border-color:var(--accent)}
-.sr select{padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:13px;height:36px}
+.sr select{max-width:min(100%,280px);padding:7px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:var(--ui-font-size-body);height:36px}
 .to{border:1px solid var(--bd);border-radius:10px;overflow:hidden}
 .ts{overflow-x:auto;max-height:400px;overflow-y:auto}
 .summary-table-scroll{max-height:none;overflow-y:visible}
@@ -136,100 +135,92 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 .summary-toggle.open{transform:rotate(90deg)}
 .summary-code{cursor:pointer}
 .summary-code:hover{text-decoration:underline}
-.summary-detail-row:hover td{background:#f0f7ff}
-.summary-detail-cell{padding:0!important;background:#f0f7ff}
-.summary-detail-wrap{background:#f0f7ff;padding:8px 14px 12px}
-.summary-detail-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0 9px;border-bottom:1px solid #bfdbfe}
+.summary-detail-row:hover td{background:var(--ui-color-info-background)}
+.summary-detail-cell{padding:0!important;background:var(--ui-color-info-background)}
+.summary-detail-wrap{background:var(--ui-color-info-background);padding:8px 14px 12px}
+.summary-detail-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 0 9px;border-bottom:1px solid var(--ui-color-info-border)}
 .summary-detail-table{margin-top:4px}
 .summary-detail-table th{background:transparent}
 .summary-detail-table td{background:transparent}
-.summary-detail-table tr:hover td{background:#e5f1ff}
-.tg{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px}
+.summary-detail-table tr:hover td{background:var(--ui-color-primary-soft)}
+.tg{display:inline-block;padding:2px 7px;border-radius:5px;font-size:var(--ui-font-size-helper)}
 .tb2{background:var(--al);color:var(--accent)}
 .tg2{background:var(--okl);color:var(--ok)}
 .ta{background:var(--warnl);color:var(--warn)}
 .tr2{background:var(--errl);color:var(--err)}
-.tn{background:#e8f0f8;color:var(--navy)}
-.hl{background:#fef08a;border-radius:2px;padding:0 1px}
-.nt{border-radius:8px;padding:10px 13px;font-size:12px;margin-top:10px;display:flex;align-items:flex-start;gap:8px}
+.tn{background:var(--ui-color-primary-soft);color:var(--navy)}
+.hl{background:var(--ui-color-warning-background);border-radius:2px;padding:0 1px}
+.nt{border-radius:8px;padding:10px 13px;font-size:var(--ui-font-size-body);margin-top:10px;display:flex;align-items:flex-start;gap:8px}
 .nt i{font-size:14px;flex-shrink:0;margin-top:1px}
-.ni2{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
-.nw{background:var(--warnl);color:var(--warn);border:1px solid #fcd34d}
-.ns{background:var(--okl);color:var(--ok);border:1px solid #86efac}
-.nd{background:var(--errl);color:var(--err);border:1px solid #fca5a5}
+.ni2{background:var(--ui-color-info-background);color:var(--ui-color-info-text);border:1px solid var(--ui-color-info-border)}
+.nw{background:var(--warnl);color:var(--warn);border:1px solid var(--ui-color-warning-border)}
+.ns{background:var(--okl);color:var(--ok);border:1px solid var(--ui-color-success-border)}
+.nd{background:var(--errl);color:var(--err);border:1px solid var(--ui-color-danger-border)}
 .dv{height:1px;background:var(--bd);margin:12px 0}
 .hidden{display:none!important}
 .ua{border:2px dashed var(--bd);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .15s;margin-bottom:12px}
 .ua:hover{border-color:var(--accent);background:var(--al)}
 .ua i{font-size:26px;color:var(--hi);margin-bottom:6px;display:block}
 .order-import-action{margin-bottom:12px}
-.order-import-action .btn{background:#eef2ff;border-color:#a5b4fc;color:#4338ca}
-.order-import-action .btn:hover{background:#e0e7ff;border-color:#818cf8}
-.order-manager-panel{border:1px solid #bfdbfe;border-radius:11px;background:#f0f7ff;margin-bottom:12px;overflow:hidden}
-.order-manager-toggle{width:100%;border:none;background:#e5f1ff;color:var(--navy);padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left}
-.order-manager-toggle:hover{background:#dbeafe}
+.order-import-action .btn{background:var(--ui-color-primary-soft);border-color:var(--ui-color-operation-border);color:var(--ui-color-primary)}
+.order-import-action .btn:hover{background:var(--ui-color-primary-soft);border-color:var(--ui-color-primary)}
+.order-manager-panel{border:1px solid var(--ui-color-info-border);border-radius:11px;background:var(--ui-color-info-background);margin-bottom:12px;overflow:hidden}
+.order-manager-toggle{width:100%;border:none;background:var(--ui-color-primary-soft);color:var(--navy);padding:11px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left}
+.order-manager-toggle:hover{background:var(--ui-color-primary-soft)}
 .order-manager-toggle i:first-child{font-size:19px;color:var(--accent)}
-.order-manager-toggle strong{display:block;font-size:13px;margin-bottom:2px}
-.order-manager-toggle span{display:block;font-size:10px;color:var(--mu)}
+.order-manager-toggle strong{display:block;font-size:var(--ui-font-size-section-vi);margin-bottom:2px}
+.order-manager-toggle span{display:block;font-size:var(--ui-font-size-section-zh);color:var(--mu)}
 .order-manager-toggle .order-manager-chevron{font-size:17px;color:var(--accent);margin-left:auto;transition:transform .15s}
 .order-manager-panel.open .order-manager-chevron{transform:rotate(180deg)}
-.order-manager-body{display:none;padding:14px;background:rgba(255,255,255,.72);border-top:1px solid #bfdbfe}
+.order-manager-body{display:none;padding:14px;background:color-mix(in srgb, var(--ui-color-surface) 72%, transparent);border-top:1px solid var(--ui-color-info-border)}
 .order-manager-panel.open .order-manager-body{display:block}
-.pw{background:#f1f5f9;border-radius:8px;padding:16px;margin-bottom:12px;display:none}
-.pwl{font-size:13px;color:var(--navy);margin-bottom:8px;font-weight:500}
+.pw{background:var(--ui-color-surface-muted);border-radius:8px;padding:16px;margin-bottom:12px;display:none}
+.pwl{font-size:var(--ui-font-size-section-vi);color:var(--navy);margin-bottom:8px;font-weight:var(--ui-font-weight-primary)}
 .pbb{background:var(--bd);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px}
 .pbar{height:100%;background:var(--accent);border-radius:4px;transition:width .3s}
-.psb{font-size:11px;color:var(--mu)}
-.dl{background:#f8fafc;border-radius:8px;border:1px solid var(--bd);overflow:hidden;margin:8px 0}
-.di{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-top:1px solid var(--bd);font-size:12px}
+.psb{font-size:var(--ui-font-size-helper);color:var(--mu)}
+.dl{background:var(--ui-color-surface-muted);border-radius:8px;border:1px solid var(--bd);overflow:hidden;margin:8px 0}
+.di{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-top:1px solid var(--bd);font-size:var(--ui-font-size-body)}
 .di:first-child{border-top:none}
 .pgr{display:flex;align-items:center;gap:6px;padding:10px 0;justify-content:flex-end;flex-wrap:wrap}
-.pgb{padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-size:12px;cursor:pointer}
-.pgb:hover{background:#f1f5f9}
-.pgb.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.pgb{min-height:var(--ui-control-height-single);padding:4px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--sf);color:var(--tx);font-size:var(--ui-font-size-control-vi);cursor:pointer}
+.pgb:hover{background:var(--ui-color-surface-muted)}
+.pgb.active{background:var(--accent);color:var(--ui-color-on-primary);border-color:var(--accent)}
 .pgb:disabled{opacity:.4;cursor:not-allowed}
-.pgi{font-size:12px;color:var(--mu);margin-right:auto}
-.lw{position:relative;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:32px;font-family:"Segoe UI","Noto Sans TC",Arial,sans-serif;background:radial-gradient(circle at 14% 16%,rgba(245,176,65,.12),transparent 28%),radial-gradient(circle at 88% 82%,rgba(77,133,203,.2),transparent 32%),linear-gradient(135deg,#071d3f 0%,#0b2d63 52%,#164b91 100%)}
-.lw::before,.lw::after{content:'';position:absolute;border:1px solid rgba(255,255,255,.12);border-radius:999px;pointer-events:none}
+.pgi{font-size:var(--ui-font-size-helper);color:var(--mu);margin-right:auto}
+.lw{position:relative;min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:32px;font-family:var(--font-sans);background:radial-gradient(circle at 14% 16%,color-mix(in srgb, var(--ui-color-login-accent) 12%, transparent),transparent 28%),radial-gradient(circle at 88% 82%,color-mix(in srgb, var(--ui-color-primary) 20%, transparent),transparent 32%),linear-gradient(135deg,var(--ui-color-login-background-start) 0%,var(--ui-color-login-background-middle) 52%,var(--ui-color-login-background-end) 100%)}
+.lw::before,.lw::after{content:'';position:absolute;border:1px solid color-mix(in srgb, var(--ui-color-on-primary) 12%, transparent);border-radius:999px;pointer-events:none}
 .lw::before{width:420px;height:420px;left:-180px;bottom:-240px}
 .lw::after{width:280px;height:280px;right:-100px;top:-150px}
-.login-shell{position:relative;z-index:1;width:min(760px,100%);aspect-ratio:1606/979;display:grid;grid-template-columns:42% 58%;overflow:hidden;border-radius:24px;background:#0a2459 url('login-background.webp') center/cover no-repeat;box-shadow:0 24px 58px rgba(1,15,40,.36)}
+.login-shell{position:relative;z-index:1;width:min(760px,100%);aspect-ratio:1606/979;display:grid;grid-template-columns:42% 58%;overflow:hidden;border-radius:24px;background:var(--ui-color-login-surface) url('login-background.webp') center/cover no-repeat;box-shadow:0 24px 58px var(--ui-color-shadow-strong)}
 .login-visual{min-width:0}
 .lc{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;padding:40px 38px 38px;background:transparent}
-.lt{display:flex;flex-direction:column;align-items:center;margin-bottom:20px;color:#09275f;line-height:1.16;text-align:center}
-.login-title-vi{font-size:28px;font-weight:650;letter-spacing:-.025em}
-.login-title-zh{margin-top:7px;color:#4c6281;font-size:16px;font-weight:500}
-.login-support{display:flex;flex-direction:column;align-items:center;gap:3px;margin-bottom:23px;color:#4c6281;font-size:11px;font-weight:500;line-height:1.4;text-align:center}
+.lt{--ui-copy-size-primary:var(--ui-font-size-display);--ui-copy-size-secondary:var(--ui-font-size-section-vi);display:flex;flex-direction:column;align-items:center;margin-bottom:20px;color:var(--ui-color-login-foreground);line-height:1.16;text-align:center}
+.login-title-vi{font-size:var(--ui-font-size-display);font-weight:var(--ui-font-weight-primary);letter-spacing:-.025em}
+.login-title-zh{margin-top:7px;color:var(--ui-color-login-secondary);font-size:var(--ui-font-size-section-vi);font-weight:var(--ui-font-weight-secondary)}
+.login-support{--ui-copy-size-primary:var(--ui-font-size-helper);--ui-copy-size-secondary:var(--ui-font-size-helper);display:flex;flex-direction:column;align-items:center;gap:3px;margin-bottom:23px;color:var(--ui-color-text-muted);font-size:var(--ui-font-size-helper);font-weight:var(--ui-font-weight-secondary);line-height:1.4;text-align:center}
 .login-support span{display:block}
-#google-login-btn{width:min(300px,100%);min-height:58px;height:auto;justify-content:center;gap:10px;padding:8px 14px;border:1px solid #e4ae35;border-radius:13px;background:linear-gradient(135deg,#1f5ec0 0%,#102f72 100%);box-shadow:0 9px 20px rgba(8,35,90,.24);color:#fff;font-size:13px;font-weight:600;line-height:1.3;white-space:normal;text-align:left}
-#google-login-btn:hover{background:linear-gradient(135deg,#1b55ad 0%,#0c285f 100%);box-shadow:0 15px 32px rgba(8,35,90,.34);transform:translateY(-1px)}
+#google-login-btn{width:min(300px,100%);min-height:58px;height:auto;justify-content:center;gap:10px;padding:8px 14px;border:1px solid var(--ui-color-login-accent);border-radius:13px;background:linear-gradient(135deg,var(--ui-color-login-button-start) 0%,var(--ui-color-login-button-end) 100%);box-shadow:0 9px 20px var(--ui-color-shadow);color:var(--ui-color-on-primary);font-size:var(--ui-font-size-control-vi);font-weight:var(--ui-font-weight-primary);line-height:1.3;white-space:normal;text-align:left}
+#google-login-btn:hover{background:linear-gradient(135deg,var(--ui-color-login-button-hover-start) 0%,var(--ui-color-login-button-hover-end) 100%);box-shadow:0 15px 32px var(--ui-color-shadow-strong);transform:translateY(-1px)}
 #google-login-btn:disabled{cursor:wait;opacity:.72;box-shadow:none;transform:none}
 #google-login-btn>i,.google-login-logo{width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex:0 0 36px;border-radius:9px}
-#google-login-btn>i{background:rgba(255,255,255,.12);font-size:17px}
-.google-login-logo{background:#fff;border:1px solid rgba(116,119,117,.45)}
+#google-login-btn>i{background:color-mix(in srgb, var(--ui-color-on-primary) 12%, transparent);font-size:17px}
+.google-login-logo{background:var(--ui-color-surface);border:1px solid var(--ui-color-border)}
 .google-login-logo img{display:block;width:22px;height:22px}
 .login-btn-copy{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:2px}
 .login-btn-copy span{display:block}
-.login-btn-zh{font-size:11px;font-weight:500;opacity:.92}
+.login-btn-zh{font-size:var(--ui-font-size-control-zh);font-weight:var(--ui-font-weight-secondary)}
 #lerr{width:min(300px,100%);margin:0 0 14px!important;border-radius:11px;padding:12px 13px;line-height:1.5}
-@media(max-width:760px){.lw{align-items:flex-start;padding:18px;overflow-y:auto}.login-shell{display:flex;align-items:flex-end;width:min(420px,100%);min-height:520px;aspect-ratio:auto;margin:auto;border-radius:21px;background-size:auto 100%;background-position:28% center}.login-visual{display:none}.lc{width:calc(100% - 32px);margin:0 16px 16px;padding:25px 20px 23px;border:1px solid rgba(255,255,255,.72);border-radius:18px;background:rgba(255,252,246,.93);box-shadow:0 16px 34px rgba(2,19,53,.3);backdrop-filter:blur(8px)}.login-title-vi{font-size:24px}.login-title-zh{font-size:14px}.login-support{font-size:10px;margin-bottom:20px}}
-@media(max-width:420px){.lw{padding:12px}.login-shell{min-height:500px;border-radius:18px}.lc{width:calc(100% - 24px);margin:0 12px 12px;padding:23px 16px 21px;border-radius:16px}.login-title-vi{font-size:22px}#google-login-btn{font-size:11px}}
-.lf{display:flex;flex-direction:column;gap:4px;margin-bottom:13px}
-.lf label{font-size:12px;color:var(--mu);font-weight:500}
-.lf input{padding:9px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--sf);color:var(--tx);font-size:14px;height:42px}
-.lf input:focus{outline:none;border-color:var(--accent)}
-.lh{font-size:11px;color:var(--hi);text-align:center;margin-top:14px}
-.pww{position:relative}
-.pww input{width:100%;padding-right:38px}
-.pwe{position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--hi);font-size:15px}
-.mb{display:none;position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:50;align-items:flex-start;justify-content:center;padding-top:50px;min-height:640px}
+@media(max-width:760px){.lw{align-items:flex-start;padding:18px;overflow-y:auto}.login-shell{display:flex;align-items:flex-end;width:min(420px,100%);min-height:520px;aspect-ratio:auto;margin:auto;border-radius:21px;background-size:auto 100%;background-position:28% center}.login-visual{display:none}.lc{width:calc(100% - 32px);margin:0 16px 16px;padding:25px 20px 23px;border:1px solid color-mix(in srgb, var(--ui-color-surface) 72%, transparent);border-radius:18px;background:color-mix(in srgb, var(--ui-color-surface) 96%, transparent);box-shadow:0 16px 34px var(--ui-color-shadow-strong);backdrop-filter:blur(8px)}.login-support{margin-bottom:20px}}
+@media(max-width:420px){.lw{padding:12px}.login-shell{min-height:500px;border-radius:18px}.lc{width:calc(100% - 24px);margin:0 12px 12px;padding:23px 16px 21px;border-radius:16px}}
+.mb{display:none;position:absolute;inset:0;background:var(--ui-color-overlay);z-index:50;align-items:flex-start;justify-content:center;padding-top:50px;min-height:640px}
 .mb.open{display:flex}
 .md{background:var(--sf);border-radius:12px;padding:22px;width:500px;max-width:96vw;max-height:78vh;overflow-y:auto;border:1px solid var(--bd)}
 .md.wide{width:700px}
-.mt2{font-size:15px;font-weight:500;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;color:var(--navy)}
-.hi2{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--bd);font-size:12px}
+.mt2{font-size:var(--ui-font-size-section-vi);font-weight:var(--ui-font-weight-primary);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;color:var(--navy)}
+.hi2{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--bd);font-size:var(--ui-font-size-body)}
 .hi2:first-child{border-top:none}
-.cc{display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--bd);font-size:12px;flex-wrap:wrap;align-items:center}
+.cc{display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--bd);font-size:var(--ui-font-size-body);flex-wrap:wrap;align-items:center}
 .cc:first-child{border-top:none}
 </style>
 </head>
@@ -242,10 +233,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
   <div class="login-shell">
     <div class="login-visual" aria-hidden="true"></div>
     <main class="lc">
-      <div class="lt"><span class="login-title-vi">Chào mừng trở lại</span><span class="login-title-zh">歡迎回來</span></div>
-      <div class="login-support"><span>Sử dụng tài khoản Google đã được cấp quyền</span><span>使用已授權的 Google 帳號</span></div>
+      <div class="lt"><span class="login-title-vi ui-text-vi">Chào mừng trở lại</span><span class="login-title-zh ui-text-zh">歡迎回來</span></div>
+      <div class="login-support ui-bilingual"><span class="ui-text-vi">Sử dụng tài khoản Google đã được cấp quyền</span><span class="ui-text-zh">使用已授權的 Google 帳號</span></div>
       <div id="lerr" class="nt nd" style="display:none"><i class="ti ti-alert-circle"></i><span id="lerr-text">Không thể đăng nhập / 無法登入</span></div>
-      <button id="google-login-btn" class="btn bp" onclick="doLogin()" disabled><i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy"><span>Đang kiểm tra trạng thái đăng nhập...</span><span class="login-btn-zh">正在確認登入狀態…</span></span></button>
+      <button id="google-login-btn" class="btn bp" onclick="doLogin()" disabled><i class="ti ti-loader-2" aria-hidden="true"></i><span class="login-btn-copy ui-bilingual"><span class="ui-text-vi">Đang kiểm tra trạng thái đăng nhập...</span><span class="login-btn-zh ui-text-zh">正在確認登入狀態…</span></span></button>
     </main>
   </div>
 </div>
@@ -258,29 +249,29 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
   <div class="sb" id="primary-sidebar">
     <div class="sb-logo">
       <div class="sb-title">M9</div>
-      <div class="sb-sub">Hệ thống quản lý sản xuất</div>
+      <div class="sb-sub ui-bilingual ui-helper-text"><span class="ui-text-vi">Hệ thống quản lý sản xuất</span><span class="ui-text-zh">生產管理系統</span></div>
       <button class="sidebar-toggle" id="primary-sidebar-toggle" type="button" aria-controls="primary-sidebar" aria-expanded="true" aria-label="Thu gọn menu chính / 收合主功能選單" title="Thu gọn menu chính / 收合主功能選單" onclick="togglePrimarySidebar()">
         <i class="ti ti-chevron-left" aria-hidden="true"></i>
       </button>
     </div>
-    <div class="ni" id="nv-home-updates" onclick="void openHomeUpdates()"><i class="ti ti-speakerphone"></i><div class="nl"><span class="nvi">Cập nhật hệ thống</span><span class="nzh">系統更新</span></div></div>
+    <div class="ni" id="nv-home-updates" onclick="void openHomeUpdates()"><i class="ti ti-speakerphone"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Cập nhật hệ thống</span><span class="nzh ui-text-zh">系統更新</span></div></div>
     <div class="sb-sec">Đơn hàng / 訂單管理</div>
-    <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl"><span class="nvi">Dữ liệu đơn hàng</span><span class="nzh">訂單資料</span></div></div>
+    <div class="ni locked" id="nv-progress" onclick="sp('progress')"><i class="ti ti-chart-bar"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Dữ liệu đơn hàng</span><span class="nzh ui-text-zh">訂單資料</span></div></div>
     <div class="sb-sec">Công đoạn / 工序表</div>
-    <div class="ni active" onclick="openModule('products')" id="nv-products"><i class="ti ti-layout-list"></i><div class="nl"><span class="nvi">Quản lý mã hàng</span><span class="nzh">款號管理</span></div></div>
+    <div class="ni active" onclick="openModule('products')" id="nv-products"><i class="ti ti-layout-list"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Quản lý mã hàng</span><span class="nzh ui-text-zh">款號管理</span></div></div>
     <div class="sb-sec">Xuất phiếu chuẩn bị vật liệu / 備料出單</div>
-    <div class="ni locked" data-page-nav="cutting" onclick="sp('cutting')" id="nv-cutting"><i class="ti ti-scissors"></i><div class="nl"><span class="nvi">Xuất phiếu cắt dây</span><span class="nzh">裁帶出單</span></div></div>
-    <div class="ni locked" data-page-nav="piece-cutting" onclick="sp('piece-cutting')" id="nv-piece-cutting"><i class="ti ti-layout-grid"></i><div class="nl"><span class="nvi">Xuất phiếu cắt chi tiết</span><span class="nzh">裁片出單</span></div></div>
+    <div class="ni locked" data-page-nav="cutting" onclick="sp('cutting')" id="nv-cutting"><i class="ti ti-scissors"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Xuất phiếu cắt dây</span><span class="nzh ui-text-zh">裁帶出單</span></div></div>
+    <div class="ni locked" data-page-nav="piece-cutting" onclick="sp('piece-cutting')" id="nv-piece-cutting"><i class="ti ti-layout-grid"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Xuất phiếu cắt chi tiết</span><span class="nzh ui-text-zh">裁片出單</span></div></div>
     <div class="sb-sec">Sản lượng / 產能</div>
-    <div class="ni locked" onclick="openModule('production')" id="nv-production"><i class="ti ti-clipboard-data"></i><div class="nl"><span class="nvi">Ghi nhận sản lượng</span><span class="nzh">產能登記</span></div></div>
-    <div class="ni locked" onclick="openModule('production-analysis')" id="nv-production-analysis"><i class="ti ti-chart-histogram"></i><div class="nl"><span class="nvi">Phân tích sản xuất</span><span class="nzh">生產分析</span></div></div>
+    <div class="ni locked" onclick="openModule('production')" id="nv-production"><i class="ti ti-clipboard-data"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Ghi nhận sản lượng</span><span class="nzh ui-text-zh">產能登記</span></div></div>
+    <div class="ni locked" onclick="openModule('production-analysis')" id="nv-production-analysis"><i class="ti ti-chart-histogram"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Phân tích sản xuất</span><span class="nzh ui-text-zh">生產分析</span></div></div>
     <button class="sb-sec-toggle" id="management-toggle" type="button" onclick="toggleManagementNav()">
       <span>Quản lý / 管理</span><i class="ti ti-chevron-right"></i>
     </button>
     <div class="sb-group" id="management-nav">
-      <div class="ni" id="nv-cost" onclick="openModule('cost')"><i class="ti ti-currency-dollar"></i><div class="nl"><span class="nvi">Quản lý chi phí</span><span class="nzh">成本管理</span></div></div>
-      <div class="ni" id="nv-accounts" onclick="openModule('accounts')"><i class="ti ti-users"></i><div class="nl"><span class="nvi">Quản lý tài khoản</span><span class="nzh">帳號管理</span></div></div>
-      <div class="ni" id="nv-system-monitor" onclick="sp('system-monitor')"><i class="ti ti-activity-heartbeat"></i><div class="nl"><span class="nvi">Giám sát hệ thống</span><span class="nzh">系統監控</span></div></div>
+      <div class="ni" id="nv-cost" onclick="openModule('cost')"><i class="ti ti-currency-dollar"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Quản lý chi phí</span><span class="nzh ui-text-zh">成本管理</span></div></div>
+      <div class="ni" id="nv-accounts" onclick="openModule('accounts')"><i class="ti ti-users"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Quản lý tài khoản</span><span class="nzh ui-text-zh">帳號管理</span></div></div>
+      <div class="ni" id="nv-system-monitor" onclick="sp('system-monitor')"><i class="ti ti-activity-heartbeat"></i><div class="nl ui-bilingual"><span class="nvi ui-text-vi">Giám sát hệ thống</span><span class="nzh ui-text-zh">系統監控</span></div></div>
     </div>
     <div class="sb-ft">
       <button type="button" class="runtime-update-notice is-checking" id="runtime-update-notice" disabled aria-label="Đang kiểm tra cập nhật / 正在確認更新" title="Đang kiểm tra cập nhật / 正在確認更新" onclick="void window.PCMSRuntimeVersionGuard?.requestUpdate?.()">
@@ -485,7 +476,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 產能登記：正式工序第一階段 -->
-      <div class="pg ui-page ui-legibility-standard" id="pg-production-entry">
+      <div class="pg ui-page" id="pg-production-entry">
         <div class="production-page ui-work-panel">
           <div class="production-entry-panels">
             <section class="production-entry-context-panel production-registration-context ui-operation-panel">
@@ -508,11 +499,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     </div>
                   </div>
                   <div class="production-employee-inline-copy" title="Bộ phận / 部門">
-                    <span class="production-inline-label"><strong>Bộ phận</strong><span>部門</span></span>
+                    <span class="production-inline-label ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span>
                     <span class="production-inline-value" id="production-employee-department">—</span>
                   </div>
                   <div class="production-employee-inline-copy production-attendance-inline-copy" title="Giờ chấm công / 員工考勤時數">
-                    <span class="production-inline-label"><strong>Giờ chấm công</strong><span>員工考勤時數</span></span>
+                    <span class="production-inline-label ui-dual-copy"><strong>Giờ chấm công</strong><span>員工考勤時數</span></span>
                     <span class="production-inline-value production-inline-attendance-value ui-dual-copy" id="production-entry-attendance-summary">
                       <strong id="production-entry-attendance-summary-vi">Chưa chọn</strong>
                       <span id="production-entry-attendance-summary-zh">尚未選擇</span>
@@ -529,7 +520,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                 <div class="production-entry-fields">
                   <div class="production-field production-date-field">
                     <div class="production-field-label-row">
-                      <label class="production-field-label" for="production-date-input"><strong>Ngày sản xuất</strong><span>生產日期</span></label>
+                      <label class="ui-dual-copy production-field-label" for="production-date-input"><strong>Ngày sản xuất</strong><span>生產日期</span></label>
                       <button type="button" tabindex="-1" class="production-calendar-button" id="production-calendar-button" aria-label="Mở lịch / 開啟日曆" title="Mở lịch / 開啟日曆"><i class="ti ti-calendar-time"></i></button>
                     </div>
                     <div class="production-date-control">
@@ -541,7 +532,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     </div>
                   </div>
                   <div class="production-field production-combobox production-order-field">
-                    <label for="production-order-input"><strong>Số đơn hàng</strong><span>訂單號碼</span></label>
+                    <label class="ui-dual-copy" for="production-order-input"><strong>Số đơn hàng</strong><span>訂單號碼</span></label>
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-order-input" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-order-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-order-toggle" aria-label="Mở danh sách đơn hàng / 展開訂單清單" aria-controls="production-order-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button>
@@ -549,7 +540,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     </div>
                   </div>
                   <div class="production-field production-combobox production-product-field">
-                    <label for="production-product-input"><strong>Mã hàng</strong><span>款號</span></label>
+                    <label class="ui-dual-copy" for="production-product-input"><strong>Mã hàng</strong><span>款號</span></label>
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-product-input" maxlength="200" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-product-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-product-toggle" aria-label="Mở danh sách mã hàng / 展開款號清單" aria-controls="production-product-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
@@ -557,7 +548,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     </div>
                   </div>
                   <div class="production-field production-combobox production-process-field">
-                    <label for="production-process-input"><strong>Số công đoạn</strong><span>工序號</span></label>
+                    <label class="ui-dual-copy" for="production-process-input"><strong>Số công đoạn</strong><span>工序號</span></label>
                     <div class="ui-search-dropdown-control">
                       <input class="ui-search-dropdown-input" type="text" id="production-process-input" maxlength="2" inputmode="numeric" autocomplete="off" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-process-options" aria-expanded="false">
                       <button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-process-toggle" aria-label="Mở danh sách công đoạn / 展開工序清單" aria-controls="production-process-options" aria-expanded="false" disabled><i class="ti ti-chevron-down"></i></button>
@@ -565,11 +556,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     </div>
                   </div>
                   <div class="production-field production-process-name-field">
-                    <label for="production-process-name"><strong id="production-process-name-label-vi">Công đoạn</strong><span id="production-process-name-label-zh">工序</span></label>
+                    <label class="ui-dual-copy" for="production-process-name"><strong id="production-process-name-label-vi">Công đoạn</strong><span id="production-process-name-label-zh">工序</span></label>
                     <input class="production-process-name-output" type="text" id="production-process-name" maxlength="200" autocomplete="off" readonly tabindex="-1" placeholder="—">
                   </div>
                   <div class="production-field production-quantity-field">
-                    <label for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng</strong><span id="production-quantity-label-zh">數量</span></label>
+                    <label class="ui-dual-copy" for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng</strong><span id="production-quantity-label-zh">數量</span></label>
                     <input type="number" id="production-quantity-input" min="1" step="1" inputmode="numeric" autocomplete="off" placeholder="Enter để lưu / Enter 儲存">
                   </div>
                 </div>
@@ -647,20 +638,20 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 員工績效 -->
-      <div class="pg ui-page ui-legibility-standard" id="pg-production-records">
+      <div class="pg ui-page" id="pg-production-records">
         <div class="production-page ui-work-panel">
           <section class="production-filter-panel ui-operation-panel">
             <div class="production-filter-grid ui-command-row">
               <div class="production-field production-compact-date-field">
-                <div class="production-field-label-row"><label class="production-field-label" for="production-record-from"><strong>Từ ngày</strong><span>開始日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-record-from-calendar" aria-label="Mở lịch bắt đầu / 開啟開始日期" title="Mở lịch bắt đầu / 開啟開始日期"><i class="ti ti-calendar-time"></i></button></div>
+                <div class="production-field-label-row"><label class="ui-dual-copy production-field-label" for="production-record-from"><strong>Từ ngày</strong><span>開始日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-record-from-calendar" aria-label="Mở lịch bắt đầu / 開啟開始日期" title="Mở lịch bắt đầu / 開啟開始日期"><i class="ti ti-calendar-time"></i></button></div>
                 <div class="production-date-control"><input type="date" id="production-record-from"><div class="production-date-stepper" aria-label="Chuyển ngày bắt đầu / 切換開始日期"><button type="button" tabindex="-1" id="production-record-from-previous" aria-label="Ngày trước / 前一天" title="Ngày trước / 前一天"><i class="ti ti-chevron-up"></i></button><button type="button" tabindex="-1" id="production-record-from-next" aria-label="Ngày sau / 後一天" title="Ngày sau / 後一天"><i class="ti ti-chevron-down"></i></button></div></div>
               </div>
               <div class="production-field production-compact-date-field">
-                <div class="production-field-label-row"><label class="production-field-label" for="production-record-to"><strong>Đến ngày</strong><span>結束日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-record-to-calendar" aria-label="Mở lịch kết thúc / 開啟結束日期" title="Mở lịch kết thúc / 開啟結束日期"><i class="ti ti-calendar-time"></i></button></div>
+                <div class="production-field-label-row"><label class="ui-dual-copy production-field-label" for="production-record-to"><strong>Đến ngày</strong><span>結束日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-record-to-calendar" aria-label="Mở lịch kết thúc / 開啟結束日期" title="Mở lịch kết thúc / 開啟結束日期"><i class="ti ti-calendar-time"></i></button></div>
                 <div class="production-date-control"><input type="date" id="production-record-to"><div class="production-date-stepper" aria-label="Chuyển ngày kết thúc / 切換結束日期"><button type="button" tabindex="-1" id="production-record-to-previous" aria-label="Ngày trước / 前一天" title="Ngày trước / 前一天"><i class="ti ti-chevron-up"></i></button><button type="button" tabindex="-1" id="production-record-to-next" aria-label="Ngày sau / 後一天" title="Ngày sau / 後一天"><i class="ti ti-chevron-down"></i></button></div></div>
               </div>
-              <div class="production-field production-record-search-field"><label for="production-record-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><div class="ui-search-dropdown-control"><input class="ui-search-dropdown-input" type="text" id="production-record-search" autocomplete="off" placeholder="Mã, tên, bộ phận / 工號、姓名、部門" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-record-search-options" aria-expanded="false"><button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-record-search-toggle" aria-label="Mở danh sách nhân viên / 展開員工清單" aria-controls="production-record-search-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button><div class="ui-search-dropdown-options" id="production-record-search-options" role="listbox" hidden></div></div></div>
-              <div class="production-field"><label for="production-record-status-filter"><strong>Tình trạng hiệu suất</strong><span>績效狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="ready">Đã tính / 已計算</option><option value="missing-attendance">Chưa chấm công / 考勤未登記</option><option value="invalid-attendance">Giờ bất thường / 考勤時數異常</option><option value="invalid-capacity">Thiếu chuẩn giờ / 缺少標準產能</option></select></div>
+              <div class="production-field production-record-search-field"><label class="ui-dual-copy" for="production-record-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><div class="ui-search-dropdown-control"><input class="ui-search-dropdown-input" type="text" id="production-record-search" autocomplete="off" placeholder="Mã, tên, bộ phận / 工號、姓名、部門" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="production-record-search-options" aria-expanded="false"><button type="button" tabindex="-1" class="ui-search-dropdown-toggle" id="production-record-search-toggle" aria-label="Mở danh sách nhân viên / 展開員工清單" aria-controls="production-record-search-options" aria-expanded="false"><i class="ti ti-chevron-down"></i></button><div class="ui-search-dropdown-options" id="production-record-search-options" role="listbox" hidden></div></div></div>
+              <div class="production-field"><label class="ui-dual-copy" for="production-record-status-filter"><strong>Tình trạng hiệu suất</strong><span>績效狀態</span></label><select id="production-record-status-filter"><option value="">Tất cả / 全部</option><option value="ready">Đã tính / 已計算</option><option value="missing-attendance">Chưa chấm công / 考勤未登記</option><option value="invalid-attendance">Giờ bất thường / 考勤時數異常</option><option value="invalid-capacity">Thiếu chuẩn giờ / 缺少標準產能</option></select></div>
               <div class="production-filter-actions">
                 <button type="button" class="ui-button is-primary production-filter-button" id="production-record-search-button"><span class="ui-dual-copy"><strong>Tìm kiếm</strong><span>搜尋</span></span></button>
                 <button type="button" class="ui-button production-filter-button" id="production-record-clear-button"><span class="ui-dual-copy"><strong>Xóa bộ lọc</strong><span>清除篩選</span></span></button>
@@ -690,24 +681,24 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 月績效獎金 -->
-      <div class="pg ui-page ui-legibility-standard" id="pg-production-bonus">
+      <div class="pg ui-page" id="pg-production-bonus">
         <div id="performance-bonus-monthly-root"></div>
       </div>
 
       <!-- 產能考勤 -->
-      <div class="pg ui-page ui-legibility-standard" id="pg-production-attendance">
+      <div class="pg ui-page" id="pg-production-attendance">
         <div class="production-page ui-work-panel">
           <section class="production-attendance-panel ui-operation-panel">
             <div class="production-attendance-command ui-command-row">
               <div class="production-attendance-fields">
                 <div class="production-field production-compact-date-field">
-                  <div class="production-field-label-row"><label class="production-field-label" for="production-attendance-date"><strong>Ngày chấm công</strong><span>考勤日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-attendance-calendar" aria-label="Mở lịch chấm công / 開啟考勤日期" title="Mở lịch chấm công / 開啟考勤日期"><i class="ti ti-calendar-time"></i></button></div>
+                  <div class="production-field-label-row"><label class="ui-dual-copy production-field-label" for="production-attendance-date"><strong>Ngày chấm công</strong><span>考勤日期</span></label><button type="button" tabindex="-1" class="production-calendar-button" id="production-attendance-calendar" aria-label="Mở lịch chấm công / 開啟考勤日期" title="Mở lịch chấm công / 開啟考勤日期"><i class="ti ti-calendar-time"></i></button></div>
                   <div class="production-date-control"><input type="date" id="production-attendance-date"><div class="production-date-stepper" aria-label="Chuyển ngày chấm công / 切換考勤日期"><button type="button" tabindex="-1" id="production-attendance-previous" aria-label="Ngày trước / 前一天" title="Ngày trước / 前一天"><i class="ti ti-chevron-up"></i></button><button type="button" tabindex="-1" id="production-attendance-next" aria-label="Ngày sau / 後一天" title="Ngày sau / 後一天"><i class="ti ti-chevron-down"></i></button></div></div>
                 </div>
-                <div class="production-field"><label for="production-attendance-department"><strong>Bộ phận</strong><span>部門</span></label><select id="production-attendance-department"><option value="">Tất cả / 全部</option></select></div>
-                <div class="production-field production-attendance-search-field"><label for="production-attendance-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><input type="search" id="production-attendance-search" autocomplete="off" placeholder="Mã, tên / 工號、姓名"></div>
-                <div class="production-field"><label for="production-attendance-batch-normal"><strong>Giờ bình thường</strong><span>正常工時</span></label><input type="number" id="production-attendance-batch-normal" min="0" max="24" step="0.5" inputmode="decimal" value="8"></div>
-                <div class="production-field"><label for="production-attendance-batch-overtime"><strong>Giờ tăng ca</strong><span>加班工時</span></label><input type="number" id="production-attendance-batch-overtime" min="0" max="24" step="0.5" inputmode="decimal" value="0"></div>
+                <div class="production-field"><label class="ui-dual-copy" for="production-attendance-department"><strong>Bộ phận</strong><span>部門</span></label><select id="production-attendance-department"><option value="">Tất cả / 全部</option></select></div>
+                <div class="production-field production-attendance-search-field"><label class="ui-dual-copy" for="production-attendance-search"><strong>Tìm nhân viên</strong><span>搜尋員工</span></label><input type="search" id="production-attendance-search" autocomplete="off" placeholder="Mã, tên / 工號、姓名"></div>
+                <div class="production-field"><label class="ui-dual-copy" for="production-attendance-batch-normal"><strong>Giờ bình thường</strong><span>正常工時</span></label><input type="number" id="production-attendance-batch-normal" min="0" max="24" step="0.5" inputmode="decimal" value="8"></div>
+                <div class="production-field"><label class="ui-dual-copy" for="production-attendance-batch-overtime"><strong>Giờ tăng ca</strong><span>加班工時</span></label><input type="number" id="production-attendance-batch-overtime" min="0" max="24" step="0.5" inputmode="decimal" value="0"></div>
                 <div class="production-attendance-actions">
                   <button type="button" class="ui-button" id="production-attendance-apply-button"><span class="ui-dual-copy"><strong>Áp dụng hàng loạt</strong><span>批次套用</span></span></button>
                   <button type="button" class="ui-button is-primary" id="production-attendance-save-button" disabled><span class="ui-dual-copy"><strong>Lưu thay đổi</strong><span>儲存修改</span></span></button>
@@ -737,15 +728,15 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 產能員工資料 -->
-      <div class="pg ui-page ui-legibility-standard" id="pg-production-employees">
+      <div class="pg ui-page" id="pg-production-employees">
         <div class="production-page ui-work-panel">
           <section class="production-operation-panel ui-operation-panel">
             <div class="production-employee-command ui-command-row">
               <div>
                 <div class="production-employee-fields">
-                  <div class="production-field"><label for="production-employee-id"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-employee-id" maxlength="30" autocomplete="off"></div>
-                  <div class="production-field"><label for="production-employee-name-input"><strong>Tên nhân viên</strong><span>員工姓名</span></label><input type="text" id="production-employee-name-input" maxlength="100" autocomplete="off"></div>
-                  <div class="production-field"><label for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><select id="production-employee-department-input"><option value="">Chọn bộ phận / 選擇部門</option><option value="__manage__">Chỉnh sửa bộ phận / 編輯部門</option></select></div>
+                  <div class="production-field"><label class="ui-dual-copy" for="production-employee-id"><strong>Mã nhân viên</strong><span>員工工號</span></label><input type="text" id="production-employee-id" maxlength="30" autocomplete="off"></div>
+                  <div class="production-field"><label class="ui-dual-copy" for="production-employee-name-input"><strong>Tên nhân viên</strong><span>員工姓名</span></label><input type="text" id="production-employee-name-input" maxlength="100" autocomplete="off"></div>
+                  <div class="production-field"><label class="ui-dual-copy" for="production-employee-department-input"><strong>Bộ phận</strong><span>部門</span></label><select id="production-employee-department-input"><option value="">Chọn bộ phận / 選擇部門</option><option value="__manage__">Chỉnh sửa bộ phận / 編輯部門</option></select></div>
                   <div class="production-employee-form-actions">
                     <button type="button" class="ui-button is-primary" id="production-employee-save-button"><i class="ti ti-user-plus"></i><span class="ui-dual-copy" id="production-employee-save-copy"><strong>Thêm nhân viên</strong><span>新增員工</span></span></button>
                     <button type="button" class="ui-button" id="production-employee-cancel-button"><span class="ui-dual-copy"><strong>Hủy</strong><span>取消</span></span></button>
@@ -807,10 +798,10 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               </div>
               <div class="cutting-command-actions ui-command-actions">
                 <!-- is-condition-dependent（需前置資料的主要操作）：匯入有效模板後才切換為深藍色。 -->
-                <button type="button" class="cutting-command-action ui-command-action is-primary is-condition-dependent" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()" disabled>
+                <button type="button" class="ui-command-action is-primary is-condition-dependent" id="cut-template-confirm-btn" onclick="cuttingConfirmTemplate()" disabled>
                   <i class="ti ti-check"></i><span class="cutting-action-copy ui-dual-copy"><strong>Xác nhận mẫu</strong><span>確認模板</span></span>
                 </button>
-                <button type="button" class="cutting-command-action ui-command-action is-danger" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()">
+                <button type="button" class="ui-command-action is-danger" id="cut-template-clear-btn" onclick="cuttingClearTemplateCurrent()">
                   <i class="ti ti-eraser"></i><span class="cutting-action-copy ui-dual-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span>
                 </button>
               </div>
@@ -884,14 +875,14 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
                     </ol>
                   </div>
                 </details>
-                <button type="button" class="cutting-command-action ui-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
+                <button type="button" class="ui-command-action" id="cut-start-pdf-tool-btn" onclick="cuttingStartPdfTool()">
                   <i class="ti ti-player-play"></i><span class="cutting-action-copy ui-dual-copy"><strong>Mở PDF</strong><span>啟動 PDF 工具</span></span>
                 </button>
                 <!-- is-condition-dependent（需前置資料的主要操作）：訂單核對可匯出後才切換為深藍色。 -->
-                <button type="button" class="cutting-command-action ui-command-action is-primary is-condition-dependent" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
+                <button type="button" class="ui-command-action is-primary is-condition-dependent" id="cut-preview-btn" onclick="cuttingOpenPreview()" disabled>
                   <i class="ti ti-file-export"></i><span class="cutting-action-copy ui-dual-copy"><strong>Xuất PDF</strong><span>匯出 PDF</span></span>
                 </button>
-                <button type="button" class="cutting-command-action ui-command-action is-danger" onclick="cuttingClearCurrent()">
+                <button type="button" class="ui-command-action is-danger" onclick="cuttingClearCurrent()">
                   <i class="ti ti-eraser"></i><span class="cutting-action-copy ui-dual-copy"><strong>Xóa hiện tại</strong><span>清除目前資料</span></span>
                 </button>
               </div>
@@ -970,7 +961,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       </div>
 
       <!-- 裁片出單：功能內容由 piece-cutting.js（裁片出單程式）按需建立。 -->
-      <div class="pg ui-page ui-legibility-standard" id="pg-piece-cutting">
+      <div class="pg ui-page" id="pg-piece-cutting">
         <div id="piece-cutting-root"></div>
       </div>
 
@@ -1213,9 +1204,9 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               <div class="accounts-context-grid ui-context-grid is-single">
                 <div class="accounts-context-item ui-context-item">
                   <i class="ti ti-user-check"></i>
-                  <div class="accounts-description">
-                    <div>Quản trị viên phê duyệt trước địa chỉ thư điện tử đăng nhập; mã người dùng sẽ tự động liên kết khi đăng nhập lần đầu.</div>
-                    <div>管理員預先核准登入電子信箱；使用者第一次登入時會自動綁定使用者識別碼。</div>
+                  <div class="accounts-description ui-language-sections">
+                    <div class="ui-language-section is-vi" lang="vi">Quản trị viên phê duyệt trước địa chỉ thư điện tử đăng nhập; mã người dùng sẽ tự động liên kết khi đăng nhập lần đầu.</div>
+                    <div class="ui-language-section is-zh" lang="zh-Hant">管理員預先核准登入電子信箱；使用者第一次登入時會自動綁定使用者識別碼。</div>
                   </div>
                 </div>
               </div>
@@ -1250,9 +1241,9 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
               <div class="permissions-context-grid ui-context-grid is-single">
                 <div class="permissions-context-item ui-context-item">
                   <i class="ti ti-shield-check"></i>
-                  <div class="permissions-description">
-                    <div>Đối chiếu chức năng chính, trang con và dữ liệu nhạy cảm của tất cả vai trò trong cùng một bảng. Tắt chức năng chính chỉ tạm dừng, không xóa thiết lập bên dưới.</div>
-                    <div>在同一張表比較所有職務的母功能、子分頁與敏感資料權限。關閉母功能只會暫停，不會清除下層設定。</div>
+                  <div class="permissions-description ui-language-sections">
+                    <div class="ui-language-section is-vi" lang="vi">Đối chiếu chức năng chính, trang con và dữ liệu nhạy cảm của tất cả vai trò trong cùng một bảng. Tắt chức năng chính chỉ tạm dừng, không xóa thiết lập bên dưới.</div>
+                    <div class="ui-language-section is-zh" lang="zh-Hant">在同一張表比較所有職務的母功能、子分頁與敏感資料權限。關閉母功能只會暫停，不會清除下層設定。</div>
                   </div>
                 </div>
               </div>
@@ -1363,7 +1354,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       <label for="cut-order-label-input">Nội dung góc trên bên trái / 左上角內容</label>
       <input type="text" id="cut-order-label-input" maxlength="120" placeholder="Ví dụ: PO#2606-00293Syls hoặc hàng mẫu / 例如：PO#2606-00293Syls 或樣品用">
     </div>
-    <div id="cut-order-label-error" style="display:none;color:var(--err);font-size:12px;margin-bottom:12px"></div>
+    <div id="cut-order-label-error" class="ui-helper-text ui-status-text" style="display:none;color:var(--err);margin-bottom:12px"></div>
     <div class="br">
       <button class="btn bp" onclick="cuttingConfirmOrderLabel()"><i class="ti ti-file-type-pdf"></i>Tiếp tục tạo PDF / 繼續產生 PDF</button>
       <button class="btn" onclick="cuttingCancelOrderLabel()">Hủy / 取消</button>
@@ -1404,15 +1395,15 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <div id="imp-step1">
       <div class="fg cols3" style="margin-bottom:12px">
         <div class="fgrp"><label>Số đơn hàng / 訂單編號 <span style="color:var(--err)">*</span></label><input type="text" id="imp-ord-id" placeholder="Ví dụ / 例如：ORD-2025-001"></div>
-        <div class="fgrp"><label>Khách hàng / 客戶 <span style="color:var(--err)">*</span></label><select id="imp-ord-client" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;font-size:13px"><option value="">-- Chọn khách hàng / 選擇客戶 --</option></select></div>
+        <div class="fgrp"><label>Khách hàng / 客戶 <span style="color:var(--err)">*</span></label><select id="imp-ord-client"><option value="">-- Chọn khách hàng / 選擇客戶 --</option></select></div>
         <div class="fgrp"><label>Ngày giao hàng / 出貨日期 <span style="color:var(--err)">*</span></label><input type="date" id="imp-ord-date"></div>
       </div>
       <div class="fgrp" style="margin-bottom:14px">
         <label>Tải tệp bảng tính lên<span class="lvi">上傳表格檔（.xlsx／.xls）</span></label>
         <div id="imp-file-drop" style="border:2px dashed var(--bd);border-radius:10px;padding:28px;text-align:center;cursor:pointer;color:var(--mu)" onclick="g('imp-file').click()">
-          <i class="ti ti-file-spreadsheet" style="font-size:32px;display:block;margin-bottom:8px"></i>
-          <div class="ui-bilingual" style="font-size:13px;font-weight:500"><span class="ui-text-vi">Chọn hoặc kéo tệp bảng tính</span><span class="ui-text-zh">點擊或拖曳表格檔案</span></div>
-          <div id="imp-filename" style="font-size:11px;margin-top:6px;color:var(--accent)"></div>
+          <i class="ti ti-file-spreadsheet product-import-drop-icon" aria-hidden="true"></i>
+          <div class="ui-bilingual ui-body-text"><span class="ui-text-vi">Chọn hoặc kéo tệp bảng tính</span><span class="ui-text-zh">點擊或拖曳表格檔案</span></div>
+          <div id="imp-filename" class="ui-helper-text" style="margin-top:6px;color:var(--accent)"></div>
         </div>
         <input type="file" id="imp-file" data-file-drop-target="order-import" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(this)">
       </div>
@@ -1421,12 +1412,12 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
       <div class="nt ns" id="imp-order-ok" style="margin-bottom:8px"></div>
       <div class="nt nw" id="imp-skip-msg" style="display:none;margin-bottom:8px"></div>
       <div class="to" style="max-height:260px;overflow-y:auto"><table class="ui-table" id="order-import-preview-table" data-ui-table-layout="special" data-ui-table-sticky="container">
-        <thead><tr><th>Mã hàng<br><span style="font-size:10px;color:var(--mu)">款號</span></th><th>Mô tả<br><span style="font-size:10px;color:var(--mu)">說明</span></th><th>Màu<br><span style="font-size:10px;color:var(--mu)">顏色</span></th><th>SL<br><span style="font-size:10px;color:var(--mu)">數量</span></th><th>Số CĐ<br><span style="font-size:10px;color:var(--mu)">工序數</span></th><th>Trạng thái<br><span style="font-size:10px;color:var(--mu)">狀態</span></th></tr></thead>
+        <thead><tr><th><span class="ui-bilingual"><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Mô tả</span><span class="ui-text-zh">說明</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Màu</span><span class="ui-text-zh">顏色</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">SL</span><span class="ui-text-zh">數量</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Số CĐ</span><span class="ui-text-zh">工序數</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Trạng thái</span><span class="ui-text-zh">狀態</span></span></th></tr></thead>
         <tbody id="imp-preview-tb"></tbody>
       </table></div>
     </div>
     <div id="imp-progress-wrap" style="display:none;margin-top:14px">
-      <div id="imp-progress-text" style="font-size:13px;line-height:1.6;margin-bottom:8px"></div>
+      <div id="imp-progress-text" class="ui-body-text" style="line-height:1.6;margin-bottom:8px"></div>
       <div style="height:10px;background:var(--bd);border-radius:99px;overflow:hidden"><div id="imp-progress-bar" style="height:100%;width:0;background:var(--accent);transition:width .2s"></div></div>
     </div>
     <div class="br" style="margin-top:14px">
@@ -1441,16 +1432,16 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
     <input type="hidden" id="adj-order-id"><input type="hidden" id="adj-code">
     <div id="adj-summary" class="nt nw" style="margin-bottom:14px;line-height:1.7"></div>
     <div class="fgrp" style="margin-bottom:12px"><label>Số lượng mới / 新訂單數量</label><input type="number" id="adj-new-qty" min="1" step="1"></div>
-    <div class="fgrp" style="margin-bottom:14px"><label>Lý do điều chỉnh / 調整原因</label><textarea id="adj-reason" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;font-size:13px;resize:none"></textarea></div>
+    <div class="fgrp" style="margin-bottom:14px"><label>Lý do điều chỉnh / 調整原因</label><textarea id="adj-reason" rows="3" style="width:100%;padding:9px 11px;border:1px solid var(--bd);border-radius:8px;resize:none"></textarea></div>
     <div class="br"><button class="btn bp" onclick="confirmOrderQtyAdjust()"><i class="ti ti-check"></i>Xác nhận điều chỉnh / 確認調整</button><button class="btn" onclick="cm('m-order-qty-adjust')">Hủy / 取消</button></div>
   </div></div>
 
   <div class="mb" id="m-order-adjust-history"><div class="md wide">
     <div class="mt2"><span><i class="ti ti-history"></i> Lịch sử điều chỉnh số lượng / 數量調整紀錄</span><button class="btn bsm" onclick="cm('m-order-adjust-history')"><i class="ti ti-x"></i></button></div>
     <div class="to" style="max-height:520px;overflow:auto"><table class="ui-table" id="order-adjustment-history-table" data-ui-table-layout="special" data-ui-table-sticky="container"><thead><tr>
-      <th>Đơn hàng<br><span style="font-size:10px;color:var(--mu)">訂單</span></th><th>Mã hàng<br><span style="font-size:10px;color:var(--mu)">款號</span></th>
-      <th>SL cũ<br><span style="font-size:10px;color:var(--mu)">原數量</span></th><th>SL mới<br><span style="font-size:10px;color:var(--mu)">新數量</span></th>
-      <th>Lý do<br><span style="font-size:10px;color:var(--mu)">原因</span></th><th>Người thao tác<br><span style="font-size:10px;color:var(--mu)">操作者</span></th>
+      <th><span class="ui-bilingual"><span class="ui-text-vi">Đơn hàng</span><span class="ui-text-zh">訂單</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></span></th>
+      <th><span class="ui-bilingual"><span class="ui-text-vi">SL cũ</span><span class="ui-text-zh">原數量</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">SL mới</span><span class="ui-text-zh">新數量</span></span></th>
+      <th><span class="ui-bilingual"><span class="ui-text-vi">Lý do</span><span class="ui-text-zh">原因</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Người thao tác</span><span class="ui-text-zh">操作者</span></span></th>
     </tr></thead><tbody id="order-adjust-history"></tbody></table></div>
     <div class="ma"><button id="order-adjust-history-more" class="btn" onclick="loadMoreOrderAdjustmentHistory()" hidden><i class="ti ti-chevrons-down"></i><span class="ui-dual-copy"><strong>Tải thêm</strong><span>載入更多</span></span></button></div>
   </div></div>
@@ -1485,7 +1476,7 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 
 <!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
 <script src="js/safe-dom.js?v=20260812-2"></script>
-<script src="js/ui-text.js?v=20260813-1"></script>
+<script src="js/ui-text.js?v=20260908-3"></script>
 <script src="js/ui-runtime.js?v=20260821-1"></script>
 <script src="js/ui-components.js?v=20260824-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
@@ -1493,11 +1484,11 @@ body{font-family:var(--font-sans);font-size:14px;color:var(--tx);background:var(
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260908-2&amp;pc=20260908-2"></script>
-<script src="js/auth.js?v=20260906-5"></script>
+  <script src="js/features.js?v=20260908-3"></script>
+<script src="js/auth.js?v=20260908-3"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260908-2"></script>
+<script type="module" src="js/firebase.js?v=20260908-3"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

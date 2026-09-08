@@ -151,7 +151,7 @@
     return window.PCMSUIComponents.openDialog({
       title:{vi:options.titleVi||'Giải thích dữ liệu',zh:options.titleZh||'資料說明'},
       body,size:'large',
-      actions:[{text:{vi:'Đóng',zh:'關閉'}}]
+      actions:[{text:'common.close'}]
     });
   }
   async function showError(error){

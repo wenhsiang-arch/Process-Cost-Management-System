@@ -139,6 +139,7 @@
   function refreshLocalizedElement(target,attribute){
     const prefix = localizedAttributePrefix(attribute); // prefix（語言屬性資料前綴）
     if(!target || !prefix) return false;
+    if(attribute==='title'&&target.hasAttribute?.('data-ui-neutral-title')) return false;
     const vi = target.getAttribute?.(`${prefix}-vi`) ?? '';
     const zh = target.getAttribute?.(`${prefix}-zh`) ?? '';
     target.setAttribute?.(attribute,visibleText({vi,zh}));
@@ -343,10 +344,15 @@
   function upgradeLocalizedAttribute(target,attribute){
     const prefix = localizedAttributePrefix(attribute);
     if(!target || !prefix) return false;
-    const pair = parseLegacyPair(target.getAttribute?.(attribute));
-    if(!pair) return false;
+    // data-ui-neutral-title（中性原文提示）：業務資料即使包含斜線與兩種語言，也不得當作介面翻譯拆分。
+    if(attribute==='title'&&target.hasAttribute?.('data-ui-neutral-title')) return false;
+    const currentValue = target.getAttribute?.(attribute);
     const currentVi = target.getAttribute?.(`${prefix}-vi`);
     const currentZh = target.getAttribute?.(`${prefix}-zh`);
+    // 正式來源自身可含斜線；中央剛產生的顯示值不再依舊格式拆分，外部更新仍照常辨識。
+    if(currentVi != null && currentZh != null && currentValue === visibleText({vi:currentVi,zh:currentZh})) return false;
+    const pair = parseLegacyPair(currentValue);
+    if(!pair) return false;
     if(currentVi === pair.vi && currentZh === pair.zh) return false;
     return setLocalizedAttribute(target,attribute,pair);
   }

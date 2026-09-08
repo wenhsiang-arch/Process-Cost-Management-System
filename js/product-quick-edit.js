@@ -662,7 +662,7 @@
       title:{vi:`Sửa nhanh: ${config.vi}`,zh:`快速修改：${config.zh}`},body,size:'xlarge',
       keepPrevious:input.keepPrevious===true,
       actions:[
-        {text:{vi:'Hủy',zh:'取消'}},
+        {text:'common.cancel'},
         {text:{vi:'Xem trước mục đã chọn',zh:'預覽已選項目'},icon:'ti-eye-check',kind:'primary',onClick:async()=>{
           captureCommonValue();
           const requests=[];

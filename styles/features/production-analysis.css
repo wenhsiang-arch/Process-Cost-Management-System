@@ -14,24 +14,24 @@
 }
 
 .production-analysis-operation-panel {
-  overflow: hidden;
+  overflow: visible;
 }
 
 .production-analysis-filter-grid {
   display: grid;
   min-width: 0;
-  grid-template-columns: repeat(4,minmax(145px,1fr));
+  grid-template-columns: repeat(4,minmax(145px,260px));
   gap: 7px 9px;
   align-items: end;
   padding: 8px 10px;
 }
 
 .production-analysis-department-filters {
-  grid-template-columns: repeat(3,minmax(180px,1fr));
+  grid-template-columns: repeat(3,minmax(180px,320px));
 }
 
 .employee-analysis-filter-grid {
-  grid-template-columns: minmax(135px,.85fr) minmax(135px,.85fr) minmax(260px,1.5fr) minmax(140px,.9fr) minmax(140px,.9fr);
+  grid-template-columns: minmax(135px,160px) minmax(135px,160px) minmax(260px,420px) minmax(140px,220px) minmax(140px,220px);
 }
 
 .production-analysis-filter-grid .ui-form-field {
@@ -126,14 +126,6 @@
   cursor: default;
 }
 
-.production-analysis-filter-grid .ui-dual-copy > strong {
-  font-size: 11px;
-}
-
-.production-analysis-filter-grid .ui-dual-copy > span {
-  font-size: 9px;
-}
-
 .production-analysis-suffix-input {
   position: relative;
   min-width: 0;
@@ -148,15 +140,17 @@
   top: 50%;
   right: 10px;
   color: var(--ui-color-text-muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size-helper);
   transform: translateY(-50%);
   pointer-events: none;
 }
 
 .production-analysis-source {
+  --ui-copy-size-primary: var(--ui-font-size-helper);
+  --ui-copy-size-secondary: var(--ui-font-size-helper);
   margin: -2px 0 var(--ui-space-2);
   color: var(--ui-color-text-muted);
-  font-size: 11px;
+  font-size: var(--ui-font-size-helper);
   text-align: right;
 }
 
@@ -170,14 +164,17 @@
 }
 
 .employee-analysis-table {
+  --ui-table-default-min-width: 920px;
   min-width: 920px;
 }
 
 .ie-analysis-table {
+  --ui-table-default-min-width: 1640px;
   min-width: 1640px;
 }
 
 .department-analysis-table {
+  --ui-table-default-min-width: 1080px;
   min-width: 1080px;
 }
 
@@ -236,7 +233,7 @@
 .production-analysis-dual-value > span + span {
   margin-top: 2px;
   color: var(--ui-color-text-muted);
-  font-size: 10px;
+  font-size: var(--ui-font-size-helper);
 }
 
 .production-analysis-dual-value {
@@ -245,7 +242,7 @@
   max-width: 100%;
   flex-direction: column;
   align-items: flex-start;
-  font-size: 12px;
+  font-size: var(--ui-font-size-body);
   line-height: 1.35;
   white-space: normal;
 }
@@ -315,7 +312,7 @@
 .employee-analysis-detail-heading {
   margin-bottom: 8px;
   color: var(--ui-color-primary);
-  font-weight: 700;
+  font-weight:var(--ui-font-weight-strong);
 }
 
 .employee-analysis-detail-panel > .production-analysis-empty {
@@ -364,7 +361,7 @@
 .production-analysis-table td[data-level],
 .production-analysis-table td[data-confidence],
 .production-analysis-table td[data-priority] {
-  font-weight: 600;
+  font-weight:var(--ui-font-weight-primary);
 }
 
 .production-analysis-table td[data-level="high"],
@@ -405,7 +402,7 @@
 .production-analysis-pagination > span {
   min-width: 100px;
   color: var(--ui-color-text-muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size-helper);
   text-align: center;
 }
 
@@ -428,7 +425,7 @@
 .production-analysis-dialog-section h3 {
   margin: 0 0 var(--ui-space-2);
   color: var(--ui-color-primary);
-  font-size: 14px;
+  font-size: var(--ui-font-size-section-vi);
 }
 
 .production-analysis-dialog-copy {
@@ -446,4 +443,25 @@
 #production-analysis-root.is-loading {
   opacity: .65;
   pointer-events: none;
+}
+
+/* 高縮放桌機將篩選欄位換排；明細表保留自己的正式欄寬。 */
+@media (max-width: 1200px) {
+  .production-analysis-filter-grid,
+  .production-analysis-department-filters,
+  .employee-analysis-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 320px));
+  }
+
+  .production-analysis-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .production-analysis-tabs {
+    flex-wrap: wrap;
+  }
+
+  .employee-analysis-detail-panel {
+    padding: 10px 12px;
+  }
 }

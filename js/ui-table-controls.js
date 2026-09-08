@@ -168,9 +168,21 @@
     return copy;
   }
 
-  function createSortLabel(label){
+  // headerTitle（表頭全文提示）：完整欄名與核准短名保留在各自語言，顯示仍使用原短名。
+  function headerTitle(label,visibleLabel=label){
+    const title = {};
+    ['vi','zh'].forEach(language=>{
+      const full = String(label?.[language] || visibleLabel?.[language] || '');
+      const compact = String(visibleLabel?.[language] || '');
+      title[language] = compact && compact !== full ? `${full}（${compact}）` : full;
+    });
+    return title;
+  }
+
+  function createSortLabel(label,fullLabel=label){
     const copy = document.createElement('span');
     copy.className = 'ui-table-sort-label ui-bilingual';
+    setLocalizedAttribute(copy,'title',headerTitle(fullLabel,label));
     const vi = document.createElement('span');
     vi.className = 'ui-text-vi';
     vi.textContent = String(label?.vi || '');
@@ -184,6 +196,8 @@
   function normalizeConfiguredHeader(header,column){
     if(!header || !column) return false;
     const visibleLabel = column.headerLabel || column.label; // visibleLabel（實際表頭文字）：不影響欄位選單的完整名稱。
+    const title = headerTitle(column.label,visibleLabel);
+    setLocalizedAttribute(header,'title',title);
     const sortKey = String(header.dataset?.uiTableSortKey || '');
     if(sortKey){
       const currentLabel = header.querySelector?.('.ui-table-sort-label');
@@ -192,6 +206,7 @@
       if(currentVi && currentZh){
         currentVi.textContent = visibleLabel.vi;
         currentZh.textContent = visibleLabel.zh;
+        setLocalizedAttribute(currentLabel,'title',title);
         return true;
       }
       let icon = header.querySelector?.(SORT_ICON_SELECTOR);
@@ -205,7 +220,7 @@
       const resizeHandles = Array.from(header.children || []).filter(child=>child?.dataset?.uiTableResizeHandle === 'true');
       const heading = document.createElement('span');
       heading.className = 'ui-table-sort-heading';
-      heading.append(createSortLabel(visibleLabel),trigger || icon);
+      heading.append(createSortLabel(visibleLabel,column.label),trigger || icon);
       header.replaceChildren(heading,...resizeHandles);
       header.classList?.add?.('ui-table-sortable-header');
       header.setAttribute?.('aria-sort',header.getAttribute?.('aria-sort') || 'none');
@@ -823,6 +838,7 @@
   }
 
   function decorateAutoHeader(header,column){
+    setLocalizedAttribute(header,'title',headerTitle(column.label,column.headerLabel || column.label));
     header.dataset.uiTableColumn = column.key;
     header.style.setProperty('--ui-table-column-min',`${column.minimum}px`);
     header.style.setProperty('--ui-table-column-width',`${column.preferred}px`);
@@ -863,7 +879,28 @@
         cell.classList.toggle('ui-table-ellipsis',column.ellipsis);
         if(cell.classList.contains('ui-table-ellipsis')){
           const fullText = String(cell.textContent || '').trim();
-          if(fullText && fullText !== '—') cell.title = fullText;
+          if(fullText && fullText !== '—'){
+            const localizedCopy = cell.matches('.ui-bilingual,.ui-dual-copy')
+              ? cell : cell.querySelector('.ui-bilingual,.ui-dual-copy');
+            const viNode = localizedCopy?.querySelector('.ui-text-vi,:scope > strong') || cell.querySelector(':scope > .ui-text-vi');
+            const zhNode = localizedCopy?.querySelector('.ui-text-zh,:scope > span:not(.ui-text-vi)') || cell.querySelector(':scope > .ui-text-zh');
+            if(viNode || zhNode){
+              // 自動全文提示依正式語言節點分類，資料格本身也可以是雙語容器。
+              cell.removeAttribute('data-ui-neutral-title');
+              setLocalizedAttribute(cell,'title',{
+                vi:viNode?.textContent || '',
+                zh:zhNode?.textContent || ''
+              });
+            }else{
+              // 原文即使由粗體等節點包裹仍是資料，須清除上次狀態留下的翻譯來源。
+              cell.removeAttribute('data-ui-localized-title-vi');
+              cell.removeAttribute('data-ui-localized-title-zh');
+              cell.setAttribute('data-ui-neutral-title','');
+              cell.title = fullText;
+            }
+          }else{
+            ['title','data-ui-localized-title-vi','data-ui-localized-title-zh','data-ui-neutral-title'].forEach(attribute=>cell.removeAttribute(attribute));
+          }
         }
       });
     });

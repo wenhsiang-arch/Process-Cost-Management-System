@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260908-2'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260908-3'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -386,21 +386,8 @@ window.firebaseSubscribeRolePermission = (role,onChange,onError) => {
 window.syncState = 'idle';
 
 function setSyncState(state) {
+  // 同步狀態仍由原流程維護；訊息由共用提示呈現，不再查找已移除的同步浮標。
   window.syncState = state;
-  const el = document.getElementById('sync-status');
-  if(!el) return;
-  const time=new Date().toLocaleTimeString('zh-TW'); // time（本次同步狀態時間）
-  const map = {
-    idle:    null,
-    syncing: {vi:'🟡 Đang đồng bộ đám mây...',zh:'🟡 雲端同步中...'},
-    success: {vi:`🟢 Đã đồng bộ đám mây · ${time}`,zh:`🟢 雲端已同步 · ${time}`},
-    failed:  {vi:'🔴 Đồng bộ thất bại, dữ liệu chính thức chưa cập nhật',zh:'🔴 同步失敗，正式資料未更新'}
-  };
-  const pair = map[state]||map.idle; // pair（同步狀態越文與中文）
-  if(pair) window.PCMSUIText.set(el,pair);
-  else el.replaceChildren();
-  el.style.color = state==='failed'?'#dc2626':state==='success'?'#16a34a':state==='syncing'?'#f59e0b':'#94a3b8';
-  el.style.display = state==='idle'?'none':'block';
 }
 
 function firebaseDisplayPair(message,fallback){
@@ -419,16 +406,16 @@ function showSyncError(message){
   if(!el){
     el = document.createElement('div');
     el.id = 'sync-err-toast';
-    el.style.cssText = 'position:fixed;bottom:60px;right:16px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;border-radius:10px;padding:12px 16px;font-size:13px;z-index:999;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.1)';
+    el.className = 'ui-runtime-notice is-danger';
     document.body.appendChild(el);
   }
   const fallback={
     vi:'Dữ liệu chính thức chưa cập nhật, vui lòng kiểm tra mạng rồi nhập lại tệp Excel.',
     zh:'正式資料未更新，請確認網路後重新匯入 Excel（表格檔）。'
   }; // fallback（無法辨識錯誤內容時的安全雙語說明）
-  const title=window.PCMSUIText.create({vi:'⚠️ Đồng bộ thất bại',zh:'⚠️ 同步失敗'},{tagName:'b'});
+  const title=window.PCMSUIText.create({vi:'⚠️ Đồng bộ thất bại',zh:'⚠️ 同步失敗'},{tagName:'b',className:'ui-runtime-notice-title'});
   const detail=window.PCMSUIComponents.createLanguageSections(firebaseDisplayPair(message,fallback));
-  detail.style.cssText='font-size:12px;color:#b91c1c;margin-top:6px';
+  detail.classList.add('ui-runtime-notice-detail');
   el.replaceChildren(title,detail);
   el.style.display = 'block';
   clearTimeout(window._syncErrTimer);
@@ -440,14 +427,11 @@ function showLoading(show){
   if(!el){
     el = document.createElement('div');
     el.id = 'fb-loading';
-    el.style.cssText = 'position:fixed;inset:0;background:rgba(26,58,92,0.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px';
+    el.className = 'ui-runtime-loading';
     const spinner=document.createElement('div'); // spinner（雲端連線載入圖示）
-    spinner.style.cssText='width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:#fff;border-radius:50%;animation:spin 0.8s linear infinite';
-    const copy=window.PCMSUIText.create({vi:'Đang kết nối đám mây...',zh:'正在連接雲端'});
-    copy.style.cssText='color:#fff;font-size:15px;text-align:center';
-    const animation=document.createElement('style');
-    animation.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
-    el.replaceChildren(spinner,copy,animation);
+    spinner.className='ui-runtime-loading-spinner';
+    const copy=window.PCMSUIText.create({vi:'Đang kết nối đám mây...',zh:'正在連接雲端'},{className:'ui-runtime-loading-copy'});
+    el.replaceChildren(spinner,copy);
     document.body.appendChild(el);
   }
   el.style.display = show ? 'flex' : 'none';

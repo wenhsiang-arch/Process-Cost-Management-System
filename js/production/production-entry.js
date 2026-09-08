@@ -585,13 +585,21 @@
   }
 
   function setAttendanceSummary(vi,zh){
-    const viNode = element('production-entry-attendance-summary-vi');
-    const zhNode = element('production-entry-attendance-summary-zh');
-    if(viNode) viNode.textContent = String(vi || '—');
-    if(zhNode){
-      zhNode.textContent = String(zh || '');
-      zhNode.hidden = !zh;
+    const host = element('production-entry-attendance-summary');
+    if(!host) return;
+    host.classList.toggle('ui-dual-copy',Boolean(zh));
+    // 工時數字與破折號是中性資料，不放入會被單語規則隱藏的越文節點。
+    if(!zh){
+      host.textContent = String(vi || '—');
+      return;
     }
+    const viNode = document.createElement('strong');
+    const zhNode = document.createElement('span');
+    viNode.id = 'production-entry-attendance-summary-vi';
+    zhNode.id = 'production-entry-attendance-summary-zh';
+    viNode.textContent = String(vi || '—');
+    zhNode.textContent = String(zh);
+    host.replaceChildren(viNode,zhNode);
   }
 
   function monthsBetween(fromValue,toValue){
@@ -1405,7 +1413,10 @@
       cell.dataset.uiTableColumn = columnKey;
     }
     const text = String(value ?? '—');
-    if(text !== '—' && ['employeeName','order','product','processName'].includes(columnKey)) cell.title = text;
+    if(text !== '—' && ['employeeName','order','product','processName'].includes(columnKey)){
+      cell.setAttribute('data-ui-neutral-title','');
+      cell.title = text;
+    }
     if(valueClass && text !== '—'){
       const content = document.createElement('span');
       content.className = valueClass;
