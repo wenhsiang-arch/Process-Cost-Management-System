@@ -28,6 +28,8 @@
     recordSearch:'',
     recordPage:1,
     recordRequest:0,
+    batchVoidSelection:new Map(),
+    batchVoidRunning:false,
     pendingContext:null
   }; // state（登記頁目前狀態）
 
@@ -126,9 +128,7 @@
     const employee = window.PCMSProductionEmployees?.find?.(item.employeeId);
     const dateBadge = dateBadgeText(item.productionDate);
     const status = item.status === 'voided' ? 'voided đã hủy 已作廢' : 'active hiệu lực 有效';
-    const action = !canManageRecords() ? '' : (item.status === 'voided'
-      ? (isAdmin() ? 'xóa vĩnh viễn 永久刪除' : '')
-      : 'hủy bỏ 作廢');
+    const action = !canManageRecords() || item.status === 'voided' ? '' : 'hủy bỏ 作廢';
     const effective = effectiveHours(item);
     return [
       item.productionDate,dateText(item.productionDate),dateBadge.vi,dateBadge.zh,item.employeeId,employee?.name,item.employeeName,
@@ -283,6 +283,7 @@
   }
 
   function setProcessRowsMode(active,processId=''){
+    clearBatchVoidSelection();
     state.processRowsMode = active === true;
     state.processRowsProcessId = state.processRowsMode ? String(processId || '') : '';
     state.recordPage = 1;
@@ -327,6 +328,7 @@
         syncProductionEmptyState(visibleCount);
       },
       onSortChanged:()=>{
+        clearBatchVoidSelection();
         state.recordPage = 1;
         renderDailyRows(state.dailyRows,{store:false});
       }
@@ -1249,8 +1251,177 @@
     return button;
   }
 
-  function deleteButton(item){
-    return actionButton('ti-trash','Xóa vĩnh viễn','永久刪除',()=>void deleteDailyRecord(item),'danger');
+  function batchVoidItemCopy(item){
+    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
+    const currentEmployee = window.PCMSProductionEmployees?.find?.(item.employeeId);
+    const employee = [item.employeeId,currentEmployee?.name || item.employeeName].filter(Boolean).join(' ');
+    const prefix = [dateText(item.productionDate),employee || '—'].join(' · ');
+    if(supplement){
+      return {
+        title:prefix,
+        vi:`Giờ bổ sung · ${item.supplementReason || '—'} · ${hoursText(item.supplementHours)} giờ`,
+        zh:`補充工時 · ${item.supplementReason || '—'} · ${hoursText(item.supplementHours)} 小時`
+      };
+    }
+    const source = [item.orderNo || '—',item.productCode || '—'].join(' · ');
+    return {
+      title:prefix,
+      vi:`${source} · CĐ ${item.processNo || '—'} · ${numberText(item.quantity)} sản phẩm`,
+      zh:`${source} · 工序 ${item.processNo || '—'} · ${numberText(item.quantity)} 件`
+    };
+  }
+
+  function setBatchVoidPanelStatus(vi='',zh='',kind=''){
+    const host = element('production-batch-void-status');
+    const viNode = element('production-batch-void-status-vi');
+    const zhNode = element('production-batch-void-status-zh');
+    if(!host) return;
+    if(viNode) viNode.textContent = vi;
+    if(zhNode) zhNode.textContent = zh;
+    host.hidden = !vi && !zh;
+    host.classList.toggle('is-danger',kind === 'danger');
+    host.classList.toggle('is-success',kind === 'success');
+  }
+
+  function renderBatchVoidPanel(){
+    const panel = element('production-batch-void-panel');
+    const list = element('production-batch-void-list');
+    const reason = element('production-batch-void-reason');
+    const cancel = element('production-batch-void-cancel');
+    const confirm = element('production-batch-void-confirm');
+    const selected = [...state.batchVoidSelection.values()];
+    if(!panel || !list || !confirm) return;
+    panel.hidden = selected.length === 0;
+    if(selected.length === 0){
+      list.replaceChildren();
+      if(reason) reason.value = '';
+      setBatchVoidPanelStatus();
+      return;
+    }
+    const countVi = element('production-batch-void-count-vi');
+    const countZh = element('production-batch-void-count-zh');
+    if(countVi) countVi.textContent = `Đã chọn ${selected.length} bản ghi`;
+    if(countZh) countZh.textContent = `已選 ${selected.length} 筆`;
+    list.replaceChildren(...selected.map(item=>{
+      const copy = batchVoidItemCopy(item);
+      const row = document.createElement('li');
+      const title = document.createElement('strong');
+      title.textContent = copy.title;
+      const detail = document.createElement('span');
+      detail.className = 'ui-dual-copy';
+      const vi = document.createElement('strong');
+      const zh = document.createElement('span');
+      vi.textContent = copy.vi;
+      zh.textContent = copy.zh;
+      detail.append(vi,zh);
+      row.append(title,detail);
+      return row;
+    }));
+    const confirmVi = element('production-batch-void-confirm-vi');
+    const confirmZh = element('production-batch-void-confirm-zh');
+    if(confirmVi) confirmVi.textContent = state.batchVoidRunning
+      ? 'Đang xử lý...'
+      : `Xác nhận hủy ${selected.length} bản ghi`;
+    if(confirmZh) confirmZh.textContent = state.batchVoidRunning
+      ? '正在處理…'
+      : `確認作廢 ${selected.length} 筆`;
+    confirm.disabled = state.batchVoidRunning;
+    if(cancel) cancel.disabled = state.batchVoidRunning;
+    if(reason) reason.disabled = state.batchVoidRunning;
+    document.querySelectorAll('[data-production-batch-void]').forEach(checkbox=>{
+      checkbox.disabled = state.batchVoidRunning;
+    });
+  }
+
+  function clearBatchVoidSelection(){
+    if(state.batchVoidRunning) return;
+    state.batchVoidSelection.clear();
+    document.querySelectorAll('[data-production-batch-void]').forEach(checkbox=>{ checkbox.checked = false; });
+    renderBatchVoidPanel();
+  }
+
+  function toggleBatchVoidSelection(item,checked){
+    if(state.batchVoidRunning || item?.status === 'voided') return;
+    const id = String(item?.id || '').trim();
+    if(!id) return;
+    if(checked) state.batchVoidSelection.set(id,item);
+    else state.batchVoidSelection.delete(id);
+    setBatchVoidPanelStatus();
+    renderBatchVoidPanel();
+  }
+
+  function batchVoidCheckbox(item){
+    const label = document.createElement('label');
+    label.className = 'production-batch-void-checkbox';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.dataset.productionBatchVoid = String(item.id || '');
+    checkbox.checked = state.batchVoidSelection.has(String(item.id || ''));
+    checkbox.disabled = state.batchVoidRunning;
+    setEntryLocalizedAttribute(checkbox,'aria-label','Chọn bản ghi để hủy hàng loạt','選取紀錄以批次作廢');
+    setEntryLocalizedAttribute(label,'title','Chọn bản ghi để hủy hàng loạt','選取紀錄以批次作廢');
+    checkbox.addEventListener('change',()=>toggleBatchVoidSelection(item,checkbox.checked));
+    label.appendChild(checkbox);
+    return label;
+  }
+
+  async function confirmBatchVoid(){
+    if(state.batchVoidRunning || state.batchVoidSelection.size === 0) return;
+    const selected = [...state.batchVoidSelection.values()];
+    const reason = String(element('production-batch-void-reason')?.value || '').trim().slice(0,500);
+    const succeeded = [];
+    const failed = [];
+    state.batchVoidRunning = true;
+    setBatchVoidPanelStatus(
+      `Đang xử lý 0 / ${selected.length} bản ghi...`,
+      `正在處理 0 / ${selected.length} 筆…`
+    );
+    renderBatchVoidPanel();
+    try{
+      for(let index=0;index<selected.length;index+=1){
+        const item = selected[index];
+        try{
+          const voided = await window.PCMSProductionEntryStore.voidEntry(item.id,reason);
+          succeeded.push(item);
+          state.batchVoidSelection.delete(String(item.id || ''));
+          patchDailyRow(voided);
+        }catch(error){ failed.push({item,error}); }
+        setBatchVoidPanelStatus(
+          `Đã xử lý ${index+1} / ${selected.length} bản ghi...`,
+          `已處理 ${index+1} / ${selected.length} 筆…`
+        );
+        renderBatchVoidPanel();
+      }
+    }finally{
+      state.batchVoidRunning = false;
+    }
+    if(succeeded.some(item=>!window.PCMSProductionEntryStore.isSupplementEntry(item)) && state.process){
+      void loadQuantityProgress(state.process);
+    }
+    if(failed.length){
+      const firstError = window.PCMSUIText?.errorPair?.(failed[0].error) || {
+        vi:'Vui lòng thử lại.',zh:'請重新嘗試。'
+      };
+      setBatchVoidPanelStatus(
+        `Đã hủy ${succeeded.length} bản ghi; ${failed.length} bản ghi chưa hủy. ${firstError.vi || ''}`.trim(),
+        `已作廢 ${succeeded.length} 筆；${failed.length} 筆尚未作廢。${firstError.zh || ''}`.trim(),
+        'danger'
+      );
+      setStatus(
+        `Đã hủy ${succeeded.length} bản ghi, còn ${failed.length} bản ghi cần thử lại.`,
+        `已作廢 ${succeeded.length} 筆，另有 ${failed.length} 筆需要重試。`,
+        'danger'
+      );
+      renderBatchVoidPanel();
+      return;
+    }
+    state.batchVoidSelection.clear();
+    renderBatchVoidPanel();
+    setStatus(
+      `Đã hủy ${succeeded.length} bản ghi.`,
+      `已作廢 ${succeeded.length} 筆紀錄。`,
+      'success'
+    );
   }
 
   async function voidDailyRecord(item){
@@ -1279,38 +1450,11 @@
     if(!confirmed) return;
     try{
       const voided = await window.PCMSProductionEntryStore.voidEntry(item.id,reason);
+      state.batchVoidSelection.delete(String(item.id || ''));
       patchDailyRow(voided);
+      renderBatchVoidPanel();
       if(state.process && !supplement) void loadQuantityProgress(state.process);
       setStatus('Đã hủy bản ghi.','紀錄已作廢。','success');
-    }catch(error){ await showError(error); }
-  }
-
-  async function deleteDailyRecord(item){
-    const supplement = window.PCMSProductionEntryStore.isSupplementEntry(item);
-    const confirmed = await window.PCMSUIComponents.confirmDialog({
-      title:supplement
-        ? {vi:'Xóa vĩnh viễn giờ bổ sung',zh:'永久刪除補充工時'}
-        : {vi:'Xóa vĩnh viễn bản ghi sản xuất',zh:'永久刪除生產紀錄'},
-      message:supplement
-        ? {
-            vi:`Xóa ${hoursText(item.supplementHours)} giờ bổ sung với lý do “${item.supplementReason || '—'}”? Dữ liệu không thể khôi phục.`,
-            zh:`確定永久刪除「${item.supplementReason || '—'}」的 ${hoursText(item.supplementHours)} 小時補充工時？刪除後不能復原。`
-          }
-        : {
-            vi:`Xóa ${numberText(item.quantity)} sản phẩm của công đoạn ${item.processNo}? Dữ liệu không thể khôi phục.`,
-            zh:`確定永久刪除工序 ${item.processNo} 的 ${numberText(item.quantity)} 件生產紀錄？刪除後不能復原。`
-          }
-    });
-    if(!confirmed) return;
-    try{
-      const deleted = await window.PCMSProductionEntryStore.deleteEntry(item.id);
-      patchDailyRow(deleted,{remove:true});
-      if(state.process && !supplement) void loadQuantityProgress(state.process);
-      setStatus(
-        supplement ? 'Đã xóa vĩnh viễn giờ bổ sung.' : 'Đã xóa vĩnh viễn bản ghi sản xuất.',
-        supplement ? '補充工時已永久刪除。' : '生產紀錄已永久刪除。',
-        'success'
-      );
     }catch(error){ await showError(error); }
   }
 
@@ -1554,11 +1698,13 @@
         actionCell.dataset.productionColumn = 'action';
         actionCell.dataset.uiTableColumn = 'action';
         if(item.status !== 'voided'){
-          actionCell.appendChild(
-            actionButton('ti-ban','Hủy bản ghi','作廢紀錄',()=>void voidDailyRecord(item),'danger')
-          );
+          const actions = document.createElement('div');
+          actions.className = 'production-entry-row-action-group';
+          const voidButton = actionButton('ti-ban','Hủy bản ghi','作廢紀錄',()=>void voidDailyRecord(item),'danger');
+          voidButton.disabled = state.batchVoidRunning;
+          actions.append(voidButton,batchVoidCheckbox(item));
+          actionCell.appendChild(actions);
         }
-        if(isAdmin()) actionCell.appendChild(deleteButton(item));
         if(!actionCell.childElementCount) actionCell.textContent = '—';
         row.appendChild(actionCell);
       }
@@ -1650,6 +1796,7 @@
   }
 
   function setRecordDateFilter(value=''){
+    clearBatchVoidSelection();
     const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : '';
     state.recordDateFilter = normalized && normalized <= today() ? normalized : '';
     state.recordPage = 1;
@@ -1669,6 +1816,7 @@
   }
 
   function setRecordStatusFilter(value){
+    clearBatchVoidSelection();
     state.recordStatusFilter = ['active','voided','all'].includes(value) ? value : 'active';
     state.recordPage = 1;
     syncEntryTableMode();
@@ -1681,6 +1829,7 @@
     const totalPages = Math.max(1,Math.ceil(filteredCount/RECORD_PAGE_SIZE));
     const nextPage = Math.max(1,Math.min(state.recordPage+offset,totalPages));
     if(nextPage === state.recordPage) return;
+    clearBatchVoidSelection();
     state.recordPage = nextPage;
     renderDailyRows(state.dailyRows,{store:false});
     saveRecordPreferences();
@@ -1773,6 +1922,7 @@
     setEntryLocalizedAttribute(recordSearch,'placeholder','Tìm trong bảng','搜尋表格');
     setEntryLocalizedAttribute(recordSearch,'aria-label','Tìm trong bảng','搜尋表格');
     recordSearch?.addEventListener('input',event=>{
+      clearBatchVoidSelection();
       state.recordSearch = String(event.currentTarget?.value || '').slice(0,200);
       state.recordPage = 1;
       renderDailyRows(state.dailyRows,{store:false});
@@ -1780,6 +1930,9 @@
     });
     element('production-entry-page-previous').addEventListener('click',()=>shiftRecordPage(-1));
     element('production-entry-page-next').addEventListener('click',()=>shiftRecordPage(1));
+    element('production-batch-void-cancel').addEventListener('click',clearBatchVoidSelection);
+    element('production-batch-void-confirm').addEventListener('click',()=>void confirmBatchVoid());
+    setEntryLocalizedAttribute(element('production-batch-void-reason'),'placeholder','Có thể để trống','可以留空');
     initializeSearchDropdowns();
     element('production-quantity-input').addEventListener('input',renderQuantityProgress);
     element('production-process-name').addEventListener('keydown',event=>{
@@ -1914,6 +2067,7 @@
     if(state.processTotalTimer) clearTimeout(state.processTotalTimer);
     state.processTotalTimer=null;
     productionTableControl?.deactivate?.({resetSort:true});
+    clearBatchVoidSelection();
     closeAllDropdowns();
   }
 

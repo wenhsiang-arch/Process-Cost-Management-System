@@ -14,10 +14,10 @@
 <title>M9</title>
 <link rel="stylesheet" href="styles/vendor/tabler-icons.min.css?v=2.47.0">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260908-3">
-<link rel="stylesheet" href="styles/themes/default.css?v=20260908-3-sidebar1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260914-1">
+<link rel="stylesheet" href="styles/themes/default.css?v=20260914-1-sidebar1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
-<link rel="stylesheet" href="styles/features/home.css?v=20260908-3-archive1">
+<link rel="stylesheet" href="styles/features/home.css?v=20260914-1-archive1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(--tx);background:var(--bg)}
@@ -320,6 +320,20 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-09-14">14/09/2026</time>
+                <h2 class="ui-dual-copy">
+                  <strong>Hủy nhiều bản ghi sản xuất cùng lúc</strong>
+                  <span>產能批量作廢</span>
+                </h2>
+                <div class="home-update-description">
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Hủy hàng loạt</h3><ol><li>Có thể chọn nhiều bản ghi trực tiếp bằng ô đánh dấu bên cạnh nút hủy.</li><li>Khung xác nhận hiển thị toàn bộ mục đã chọn; vẫn có thể tiếp tục chọn hoặc bỏ chọn mà không đóng khung.</li><li>Lý do hủy không bắt buộc. Sau khi xác nhận, hệ thống xử lý từng bản ghi và giữ lại mục lỗi để thử lại.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>批量作廢</h3><ol><li>可直接使用作廢按鈕旁的勾選框選取多筆產能紀錄。</li><li>確認視窗會完整列出已選明細；視窗開啟時仍可繼續勾選或取消勾選。</li><li>作廢原因可以留空。確認後會逐筆處理，失敗項目會保留供再次嘗試。</li></ol></section></div>
+                </div>
+              </div>
+            </article>
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
                 <time class="home-update-date" datetime="2026-09-08">08/09/2026</time>
                 <h2 class="ui-dual-copy">
                   <strong>Chữ rõ hơn, bố cục dễ đọc hơn</strong>
@@ -379,76 +393,13 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 </div>
               </div>
             </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-08-24">24/08/2026</time>
-                <h2 class="ui-dual-copy">
-                  <strong>Cập nhật toàn diện bảng mã hàng, đơn hàng và sản xuất</strong>
-                  <span>款號、訂單與生產流程全面更新</span>
-                </h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi">
-                    <section class="home-update-topic">
-                      <h3>Đồng bộ dữ liệu mã hàng</h3>
-                      <ol><li>Bảng mã hàng là nguồn chính thức duy nhất của mã hàng và công đoạn.</li><li>Sau khi sửa, đơn hàng, sản xuất, tổng hợp, hiệu suất, phân tích và thưởng tháng tự động dùng dữ liệu mới nhất.</li><li>Người dùng không cần đồng bộ từng đơn hàng hoặc tạo lại tổng hợp.</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Chỉnh sửa mã hàng và công đoạn</h3>
-                      <ol><li>Nhấn trực tiếp vào các trường trong bảng mã hàng để sửa; không còn màn hình chỉnh sửa công đoạn riêng.</li><li>Tại trang ghi nhận sản xuất, có thể nhấn mã hàng, số công đoạn, tên công đoạn hoặc số giây để mở cùng chức năng chỉnh sửa.</li><li>Chỉnh sửa nhóm được chia theo kích thước, hiển thị tổng số công đoạn và chỉ so sánh các mã hàng cùng kích thước.</li><li>Nhấn mã hàng để mở toàn bộ công đoạn; khác biệt chỉ để nhắc, không chặn thao tác. Trước khi lưu có xem trước, tiến độ và kết quả.</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Tối ưu đề xuất nhóm và xác nhận thay đổi</h3>
-                      <ol><li>Khi tạo nhóm, hệ thống liệt kê các mã cùng khách hàng và cùng tên tiếng Việt; chỉ mã có toàn bộ công đoạn giống nhau được đánh dấu “Khớp cao” và chọn sẵn.</li><li>Mã khác số lượng công đoạn, mô tả tiếng Việt hoặc giây tiêu chuẩn không được chọn sẵn nhưng người dùng vẫn có thể tự chọn; từng khác biệt được ghi rõ. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu và không thể chọn trùng.</li><li>Trong từng thẻ kích thước, hệ thống lấy phiên bản được nhiều mã sử dụng nhất làm chuẩn riêng; dữ liệu của kích thước khác không làm sai kết quả so sánh.</li><li>Mỗi lần chỉ sửa các mã đã chọn trong kích thước đang mở. Sau khi người dùng đóng kết quả, nếu có nhiều kích thước, hệ thống mới hỏi có tiếp tục sửa kích thước khác hay không và có thể quay lại sửa lại kích thước vừa xử lý.</li><li>Khi sửa một mã chưa có nhóm, hệ thống cho phép tạo nhóm trước hoặc bỏ qua để tiếp tục sửa.</li><li>Khi mở màn hình sửa, hệ thống hiển thị tiến độ và tạm khóa nút để tránh bấm lặp lại.</li><li>Màn hình xem trước và kết quả hiển thị mã hàng, kích thước, số công đoạn, tên công đoạn tiếng Việt, giây hiện tại, nội dung trước/sau, ảnh hưởng, kết quả và nguyên nhân.</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Nhập Excel mã hàng</h3>
-                      <ol><li>Nhập lại cùng mã hàng sẽ thay thế toàn bộ danh sách công đoạn theo tệp mới, không để sót công đoạn cũ.</li><li>Công đoạn có cùng số giữ liên kết cũ; phiếu sản xuất chưa khóa tự dùng tên, phân loại và số giây mới.</li><li>Trước khi ghi đè, hệ thống hiển thị các phiếu sản xuất bị ảnh hưởng để xác nhận.</li><li>Nếu công đoạn đã có sản lượng bị xóa và tệp mới không có cùng số để tiếp nhận, mã hàng đó sẽ dừng và nêu rõ nguyên nhân.</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Nhập Excel đơn hàng</h3>
-                      <ol><li>Một đơn hàng được phép có nhiều dòng cùng mã hàng và hệ thống không tự gộp.</li><li>PO, màu sắc, mô tả, ngày giao, số lượng và các thông tin riêng của đơn hàng không bị bảng mã hàng ghi đè.</li><li>Dòng trống, số lượng không hợp lệ hoặc tổng số lượng không khớp sẽ được báo trước khi nhập.</li><li>Công đoạn của đơn hàng luôn hiển thị theo bảng mã hàng mới nhất.</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Ghi nhận sản xuất và khóa tháng</h3>
-                      <ol><li>Một dòng đơn hàng có thể được nhiều nhân viên thực hiện vào nhiều ngày và nhiều lần ghi nhận.</li><li>Mỗi công đoạn được cộng riêng; tổng sản lượng hiệu lực không được vượt quá số lượng đơn hàng.</li><li>Khi hủy phiếu, tổng công đoạn và tổng hợp ngày/tháng được cập nhật cùng nhau.</li><li>Tháng chưa khóa luôn dùng dữ liệu mới nhất; kết quả chỉ cố định sau khi chính thức khóa và xuất thưởng tháng.</li></ol>
-                    </section>
-                  </div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant">
-                    <section class="home-update-topic">
-                      <h3>款號主檔同步</h3>
-                      <ol><li>款號主檔是款號與工序資料的唯一正式來源。</li><li>修改後，訂單、生產、摘要、績效、分析及月獎金會自動使用最新資料。</li><li>使用者不需要逐筆同步訂單或重新建立摘要。</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>款號與工序修改</h3>
-                      <ol><li>直接點擊款號總表的正式欄位即可修改，不再使用獨立工序修改頁面。</li><li>生產登記頁可點擊款號、工序號、工序名稱或秒數，開啟同一套修改功能。</li><li>群組修改依尺寸分頁，顯示總工序數量，並且只比較同尺寸款號。</li><li>點擊款號可展開全部工序；差異只作為提醒，不會阻止操作。儲存前提供預覽、進度及結果。</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>群組推薦與修改確認優化</h3>
-                      <ol><li>建立群組時，系統會列出同客人且同越文品名的款號；只有全部工序一致者標示「高度符合」並預設勾選。</li><li>工序數量、越文描述或標準秒數不同的款號不會預設勾選，但使用者仍可自行選擇，並會逐項標示差異。已在其他群組的款號只供比對，不可重複勾選。</li><li>每個尺寸分頁分別以最多款號共同使用的版本作為該尺寸基準，其他尺寸資料不會污染比對結果。</li><li>每次只修改目前尺寸內已勾選的款號。使用者關閉結果後，若有多個尺寸，系統才詢問是否繼續修改其他尺寸，也可回到原面板重新訂正剛處理的尺寸。</li><li>修改未分組款號時，可先建立群組，或略過並繼續修改。</li><li>開啟修改畫面時會顯示讀取進度並暫時鎖定按鈕，避免重複點擊。</li><li>修改預覽與結果會完整顯示款號、尺寸、工序號、越文工序名稱、目前秒數、修改前後內容、影響、結果及原因。</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Excel 款號匯入</h3>
-                      <ol><li>再次匯入相同款號時，完整採用新檔案的工序清單，不會殘留舊工序。</li><li>相同工序號保留原本關聯；既有未鎖定報工會自動使用新名稱、分類及秒數。</li><li>覆蓋前會顯示受影響報工，讓使用者確認後再執行。</li><li>若被移除的工序已有報工，而新檔案沒有相同工序號可以承接，該款號會停止覆蓋並列出原因。</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>Excel 訂單匯入</h3>
-                      <ol><li>同一張訂單允許多行相同款號，系統不會自動合併。</li><li>PO、顏色、說明、交期、數量及其他訂單資料不會被款號主檔覆蓋。</li><li>空白資料、無效數量或總數量不一致會在匯入前提示。</li><li>訂單工序永遠依目前最新款號主檔顯示。</li></ol>
-                    </section>
-                    <section class="home-update-topic">
-                      <h3>報工與鎖月</h3>
-                      <ol><li>同一訂單項目可由不同員工、不同日期及多筆報工完成。</li><li>各工序分開累計，有效報工總量不得超過訂單數量。</li><li>報工作廢時，工序累計與日／月摘要會一起更新。</li><li>未鎖定月份持續使用最新資料；只有正式鎖定並匯出月獎金後才凍結結果。</li></ol>
-                    </section>
-                  </div>
-                </div>
-              </div>
-            </article>
+
           </div>
 
           <div class="home-updates-archive-controls">
             <div class="ui-form-field">
               <label class="ui-dual-copy" for="home-updates-year"><strong>Năm</strong><span>年份</span></label>
-              <select id="home-updates-year"><option value="2026" data-version="20260908-1">2026</option></select>
+              <select id="home-updates-year"><option value="2026" data-version="20260914-1">2026</option></select>
             </div>
             <button type="button" class="ui-button" id="home-updates-load" aria-controls="home-updates-archive" aria-expanded="false" onclick="void PCMSFeatures.openHomeUpdatesArchive(this)">
               <span class="ui-dual-copy"><strong>Xem cập nhật trước</strong><span>查看較早更新</span></span>
@@ -628,6 +579,20 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             </table></div></div>
             <div class="production-empty" id="production-entry-empty" hidden><span class="ui-dual-copy"><strong>Chọn nhân viên để xem bản ghi trong tháng</strong><span>選擇員工後顯示本月紀錄</span></span></div>
             <div class="production-empty production-columns-empty" id="production-columns-empty" hidden><span class="ui-dual-copy"><strong>Chưa chọn cột hiển thị</strong><span>尚未選擇顯示欄位</span></span></div>
+            <aside class="production-batch-void-panel" id="production-batch-void-panel" role="dialog" aria-modal="false" aria-labelledby="production-batch-void-title-vi production-batch-void-title-zh" hidden>
+              <div class="production-batch-void-header">
+                <div class="ui-dual-copy"><strong id="production-batch-void-title-vi">Chi tiết đã chọn</strong><span id="production-batch-void-title-zh">已選明細</span></div>
+                <div class="production-batch-void-count ui-dual-copy" aria-live="polite"><strong id="production-batch-void-count-vi">Đã chọn 0 bản ghi</strong><span id="production-batch-void-count-zh">已選 0 筆</span></div>
+              </div>
+              <ol class="production-batch-void-list" id="production-batch-void-list"></ol>
+              <label class="production-batch-void-reason-label ui-dual-copy" for="production-batch-void-reason"><strong>Lý do (không bắt buộc)</strong><span>原因（選填）</span></label>
+              <textarea id="production-batch-void-reason" maxlength="500" rows="3"></textarea>
+              <div class="production-batch-void-status ui-dual-copy" id="production-batch-void-status" role="status" aria-live="polite" hidden><strong id="production-batch-void-status-vi"></strong><span id="production-batch-void-status-zh"></span></div>
+              <div class="production-batch-void-actions">
+                <button type="button" class="ui-button is-bilingual" id="production-batch-void-cancel"><span class="ui-dual-copy"><strong>Hủy chọn</strong><span>取消選取</span></span></button>
+                <button type="button" class="ui-button is-bilingual is-danger" id="production-batch-void-confirm"><i class="ti ti-ban" aria-hidden="true"></i><span class="ui-dual-copy"><strong id="production-batch-void-confirm-vi">Xác nhận hủy</strong><span id="production-batch-void-confirm-zh">確認作廢</span></span></button>
+              </div>
+            </aside>
           </section>
         </div>
       </div>
@@ -1471,7 +1436,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 
 <!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
 <script src="js/safe-dom.js?v=20260812-2"></script>
-<script src="js/ui-text.js?v=20260908-3"></script>
+<script src="js/ui-text.js?v=20260914-1"></script>
 <script src="js/ui-runtime.js?v=20260821-1"></script>
 <script src="js/ui-components.js?v=20260824-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
@@ -1479,11 +1444,11 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260908-3-archive1"></script>
-<script src="js/auth.js?v=20260908-3"></script>
+  <script src="js/features.js?v=20260914-1-archive1"></script>
+<script src="js/auth.js?v=20260914-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260908-3"></script>
+<script type="module" src="js/firebase.js?v=20260914-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

@@ -1516,6 +1516,175 @@
   vertical-align: middle;
 }
 
+.production-entry-row-action-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.production-batch-void-checkbox {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  cursor: pointer;
+}
+
+.production-batch-void-checkbox:hover {
+  border-color: var(--ui-color-danger-border);
+  background: var(--ui-color-danger-background);
+}
+
+.production-batch-void-checkbox:has(input:focus-visible) {
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-batch-void-checkbox input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ui-color-danger-text);
+  cursor: pointer;
+}
+
+.production-batch-void-checkbox:has(input:disabled),
+.production-batch-void-checkbox input:disabled {
+  cursor: default;
+  opacity: .68;
+}
+
+.production-batch-void-panel {
+  position: fixed;
+  z-index: 48;
+  left: 244px;
+  bottom: 24px;
+  display: flex;
+  width: min(460px, calc(100vw - 288px));
+  max-height: calc(100vh - 98px);
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ui-color-danger-border);
+  border-radius: var(--ui-radius-dialog);
+  background: var(--ui-color-surface);
+  box-shadow: var(--ui-shadow-panel);
+}
+
+#app-shell.sidebar-collapsed .production-batch-void-panel {
+  left: 68px;
+  width: min(460px, calc(100vw - 112px));
+}
+
+.production-batch-void-panel[hidden] {
+  display: none;
+}
+
+.production-batch-void-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ui-color-border);
+}
+
+.production-batch-void-header > .ui-dual-copy:first-child {
+  --ui-copy-size-primary: var(--ui-font-size-section-vi);
+  --ui-copy-size-secondary: var(--ui-font-size-section-zh);
+}
+
+.production-batch-void-count {
+  flex: 0 0 auto;
+  align-items: flex-end;
+  color: var(--ui-color-danger-text);
+  text-align: right;
+}
+
+.production-batch-void-list {
+  display: grid;
+  max-height: 260px;
+  margin: 0;
+  padding: 0 4px 0 28px;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.production-batch-void-list > li {
+  padding: 7px 9px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface-muted);
+}
+
+.production-batch-void-list > li > strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ui-color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-batch-void-list > li > .ui-dual-copy {
+  margin-top: 3px;
+  color: var(--ui-color-text-muted);
+}
+
+.production-batch-void-reason-label {
+  align-items: flex-start;
+}
+
+#production-batch-void-reason {
+  width: 100%;
+  min-height: 78px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  line-height: 1.45;
+  resize: vertical;
+}
+
+#production-batch-void-reason:focus-visible {
+  border-color: var(--ui-color-primary);
+  outline: 3px solid var(--ui-color-focus-ring);
+  outline-offset: 1px;
+}
+
+.production-batch-void-status {
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-primary-soft);
+  color: var(--ui-color-primary);
+}
+
+.production-batch-void-status.is-danger {
+  background: var(--ui-color-danger-background);
+  color: var(--ui-color-danger-text);
+}
+
+.production-batch-void-status.is-success {
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+}
+
+.production-batch-void-status[hidden] {
+  display: none;
+}
+
+.production-batch-void-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .production-entry-table .production-status {
   padding: 2px 7px;
   min-height: 26px;

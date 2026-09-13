@@ -3,6 +3,131 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-08-24",
+      "title": {
+        "vi": "Cập nhật toàn diện bảng mã hàng, đơn hàng và sản xuất",
+        "zh": "款號、訂單與生產流程全面更新"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Đồng bộ dữ liệu mã hàng",
+            "items": [
+              "Bảng mã hàng là nguồn chính thức duy nhất của mã hàng và công đoạn.",
+              "Sau khi sửa, đơn hàng, sản xuất, tổng hợp, hiệu suất, phân tích và thưởng tháng tự động dùng dữ liệu mới nhất.",
+              "Người dùng không cần đồng bộ từng đơn hàng hoặc tạo lại tổng hợp."
+            ]
+          },
+          {
+            "heading": "Chỉnh sửa mã hàng và công đoạn",
+            "items": [
+              "Nhấn trực tiếp vào các trường trong bảng mã hàng để sửa; không còn màn hình chỉnh sửa công đoạn riêng.",
+              "Tại trang ghi nhận sản xuất, có thể nhấn mã hàng, số công đoạn, tên công đoạn hoặc số giây để mở cùng chức năng chỉnh sửa.",
+              "Chỉnh sửa nhóm được chia theo kích thước, hiển thị tổng số công đoạn và chỉ so sánh các mã hàng cùng kích thước.",
+              "Nhấn mã hàng để mở toàn bộ công đoạn; khác biệt chỉ để nhắc, không chặn thao tác. Trước khi lưu có xem trước, tiến độ và kết quả."
+            ]
+          },
+          {
+            "heading": "Tối ưu đề xuất nhóm và xác nhận thay đổi",
+            "items": [
+              "Khi tạo nhóm, hệ thống liệt kê các mã cùng khách hàng và cùng tên tiếng Việt; chỉ mã có toàn bộ công đoạn giống nhau được đánh dấu “Khớp cao” và chọn sẵn.",
+              "Mã khác số lượng công đoạn, mô tả tiếng Việt hoặc giây tiêu chuẩn không được chọn sẵn nhưng người dùng vẫn có thể tự chọn; từng khác biệt được ghi rõ. Mã đã thuộc nhóm khác chỉ hiển thị để đối chiếu và không thể chọn trùng.",
+              "Trong từng thẻ kích thước, hệ thống lấy phiên bản được nhiều mã sử dụng nhất làm chuẩn riêng; dữ liệu của kích thước khác không làm sai kết quả so sánh.",
+              "Mỗi lần chỉ sửa các mã đã chọn trong kích thước đang mở. Sau khi người dùng đóng kết quả, nếu có nhiều kích thước, hệ thống mới hỏi có tiếp tục sửa kích thước khác hay không và có thể quay lại sửa lại kích thước vừa xử lý.",
+              "Khi sửa một mã chưa có nhóm, hệ thống cho phép tạo nhóm trước hoặc bỏ qua để tiếp tục sửa.",
+              "Khi mở màn hình sửa, hệ thống hiển thị tiến độ và tạm khóa nút để tránh bấm lặp lại.",
+              "Màn hình xem trước và kết quả hiển thị mã hàng, kích thước, số công đoạn, tên công đoạn tiếng Việt, giây hiện tại, nội dung trước/sau, ảnh hưởng, kết quả và nguyên nhân."
+            ]
+          },
+          {
+            "heading": "Nhập Excel mã hàng",
+            "items": [
+              "Nhập lại cùng mã hàng sẽ thay thế toàn bộ danh sách công đoạn theo tệp mới, không để sót công đoạn cũ.",
+              "Công đoạn có cùng số giữ liên kết cũ; phiếu sản xuất chưa khóa tự dùng tên, phân loại và số giây mới.",
+              "Trước khi ghi đè, hệ thống hiển thị các phiếu sản xuất bị ảnh hưởng để xác nhận.",
+              "Nếu công đoạn đã có sản lượng bị xóa và tệp mới không có cùng số để tiếp nhận, mã hàng đó sẽ dừng và nêu rõ nguyên nhân."
+            ]
+          },
+          {
+            "heading": "Nhập Excel đơn hàng",
+            "items": [
+              "Một đơn hàng được phép có nhiều dòng cùng mã hàng và hệ thống không tự gộp.",
+              "PO, màu sắc, mô tả, ngày giao, số lượng và các thông tin riêng của đơn hàng không bị bảng mã hàng ghi đè.",
+              "Dòng trống, số lượng không hợp lệ hoặc tổng số lượng không khớp sẽ được báo trước khi nhập.",
+              "Công đoạn của đơn hàng luôn hiển thị theo bảng mã hàng mới nhất."
+            ]
+          },
+          {
+            "heading": "Ghi nhận sản xuất và khóa tháng",
+            "items": [
+              "Một dòng đơn hàng có thể được nhiều nhân viên thực hiện vào nhiều ngày và nhiều lần ghi nhận.",
+              "Mỗi công đoạn được cộng riêng; tổng sản lượng hiệu lực không được vượt quá số lượng đơn hàng.",
+              "Khi hủy phiếu, tổng công đoạn và tổng hợp ngày/tháng được cập nhật cùng nhau.",
+              "Tháng chưa khóa luôn dùng dữ liệu mới nhất; kết quả chỉ cố định sau khi chính thức khóa và xuất thưởng tháng."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "款號主檔同步",
+            "items": [
+              "款號主檔是款號與工序資料的唯一正式來源。",
+              "修改後，訂單、生產、摘要、績效、分析及月獎金會自動使用最新資料。",
+              "使用者不需要逐筆同步訂單或重新建立摘要。"
+            ]
+          },
+          {
+            "heading": "款號與工序修改",
+            "items": [
+              "直接點擊款號總表的正式欄位即可修改，不再使用獨立工序修改頁面。",
+              "生產登記頁可點擊款號、工序號、工序名稱或秒數，開啟同一套修改功能。",
+              "群組修改依尺寸分頁，顯示總工序數量，並且只比較同尺寸款號。",
+              "點擊款號可展開全部工序；差異只作為提醒，不會阻止操作。儲存前提供預覽、進度及結果。"
+            ]
+          },
+          {
+            "heading": "群組推薦與修改確認優化",
+            "items": [
+              "建立群組時，系統會列出同客人且同越文品名的款號；只有全部工序一致者標示「高度符合」並預設勾選。",
+              "工序數量、越文描述或標準秒數不同的款號不會預設勾選，但使用者仍可自行選擇，並會逐項標示差異。已在其他群組的款號只供比對，不可重複勾選。",
+              "每個尺寸分頁分別以最多款號共同使用的版本作為該尺寸基準，其他尺寸資料不會污染比對結果。",
+              "每次只修改目前尺寸內已勾選的款號。使用者關閉結果後，若有多個尺寸，系統才詢問是否繼續修改其他尺寸，也可回到原面板重新訂正剛處理的尺寸。",
+              "修改未分組款號時，可先建立群組，或略過並繼續修改。",
+              "開啟修改畫面時會顯示讀取進度並暫時鎖定按鈕，避免重複點擊。",
+              "修改預覽與結果會完整顯示款號、尺寸、工序號、越文工序名稱、目前秒數、修改前後內容、影響、結果及原因。"
+            ]
+          },
+          {
+            "heading": "Excel 款號匯入",
+            "items": [
+              "再次匯入相同款號時，完整採用新檔案的工序清單，不會殘留舊工序。",
+              "相同工序號保留原本關聯；既有未鎖定報工會自動使用新名稱、分類及秒數。",
+              "覆蓋前會顯示受影響報工，讓使用者確認後再執行。",
+              "若被移除的工序已有報工，而新檔案沒有相同工序號可以承接，該款號會停止覆蓋並列出原因。"
+            ]
+          },
+          {
+            "heading": "Excel 訂單匯入",
+            "items": [
+              "同一張訂單允許多行相同款號，系統不會自動合併。",
+              "PO、顏色、說明、交期、數量及其他訂單資料不會被款號主檔覆蓋。",
+              "空白資料、無效數量或總數量不一致會在匯入前提示。",
+              "訂單工序永遠依目前最新款號主檔顯示。"
+            ]
+          },
+          {
+            "heading": "報工與鎖月",
+            "items": [
+              "同一訂單項目可由不同員工、不同日期及多筆報工完成。",
+              "各工序分開累計，有效報工總量不得超過訂單數量。",
+              "報工作廢時，工序累計與日／月摘要會一起更新。",
+              "未鎖定月份持續使用最新資料；只有正式鎖定並匯出月獎金後才凍結結果。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-08-21",
       "title": {
         "vi": "Cải thiện nhóm mã hàng, bảng sản xuất và thao tác hằng ngày",

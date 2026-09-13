@@ -236,7 +236,7 @@
       lastEntryId:text(lastEntryId),operationLogId:text(operationLogId),schemaVersion:2};
   }
   function productionOperationLog({entryId,entry,mutation,revision,aggregateId,daySummaryId,employeeMonthId,month,now,user,operationLogId}){
-    const action=mutation==='create'?'productionEntryCreate':mutation==='delete'?'productionEntryDelete':'productionEntryVoid';
+    const action=mutation==='create'?'productionEntryCreate':'productionEntryVoid';
     return {permissionKey:'productionRecords',feature:'production',action,status:'success',targetType:'productionEntry',
       targetId:text(entryId),targetRevision:Math.max(1,Math.round(Number(revision)||1)),mutation,recordType:text(entry.recordType),
       aggregateId:text(aggregateId),daySummaryId:text(daySummaryId),employeeMonthId:text(employeeMonthId),productionMonthId:text(month),
@@ -356,7 +356,7 @@
     return normalized.recordType==='supplement'?createSupplementEntry(normalized):createStandardEntry(normalized);
   }
 
-  async function mutateEntry(entryId,reason,mode){
+  async function voidEntry(entryId,reason){
     const user=currentUser();
     const id=text(entryId);const entryReference=window._docRef(COLLECTIONS.entries,id);let result;
     await window._runTransaction(async transaction=>{
@@ -379,33 +379,30 @@
       if(!aggregateSnapshot.exists()) throw new Error('Thiếu dữ liệu tổng hợp sản xuất. / 缺少產能累計資料。');
       const now=Date.now();
       const targetRevision=Number(current.revision||1)+1;
-      const operationLogId=operationLogIdFor(id,mode,targetRevision);
+      const operationLogId=operationLogIdFor(id,'void',targetRevision);
       const operationLogReference=window._docRef(COLLECTIONS.logs,operationLogId);
       if(current.recordType==='supplement'){
         const next=Math.max(0,Number(aggregateSnapshot.data()?.activeHours)||0)-Number(current.supplementHours||0);
-        transaction.set(aggregateReference,{activeHours:next,lastEntryId:id,lastMutation:mode,lastDelta:-Number(current.supplementHours||0),
+        transaction.set(aggregateReference,{activeHours:next,lastEntryId:id,lastMutation:'void',lastDelta:-Number(current.supplementHours||0),
           updatedAt:now,updatedByUid:user.uid,operationLogId},{merge:true});
       }else{
         const next=Math.max(0,(Number(aggregateSnapshot.data()?.registeredQty)||0)-Number(current.quantity||0));
-        transaction.set(aggregateReference,{registeredQty:next,updatedAt:now,updatedByUid:user.uid,lastMutation:mode,
+        transaction.set(aggregateReference,{registeredQty:next,updatedAt:now,updatedByUid:user.uid,lastMutation:'void',
           lastDelta:-Number(current.quantity||0),lastEntryId:id,operationLogId},{merge:true});
       }
-      if(mode==='delete'){transaction.delete(entryReference);result=current;}
-      else{
-        const saved={...stored,status:'voided',revision:targetRevision,voidedAt:now,voidedByUid:user.uid,
-          voidedBy:user.name,voidReason:text(reason).slice(0,500),updatedAt:now,updatedByUid:user.uid,updatedBy:user.name,operationLogId};
-        result={id,...saved};transaction.set(entryReference,saved);
-      }
+      const saved={...stored,status:'voided',revision:targetRevision,voidedAt:now,voidedByUid:user.uid,
+        voidedBy:user.name,voidReason:text(reason).slice(0,500),updatedAt:now,updatedByUid:user.uid,updatedBy:user.name,operationLogId};
+      result={id,...saved};transaction.set(entryReference,saved);
       if(summaries){
         const actor=operationActor(now,user,operationLogId);
-        const day=summaries.applyEntry(daySummarySnapshot.exists()?daySummarySnapshot.data():null,{...current,mutation:mode},-1,actor);
+        const day=summaries.applyEntry(daySummarySnapshot.exists()?daySummarySnapshot.data():null,{...current,mutation:'void'},-1,actor);
         const month=summaries.applyDayToMonth(monthSummarySnapshot.exists()?monthSummarySnapshot.data():null,null,day,
           actor,{complete:true});
         transaction.set(daySummaryReference,day);
         transaction.set(monthSummaryReference,month);
         transaction.set(monthReference,summaries.monthSourceVersionData(current.productionDate.slice(0,7),id,
           actor,monthSnapshot.data()),{merge:true});
-        const log=productionOperationLog({entryId:id,entry:current,mutation:mode,revision:targetRevision,
+        const log=productionOperationLog({entryId:id,entry:current,mutation:'void',revision:targetRevision,
           aggregateId:aggregateReference.id,daySummaryId:day.summaryId,employeeMonthId:month.monthSummaryId,
           month:current.productionDate.slice(0,7),now,user,operationLogId});
         log.note=text(reason).slice(0,500);
@@ -414,11 +411,6 @@
     },{skipDataVersions:true});
     if(result.recordType!=='supplement') applyProcessTotalDelta(itemStore().processTotalId(result.orderItemId,result.processId),-Number(result.quantity),0);
     const decorated=await decorateEntries([{id,...result}]);return decorated[0];
-  }
-  function voidEntry(entryId,reason){ return mutateEntry(entryId,reason,'void'); }
-  function deleteEntry(entryId){
-    if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên mới được xóa vĩnh viễn bản ghi sản xuất. / 只有管理員可以永久刪除生產紀錄。');
-    return mutateEntry(entryId,'','delete');
   }
 
   async function decorateEntries(entries){
@@ -456,6 +448,6 @@
 
   window.PCMSProductionEntryStore=Object.freeze({COLLECTIONS,loadOrders,listOrders,findOrder,loadProcesses,getLoadedProcesses,
     refreshLoadedProcessStandards,productsForOrder,findProcess,exceptionsForOrder,loadProcessTotal,processTotalLoadedAt,
-    createEntry,voidEntry,deleteEntry,decorateEntries,validateEntryInput,isSupplementEntry,isValidSupplementHours,
+    createEntry,voidEntry,decorateEntries,validateEntryInput,isSupplementEntry,isValidSupplementHours,
     invalidateProductResolution,reset});
 })();
