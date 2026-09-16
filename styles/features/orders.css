@@ -311,6 +311,17 @@
 #pg-progress th[data-orders-column="seconds"] { width: 130px; }
 #pg-progress th[data-orders-column="hourlyQty"] { width: 120px; }
 
+#order-archive-root .order-archive-toolbar,
+#order-archive-root .order-archive-actions { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+#order-archive-root .order-archive-toolbar { margin-bottom:12px; }
+#order-archive-root .order-archive-toolbar label { display:flex; align-items:center; gap:10px; }
+#order-archive-root .order-archive-toolbar input { max-width:320px; min-height:var(--ui-control-height-single); font:inherit; padding:6px 10px; border:1px solid var(--ui-color-info-border); border-radius:6px; }
+#order-archive-root .order-archive-row { border:1px solid var(--ui-color-info-border); background:var(--ui-color-surface); padding:12px; margin-bottom:10px; }
+#order-archive-root .order-archive-row > div:first-child { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:10px; overflow-wrap:anywhere; }
+#order-archive-root .order-archive-details { width:100%; margin-top:10px; table-layout:fixed; }
+#order-archive-root .order-archive-details th,
+#order-archive-root .order-archive-details td { padding:8px; overflow-wrap:anywhere; text-align:left; }
+
 @media (max-width: 1100px) {
   #pg-progress .orders-command-row {
     grid-template-columns: minmax(0, 1fr);

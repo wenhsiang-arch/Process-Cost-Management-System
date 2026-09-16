@@ -20,7 +20,7 @@
     productQuickEdit:'js/product-quick-edit.js?v=20260914-2',
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
-    orderService:'js/order-service.js?v=20260916-1',
+    orderService:'js/order-service.js?v=20260916-2',
     summary:'js/summary.js?v=20260914-2',
     data:'js/data.js?v=20260914-2',
     costLog:'js/cost-log.js?v=20260813-1',
@@ -29,7 +29,8 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260914-2',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260916-1',
+    orders:'js/orders.js?v=20260916-2',
+    orderArchive:'js/order-archive.js?v=20260916-2',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
@@ -64,7 +65,7 @@
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260914-2',
     pieceCutting:'styles/features/piece-cutting.css?v=20260914-2',
-    orders:'styles/features/orders.css?v=20260914-2',
+    orders:'styles/features/orders.css?v=20260916-2',
     products:'styles/features/products.css?v=20260914-2',
     cost:'styles/features/cost.css?v=20260914-2',
     accounts:'styles/features/accounts.css?v=20260914-2',
@@ -82,13 +83,19 @@
       vi:'Dữ liệu đơn hàng',zh:'訂單資料',
       pages:[
         {
-          page:'progress',feature:'progress',icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
+          page:'progress',feature:'progress',permissionVisible:false,icon:'ti-chart-bar',vi:'Dữ liệu đơn hàng',zh:'訂單資料',
           styles:['orders'],
           // data（資料與報表程式）目前仍提供訂單明細共用的工序分類文字；待後續拆出共用工具。
           scripts:['history','productCache','productModel','productionEfficiencyCore','productResolver','orderItemStore','orderService','uiTableControls','data','orders'],
           dataScopes:['operationSettings','orders','orderItems','products','productsMeta'],
           dataLoaders:['ensureOperationSettingsLoaded','loadOrderData'],
           onOpen:['renderProgress','renderOrders']
+        },
+        {
+          page:'order-archive',feature:'progress',permissionVisible:false,icon:'ti-archive',vi:'Đơn hàng đã lưu trữ',zh:'已封存訂單',
+          styles:['orders'],
+          scripts:['productModel','orderItemStore','orderService','orders','orderArchive'],
+          dataScopes:['orders','orderItems'],dataLoaders:['loadOrderData'],onOpen:['renderOrderArchive']
         }
       ]
     },

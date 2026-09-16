@@ -392,10 +392,82 @@
         note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
-    },{skipDataVersions:true});
+    });
     return clone(saved);
   }
 
-  window.PCMSOrderService=Object.freeze({COLLECTIONS,BATCH_SIZE,normalizeHeader,prepareImport,importOrder,loadOrderItems,loadProcessViews,
-    updateItemQuantity,updateOrder,setLifecycle});
+  const PURGE_BATCH_SIZE=100; // 每次最多刪除 100 筆，只處理訂單明細，不推論業務關聯。
+  const purgingOrders=new Set();
+  async function purgeOrder(orderId,options={}){
+    requireCloud();
+    if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên được xóa vĩnh viễn. / 只有管理員可永久刪除。');
+    const id=text(orderId), user=actor();
+    if(!id||purgingOrders.has(id)) throw new Error('Đang xử lý đơn hàng. / 訂單正在處理中。');
+    purgingOrders.add(id);
+    const ref=window._docRef(COLLECTIONS.orders,id);
+    const finalRef=window._docRef(COLLECTIONS.logs,`${id}__purge_complete`);
+    const log=(logRef,order,action,itemIds=[])=>({
+      schemaVersion:2,permissionKey:'progress',feature:'orders',action,status:'success',targetType:'order',targetId:id,
+      operationLogId:logRef.id,createdAt:Date.now(),createdByUid:user.uid,createdBy:user.name,
+      itemCount:action==='orderPurgeCompleted'?order.itemCount:itemIds.length,detailCount:itemIds.length,itemIds,
+      note:text(order.orderId).slice(0,200)
+    });
+    const changed=()=>new Error('Trạng thái đơn hàng đã thay đổi. / 訂單狀態已變更。');
+    try{
+      await window._runTransaction(async tx=>{
+        const snapshot=await tx.get(ref);
+        if(!snapshot.exists()){
+          if((await tx.get(finalRef)).exists()) return;
+          throw changed();
+        }
+        const order=snapshot.data();
+        if(order.lifecycleStatus==='deleting') return;
+        if(order.lifecycleStatus!=='archived'||order.importStatus!=='ready'||order.schemaVersion!==2) throw changed();
+        const startRef=window._docRef(COLLECTIONS.logs,`${id}__purge_start`);
+        tx.set(ref,{lifecycleStatus:'deleting',operationLogId:startRef.id,updatedAt:Date.now(),updatedByUid:user.uid},{merge:true});
+        tx.set(startRef,log(startRef,order,'orderPurgeStarted'));
+      });
+      let deletedThisRun=0;
+      for(;;){
+        const before=await window._getDoc(ref);
+        if(!before.exists()){
+          if((await window._getDoc(finalRef)).exists()) return {id,deleted:true};
+          throw changed();
+        }
+        const order=before.data();
+        if(order.lifecycleStatus!=='deleting') throw changed();
+        const rows=await window._getDocs(window._query(window._collection(COLLECTIONS.items),
+          window._where('orderId','==',id),window._limit(PURGE_BATCH_SIZE)));
+        const ids=rows.docs.map(row=>row.id);
+        const committed=await window._runTransaction(async tx=>{
+          const snapshot=await tx.get(ref);
+          if(!snapshot.exists()) return false;
+          const current=snapshot.data();
+          if(current.lifecycleStatus!=='deleting') throw changed();
+          // 另一視窗已完成這批時重新查詢，避免以舊清單重複刪除。
+          if(current.operationLogId!==order.operationLogId) return false;
+          if(ids.length){
+            const batchRef=window._newDocRef(COLLECTIONS.logs);
+            tx.set(ref,{operationLogId:batchRef.id,updatedAt:Date.now(),updatedByUid:user.uid},{merge:true});
+            ids.forEach(itemId=>tx.delete(window._docRef(COLLECTIONS.items,itemId)));
+            tx.set(batchRef,log(batchRef,current,'orderPurgeBatch',ids));
+          }else{
+            const lockRef=window._docRef(COLLECTIONS.locks,current.importLockId);
+            const lock=await tx.get(lockRef);
+            if(!lock.exists()||lock.data().orderDocumentId!==id) throw changed();
+            tx.set(finalRef,log(finalRef,current,'orderPurgeCompleted'));
+            tx.delete(lockRef);tx.delete(ref);
+          }
+          return true;
+        },{skipDataVersions:ids.length>0});
+        if(!committed) continue;
+        deletedThisRun+=ids.length;
+        options.onProgress?.({deletedThisRun,totalItems:order.itemCount});
+        if(!ids.length) return {id,deleted:true};
+      }
+    }finally{purgingOrders.delete(id);}
+  }
+
+  window.PCMSOrderService=Object.freeze({COLLECTIONS,BATCH_SIZE,PURGE_BATCH_SIZE,normalizeHeader,prepareImport,importOrder,loadOrderItems,loadProcessViews,
+    updateItemQuantity,updateOrder,setLifecycle,purgeOrder});
 })();

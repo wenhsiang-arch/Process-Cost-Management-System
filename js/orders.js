@@ -19,10 +19,11 @@ const ordersPairHtml=(vi,zh)=>`<span class="ui-bilingual"><span class="ui-text-v
 function ordersMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
 }
-function ordersConfirm(titleVi,titleZh,vi,zh){
+function ordersConfirm(titleVi,titleZh,vi,zh,options={}){
   return window.PCMSUIComponents.confirmDialog({
     title:{vi:titleVi,zh:titleZh},
-    body:window.PCMSUIComponents.createLanguageSections({vi:String(vi||''),zh:String(zh||'')})
+    body:window.PCMSUIComponents.createLanguageSections({vi:String(vi||''),zh:String(zh||'')}),
+    confirmText:options.confirmText,kind:options.kind
   });
 }
 function ordersSplitMessages(messages){
@@ -977,7 +978,6 @@ async function renderProgress(){
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()">
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-trash"></i></button>
-          ${window.cu?.role==='admin'?`<button class="btn bsm bd2" style="background:var(--errl);color:var(--err)" title="Xóa vĩnh viễn / 永久刪除" onclick="openOrderDeleteWarning('purge',${idArg},${orderArg})"><i class="ti ti-database-off"></i></button>`:''}
         </td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">
