@@ -636,9 +636,9 @@ async function confirmImportOrder(){
         orderId:d.ordId,client:g('imp-ord-client')?.value||'',dueDate:d.dueDate,actualShipDate:d.dueDate
       },d.matched,{
         fileName:g('imp-filename')?.textContent||'',
-        onProgress:progress=>setImportProgress(Math.round(progress.completedBatches/progress.totalBatches*100),
-          `Đang nhập đợt ${progress.completedBatches}/${progress.totalBatches}.`,
-          `正在匯入第 ${progress.completedBatches}/${progress.totalBatches} 批。`)
+        onProgress:progress=>setImportProgress(Math.min(95,Math.round(progress.completedItems/progress.totalItems*95)),
+          progress.phase==='finalizing'?'Đang xác nhận hoàn tất đơn hàng.':`Đã lưu ${progress.completedItems}/${progress.totalItems} dòng.`,
+          progress.phase==='finalizing'?'正在確認整張訂單完成。':`已儲存 ${progress.completedItems}/${progress.totalItems} 筆明細。`)
       });
       setImportProgress(100,'Nhập đơn hàng hoàn tất.','訂單匯入完成。');
       window.allOrders.unshift({...imported,items:undefined});
@@ -654,26 +654,59 @@ async function confirmImportOrder(){
   }catch(err){
     closeOrdersImportProgress();
     console.error('Nhập đơn hàng thất bại / 訂單匯入失敗',err);
+    btn.disabled=false;
+    btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>';
+    const message=orderImportErrorMessage(err); // message（具體匯入錯誤與已確認進度）
     await ordersMessage(
-      'Nhập đơn hàng thất bại. Có thể nhập lại cùng tệp để tiếp tục an toàn.',
-      '訂單匯入失敗，可重新匯入同一檔案安全續跑。',
+      message.vi,message.zh,
       'danger'
     );
   }
   finally{ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>'; }
 }
 
+// orderImportErrorMessage（匯入錯誤說明）：只顯示正式雙語原因，不直接顯示雲端英文錯誤。
+function orderImportErrorMessage(error){
+  const messages={
+    'permission-denied':{vi:'Cơ sở dữ liệu từ chối thao tác. Cần kiểm tra quyền hoặc quy tắc bảo mật trước khi thử lại.',
+      zh:'雲端拒絕此操作，需先檢查權限或安全規則，再重新嘗試。'},
+    'unauthenticated':{vi:'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi dùng cùng tệp để kiểm tra và tiếp tục.',
+      zh:'登入已失效，請重新登入，再用同一檔案核對並接續。'},
+    'unavailable':{vi:'Kết nối bị gián đoạn. Khi kết nối ổn định, dùng cùng tệp để kiểm tra và tiếp tục.',
+      zh:'連線中斷，恢復連線後可用同一檔案核對並接續。'},
+    'deadline-exceeded':{vi:'Chưa xác nhận được kết quả. Hãy dùng cùng tệp để kiểm tra tiến độ trước khi tiếp tục.',
+      zh:'尚未確認寫入結果，請使用同一檔案重新核對進度後接續。'},
+    'aborted':{vi:'Tiến độ đã thay đổi. Hãy dùng cùng tệp để kiểm tra và tiếp tục.',
+      zh:'匯入進度已變更，請使用同一檔案重新核對後接續。'},
+    'resource-exhausted':{vi:'Đã đạt giới hạn dịch vụ. Hãy kiểm tra hạn mức trước khi thử lại.',
+      zh:'雲端服務已達用量限制，請先確認額度再重試。'}
+  };
+  const code=String(error?.code||'').replace(/^firestore\//,''); // code（雲端錯誤代碼）
+  let pair=error?.orderImportMessage||messages[code];
+  if(!pair&&String(error?.message||'').includes(' / ')){
+    const split=ordersSplitMessages([error.message]);pair={vi:split.vi[0],zh:split.zh[0]};
+  }
+  pair=pair||{vi:'Không thể hoàn tất nhập đơn. Giữ lại tệp và kiểm tra nguyên nhân trước khi thử lại.',
+    zh:'訂單未能完成匯入，請保留檔案並確認原因後再重試。'};
+  const progress=error?.orderImportProgress; // progress（本次已收到確認的明細進度）
+  if(!progress) return pair;
+  return {
+    vi:`${pair.vi}\nĐã xác nhận lưu ${progress.completedItems}/${progress.totalItems} dòng; trạng thái cuối cần được kiểm tra lại.`,
+    zh:`${pair.zh}\n已確認儲存 ${progress.completedItems}/${progress.totalItems} 筆；最終狀態需重新核對。`
+  };
+}
+
 async function cleanupFailedOrder(orderId,orderNo,silent=false){
   if(silent) return false;
   await ordersMessage(
-    `Hãy nhập lại cùng tệp của đơn ${orderNo}; hệ thống sẽ tiếp tục từ dữ liệu đã hoàn tất.`,
-    `請重新匯入訂單 ${orderNo} 的同一檔案，系統會從已完成資料安全續跑。`,
+    `Dùng tài khoản ban đầu và cùng tệp của đơn ${orderNo}; hệ thống sẽ kiểm tra dữ liệu đã lưu trước khi tiếp tục.`,
+    `請由原匯入帳號選擇訂單 ${orderNo} 的同一檔案，系統會先核對已存資料，再接續未完成部分。`,
     'info'
   );
   return false;
 }
 function retryFailedImportCleanup(){
-  return ordersMessage('Hãy nhập lại cùng tệp để tiếp tục.','請重新匯入同一檔案以安全續跑。','info');
+  return ordersMessage('Dùng cùng tệp để kiểm tra dữ liệu đã lưu trước khi tiếp tục.','請選擇同一檔案，先核對已存資料再接續。','info');
 }
 
 // ===== 訂單列表 =====
