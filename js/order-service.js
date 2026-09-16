@@ -104,6 +104,17 @@
       '此訂單由其他帳號開始匯入，請由原匯入帳號接續。');
     if(!['importing','ready'].includes(lock.status)) throw changedImport();
   }
+  // 正式訂單狀態優先於匯入鎖；鎖可能是舊版遺留，不能單獨決定是否已完成。
+  function checkExistingOrderState(state){
+    if(state.lifecycleStatus==='deleting') throw importFailure('order-import-deleting',
+      'Đơn đang được xóa vĩnh viễn. Hãy hoàn tất xóa trước khi nhập lại.',
+      '此訂單正在永久刪除，請完成刪除後再重新匯入。');
+    if(state.lifecycleStatus==='archived') throw importFailure('order-import-archived',
+      'Đơn đã được lưu trữ. Hãy khôi phục hoặc hoàn tất xóa vĩnh viễn trước.',
+      '此訂單已封存，請先還原或完成永久刪除。');
+    if(state.importStatus==='ready') throw importFailure('order-import-exists',
+      'Đơn này đã tồn tại và đã nhập hoàn tất.', '此訂單已存在，且已完成匯入。');
+  }
   function checkImportOrder(order,plan,currentActor){
     if(!order||order.createdByUid!==currentActor.uid||order.schemaVersion!==2) throw changedImport();
     for(const [field,value] of Object.entries(plan.order)){
@@ -129,9 +140,17 @@
     let plan,fingerprint,initialLock,orderReference;
     const lockReference=window._docRef(COLLECTIONS.locks,lockId);
     try{
+      const orderNo=text(headerInput.orderId||headerInput.orderNo);
+      const completed=await window._getDocs(window._query(window._collection(COLLECTIONS.orders),
+        window._where('orderId','==',orderNo),window._where('importStatus','==','ready'),window._limit(1)));
       const candidateId=window._newDocRef(COLLECTIONS.orders).id;
       const startedAt=Number(options.now)||Date.now();
       await window._runTransaction(async transaction=>{
+        // 查詢結果僅提供候選；交易內重讀，避免把剛被刪除的舊結果當成重複訂單。
+        if(completed.docs.length){
+          const confirmed=await transaction.get(window._docRef(COLLECTIONS.orders,completed.docs[0].id));
+          if(confirmed.exists()&&confirmed.data().orderId===orderNo) checkExistingOrderState(confirmed.data());
+        }
         const snapshot=await transaction.get(lockReference);
         initialLock=snapshot.exists()?snapshot.data():null;
         let repairedLock=null;
@@ -140,13 +159,8 @@
           const existing=await transaction.get(window._docRef(COLLECTIONS.orders,text(initialLock.orderDocumentId)));
           if(existing.exists()){
             const state=existing.data();
-            if(state.lifecycleStatus==='deleting') throw importFailure('order-import-deleting',
-              'Đơn đang được xóa vĩnh viễn. Hãy hoàn tất xóa trước khi nhập lại.',
-              '此訂單正在永久刪除，請完成刪除後再重新匯入。');
-            if(state.lifecycleStatus==='archived') throw importFailure('order-import-archived',
-              'Đơn đã được lưu trữ. Hãy khôi phục hoặc hoàn tất xóa vĩnh viễn trước.',
-              '此訂單已封存，請先還原或完成永久刪除。');
-            if(state.importStatus==='ready'||initialLock.status==='ready') throw importFailure('order-import-exists',
+            checkExistingOrderState(state);
+            if(initialLock.status==='ready') throw importFailure('order-import-exists',
               'Đơn này đã tồn tại và đã nhập hoàn tất.', '此訂單已存在，且已完成匯入。');
           }else{
             const deleted=await transaction.get(window._docRef(COLLECTIONS.logs,`${initialLock.orderDocumentId}__purge_complete`));
