@@ -134,7 +134,36 @@
       await window._runTransaction(async transaction=>{
         const snapshot=await transaction.get(lockReference);
         initialLock=snapshot.exists()?snapshot.data():null;
-        if(initialLock) checkImportOwner(initialLock,currentActor);
+        let repairedLock=null;
+        // 先核對訂單狀態，再判斷接續帳號；不可把已完成訂單誤報為匯入中。
+        if(initialLock){
+          const existing=await transaction.get(window._docRef(COLLECTIONS.orders,text(initialLock.orderDocumentId)));
+          if(existing.exists()){
+            const state=existing.data();
+            if(state.lifecycleStatus==='deleting') throw importFailure('order-import-deleting',
+              'Đơn đang được xóa vĩnh viễn. Hãy hoàn tất xóa trước khi nhập lại.',
+              '此訂單正在永久刪除，請完成刪除後再重新匯入。');
+            if(state.lifecycleStatus==='archived') throw importFailure('order-import-archived',
+              'Đơn đã được lưu trữ. Hãy khôi phục hoặc hoàn tất xóa vĩnh viễn trước.',
+              '此訂單已封存，請先還原或完成永久刪除。');
+            if(state.importStatus==='ready'||initialLock.status==='ready') throw importFailure('order-import-exists',
+              'Đơn này đã tồn tại và đã nhập hoàn tất.', '此訂單已存在，且已完成匯入。');
+          }else{
+            const deleted=await transaction.get(window._docRef(COLLECTIONS.logs,`${initialLock.orderDocumentId}__purge_complete`));
+            const proof=deleted.exists()?deleted.data():null;
+            if(proof&&proof.schemaVersion===2&&proof.feature==='orders'&&proof.permissionKey==='progress'
+              &&proof.action==='orderPurgeCompleted'&&proof.status==='success'&&proof.targetType==='order'
+              &&proof.targetId===initialLock.orderDocumentId&&proof.operationLogId===deleted.id
+              &&proof.note===initialLock.orderNo&&proof.createdAt>=initialLock.createdAt){
+              repairedLock=initialLock;initialLock=null;
+            }
+            // 保留舊版先建立鎖定、尚未建立訂單的原帳號接續方式。
+            if(initialLock&&(proof||initialLock.importFingerprint||initialLock.status!=='importing')) throw importFailure('order-import-orphan',
+              'Không tìm thấy đơn tương ứng hoặc xác nhận xóa. Đã dừng nhập để kiểm tra.',
+              '找不到鎖定對應的訂單或刪除完成證明，已停止匯入，需核對資料。');
+          }
+          if(initialLock) checkImportOwner(initialLock,currentActor);
+        }
         const orderDocumentId=initialLock?text(initialLock.orderDocumentId):candidateId;
         plan=prepareImport(headerInput,rows,{...options,orderDocumentId});
         fingerprint=await importFingerprint(plan);
@@ -149,11 +178,19 @@
         // 驗證與內容指紋成功後才建立正式匯入狀態；尚未發布訂單快取版本。
         transaction.set(orderReference,{...plan.order,createdAt:startedAt,createdByUid:currentActor.uid,createdBy:currentActor.name,
           updatedAt:startedAt,updatedByUid:currentActor.uid});
-        transaction.set(lockReference,{lockId,orderNo:plan.header.orderId,orderDocumentId,status:'importing',
+        const repairLogId=repairedLock?`${candidateId}__lockRepair`:null;
+        transaction.set(lockReference,{...(repairLogId?{repairLogId}:{}),lockId,orderNo:plan.header.orderId,orderDocumentId,status:'importing',
           completedItems:0,completedBatches:0,totalBatches:Math.ceil(plan.items.length/BATCH_SIZE),
           importFingerprint:fingerprint,createdAt:startedAt,createdByUid:currentActor.uid,createdBy:currentActor.name});
+        if(repairedLock) transaction.set(window._docRef(COLLECTIONS.logs,repairLogId),{
+          schemaVersion:2,permissionKey:'progress',feature:'orders',action:'orderImportLockRepair',status:'success',
+          targetType:'order',targetId:candidateId,oldOrderId:repairedLock.orderDocumentId,lockId,
+          operationLogId:repairLogId,itemCount:1,detailCount:1,createdAt:startedAt,
+          createdByUid:currentActor.uid,createdBy:currentActor.name
+        });
       },{skipDataVersions:true});
       if(initialLock){
+        progress.phase='resuming';
         // 續跑只讀本張訂單，最多原檔筆數加一；逐筆核對，舊版 400 筆檢查點不直接換算成新版批次。
         const existing=await window._getDocs(window._query(window._collection(COLLECTIONS.items),
           window._where('orderId','==',plan.orderDocumentId),window._limit(plan.items.length+1)));
@@ -236,7 +273,7 @@
       return clone({id:plan.orderDocumentId,...plan.order,importStatus:'ready',importCompletedAt:completedAt,
         operationLogId:logId,items:plan.items});
     }catch(error){
-      error.orderImportProgress={...progress};
+      if(progress.phase!=='checking') error.orderImportProgress={...progress};
       throw error;
     }finally{importingOrders.delete(lockId);}
   }

@@ -690,7 +690,7 @@ function orderImportErrorMessage(error){
   pair=pair||{vi:'Không thể hoàn tất nhập đơn. Giữ lại tệp và kiểm tra nguyên nhân trước khi thử lại.',
     zh:'訂單未能完成匯入，請保留檔案並確認原因後再重試。'};
   const progress=error?.orderImportProgress; // progress（本次已收到確認的明細進度）
-  if(!progress) return pair;
+  if(!progress||progress.phase==='checking') return pair;
   return {
     vi:`${pair.vi}\nĐã xác nhận lưu ${progress.completedItems}/${progress.totalItems} dòng; trạng thái cuối cần được kiểm tra lại.`,
     zh:`${pair.zh}\n已確認儲存 ${progress.completedItems}/${progress.totalItems} 筆；最終狀態需重新核對。`
