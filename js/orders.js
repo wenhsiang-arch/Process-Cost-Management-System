@@ -756,7 +756,7 @@ function renderOrders(){
       </td>
       <td><div class="orders-row-actions">
         ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress(${idArg})"><i class="ti ti-chart-bar"></i></button>`:''}
-        ${isOrderUsable(o)?`<button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-trash"></i></button>`:''}
+        ${isOrderUsable(o)?`<button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-ban"></i></button>`:''}
         ${o.lifecycleStatus==='archived'&&canManageOrders()?`<button class="btn bsm" onclick="restoreArchivedOrder(${idArg},${orderArg})"><i class="ti ti-restore"></i>Khôi phục / 還原</button>`:''}
       </div></td>`;
     tb.appendChild(tr);
@@ -781,7 +781,7 @@ function openOrderDeleteWarning(mode,id,name){
   window._orderDeleteRequest={mode,id,name};
   const archive=mode==='archive';
   const titlePair=archive?{vi:'Xóa (Lưu trữ)',zh:'刪除（封存）'}:{vi:'Xóa vĩnh viễn',zh:'永久刪除'};
-  g('order-delete-warning-title').innerHTML=`<i class="ti ${archive?'ti-trash':'ti-database-off'}"></i><span class="ui-bilingual"><span class="ui-text-vi">${titlePair.vi}</span><span class="ui-text-zh">${titlePair.zh}</span></span>`;
+  g('order-delete-warning-title').innerHTML=`<i class="ti ${archive?'ti-ban':'ti-database-off'}"></i><span class="ui-bilingual"><span class="ui-text-vi">${titlePair.vi}</span><span class="ui-text-zh">${titlePair.zh}</span></span>`;
   g('order-delete-warning-text').innerHTML=archive
     ?'<div class="ui-language-sections"><div class="ui-language-section">Xóa (Lưu trữ) sẽ ẩn đơn hàng, nhưng giữ dữ liệu đơn hàng và công đoạn.</div><div class="ui-language-section">刪除（封存）會隱藏訂單，但保留訂單與工序資料。</div></div>'
     :'<div class="ui-language-sections"><div class="ui-language-section">Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn và lịch sử điều chỉnh. Không thể khôi phục.</div><div class="ui-language-section">永久刪除會移除訂單、工序及數量調整紀錄，無法復原。</div></div>';
@@ -811,7 +811,7 @@ async function openOrderDelete(mode,id,name){
     g('order-delete-confirm').value='';
     const archive=mode==='archive';
     const titlePair=archive?{vi:'Xóa (Lưu trữ)',zh:'刪除（封存）'}:{vi:'Xóa vĩnh viễn',zh:'永久刪除'};
-    g('order-delete-title').innerHTML=`<i class="ti ${archive?'ti-trash':'ti-database-off'}"></i><span class="ui-bilingual"><span class="ui-text-vi">${titlePair.vi}</span><span class="ui-text-zh">${titlePair.zh}</span></span>`;
+    g('order-delete-title').innerHTML=`<i class="ti ${archive?'ti-ban':'ti-database-off'}"></i><span class="ui-bilingual"><span class="ui-text-vi">${titlePair.vi}</span><span class="ui-text-zh">${titlePair.zh}</span></span>`;
     g('order-delete-summary').innerHTML=`<div class="ui-language-sections"><div class="ui-language-section"><div><b>Đơn hàng:</b> ${ordersSafeText(name)}</div><div><b>Dòng chi tiết:</b> ${data.items.length}</div></div><div class="ui-language-section"><div><b>訂單：</b>${ordersSafeText(name)}</div><div><b>明細列：</b>${data.items.length}</div></div></div>`;
     g('order-archive-btn').style.display=archive?'':'none';
     g('order-purge-btn').style.display=archive?'none':'';
@@ -977,7 +977,7 @@ async function renderProgress(){
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()">
-          <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-trash"></i></button>
+          <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
         </td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">
