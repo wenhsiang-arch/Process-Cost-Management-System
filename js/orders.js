@@ -11,6 +11,7 @@ let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（�
 let orderImportFieldsBound = false; // orderImportFieldsBound（訂單必要資料自動接續檢查是否已綁定）
 let pendingOrderImportFile = null; // pendingOrderImportFile（等待必要資料完成的訂單檔案）
 let pendingOrderImportInput = null; // pendingOrderImportInput（本次訂單檔案選擇控制）
+let orderImportFileSequence = 0; // orderImportFileSequence（目前檔案選擇序號）：舊檔讀取完成後不得覆蓋新預覽。
 const ordersSafeText=value=>window.PCMSSafe.text(value); // ordersSafeText（訂單畫面安全文字）
 const ordersSafeAttr=value=>window.PCMSSafe.attribute(value); // ordersSafeAttr（訂單畫面安全屬性）
 const ordersInlineArg=value=>window.PCMSSafe.inlineArgument(value); // ordersInlineArg（訂單行內事件安全參數）
@@ -38,6 +39,7 @@ function ordersSplitMessages(messages){
 
 // showOrderFileDropMessage（顯示訂單拖曳結果）：格式或數量不符時顯示雙語原因。
 function showOrderFileDropMessage(detail){
+  resetOrderImportPreview();
   const message=detail?.message||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
   const pair=window.PCMSUIText?.resolve?.(message)||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // pair（拒絕原因雙語文字）
   void ordersMessage(pair.vi,pair.zh,'warning');
@@ -45,6 +47,22 @@ function showOrderFileDropMessage(detail){
 
 function orderImportPrerequisitesComplete(){
   return !!g('imp-ord-id')?.value.trim()&&!!g('imp-ord-client')?.value&&!!g('imp-ord-date')?.value;
+}
+
+// resetOrderImportPreview（清除舊檔預覽）：任何新選檔或拒絕結果都不能沿用上一份可匯入資料。
+function resetOrderImportPreview(){
+  orderImportFileSequence++;
+  window._impData=null;
+  pendingOrderImportFile=null;
+  pendingOrderImportInput=null;
+  const preview=g('imp-step2');
+  if(preview) preview.style.display='none';
+  const rows=g('imp-preview-tb');
+  if(rows) rows.replaceChildren();
+  const confirm=g('imp-confirm-btn');
+  if(confirm) confirm.disabled=true;
+  const fileName=g('imp-filename');
+  if(fileName) fileName.textContent='';
 }
 
 // tryProcessPendingOrderImport（接續訂單檢查）：檔案先拖入時，等訂單資料填完整後才進入既有檢查。
@@ -60,6 +78,7 @@ async function tryProcessPendingOrderImport(){
 
 async function queueOrderImportFile(file,input=null){
   if(!file) return false;
+  resetOrderImportPreview();
   pendingOrderImportFile=file;
   pendingOrderImportInput=input;
   const fileName=g('imp-filename');
@@ -109,8 +128,6 @@ function resetOrderRuntimeCache(){
   progressRenderSequence++;
 }
 function setImportProgress(percent,vi,zh){
-  const wrap=g('imp-progress-wrap');
-  if(wrap) wrap.style.display='none';
   const value=Math.max(0,Math.min(100,Number(percent)||0)); // value（訂單匯入百分比進度）
   const textPair={vi:String(vi||''),zh:String(zh||'')}; // textPair（訂單匯入雙語進度文字）
   const detailPair={vi:'Vui lòng chờ, không đóng cửa sổ này.',zh:'請稍候，不要關閉此視窗。'}; // detailPair（訂單匯入雙語補充文字）
@@ -448,17 +465,14 @@ window.PCMSOrderImportValidation=Object.freeze({
 async function openImportOrder(options={}){
   if(!canManageOrders()) return;
   closeOrdersImportProgress();
+  resetOrderImportPreview();
   if(window.ensureProductsLoaded){
     const ok=await ensureProductsLoaded({requireMeta:true});
     if(!ok){ await ordersMessage('Không thể tải bảng công đoạn. Vui lòng thử lại.','無法載入工序資料，請稍後再試。','danger'); return; }
   }
   g('imp-ord-id').value=''; g('imp-ord-date').value='';
-  g('imp-file').value=''; g('imp-filename').textContent='';
+  g('imp-file').value='';
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
-  g('imp-skip-msg').style.display='none';
-  g('imp-progress-wrap').style.display='none';
-  g('imp-cleanup-btn').style.display='none';
-  window._impData=null;
   pendingOrderImportFile=null;
   pendingOrderImportInput=null;
   const clientSel=g('imp-ord-client');
@@ -497,23 +511,23 @@ async function reloadOrders(options={}){
 
 function closeImportOrder(){
   closeOrdersImportProgress();
-  window._impData=null;
+  resetOrderImportPreview();
   pendingOrderImportFile=null;
   pendingOrderImportInput=null;
   g('imp-file').value='';
-  g('imp-filename').textContent='';
   cm('m-import-order');
 }
 
 async function handleImportFile(input){
   const file=input.files[0]; if(!file) return;
+  resetOrderImportPreview();
   registerOrderFileDropTarget();
   return window.PCMSUIFileDrop?.receiveFiles?.(input.files,{targetId:'order-import',source:'picker'});
 }
 
-async function processImportOrderFile(file,input){
-  const ordId=g('imp-ord-id').value.trim();
+async function processImportOrderFile(file,input,selection=orderImportFileSequence){
   const client=g('imp-ord-client')?.value||'';
+  const ordId=g('imp-ord-id').value.trim();
   const dueDate=g('imp-ord-date').value;
   if(!ordId){ await ordersMessage('Vui lòng nhập số đơn hàng.','請先填寫訂單編號。','warning'); if(input) input.value=''; return; }
   if(!client){ await ordersMessage('Vui lòng chọn khách hàng.','請先選擇客戶。','warning'); if(input) input.value=''; return; }
@@ -526,13 +540,16 @@ async function processImportOrderFile(file,input){
   try{
     await window.PCMSFeatures.ensureSpreadsheetTool();
   }catch(error){
+    if(selection!==orderImportFileSequence) return;
     await ordersMessage('Không thể tải công cụ bảng tính.','無法載入表格檔工具。','danger');
     if(input) input.value='';
     return;
   }
+  if(selection!==orderImportFileSequence) return;
   g('imp-filename').textContent=file.name;
   const reader=new FileReader();
   reader.onload=async function(e){
+    if(selection!==orderImportFileSequence) return;
     try{
       const wb=XLSX.read(e.target.result,{type:'binary'});
       if(!Array.isArray(wb.SheetNames)||wb.SheetNames.length!==1){
@@ -541,7 +558,6 @@ async function processImportOrderFile(file,input){
           `訂單檔案只能有 1 個工作表；目前有 ${wb.SheetNames?.length||0} 個。`,
           'danger'
         );
-        window._impData=null;
         return;
       }
       const ws=wb.Sheets[wb.SheetNames[0]];
@@ -551,7 +567,7 @@ async function processImportOrderFile(file,input){
         return String(ws[address]?.f||'');
       }));
       const parsed=parseGeneralOrderRows(rows,wb.SheetNames[0],{formulaRows});
-      const matched=[], skipped=[], errors=[...parsed.errors];
+      const matched=[], errors=[...parsed.errors];
       const headerRow=parsed.header?rows[parsed.header.row]||[]:[];
       const iDesc=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_DESC_HEADERS);
       const iColor=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_COLOR_HEADERS);
@@ -590,33 +606,29 @@ async function processImportOrderFile(file,input){
       if(errors.length){
         const grouped=ordersSplitMessages(errors.slice(0,15));
         await ordersMessage(grouped.vi.join('\n'),grouped.zh.join('\n'),'danger');
-        window._impData=null;
         return;
       }
-      window._impData={ordId,dueDate,matched,skipped};
+      if(selection!==orderImportFileSequence) return;
+      window._impData={matched};
       g('imp-step2').style.display='block';
+      g('imp-confirm-btn').disabled=matched.length===0;
       const _ioMsg=document.getElementById('imp-order-ok');
       if(_ioMsg) _ioMsg.innerHTML=`<i class="ti ti-check"></i><div class="ui-language-sections"><div class="ui-language-section">Tìm thấy <b>${matched.length}</b> mã hàng, tổng cộng <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> công đoạn.</div><div class="ui-language-section">找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> 道工序。</div></div>`;
-      if(skipped.length>0){
-        const sm=g('imp-skip-msg'); sm.style.display='flex';
-        const skippedText=`${ordersSafeText(skipped.slice(0,5).join('、'))}${skipped.length>5?'...':''}`;
-        sm.innerHTML=`<i class="ti ti-alert-triangle"></i><div class="ui-language-sections"><div class="ui-language-section">Bỏ qua ${skipped.length} mã hàng vì không tìm thấy trong bảng công đoạn: ${skippedText}</div><div class="ui-language-section">工序表找不到以下 ${skipped.length} 個款號，已跳過：${skippedText}</div></div>`;
-      }
       const tb=g('imp-preview-tb'); tb.innerHTML='';
       matched.forEach(m=>{
         const tr=document.createElement('tr');
         tr.innerHTML=`<td><b>${ordersSafeText(m.code)}</b></td><td>${ordersSafeText(m.desc)}</td><td>${ordersSafeText(m.color)}</td><td>${m.qty.toLocaleString()}</td><td>${m.ops.length}</td><td><span class="tg tg2">Có thể nhập<br>可匯入</span></td>`;
         tb.appendChild(tr);
       });
-      skipped.forEach(s=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td><b>${ordersSafeText(s)}</b></td><td colspan="4">-</td><td><span class="tg tr2">Không tìm thấy công đoạn<br>找不到工序</span></td>`;
-        tb.appendChild(tr);
-      });
     }catch(err){
+      if(selection!==orderImportFileSequence) return;
       console.error('Không thể đọc tệp đơn hàng / 訂單檔案讀取失敗',err);
       await ordersMessage('Không thể đọc tệp đơn hàng. Vui lòng kiểm tra định dạng tệp.','訂單檔案讀取失敗，請檢查檔案格式。','danger');
     }
+  };
+  reader.onerror=async function(){
+    if(selection!==orderImportFileSequence) return;
+    await ordersMessage('Không thể đọc tệp đơn hàng. Vui lòng thử lại.','無法讀取訂單檔案，請重試。','danger');
   };
   reader.readAsBinaryString(file);
 }
@@ -625,7 +637,12 @@ async function confirmImportOrder(){
   const d=window._impData;
   if(!d||!d.matched.length){ await ordersMessage('Vui lòng tải tệp đơn hàng trước.','請先上傳訂單表格檔。','warning'); return; }
   if(!canManageOrders()) return;
-  d.ordId = g('imp-ord-id').value.trim();
+  const orderId=g('imp-ord-id').value.trim();
+  const dueDate=g('imp-ord-date').value;
+  if(!orderId||!g('imp-ord-client')?.value||!dueDate){
+    await ordersMessage('Vui lòng điền đủ số đơn, khách hàng và ngày giao hàng.','請填妥訂單號碼、客戶及交期。','warning');
+    return;
+  }
   const btn=g('imp-confirm-btn');
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i><span class="ui-bilingual"><span class="ui-text-vi">Đang nhập</span><span class="ui-text-zh">匯入中</span></span>';
   try{
@@ -634,7 +651,7 @@ async function confirmImportOrder(){
     }
     {
       const imported=await window.PCMSOrderService.importOrder({
-        orderId:d.ordId,client:g('imp-ord-client')?.value||'',dueDate:d.dueDate,actualShipDate:d.dueDate
+        orderId,client:g('imp-ord-client')?.value||'',dueDate,actualShipDate:dueDate
       },d.matched,{
         fileName:g('imp-filename')?.textContent||'',
         onProgress:progress=>setImportProgress(Math.min(95,Math.round(progress.completedItems/progress.totalItems*95)),
@@ -646,8 +663,8 @@ async function confirmImportOrder(){
       closeImportOrder();
       renderOrders();renderProgress();
       await ordersMessage(
-        `Nhập đơn hàng thành công!\nĐơn hàng: ${d.ordId}\nDòng chi tiết: ${d.matched.length}`,
-        `訂單匯入成功！\n訂單：${d.ordId}\n明細列：${d.matched.length}`,
+        `Nhập đơn hàng thành công!\nĐơn hàng: ${orderId}\nDòng chi tiết: ${d.matched.length}`,
+        `訂單匯入成功！\n訂單：${orderId}\n明細列：${d.matched.length}`,
         'success'
       );
       return;
@@ -655,7 +672,7 @@ async function confirmImportOrder(){
   }catch(err){
     closeOrdersImportProgress();
     console.error('Nhập đơn hàng thất bại / 訂單匯入失敗',err);
-    btn.disabled=false;
+    btn.disabled=!window._impData;
     btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>';
     const message=orderImportErrorMessage(err); // message（具體匯入錯誤與已確認進度）
     await ordersMessage(
@@ -663,7 +680,7 @@ async function confirmImportOrder(){
       'danger'
     );
   }
-  finally{ btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>'; }
+  finally{ btn.disabled=!window._impData; btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>'; }
 }
 
 // orderImportErrorMessage（匯入錯誤說明）：只顯示正式雙語原因，不直接顯示雲端英文錯誤。
@@ -695,19 +712,6 @@ function orderImportErrorMessage(error){
     vi:`${pair.vi}\nĐã xác nhận lưu ${progress.completedItems}/${progress.totalItems} dòng; trạng thái cuối cần được kiểm tra lại.`,
     zh:`${pair.zh}\n已確認儲存 ${progress.completedItems}/${progress.totalItems} 筆；最終狀態需重新核對。`
   };
-}
-
-async function cleanupFailedOrder(orderId,orderNo,silent=false){
-  if(silent) return false;
-  await ordersMessage(
-    `Dùng tài khoản ban đầu và cùng tệp của đơn ${orderNo}; hệ thống sẽ kiểm tra dữ liệu đã lưu trước khi tiếp tục.`,
-    `請由原匯入帳號選擇訂單 ${orderNo} 的同一檔案，系統會先核對已存資料，再接續未完成部分。`,
-    'info'
-  );
-  return false;
-}
-function retryFailedImportCleanup(){
-  return ordersMessage('Dùng cùng tệp để kiểm tra dữ liệu đã lưu trước khi tiếp tục.','請選擇同一檔案，先核對已存資料再接續。','info');
 }
 
 // ===== 訂單列表 =====
@@ -756,7 +760,7 @@ function renderOrders(){
       </td>
       <td><div class="orders-row-actions">
         ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress(${idArg})"><i class="ti ti-chart-bar"></i></button>`:''}
-        ${isOrderUsable(o)?`<button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-ban"></i></button>`:''}
+        ${isOrderUsable(o)?`<button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>`:''}
         ${o.lifecycleStatus==='archived'&&canManageOrders()?`<button class="btn bsm" onclick="restoreArchivedOrder(${idArg},${orderArg})"><i class="ti ti-restore"></i>Khôi phục / 還原</button>`:''}
       </div></td>`;
     tb.appendChild(tr);
@@ -768,23 +772,10 @@ function viewOrderProgress(id){
   g('prog-sel').value=id; sp('progress'); renderProgress();
 }
 
-async function getOrderDeleteData(id,name){
-  const itemSnap=await window._getDocs(window._query(window._collection('orderItems'),window._where('orderId','==',id)));
-  return {id,name,items:itemSnap.docs};
-}
-
-function openOrderDeleteWarning(mode,id,name){
-  if(mode!=='archive'){
-    void ordersMessage('Hệ thống không xóa vĩnh viễn đơn hàng chính thức.','系統不永久刪除正式訂單。','warning');
-    return;
-  }
-  window._orderDeleteRequest={mode,id,name};
-  const archive=mode==='archive';
-  const titlePair=archive?{vi:'Xóa (Lưu trữ)',zh:'刪除（封存）'}:{vi:'Xóa vĩnh viễn',zh:'永久刪除'};
-  g('order-delete-warning-title').innerHTML=`<i class="ti ${archive?'ti-ban':'ti-database-off'}"></i><span class="ui-bilingual"><span class="ui-text-vi">${titlePair.vi}</span><span class="ui-text-zh">${titlePair.zh}</span></span>`;
-  g('order-delete-warning-text').innerHTML=archive
-    ?'<div class="ui-language-sections"><div class="ui-language-section">Xóa (Lưu trữ) sẽ ẩn đơn hàng, nhưng giữ dữ liệu đơn hàng và công đoạn.</div><div class="ui-language-section">刪除（封存）會隱藏訂單，但保留訂單與工序資料。</div></div>'
-    :'<div class="ui-language-sections"><div class="ui-language-section">Xóa vĩnh viễn sẽ xóa đơn hàng, công đoạn và lịch sử điều chỉnh. Không thể khôi phục.</div><div class="ui-language-section">永久刪除會移除訂單、工序及數量調整紀錄，無法復原。</div></div>';
+function openOrderDeleteWarning(id,name){
+  window._orderDeleteRequest={id,name};
+  g('order-delete-warning-title').innerHTML='<i class="ti ti-ban"></i><span class="ui-bilingual"><span class="ui-text-vi">Xóa (Lưu trữ)</span><span class="ui-text-zh">刪除（封存）</span></span>';
+  g('order-delete-warning-text').innerHTML='<div class="ui-language-sections"><div class="ui-language-section">Xóa (Lưu trữ) sẽ ẩn đơn hàng, nhưng giữ dữ liệu đơn hàng và công đoạn.</div><div class="ui-language-section">刪除（封存）會隱藏訂單，但保留訂單與工序資料。</div></div>';
   om('m-order-delete-warning');
 }
 
@@ -797,30 +788,24 @@ function continueOrderDelete(){
   const request=window._orderDeleteRequest;
   if(!request) return;
   cm('m-order-delete-warning');
-  openOrderDelete(request.mode,request.id,request.name);
+  openOrderDelete(request.id,request.name);
 }
 
-async function openOrderDelete(mode,id,name){
-  try{
-    const data=await getOrderDeleteData(id,name);
-    data.mode=mode;
-    window._orderDeleteData=data;
-    window._orderDeleteRequest=null;
-    g('order-delete-id').value=id;
-    g('order-delete-name').value=name;
-    g('order-delete-confirm').value='';
-    const archive=mode==='archive';
-    const titlePair=archive?{vi:'Xóa (Lưu trữ)',zh:'刪除（封存）'}:{vi:'Xóa vĩnh viễn',zh:'永久刪除'};
-    g('order-delete-title').innerHTML=`<i class="ti ${archive?'ti-ban':'ti-database-off'}"></i><span class="ui-bilingual"><span class="ui-text-vi">${titlePair.vi}</span><span class="ui-text-zh">${titlePair.zh}</span></span>`;
-    g('order-delete-summary').innerHTML=`<div class="ui-language-sections"><div class="ui-language-section"><div><b>Đơn hàng:</b> ${ordersSafeText(name)}</div><div><b>Dòng chi tiết:</b> ${data.items.length}</div></div><div class="ui-language-section"><div><b>訂單：</b>${ordersSafeText(name)}</div><div><b>明細列：</b>${data.items.length}</div></div></div>`;
-    g('order-archive-btn').style.display=archive?'':'none';
-    g('order-purge-btn').style.display=archive?'none':'';
-    updateOrderDeleteButtons();
-    om('m-order-delete');
-  }catch(e){
-    console.error('Không thể tải dữ liệu xóa đơn hàng / 載入訂單刪除資料失敗',e);
-    await ordersMessage('Không thể tải dữ liệu cần xóa.','載入刪除資料失敗。','danger');
+function openOrderDelete(id,name){
+  const order=window.allOrders.find(row=>row.id===id);
+  if(!order||!isOrderUsable(order)){
+    void ordersMessage('Trạng thái đơn đã thay đổi. Hãy tải lại danh sách.','訂單狀態已變更，請重新整理清單。','warning');
+    return;
   }
+  window._orderDeleteData={id,name};
+  window._orderDeleteRequest=null;
+  g('order-delete-id').value=id;
+  g('order-delete-name').value=name;
+  g('order-delete-confirm').value='';
+  g('order-delete-title').innerHTML='<i class="ti ti-ban"></i><span class="ui-bilingual"><span class="ui-text-vi">Xóa (Lưu trữ)</span><span class="ui-text-zh">刪除（封存）</span></span>';
+  g('order-delete-summary').innerHTML=`<div class="ui-language-sections"><div class="ui-language-section"><div><b>Đơn hàng:</b> ${ordersSafeText(name)}</div><div><b>Dòng chi tiết:</b> ${Number(order.itemCount)||0}</div></div><div class="ui-language-section"><div><b>訂單：</b>${ordersSafeText(name)}</div><div><b>明細列：</b>${Number(order.itemCount)||0}</div></div></div>`;
+  updateOrderDeleteButtons();
+  om('m-order-delete');
 }
 
 function closeOrderDeleteModal(){
@@ -831,8 +816,7 @@ function closeOrderDeleteModal(){
 function updateOrderDeleteButtons(){
   const data=window._orderDeleteData;
   const matched=!!data&&g('order-delete-confirm').value.trim()===data.name;
-  g('order-archive-btn').disabled=!matched||data?.mode!=='archive';
-  g('order-purge-btn').disabled=!matched||data?.mode!=='purge'||window.cu?.role!=='admin';
+  g('order-archive-btn').disabled=!matched;
 }
 
 async function confirmArchiveOrder(){
@@ -868,10 +852,6 @@ async function restoreArchivedOrder(id,name){
     console.error('Không thể khôi phục đơn hàng / 訂單還原失敗',e);
     await ordersMessage('Không thể khôi phục đơn hàng.','訂單還原失敗。','danger');
   }
-}
-
-async function confirmPurgeOrder(){
-  await ordersMessage('Hệ thống không xóa vĩnh viễn đơn hàng chính thức.','系統不永久刪除正式訂單。','warning');
 }
 
 // ===== 訂單進度 =====
@@ -977,7 +957,7 @@ async function renderProgress(){
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()">
-          <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning('archive',${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
+          <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
         </td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">

@@ -29,7 +29,7 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260914-2',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260916-3',
+    orders:'js/orders.js?v=20260916-6',
     orderArchive:'js/order-archive.js?v=20260916-2',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
