@@ -68,7 +68,7 @@
                 <i class="ti ti-device-floppy" aria-hidden="true"></i>
                 <span class="ui-dual-copy"><strong>Lưu mẫu</strong><span>儲存範本</span></span>
               </button>
-              <button type="button" class="ui-command-action" id="inspection-report-cancel" disabled>
+              <button type="button" class="ui-command-action is-danger" id="inspection-report-cancel" disabled>
                 <i class="ti ti-eraser" aria-hidden="true"></i>
                 <span class="ui-dual-copy"><strong>Hủy tệp đã chọn</strong><span>取消匯入檔案</span></span>
               </button>
@@ -150,7 +150,10 @@
     const button=g('inspection-report-save');
     const busy=state.saving||state.downloading||state.deleting;
     const picker=g('inspection-report-drop');if(picker)picker.disabled=busy;
-    if(button)button.disabled=!pending||busy;
+    if(button){
+      button.disabled=!pending||busy;
+      button.classList.toggle('is-ready',!!pending);
+    }
     const cancel=g('inspection-report-cancel');if(cancel)cancel.disabled=!pending||busy;
     const download=g('inspection-report-download');if(download)download.disabled=busy;
     const remove=g('inspection-report-delete');if(remove)remove.disabled=busy;

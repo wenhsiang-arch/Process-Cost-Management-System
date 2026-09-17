@@ -32,7 +32,7 @@
     orders:'js/orders.js?v=20260918-3',
     orderArchive:'js/order-archive.js?v=20260916-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-2',
-    inspectionReport:'js/inspection-report.js?v=20260918-5',
+    inspectionReport:'js/inspection-report.js?v=20260918-6',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
