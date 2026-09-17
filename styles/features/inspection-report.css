@@ -1,31 +1,75 @@
-/* inspection-report.css（檢驗報告範本頁）：只安排訂單功能既有共用元件，不建立另一套視覺語言。 */
+/* inspection-report.css（品檢報告範本頁）：沿用訂單頁的操作列、提示框及資料區塊。 */
 #pg-inspection-report-template .inspection-report-page {
-  display: grid;
-  gap: var(--ui-space-4);
+  width: min(100%, 1360px);
+  min-width: 0;
+  margin-inline: auto;
+}
+
+#pg-inspection-report-template .inspection-report-operation {
+  margin-bottom: var(--ui-space-4);
+}
+
+#pg-inspection-report-template .inspection-report-upload {
   min-width: 0;
 }
 
-#pg-inspection-report-template .inspection-report-command-row {
+#pg-inspection-report-template .inspection-report-actions {
   align-items: stretch;
 }
 
-#pg-inspection-report-template .ui-context-grid {
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-#pg-inspection-report-template #inspection-report-drop {
-  width: 100%;
-  min-width: 0;
-  text-align: left;
-}
-
-#pg-inspection-report-template .inspection-report-status,
 #pg-inspection-report-template .inspection-report-guide {
-  padding: var(--ui-space-4);
+  box-sizing: border-box;
+  width: min(480px, 33vw);
+  min-width: 330px;
+  align-self: center;
+  margin: 6px;
+  padding: 7px 10px;
+}
+
+#pg-inspection-report-template .inspection-report-guide > i {
+  flex: 0 0 auto;
+  color: var(--ui-color-primary);
+}
+
+#pg-inspection-report-template .inspection-report-guide-copy {
+  min-width: 0;
+}
+
+#pg-inspection-report-template .inspection-report-guide .ui-language-sections {
+  gap: var(--ui-space-1);
+  margin-top: 4px;
+  font-size: var(--ui-font-size-helper);
+  line-height: 1.35;
+}
+
+#pg-inspection-report-template .inspection-report-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
+}
+
+#pg-inspection-report-template .inspection-report-status > i {
+  flex: 0 0 auto;
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-section-vi);
+}
+
+#pg-inspection-report-template .inspection-report-status-copy {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 
-#pg-inspection-report-template .inspection-report-status > div + div {
+#pg-inspection-report-template .inspection-report-status-copy > div + div {
   margin-top: var(--ui-space-2);
+}
+
+@container (max-width: 900px) {
+  #pg-inspection-report-template .inspection-report-guide {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
 }

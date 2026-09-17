@@ -45,16 +45,28 @@
     if(!root||state.mounted) return;
     root.innerHTML=`
       <div class="inspection-report-page ui-work-panel">
-        <section class="ui-operation-panel">
+        <section class="inspection-report-operation ui-operation-panel">
           <div class="ui-command-row inspection-report-command-row">
-            <div class="ui-context-grid is-single">
+            <div class="ui-context-grid is-single inspection-report-upload">
               <button type="button" class="ui-context-item ui-file-picker" id="inspection-report-drop">
                 <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
-                <span class="ui-dual-copy"><strong>Tệp mẫu HUNTER</strong><span>HUNTER 範本檔案</span></span>
-                <span class="ui-context-note ui-dual-copy"><strong>Chọn hoặc thả một tệp .xlsx</strong><span>選擇或拖入一個 .xlsx 檔案</span></span>
+                <div>
+                  <span class="ui-dual-copy"><strong>Tệp mẫu · HUNTER</strong><span>範本檔案 · HUNTER</span></span>
+                  <span class="ui-context-note ui-dual-copy"><strong>Chọn hoặc thả một tệp .xlsx</strong><span>選擇或拖入一個 .xlsx 檔案</span></span>
+                </div>
               </button>
             </div>
-            <div class="ui-command-actions">
+            <div class="ui-command-actions inspection-report-actions">
+              <div class="inspection-report-guide ui-notice">
+                <i class="ti ti-info-circle" aria-hidden="true"></i>
+                <div class="inspection-report-guide-copy">
+                  <span class="ui-dual-copy"><strong>Hướng dẫn · HUNTER</strong><span>使用說明 · HUNTER</span></span>
+                  <div class="ui-language-sections">
+                    <div class="ui-language-section is-vi" lang="vi">Giữ nguyên chữ và định dạng của mẫu; để trống C6, C7, F7, C8 và F8. Nhập lại sẽ hỏi trước khi thay thế.</div>
+                    <div class="ui-language-section is-zh" lang="zh-Hant">保留範本原有文字與格式；清空 C6、C7、F7、C8、F8。重新匯入會先確認再替換。</div>
+                  </div>
+                </div>
+              </div>
               <button type="button" class="ui-command-action is-primary is-condition-dependent" id="inspection-report-save" disabled>
                 <i class="ti ti-device-floppy" aria-hidden="true"></i>
                 <span class="ui-dual-copy"><strong>Lưu mẫu</strong><span>儲存範本</span></span>
@@ -67,16 +79,7 @@
           <div class="ui-section-header"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
             <span class="ui-dual-copy"><strong>Mẫu đang sử dụng</strong><span>目前使用的範本</span></span>
           </div>
-          <div class="inspection-report-status ui-status-text" id="inspection-report-status" role="status"></div>
-        </section>
-        <section class="ui-data-section">
-          <div class="ui-section-header"><i class="ti ti-info-circle" aria-hidden="true"></i>
-            <span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span>
-          </div>
-          <div class="inspection-report-guide ui-language-sections">
-            <div class="ui-language-section is-vi">Chỉ dùng một mẫu HUNTER đang hoạt động. Giữ nguyên chữ và kiểu của mẫu; để trống năm ô C6, C7, F7, C8 và F8. Tải lại mẫu sẽ yêu cầu xác nhận trước khi thay thế.</div>
-            <div class="ui-language-section is-zh">目前只使用一份 HUNTER 範本。保留範本固定文字與格式，將 C6、C7、F7、C8、F8 五格內容清空。再次匯入會先確認，才替換現有範本。</div>
-          </div>
+          <div class="inspection-report-status ui-table-frame" id="inspection-report-status" role="status"></div>
         </section>
       </div>`;
     g('inspection-report-drop').addEventListener('click',()=>g('inspection-report-file').click());
@@ -103,12 +106,17 @@
       ?pair(`Mẫu hiện tại: ${current.fileName} · ${new Date(current.updatedAt).toLocaleString('vi-VN')}`,
         `目前範本：${current.fileName} · ${new Date(current.updatedAt).toLocaleString('zh-TW')}`)
       :pair('Chưa có mẫu báo cáo HUNTER.','尚未匯入 HUNTER 檢驗報告範本。');
-    host.appendChild(window.PCMSUIText.create(text));
+    const icon=document.createElement('i');
+    icon.className=current?'ti ti-circle-check':'ti ti-file-alert';
+    icon.setAttribute('aria-hidden','true');
+    const copy=document.createElement('div');copy.className='inspection-report-status-copy';
+    copy.appendChild(window.PCMSUIText.create(text));
     if(pending){
       const line=document.createElement('div');
       line.appendChild(window.PCMSUIText.create(pair(`Đang chọn: ${pending.name}`,`目前選擇：${pending.name}`)));
-      host.appendChild(line);
+      copy.appendChild(line);
     }
+    host.append(icon,copy);
     const button=g('inspection-report-save');
     if(button)button.disabled=!pending||state.saving;
   }

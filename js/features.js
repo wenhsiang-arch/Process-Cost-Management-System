@@ -32,7 +32,7 @@
     orders:'js/orders.js?v=20260918-1',
     orderArchive:'js/order-archive.js?v=20260916-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-1',
-    inspectionReport:'js/inspection-report.js?v=20260918-1',
+    inspectionReport:'js/inspection-report.js?v=20260918-2',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
@@ -68,7 +68,7 @@
     cutting:'styles/features/cutting.css?v=20260914-2',
     pieceCutting:'styles/features/piece-cutting.css?v=20260914-2',
     orders:'styles/features/orders.css?v=20260918-1',
-    inspectionReport:'styles/features/inspection-report.css?v=20260918-1',
+    inspectionReport:'styles/features/inspection-report.css?v=20260918-2',
     products:'styles/features/products.css?v=20260914-2',
     cost:'styles/features/cost.css?v=20260914-2',
     accounts:'styles/features/accounts.css?v=20260914-2',
@@ -102,7 +102,7 @@
         },
         {
           page:'inspection-report-template',feature:'progress',permissionVisible:false,icon:'ti-file-spreadsheet',
-          vi:'Mẫu báo cáo kiểm tra',zh:'檢驗報告範本',
+          vi:'Mẫu báo cáo kiểm tra',zh:'品檢報告範本',
           styles:['inspectionReport'],scripts:['history','fileIo','inspectionReportStore','inspectionReport'],
           dataScopes:['inspectionReportTemplates','inspectionReportTemplateChunks'],dataLoaders:[],
           onOpen:['inspectionReportInit'],onLeave:['inspectionReportLeave']
