@@ -787,6 +787,18 @@ function openOrderDeleteWarning(id,name){
   om('m-order-delete-warning');
 }
 
+// exportInspectionReportFromOrder（從上方訂單與工序資料表匯出檢驗報告）：按下時才載入功能程式與範本。
+async function exportInspectionReportFromOrder(orderId){
+  if(typeof canOpenPage==='function'&&!canOpenPage('progress')) return;
+  try{
+    await window.PCMSFeatures.ensurePageScripts('inspection-report-template');
+    await window.PCMSInspectionReport.exportOrder(orderId);
+  }catch(error){
+    console.error('Không thể mở báo cáo kiểm tra / 無法開啟檢驗報告',error);
+    await ordersMessage('Không thể mở chức năng xuất báo cáo kiểm tra.','無法開啟檢驗報告匯出功能。','danger');
+  }
+}
+
 function closeOrderDeleteWarning(){
   window._orderDeleteRequest=null;
   cm('m-order-delete-warning');
@@ -964,9 +976,10 @@ async function renderProgress(){
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualCompleteDateVal)}" onchange="saveProgField(${idArg},'actualCompleteDate',this.value)"></td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
-        <td onclick="event.stopPropagation()">
+        <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
+          ${String(o.client||'').trim().toUpperCase()==='HUNTER'?`<button type="button" class="btn bsm bd2 orders-inspection-export" data-inspection-order-id="${safeId}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i></button>`:''}
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
-        </td>
+        </div></td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">
         <td colspan="10" class="orders-expanded-cell">
@@ -976,6 +989,12 @@ async function renderProgress(){
     });
     html+='</tbody></table></div>';
     content.innerHTML=html;
+    content.querySelectorAll?.('.orders-inspection-export').forEach(button=>{
+      const label={vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'};
+      window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);
+      window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
+      button.addEventListener('click',event=>{event.stopPropagation();void exportInspectionReportFromOrder(button.dataset.inspectionOrderId);});
+    });
     if(codeQuery) list.forEach(o=>toggleProgDetail(o.id));
   }catch(e){
     content.innerHTML='<div class="ui-empty-state is-danger"><i class="ti ti-alert-circle"></i><div>Không thể tải dữ liệu.</div><div>資料載入失敗。</div></div>';

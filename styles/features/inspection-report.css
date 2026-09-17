@@ -1,0 +1,31 @@
+/* inspection-report.css（檢驗報告範本頁）：只安排訂單功能既有共用元件，不建立另一套視覺語言。 */
+#pg-inspection-report-template .inspection-report-page {
+  display: grid;
+  gap: var(--ui-space-4);
+  min-width: 0;
+}
+
+#pg-inspection-report-template .inspection-report-command-row {
+  align-items: stretch;
+}
+
+#pg-inspection-report-template .ui-context-grid {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#pg-inspection-report-template #inspection-report-drop {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+#pg-inspection-report-template .inspection-report-status,
+#pg-inspection-report-template .inspection-report-guide {
+  padding: var(--ui-space-4);
+  overflow-wrap: anywhere;
+}
+
+#pg-inspection-report-template .inspection-report-status > div + div {
+  margin-top: var(--ui-space-2);
+}

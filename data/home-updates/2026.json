@@ -3,6 +3,35 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-08-25",
+      "title": {
+        "vi": "Cập nhật hiển thị mã hàng và chức năng hủy phiếu sản xuất",
+        "zh": "款號顯示與生產紀錄作廢功能更新"
+      },
+      "sections": {
+        "vi": [
+          {"heading": "Nhật ký thay đổi mã hàng", "items": [
+            "Quản lý mã hàng đã có nhật ký chung để tra cứu toàn bộ thay đổi.",
+            "Sửa một mã, sửa theo nhóm và nhập Excel đều lưu phần tóm tắt cùng chi tiết trước và sau khi thay đổi."
+          ]},
+          {"heading": "Ghi nhận sản xuất", "items": [
+            "Trường mã hàng đã trở lại chỉ hiển thị mã hàng, không còn kèm thêm nội dung mô tả phía sau.",
+            "Chức năng hủy bản ghi sản xuất đã hoạt động bình thường."
+          ]}
+        ],
+        "zh": [
+          {"heading": "款號修改流水帳", "items": [
+            "款號管理新增共用流水帳，可集中回查全部款號異動。",
+            "單款修改、群組修改與 Excel 匯入都會保存主摘要及修改前後明細。"
+          ]},
+          {"heading": "生產登記", "items": [
+            "款號欄位已恢復只顯示款號，不再於後方附加其他說明。",
+            "生產紀錄作廢功能已恢復正常使用。"
+          ]}
+        ]
+      }
+    },
+    {
       "date": "2026-08-24",
       "title": {
         "vi": "Cập nhật toàn diện bảng mã hàng, đơn hàng và sản xuất",

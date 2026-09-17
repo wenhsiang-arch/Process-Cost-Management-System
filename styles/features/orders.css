@@ -304,7 +304,8 @@
 #pg-progress th[data-orders-column="completeDate"],
 #pg-progress th[data-orders-column="shipDate"] { width: 150px; }
 #pg-progress th[data-orders-column="remark"] { min-width: 160px; }
-#pg-progress th[data-orders-column="action"] { width: 84px; }
+#pg-progress th[data-orders-column="action"] { width: 106px; }
+#pg-progress .orders-progress-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 #pg-progress th[data-orders-column="processNo"] { width: 80px; }
 #pg-progress th[data-orders-column="category"] { width: 120px; }
 #pg-progress th[data-orders-column="name"] { min-width: 220px; }

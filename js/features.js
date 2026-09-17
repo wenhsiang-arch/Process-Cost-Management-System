@@ -29,8 +29,10 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260914-2',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260917-1',
+    orders:'js/orders.js?v=20260918-1',
     orderArchive:'js/order-archive.js?v=20260916-2',
+    inspectionReportStore:'js/inspection-report-store.js?v=20260918-1',
+    inspectionReport:'js/inspection-report.js?v=20260918-1',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
@@ -65,7 +67,8 @@
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260914-2',
     pieceCutting:'styles/features/piece-cutting.css?v=20260914-2',
-    orders:'styles/features/orders.css?v=20260916-2',
+    orders:'styles/features/orders.css?v=20260918-1',
+    inspectionReport:'styles/features/inspection-report.css?v=20260918-1',
     products:'styles/features/products.css?v=20260914-2',
     cost:'styles/features/cost.css?v=20260914-2',
     accounts:'styles/features/accounts.css?v=20260914-2',
@@ -96,6 +99,13 @@
           styles:['orders'],
           scripts:['productModel','orderItemStore','orderService','orders','orderArchive'],
           dataScopes:['orders','orderItems'],dataLoaders:['loadOrderData'],onOpen:['renderOrderArchive']
+        },
+        {
+          page:'inspection-report-template',feature:'progress',permissionVisible:false,icon:'ti-file-spreadsheet',
+          vi:'Mẫu báo cáo kiểm tra',zh:'檢驗報告範本',
+          styles:['inspectionReport'],scripts:['history','fileIo','inspectionReportStore','inspectionReport'],
+          dataScopes:['inspectionReportTemplates','inspectionReportTemplateChunks'],dataLoaders:[],
+          onOpen:['inspectionReportInit'],onLeave:['inspectionReportLeave']
         }
       ]
     },
@@ -312,6 +322,7 @@
   const pageDataStates = new Map(); // pageDataStates（功能頁資料狀態）：同一登入工作階段重複切換時共用。
   const PAGE_DATA_FRESH_MS = 60000; // PAGE_DATA_FRESH_MS（功能頁背景檢查間隔）：一分鐘內不重複檢查。
   let spreadsheetToolPromise = null; // spreadsheetToolPromise（Excel 表格工具載入工作）
+  let inspectionZipPromise = null; // inspectionZipPromise（檢驗報告封裝工具載入工作）
   let activePageName = ''; // activePageName（目前功能頁面）
 
   function getPage(name){ return pageMap.get(name)||null; }
@@ -617,6 +628,31 @@
     }
   }
 
+  // ensureInspectionReportZipTool（載入範本封裝工具）：選好儲存位置後才載入，保留範本原始格式。
+  function ensureInspectionReportZipTool(){
+    if(window.JSZip) return Promise.resolve(window.JSZip);
+    if(inspectionZipPromise) return inspectionZipPromise;
+    inspectionZipPromise=new Promise((resolve,reject)=>{
+      const script=document.createElement('script');
+      script.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      script.async=true;
+      script.dataset.pcmsTool='inspection-report-zip';
+      script.onload=()=>{
+        if(window.JSZip) resolve(window.JSZip);
+        else{
+          script.remove();inspectionZipPromise=null;
+          reject(new Error('Không thể mở công cụ tạo báo cáo.\n無法載入報告產生工具。'));
+        }
+      };
+      script.onerror=()=>{
+        script.remove();inspectionZipPromise=null;
+        reject(new Error('Không thể tải công cụ tạo báo cáo.\n無法載入報告產生工具。'));
+      };
+      document.head.appendChild(script);
+    });
+    return inspectionZipPromise;
+  }
+
   function leaveHomeUpdates(){
     homeArchiveGeneration++;
     window.PCMSHomeUpdates?.leave?.();
@@ -695,6 +731,7 @@
     invalidateDataScopes,
     resetPageDataStates,
     ensureSpreadsheetTool,
+    ensureInspectionReportZipTool,
     enterPage,
     leaveActivePage,
     resetActivePage
