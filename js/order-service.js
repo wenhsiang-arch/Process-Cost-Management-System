@@ -82,53 +82,21 @@
     return Object.assign(new Error(`${vi} / ${zh}`),{code,orderImportMessage:{vi,zh}});
   }
   function changedImport(){
-    return importFailure('order-import-mismatch','Tệp hoặc dữ liệu đơn hàng không khớp. Không ghi đè; hãy dùng lại tệp và thông tin ban đầu.',
-      '檔案或訂單資料不一致，已停止覆寫；請使用原始檔案與原訂單資料。');
+    return importFailure('order-import-mismatch','Trạng thái đơn hàng đã thay đổi. Hãy kiểm tra đơn rồi thử lại.',
+      '訂單狀態已變更，請查看訂單後重試。');
   }
-  // canonical（穩定內容序列）：只用於比對訂單內容，不建立另一套資料版本或快取。
-  function canonical(value){
-    if(Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-    if(value&&typeof value==='object') return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
-    return JSON.stringify(value);
-  }
-  async function importFingerprint(plan){
-    if(!window.crypto?.subtle) throw importFailure('order-import-unavailable',
-      'Không thể kiểm tra nội dung tệp trong trình duyệt này.','此瀏覽器無法完成檔案內容核對。');
-    const content=canonical({header:plan.header,items:plan.items});
-    const digest=await window.crypto.subtle.digest('SHA-256',new TextEncoder().encode(content));
-    return Array.from(new Uint8Array(digest),value=>value.toString(16).padStart(2,'0')).join('');
-  }
-  function checkImportOwner(lock,currentActor){
-    if(lock.createdByUid!==currentActor.uid) throw importFailure('order-import-owner',
-      'Đơn này đang được nhập bằng tài khoản khác. Hãy dùng tài khoản bắt đầu nhập.',
-      '此訂單由其他帳號開始匯入，請由原匯入帳號接續。');
-    if(!['importing','ready'].includes(lock.status)) throw changedImport();
-  }
-  // 正式訂單狀態優先於匯入鎖；鎖可能是舊版遺留，不能單獨決定是否已完成。
+  // 正式訂單狀態優先於匯入鎖；鎖的操作者不是重匯的權限依據。
   function checkExistingOrderState(state){
-    if(state.lifecycleStatus==='deleting') throw importFailure('order-import-deleting',
+    if(state.lifecycleStatus==='deleting'&&!['importing','failed'].includes(state.importStatus)) throw importFailure('order-import-deleting',
       'Đơn đang được xóa vĩnh viễn. Hãy hoàn tất xóa trước khi nhập lại.',
       '此訂單正在永久刪除，請完成刪除後再重新匯入。');
     if(state.lifecycleStatus==='archived') throw importFailure('order-import-archived',
-      'Đơn đã được lưu trữ. Hãy khôi phục hoặc hoàn tất xóa vĩnh viễn trước.',
-      '此訂單已封存，請先還原或完成永久刪除。');
-    if(state.importStatus==='ready') throw importFailure('order-import-exists',
+      'Đơn đã tồn tại trong mục lưu trữ. Hãy khôi phục hoặc xóa vĩnh viễn trước.',
+      '訂單已存在於封存區，請先還原或完成永久刪除。');
+    if(!state.importStatus||state.importStatus==='ready') throw importFailure('order-import-exists',
       'Đơn này đã tồn tại và đã nhập hoàn tất.', '此訂單已存在，且已完成匯入。');
   }
-  function checkImportOrder(order,plan,currentActor){
-    if(!order||order.createdByUid!==currentActor.uid||order.schemaVersion!==2) throw changedImport();
-    for(const [field,value] of Object.entries(plan.order)){
-      if(field!=='importStatus'&&canonical(order[field])!==canonical(value)) throw changedImport();
-    }
-  }
-  function checkedCheckpoint(lock,plan,fingerprint,currentActor){
-    checkImportOwner(lock,currentActor);
-    if(lock.importFingerprint!==fingerprint||lock.orderDocumentId!==plan.orderDocumentId
-      ||!Number.isSafeInteger(lock.completedItems)||lock.completedItems<0||lock.completedItems>plan.items.length) throw changedImport();
-    return lock.completedItems;
-  }
-
-  // importOrder（匯入訂單）：每批明細與檢查點一起提交，最後才發布訂單、操作紀錄與既有訂單快取版本。
+  // importOrder（匯入訂單）：失敗的進行中資料先清理，成功後才發布正式訂單。
   async function importOrder(headerInput,rows,options={}){
     requireCloud();
     const currentActor=actor(options.actor);
@@ -137,65 +105,88 @@
       'Đơn này đang được nhập. Vui lòng chờ.','此訂單正在匯入，請等候目前工作完成。');
     importingOrders.add(lockId);
     const progress={completedItems:0,totalItems:Array.isArray(rows)?rows.length:0,phase:'checking'};
-    let plan,fingerprint,initialLock,orderReference;
+    let plan,orderReference,attemptedCreate=false;
     const lockReference=window._docRef(COLLECTIONS.locks,lockId);
     try{
+      // 正式單號與舊資料各查一次，包含封存；不能只看鎖指向的舊工作。
       const orderNo=text(headerInput.orderId||headerInput.orderNo);
-      const completed=await window._getDocs(window._query(window._collection(COLLECTIONS.orders),
-        window._where('orderId','==',orderNo),window._where('importStatus','==','ready'),window._limit(1)));
+      const [byKey,byNumber]=await Promise.all([
+        window._getDocs(window._query(window._collection(COLLECTIONS.orders),
+          window._where('importLockId','==',lockId),window._limit(2))),
+        window._getDocs(window._query(window._collection(COLLECTIONS.orders),
+          window._where('orderId','==',orderNo),window._limit(2)))
+      ]);
+      const existing=new Map([...byKey.docs,...byNumber.docs].map(candidate=>[candidate.id,candidate]));
+      const candidates=[];
+      for(const candidate of existing.values()){
+        const current=await window._getDoc(window._docRef(COLLECTIONS.orders,candidate.id));
+        if(current.exists()) candidates.push({id:candidate.id,data:current.data()});
+      }
+      for(const candidate of candidates) checkExistingOrderState(candidate.data);
+      if(candidates.length>1) throw importFailure('order-import-duplicate',
+        'Có nhiều đơn cùng số. Cần kiểm tra trước khi nhập.','已有多筆相同單號的訂單，請先核對。');
+      if(candidates.length){
+        const state=candidates[0].data;
+        if(['importing','failed'].includes(state.importStatus)){
+          try{await discardIncompleteOrder(candidates[0].id);}
+          catch(error){error.orderImportCleanup='pending';throw error;}
+        }
+        else throw changedImport();
+      }
       const candidateId=window._newDocRef(COLLECTIONS.orders).id;
+      plan=prepareImport(headerInput,rows,{...options,orderDocumentId:candidateId});
+      orderReference=window._docRef(COLLECTIONS.orders,candidateId);
       const startedAt=Number(options.now)||Date.now();
+      attemptedCreate=true;
       await window._runTransaction(async transaction=>{
-        // 查詢結果僅提供候選；交易內重讀，避免把剛被刪除的舊結果當成重複訂單。
-        if(completed.docs.length){
-          const confirmed=await transaction.get(window._docRef(COLLECTIONS.orders,completed.docs[0].id));
-          if(confirmed.exists()&&confirmed.data().orderId===orderNo) checkExistingOrderState(confirmed.data());
+        // 查詢後重新讀取候選；已刪除者可以重新匯入。
+        for(const candidate of candidates){
+          const confirmed=await transaction.get(window._docRef(COLLECTIONS.orders,candidate.id));
+          if(confirmed.exists()){
+            checkExistingOrderState(confirmed.data());
+            throw importFailure('order-import-busy','Đơn đang được nhập. Hãy thử lại sau.',
+              '此訂單正在匯入，請稍後重試。');
+          }
         }
         const snapshot=await transaction.get(lockReference);
-        initialLock=snapshot.exists()?snapshot.data():null;
         let repairedLock=null;
-        // 先核對訂單狀態，再判斷接續帳號；不可把已完成訂單誤報為匯入中。
-        if(initialLock){
-          const existing=await transaction.get(window._docRef(COLLECTIONS.orders,text(initialLock.orderDocumentId)));
-          if(existing.exists()){
-            const state=existing.data();
+        if(snapshot.exists()){
+          const oldLock=snapshot.data();
+          const oldOrder=await transaction.get(window._docRef(COLLECTIONS.orders,text(oldLock.orderDocumentId)));
+          if(oldOrder.exists()){
+            const state=oldOrder.data();
             checkExistingOrderState(state);
-            if(initialLock.status==='ready') throw importFailure('order-import-exists',
-              'Đơn này đã tồn tại và đã nhập hoàn tất.', '此訂單已存在，且已完成匯入。');
+            throw importFailure('order-import-busy','Đơn đang được nhập. Hãy thử lại sau.',
+              '此訂單正在匯入，請稍後重試。');
           }else{
-            const deleted=await transaction.get(window._docRef(COLLECTIONS.logs,`${initialLock.orderDocumentId}__purge_complete`));
+            const deleted=await transaction.get(window._docRef(COLLECTIONS.logs,`${oldLock.orderDocumentId}__purge_complete`));
             const proof=deleted.exists()?deleted.data():null;
             if(proof&&proof.schemaVersion===2&&proof.feature==='orders'&&proof.permissionKey==='progress'
-              &&proof.action==='orderPurgeCompleted'&&proof.status==='success'&&proof.targetType==='order'
-              &&proof.targetId===initialLock.orderDocumentId&&proof.operationLogId===deleted.id
-              &&proof.note===initialLock.orderNo&&proof.createdAt>=initialLock.createdAt){
-              repairedLock=initialLock;initialLock=null;
+              &&['orderPurgeCompleted','orderImportDiscardCompleted'].includes(proof.action)
+              &&proof.status==='success'&&proof.targetType==='order'
+              &&proof.targetId===oldLock.orderDocumentId&&proof.operationLogId===deleted.id
+              &&proof.note===oldLock.orderNo&&proof.createdAt>=oldLock.createdAt){
+              repairedLock=oldLock;
             }
-            // 保留舊版先建立鎖定、尚未建立訂單的原帳號接續方式。
-            if(initialLock&&(proof||initialLock.importFingerprint||initialLock.status!=='importing')) throw importFailure('order-import-orphan',
-              'Không tìm thấy đơn tương ứng hoặc xác nhận xóa. Đã dừng nhập để kiểm tra.',
-              '找不到鎖定對應的訂單或刪除完成證明，已停止匯入，需核對資料。');
+            if(!repairedLock&&['importing','failed'].includes(oldLock.status)
+              &&(oldLock.completedItems===undefined||oldLock.completedItems===0)
+              &&(oldLock.completedBatches===undefined||oldLock.completedBatches===0)){
+              const leftover=await window._getDocs(window._query(window._collection(COLLECTIONS.items),
+                window._where('orderId','==',text(oldLock.orderDocumentId)),window._limit(1)));
+              if(!leftover.docs.length) repairedLock=oldLock;
+            }
+            if(!repairedLock) throw importFailure('order-import-orphan',
+              'Còn dữ liệu nhập dở hoặc không xác nhận được trạng thái. Hãy kiểm tra trước khi nhập lại.',
+              '仍有匯入殘留或狀態不明，請先核對後再重新匯入。');
           }
-          if(initialLock) checkImportOwner(initialLock,currentActor);
         }
-        const orderDocumentId=initialLock?text(initialLock.orderDocumentId):candidateId;
-        plan=prepareImport(headerInput,rows,{...options,orderDocumentId});
-        fingerprint=await importFingerprint(plan);
-        orderReference=window._docRef(COLLECTIONS.orders,orderDocumentId);
-        if(initialLock){
-          if(initialLock.importFingerprint&&initialLock.importFingerprint!==fingerprint) throw changedImport();
-          if(initialLock.status==='ready') throw importFailure('order-import-exists',
-            'Đơn này đã được nhập hoàn tất. Hãy kiểm tra danh sách đơn hàng.',
-            '此訂單已完成匯入，請查看訂單清單，無需再次匯入。');
-          return;
-        }
-        // 驗證與內容指紋成功後才建立正式匯入狀態；尚未發布訂單快取版本。
+        // 全部明細已在本機驗證；初始化後才開始分批寫入。
         transaction.set(orderReference,{...plan.order,createdAt:startedAt,createdByUid:currentActor.uid,createdBy:currentActor.name,
           updatedAt:startedAt,updatedByUid:currentActor.uid});
         const repairLogId=repairedLock?`${candidateId}__lockRepair`:null;
-        transaction.set(lockReference,{...(repairLogId?{repairLogId}:{}),lockId,orderNo:plan.header.orderId,orderDocumentId,status:'importing',
+        transaction.set(lockReference,{...(repairLogId?{repairLogId}:{}),lockId,orderNo:plan.header.orderId,orderDocumentId:candidateId,status:'importing',
           completedItems:0,completedBatches:0,totalBatches:Math.ceil(plan.items.length/BATCH_SIZE),
-          importFingerprint:fingerprint,createdAt:startedAt,createdByUid:currentActor.uid,createdBy:currentActor.name});
+          createdAt:startedAt,createdByUid:currentActor.uid,createdBy:currentActor.name});
         if(repairedLock) transaction.set(window._docRef(COLLECTIONS.logs,repairLogId),{
           schemaVersion:2,permissionKey:'progress',feature:'orders',action:'orderImportLockRepair',status:'success',
           targetType:'order',targetId:candidateId,oldOrderId:repairedLock.orderDocumentId,lockId,
@@ -203,66 +194,27 @@
           createdByUid:currentActor.uid,createdBy:currentActor.name
         });
       },{skipDataVersions:true});
-      if(initialLock){
-        progress.phase='resuming';
-        // 續跑只讀本張訂單，最多原檔筆數加一；逐筆核對，舊版 400 筆檢查點不直接換算成新版批次。
-        const existing=await window._getDocs(window._query(window._collection(COLLECTIONS.items),
-          window._where('orderId','==',plan.orderDocumentId),window._limit(plan.items.length+1)));
-        const saved=new Map((existing.docs||[]).map(item=>[item.id,item.data()]));
-        if(saved.size>plan.items.length) throw changedImport();
-        for(let index=0;index<saved.size;index++){
-          const expected=plan.items[index];
-          const actual=saved.get(expected.orderItemId);
-          if(!actual||actual.revision!==1||actual.createdByUid!==currentActor.uid) throw changedImport();
-          const fields=['orderItemId','orderId','productId','quantity','lineNumber','active',...itemStore().ORDER_OWNED_FIELDS];
-          if(fields.some(field=>canonical(actual[field])!==canonical(expected[field]))) throw changedImport();
-        }
-        await window._runTransaction(async transaction=>{
-          const [lockSnapshot,orderSnapshot]=await Promise.all([lockReference,orderReference].map(ref=>transaction.get(ref)));
-          const lock=lockSnapshot.exists()?lockSnapshot.data():null;
-          if(!lock||canonical(lock)!==canonical(initialLock)) throw importFailure('order-import-changed',
-            'Tiến độ đã thay đổi ở cửa sổ khác. Hãy thử lại để kiểm tra.',
-            '其他視窗已更新匯入進度，請重試以重新核對。');
-          checkImportOwner(lock,currentActor);
-          if(orderSnapshot.exists()){
-            checkImportOrder(orderSnapshot.data(),plan,currentActor);
-            if(orderSnapshot.data().importStatus!=='importing') throw changedImport();
-          }else{
-            if(saved.size) throw changedImport();
-            transaction.set(orderReference,{...plan.order,createdAt:lock.createdAt,createdByUid:lock.createdByUid,
-              createdBy:lock.createdBy,updatedAt:Date.now(),updatedByUid:currentActor.uid});
-          }
-          if(lock.importFingerprint){
-            if(checkedCheckpoint(lock,plan,fingerprint,currentActor)!==saved.size) throw changedImport();
-          }else{
-            transaction.set(lockReference,{importFingerprint:fingerprint,completedItems:saved.size,
-              completedBatches:Math.ceil(saved.size/BATCH_SIZE),totalBatches:Math.ceil(plan.items.length/BATCH_SIZE),
-              updatedAt:Date.now(),updatedByUid:currentActor.uid},{merge:true});
-          }
-        },{skipDataVersions:true});
-        progress.completedItems=saved.size;
-      }
       const report=()=>options.onProgress?.({...progress,itemCount:progress.completedItems,
         completedBatches:Math.ceil(progress.completedItems/BATCH_SIZE),totalBatches:Math.ceil(plan.items.length/BATCH_SIZE)});
       progress.phase='writing';report();
       while(progress.completedItems<plan.items.length){
-        progress.completedItems=await window._runTransaction(async transaction=>{
+        const offset=progress.completedItems;
+        await window._runTransaction(async transaction=>{
           const [lockSnapshot,orderSnapshot]=await Promise.all([lockReference,orderReference].map(ref=>transaction.get(ref)));
           if(!lockSnapshot.exists()||!orderSnapshot.exists()) throw changedImport();
           const lock=lockSnapshot.data();const order=orderSnapshot.data();
-          const offset=checkedCheckpoint(lock,plan,fingerprint,currentActor);
-          checkImportOrder(order,plan,currentActor);
-          if(lock.status==='ready'&&order.importStatus==='ready'&&offset===plan.items.length) return offset;
-          if(lock.status!=='importing'||order.importStatus!=='importing') throw changedImport();
+          if(lock.orderDocumentId!==plan.orderDocumentId||lock.status!=='importing'
+            ||order.importStatus!=='importing'||order.lifecycleStatus!=='active') throw changedImport();
           const end=Math.min(offset+BATCH_SIZE,plan.items.length);
           const now=Date.now();
           plan.items.slice(offset,end).forEach(item=>transaction.set(window._docRef(COLLECTIONS.items,item.orderItemId),{
             ...item,revision:1,createdAt:now,createdByUid:currentActor.uid,updatedAt:now,updatedByUid:currentActor.uid
           }));
+          // 與明細同交易保存已寫筆數，供無主單的舊鎖安全判斷；不作續跑依據。
           transaction.set(lockReference,{completedItems:end,completedBatches:Math.ceil(end/BATCH_SIZE),
-            totalBatches:Math.ceil(plan.items.length/BATCH_SIZE),updatedAt:now,updatedByUid:currentActor.uid},{merge:true});
-          return end;
+            updatedAt:now,updatedByUid:currentActor.uid},{merge:true});
         },{skipDataVersions:true});
+        progress.completedItems=Math.min(offset+BATCH_SIZE,plan.items.length);
         report();
       }
       progress.phase='finalizing';report();
@@ -272,22 +224,35 @@
         const [lockSnapshot,orderSnapshot]=await Promise.all([lockReference,orderReference].map(ref=>transaction.get(ref)));
         if(!lockSnapshot.exists()||!orderSnapshot.exists()) throw changedImport();
         const lock=lockSnapshot.data();const order=orderSnapshot.data();
-        if(checkedCheckpoint(lock,plan,fingerprint,currentActor)!==plan.items.length) throw changedImport();
-        checkImportOrder(order,plan,currentActor);
-        if(lock.status==='ready'&&order.importStatus==='ready') return order.importCompletedAt;
-        if(lock.status!=='importing'||order.importStatus!=='importing') throw changedImport();
+        if(lock.orderDocumentId!==plan.orderDocumentId||lock.status!=='importing'
+          ||order.importStatus!=='importing'||order.lifecycleStatus!=='active') throw changedImport();
         const now=Date.now();
         transaction.set(orderReference,{importStatus:'ready',importCompletedAt:now,updatedAt:now,
           updatedByUid:currentActor.uid,operationLogId:logId},{merge:true});
         transaction.set(logReference,importLog(plan,currentActor,now,options.fileName,logId));
-        transaction.set(lockReference,{status:'ready',completedAt:now,updatedAt:now,
+        transaction.set(lockReference,{status:'ready',completedItems:plan.items.length,
+          completedBatches:Math.ceil(plan.items.length/BATCH_SIZE),completedAt:now,updatedAt:now,
           updatedByUid:currentActor.uid,operationLogId:logId},{merge:true});
         return now;
       });
       return clone({id:plan.orderDocumentId,...plan.order,importStatus:'ready',importCompletedAt:completedAt,
         operationLogId:logId,items:plan.items});
     }catch(error){
-      if(progress.phase!=='checking') error.orderImportProgress={...progress};
+      if(attemptedCreate&&plan){
+        try{
+          const snapshot=await window._getDoc(orderReference);
+          if(snapshot.exists()&&snapshot.data().importStatus==='ready'){
+            const done=snapshot.data();
+            return clone({id:plan.orderDocumentId,...plan.order,importStatus:'ready',
+              importCompletedAt:done.importCompletedAt,operationLogId:done.operationLogId,items:plan.items});
+          }
+          if(snapshot.exists()&&['importing','failed'].includes(snapshot.data().importStatus)){
+            await discardIncompleteOrder(plan.orderDocumentId);
+            error.orderImportCleanup='done';
+          }
+        }catch(cleanupError){error.orderImportCleanup='pending';}
+      }
+      if(progress.phase!=='checking'&&error.orderImportCleanup!=='done') error.orderImportProgress={...progress};
       throw error;
     }finally{importingOrders.delete(lockId);}
   }
@@ -449,18 +414,23 @@
 
   const PURGE_BATCH_SIZE=100; // 每次最多刪除 100 筆，只處理訂單明細，不推論業務關聯。
   const purgingOrders=new Set();
+  async function discardIncompleteOrder(orderId){
+    return purgeOrder(orderId,{incomplete:true});
+  }
   async function purgeOrder(orderId,options={}){
     requireCloud();
-    if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên được xóa vĩnh viễn. / 只有管理員可永久刪除。');
+    const incomplete=options.incomplete===true;
+    if(!incomplete&&window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên được xóa vĩnh viễn. / 只有管理員可永久刪除。');
     const id=text(orderId), user=actor();
     if(!id||purgingOrders.has(id)) throw new Error('Đang xử lý đơn hàng. / 訂單正在處理中。');
     purgingOrders.add(id);
     const ref=window._docRef(COLLECTIONS.orders,id);
     const finalRef=window._docRef(COLLECTIONS.logs,`${id}__purge_complete`);
+    const action=stage=>`${incomplete?'orderImportDiscard':'orderPurge'}${stage}`;
     const log=(logRef,order,action,itemIds=[])=>({
       schemaVersion:2,permissionKey:'progress',feature:'orders',action,status:'success',targetType:'order',targetId:id,
       operationLogId:logRef.id,createdAt:Date.now(),createdByUid:user.uid,createdBy:user.name,
-      itemCount:action==='orderPurgeCompleted'?order.itemCount:itemIds.length,detailCount:itemIds.length,itemIds,
+      itemCount:action.endsWith('Completed')?order.itemCount:itemIds.length,detailCount:itemIds.length,itemIds,
       note:text(order.orderId).slice(0,200)
     });
     const changed=()=>new Error('Trạng thái đơn hàng đã thay đổi. / 訂單狀態已變更。');
@@ -472,12 +442,14 @@
           throw changed();
         }
         const order=snapshot.data();
+        if((incomplete?!['importing','failed'].includes(order.importStatus):order.importStatus!=='ready')
+          ||order.schemaVersion!==2) throw changed();
         if(order.lifecycleStatus==='deleting') return;
-        if(order.lifecycleStatus!=='archived'||order.importStatus!=='ready'||order.schemaVersion!==2) throw changed();
+        if(order.lifecycleStatus!==(incomplete?'active':'archived')) throw changed();
         const startRef=window._docRef(COLLECTIONS.logs,`${id}__purge_start`);
         tx.set(ref,{lifecycleStatus:'deleting',operationLogId:startRef.id,updatedAt:Date.now(),updatedByUid:user.uid},{merge:true});
-        tx.set(startRef,log(startRef,order,'orderPurgeStarted'));
-      });
+        tx.set(startRef,log(startRef,order,action('Started')));
+      },{skipDataVersions:incomplete});
       let deletedThisRun=0;
       for(;;){
         const before=await window._getDoc(ref);
@@ -486,7 +458,8 @@
           throw changed();
         }
         const order=before.data();
-        if(order.lifecycleStatus!=='deleting') throw changed();
+        if(order.lifecycleStatus!=='deleting'
+          ||(incomplete?!['importing','failed'].includes(order.importStatus):order.importStatus!=='ready')) throw changed();
         const rows=await window._getDocs(window._query(window._collection(COLLECTIONS.items),
           window._where('orderId','==',id),window._limit(PURGE_BATCH_SIZE)));
         const ids=rows.docs.map(row=>row.id);
@@ -494,23 +467,25 @@
           const snapshot=await tx.get(ref);
           if(!snapshot.exists()) return false;
           const current=snapshot.data();
-          if(current.lifecycleStatus!=='deleting') throw changed();
+          if(current.lifecycleStatus!=='deleting'
+            ||(incomplete?!['importing','failed'].includes(current.importStatus):current.importStatus!=='ready')) throw changed();
           // 另一視窗已完成這批時重新查詢，避免以舊清單重複刪除。
           if(current.operationLogId!==order.operationLogId) return false;
           if(ids.length){
             const batchRef=window._newDocRef(COLLECTIONS.logs);
             tx.set(ref,{operationLogId:batchRef.id,updatedAt:Date.now(),updatedByUid:user.uid},{merge:true});
             ids.forEach(itemId=>tx.delete(window._docRef(COLLECTIONS.items,itemId)));
-            tx.set(batchRef,log(batchRef,current,'orderPurgeBatch',ids));
+            tx.set(batchRef,log(batchRef,current,action('Batch'),ids));
           }else{
             const lockRef=window._docRef(COLLECTIONS.locks,current.importLockId);
             const lock=await tx.get(lockRef);
-            if(!lock.exists()||lock.data().orderDocumentId!==id) throw changed();
-            tx.set(finalRef,log(finalRef,current,'orderPurgeCompleted'));
-            tx.delete(lockRef);tx.delete(ref);
+            if(lock.exists()&&lock.data().orderDocumentId!==id) throw changed();
+            tx.set(finalRef,log(finalRef,current,action('Completed')));
+            if(lock.exists()) tx.delete(lockRef);
+            tx.delete(ref);
           }
           return true;
-        },{skipDataVersions:ids.length>0});
+        },{skipDataVersions:incomplete||ids.length>0});
         if(!committed) continue;
         deletedThisRun+=ids.length;
         options.onProgress?.({deletedThisRun,totalItems:order.itemCount});

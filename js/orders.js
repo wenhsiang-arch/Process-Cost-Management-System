@@ -688,14 +688,14 @@ function orderImportErrorMessage(error){
   const messages={
     'permission-denied':{vi:'Cơ sở dữ liệu từ chối thao tác. Cần kiểm tra quyền hoặc quy tắc bảo mật trước khi thử lại.',
       zh:'雲端拒絕此操作，需先檢查權限或安全規則，再重新嘗試。'},
-    'unauthenticated':{vi:'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi dùng cùng tệp để kiểm tra và tiếp tục.',
-      zh:'登入已失效，請重新登入，再用同一檔案核對並接續。'},
-    'unavailable':{vi:'Kết nối bị gián đoạn. Khi kết nối ổn định, dùng cùng tệp để kiểm tra và tiếp tục.',
-      zh:'連線中斷，恢復連線後可用同一檔案核對並接續。'},
-    'deadline-exceeded':{vi:'Chưa xác nhận được kết quả. Hãy dùng cùng tệp để kiểm tra tiến độ trước khi tiếp tục.',
-      zh:'尚未確認寫入結果，請使用同一檔案重新核對進度後接續。'},
-    'aborted':{vi:'Tiến độ đã thay đổi. Hãy dùng cùng tệp để kiểm tra và tiếp tục.',
-      zh:'匯入進度已變更，請使用同一檔案重新核對後接續。'},
+    'unauthenticated':{vi:'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại rồi thử lại.',
+      zh:'登入已失效，請重新登入後再試。'},
+    'unavailable':{vi:'Kết nối bị gián đoạn. Hãy thử lại khi kết nối ổn định.',
+      zh:'連線中斷，請在連線恢復後重試。'},
+    'deadline-exceeded':{vi:'Chưa xác nhận được kết quả. Hãy kiểm tra danh sách đơn rồi thử lại.',
+      zh:'結果尚未確認，請查看訂單清單後再試。'},
+    'aborted':{vi:'Trạng thái đơn đã thay đổi. Hãy thử lại.',
+      zh:'訂單狀態已變更，請重試。'},
     'resource-exhausted':{vi:'Đã đạt giới hạn dịch vụ. Hãy kiểm tra hạn mức trước khi thử lại.',
       zh:'雲端服務已達用量限制，請先確認額度再重試。'}
   };
@@ -706,11 +706,19 @@ function orderImportErrorMessage(error){
   }
   pair=pair||{vi:'Không thể hoàn tất nhập đơn. Giữ lại tệp và kiểm tra nguyên nhân trước khi thử lại.',
     zh:'訂單未能完成匯入，請保留檔案並確認原因後再重試。'};
+  if(error?.orderImportCleanup==='done') return {
+    vi:`${pair.vi}\nDữ liệu nhập dở đã được dọn sạch; có thể nhập lại.`,
+    zh:`${pair.zh}\n未完成的匯入資料已清理，可重新匯入。`
+  };
+  if(error?.orderImportCleanup==='pending') return {
+    vi:`${pair.vi}\nChưa dọn sạch được dữ liệu nhập dở. Hãy kết nối lại rồi thử nhập; hệ thống sẽ dọn trước.`,
+    zh:`${pair.zh}\n未完成資料尚未清理；連線恢復後重試，系統會先清理。`
+  };
   const progress=error?.orderImportProgress; // progress（本次已收到確認的明細進度）
   if(!progress||progress.phase==='checking') return pair;
   return {
-    vi:`${pair.vi}\nĐã xác nhận lưu ${progress.completedItems}/${progress.totalItems} dòng; trạng thái cuối cần được kiểm tra lại.`,
-    zh:`${pair.zh}\n已確認儲存 ${progress.completedItems}/${progress.totalItems} 筆；最終狀態需重新核對。`
+    vi:`${pair.vi}\nChưa xác nhận được trạng thái cuối. Hãy kiểm tra danh sách đơn trước khi thử lại.`,
+    zh:`${pair.zh}\n最終狀態尚未確認，請查看訂單清單後再試。`
   };
 }
 
