@@ -129,8 +129,45 @@
     window.PCMSHistory.rememberOperationLog({id:logRef.id,...log});
     return {id:TEMPLATE_ID,...meta};
   }
+  // removeFile（刪除範本）：主檔、全部分段與不可修改的操作紀錄同一交易完成。
+  async function removeFile(expectedMeta){
+    requireCloud();
+    if(expectedMeta?.id!==TEMPLATE_ID||expectedMeta?.templateId!==TEMPLATE_ID){
+      throw new Error('Mẫu báo cáo không hợp lệ.\n檢驗報告範本不正確。');
+    }
+    const current=await loadOnly();
+    if(!current||current.id!==TEMPLATE_ID){
+      throw new Error('Mẫu không còn tồn tại. Hãy tải lại trang.\n範本已不存在，請重新整理頁面。');
+    }
+    const actor=window.firebaseAuthUser;
+    const log=window.PCMSHistory?.buildOperationLog?.({
+      permissionKey:'progress',feature:'inspectionReport',action:'inspectionTemplateDelete',status:'success',
+      itemCount:1,detailCount:Number(current.chunkCount)||0,fileName:String(current.fileName||'')
+    });
+    if(!log) throw new Error('Không thể ghi lịch sử thao tác.\n無法建立操作紀錄。');
+    const logRef=window._newDocRef('operationLogs');
+    await window._runTransaction(async transaction=>{
+      const metaRef=window._doc(TEMPLATE_COLLECTION,TEMPLATE_ID);
+      const snapshot=await transaction.get(metaRef);
+      const latest=snapshot.exists()?snapshot.data():null;
+      if(!latest||String(latest.contentHash)!==String(expectedMeta.contentHash)
+        ||Number(latest.updatedAt)!==Number(expectedMeta.updatedAt)
+        ||String(latest.fileName)!==String(expectedMeta.fileName)){
+        throw new Error('Mẫu đã được thay đổi. Hãy kiểm tra rồi xác nhận lại.\n範本已變更，請重新檢查並確認。');
+      }
+      const count=Number(latest.chunkCount);
+      if(!Number.isInteger(count)||count<1||count>MAX_CHUNKS){
+        throw new Error('Số phần của mẫu không hợp lệ.\n範本分段數量不正確。');
+      }
+      for(let index=0;index<count;index++) transaction.delete(window._doc(CHUNK_COLLECTION,chunkId(index)));
+      transaction.delete(metaRef);
+      transaction.set(logRef,log);
+    });
+    window.PCMSHistory.rememberOperationLog({id:logRef.id,...log});
+    return {fileName:current.fileName,deletedByUid:actor.uid};
+  }
   window.PCMSInspectionReportStore=Object.freeze({
-    TEMPLATE_ID,CHUNK_CHARS,MAX_BYTES,MAX_CHUNKS,validateFile,listActive,loadOnly,loadFile,saveFile,
+    TEMPLATE_ID,CHUNK_CHARS,MAX_BYTES,MAX_CHUNKS,validateFile,listActive,loadOnly,loadFile,saveFile,removeFile,
     hashBlob,splitBase64,chunkId
   });
 })();

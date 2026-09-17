@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const TARGETS=Object.freeze({code:'C6',description:'C7',color:'F7',orderNo:'C8',quantity:'F8'});
-  const state={uid:'',mounted:false,meta:null,pendingFile:null,pendingSheetName:'',saving:false,exporting:new Set()};
+  const state={uid:'',mounted:false,meta:null,pendingFile:null,pendingSheetName:'',saving:false,downloading:false,deleting:false,exporting:new Set()};
   const g=id=>document.getElementById(id);
   const pair=(vi,zh)=>({vi,zh});
   const message=(vi,zh,kind='warning')=>window.PCMSUIComponents.alertDialog({kind,message:pair(vi,zh)});
@@ -52,7 +52,7 @@
                 <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
                 <div>
                   <span class="ui-dual-copy"><strong>Tệp mẫu báo cáo</strong><span>報告範本檔案</span></span>
-                  <span class="ui-context-note ui-dual-copy"><strong>Chọn hoặc thả một tệp .xlsx</strong><span>選擇或拖入一個 .xlsx 檔案</span></span>
+                  <span class="ui-context-note ui-dual-copy" id="inspection-report-file-note"><strong>Chọn hoặc thả một tệp .xlsx</strong><span>選擇或拖入一個 .xlsx 檔案</span></span>
                 </div>
               </button>
             </div>
@@ -68,6 +68,10 @@
                 <i class="ti ti-device-floppy" aria-hidden="true"></i>
                 <span class="ui-dual-copy"><strong>Lưu mẫu</strong><span>儲存範本</span></span>
               </button>
+              <button type="button" class="ui-command-action is-danger" id="inspection-report-cancel" disabled>
+                <i class="ti ti-eraser" aria-hidden="true"></i>
+                <span class="ui-dual-copy"><strong>Hủy tệp đã chọn</strong><span>取消匯入檔案</span></span>
+              </button>
             </div>
           </div>
           <input type="file" id="inspection-report-file" accept=".xlsx" hidden>
@@ -76,7 +80,17 @@
           <div class="ui-section-header"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
             <span class="ui-dual-copy"><strong>Mẫu đang sử dụng</strong><span>目前使用的範本</span></span>
           </div>
-          <div class="inspection-report-status ui-table-frame" id="inspection-report-status" role="status"></div>
+          <div class="inspection-report-status ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only">
+            <table id="inspection-report-table" class="ui-table inspection-report-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-sticky="original">
+              <thead><tr>
+                <th><span class="ui-dual-copy"><strong>Tệp mẫu</strong><span>範本檔案</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Dung lượng</strong><span>檔案大小</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Cập nhật</strong><span>更新時間</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Trạng thái</strong><span>狀態</span></span></th>
+                <th><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+              </tr></thead><tbody id="inspection-report-status" role="status"></tbody>
+            </table>
+          </div></div>
         </section>
       </div>`;
     g('inspection-report-drop').addEventListener('click',()=>g('inspection-report-file').click());
@@ -84,6 +98,11 @@
       const file=event.target.files?.[0];event.target.value='';if(file) void selectFile(file);
     });
     g('inspection-report-save').addEventListener('click',()=>void savePending());
+    g('inspection-report-cancel').addEventListener('click',cancelPending);
+    g('inspection-report-status').addEventListener('click',event=>{
+      if(event.target.closest('#inspection-report-download')) void downloadOriginal();
+      if(event.target.closest('#inspection-report-delete')) void deleteSaved();
+    });
     if(window.PCMSUIFileDrop){
       window.PCMSUIFileDrop.register({
         id:'inspection-report-template',page:'inspection-report-template',accept:['.xlsx'],maxFiles:1,
@@ -99,23 +118,46 @@
     host.replaceChildren();
     const current=state.meta;
     const pending=state.pendingFile;
-    const text=current
-      ?pair(`Mẫu hiện tại: ${current.fileName} · ${new Date(current.updatedAt).toLocaleString('vi-VN')}`,
-        `目前範本：${current.fileName} · ${new Date(current.updatedAt).toLocaleString('zh-TW')}`)
-      :pair('Chưa có mẫu báo cáo.','尚未匯入品檢報告範本。');
-    const icon=document.createElement('i');
-    icon.className=current?'ti ti-circle-check':'ti ti-file-alert';
-    icon.setAttribute('aria-hidden','true');
-    const copy=document.createElement('div');copy.className='inspection-report-status-copy';
-    copy.appendChild(window.PCMSUIText.create(text));
-    if(pending){
-      const line=document.createElement('div');
-      line.appendChild(window.PCMSUIText.create(pair(`Đang chọn: ${pending.name}`,`目前選擇：${pending.name}`)));
-      copy.appendChild(line);
+    const fileNote=g('inspection-report-file-note');
+    if(fileNote){
+      fileNote.querySelector('strong').textContent=pending?`Đang chọn: ${pending.name}`:'Chọn hoặc thả một tệp .xlsx';
+      fileNote.querySelector('span').textContent=pending?`目前選擇：${pending.name}`:'選擇或拖入一個 .xlsx 檔案';
+      fileNote.dataset.uiNeutralTitle=pending?.name||'';
     }
-    host.append(icon,copy);
+    if(!current){
+      const row=document.createElement('tr');
+      const cell=document.createElement('td');cell.colSpan=5;cell.className='inspection-report-empty';
+      cell.appendChild(window.PCMSUIText.create(pair('Chưa có mẫu báo cáo.','尚未匯入品檢報告範本。')));
+      row.appendChild(cell);host.appendChild(row);
+    }else{
+      const row=document.createElement('tr');
+      const fileCell=document.createElement('td');fileCell.className='inspection-report-file-cell';
+      const fileName=document.createElement('strong');fileName.textContent=current.fileName||'—';
+      fileName.dataset.uiNeutralTitle=current.fileName||'';fileCell.appendChild(fileName);
+      const sizeCell=document.createElement('td');sizeCell.textContent=`${(Number(current.fileSize||0)/1024).toLocaleString('en-US',{maximumFractionDigits:0})} KB`;
+      const dateCell=document.createElement('td');dateCell.textContent=new Date(current.updatedAt).toLocaleString('vi-VN',{hour12:false});
+      const statusCell=document.createElement('td');statusCell.appendChild(window.PCMSUIText.create(pair('Đã lưu','已儲存')));
+      const actionsCell=document.createElement('td');actionsCell.className='inspection-report-row-actions';
+      actionsCell.innerHTML=`<div class="inspection-report-action-group">
+        <button type="button" id="inspection-report-download" class="inspection-report-row-button">
+          <i class="ti ti-file-download" aria-hidden="true"></i><span class="ui-dual-copy"><strong>Tải file gốc</strong><span>下載原始檔</span></span>
+        </button>
+        <button type="button" id="inspection-report-delete" class="inspection-report-row-button is-danger">
+          <i class="ti ti-trash" aria-hidden="true"></i><span class="ui-dual-copy"><strong>Xóa</strong><span>刪除</span></span>
+        </button></div>`;
+      row.append(fileCell,sizeCell,dateCell,statusCell,actionsCell);host.appendChild(row);
+    }
     const button=g('inspection-report-save');
-    if(button)button.disabled=!pending||state.saving;
+    const busy=state.saving||state.downloading||state.deleting;
+    const picker=g('inspection-report-drop');if(picker)picker.disabled=busy;
+    if(button)button.disabled=!pending||busy;
+    const cancel=g('inspection-report-cancel');if(cancel)cancel.disabled=!pending||busy;
+    const download=g('inspection-report-download');if(download)download.disabled=busy;
+    const remove=g('inspection-report-delete');if(remove)remove.disabled=busy;
+  }
+  function cancelPending(){
+    if(state.saving||state.downloading||state.deleting||!state.pendingFile)return;
+    state.pendingFile=null;state.pendingSheetName='';g('inspection-report-file').value='';renderStatus();
   }
   async function refreshMeta(){
     const rows=await window.PCMSInspectionReportStore.listActive();
@@ -129,6 +171,7 @@
     return state.meta;
   }
   async function selectFile(file){
+    if(state.saving||state.downloading||state.deleting)return;
     try{
       requirePermission();
       window.PCMSInspectionReportStore.validateFile(file);
@@ -140,10 +183,11 @@
     }
   }
   async function savePending(){
-    if(!state.pendingFile||state.saving)return;
+    if(!state.pendingFile||state.saving||state.downloading||state.deleting)return;
     const file=state.pendingFile;
     try{
       requirePermission();
+      state.saving=true;renderStatus();
       const current=await window.PCMSInspectionReportStore.loadOnly();
       if(current){
         const same=current.fileName===file.name;
@@ -158,7 +202,6 @@
         });
         if(!confirmed)return;
       }
-      state.saving=true;renderStatus();
       state.meta=await window.PCMSInspectionReportStore.saveFile(file,state.pendingSheetName,current);
       state.pendingFile=null;state.pendingSheetName='';renderStatus();
       window.PCMSUIComponents.showToast({kind:'success',text:pair('Đã lưu mẫu báo cáo.','檢驗報告範本已儲存。')});
@@ -166,6 +209,60 @@
       console.error(error);const detail=splitError(error);await message(detail.vi,detail.zh,'danger');
       try{await refreshMeta();}catch(_){/* 原範本仍由雲端保留，畫面下一次開啟會再核對。 */}
     }finally{state.saving=false;renderStatus();}
+  }
+  async function downloadOriginal(){
+    if(!state.meta||state.saving||state.downloading||state.deleting)return;
+    const expected=state.meta;
+    try{
+      requirePermission();
+      state.downloading=true;renderStatus();
+      const handle=await window.PCMSFileIO.chooseSaveHandle({
+        id:'inspection-report-original',suggestedName:String(expected.fileName||'report-template.xlsx'),
+        types:[window.PCMSFileIO.spreadsheetFileType],
+        onUnsupported:()=>message('Trình duyệt này không hỗ trợ chọn vị trí lưu.','此瀏覽器不支援選擇儲存位置。','warning')
+      });
+      if(!handle)return;
+      const current=await window.PCMSInspectionReportStore.loadOnly();
+      if(!current||current.id!==expected.id||current.contentHash!==expected.contentHash
+        ||Number(current.updatedAt)!==Number(expected.updatedAt)){
+        throw new Error('Mẫu đã được thay đổi. Hãy kiểm tra rồi tải lại.\n範本已變更，請重新檢查後下載。');
+      }
+      const file=await window.PCMSInspectionReportStore.loadFile(current);
+      await window.PCMSFileIO.writeToHandle(handle,file);
+      window.PCMSUIComponents.showToast({kind:'success',text:pair('Đã lưu file mẫu gốc.','已儲存原始範本檔。')});
+      try{
+        await window.PCMSHistory.saveOperationLog({permissionKey:'progress',feature:'inspectionReport',
+          action:'inspectionTemplateDownload',status:'success',itemCount:1,detailCount:Number(current.chunkCount)||0,
+          fileName:String(handle.name||current.fileName)});
+      }catch(logError){
+        console.error(logError);
+        await message('Đã lưu tệp nhưng không thể ghi lịch sử thao tác.','檔案已儲存，但操作紀錄寫入失敗。','warning');
+      }
+    }catch(error){
+      console.error(error);const detail=splitError(error);await message(detail.vi,detail.zh,'danger');
+      try{await refreshMeta();}catch(_){/* 只更新本頁狀態，不動既有範本。 */}
+    }finally{state.downloading=false;renderStatus();}
+  }
+  async function deleteSaved(){
+    if(!state.meta||state.saving||state.downloading||state.deleting)return;
+    const expected=state.meta;
+    try{
+      requirePermission();state.deleting=true;renderStatus();
+      const confirmed=await window.PCMSUIComponents.confirmDialog({
+        title:pair('Xóa vĩnh viễn mẫu báo cáo','永久刪除報告範本'),
+        body:window.PCMSUIComponents.createLanguageSections(pair(
+          `Sẽ xóa vĩnh viễn tệp ${expected.fileName}. Không thể hoàn tác; hãy tải file gốc trước nếu cần giữ lại.`,
+          `將永久刪除「${expected.fileName}」。此操作無法復原；如需保留，請先下載原始檔。`
+        ))
+      });
+      if(!confirmed)return;
+      await window.PCMSInspectionReportStore.removeFile(expected);
+      state.meta=null;renderStatus();
+      window.PCMSUIComponents.showToast({kind:'success',text:pair('Đã xóa mẫu báo cáo.','已刪除報告範本。')});
+    }catch(error){
+      console.error(error);const detail=splitError(error);await message(detail.vi,detail.zh,'danger');
+      try{await refreshMeta();}catch(_){/* 保留畫面原狀供重新檢查。 */}
+    }finally{state.deleting=false;renderStatus();}
   }
   function normalizeSheetName(value,used){
     const base=String(value||'').replace(/[\[\]:*?/\\\x00-\x1f]/g,'_').replace(/^'+|'+$/g,'').trim()||'Item';

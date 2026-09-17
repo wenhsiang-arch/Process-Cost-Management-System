@@ -61,26 +61,60 @@
   text-align: left;
 }
 
-#pg-inspection-report-template .inspection-report-status {
+#pg-inspection-report-template .inspection-report-table {
+  width: 100%;
+  min-width: 900px;
+  table-layout: fixed;
+}
+
+#pg-inspection-report-template .inspection-report-table th:nth-child(1) { width: 34%; }
+#pg-inspection-report-template .inspection-report-table th:nth-child(2) { width: 11%; }
+#pg-inspection-report-template .inspection-report-table th:nth-child(3) { width: 20%; }
+#pg-inspection-report-template .inspection-report-table th:nth-child(4) { width: 11%; }
+#pg-inspection-report-template .inspection-report-table th:nth-child(5) { width: 24%; }
+
+#pg-inspection-report-template .inspection-report-file-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#pg-inspection-report-template .inspection-report-empty {
+  padding: var(--ui-space-4);
+  text-align: left;
+}
+
+#pg-inspection-report-template .inspection-report-row-actions { text-align: center; }
+
+#pg-inspection-report-template .inspection-report-action-group {
   display: flex;
-  min-width: 0;
+  justify-content: center;
+  gap: var(--ui-space-2);
+}
+
+#pg-inspection-report-template .inspection-report-row-button {
+  display: inline-flex;
+  min-width: 104px;
+  min-height: 54px;
+  flex-direction: column;
   align-items: center;
-  gap: var(--ui-space-3);
-  padding: var(--ui-space-3) var(--ui-space-4);
-  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
-}
-
-#pg-inspection-report-template .inspection-report-status > i {
-  flex: 0 0 auto;
+  justify-content: center;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-1) var(--ui-space-2);
+  border: var(--ui-border-width) solid var(--ui-color-operation-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
   color: var(--ui-color-primary);
-  font-size: var(--ui-font-size-section-vi);
+  font: inherit;
+  cursor: pointer;
 }
 
-#pg-inspection-report-template .inspection-report-status-copy {
-  min-width: 0;
-  overflow-wrap: anywhere;
+#pg-inspection-report-template .inspection-report-row-button.is-danger {
+  border-color: var(--ui-color-danger-border);
+  color: var(--ui-color-danger-text);
 }
 
-#pg-inspection-report-template .inspection-report-status-copy > div + div {
-  margin-top: var(--ui-space-2);
+#pg-inspection-report-template .inspection-report-row-button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
