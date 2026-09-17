@@ -13,33 +13,52 @@
   min-width: 0;
 }
 
+#pg-inspection-report-template .inspection-report-upload .ui-context-note.ui-dual-copy {
+  display: flex;
+}
+
 #pg-inspection-report-template .inspection-report-actions {
+  position: relative;
   align-items: stretch;
 }
 
-#pg-inspection-report-template .inspection-report-guide {
+#pg-inspection-report-template .inspection-report-guide-disclosure {
+  display: flex;
+  min-width: var(--ui-action-tile-width);
+  height: 100%;
+  flex: 0 0 var(--ui-action-tile-width);
+}
+
+#pg-inspection-report-template .inspection-report-guide-disclosure > summary {
   box-sizing: border-box;
-  width: min(480px, 33vw);
-  min-width: 330px;
-  align-self: center;
-  margin: 6px;
-  padding: 7px 10px;
+  width: 100%;
+  list-style: none;
 }
 
-#pg-inspection-report-template .inspection-report-guide > i {
-  flex: 0 0 auto;
-  color: var(--ui-color-primary);
+#pg-inspection-report-template .inspection-report-guide-disclosure > summary::-webkit-details-marker {
+  display: none;
 }
 
-#pg-inspection-report-template .inspection-report-guide-copy {
-  min-width: 0;
+#pg-inspection-report-template .inspection-report-guide-disclosure[open] > summary {
+  background: var(--ui-color-primary-soft);
 }
 
-#pg-inspection-report-template .inspection-report-guide .ui-language-sections {
-  gap: var(--ui-space-1);
-  margin-top: 4px;
-  font-size: var(--ui-font-size-helper);
-  line-height: 1.35;
+#pg-inspection-report-template .inspection-report-guide-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 8px;
+  z-index: 30;
+  width: min(620px, calc(100vw - 360px));
+  max-height: 58vh;
+  padding: 12px 16px;
+  border: var(--ui-border-width) solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-body);
+  line-height: 1.65;
+  overflow-y: auto;
+  text-align: left;
 }
 
 #pg-inspection-report-template .inspection-report-status {
@@ -64,12 +83,4 @@
 
 #pg-inspection-report-template .inspection-report-status-copy > div + div {
   margin-top: var(--ui-space-2);
-}
-
-@container (max-width: 900px) {
-  #pg-inspection-report-template .inspection-report-guide {
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-  }
 }

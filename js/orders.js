@@ -977,8 +977,8 @@ async function renderProgress(){
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
-          ${String(o.client||'').trim().toUpperCase()==='HUNTER'?`<button type="button" class="btn bsm bd2 orders-inspection-export" data-inspection-order-id="${safeId}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i></button>`:''}
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
+          ${String(o.client||'').trim().toUpperCase()==='HUNTER'?`<button type="button" class="btn bsm bd2 orders-inspection-export" data-inspection-order-id="${safeId}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i></button>`:''}
         </div></td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">

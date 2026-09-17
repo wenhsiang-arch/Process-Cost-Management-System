@@ -30,8 +30,8 @@
       throw new Error('Mẫu phải giữ sẵn HUNTER và WEBBING WORLD.\n範本必須保留 HUNTER 與 WEBBING WORLD 固定文字。');
     }
     for(const address of Object.values(TARGETS)){
-      if(normalizeText(sheet[address]?.v)){
-        throw new Error(`Ô ${address} phải để trống nhưng vẫn giữ định dạng.\n${address} 儲存格必須清空內容並保留格式。`);
+      if(sheet[address]?.f){
+        throw new Error(`Ô ${address} không được chứa công thức.\n${address} 儲存格不可包含公式。`);
       }
     }
     return {sheetName:book.SheetNames[0],sheet};
@@ -51,22 +51,19 @@
               <button type="button" class="ui-context-item ui-file-picker" id="inspection-report-drop">
                 <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
                 <div>
-                  <span class="ui-dual-copy"><strong>Tệp mẫu · HUNTER</strong><span>範本檔案 · HUNTER</span></span>
+                  <span class="ui-dual-copy"><strong>Tệp mẫu báo cáo</strong><span>報告範本檔案</span></span>
                   <span class="ui-context-note ui-dual-copy"><strong>Chọn hoặc thả một tệp .xlsx</strong><span>選擇或拖入一個 .xlsx 檔案</span></span>
                 </div>
               </button>
             </div>
             <div class="ui-command-actions inspection-report-actions">
-              <div class="inspection-report-guide ui-notice">
-                <i class="ti ti-info-circle" aria-hidden="true"></i>
-                <div class="inspection-report-guide-copy">
-                  <span class="ui-dual-copy"><strong>Hướng dẫn · HUNTER</strong><span>使用說明 · HUNTER</span></span>
-                  <div class="ui-language-sections">
-                    <div class="ui-language-section is-vi" lang="vi">Giữ nguyên chữ và định dạng của mẫu; để trống C6, C7, F7, C8 và F8. Nhập lại sẽ hỏi trước khi thay thế.</div>
-                    <div class="ui-language-section is-zh" lang="zh-Hant">保留範本原有文字與格式；清空 C6、C7、F7、C8、F8。重新匯入會先確認再替換。</div>
-                  </div>
+              <details class="inspection-report-guide-disclosure" id="inspection-report-guide" data-ui-dismiss-outside data-ui-dismiss-on-content>
+                <summary class="ui-command-action"><i class="ti ti-book" aria-hidden="true"></i><span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
+                <div class="inspection-report-guide-panel ui-language-sections">
+                  <div class="ui-language-section is-vi" lang="vi">Chọn hoặc thả tệp .xlsx rồi nhấn Lưu mẫu. Chữ cố định, phông chữ và định dạng trong mẫu được giữ nguyên; nội dung có sẵn ở C6, C7, F7, C8 và F8 sẽ được thay bằng dữ liệu đơn hàng khi xuất. Tại bảng đơn hàng phía trên, nhấn biểu tượng báo cáo, chọn tên và vị trí lưu; mỗi mã hàng có một trang tính.</div>
+                  <div class="ui-language-section is-zh" lang="zh-Hant">選擇或拖入 .xlsx 範本，再按「儲存範本」。範本固定文字、字體與格式會保留；匯出時，C6、C7、F7、C8、F8 原有內容會以訂單資料替換。在上方訂單列表點報告圖示，選擇檔名與儲存位置；每個款號產生一個分頁。</div>
                 </div>
-              </div>
+              </details>
               <button type="button" class="ui-command-action is-primary is-condition-dependent" id="inspection-report-save" disabled>
                 <i class="ti ti-device-floppy" aria-hidden="true"></i>
                 <span class="ui-dual-copy"><strong>Lưu mẫu</strong><span>儲存範本</span></span>
@@ -90,7 +87,7 @@
     if(window.PCMSUIFileDrop){
       window.PCMSUIFileDrop.register({
         id:'inspection-report-template',page:'inspection-report-template',accept:['.xlsx'],maxFiles:1,
-        text:pair('Thả tệp mẫu HUNTER','放開即可匯入 HUNTER 範本'),onDrop:files=>selectFile(files[0]),
+        text:pair('Thả tệp mẫu báo cáo','放開即可匯入報告範本'),onDrop:files=>selectFile(files[0]),
         onReject:detail=>{const value=window.PCMSUIText.resolve(detail?.message||pair('Không thể nhận tệp.','無法接收檔案。'));void message(value.vi,value.zh);}
       });
     }
@@ -105,7 +102,7 @@
     const text=current
       ?pair(`Mẫu hiện tại: ${current.fileName} · ${new Date(current.updatedAt).toLocaleString('vi-VN')}`,
         `目前範本：${current.fileName} · ${new Date(current.updatedAt).toLocaleString('zh-TW')}`)
-      :pair('Chưa có mẫu báo cáo HUNTER.','尚未匯入 HUNTER 檢驗報告範本。');
+      :pair('Chưa có mẫu báo cáo.','尚未匯入品檢報告範本。');
     const icon=document.createElement('i');
     icon.className=current?'ti ti-circle-check':'ti ti-file-alert';
     icon.setAttribute('aria-hidden','true');
@@ -215,7 +212,7 @@
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
   const xmlAttribute=(tag,name)=>tag.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`))?.[1];
   function reportXmlError(){
-    throw new Error('Cấu trúc mẫu không được hỗ trợ. Vui lòng dùng mẫu .xlsx đơn giản có năm ô trống định dạng sẵn.\n範本結構不支援；請使用五格已保留格式的單一工作表 .xlsx 範本。');
+    throw new Error('Cấu trúc mẫu không được hỗ trợ. Vui lòng dùng mẫu .xlsx đơn giản có năm ô đã định dạng.\n範本結構不支援；請使用五格已保留格式的單一工作表 .xlsx 範本。');
   }
   function setXmlCell(sheetXml,address,value,numeric=false){
     if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(String(value))) reportXmlError();
@@ -372,7 +369,7 @@
     renderRoot();
     try{await refreshMeta();}catch(error){const detail=splitError(error);await message(detail.vi,detail.zh,'danger');}
   }
-  function inspectionReportLeave(){state.pendingFile=null;state.pendingSheetName='';renderStatus();}
+  function inspectionReportLeave(){state.pendingFile=null;state.pendingSheetName='';g('inspection-report-guide')?.removeAttribute('open');renderStatus();}
   window.inspectionReportInit=inspectionReportInit;
   window.inspectionReportLeave=inspectionReportLeave;
   window.PCMSInspectionReport=Object.freeze({exportOrder,validateTemplateBook,rowsForOrder,buildReportBlob,normalizeSheetName});
