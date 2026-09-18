@@ -7,6 +7,7 @@ const loadedProcessVersions = new Map(); // loadedProcessVersions（已載入訂
 let progressRenderSequence = 0;
 let progressRenderTimer = null;
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
+const inspectionReportExportRequests = new Set(); // inspectionReportExportRequests（匯出入口執行中的訂單，避免載入程式期間連點）
 let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（訂單全視窗匯入用途是否已登記）
 let orderImportFieldsBound = false; // orderImportFieldsBound（訂單必要資料自動接續檢查是否已綁定）
 let pendingOrderImportFile = null; // pendingOrderImportFile（等待必要資料完成的訂單檔案）
@@ -788,14 +789,28 @@ function openOrderDeleteWarning(id,name){
 }
 
 // exportInspectionReportFromOrder（從上方訂單與工序資料表匯出檢驗報告）：按下時才載入功能程式與範本。
-async function exportInspectionReportFromOrder(orderId){
+async function exportInspectionReportFromOrder(orderId,button){
   if(typeof canOpenPage==='function'&&!canOpenPage('progress')) return;
+  const key=String(orderId||'');
+  if(inspectionReportExportRequests.has(key))return;
+  inspectionReportExportRequests.add(key);
+  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+  let progress=null;
   try{
+    progress=window.PCMSUIComponents.progressDialog({
+      title:{vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'},indeterminate:true,
+      text:{vi:'Đang mở chức năng xuất báo cáo',zh:'正在開啟報告匯出功能'},
+      detail:{vi:'Vui lòng chờ.',zh:'請稍候。'},allowClose:false
+    });
     await window.PCMSFeatures.ensurePageScripts('inspection-report-template');
-    await window.PCMSInspectionReport.exportOrder(orderId);
+    await window.PCMSInspectionReport.exportOrder(orderId,progress);
   }catch(error){
     console.error('Không thể mở báo cáo kiểm tra / 無法開啟檢驗報告',error);
     await ordersMessage('Không thể mở chức năng xuất báo cáo kiểm tra.','無法開啟檢驗報告匯出功能。','danger');
+  }finally{
+    progress?.close?.();
+    inspectionReportExportRequests.delete(key);
+    if(button){button.disabled=false;button.removeAttribute('aria-busy');}
   }
 }
 
@@ -993,7 +1008,7 @@ async function renderProgress(){
       const label={vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'};
       window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);
       window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
-      button.addEventListener('click',event=>{event.stopPropagation();void exportInspectionReportFromOrder(button.dataset.inspectionOrderId);});
+      button.addEventListener('click',event=>{event.stopPropagation();void exportInspectionReportFromOrder(button.dataset.inspectionOrderId,button);});
     });
     if(codeQuery) list.forEach(o=>toggleProgDetail(o.id));
   }catch(e){

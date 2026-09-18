@@ -47,7 +47,7 @@ function runtime(items=[]){
   const context={window,document:{getElementById:()=>null},console,Set,Map,Blob,Date,URL};
   vm.createContext(context);
   vm.runInContext(source,context);
-  return {api:window.PCMSInspectionReport};
+  return {api:window.PCMSInspectionReport,window};
 }
 
 function template(){
@@ -283,6 +283,66 @@ test('匯出寫入原始樣式範本，封裝工具只在選擇儲存位置後�
   assert.match(source,/PCMSFileIO\.writeToHandle\(handle,output\)/);
   assert.doesNotMatch(source,/writeWorkbookToHandle/);
   assert.match(features,/function ensureInspectionReportZipTool\(/);
+});
+
+test('點擊匯出立即顯示共用讀條，選擇儲存位置前暫停，取消時清除狀態',async()=>{
+  const orders=fs.readFileSync(new URL('js/orders.js',root),'utf8');
+  const entry=orders.slice(orders.indexOf('async function exportInspectionReportFromOrder('),orders.indexOf('function closeOrderDeleteWarning('));
+  assert.ok(entry.indexOf('progressDialog({')<entry.indexOf("ensurePageScripts('inspection-report-template')"));
+  assert.match(entry,/inspectionReportExportRequests\.has\(key\)/);
+  assert.match(entry,/button\.disabled=true/);
+  assert.match(entry,/exportOrder\(orderId,progress\)/);
+  assert.match(entry,/inspectionReportExportRequests\.delete\(key\)/);
+  const events=[];
+  const {api,window}=runtime([{productId:'prd_a',description:'Collar XL',color:'red',quantity:1}]);
+  const progress={
+    update:value=>events.push(['update',value.text?.zh]),
+    close:()=>events.push(['close'])
+  };
+  window._doc=(collection,id)=>`${collection}/${id}`;
+  window._getDoc=async()=>({exists:()=>true,id:'order-1',data:()=>({client:'HUNTER',importStatus:'ready',lifecycleStatus:'active',orderId:'PO-1'})});
+  window.PCMSInspectionReportStore={loadOnly:async()=>({fileName:'sample.xlsx',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})};
+  window.PCMSFileIO={chooseSaveHandle:async()=>{events.push(['picker']);return null;},spreadsheetFileType:{}};
+  window.PCMSUIComponents={alertDialog:()=>{throw new Error('取消不應顯示錯誤');}};
+  await api.exportOrder('order-1',progress);
+  assert.deepEqual(events.filter(([kind])=>kind==='update').map(([,text])=>text),[
+    '正在核對訂單','正在核對報告範本','正在讀取訂單款號'
+  ]);
+  assert.deepEqual(events.slice(-2),[['close'],['picker']]);
+});
+
+test('匯出程式尚在載入時連點同一訂單，只執行一次並恢復按鈕',async()=>{
+  const orders=fs.readFileSync(new URL('js/orders.js',root),'utf8');
+  const entry=orders.slice(orders.indexOf('async function exportInspectionReportFromOrder('),orders.indexOf('function closeOrderDeleteWarning('));
+  const events=[];
+  let finishLoading;
+  const loading=new Promise(resolve=>{finishLoading=resolve;});
+  const button={disabled:false,setAttribute:()=>events.push('busy'),removeAttribute:()=>events.push('ready')};
+  const context={
+    window:{
+      PCMSUIComponents:{progressDialog:()=>{events.push('progress');return {close:()=>events.push('close')};}},
+      PCMSFeatures:{ensurePageScripts:()=>{events.push('load');return loading;}},
+      PCMSInspectionReport:{exportOrder:async()=>{events.push('export');}}
+    },
+    canOpenPage:()=>true,ordersMessage:async()=>{events.push('error');},console:{error:()=>{}}
+  };
+  vm.createContext(context);
+  vm.runInContext(`const inspectionReportExportRequests=new Set();${entry}`,context);
+  const first=context.exportInspectionReportFromOrder('order-1',button);
+  await context.exportInspectionReportFromOrder('order-1',button);
+  assert.equal(button.disabled,true);
+  assert.deepEqual(events.slice(0,3),['busy','progress','load']);
+  finishLoading();
+  await first;
+  assert.equal(button.disabled,false);
+  assert.equal(events.filter(value=>value==='export').length,1);
+  assert.equal(events.filter(value=>value==='close').length,1);
+  assert.equal(events.at(-1),'ready');
+  context.window.PCMSFeatures.ensurePageScripts=async()=>{throw new Error('offline');};
+  await context.exportInspectionReportFromOrder('order-1',button);
+  assert.equal(button.disabled,false);
+  assert.equal(events.filter(value=>value==='error').length,1);
+  assert.equal(events.filter(value=>value==='close').length,2);
 });
 
 test('同款號同描述同顏色加總，異色阻擋，不猜測英文翻譯',async()=>{

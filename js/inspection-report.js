@@ -477,25 +477,30 @@
     const bytes=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
     return new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   }
-  async function exportOrder(orderId){
+  async function exportOrder(orderId,initialProgress=null){
     if(state.exporting.has(orderId))return;
     state.exporting.add(orderId);
-    let progress=null;
+    let progress=initialProgress;
     try{
       requirePermission();
+      progress?.update({indeterminate:true,text:pair('Đang kiểm tra đơn hàng','正在核對訂單')});
       const orderSnapshot=await window._getDoc(window._doc('orders',String(orderId||'')));
       const order=orderSnapshot.exists()?{id:orderSnapshot.id,...orderSnapshot.data()}:null;
       if(!order||!isHunter(order.client)||order.importStatus!=='ready'||order.lifecycleStatus!=='active'){
         throw new Error('Đơn HUNTER này không còn ở trạng thái có thể xuất.\n這筆 HUNTER 訂單目前不可匯出。');
       }
+      progress?.update({indeterminate:true,text:pair('Đang kiểm tra mẫu báo cáo','正在核對報告範本')});
       const meta=await window.PCMSInspectionReportStore.loadOnly();
       if(!meta)throw new Error('Chưa có mẫu báo cáo. Vui lòng nhập mẫu trước.\n尚無檢驗報告範本，請先匯入。');
       if(!/\.xlsx$/i.test(String(meta.fileName||''))
         ||meta.contentType!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'){
         throw new Error('Mẫu đã lưu là tệp .xls cũ. Vui lòng thay bằng mẫu .xlsx.\n已儲存的範本是舊版 .xls，請換成 .xlsx 範本。');
       }
+      progress?.update({indeterminate:true,text:pair('Đang đọc các mã hàng trong đơn','正在讀取訂單款號')});
       const rows=await rowsForOrder(order);
       const suggested=`${String(order.orderId||'order').replace(/[\\/:*?"<>|]/g,'_')}-inspection-report.xlsx`;
+      // 系統儲存位置視窗須由瀏覽器獨立顯示；選擇期間暫停網站讀條，取消時不產生檔案。
+      progress?.close?.();progress=null;
       const handle=await window.PCMSFileIO.chooseSaveHandle({
         id:'inspection-report-export',suggestedName:suggested,types:[window.PCMSFileIO.spreadsheetFileType],
         onUnsupported:()=>message('Trình duyệt này không hỗ trợ chọn vị trí lưu.','此瀏覽器不支援選擇儲存位置。','warning')
@@ -525,7 +530,7 @@
     }catch(error){
       console.error(error);progress?.close?.();
       const detail=splitError(error);await message(detail.vi,detail.zh,'danger');
-    }finally{state.exporting.delete(orderId);}
+    }finally{progress?.close?.();state.exporting.delete(orderId);}
   }
   async function inspectionReportInit(){
     requirePermission();
