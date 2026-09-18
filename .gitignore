@@ -18,3 +18,4 @@ npm-debug.log*
 
 # Security test（安全測試）臨時結果
 test-results/
+.inspection-report-temp/
