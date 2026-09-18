@@ -8,8 +8,6 @@
   const MAX_BYTES=5*1024*1024;
   const MAX_CHUNKS=12;
   const CONTENT_TYPE_XLSX='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-  const CONTENT_TYPE_XLS='application/vnd.ms-excel';
-  const contentTypeFor=name=>/\.xls$/i.test(String(name||''))?CONTENT_TYPE_XLS:CONTENT_TYPE_XLSX;
 
   function requireCloud(){
     if(!window.firebaseAuthUser?.uid||!window._getDocs||!window._getDoc||!window._runTransaction){
@@ -46,8 +44,8 @@
     return new Blob(parts,{type:contentType});
   }
   function validateFile(file){
-    if(!(file instanceof Blob)||!String(file.name||'').match(/\.xlsx?$/i)){
-      throw new Error('Chỉ nhận mẫu Excel .xls hoặc .xlsx.\n範本只接受 .xls 或 .xlsx 表格檔。');
+    if(!(file instanceof Blob)||!/\.xlsx$/i.test(String(file.name||''))){
+      throw new Error('Chỉ nhận mẫu Excel .xlsx.\n範本只接受 .xlsx 表格檔。');
     }
     if(file.size<1||file.size>MAX_BYTES){
       throw new Error('Mẫu phải lớn hơn 0 và không vượt 5 MB.\n範本必須有內容且不超過 5 MB。');
@@ -83,7 +81,7 @@
       }
       pieces.push(String(item.data||''));
     }
-    const blob=base64ToBlob(pieces.join(''),contentTypeFor(meta.fileName));
+    const blob=base64ToBlob(pieces.join(''),String(meta.contentType||CONTENT_TYPE_XLSX));
     if(blob.size!==Number(meta.fileSize)||await hashBlob(blob)!==meta.contentHash){
       throw new Error('Nội dung mẫu không khớp.\n範本內容驗證不一致。');
     }
@@ -100,7 +98,7 @@
     const actor=window.firebaseAuthUser;
     const meta={
       templateId:TEMPLATE_ID,schemaVersion:1,fileName:String(file.name).slice(0,300),fileSize:file.size,
-      contentType:contentTypeFor(file.name),contentHash,chunkCount:chunks.length,sheetName:String(sheetName||'').slice(0,200),
+      contentType:CONTENT_TYPE_XLSX,contentHash,chunkCount:chunks.length,sheetName:String(sheetName||'').slice(0,200),
       createdAt:Number(current?.createdAt)||now,updatedAt:now,updatedByUid:actor.uid,
       updatedBy:String(window.cu?.user||actor.displayName||actor.email||actor.uid).slice(0,200)
     };

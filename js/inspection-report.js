@@ -38,26 +38,6 @@
     await window.PCMSFeatures.ensureSpreadsheetTool();
     return window.XLSX.read(await file.arrayBuffer(),{type:'array',cellStyles:true});
   }
-  // convertLegacyTemplate（舊版範本本機轉換）：只在 .xls 時使用，原檔仍照原格式儲存與下載。
-  async function convertLegacyTemplate(file,fileName){
-    if(!/\.xls$/i.test(String(fileName||file?.name||'')))return file;
-    const endpoint='http://127.0.0.1:8767/convert';
-    let response;
-    try{
-      response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/vnd.ms-excel'},
-        body:await file.arrayBuffer(),signal:AbortSignal.timeout(60000)});
-    }catch(error){
-      throw new Error('Không kết nối được công cụ chuyển mẫu. Hãy mở tệp khởi động công cụ trên máy rồi thử lại.\n無法連接本機範本轉換工具，請先開啟「啟動品檢報告轉換工具.bat」再重試。');
-    }
-    if(!response.ok){
-      throw new Error('Không thể chuyển tệp .xls mà vẫn giữ định dạng. Mẫu gốc không bị thay đổi.\n無法保留格式並轉換 .xls，原始範本未被修改。');
-    }
-    const bytes=await response.arrayBuffer();
-    if(bytes.byteLength<1||bytes.byteLength>20*1024*1024){
-      throw new Error('Tệp sau chuyển đổi không hợp lệ.\n轉換後的檔案不正確。');
-    }
-    return new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  }
   function renderRoot(){
     const root=g('inspection-report-root');
     if(!root||state.mounted) return;
@@ -70,7 +50,7 @@
                 <i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
                 <div>
                   <span class="ui-dual-copy"><strong>Tệp mẫu báo cáo</strong><span>報告範本檔案</span></span>
-                  <span class="ui-context-note ui-dual-copy" id="inspection-report-file-note"><strong>Chọn hoặc thả tệp .xls / .xlsx</strong><span>選擇或拖入 .xls／.xlsx 檔案</span></span>
+                  <span class="ui-context-note ui-dual-copy" id="inspection-report-file-note"><strong>Chọn hoặc thả tệp .xlsx</strong><span>選擇或拖入 .xlsx 檔案</span></span>
                 </div>
               </button>
             </div>
@@ -78,8 +58,8 @@
               <details class="inspection-report-guide-disclosure" id="inspection-report-guide" data-ui-dismiss-outside data-ui-dismiss-on-content>
                 <summary class="ui-command-action"><i class="ti ti-book" aria-hidden="true"></i><span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
                 <div class="inspection-report-guide-panel ui-language-sections">
-                  <div class="ui-language-section is-vi" lang="vi">Chọn hoặc thả mẫu .xls / .xlsx rồi nhấn Lưu mẫu. Năm ô C6, C7, F7, C8, F8 cần có chữ hoặc số mẫu; khi xuất, hệ thống thay nội dung bằng dữ liệu đơn hàng và giữ định dạng của từng ô. Mẫu .xls được tự chuyển trên máy. Tại bảng đơn hàng phía trên, nhấn biểu tượng báo cáo, chọn tên và vị trí lưu; mỗi mã hàng có một trang tính.</div>
-                  <div class="ui-language-section is-zh" lang="zh-Hant">選擇或拖入 .xls／.xlsx 範本，再按「儲存範本」。C6、C7、F7、C8、F8 五格須有範例文字或數字；匯出時以訂單資料替換內容，保留各格格式。舊版 .xls 由本機自動轉換。在上方訂單列表點報告圖示，選擇檔名與儲存位置；每個款號產生一個分頁。</div>
+                  <div class="ui-language-section is-vi" lang="vi">Chọn hoặc thả mẫu .xlsx rồi nhấn Lưu mẫu. Năm ô C6, C7, F7, C8, F8 cần có chữ hoặc số mẫu; khi xuất, hệ thống thay nội dung bằng dữ liệu đơn hàng và giữ định dạng của từng ô. Tại bảng đơn hàng phía trên, nhấn biểu tượng báo cáo, chọn tên và vị trí lưu; mỗi mã hàng có một trang tính và mở từ đầu trang.</div>
+                  <div class="ui-language-section is-zh" lang="zh-Hant">選擇或拖入 .xlsx 範本，再按「儲存範本」。C6、C7、F7、C8、F8 五格須有範例文字或數字；匯出時以訂單資料替換內容，保留各格格式。在上方訂單列表點報告圖示，選擇檔名與儲存位置；每個款號產生一個分頁，開啟時從上方顯示。</div>
                 </div>
               </details>
               <button type="button" class="ui-command-action is-primary is-condition-dependent" id="inspection-report-save" disabled>
@@ -92,7 +72,7 @@
               </button>
             </div>
           </div>
-          <input type="file" id="inspection-report-file" accept=".xls,.xlsx" hidden>
+          <input type="file" id="inspection-report-file" accept=".xlsx" hidden>
         </section>
         <section class="ui-data-section">
           <div class="ui-section-header"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i>
@@ -123,7 +103,7 @@
     });
     if(window.PCMSUIFileDrop){
       window.PCMSUIFileDrop.register({
-        id:'inspection-report-template',page:'inspection-report-template',accept:['.xls','.xlsx'],maxFiles:1,
+        id:'inspection-report-template',page:'inspection-report-template',accept:['.xlsx'],maxFiles:1,
         text:pair('Thả tệp mẫu báo cáo','放開即可匯入報告範本'),onDrop:files=>selectFile(files[0]),
         onReject:detail=>{const value=window.PCMSUIText.resolve(detail?.message||pair('Không thể nhận tệp.','無法接收檔案。'));void message(value.vi,value.zh);}
       });
@@ -138,8 +118,8 @@
     const pending=state.pendingFile;
     const fileNote=g('inspection-report-file-note');
     if(fileNote){
-      fileNote.querySelector('strong').textContent=pending?`Đang chọn: ${pending.name}`:'Chọn hoặc thả tệp .xls / .xlsx';
-      fileNote.querySelector('span').textContent=pending?`目前選擇：${pending.name}`:'選擇或拖入 .xls／.xlsx 檔案';
+      fileNote.querySelector('strong').textContent=pending?`Đang chọn: ${pending.name}`:'Chọn hoặc thả tệp .xlsx';
+      fileNote.querySelector('span').textContent=pending?`目前選擇：${pending.name}`:'選擇或拖入 .xlsx 檔案';
       fileNote.dataset.uiNeutralTitle=pending?.name||'';
     }
     if(!current){
@@ -331,6 +311,12 @@
   const xmlEscape=value=>String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
   const xmlAttribute=(tag,name)=>tag.match(new RegExp(`(?:^|\\s)${name}="([^"]*)"`))?.[1];
+  function setXmlAttribute(tag,name,value){
+    const pattern=new RegExp(`\\s${name}="[^"]*"`);
+    if(value===null)return tag.replace(pattern,'');
+    if(pattern.test(tag))return tag.replace(pattern,` ${name}="${value}"`);
+    return tag.replace(/(\/?>)$/,` ${name}="${value}"$1`);
+  }
   function reportXmlError(){
     throw new Error('Không thể giữ đầy đủ định dạng mẫu. Vui lòng kiểm tra năm ô cần điền và tệp gốc.\n無法完整保留範本格式，請檢查五個填寫格與原始檔。');
   }
@@ -361,6 +347,54 @@
       [TARGETS.quantity,row.quantity,true]
     ]) xml=setXmlCell(xml,address,value,numeric);
     return xml;
+  }
+  // 款號是識別碼：保留文字及前導零，只排除 C6 的「數字以文字儲存」提示。
+  function ignoreCodeTextWarning(sheetXml){
+    const rule='<ignoredError sqref="C6" numberStoredAsText="1"/>';
+    const existing=sheetXml.match(/<ignoredErrors\b[^>]*(?:\/>|>[\s\S]*?<\/ignoredErrors>)/);
+    if(existing){
+      if(existing[0].includes(rule))return sheetXml;
+      const updated=existing[0].endsWith('/>')
+        ?existing[0].replace(/\/>$/,`>${rule}</ignoredErrors>`)
+        :existing[0].replace('</ignoredErrors>',`${rule}</ignoredErrors>`);
+      return sheetXml.replace(existing[0],updated);
+    }
+    const later=sheetXml.search(/<(?:smartTags|drawing|legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b/);
+    const position=later>=0?later:sheetXml.indexOf('</worksheet>');
+    if(position<0)reportXmlError();
+    return sheetXml.slice(0,position)+`<ignoredErrors>${rule}</ignoredErrors>`+sheetXml.slice(position);
+  }
+  // 開啟位置只屬檢視狀態，不改動範本字型、內容、合併格或列印設定。
+  function resetSheetOpening(sheetXml,selected){
+    const views=sheetXml.match(/<sheetViews\b[^>]*>[\s\S]*?<\/sheetViews>/);
+    if(!views)return sheetXml; // 未記錄檢視狀態的範本由 Excel 預設從 A1 開啟。
+    const updated=views[0].replace(/<sheetView\b[^>]*\/>|<sheetView\b[^>]*>[\s\S]*?<\/sheetView>/g,view=>{
+      const opening=view.match(/^<sheetView\b[^>]*(?:\/>|>)/)?.[0];
+      if(!opening)reportXmlError();
+      let changed=setXmlAttribute(setXmlAttribute(opening,'topLeftCell','A1'),'tabSelected',selected?'1':null);
+      let result=view.replace(opening,changed);
+      const pane=result.match(/<pane\b[^>]*\/>/)?.[0];
+      if(pane){
+        let visible='A1';
+        const x=Number(xmlAttribute(pane,'xSplit')||0),y=Number(xmlAttribute(pane,'ySplit')||0);
+        if(/^(?:frozen|frozenSplit)$/.test(xmlAttribute(pane,'state')||'')
+          &&Number.isSafeInteger(x)&&Number.isSafeInteger(y)&&x>=0&&y>=0&&x<16384&&y<1048576){
+          let column=x+1,label='';
+          while(column){column--;label=String.fromCharCode(65+column%26)+label;column=Math.floor(column/26);}
+          visible=`${label}${y+1}`;
+        }
+        result=result.replace(pane,setXmlAttribute(pane,'topLeftCell',visible));
+      }
+      result=result.replace(/<selection\b[^>]*\/>/g,selection=>{
+        const activePane=xmlAttribute(selection,'pane');
+        const first=activePane==='bottomRight'?xmlAttribute(result.match(/<pane\b[^>]*\/>/)?.[0]||'','topLeftCell')||'A1':
+          activePane==='bottomLeft'?'A'+(Number(xmlAttribute(result.match(/<pane\b[^>]*\/>/)?.[0]||'','ySplit')||0)+1):
+          activePane==='topRight'?String(xmlAttribute(result.match(/<pane\b[^>]*\/>/)?.[0]||'','topLeftCell')||'A1').replace(/\d+$/,'')+'1':'A1';
+        return setXmlAttribute(setXmlAttribute(selection,'activeCell',first),'sqref',first);
+      });
+      return result;
+    });
+    return sheetXml.replace(views[0],updated);
   }
   async function buildReportBlob(templateFile,orderNo,rows){
     if(!rows?.length) reportXmlError();
@@ -399,7 +433,7 @@
     for(let index=0;index<rows.length;index++){
       const path=index===0?sourcePath:`xl/worksheets/pcms_inspection_${index+1}.xml`;
       if(index>0&&zip.file(path)) reportXmlError();
-      zip.file(path,fillSheetXml(sheetXml,rows[index],orderNo));
+      zip.file(path,ignoreCodeTextWarning(resetSheetOpening(fillSheetXml(sheetXml,rows[index],orderNo),index===0)));
       // 工作表的列印設定等關聯與範本同時複製；相對目標仍由相同 worksheets 目錄解析。
       if(index>0&&sourceRels){
         const cloneRels=`xl/worksheets/_rels/${path.split('/').pop()}.rels`;
@@ -456,6 +490,10 @@
       }
       const meta=await window.PCMSInspectionReportStore.loadOnly();
       if(!meta)throw new Error('Chưa có mẫu báo cáo. Vui lòng nhập mẫu trước.\n尚無檢驗報告範本，請先匯入。');
+      if(!/\.xlsx$/i.test(String(meta.fileName||''))
+        ||meta.contentType!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'){
+        throw new Error('Mẫu đã lưu là tệp .xls cũ. Vui lòng thay bằng mẫu .xlsx.\n已儲存的範本是舊版 .xls，請換成 .xlsx 範本。');
+      }
       const rows=await rowsForOrder(order);
       const suggested=`${String(order.orderId||'order').replace(/[\\/:*?"<>|]/g,'_')}-inspection-report.xlsx`;
       const handle=await window.PCMSFileIO.chooseSaveHandle({
@@ -466,11 +504,10 @@
       progress=window.PCMSUIComponents.progressDialog({title:pair('Xuất báo cáo kiểm tra','匯出檢驗報告'),value:5,
         text:pair('Đang tạo tệp Excel','正在產生 Excel 表格檔'),detail:pair('Vui lòng chờ.','請稍候。'),allowClose:false});
       const file=await window.PCMSInspectionReportStore.loadFile(meta);
-      const converted=await convertLegacyTemplate(file,meta.fileName);
-      const template=await readBook(converted);
+      const template=await readBook(file);
       progress?.update({value:45,text:pair('Đang tạo từng trang tính','正在建立各款號分頁')});
       validateTemplateBook(template);
-      const output=await buildReportBlob(converted,String(order.orderId||''),rows);
+      const output=await buildReportBlob(file,String(order.orderId||''),rows);
       progress?.update({value:85,text:pair('Đang lưu tệp','正在儲存檔案')});
       await window.PCMSFileIO.writeToHandle(handle,output);
       progress?.close?.();progress=null;

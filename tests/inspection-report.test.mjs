@@ -24,7 +24,11 @@ test('品檢報告範本沿用共用操作按鈕，說明位於儲存左側，�
   assert.match(featureSource,/page:'inspection-report-template'[^\n]*[\s\S]*?zh:'品檢報告範本'/);
   assert.match(source,/class="ui-command-actions inspection-report-actions"[\s\S]*?class="inspection-report-guide-disclosure"[\s\S]*?<summary class="ui-command-action"[\s\S]*?id="inspection-report-save"/);
   assert.match(source,/class="ui-context-item ui-file-picker" id="inspection-report-drop"[\s\S]*?<i[^>]*>[\s\S]*?<div>/);
-  assert.match(source,/class="inspection-report-status ui-table-frame"/);
+  assert.match(source,/id="inspection-report-table" class="ui-table inspection-report-table" data-ui-table-controls="auto"/);
+  assert.match(source,/id="inspection-report-cancel" disabled/);
+  assert.match(source,/id="inspection-report-download"/);
+  assert.match(source,/id="inspection-report-delete"/);
+  assert.match(featureSource,/scripts:\['history','fileIo','uiTableControls','inspectionReportStore','inspectionReport'\]/);
   assert.match(source,/class="ui-language-section is-vi"[\s\S]*?class="ui-language-section is-zh"/);
   assert.match(source,/每個款號產生一個分頁/);
   assert.doesNotMatch(source,/(?:Tệp mẫu|範本檔案|Hướng dẫn|使用說明|Chưa có mẫu báo cáo|尚未匯入品檢報告範本)[^\n]*HUNTER/);
@@ -40,7 +44,7 @@ function runtime(items=[]){
     PCMSOrderService:{loadOrderItems:async()=>items},
     PCMSFeatures:{ensureInspectionReportZipTool:async()=>JSZip}
   };
-  const context={window,document:{getElementById:()=>null},console,Set,Map,Blob,Date};
+  const context={window,document:{getElementById:()=>null},console,Set,Map,Blob,Date,URL};
   vm.createContext(context);
   vm.runInContext(source,context);
   return {api:window.PCMSInspectionReport};
@@ -49,16 +53,16 @@ function runtime(items=[]){
 function template(){
   return {SheetNames:['Mẫu'],Sheets:{'Mẫu':{
     A1:{t:'s',v:'HUNTER'},K5:{t:'s',v:'WEBBING WORLD'},
-    C6:{t:'z',s:{font:{name:'Arial',sz:12}}},
-    C7:{t:'z',s:{font:{name:'Arial',sz:11}}},
-    F7:{t:'z',s:{font:{name:'Arial',sz:11}}},
-    C8:{t:'z',s:{font:{name:'Arial',sz:12}}},
-    F8:{t:'z',s:{font:{name:'Arial',sz:14,bold:true}}},
+    C6:{t:'n',v:69697,s:{font:{name:'Arial',sz:12}}},
+    C7:{t:'s',v:'Sample description',s:{font:{name:'Arial',sz:11}}},
+    F7:{t:'s',v:'Sample color',s:{font:{name:'Arial',sz:11}}},
+    C8:{t:'s',v:'Sample order',s:{font:{name:'Arial',sz:12}}},
+    F8:{t:'n',v:999,s:{font:{name:'Arial',sz:14,bold:true}}},
     '!merges':[{s:{r:0,c:0},e:{r:0,c:10}}]
   }}};
 }
 
-test('範本只接受一頁；五個資料格可保留範例文字但不可包含公式',()=>{
+test('範本只接受一頁；五個資料格須有範例值且不可包含公式',()=>{
   const {api}=runtime();
   assert.equal(api.validateTemplateBook(template()).sheetName,'Mẫu');
   const filled=template();filled.Sheets['Mẫu'].C6.v='69697';
@@ -66,19 +70,36 @@ test('範本只接受一頁；五個資料格可保留範例文字但不可包�
   assert.equal(api.validateTemplateBook(filled).sheetName,'Mẫu');
   filled.Sheets['Mẫu'].C6.f='1+1';
   assert.throws(()=>api.validateTemplateBook(filled),/C6/);
+  delete filled.Sheets['Mẫu'].C6.f;
+  filled.Sheets['Mẫu'].C6.v='';
+  assert.throws(()=>api.validateTemplateBook(filled),/C6/);
   const two=template();two.SheetNames.push('other');two.Sheets.other={};
   assert.throws(()=>api.validateTemplateBook(two),/một trang tính/);
-  const wrong=template();wrong.Sheets['Mẫu'].A1.v='SYLS';
-  assert.throws(()=>api.validateTemplateBook(wrong),/HUNTER/);
+  const otherClient=template();otherClient.Sheets['Mẫu'].A1.v='SYLS';
+  assert.equal(api.validateTemplateBook(otherClient).sheetName,'Mẫu');
+});
+
+test('品檢範本只接受 .xlsx，不再要求本機轉換工具',()=>{
+  const window={};
+  vm.runInNewContext(storeSource,{window,Blob,FileReader:class {},console});
+  const makeFile=name=>Object.assign(new Blob(['example']),{name});
+  assert.throws(()=>window.PCMSInspectionReportStore.validateFile(makeFile('old.xls')),/\.xlsx/);
+  assert.doesNotThrow(()=>window.PCMSInspectionReportStore.validateFile(makeFile('new.xlsx')));
+  assert.throws(()=>window.PCMSInspectionReportStore.validateFile(makeFile('macro.xlsm')),/\.xlsx/);
+  assert.match(source,/accept="\.xlsx"/);
+  assert.match(source,/accept:\['\.xlsx'\]/);
+  assert.doesNotMatch(source,/convertLegacyTemplate|127\.0\.0\.1:8767/);
+  assert.equal(fs.existsSync(new URL('local-inspection-report-server.ps1',root)),false);
+  assert.equal(fs.existsSync(new URL('啟動品檢報告轉換工具.bat',root)),false);
 });
 
 async function styledTemplate(){
   const zip=new JSZip();
-  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:K8"/><cols><col min="3" max="3" width="25" customWidth="1"/></cols><sheetData><row r="1"><c r="A1" s="1" t="inlineStr"><is><t>HUNTER</t></is></c></row><row r="5"><c r="K5" s="1" t="inlineStr"><is><t>WEBBING WORLD</t></is></c></row><row r="6"><c r="C6" s="1"/></row><row r="7"><c r="C7" s="1"/><c r="F7" s="1"/></row><row r="8"><c r="C8" s="1"/><c r="F8" s="2"/></row></sheetData><mergeCells count="1"><mergeCell ref="A1:K1"/></mergeCells><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:K8"/><sheetViews><sheetView tabSelected="1" view="pageBreakPreview" topLeftCell="A22" zoomScale="60" workbookViewId="0"><selection activeCell="O23" sqref="O23"/></sheetView></sheetViews><cols><col min="3" max="3" width="25" customWidth="1"/></cols><sheetData><row r="1"><c r="A1" s="1" t="inlineStr"><is><t>HUNTER</t></is></c></row><row r="5"><c r="K5" s="1" t="inlineStr"><is><t>WEBBING WORLD</t></is></c></row><row r="6"><c r="C6" s="1" t="inlineStr"><is><t>OLD-CODE</t></is></c></row><row r="7"><c r="C7" s="1" t="inlineStr"><is><t>Old description</t></is></c><c r="F7" s="1" t="inlineStr"><is><t>Old color</t></is></c></row><row r="8"><c r="C8" s="1" t="inlineStr"><is><t>OLD-PO</t></is></c><c r="F8" s="2" t="n"><v>999</v></c></row></sheetData><mergeCells count="1"><mergeCell ref="A1:K1"/></mergeCells><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><name val="Calibri"/><sz val="11"/></font><font><name val="Times New Roman"/><sz val="24"/></font><font><b/><name val="Arial"/><sz val="14"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf fontId="0" fillId="0" borderId="0" numFmtId="0"/></cellStyleXfs><cellXfs count="3"><xf fontId="0" fillId="0" borderId="0" numFmtId="0" xfId="0"/><xf fontId="1" fillId="0" borderId="0" numFmtId="0" xfId="0" applyFont="1"/><xf fontId="2" fillId="0" borderId="0" numFmtId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>`;
   zip.file('xl/worksheets/sheet1.xml',sheet);
   zip.file('xl/styles.xml',styles);
-  zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Mẫu" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">$A$1:$K$8</definedName></definedNames></workbook>`);
+  zip.file('xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Mẫu" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'Mẫu'!$A$1:$K$8</definedName></definedNames></workbook>`);
   zip.file('xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
   zip.file('[Content_Types].xml',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
   zip.file('_rels/.rels',`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
@@ -111,7 +132,13 @@ test('真實寫出與讀回：每款號一頁，字型、合併、欄寬與固�
     assert.match(xml,/<mergeCell ref="A1:K1"/);
     assert.match(xml,/width="25"/);
     assert.match(xml,/<pageMargins/);
+    assert.match(xml,/topLeftCell="A1"/);
+    assert.match(xml,/<selection activeCell="A1" sqref="A1"\/>/);
+    assert.match(xml,/view="pageBreakPreview"/);
+    assert.match(xml,/<ignoredError sqref="C6" numberStoredAsText="1"\/>/);
   }
+  assert.match(await read('xl/worksheets/sheet1.xml'),/tabSelected="1"/);
+  assert.doesNotMatch(await read('xl/worksheets/pcms_inspection_2.xml'),/tabSelected="1"/);
   assert.match(await read('xl/worksheets/sheet1.xml'),/Collar Inari Alu-Strong &amp; XL/);
   assert.equal(original.sheet.includes('69697'),false);
   // 以另一套試算表讀取器獨立開啟實際輸出位元組，確認不只是 XML 文字比對。
@@ -132,16 +159,47 @@ test('真實寫出與讀回：每款號一頁，字型、合併、欄寬與固�
   assert.deepEqual(sheets[1].merged,['A1:K1']);
 });
 
+test('純數字外觀及前導零款號仍以文字輸出，只排除 C6 的數字文字提示',async()=>{
+  const {api}=runtime();
+  const original=await styledTemplate();
+  const output=await api.buildReportBlob(original.file,'PO-1',[
+    {code:'001234',description:'Item',color:'red',quantity:1}
+  ]);
+  const zip=await JSZip.loadAsync(await output.arrayBuffer());
+  const xml=await zip.file('xl/worksheets/sheet1.xml').async('string');
+  assert.match(xml,/<c r="C6" s="1" t="inlineStr"><is><t xml:space="preserve">001234<\/t><\/is><\/c>/);
+  assert.match(xml,/<ignoredErrors><ignoredError sqref="C6" numberStoredAsText="1"\/><\/ignoredErrors>/);
+  assert.doesNotMatch(xml,/<ignoredError[^>]*(?:sqref="C7"|sqref="F8")/);
+});
+
+test('範本已有忽略提示或凍結窗格時，保留原設定並從可見頂端開啟',async()=>{
+  const {api}=runtime();
+  const original=await styledTemplate();
+  const zip=await JSZip.loadAsync(await original.file.arrayBuffer());
+  zip.file('xl/worksheets/sheet1.xml',original.sheet
+    .replace('<selection activeCell="O23" sqref="O23"/>',
+      '<pane xSplit="1" ySplit="1" topLeftCell="O23" activePane="bottomRight" state="frozen"/><selection pane="bottomRight" activeCell="O23" sqref="O23"/>')
+    .replace('</worksheet>','<ignoredErrors><ignoredError sqref="B2" numberStoredAsText="1"/></ignoredErrors></worksheet>'));
+  const file=new Blob([await zip.generateAsync({type:'uint8array'})]);
+  const output=await api.buildReportBlob(file,'PO-1',[{code:'001234',description:'Item',color:'red',quantity:1}]);
+  const result=await JSZip.loadAsync(await output.arrayBuffer());
+  const xml=await result.file('xl/worksheets/sheet1.xml').async('string');
+  assert.match(xml,/<pane xSplit="1" ySplit="1" topLeftCell="B2" activePane="bottomRight" state="frozen"\/>/);
+  assert.match(xml,/<selection pane="bottomRight" activeCell="B2" sqref="B2"\/>/);
+  assert.match(xml,/<ignoredError sqref="B2" numberStoredAsText="1"\/>/);
+  assert.match(xml,/<ignoredError sqref="C6" numberStoredAsText="1"\/>/);
+});
+
 test('五格已有範例值時只替換輸出內容，原範本與字型保留',async()=>{
   const {api}=runtime();
   const original=await styledTemplate();
   const zip=await JSZip.loadAsync(await original.file.arrayBuffer());
   const examples=[
-    ['<c r="C6" s="1"/>','<c r="C6" s="1" t="inlineStr"><is><t>OLD-CODE</t></is></c>'],
-    ['<c r="C7" s="1"/>','<c r="C7" s="1" t="inlineStr"><is><t>Old description</t></is></c>'],
-    ['<c r="F7" s="1"/>','<c r="F7" s="1" t="inlineStr"><is><t>Old color</t></is></c>'],
-    ['<c r="C8" s="1"/>','<c r="C8" s="1" t="inlineStr"><is><t>OLD-PO</t></is></c>'],
-    ['<c r="F8" s="2"/>','<c r="F8" s="2" t="n"><v>999</v></c>']
+    ['<c r="C6" s="1" t="inlineStr"><is><t>OLD-CODE</t></is></c>','<c r="C6" s="1" t="inlineStr"><is><t>EXAMPLE-CODE</t></is></c>'],
+    ['<c r="C7" s="1" t="inlineStr"><is><t>Old description</t></is></c>','<c r="C7" s="1" t="inlineStr"><is><t>Example description</t></is></c>'],
+    ['<c r="F7" s="1" t="inlineStr"><is><t>Old color</t></is></c>','<c r="F7" s="1" t="inlineStr"><is><t>Example color</t></is></c>'],
+    ['<c r="C8" s="1" t="inlineStr"><is><t>OLD-PO</t></is></c>','<c r="C8" s="1" t="inlineStr"><is><t>EXAMPLE-PO</t></is></c>'],
+    ['<c r="F8" s="2" t="n"><v>999</v></c>','<c r="F8" s="2" t="n"><v>123</v></c>']
   ];
   const sample=examples.reduce((xml,[before,after])=>xml.replace(before,after),original.sheet);
   zip.file('xl/worksheets/sheet1.xml',sample);
@@ -150,9 +208,10 @@ test('五格已有範例值時只替換輸出內容，原範本與字型保留',
     {code:'69697',description:'Collar XL',color:'pastel red',quantity:204}
   ]);
   const exported=await JSZip.loadAsync(await output.arrayBuffer(),{checkCRC32:true});
+  assert.match(await exported.file('xl/workbook.xml').async('string'),/'69697'!\$A\$1:\$K\$8/);
   const preserved=await (await JSZip.loadAsync(await input.arrayBuffer())).file('xl/worksheets/sheet1.xml').async('string');
-  assert.match(preserved,/OLD-CODE/);
-  assert.match(preserved,/Old description/);
+  assert.match(preserved,/EXAMPLE-CODE/);
+  assert.match(preserved,/Example description/);
   const sheet=await exported.file('xl/worksheets/sheet1.xml').async('string');
   for(const [,oldValue] of examples)assert.equal(sheet.includes(oldValue),false);
   assert.equal(await exported.file('xl/styles.xml').async('string'),original.styles);
@@ -165,25 +224,27 @@ test('五格已有範例值時只替換輸出內容，原範本與字型保留',
   });
 });
 
-test('範本缺少預留格式格或工作表附屬檔時明確拒絕，不產生不完整報告',async()=>{
+test('範本缺少填寫格時拒絕，正常工作表附屬檔可複製',async()=>{
   const {api}=runtime();
   const missing=await styledTemplate();
   const zip=await JSZip.loadAsync(await missing.file.arrayBuffer());
-  zip.file('xl/worksheets/sheet1.xml',missing.sheet.replace('<c r="F8" s="2"/>',''));
+  zip.file('xl/worksheets/sheet1.xml',missing.sheet.replace('<c r="F8" s="2" t="n"><v>999</v></c>',''));
   const invalid=new Blob([await zip.generateAsync({type:'uint8array'})]);
-  await assert.rejects(api.buildReportBlob(invalid,'PO-1',[{code:'A',description:'Item',color:'red',quantity:1}]),/五格已保留格式/);
+  await assert.rejects(api.buildReportBlob(invalid,'PO-1',[{code:'A',description:'Item',color:'red',quantity:1}]),/五個填寫格/);
   const dependent=await JSZip.loadAsync(await missing.file.arrayBuffer());
   dependent.file('xl/worksheets/_rels/sheet1.xml.rels','<Relationships/>');
   const linked=new Blob([await dependent.generateAsync({type:'uint8array'})]);
-  await assert.rejects(api.buildReportBlob(linked,'PO-1',[
+  const exported=await api.buildReportBlob(linked,'PO-1',[
     {code:'A',description:'Item',color:'red',quantity:1},
     {code:'B',description:'Item',color:'blue',quantity:2}
-  ]),/不支援/);
+  ]);
+  const result=await JSZip.loadAsync(await exported.arrayBuffer());
+  assert.equal(await result.file('xl/worksheets/_rels/pcms_inspection_2.xml.rels').async('string'),'<Relationships/>');
 });
 
-test('由真實表格程式建立的空白樣板也能複製兩頁並保持字型',async()=>{
+test('由真實表格程式建立的有字樣板也能複製兩頁並保持字型',async()=>{
   const python=process.env.PCMS_TEST_PYTHON||path.join(bundledDependencies,'python','python.exe');
-  const create=`import io,sys\nfrom openpyxl import Workbook\nfrom openpyxl.styles import Font\nw=Workbook();s=w.active;s.title='Mẫu';s['A1']='HUNTER';s['K5']='WEBBING WORLD'\nfor cell in ('C6','C7','F7','C8'):s[cell].font=Font(name='Times New Roman',size=24)\ns['F8'].font=Font(name='Arial',size=14,bold=True);s.merge_cells('A1:J1');s.column_dimensions['C'].width=27\nb=io.BytesIO();w.save(b);sys.stdout.buffer.write(b.getvalue())`;
+  const create=`import io,sys\nfrom openpyxl import Workbook\nfrom openpyxl.styles import Font\nw=Workbook();s=w.active;s.title='Mẫu';s['A1']='HUNTER';s['K5']='WEBBING WORLD'\nfor cell in ('C6','C7','F7','C8'):s[cell].font=Font(name='Times New Roman',size=24)\nfor cell,value in {'C6':'OLD','C7':'Old description','F7':'Old color','C8':'OLD-PO','F8':999}.items():s[cell]=value\ns['F8'].font=Font(name='Arial',size=14,bold=True);s.merge_cells('A1:J1');s.column_dimensions['C'].width=27\nb=io.BytesIO();w.save(b);sys.stdout.buffer.write(b.getvalue())`;
   const created=spawnSync(python,['-c',create],{encoding:null,maxBuffer:8*1024*1024});
   assert.equal(created.status,0,String(created.stderr));
   const {api}=runtime();
@@ -274,4 +335,39 @@ test('同時查到兩份範本時停止，不自行選擇或額外讀取整個�
   assert.equal(requests.length,1);
   assert.equal(requests[0].collection,'inspectionReportTemplates');
   assert.equal(requests[0].maximum,2);
+});
+
+test('取消選檔不碰雲端；下載先選儲存位置，刪除須確認且留紀錄',()=>{
+  assert.match(source,/function cancelPending\(\)[\s\S]*?state\.pendingFile=null;state\.pendingSheetName=''/);
+  assert.match(source,/async function downloadOriginal\(\)[\s\S]*?chooseSaveHandle\([\s\S]*?if\(!handle\)return;[\s\S]*?loadFile\(current\)/);
+  assert.match(source,/async function deleteSaved\(\)[\s\S]*?confirmDialog\([\s\S]*?if\(!confirmed\)return;[\s\S]*?removeFile\(expected\)/);
+  assert.match(storeSource,/async function removeFile\(expectedMeta\)[\s\S]*?transaction\.delete\(metaRef\);[\s\S]*?transaction\.set\(logRef,log\)/);
+});
+
+test('刪除範本採版本核對及同交易刪除分段、主檔、操作紀錄',async()=>{
+  const meta={id:'main',templateId:'main',fileName:'source.xlsx',contentHash:'a'.repeat(64),updatedAt:100,chunkCount:2};
+  const operations=[];
+  const transaction={
+    get:async()=>({exists:()=>true,data:()=>({...meta})}),
+    delete:ref=>operations.push(['delete',ref]),
+    set:(ref,value)=>operations.push(['set',ref,value])
+  };
+  const window={
+    firebaseAuthUser:{uid:'admin-user'},_getDoc:()=>{},
+    _collection:name=>name,_limit:value=>value,_query:(name,limit)=>({name,limit}),
+    _getDocs:async()=>({docs:[{id:'main',data:()=>meta}]}),
+    _doc:(collection,id)=>`${collection}/${id}`,_newDocRef:()=>({id:'log-1'}),
+    _runTransaction:async callback=>callback(transaction),
+    PCMSHistory:{buildOperationLog:details=>({...details}),rememberOperationLog:()=>{}}
+  };
+  vm.runInNewContext(storeSource,{window,Blob,FileReader:class {},console,Date});
+  await window.PCMSInspectionReportStore.removeFile(meta);
+  assert.deepEqual(operations.filter(([kind])=>kind==='delete').map(([,ref])=>ref),[
+    'inspectionReportTemplateChunks/main_00000','inspectionReportTemplateChunks/main_00001',
+    'inspectionReportTemplates/main'
+  ]);
+  assert.equal(operations.at(-1)[2].action,'inspectionTemplateDelete');
+  operations.length=0;
+  await assert.rejects(window.PCMSInspectionReportStore.removeFile({...meta,contentHash:'stale'}),/thay đổi/);
+  assert.equal(operations.length,0);
 });
