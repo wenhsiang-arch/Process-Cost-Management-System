@@ -662,7 +662,7 @@ async function confirmImportOrder(){
       setImportProgress(100,'Nhập đơn hàng hoàn tất.','訂單匯入完成。');
       window.allOrders.unshift({...imported,items:undefined});
       closeImportOrder();
-      renderOrders();renderProgress();
+      renderProgress();
       await ordersMessage(
         `Nhập đơn hàng thành công!\nĐơn hàng: ${orderId}\nDòng chi tiết: ${d.matched.length}`,
         `訂單匯入成功！\n訂單：${orderId}\n明細列：${d.matched.length}`,
@@ -723,64 +723,7 @@ function orderImportErrorMessage(error){
   };
 }
 
-// ===== 訂單列表 =====
-function toggleOrderManager(){
-  const panel=g('order-manager-panel');
-  if(!panel) return;
-  const open=panel.classList.toggle('open');
-  const button=panel.querySelector('.order-manager-toggle');
-  if(button) button.setAttribute('aria-expanded',open?'true':'false');
-  if(open) renderOrders();
-}
-
-function renderOrders(){
-  const q=(g('ord-q')?.value||'').toLowerCase();
-  const statusFilter=(g('ord-status-filter')?.value||'active');
-  const tb=g('ord-tb'); if(!tb) return;
-  const empty=g('ord-empty');
-  tb.innerHTML='';
-  const list=window.allOrders.filter(o=>{
-    const life=o.lifecycleStatus||'active';
-    const statusMatch=statusFilter==='all'
-      ||(statusFilter==='archived'&&(life==='archived'||life==='deleting'))
-      ||(statusFilter==='active'&&life==='active');
-    return statusMatch&&(!q||o.orderId.toLowerCase().includes(q));
-  });
-  if(!list.length){ if(empty) empty.style.display='block'; return; }
-  if(empty) empty.style.display='none';
-  list.forEach(o=>{
-    const tr=document.createElement('tr');
-    const idArg=ordersInlineArg(o.id);
-    const orderArg=ordersInlineArg(o.orderId);
-    const statusPair=o.lifecycleStatus==='archived'
-      ? {vi:'Đã xóa (lưu trữ)',zh:'已刪除（封存）'}
-      : (o.lifecycleStatus==='deleting'
-        ? {vi:'Đang xóa vĩnh viễn',zh:'永久刪除中'}
-        : (o.importStatus==='failed'
-          ? {vi:'Nhập thất bại',zh:'匯入失敗'}
-          : (o.importStatus==='importing'?{vi:'Đang nhập',zh:'匯入中'}:{vi:'Đang sử dụng',zh:'使用中'})));
-    tr.innerHTML=`
-      <td><b style="color:var(--navy)">${ordersSafeText(o.orderId)}</b></td>
-      <td>${o.itemCount||0}</td>
-      <td>${(o.totalQty||0).toLocaleString()}</td>
-      <td>${fmtVN(o.dueDate)}</td>
-      <td style="min-width:120px">
-        <div class="orders-state${o.importStatus==='failed'||o.lifecycleStatus==='deleting'?' is-danger':''}">${ordersPairHtml(statusPair.vi,statusPair.zh)}</div>
-      </td>
-      <td><div class="orders-row-actions">
-        ${isOrderUsable(o)?`<button class="btn bsm" onclick="viewOrderProgress(${idArg})"><i class="ti ti-chart-bar"></i></button>`:''}
-        ${isOrderUsable(o)?`<button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>`:''}
-        ${o.lifecycleStatus==='archived'&&canManageOrders()?`<button class="btn bsm" onclick="restoreArchivedOrder(${idArg},${orderArg})"><i class="ti ti-restore"></i>Khôi phục / 還原</button>`:''}
-      </div></td>`;
-    tb.appendChild(tr);
-  });
-  fillOrderSelects();
-}
-
-function viewOrderProgress(id){
-  g('prog-sel').value=id; sp('progress'); renderProgress();
-}
-
+// ===== 訂單狀態操作 =====
 function openOrderDeleteWarning(id,name){
   window._orderDeleteRequest={id,name};
   g('order-delete-warning-title').innerHTML='<i class="ti ti-ban"></i><span class="ui-bilingual"><span class="ui-text-vi">Xóa (Lưu trữ)</span><span class="ui-text-zh">刪除（封存）</span></span>';
@@ -863,29 +806,11 @@ async function confirmArchiveOrder(){
     const o=window.allOrders.find(x=>x.id===data.id);
     if(o) Object.assign(o,saved);
     closeOrderDeleteModal();
-    fillOrderSelects(); renderOrders(); renderProgress();
+    fillOrderSelects(); renderProgress();
     await ordersMessage('Đã xóa (lưu trữ) đơn hàng. Toàn bộ lịch sử vẫn được giữ lại.','訂單已刪除（封存），全部歷史資料均保留。','success');
   }catch(e){
     console.error('Không thể lưu trữ đơn hàng / 訂單封存失敗',e);
     await ordersMessage('Không thể xóa (lưu trữ) đơn hàng.','訂單刪除（封存）失敗。','danger');
-  }
-}
-
-async function restoreArchivedOrder(id,name){
-  if(!canManageOrders()||!(await ordersConfirm(
-    'Khôi phục đơn hàng','還原訂單',
-    `Khôi phục đơn hàng「${name}」?`,
-    `還原訂單「${name}」？`
-  ))) return;
-  try{
-    if(!window.PCMSOrderService?.setLifecycle) throw new Error('Dịch vụ đơn hàng chưa sẵn sàng. / 訂單服務尚未載入。');
-    const saved=await window.PCMSOrderService.setLifecycle(id,'active',{note:name});
-    const o=window.allOrders.find(x=>x.id===id);
-    if(o) Object.assign(o,saved);
-    fillOrderSelects(); renderOrders(); renderProgress();
-  }catch(e){
-    console.error('Không thể khôi phục đơn hàng / 訂單還原失敗',e);
-    await ordersMessage('Không thể khôi phục đơn hàng.','訂單還原失敗。','danger');
   }
 }
 
@@ -920,6 +845,27 @@ async function loadProcessesForOrderSearch(orders,codeQuery,renderSequence){
   return matchedOrderIds;
 }
 
+// 未完成匯入只使用已載入的訂單清單提醒，不額外查詢雲端或把未完成訂單當成可用工序。
+function renderOrderImportIssues(){
+  const issues=(window.allOrders||[]).filter(order=>(!order.lifecycleStatus||order.lifecycleStatus==='active')
+    &&(order.importStatus==='failed'||order.importStatus==='importing'));
+  if(!issues.length)return '';
+  const details=issues.map(order=>{
+    const status=order.importStatus==='failed'
+      ?ordersPairHtml('Nhập thất bại','匯入失敗')
+      :ordersPairHtml('Đang nhập','匯入中');
+    return `<span class="orders-import-issue"><strong>${ordersSafeText(order.orderId||'—')}</strong><span class="orders-state${order.importStatus==='failed'?' is-danger':''}">${status}</span></span>`;
+  }).join('');
+  return `<div class="orders-import-issues ui-notice is-warning" role="status">
+    <i class="ti ti-alert-circle" aria-hidden="true"></i>
+    <div><div>${ordersPairHtml('Đơn nhập chưa hoàn tất','匯入未完成的訂單')}</div>
+      <div class="orders-import-issue-list">${details}</div>
+      <div class="orders-import-issue-help">${ordersPairHtml('Vui lòng kiểm tra kết quả nhập; đơn chưa hoàn tất không có công đoạn.',
+        '請檢查匯入結果；未完成的訂單不會顯示工序。')}</div>
+    </div>
+  </div>`;
+}
+
 async function renderProgress(){
   const renderSequence=++progressRenderSequence;
   const ordId=g('prog-sel')?.value;
@@ -929,11 +875,12 @@ async function renderProgress(){
   try{
     const now=Date.now();
     const twoMonths=60*24*60*60*1000;
-    let orders=usableOrders().filter(order=>{
+    let orders=usableOrders();
+    if(ordId) orders=orders.filter(order=>order.id===ordId);
+    else orders=orders.filter(order=>{
       const actualShipDate=order.actualShipDate||(order.dueDate||null);
       return !actualShipDate||(actualShipDate+twoMonths)>now;
     });
-    if(ordId) orders=orders.filter(order=>order.id===ordId);
     if(ordId) await ensureOrderProcessesLoaded(ordId);
     if(renderSequence!==progressRenderSequence) return;
     if(codeQuery){
@@ -956,8 +903,11 @@ async function renderProgress(){
       return{...o,processCount,pm,actualShipDate};
     });
     list.sort((a,b)=>(a.actualShipDate||0)-(b.actualShipDate||0));
+    const issueNotice=renderOrderImportIssues();
     if(!list.length){
-      content.innerHTML='<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng</div><div>尚無訂單</div></div>';
+      content.innerHTML=issueNotice+(issueNotice
+        ?'<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng có thể sử dụng</div><div>目前沒有可使用的訂單</div></div>'
+        :'<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng</div><div>尚無訂單</div></div>');
       return;
     }
     let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
@@ -1003,7 +953,7 @@ async function renderProgress(){
       </tr>`;
     });
     html+='</tbody></table></div>';
-    content.innerHTML=html;
+    content.innerHTML=issueNotice+html;
     content.querySelectorAll?.('.orders-inspection-export').forEach(button=>{
       const label={vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'};
       window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);

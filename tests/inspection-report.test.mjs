@@ -443,11 +443,11 @@ test('Excel 工作表名稱超過 31 字或含禁用符號時仍保持唯一',()
   assert.doesNotMatch(one,/[\[\]:*?/\\]/);
 });
 
-test('匯出圖示只接上方訂單與工序資料表，不插入下方訂單管理',()=>{
+test('匯出圖示只接上方訂單與工序資料表，已移除重複訂單管理表',()=>{
   const orders=fs.readFileSync(new URL('js/orders.js',root),'utf8');
-  const lower=orders.slice(orders.indexOf('function renderOrders(){'),orders.indexOf('function viewOrderProgress('));
+  const html=fs.readFileSync(new URL('index.html',root),'utf8');
   const upper=orders.slice(orders.indexOf('async function renderProgress(){'),orders.indexOf('async function saveProgField('));
-  assert.doesNotMatch(lower,/orders-inspection-export/);
+  assert.doesNotMatch(html,/id="order-manager-panel"/);
   assert.match(upper,/orders-inspection-export/);
   assert.match(upper,/toUpperCase\(\)==='HUNTER'/);
   assert.ok(upper.indexOf('openOrderDeleteWarning(${idArg},${orderArg})')<upper.indexOf('class="btn bsm bd2 orders-inspection-export"'));

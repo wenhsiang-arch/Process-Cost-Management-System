@@ -109,78 +109,25 @@
   color: var(--ui-color-danger-text);
 }
 
-#pg-progress .order-manager-panel {
-  margin-bottom: 0;
-  overflow: visible;
+#pg-progress .orders-import-issues {
+  margin: 8px 10px;
 }
 
-#pg-progress .order-manager-toggle {
-  width: 100%;
-  border-bottom: 1px solid var(--ui-color-border);
-  cursor: pointer;
-  text-align: left;
-}
-
-#pg-progress .order-manager-toggle:hover,
-#pg-progress .order-manager-panel.open .order-manager-toggle {
-  background: var(--ui-color-primary-soft);
-}
-
-#pg-progress .orders-manager-copy {
+#pg-progress .orders-import-issue-list {
   display: flex;
   flex-wrap: wrap;
-  min-width: 0;
-  align-items: center;
-  gap: 14px;
+  gap: 6px 12px;
+  margin-top: 6px;
 }
 
-#pg-progress .orders-manager-note {
-  --ui-copy-size-primary: var(--ui-font-size-helper);
-  --ui-copy-size-secondary: var(--ui-font-size-helper);
-  color: var(--ui-color-text-muted);
-  font-size: var(--ui-font-size-helper);
-  line-height: 1.35;
-}
-
-#pg-progress .order-manager-chevron {
-  margin-left: auto;
-  color: var(--ui-color-primary);
-  transition: transform var(--ui-motion-fast);
-}
-
-#pg-progress .order-manager-panel.open .order-manager-chevron {
-  transform: rotate(180deg);
-}
-
-#pg-progress .order-manager-body {
-  display: none;
-  border-top: 0;
-  border-radius: 0 0 var(--ui-radius-panel) var(--ui-radius-panel);
-}
-
-#pg-progress .order-manager-panel.open .order-manager-body {
-  display: block;
-}
-
-#pg-progress .orders-filter-row {
-  align-items: flex-end;
-  margin: 0;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--ui-color-border);
-  background: var(--ui-color-surface);
-}
-
-#pg-progress .orders-filter-field {
-  display: grid;
-  min-width: 220px;
-  max-width: 460px;
-  gap: 5px;
-}
-
-#pg-progress .orders-row-actions {
-  display: flex;
+#pg-progress .orders-import-issue {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+#pg-progress .orders-import-issue-help {
+  margin-top: 6px;
 }
 
 #pg-progress .orders-state {

@@ -56,7 +56,7 @@ test('款號與訂單匯入都登記全視窗用途並共用點擊選檔流程',
   assert.match(orders,/function tryProcessPendingOrderImport\(\)[\s\S]*?orderImportPrerequisitesComplete\(\)[\s\S]*?processImportOrderFile/);
   assert.match(orders,/registerOrderFileDropTarget\(\);/);
   assert.match(data,/registerProductFileDropTarget\(\);/);
-  assert.match(features,/onOpen:\['renderProgress','renderOrders'\]/);
+  assert.match(features,/onOpen:\['renderProgress'\]/);
   assert.match(features,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
   assert.match(html,/id="imp-file-drop"[\s\S]*?onclick="g\('imp-file'\)\.click\(\)"/);
 
