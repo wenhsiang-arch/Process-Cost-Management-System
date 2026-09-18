@@ -26,7 +26,7 @@
     }catch(error){
       if(error?.name==='AbortError') return null;
       if(error?.name==='SecurityError'||error?.name==='NotAllowedError'){
-        await notifyUnsupported(options.onUnsupported);
+        await notifyUnsupported(options.onBlocked || options.onUnsupported);
         return null;
       }
       throw error;

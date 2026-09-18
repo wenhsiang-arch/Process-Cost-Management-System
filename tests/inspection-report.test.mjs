@@ -278,14 +278,14 @@ test('模擬 83 個不同款號，完整報告仍有 83 個分頁且保留樣式
 
 test('匯出寫入原始樣式範本，封裝工具只在選擇儲存位置後載入',()=>{
   const features=fs.readFileSync(new URL('js/features.js',root),'utf8');
-  assert.match(source,/const handle=await window\.PCMSFileIO\.chooseSaveHandle/);
+  assert.match(source,/selection=window\.PCMSFileIO\.chooseSaveHandle/);
   assert.ok(source.indexOf('chooseSaveHandle({')<source.indexOf('buildReportBlob(file,'));
   assert.match(source,/PCMSFileIO\.writeToHandle\(handle,output\)/);
   assert.doesNotMatch(source,/writeWorkbookToHandle/);
   assert.match(features,/function ensureInspectionReportZipTool\(/);
 });
 
-test('點擊匯出立即顯示共用讀條，選擇儲存位置前暫停，取消時清除狀態',async()=>{
+test('先核對範本，再由第二次點擊同步開儲存視窗；取消不產生檔案',async()=>{
   const orders=fs.readFileSync(new URL('js/orders.js',root),'utf8');
   const entry=orders.slice(orders.indexOf('async function exportInspectionReportFromOrder('),orders.indexOf('function closeOrderDeleteWarning('));
   assert.ok(entry.indexOf('progressDialog({')<entry.indexOf("ensurePageScripts('inspection-report-template')"));
@@ -295,20 +295,93 @@ test('點擊匯出立即顯示共用讀條，選擇儲存位置前暫停，取�
   assert.match(entry,/inspectionReportExportRequests\.delete\(key\)/);
   const events=[];
   const {api,window}=runtime([{productId:'prd_a',description:'Collar XL',color:'red',quantity:1}]);
+  let dialogOptions;
   const progress={
     update:value=>events.push(['update',value.text?.zh]),
     close:()=>events.push(['close'])
   };
   window._doc=(collection,id)=>`${collection}/${id}`;
   window._getDoc=async()=>({exists:()=>true,id:'order-1',data:()=>({client:'HUNTER',importStatus:'ready',lifecycleStatus:'active',orderId:'PO-1'})});
-  window.PCMSInspectionReportStore={loadOnly:async()=>({fileName:'sample.xlsx',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})};
+  window.PCMSInspectionReportStore={
+    loadOnly:async()=>({fileName:'sample.xlsx',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+    loadFile:async()=>new Blob(['sample'])
+  };
+  window.PCMSFeatures.ensureSpreadsheetTool=async()=>{};
+  window.XLSX={read:()=>template()};
   window.PCMSFileIO={chooseSaveHandle:async()=>{events.push(['picker']);return null;},spreadsheetFileType:{}};
-  window.PCMSUIComponents={alertDialog:()=>{throw new Error('取消不應顯示錯誤');}};
-  await api.exportOrder('order-1',progress);
+  window.PCMSUIComponents={
+    alertDialog:()=>{throw new Error('取消不應顯示錯誤');},
+    openDialog:options=>{dialogOptions=options;events.push(['ready']);return {};}
+  };
+  const running=api.exportOrder('order-1',progress);
+  await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(events.filter(([kind])=>kind==='update').map(([,text])=>text),[
-    '正在核對訂單','正在核對報告範本','正在讀取訂單款號'
+    '正在核對訂單','正在核對報告範本','正在讀取訂單款號','正在檢查範本格式'
   ]);
-  assert.deepEqual(events.slice(-2),[['close'],['picker']]);
+  assert.deepEqual(events.slice(-2),[['close'],['ready']]);
+  assert.equal(events.some(([kind])=>kind==='picker'),false);
+  const controller={close:reason=>{events.push(['dialog-close',reason]);dialogOptions.onClose(reason);}};
+  const select=dialogOptions.actions[1];
+  const clicked=select.onClick({controller});
+  assert.equal(clicked,false);
+  assert.deepEqual(events.slice(-2),[['picker'],['dialog-close','picker']]);
+  await running;
+  assert.equal(events.some(([kind])=>kind==='write'),false);
+});
+
+test('儲存視窗功能不存在與開啟遭拒分開提示',async()=>{
+  const fileIoSource=fs.readFileSync(new URL('js/file-io.js',root),'utf8');
+  const window={};
+  vm.runInNewContext(fileIoSource,{window,Blob});
+  const notices=[];
+  const options={onUnsupported:()=>notices.push('unsupported'),onBlocked:()=>notices.push('blocked')};
+  assert.equal(await window.PCMSFileIO.chooseSaveHandle(options),null);
+  assert.deepEqual(notices,['unsupported']);
+  window.showSaveFilePicker=async()=>{throw Object.assign(new Error('gesture expired'),{name:'SecurityError'});};
+  assert.equal(await window.PCMSFileIO.chooseSaveHandle(options),null);
+  assert.deepEqual(notices,['unsupported','blocked']);
+  window.showSaveFilePicker=async()=>{throw Object.assign(new Error('cancel'),{name:'AbortError'});};
+  assert.equal(await window.PCMSFileIO.chooseSaveHandle(options),null);
+  assert.deepEqual(notices,['unsupported','blocked']);
+});
+
+test('完成核對後點選儲存位置，產生報告並只寫入選定檔案',async()=>{
+  const {api,window}=runtime([{productId:'prd_a',description:'Collar XL',color:'red',quantity:3}]);
+  const sample=await styledTemplate();
+  const events=[];
+  let dialogOptions;
+  let output;
+  window._doc=(collection,id)=>`${collection}/${id}`;
+  window._getDoc=async()=>({exists:()=>true,id:'order-1',data:()=>({
+    client:'HUNTER',importStatus:'ready',lifecycleStatus:'active',orderId:'PO-1'
+  })});
+  window.PCMSInspectionReportStore={
+    loadOnly:async()=>({fileName:'sample.xlsx',contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),
+    loadFile:async()=>sample.file
+  };
+  window.PCMSFeatures.ensureSpreadsheetTool=async()=>{};
+  window.XLSX={read:()=>template()};
+  window.PCMSFileIO={
+    spreadsheetFileType:{},
+    chooseSaveHandle:()=>{events.push('picker');return Promise.resolve({name:'report.xlsx'});},
+    writeToHandle:async(_handle,blob)=>{events.push('write');output=blob;}
+  };
+  window.PCMSHistory={saveOperationLog:async()=>events.push('log')};
+  window.PCMSUIComponents={
+    alertDialog:()=>{throw new Error('成功路徑不應顯示錯誤');},
+    openDialog:options=>{dialogOptions=options;},
+    progressDialog:()=>({update:()=>{},close:()=>events.push('close') }),
+    showToast:()=>events.push('success')
+  };
+  const running=api.exportOrder('order-1',{update:()=>{},close:()=>events.push('close')});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(events.includes('picker'),false);
+  dialogOptions.actions[1].onClick({controller:{close:reason=>dialogOptions.onClose(reason)}});
+  await running;
+  assert.ok(output instanceof Blob);
+  assert.deepEqual(events.filter(value=>value==='picker'||value==='write'||value==='log'),['picker','write','log']);
+  const zip=await JSZip.loadAsync(await output.arrayBuffer());
+  assert.match(await zip.file('xl/worksheets/sheet1.xml').async('string'),/<v>3<\/v>/);
 });
 
 test('匯出程式尚在載入時連點同一訂單，只執行一次並恢復按鈕',async()=>{

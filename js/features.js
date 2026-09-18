@@ -3,7 +3,7 @@
   const SCRIPT_URLS = Object.freeze({
     homeUpdates:'js/home-updates.js?v=20260908-1',
     history:'js/history.js?v=20260906-1',
-    fileIo:'js/file-io.js?v=20260906-1',
+    fileIo:'js/file-io.js?v=20260918-1',
     settings:'js/settings.js?v=20260914-2',
     uiTableControls:'js/ui-table-controls.js?v=20260914-2',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260914-2',
@@ -32,7 +32,7 @@
     orders:'js/orders.js?v=20260918-4',
     orderArchive:'js/order-archive.js?v=20260916-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
-    inspectionReport:'js/inspection-report.js?v=20260918-9',
+    inspectionReport:'js/inspection-report.js?v=20260918-10',
     permissions:'js/permissions.js?v=20260823-1',
     systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
     systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',

@@ -58,8 +58,8 @@
               <details class="inspection-report-guide-disclosure" id="inspection-report-guide" data-ui-dismiss-outside data-ui-dismiss-on-content>
                 <summary class="ui-command-action"><i class="ti ti-book" aria-hidden="true"></i><span class="ui-dual-copy"><strong>Hướng dẫn</strong><span>使用說明</span></span></summary>
                 <div class="inspection-report-guide-panel ui-language-sections">
-                  <div class="ui-language-section is-vi" lang="vi">Chọn hoặc thả mẫu .xlsx rồi nhấn Lưu mẫu. Năm ô C6, C7, F7, C8, F8 cần có chữ hoặc số mẫu; khi xuất, hệ thống thay nội dung bằng dữ liệu đơn hàng và giữ định dạng của từng ô. Tại bảng đơn hàng phía trên, nhấn biểu tượng báo cáo, chọn tên và vị trí lưu; mỗi mã hàng có một trang tính và mở từ đầu trang.</div>
-                  <div class="ui-language-section is-zh" lang="zh-Hant">選擇或拖入 .xlsx 範本，再按「儲存範本」。C6、C7、F7、C8、F8 五格須有範例文字或數字；匯出時以訂單資料替換內容，保留各格格式。在上方訂單列表點報告圖示，選擇檔名與儲存位置；每個款號產生一個分頁，開啟時從上方顯示。</div>
+                  <div class="ui-language-section is-vi" lang="vi">Chọn hoặc thả mẫu .xlsx rồi nhấn Lưu mẫu. Năm ô C6, C7, F7, C8, F8 cần có chữ hoặc số mẫu; khi xuất, hệ thống thay nội dung bằng dữ liệu đơn hàng và giữ định dạng của từng ô. Tại bảng đơn hàng phía trên, nhấn biểu tượng báo cáo; sau khi kiểm tra xong, nhấn Chọn vị trí lưu. Mỗi mã hàng có một trang tính và mở từ đầu trang.</div>
+                  <div class="ui-language-section is-zh" lang="zh-Hant">選擇或拖入 .xlsx 範本，再按「儲存範本」。C6、C7、F7、C8、F8 五格須有範例文字或數字；匯出時以訂單資料替換內容，保留各格格式。在上方訂單列表點報告圖示；核對完成後按「選擇儲存位置」。每個款號產生一個分頁，開啟時從上方顯示。</div>
                 </div>
               </details>
               <button type="button" class="ui-command-action is-primary is-condition-dependent" id="inspection-report-save" disabled>
@@ -477,6 +477,39 @@
     const bytes=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
     return new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   }
+  // 儲存視窗須直接從第二次按鈕點擊開啟，避免資料讀取耗盡瀏覽器的使用者操作時效。
+  function chooseExportHandle(suggested){
+    return new Promise((resolve,reject)=>{
+      let settled=false;
+      const finish=value=>{if(!settled){settled=true;resolve(value);}};
+      window.PCMSUIComponents.openDialog({
+        title:pair('Báo cáo đã sẵn sàng','報告已準備就緒'),
+        body:pair('Đã kiểm tra đơn hàng và mẫu. Nhấn Chọn vị trí lưu để tiếp tục, hoặc hủy để không tạo tệp.',
+          '訂單與範本已核對。按「選擇儲存位置」繼續，或取消且不產生檔案。'),
+        actions:[
+          {text:pair('Hủy','取消'),onClick:()=>finish(null)},
+          {text:pair('Chọn vị trí lưu','選擇儲存位置'),kind:'primary',close:false,onClick:({controller})=>{
+            let selection;
+            try{
+              // 此行必須在點擊事件內同步執行；不得先等待其他非同步工作。
+              selection=window.PCMSFileIO.chooseSaveHandle({
+                id:'inspection-report-export',suggestedName:suggested,
+                types:[window.PCMSFileIO.spreadsheetFileType],
+                onUnsupported:()=>message('Trình duyệt này không hỗ trợ chọn vị trí lưu.',
+                  '此瀏覽器不支援選擇儲存位置。','warning'),
+                onBlocked:()=>message('Không thể mở cửa sổ lưu. Hãy kiểm tra quyền của trình duyệt rồi thử lại.',
+                  '無法開啟儲存位置視窗，請檢查瀏覽器權限後重試。','warning')
+              });
+            }catch(error){controller.close('picker');reject(error);return false;}
+            controller.close('picker');
+            Promise.resolve(selection).then(finish,reject);
+            return false;
+          }}
+        ],
+        onClose:reason=>{if(reason!=='picker')finish(null);}
+      });
+    });
+  }
   async function exportOrder(orderId,initialProgress=null){
     if(state.exporting.has(orderId))return;
     state.exporting.add(orderId);
@@ -499,19 +532,17 @@
       progress?.update({indeterminate:true,text:pair('Đang đọc các mã hàng trong đơn','正在讀取訂單款號')});
       const rows=await rowsForOrder(order);
       const suggested=`${String(order.orderId||'order').replace(/[\\/:*?"<>|]/g,'_')}-inspection-report.xlsx`;
-      // 系統儲存位置視窗須由瀏覽器獨立顯示；選擇期間暫停網站讀條，取消時不產生檔案。
+      progress?.update({indeterminate:true,text:pair('Đang kiểm tra định dạng mẫu','正在檢查範本格式')});
+      const file=await window.PCMSInspectionReportStore.loadFile(meta);
+      const template=await readBook(file);
+      validateTemplateBook(template);
+      // 完成所有核對後，等待使用者再次點擊，再開啟系統儲存視窗。
       progress?.close?.();progress=null;
-      const handle=await window.PCMSFileIO.chooseSaveHandle({
-        id:'inspection-report-export',suggestedName:suggested,types:[window.PCMSFileIO.spreadsheetFileType],
-        onUnsupported:()=>message('Trình duyệt này không hỗ trợ chọn vị trí lưu.','此瀏覽器不支援選擇儲存位置。','warning')
-      });
+      const handle=await chooseExportHandle(suggested);
       if(!handle)return;
       progress=window.PCMSUIComponents.progressDialog({title:pair('Xuất báo cáo kiểm tra','匯出檢驗報告'),value:5,
         text:pair('Đang tạo tệp Excel','正在產生 Excel 表格檔'),detail:pair('Vui lòng chờ.','請稍候。'),allowClose:false});
-      const file=await window.PCMSInspectionReportStore.loadFile(meta);
-      const template=await readBook(file);
       progress?.update({value:45,text:pair('Đang tạo từng trang tính','正在建立各款號分頁')});
-      validateTemplateBook(template);
       const output=await buildReportBlob(file,String(order.orderId||''),rows);
       progress?.update({value:85,text:pair('Đang lưu tệp','正在儲存檔案')});
       await window.PCMSFileIO.writeToHandle(handle,output);
