@@ -34,17 +34,25 @@ test('下方重複訂單管理表已移除，封存分頁仍保留',()=>{
   assert.match(features,/page:'progress'[\s\S]*?onOpen:\['renderProgress'\]/);
 });
 
-test('明確選取舊訂單後可在上方查看，不再被六十天預設篩選擋住',async()=>{
+test('主表顯示所有尚未出貨訂單，舊訂單不再被六十天篩選擋住',async()=>{
   const {window,context,g}=runtime();
   const oldDate=Date.now()-90*24*60*60*1000;
   window.allOrders=[{id:'old',orderId:'OLD-PO',client:'HUNTER',importStatus:'ready',
     lifecycleStatus:'active',dueDate:oldDate,totalQty:12,processCount:1}];
   await context.renderProgress();
-  assert.doesNotMatch(g('prog-content').innerHTML,/OLD-PO/);
-  g('prog-sel').value='old';
-  await context.renderProgress();
   assert.match(g('prog-content').innerHTML,/OLD-PO/);
   assert.match(g('prog-content').innerHTML,/12/);
+});
+
+test('主表排除已出貨訂單，舊資料缺少狀態時仍視為尚未出貨',async()=>{
+  const {window,context,g}=runtime();
+  window.allOrders=[
+    {id:'legacy',orderId:'LEGACY-PO',client:'A',importStatus:'ready',lifecycleStatus:'active',dueDate:2,totalQty:1,processCount:0},
+    {id:'shipped',orderId:'SHIPPED-PO',client:'B',importStatus:'ready',lifecycleStatus:'active',shipmentStatus:'shipped',actualShipDate:3,dueDate:1,totalQty:1,processCount:0}
+  ];
+  await context.renderProgress();
+  assert.match(g('prog-content').innerHTML,/LEGACY-PO/);
+  assert.doesNotMatch(g('prog-content').innerHTML,/SHIPPED-PO/);
 });
 
 test('匯入失敗與匯入中顯示於上方提醒，不增加雲端查詢或暴露原文字串',async()=>{

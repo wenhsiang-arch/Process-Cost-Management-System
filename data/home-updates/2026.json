@@ -3,6 +3,33 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-08-27",
+      "title": {
+        "vi": "Đã sửa lỗi chỉnh sửa chấm công đã lưu",
+        "zh": "修復已登記考勤無法修改"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Chỉnh sửa chấm công",
+            "items": [
+              "Người dùng có quyền chấm công có thể sửa giờ bình thường, giờ tăng ca và ghi chú của bản chấm công đã lưu.",
+              "Bản ghi cũ sẽ được hệ thống tự nâng cấp an toàn khi lưu lần đầu; không cần xóa hoặc nhập lại dữ liệu cũ."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "考勤修改",
+            "items": [
+              "具有考勤權限的使用者，現在可以修改已登記考勤的正常工時、加班工時及備註。",
+              "舊考勤會在第一次儲存修改時安全升級，不需要刪除或重新輸入舊資料。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-08-25",
       "title": {
         "vi": "Cập nhật hiển thị mã hàng và chức năng hủy phiếu sản xuất",

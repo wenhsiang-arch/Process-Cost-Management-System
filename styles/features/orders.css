@@ -270,6 +270,28 @@
 #order-archive-root .order-archive-details th,
 #order-archive-root .order-archive-details td { padding:8px; overflow-wrap:anywhere; text-align:left; }
 
+#shipped-orders-root .shipped-orders-toolbar,
+#shipped-orders-root .shipped-orders-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+#shipped-orders-root .shipped-orders-toolbar { margin-bottom:12px; }
+#shipped-orders-root .shipped-orders-toolbar label { display:flex; align-items:center; gap:10px; }
+#shipped-orders-root .shipped-orders-toolbar input {
+  width:320px; min-height:var(--ui-control-height-single); font:inherit; padding:6px 10px;
+  border:1px solid var(--ui-color-info-border); border-radius:6px;
+}
+#shipped-orders-root .shipped-orders-status { margin-bottom:12px; }
+#shipped-orders-root .shipped-orders-table-wrap { width:100%; }
+#shipped-orders-root .shipped-orders-table { width:100%; table-layout:fixed; }
+#shipped-orders-root th[data-shipped-column="index"] { width:48px; }
+#shipped-orders-root th[data-shipped-column="client"] { width:120px; }
+#shipped-orders-root th[data-shipped-column="orderId"] { width:190px; }
+#shipped-orders-root th[data-shipped-column="quantity"] { width:120px; }
+#shipped-orders-root th[data-shipped-column="dueDate"],
+#shipped-orders-root th[data-shipped-column="shipDate"] { width:160px; }
+#shipped-orders-root th[data-shipped-column="remark"] { min-width:180px; }
+#shipped-orders-root th[data-shipped-column="action"] { width:170px; }
+#shipped-orders-root .shipped-orders-remark { overflow-wrap:anywhere; }
+#shipped-orders-root .shipped-orders-actions { justify-content:flex-end; white-space:nowrap; }
+
 @media (max-width: 1100px) {
   #pg-progress .orders-command-row {
     grid-template-columns: minmax(0, 1fr);

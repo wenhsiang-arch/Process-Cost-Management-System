@@ -310,6 +310,17 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-09-22">22/09/2026</time>
+                <h2 class="ui-dual-copy"><strong>Quản lý riêng đơn hàng đã xuất</strong><span>新增已出貨訂單管理</span></h2>
+                <div class="home-update-description">
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Đơn đang dùng và đơn đã xuất</h3><ol><li>Bảng đơn hàng chính chỉ hiển thị đơn chưa xác nhận xuất và xếp theo ngày giao PO từ gần đến xa.</li><li>Chọn ngày xuất thực tế rồi xác nhận để chuyển đơn sang mục Đơn hàng đã xuất; nếu để trống, hệ thống dùng ngày hiện tại.</li><li>Mục đã xuất xếp ngày mới nhất lên trên, cho phép sửa ngày hoặc hủy xác nhận để đưa đơn trở lại bảng chính.</li><li>Việc phân loại xuất hàng không lưu trữ đơn và không ảnh hưởng ghi nhận sản xuất, thưởng hiệu suất hoặc tháng đã khóa.</li></ol></section><section class="home-update-topic"><h3>Đăng nhập quản trị viên</h3><ol><li>Tài khoản quản trị viên không còn tự đăng xuất vì không thao tác; các vai trò khác vẫn giữ cơ chế bảo vệ hiện tại.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>使用中與已出貨訂單</h3><ol><li>訂單主表只顯示尚未確認出貨的訂單，依 PO 交期由近到遠排列。</li><li>選擇實際出貨日並確認後，訂單會移到「已出貨訂單」；日期空白時預設使用當日。</li><li>已出貨訂單依實際出貨日由新到舊排列，可修改日期或取消確認並移回主表。</li><li>出貨分類不會封存訂單，也不影響產能登記、績效獎金或已凍結月份。</li></ol></section><section class="home-update-topic"><h3>管理員登入</h3><ol><li>管理員帳號不再因未操作而自動登出；其他角色仍保留原有保護機制。</li></ol></section></div>
+                </div>
+              </div>
+            </article>
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
                 <time class="home-update-date" datetime="2026-09-18">18/09/2026</time>
                 <h2 class="ui-dual-copy"><strong>Xuất báo cáo kiểm tra cho đơn hàng HUNTER</strong><span>新增 HUNTER 訂單檢驗報告匯出</span></h2>
                 <div class="home-update-description">
@@ -360,26 +371,12 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 </div>
               </div>
             </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-08-27">27/08/2026</time>
-                <h2 class="ui-dual-copy">
-                  <strong>Đã sửa lỗi chỉnh sửa chấm công đã lưu</strong>
-                  <span>修復已登記考勤無法修改</span>
-                </h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Chỉnh sửa chấm công</h3><ol><li>Người dùng có quyền chấm công có thể sửa giờ bình thường, giờ tăng ca và ghi chú của bản chấm công đã lưu.</li><li>Bản ghi cũ sẽ được hệ thống tự nâng cấp an toàn khi lưu lần đầu; không cần xóa hoặc nhập lại dữ liệu cũ.</li></ol></section></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>考勤修改</h3><ol><li>具有考勤權限的使用者，現在可以修改已登記考勤的正常工時、加班工時及備註。</li><li>舊考勤會在第一次儲存修改時安全升級，不需要刪除或重新輸入舊資料。</li></ol></section></div>
-                </div>
-              </div>
-            </article>
           </div>
 
           <div class="home-updates-archive-controls">
             <div class="ui-form-field">
               <label class="ui-dual-copy" for="home-updates-year"><strong>Năm</strong><span>年份</span></label>
-              <select id="home-updates-year"><option value="2026" data-version="20260918-1">2026</option></select>
+              <select id="home-updates-year"><option value="2026" data-version="20260922-1">2026</option></select>
             </div>
             <button type="button" class="ui-button" id="home-updates-load" aria-controls="home-updates-archive" aria-expanded="false" onclick="void PCMSFeatures.openHomeUpdatesArchive(this)">
               <span class="ui-dual-copy"><strong>Xem cập nhật trước</strong><span>查看較早更新</span></span>
@@ -1243,6 +1240,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
         </div>
       </div>
 
+      <div class="pg ui-page" id="pg-shipped-orders"><div id="shipped-orders-root"></div></div>
       <div class="pg ui-page" id="pg-order-archive"><div id="order-archive-root"></div></div>
       <div class="pg ui-page" id="pg-inspection-report-template"><div id="inspection-report-root"></div></div>
     </div>
@@ -1398,8 +1396,8 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260919-1"></script>
-<script src="js/auth.js?v=20260914-2"></script>
+  <script src="js/features.js?v=20260922-2"></script>
+<script src="js/auth.js?v=20260922-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
 <script type="module" src="js/firebase.js?v=20260918-6"></script>

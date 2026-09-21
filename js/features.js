@@ -20,7 +20,7 @@
     productQuickEdit:'js/product-quick-edit.js?v=20260914-2',
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
-    orderService:'js/order-service.js?v=20260917-1',
+    orderService:'js/order-service.js?v=20260922-2',
     summary:'js/summary.js?v=20260914-2',
     data:'js/data.js?v=20260914-2',
     costLog:'js/cost-log.js?v=20260813-1',
@@ -29,7 +29,8 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260914-2',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260919-1',
+    orders:'js/orders.js?v=20260922-2',
+    shippedOrders:'js/shipped-orders.js?v=20260922-2',
     orderArchive:'js/order-archive.js?v=20260916-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
     inspectionReport:'js/inspection-report.js?v=20260918-10',
@@ -67,7 +68,7 @@
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260914-2',
     pieceCutting:'styles/features/piece-cutting.css?v=20260914-2',
-    orders:'styles/features/orders.css?v=20260919-1',
+    orders:'styles/features/orders.css?v=20260922-2',
     inspectionReport:'styles/features/inspection-report.css?v=20260918-4',
     products:'styles/features/products.css?v=20260914-2',
     cost:'styles/features/cost.css?v=20260914-2',
@@ -93,6 +94,11 @@
           dataScopes:['operationSettings','orders','orderItems','products','productsMeta'],
           dataLoaders:['ensureOperationSettingsLoaded','loadOrderData'],
           onOpen:['renderProgress']
+        },
+        {
+          page:'shipped-orders',feature:'progress',permissionVisible:false,icon:'ti-truck-delivery',vi:'Đơn hàng đã xuất',zh:'已出貨訂單',
+          styles:['orders'],scripts:['productModel','orderItemStore','orderService','orders','shippedOrders'],
+          dataScopes:['orders'],dataLoaders:['loadOrderData'],onOpen:['renderShippedOrders']
         },
         {
           page:'order-archive',feature:'progress',permissionVisible:false,icon:'ti-archive',vi:'Đơn hàng đã lưu trữ',zh:'已封存訂單',

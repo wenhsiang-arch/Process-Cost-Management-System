@@ -64,8 +64,8 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','performance-bonus-settings','permissions','piece-cutting','product-change-log','product-groups',
-    'production-analysis','production-attendance','production-bonus','production-employees','production-entry','production-records','progress','settings','summary','system-monitor'
+    'accounts','costlog','cutting','export','inspection-report-template','order-archive','performance-bonus-settings','permissions','piece-cutting','product-change-log','product-groups',
+    'production-analysis','production-attendance','production-bonus','production-employees','production-entry','production-records','progress','settings','shipped-orders','summary','system-monitor'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
   assert.match(read('index.html'),/value="sales">Kinh doanh \/ 業務/);
@@ -128,7 +128,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   assert.match(navigationHtml,/id="pg-production-analysis"[\s\S]*?id="production-analysis-root"/);
   assert.match(navigationHtml,/id="nv-production"[\s\S]*?onclick="openModule\('production-analysis'\)" id="nv-production-analysis"[\s\S]*?id="management-toggle"/);
   assert.match(navigationHtml,/Xuất phiếu chuẩn bị vật liệu \/ 備料出單[\s\S]*?data-page-nav="cutting"[\s\S]*?id="nv-cutting"[\s\S]*?data-page-nav="piece-cutting"[\s\S]*?id="nv-piece-cutting"/);
-  assert.match(navigationHtml,/js\/features\.js\?v=20260908-2/);
+  assert.equal(navigationHtml.match(/js\/features\.js\?v=([^&"\s]+)/)?.[1],JSON.parse(read('runtime-version.json')).version);
 });
 
 test('款號快取依唯一遞增序號同步且不要求群組序號連續',()=>{
@@ -177,7 +177,8 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     productCache:'js/product-cache.js',productChangeLogStore:'js/product-change-log-store.js',productChangeLog:'js/product-change-log.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     pieceCuttingStore:'js/piece-cutting-store.js',pieceCutting:'js/piece-cutting.js',
-    accounts:'js/accounts.js',orders:'js/orders.js',permissions:'js/permissions.js',
+    accounts:'js/accounts.js',orders:'js/orders.js',orderArchive:'js/order-archive.js',shippedOrders:'js/shipped-orders.js',
+    inspectionReportStore:'js/inspection-report-store.js',inspectionReport:'js/inspection-report.js',permissions:'js/permissions.js',
     productModel:'js/product-model.js',productMasterStore:'js/product-master-store.js',productResolver:'js/product-resolver.js',
     productGroupStore:'js/product-group-store.js',productMasterService:'js/product-master-service.js',
     productImportImpact:'js/product-import-impact.js',

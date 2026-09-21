@@ -122,6 +122,8 @@ function registerOrderFileDropTarget(){
 registerOrderFileDropTarget();
 
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
+// orderShipmentStatus（訂單出貨狀態）：舊訂單缺少欄位時安全視為尚未確認出貨。
+function orderShipmentStatus(order){ return order?.shipmentStatus==='shipped'?'shipped':'pending'; }
 function resetOrderRuntimeCache(){
   processLoadPromises.clear();
   loadedProcessVersions.clear();
@@ -229,7 +231,7 @@ function fillOrderSelects(){
   ['prog-sel'].forEach(id=>{
     const sel=g(id); if(!sel) return;
     while(sel.options.length>1) sel.remove(1);
-    usableOrders().forEach(o=>{
+    usableOrders().filter(o=>orderShipmentStatus(o)==='pending').forEach(o=>{
       const opt=document.createElement('option');
       opt.value=o.id;
       opt.textContent=`${o.orderId} · ${fmtVN(o.dueDate)}`;
@@ -652,7 +654,7 @@ async function confirmImportOrder(){
     }
     {
       const imported=await window.PCMSOrderService.importOrder({
-        orderId,client:g('imp-ord-client')?.value||'',dueDate,actualShipDate:dueDate
+        orderId,client:g('imp-ord-client')?.value||'',dueDate
       },d.matched,{
         fileName:g('imp-filename')?.textContent||'',
         onProgress:progress=>setImportProgress(Math.min(95,Math.round(progress.completedItems/progress.totalItems*95)),
@@ -806,7 +808,7 @@ async function confirmArchiveOrder(){
     const o=window.allOrders.find(x=>x.id===data.id);
     if(o) Object.assign(o,saved);
     closeOrderDeleteModal();
-    fillOrderSelects(); renderProgress();
+    fillOrderSelects(); renderProgress(); window.renderShippedOrders?.();
     await ordersMessage('Đã xóa (lưu trữ) đơn hàng. Toàn bộ lịch sử vẫn được giữ lại.','訂單已刪除（封存），全部歷史資料均保留。','success');
   }catch(e){
     console.error('Không thể lưu trữ đơn hàng / 訂單封存失敗',e);
@@ -873,14 +875,8 @@ async function renderProgress(){
   const content=g('prog-content'); if(!content) return;
   content.innerHTML='<div class="ui-empty-state"><i class="ti ti-loader-2"></i><div>Đang tải...</div><div>載入中...</div></div>';
   try{
-    const now=Date.now();
-    const twoMonths=60*24*60*60*1000;
-    let orders=usableOrders();
+    let orders=usableOrders().filter(order=>orderShipmentStatus(order)==='pending');
     if(ordId) orders=orders.filter(order=>order.id===ordId);
-    else orders=orders.filter(order=>{
-      const actualShipDate=order.actualShipDate||(order.dueDate||null);
-      return !actualShipDate||(actualShipDate+twoMonths)>now;
-    });
     if(ordId) await ensureOrderProcessesLoaded(ordId);
     if(renderSequence!==progressRenderSequence) return;
     if(codeQuery){
@@ -896,13 +892,12 @@ async function renderProgress(){
     });
     let list=orders.map(o=>{
       const pm=progMap[o.id]||{procs:[]};
-      const actualShipDate=o.actualShipDate||(o.dueDate||null);
       const processCount=Number.isInteger(Number(o.processCount))
         ? Number(o.processCount)
         : (hasOrderProcessesLoaded(o.id)?pm.procs.length:null);
-      return{...o,processCount,pm,actualShipDate};
+      return{...o,processCount,pm};
     });
-    list.sort((a,b)=>(a.actualShipDate||0)-(b.actualShipDate||0));
+    list.sort((a,b)=>(Number(a.dueDate)||0)-(Number(b.dueDate)||0));
     const issueNotice=renderOrderImportIssues();
     if(!list.length){
       content.innerHTML=issueNotice+(issueNotice
@@ -925,7 +920,7 @@ async function renderProgress(){
     list.forEach((o,idx)=>{
       const totalQty=o.totalQty||0;
       const actualCompleteDateVal=o.actualCompleteDate?formatLocalDate(o.actualCompleteDate):'';
-      const actualShipDateVal=o.actualShipDate?formatLocalDate(o.actualShipDate):(o.dueDate?formatLocalDate(o.dueDate):'');
+      const actualShipDateVal='';
       const idArg=ordersInlineArg(o.id);
       const orderArg=ordersInlineArg(o.orderId);
       const remarkArg=ordersInlineArg(o.remark||'');
@@ -939,10 +934,11 @@ async function renderProgress(){
         <td class="ui-table-number-cell">${o.processCount===null?'—':o.processCount.toLocaleString()}</td>
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualCompleteDateVal)}" onchange="saveProgField(${idArg},'actualCompleteDate',this.value)"></td>
-        <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveProgField(${idArg},'actualShipDate',this.value,true)"></td>
+        <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
+          <button type="button" class="btn bsm orders-shipment-confirm" title="Xác nhận xuất hàng / 確認出貨" onclick="confirmOrderShipment(${idArg},${orderArg})"><i class="ti ti-truck-delivery" aria-hidden="true"></i></button>
           ${String(o.client||'').trim().toUpperCase()==='HUNTER'?`<button type="button" class="btn bsm bd2 orders-inspection-export" data-inspection-order-id="${safeId}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i></button>`:''}
         </div></td>
       </tr>
@@ -1144,6 +1140,25 @@ function renderOrderAdjustmentHistory(rows){
   }
   const moreButton=g('order-adjust-history-more'); // moreButton（載入更多按鈕）
   if(moreButton) moreButton.hidden=!window.PCMSHistory?.hasMore?.('operationLogs',{permissionKey:'progress',actions:['orderItemQuantityUpdate'],limit:50});
+}
+
+async function confirmOrderShipment(orderId,orderNo){
+  if((typeof canOpenPage==='function'&&!canOpenPage('progress'))||!window.PCMSOrderService?.setShipmentStatus) return;
+  const input=g(`prog-ship-date-${orderId}`);
+  const dateValue=input?.value||formatLocalDate(new Date());
+  const confirmed=await ordersConfirm('Xác nhận xuất hàng','確認出貨',
+    `Xác nhận đơn ${orderNo} đã xuất ngày ${dateValue}?`,
+    `確認訂單 ${orderNo} 已於 ${dateValue} 出貨？`);
+  if(!confirmed) return;
+  try{
+    const saved=await window.PCMSOrderService.setShipmentStatus(orderId,'shipped',{actualShipDate:dateValue,note:orderNo});
+    const order=window.allOrders.find(item=>item.id===orderId);if(order)Object.assign(order,saved);
+    fillOrderSelects();await renderProgress();window.renderShippedOrders?.();
+    await ordersMessage('Đã chuyển đơn sang mục đã xuất hàng.','訂單已移至已出貨訂單。','success');
+  }catch(error){
+    console.error('Không thể xác nhận xuất hàng / 無法確認出貨：',error);
+    await ordersMessage('Không thể xác nhận xuất hàng.','無法確認出貨。','danger');
+  }
 }
 
 async function loadMoreOrderAdjustmentHistory(){

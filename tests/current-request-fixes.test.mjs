@@ -121,7 +121,7 @@ test('左側選單標題與收合按鍵固定在可視區頂端',()=>{
   assert.match(html,/<div class="sb-logo">[\s\S]*?id="primary-sidebar-toggle"/);
 });
 
-test('自動登出使用實際經過時間且背景恢復時立即核對，不在畫面顯示倒數',()=>{
+test('非管理員自動登出使用實際經過時間，管理員不啟動閒置計時',()=>{
   const auth=read('js/auth.js');
   const html=read('index.html');
   assert.match(auth,/const IDLE_MS = 30\*60\*1000/);
@@ -131,6 +131,7 @@ test('自動登出使用實際經過時間且背景恢復時立即核對，不�
   assert.match(auth,/window\.addEventListener\('focus',checkIdleAfterResume\)/);
   assert.match(auth,/window\.addEventListener\('pageshow',checkIdleAfterResume\)/);
   assert.match(auth,/doLogout\('idle'\)/);
+  assert.match(auth,/if\(window\.cu\.role==='admin'\) stopIdle\(\);\s*else startIdle\(\);/);
   assert.doesNotMatch(auth,/idleT--|data-idle-countdown|idleprog/);
   assert.doesNotMatch(html,/data-idle-countdown|id="idleprog"|sidebar-idle-info/);
 });

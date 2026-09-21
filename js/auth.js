@@ -343,7 +343,9 @@ async function enterAuthorizedDeskSystem(user,access){
   hideLoginMessage();
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   uNav();
-  startIdle();
+  // 管理員使用受控的個人電腦，不啟動閒置自動登出；其他角色仍維持 30 分鐘保護。
+  if(window.cu.role==='admin') stopIdle();
+  else startIdle();
   showFeatureHome();
   startRolePermissionMonitor(window.cu.role);
 }
