@@ -33,6 +33,11 @@ test('首頁只保留最新五則，年度舊公告各有唯一完整雙語來�
   const html=read('index.html');
   const dates=[...html.matchAll(/class="home-update-date" datetime="([^"]+)"/g)].map(m=>m[1]);
   assert.deepEqual(dates,['2026-09-22','2026-09-18','2026-09-14','2026-09-08','2026-09-06']);
+  assert.match(html,/Tiến độ sản xuất và tổng số lượng chưa xuất/);
+  assert.match(html,/生產進度與未出貨總數量/);
+  assert.match(html,/已登記生產秒數 ÷ 訂單預計生產總秒數/);
+  assert.match(html,/不包含備料、品檢及包裝/);
+  assert.match(html,/不受搜尋或目前選擇訂單影響/);
   assert.deepEqual(archive.entries.map(entry=>entry.date),['2026-08-27','2026-08-25','2026-08-24','2026-08-21','2026-08-20']);
   assert.equal(new Set([...dates,...archive.entries.map(entry=>entry.date)]).size,10);
   for(const entry of archive.entries)for(const lang of ['vi','zh'])assert.ok(entry.title[lang]&&entry.sections[lang].length);
