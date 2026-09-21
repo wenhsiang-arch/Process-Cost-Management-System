@@ -128,8 +128,6 @@
         if(canManageShipment()){
           const cancel=iconButton('ti-arrow-back-up',{vi:'Hủy xác nhận xuất hàng',zh:'取消確認出貨'});
           cancel.addEventListener('click',()=>void cancelShipment(order));actions.append(cancel);
-          const archive=iconButton('ti-ban',{vi:'Xóa (Lưu trữ)',zh:'刪除（封存）'},'btn bsm bd2');
-          archive.addEventListener('click',()=>window.openOrderDeleteWarning(order.id,order.orderId));actions.append(archive);
         }
         if(String(order.client||'').trim().toUpperCase()==='HUNTER'){
           const report=iconButton('ti-file-spreadsheet',{vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'},'btn bsm bd2');

@@ -288,7 +288,7 @@
 #shipped-orders-root th[data-shipped-column="dueDate"],
 #shipped-orders-root th[data-shipped-column="shipDate"] { width:160px; }
 #shipped-orders-root th[data-shipped-column="remark"] { min-width:180px; }
-#shipped-orders-root th[data-shipped-column="action"] { width:170px; }
+#shipped-orders-root th[data-shipped-column="action"] { width:130px; }
 #shipped-orders-root .shipped-orders-remark { overflow-wrap:anywhere; }
 #shipped-orders-root .shipped-orders-actions { justify-content:flex-end; white-space:nowrap; }
 

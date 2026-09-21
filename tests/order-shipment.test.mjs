@@ -64,7 +64,7 @@ test('確認與取消出貨只改分類與日期，訂單仍保持使用中並�
   assert.equal(db.documents.get(`operationLogs/${pending.operationLogId}`).action,'orderShipmentCancel');
 });
 
-test('已出貨分頁依實際出貨日新到舊排列並提供撤銷、封存與 HUNTER 報告',()=>{
+test('已出貨分頁依實際出貨日新到舊排列，只提供撤銷與 HUNTER 報告',()=>{
   const source=read('js/shipped-orders.js');
   const features=read('js/features.js');
   const html=read('index.html');
@@ -72,8 +72,9 @@ test('已出貨分頁依實際出貨日新到舊排列並提供撤銷、封存�
   assert.match(html,/id="pg-shipped-orders"/);
   assert.match(source,/Number\(b\.actualShipDate\)[\s\S]*Number\(a\.actualShipDate\)/);
   assert.match(source,/setShipmentStatus\(order\.id,'pending'/);
-  assert.match(source,/openOrderDeleteWarning/);
+  assert.doesNotMatch(source,/openOrderDeleteWarning|Xóa \(Lưu trữ\)|刪除（封存）/);
   assert.match(source,/exportInspectionReportFromOrder/);
+  assert.match(read('js/orders.js'),/openOrderDeleteWarning/);
 });
 
 test('安全規則限制出貨狀態與日期配對，並納入不可變操作紀錄',()=>{
