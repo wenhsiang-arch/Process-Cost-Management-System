@@ -37,14 +37,26 @@
   }
   function progressVersion(row){ return Math.max(0,Math.round(number(row?.revision))); }
 
+  function maySkipVersionRead(error){
+    const code=text(error?.code).toLowerCase();
+    return code.includes('permission-denied')||code.includes('failed-precondition');
+  }
+
   async function loadVersionMap(orderIds){
     const result=new Map(orderIds.map(id=>[id,0]));
-    for(const group of chunks(orderIds,VERSION_QUERY_SIZE)){
-      if(!group.length) continue;
-      const snapshot=await window._getDocs(window._query(window._collection(VERSION_COLLECTION),window._where('orderId','in',group)));
-      documentRows(snapshot).forEach(row=>{ if(result.has(text(row.orderId))) result.set(text(row.orderId),progressVersion(row)); });
+    try{
+      for(const group of chunks(orderIds,VERSION_QUERY_SIZE)){
+        if(!group.length) continue;
+        const snapshot=await window._getDocs(window._query(window._collection(VERSION_COLLECTION),window._where('orderId','in',group)));
+        documentRows(snapshot).forEach(row=>{ if(result.has(text(row.orderId))) result.set(text(row.orderId),progressVersion(row)); });
+      }
+      return {values:result,available:true};
+    }catch(error){
+      if(!maySkipVersionRead(error)) throw error;
+      // 版本資料只用來減少重讀；權限尚未發布或索引尚未完成時，改讀正式來源計算。
+      console.warn('Không thể đọc phiên bản tiến độ; chuyển sang tính trực tiếp / 無法讀取進度版本，改用直接計算',error);
+      return {values:result,available:false};
     }
-    return result;
   }
 
   async function loadItems(orderId){
@@ -100,7 +112,7 @@
 
   async function loadInternal(orders){
     const orderIds=orders.map(order=>text(order.id)).filter(Boolean);
-    const [stored,metaSnapshot,versions]=await Promise.all([
+    const [stored,metaSnapshot,versionState]=await Promise.all([
       window.pcmsDataCache?.read(CACHE_SCOPE),
       window._getDoc(window._docRef('system','productsMeta')),
       loadVersionMap(orderIds)
@@ -131,11 +143,11 @@
     for(const order of orders){
       const orderId=text(order.id);
       const currentOrderToken=orderToken(order);
-      const currentRevision=versions.get(orderId)||0;
+      const currentRevision=versionState.values.get(orderId)||0;
       const cached=cache.orders[orderId];
       const processes=productionProcesses(itemSets[orderId],next.products);
       const structureChanged=!cached||cached.orderToken!==currentOrderToken||productsChanged;
-      const productionChanged=!cached||number(cached.progressRevision)!==currentRevision;
+      const productionChanged=!versionState.available||!cached||number(cached.progressRevision)!==currentRevision;
       let registeredQuantities=!productionChanged&&cached?.registeredQuantities?{...cached.registeredQuantities}:null;
       if(!registeredQuantities||structureChanged&&productionChanged) registeredQuantities=await loadRegisteredQuantities(processes);
       else if(structureChanged){
@@ -143,7 +155,7 @@
         Object.assign(registeredQuantities,await loadRegisteredQuantities(missing));
       }
       const calculation=calculate(processes,registeredQuantities);
-      next.orders[orderId]={orderToken:currentOrderToken,progressRevision:currentRevision,items:itemSets[orderId],
+      next.orders[orderId]={orderToken:currentOrderToken,progressRevision:versionState.available?currentRevision:null,items:itemSets[orderId],
         registeredQuantities,calculation};
       result.set(orderId,calculation);
     }

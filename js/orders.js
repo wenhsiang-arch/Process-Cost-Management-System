@@ -881,9 +881,17 @@ function renderOrderProductionProgressState(orderId,state){
   const percent=Math.max(0,Math.min(100,Number(state?.percent)||0));
   const shown=percent.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1});
   host.classList.remove('is-loading','is-error');
+  host.removeAttribute('aria-busy');
   host.innerHTML=`<div class="orders-production-progress-value">${ordersSafeText(shown)}%</div>
     <div class="ui-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(percent.toFixed(1))}">
       <div class="ui-progress-bar" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
+    </div>`;
+}
+
+function renderOrderProductionProgressLoading(){
+  return `<div class="orders-production-progress-loading-copy">${ordersPairHtml('Đang tính','計算中')}</div>
+    <div class="ui-progress is-indeterminate orders-production-progress-loading" aria-hidden="true">
+      <div class="ui-progress-track"><div class="ui-progress-bar"></div></div>
     </div>`;
 }
 
@@ -899,6 +907,7 @@ async function refreshOrderProductionProgress(orders,renderSequence){
       const host=g(`order-production-progress-${order.id}`);
       if(!host) return;
       host.classList.remove('is-loading');host.classList.add('is-error');
+      host.removeAttribute('aria-busy');
       host.replaceChildren(window.PCMSUIText?.create?.({vi:'Không thể tính',zh:'無法計算'})||document.createTextNode('—'));
     });
     console.error('Không thể tải tiến độ sản xuất / 無法載入生產進度',error);
@@ -962,8 +971,8 @@ async function renderProgress(){
         <td><b>${ordersSafeText(o.client||'-')}</b></td>
         <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
-        <td><div class="orders-production-progress is-loading" id="order-production-progress-${safeId}">
-          <i class="ti ti-loader-2" aria-hidden="true"></i>${ordersPairHtml('Đang tính','計算中')}</div></td>
+        <td><div class="orders-production-progress is-loading" id="order-production-progress-${safeId}" aria-busy="true">
+          ${renderOrderProductionProgressLoading()}</div></td>
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>

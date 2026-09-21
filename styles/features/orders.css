@@ -278,14 +278,13 @@
 }
 #pg-progress .orders-production-progress.is-loading,
 #pg-progress .orders-production-progress.is-error {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-items: stretch;
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-helper);
 }
-#pg-progress .orders-production-progress.is-loading .ti { animation: ui-progress-indeterminate 1.2s linear infinite; }
+#pg-progress .orders-production-progress-loading-copy { text-align: center; }
+#pg-progress .orders-production-progress-loading { width: 100%; }
+#pg-progress .orders-production-progress-loading .ui-progress-track { height: 6px; }
 #pg-progress .orders-production-progress.is-error { color: var(--ui-color-danger-text); }
 #pg-progress th[data-orders-column="processNo"] { width: 80px; }
 #pg-progress th[data-orders-column="category"] { width: 120px; }
