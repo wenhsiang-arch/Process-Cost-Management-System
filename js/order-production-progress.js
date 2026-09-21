@@ -9,6 +9,7 @@
   const PRODUCT_COLLECTION='products';
   const TOTAL_COLLECTION='productionProcessTotals';
   const VERSION_QUERY_SIZE=10;
+  const TOTAL_QUERY_SIZE=30;
   let activePromise=null;
   let activeKey='';
 
@@ -59,18 +60,30 @@
     }
   }
 
-  async function loadItems(orderId){
-    const snapshot=await window._getDocs(window._query(window._collection(ITEM_COLLECTION),window._where('orderId','==',orderId)));
-    return documentRows(snapshot).filter(item=>item.active!==false).map(item=>({
-      orderItemId:text(item.orderItemId||item.id),productId:text(item.productId),quantity:positive(item.quantity)
-    })).filter(item=>item.orderItemId&&item.productId&&item.quantity>0);
+  async function loadItemSets(orderIds){
+    const result=Object.fromEntries(orderIds.map(orderId=>[orderId,[]]));
+    for(const group of chunks(orderIds,VERSION_QUERY_SIZE)){
+      const snapshot=await window._getDocs(window._query(window._collection(ITEM_COLLECTION),window._where('orderId','in',group)));
+      documentRows(snapshot).filter(item=>item.active!==false).forEach(item=>{
+        const orderId=text(item.orderId);
+        const normalized={orderItemId:text(item.orderItemId||item.id),productId:text(item.productId),quantity:positive(item.quantity)};
+        if(result[orderId]&&normalized.orderItemId&&normalized.productId&&normalized.quantity>0) result[orderId].push(normalized);
+      });
+    }
+    return result;
   }
 
-  async function loadProduct(productId){
-    const snapshot=await window._getDoc(window._docRef(PRODUCT_COLLECTION,productId));
-    if(!snapshot.exists()) return null;
-    const data=snapshot.data();
-    return data?.active===false?null:{productId,...data,ops:Array.isArray(data?.ops)?data.ops:[]};
+  async function loadProducts(productIds){
+    const result=Object.fromEntries(productIds.map(productId=>[productId,null]));
+    for(const group of chunks(productIds,TOTAL_QUERY_SIZE)){
+      const snapshot=await window._getDocs(window._query(window._collection(PRODUCT_COLLECTION),
+        window._where(window._documentId(),'in',group)));
+      documentRows(snapshot).forEach(data=>{
+        if(!Object.prototype.hasOwnProperty.call(result,data.id)||data?.active===false) return;
+        result[data.id]={...data,productId:data.id,ops:Array.isArray(data?.ops)?data.ops:[]};
+      });
+    }
+    return result;
   }
 
   function productionProcesses(items,products){
@@ -91,11 +104,20 @@
   }
 
   async function loadRegisteredQuantities(processes){
-    const pairs=await Promise.all(processes.map(async process=>{
-      const snapshot=await window._getDoc(window._docRef(TOTAL_COLLECTION,process.totalId));
-      return [process.totalId,snapshot.exists()?positive(snapshot.data()?.registeredQty):0];
-    }));
-    return Object.fromEntries(pairs);
+    const totalIds=[...new Set(processes.map(process=>text(process.totalId)).filter(Boolean))];
+    const result=Object.fromEntries(totalIds.map(totalId=>[totalId,0]));
+    for(const group of chunks(totalIds,TOTAL_QUERY_SIZE)){
+      const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
+        window._where(window._documentId(),'in',group)));
+      documentRows(snapshot).forEach(row=>{
+        if(Object.prototype.hasOwnProperty.call(result,row.id)) result[row.id]=positive(row.registeredQty);
+      });
+    }
+    return result;
+  }
+
+  function quantitiesFor(processes,source){
+    return Object.fromEntries(processes.map(process=>[process.totalId,positive(source?.[process.totalId])]));
   }
 
   function calculate(processes,registeredQuantities){
@@ -125,22 +147,20 @@
     next.products=productsChanged?{}:{...cache.products};
 
     const itemSets={};
+    const ordersNeedingItems=[];
     for(const order of orders){
       const orderId=text(order.id);
       const cached=cache.orders[orderId];
       const currentOrderToken=orderToken(order);
-      itemSets[orderId]=cached&&cached.orderToken===currentOrderToken&&Array.isArray(cached.items)
-        ?cached.items:await loadItems(orderId);
+      if(cached&&cached.orderToken===currentOrderToken&&Array.isArray(cached.items)) itemSets[orderId]=cached.items;
+      else ordersNeedingItems.push(orderId);
     }
+    Object.assign(itemSets,await loadItemSets(ordersNeedingItems));
     const productIds=[...new Set(Object.values(itemSets).flat().map(item=>item.productId).filter(Boolean))];
-    for(const productId of productIds){
-      if(productsChanged||!Object.prototype.hasOwnProperty.call(next.products,productId)){
-        next.products[productId]=await loadProduct(productId);
-      }
-    }
+    const productsNeedingLoad=productIds.filter(productId=>productsChanged||!Object.prototype.hasOwnProperty.call(next.products,productId));
+    Object.assign(next.products,await loadProducts(productsNeedingLoad));
 
-    const result=new Map();
-    for(const order of orders){
+    const contexts=orders.map(order=>{
       const orderId=text(order.id);
       const currentOrderToken=orderToken(order);
       const currentRevision=versionState.values.get(orderId)||0;
@@ -148,16 +168,26 @@
       const processes=productionProcesses(itemSets[orderId],next.products);
       const structureChanged=!cached||cached.orderToken!==currentOrderToken||productsChanged;
       const productionChanged=!versionState.available||!cached||number(cached.progressRevision)!==currentRevision;
-      let registeredQuantities=!productionChanged&&cached?.registeredQuantities?{...cached.registeredQuantities}:null;
-      if(!registeredQuantities||structureChanged&&productionChanged) registeredQuantities=await loadRegisteredQuantities(processes);
-      else if(structureChanged){
-        const missing=processes.filter(process=>!(process.totalId in registeredQuantities));
-        Object.assign(registeredQuantities,await loadRegisteredQuantities(missing));
-      }
-      const calculation=calculate(processes,registeredQuantities);
-      next.orders[orderId]={orderToken:currentOrderToken,progressRevision:versionState.available?currentRevision:null,items:itemSets[orderId],
+      const registeredQuantities=!productionChanged&&cached?.registeredQuantities?{...cached.registeredQuantities}:null;
+      const reloadAll=!registeredQuantities||structureChanged&&productionChanged;
+      const missing=!reloadAll&&structureChanged
+        ?processes.filter(process=>!(process.totalId in registeredQuantities)):[];
+      return {orderId,currentOrderToken,currentRevision,processes,registeredQuantities,reloadAll,missing};
+    });
+
+    // 所有訂單共用批次讀取，避免每道工序各自建立請求而耗盡瀏覽器連線。
+    const requestedProcesses=contexts.flatMap(context=>context.reloadAll?context.processes:context.missing);
+    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses);
+    const result=new Map();
+    for(const context of contexts){
+      let registeredQuantities=context.registeredQuantities;
+      if(context.reloadAll) registeredQuantities=quantitiesFor(context.processes,loadedQuantities);
+      else if(context.missing.length) Object.assign(registeredQuantities,quantitiesFor(context.missing,loadedQuantities));
+      const calculation=calculate(context.processes,registeredQuantities);
+      next.orders[context.orderId]={orderToken:context.currentOrderToken,
+        progressRevision:versionState.available?context.currentRevision:null,items:itemSets[context.orderId],
         registeredQuantities,calculation};
-      result.set(orderId,calculation);
+      result.set(context.orderId,calculation);
     }
     await window.pcmsDataCache?.write(CACHE_SCOPE,`${latestProductToken}|${Date.now()}`,next);
     return result;

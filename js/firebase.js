@@ -4,7 +4,7 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gst
 import {
   getFirestore,doc,getDoc as firestoreGetDoc,getDocFromServer as firestoreGetDocFromServer,
   setDoc as firestoreSetDoc,collection,getDocsFromServer as firestoreGetDocsFromServer,getCountFromServer as firestoreGetCountFromServer,updateDoc as firestoreUpdateDoc,
-  deleteDoc as firestoreDeleteDoc,deleteField,query,where,orderBy,limit,startAfter,
+  deleteDoc as firestoreDeleteDoc,deleteField,query,where,documentId,orderBy,limit,startAfter,
   increment,serverTimestamp,onSnapshot,runTransaction as firestoreRunTransaction,writeBatch as firestoreWriteBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20260922-8'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20260922-9'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -1114,6 +1114,7 @@ window._doc        = (colName,id)  => doc(db, colName, id);
 window._collection = (colName)     => collection(db, colName);
 window._query      = (...args)     => query(...args);
 window._where      = (...args)     => where(...args);
+window._documentId = ()            => documentId();
 window._orderBy    = (...args)     => orderBy(...args);
 window._limit      = (count)       => limit(count);
 window._startAfter = (snapshot)    => startAfter(snapshot);
