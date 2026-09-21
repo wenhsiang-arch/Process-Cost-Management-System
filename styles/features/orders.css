@@ -312,7 +312,7 @@
   font-weight: var(--ui-font-weight-strong);
   font-variant-numeric: tabular-nums;
 }
-#pg-progress .orders-po-date.is-due-soon { color: var(--ui-color-success-text); }
+#pg-progress .orders-po-date.is-due-soon { color: var(--ui-color-info-text); }
 #pg-progress .orders-po-date.is-overdue { color: var(--ui-color-danger-text); }
 #pg-progress .orders-production-progress.is-loading,
 #pg-progress .orders-production-progress.is-error {
