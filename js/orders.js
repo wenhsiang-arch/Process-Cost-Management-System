@@ -124,6 +124,17 @@ registerOrderFileDropTarget();
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 // orderShipmentStatus（訂單出貨狀態）：舊訂單缺少欄位時安全視為尚未確認出貨。
 function orderShipmentStatus(order){ return order?.shipmentStatus==='shipped'?'shipped':'pending'; }
+// orderDueDateClass（PO 交期提示）：以本機日曆日判斷，避免時分與日光節約時間造成誤判。
+function orderDueDateClass(dueDate,now=Date.now()){
+  const due=new Date(Number(dueDate));
+  const current=new Date(Number(now));
+  if(Number.isNaN(due.getTime())||Number.isNaN(current.getTime())) return '';
+  const dayValue=date=>Date.UTC(date.getFullYear(),date.getMonth(),date.getDate());
+  const remainingDays=Math.round((dayValue(due)-dayValue(current))/86400000);
+  if(remainingDays<0) return ' is-overdue';
+  if(remainingDays<=14) return ' is-due-soon';
+  return '';
+}
 // updatePendingQuantitySummary（更新未出貨總數量）：只加總目前已載入訂單，不因畫面搜尋或選單篩選而改變。
 function updatePendingQuantitySummary(orders){
   const total=(orders||[]).reduce((sum,order)=>sum+(Number(order?.totalQty)||0),0);
@@ -966,6 +977,7 @@ async function renderProgress(){
       const remarkArg=ordersInlineArg(o.remark||'');
       const safeId=ordersSafeAttr(o.id);
       const remarkVal=ordersSafeAttr(o.remark||'');
+      const dueDateClass=orderDueDateClass(o.dueDate);
       html+=`<tr class="orders-progress-row" onclick="toggleProgDetail(${idArg})">
         <td class="orders-row-index">${idx+1}</td>
         <td><b>${ordersSafeText(o.client||'-')}</b></td>
@@ -973,7 +985,7 @@ async function renderProgress(){
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
         <td><div class="orders-production-progress is-loading" id="order-production-progress-${safeId}" aria-busy="true">
           ${renderOrderProductionProgressLoading()}</div></td>
-        <td><span class="orders-po-date">${ordersSafeText(fmtVN(o.dueDate))}</span></td>
+        <td><span class="orders-po-date${dueDateClass}">${ordersSafeText(fmtVN(o.dueDate))}</span></td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
