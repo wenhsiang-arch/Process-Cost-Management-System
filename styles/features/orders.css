@@ -54,8 +54,8 @@
 }
 
 #pg-progress .orders-progress-table {
-  --ui-table-default-min-width: 1080px;
-  min-width: 1080px;
+  --ui-table-default-min-width: 1230px;
+  min-width: 1230px;
 }
 
 #pg-progress .orders-progress-row {
@@ -246,6 +246,7 @@
 #pg-progress th[data-orders-column="client"] { width: 100px; }
 #pg-progress th[data-orders-column="orderId"] { width: 140px; }
 #pg-progress th[data-orders-column="quantity"] { width: 100px; }
+#pg-progress th[data-orders-column="productionProgress"] { width: 150px; }
 #pg-progress th[data-orders-column="dueDate"],
 #pg-progress th[data-orders-column="shipDate"] { width: 150px; }
 #pg-progress th[data-orders-column="remark"] { min-width: 160px; }
@@ -253,10 +254,39 @@
 #pg-progress .orders-progress-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 #pg-progress .orders-pending-quantity {
   margin-left: auto;
-  color: var(--ui-color-text-muted);
+  padding: 7px 12px;
+  border: 1px solid var(--ui-color-info-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-info-background);
+  color: var(--ui-color-info-text);
   font-size: var(--ui-font-size-helper);
   font-variant-numeric: tabular-nums;
 }
+#pg-progress .orders-production-progress {
+  display: grid;
+  min-width: 118px;
+  gap: 5px;
+}
+#pg-progress .orders-production-progress-value {
+  color: var(--ui-color-text);
+  font-size: var(--ui-font-size-helper);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+#pg-progress .orders-production-progress .ui-progress-track {
+  height: 8px;
+}
+#pg-progress .orders-production-progress.is-loading,
+#pg-progress .orders-production-progress.is-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-helper);
+}
+#pg-progress .orders-production-progress.is-loading .ti { animation: ui-progress-indeterminate 1.2s linear infinite; }
+#pg-progress .orders-production-progress.is-error { color: var(--ui-color-danger-text); }
 #pg-progress th[data-orders-column="processNo"] { width: 80px; }
 #pg-progress th[data-orders-column="category"] { width: 120px; }
 #pg-progress th[data-orders-column="name"] { min-width: 220px; }

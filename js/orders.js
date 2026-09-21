@@ -875,6 +875,36 @@ function renderOrderImportIssues(){
   </div>`;
 }
 
+function renderOrderProductionProgressState(orderId,state){
+  const host=g(`order-production-progress-${orderId}`);
+  if(!host) return;
+  const percent=Math.max(0,Math.min(100,Number(state?.percent)||0));
+  const shown=percent.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1});
+  host.classList.remove('is-loading','is-error');
+  host.innerHTML=`<div class="orders-production-progress-value">${ordersSafeText(shown)}%</div>
+    <div class="ui-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(percent.toFixed(1))}">
+      <div class="ui-progress-bar" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
+    </div>`;
+}
+
+async function refreshOrderProductionProgress(orders,renderSequence){
+  if(!window.PCMSOrderProductionProgress?.load) return;
+  try{
+    const values=await window.PCMSOrderProductionProgress.load(orders);
+    if(renderSequence!==progressRenderSequence) return;
+    orders.forEach(order=>renderOrderProductionProgressState(order.id,values.get(order.id)||{percent:0}));
+  }catch(error){
+    if(renderSequence!==progressRenderSequence) return;
+    orders.forEach(order=>{
+      const host=g(`order-production-progress-${order.id}`);
+      if(!host) return;
+      host.classList.remove('is-loading');host.classList.add('is-error');
+      host.replaceChildren(window.PCMSUIText?.create?.({vi:'Không thể tính',zh:'無法計算'})||document.createTextNode('—'));
+    });
+    console.error('Không thể tải tiến độ sản xuất / 無法載入生產進度',error);
+  }
+}
+
 async function renderProgress(){
   const renderSequence=++progressRenderSequence;
   const ordId=g('prog-sel')?.value;
@@ -913,6 +943,7 @@ async function renderProgress(){
     html+=`<th data-orders-column="client">${ordersPairHtml('Khách hàng','客人')}</th>`;
     html+=`<th data-orders-column="orderId">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
     html+=`<th data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
+    html+=`<th data-orders-column="productionProgress">${ordersPairHtml('Tiến độ','生產進度')}</th>`;
     html+=`<th data-orders-column="dueDate">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
     html+=`<th data-orders-column="shipDate">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
     html+=`<th data-orders-column="remark">${ordersPairHtml('Ghi chú','備註')}</th>`;
@@ -931,6 +962,8 @@ async function renderProgress(){
         <td><b>${ordersSafeText(o.client||'-')}</b></td>
         <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
+        <td><div class="orders-production-progress is-loading" id="order-production-progress-${safeId}">
+          <i class="ti ti-loader-2" aria-hidden="true"></i>${ordersPairHtml('Đang tính','計算中')}</div></td>
         <td>${fmtVN(o.dueDate)}</td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
@@ -941,13 +974,14 @@ async function renderProgress(){
         </div></td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">
-        <td colspan="8" class="orders-expanded-cell">
+        <td colspan="9" class="orders-expanded-cell">
           <div id="prog-detail-body-${safeId}" class="orders-expanded-body"></div>
         </td>
       </tr>`;
     });
     html+='</tbody></table></div>';
     content.innerHTML=issueNotice+html;
+    void refreshOrderProductionProgress(list,renderSequence);
     content.querySelectorAll?.('.orders-inspection-export').forEach(button=>{
       const label={vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'};
       window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);

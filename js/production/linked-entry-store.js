@@ -4,6 +4,7 @@
 
   const COLLECTIONS=Object.freeze({
     orders:'orders',items:'orderItems',products:'products',entries:'productionEntries',totals:'productionProcessTotals',
+    progressVersions:'orderProductionProgressVersions',
     supplementTotals:'productionSupplementTotals',attendance:'productionAttendance',months:'productionMonths',logs:'operationLogs'
   });
   const DATE_PATTERN=/^\d{4}-\d{2}-\d{2}$/;
@@ -243,12 +244,18 @@
       itemCount:1,detailCount:1,note:'',createdAt:now,createdByUid:user.uid,createdBy:user.name,
       operationLogId:text(operationLogId),schemaVersion:2};
   }
+  function progressVersionData(orderId,entryId,mutation,now,user,operationLogId){
+    const revision=typeof window._increment==='function'?window._increment(1):1;
+    return {orderId:text(orderId),revision,updatedAt:now,updatedByUid:user.uid,
+      lastMutation:mutation,lastEntryId:text(entryId),operationLogId:text(operationLogId),schemaVersion:1};
+  }
 
   async function createStandardEntry(normalized){
     const user=currentUser();
     const entryReference=window._newDocRef(COLLECTIONS.entries);
     const operationLogId=operationLogIdFor(entryReference.id,'create',1);
     const operationLogReference=window._docRef(COLLECTIONS.logs,operationLogId);
+    const progressVersionReference=window._docRef(COLLECTIONS.progressVersions,normalized.orderId);
     const summaries=linkedSummaries();
     const references={
       attendance:window._docRef(COLLECTIONS.attendance,`${normalized.productionDate}__${normalized.employeeId}`),
@@ -297,6 +304,7 @@
         transaction.set(operationLogReference,productionOperationLog({entryId:entryReference.id,entry:saved,mutation:'create',revision:1,
           aggregateId:references.total.id,daySummaryId:day.summaryId,employeeMonthId:month.monthSummaryId,
           month:normalized.productionDate.slice(0,7),now,user,operationLogId}));
+        transaction.set(progressVersionReference,progressVersionData(normalized.orderId,entryReference.id,'create',now,user,operationLogId),{merge:true});
       }
     },{skipDataVersions:true});
     const result={id:entryReference.id,...saved,processTotalId:references.total.id};
@@ -381,6 +389,7 @@
       const targetRevision=Number(current.revision||1)+1;
       const operationLogId=operationLogIdFor(id,'void',targetRevision);
       const operationLogReference=window._docRef(COLLECTIONS.logs,operationLogId);
+      const progressVersionReference=current.recordType==='supplement'?null:window._docRef(COLLECTIONS.progressVersions,current.orderId);
       if(current.recordType==='supplement'){
         const next=Math.max(0,Number(aggregateSnapshot.data()?.activeHours)||0)-Number(current.supplementHours||0);
         transaction.set(aggregateReference,{activeHours:next,lastEntryId:id,lastMutation:'void',lastDelta:-Number(current.supplementHours||0),
@@ -407,6 +416,8 @@
           month:current.productionDate.slice(0,7),now,user,operationLogId});
         log.note=text(reason).slice(0,500);
         transaction.set(operationLogReference,log);
+        if(progressVersionReference) transaction.set(progressVersionReference,
+          progressVersionData(current.orderId,id,'void',now,user,operationLogId),{merge:true});
       }
     },{skipDataVersions:true});
     if(result.recordType!=='supplement') applyProcessTotalDelta(itemStore().processTotalId(result.orderItemId,result.processId),-Number(result.quantity),0);
