@@ -29,7 +29,7 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260914-2',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260922-4',
+    orders:'js/orders.js?v=20260922-5',
     shippedOrders:'js/shipped-orders.js?v=20260922-4',
     orderArchive:'js/order-archive.js?v=20260916-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
@@ -68,7 +68,7 @@
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260914-2',
     pieceCutting:'styles/features/piece-cutting.css?v=20260914-2',
-    orders:'styles/features/orders.css?v=20260922-4',
+    orders:'styles/features/orders.css?v=20260922-5',
     inspectionReport:'styles/features/inspection-report.css?v=20260918-4',
     products:'styles/features/products.css?v=20260914-2',
     cost:'styles/features/cost.css?v=20260914-2',

@@ -124,6 +124,13 @@ registerOrderFileDropTarget();
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 // orderShipmentStatus（訂單出貨狀態）：舊訂單缺少欄位時安全視為尚未確認出貨。
 function orderShipmentStatus(order){ return order?.shipmentStatus==='shipped'?'shipped':'pending'; }
+// updatePendingQuantitySummary（更新未出貨總數量）：只加總目前已載入訂單，不因畫面搜尋或選單篩選而改變。
+function updatePendingQuantitySummary(orders){
+  const total=(orders||[]).reduce((sum,order)=>sum+(Number(order?.totalQty)||0),0);
+  const display=Math.max(0,total).toLocaleString('en-US');
+  ['orders-pending-quantity-vi','orders-pending-quantity-zh'].forEach(id=>{const node=g(id);if(node)node.textContent=display;});
+  return total;
+}
 function resetOrderRuntimeCache(){
   processLoadPromises.clear();
   loadedProcessVersions.clear();
@@ -876,6 +883,7 @@ async function renderProgress(){
   content.innerHTML='<div class="ui-empty-state"><i class="ti ti-loader-2"></i><div>Đang tải...</div><div>載入中...</div></div>';
   try{
     let orders=usableOrders().filter(order=>orderShipmentStatus(order)==='pending');
+    updatePendingQuantitySummary(orders);
     if(ordId) orders=orders.filter(order=>order.id===ordId);
     if(ordId) await ensureOrderProcessesLoaded(ordId);
     if(renderSequence!==progressRenderSequence) return;
