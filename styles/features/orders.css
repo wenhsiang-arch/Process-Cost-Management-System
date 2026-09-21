@@ -255,7 +255,6 @@
 #pg-progress th[data-orders-column="action"] { width: 170px; }
 #pg-progress .orders-progress-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 #pg-progress .orders-pending-quantity {
-  margin-left: auto;
   padding: 7px 12px;
   border: 1px solid var(--ui-color-info-border);
   border-radius: var(--ui-radius-control);
@@ -264,6 +263,14 @@
   font-size: var(--ui-font-size-helper);
   font-variant-numeric: tabular-nums;
 }
+#pg-progress .orders-progress-refresh-status {
+  margin-left: auto;
+  color: var(--ui-color-text-muted);
+  font-size: var(--ui-font-size-helper);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#pg-progress .orders-progress-refresh-status.is-failed { color: var(--ui-color-danger-text); }
 #pg-progress .orders-production-progress {
   display: block;
   width: 100%;
@@ -305,7 +312,7 @@
   font-weight: var(--ui-font-weight-strong);
   font-variant-numeric: tabular-nums;
 }
-#pg-progress .orders-po-date.is-due-soon { color: var(--ui-color-warning-text); }
+#pg-progress .orders-po-date.is-due-soon { color: var(--ui-color-success-text); }
 #pg-progress .orders-po-date.is-overdue { color: var(--ui-color-danger-text); }
 #pg-progress .orders-production-progress.is-loading,
 #pg-progress .orders-production-progress.is-error {

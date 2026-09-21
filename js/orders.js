@@ -889,6 +889,12 @@ function renderOrderImportIssues(){
 function renderOrderProductionProgressState(orderId,state){
   const host=g(`order-production-progress-${orderId}`);
   if(!host) return;
+  if(!state){
+    host.classList.remove('is-loading');host.classList.add('is-error');
+    host.removeAttribute('aria-busy');
+    host.replaceChildren(window.PCMSUIText?.create?.({vi:'Chưa có dữ liệu tiến độ',zh:'尚無進度資料'})||document.createTextNode('—'));
+    return;
+  }
   const percent=Math.max(0,Math.min(100,Number(state?.percent)||0));
   const shown=percent.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1});
   host.classList.remove('is-loading','is-error');
@@ -897,6 +903,27 @@ function renderOrderProductionProgressState(orderId,state){
       <div class="orders-production-progress-fill" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
       <span class="orders-production-progress-value">${ordersSafeText(shown)}%</span>
     </div>`;
+}
+
+function formatOrderProgressRefreshTime(timestamp){
+  if(!Number(timestamp)) return '';
+  return new Intl.DateTimeFormat('zh-TW',{
+    timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  }).format(new Date(Number(timestamp)));
+}
+
+function renderOrderProgressRefreshStatus(status){
+  const host=g('orders-progress-refresh-status');
+  if(!host) return;
+  const time=formatOrderProgressRefreshTime(status?.refreshedAt);
+  const failed=status?.state==='failed';
+  host.classList.toggle('is-failed',failed);
+  const copy=failed
+    ?(time?{vi:`Cập nhật hôm nay thất bại · Dữ liệu lần trước: ${time}`,zh:`今日更新失敗・上次更新：${time}`}
+      :{vi:'Cập nhật hôm nay thất bại · Chưa có dữ liệu tiến độ',zh:'今日更新失敗・尚無進度資料'})
+    :(time?{vi:`Cập nhật gần nhất: ${time}`,zh:`最後更新：${time}`}
+      :{vi:'Chưa cập nhật tiến độ',zh:'尚未更新進度'});
+  host.replaceChildren(window.PCMSUIText?.create?.(copy)||document.createTextNode(copy.zh));
 }
 
 function renderOrderProductionProgressLoading(){
@@ -911,7 +938,8 @@ async function refreshOrderProductionProgress(orders,renderSequence){
   try{
     const values=await window.PCMSOrderProductionProgress.load(orders);
     if(renderSequence!==progressRenderSequence) return;
-    orders.forEach(order=>renderOrderProductionProgressState(order.id,values.get(order.id)||{percent:0}));
+    orders.forEach(order=>renderOrderProductionProgressState(order.id,values.get(order.id)));
+    renderOrderProgressRefreshStatus(window.PCMSOrderProductionProgress.status?.());
   }catch(error){
     if(renderSequence!==progressRenderSequence) return;
     orders.forEach(order=>{
@@ -933,6 +961,7 @@ async function renderProgress(){
   content.innerHTML='<div class="ui-empty-state"><i class="ti ti-loader-2"></i><div>Đang tải...</div><div>載入中...</div></div>';
   try{
     let orders=usableOrders().filter(order=>orderShipmentStatus(order)==='pending');
+    const progressOrders=orders.slice(); // 每日進度更新固定涵蓋全部未出貨訂單；畫面搜尋與單號篩選只影響顯示。
     updatePendingQuantitySummary(orders);
     if(ordId) orders=orders.filter(order=>order.id===ordId);
     if(ordId) await ensureOrderProcessesLoaded(ordId);
@@ -956,6 +985,7 @@ async function renderProgress(){
       content.innerHTML=issueNotice+(issueNotice
         ?'<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng có thể sử dụng</div><div>目前沒有可使用的訂單</div></div>'
         :'<div class="ui-empty-state"><i class="ti ti-inbox"></i><div>Không có đơn hàng</div><div>尚無訂單</div></div>');
+      void refreshOrderProductionProgress(progressOrders,renderSequence);
       return;
     }
     let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
@@ -1002,7 +1032,7 @@ async function renderProgress(){
     });
     html+='</tbody></table></div>';
     content.innerHTML=issueNotice+html;
-    void refreshOrderProductionProgress(list,renderSequence);
+    void refreshOrderProductionProgress(progressOrders,renderSequence);
     content.querySelectorAll?.('.orders-inspection-export').forEach(button=>{
       const label={vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'};
       window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);

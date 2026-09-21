@@ -10,8 +10,12 @@
   const TOTAL_COLLECTION='productionProcessTotals';
   const VERSION_QUERY_SIZE=10;
   const TOTAL_QUERY_SIZE=30;
+  const REFRESH_TIME_ZONE='Asia/Taipei';
+  const REFRESH_HOUR=6;
+  const REFRESH_SHIFT_MS=REFRESH_HOUR*60*60*1000;
   let activePromise=null;
   let activeKey='';
+  let lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
 
   function text(value){ return String(value??'').trim(); }
   function number(value){ const result=Number(value); return Number.isFinite(result)?result:0; }
@@ -23,12 +27,23 @@
     return result;
   }
   function orderToken(order){
-    return [number(order?.updatedAt),number(order?.totalQty),number(order?.itemCount),text(order?.importStatus),text(order?.lifecycleStatus)].join('|');
+    return [number(order?.totalQty),number(order?.itemCount),text(order?.importStatus),text(order?.lifecycleStatus)].join('|');
   }
   function productToken(meta){
     return [number(meta?.changeSequence),number(meta?.updatedAt),text(meta?.trackingEpoch),number(meta?.productCount),number(meta?.opCount)].join('|');
   }
-  function blankCache(){ return {schemaVersion:CACHE_SCHEMA_VERSION,productToken:'',products:{},orders:{}}; }
+  function refreshPeriodKey(timestamp=Date.now()){
+    const shifted=new Date(Number(timestamp)-REFRESH_SHIFT_MS);
+    const parts=new Intl.DateTimeFormat('en-CA',{
+      timeZone:REFRESH_TIME_ZONE,year:'numeric',month:'2-digit',day:'2-digit'
+    }).formatToParts(shifted);
+    const value=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+    return `${value.year}-${value.month}-${value.day}`;
+  }
+  function blankCache(){
+    return {schemaVersion:CACHE_SCHEMA_VERSION,productToken:'',products:{},orders:{},
+      refreshPeriod:'',refreshState:'idle',refreshedAt:0,attemptedAt:0};
+  }
   function validCache(value){
     return value?.schemaVersion===CACHE_SCHEMA_VERSION&&value.products&&typeof value.products==='object'
       &&value.orders&&typeof value.orders==='object';
@@ -37,6 +52,22 @@
     return window.PCMSOrderItemStore?.processTotalId?.(orderItemId,processId)||`${orderItemId}__${processId}`;
   }
   function progressVersion(row){ return Math.max(0,Math.round(number(row?.revision))); }
+  function cacheStatus(cache,periodKey){
+    return Object.freeze({periodKey,state:text(cache?.refreshState)||'idle',
+      refreshedAt:number(cache?.refreshedAt),attemptedAt:number(cache?.attemptedAt)});
+  }
+  function cachedCalculations(orders,cache){
+    const result=new Map();
+    orders.forEach(order=>result.set(text(order.id),cache?.orders?.[text(order.id)]?.calculation||null));
+    return result;
+  }
+  function refreshLockName(){
+    return `pcms-order-production-progress:${text(window.currentUser?.uid)||'anonymous'}`;
+  }
+  function withRefreshLock(task){
+    const request=window.navigator?.locks?.request;
+    return typeof request==='function'?request.call(window.navigator.locks,refreshLockName(),task):task();
+  }
 
   function maySkipVersionRead(error){
     const code=text(error?.code).toLowerCase();
@@ -54,8 +85,8 @@
       return {values:result,available:true};
     }catch(error){
       if(!maySkipVersionRead(error)) throw error;
-      // 版本資料只用來減少重讀；權限尚未發布或索引尚未完成時，改讀正式來源計算。
-      console.warn('Không thể đọc phiên bản tiến độ; chuyển sang tính trực tiếp / 無法讀取進度版本，改用直接計算',error);
+      // 版本資料無法使用時停止本日更新，不得退回大量讀取正式累計。
+      console.warn('Không thể đọc phiên bản tiến độ; dừng cập nhật hôm nay / 無法讀取進度版本，停止本日更新',error);
       return {values:result,available:false};
     }
   }
@@ -132,13 +163,38 @@
     return {percent,requiredSeconds,registeredSeconds,remainingSeconds:Math.max(0,requiredSeconds-registeredSeconds),processCount:processes.length};
   }
 
+  async function markRefreshFailure(orders,stored,periodKey,error){
+    const cache=validCache(stored)?stored:blankCache();
+    cache.refreshPeriod=periodKey;
+    cache.refreshState='failed';
+    cache.attemptedAt=Date.now();
+    await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|failed`,cache);
+    lastStatus=cacheStatus(cache,periodKey);
+    console.warn('Không thể cập nhật tiến độ; giữ dữ liệu lần trước / 進度更新失敗，保留上次資料',error);
+    return cachedCalculations(orders,cache);
+  }
+
   async function loadInternal(orders){
     const orderIds=orders.map(order=>text(order.id)).filter(Boolean);
-    const [stored,metaSnapshot,versionState]=await Promise.all([
-      window.pcmsDataCache?.read(CACHE_SCOPE),
-      window._getDoc(window._docRef('system','productsMeta')),
-      loadVersionMap(orderIds)
-    ]);
+    const periodKey=refreshPeriodKey();
+    const stored=await window.pcmsDataCache?.read(CACHE_SCOPE);
+    if(validCache(stored)&&stored.refreshPeriod===periodKey){
+      lastStatus=cacheStatus(stored,periodKey);
+      return cachedCalculations(orders,stored);
+    }
+    let metaSnapshot;
+    let versionState;
+    try{
+      [metaSnapshot,versionState]=await Promise.all([
+        window._getDoc(window._docRef('system','productsMeta')),
+        loadVersionMap(orderIds)
+      ]);
+    }catch(error){
+      return markRefreshFailure(orders,stored,periodKey,error);
+    }
+    if(!versionState.available){
+      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'));
+    }
     const cache=validCache(stored)?stored:blankCache();
     const next=blankCache();
     const latestProductToken=productToken(metaSnapshot.exists()?metaSnapshot.data():{});
@@ -167,7 +223,7 @@
       const cached=cache.orders[orderId];
       const processes=productionProcesses(itemSets[orderId],next.products);
       const structureChanged=!cached||cached.orderToken!==currentOrderToken||productsChanged;
-      const productionChanged=!versionState.available||!cached||number(cached.progressRevision)!==currentRevision;
+      const productionChanged=!cached||number(cached.progressRevision)!==currentRevision;
       const registeredQuantities=!productionChanged&&cached?.registeredQuantities?{...cached.registeredQuantities}:null;
       const reloadAll=!registeredQuantities||structureChanged&&productionChanged;
       const missing=!reloadAll&&structureChanged
@@ -185,23 +241,39 @@
       else if(context.missing.length) Object.assign(registeredQuantities,quantitiesFor(context.missing,loadedQuantities));
       const calculation=calculate(context.processes,registeredQuantities);
       next.orders[context.orderId]={orderToken:context.currentOrderToken,
-        progressRevision:versionState.available?context.currentRevision:null,items:itemSets[context.orderId],
+        progressRevision:context.currentRevision,items:itemSets[context.orderId],
         registeredQuantities,calculation};
       result.set(context.orderId,calculation);
     }
-    await window.pcmsDataCache?.write(CACHE_SCOPE,`${latestProductToken}|${Date.now()}`,next);
+    next.refreshPeriod=periodKey;
+    next.refreshState='success';
+    next.refreshedAt=Date.now();
+    next.attemptedAt=next.refreshedAt;
+    await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|${latestProductToken}`,next);
+    lastStatus=cacheStatus(next,periodKey);
     return result;
   }
 
   function load(orders){
     const list=(Array.isArray(orders)?orders:[]).filter(order=>text(order?.id));
-    const key=list.map(order=>`${text(order.id)}:${orderToken(order)}`).join(',');
+    const key=`${refreshPeriodKey()}|${list.map(order=>text(order.id)).join(',')}`;
     if(activePromise&&activeKey===key) return activePromise;
     activeKey=key;
-    activePromise=loadInternal(list).finally(()=>{ activePromise=null; activeKey=''; });
+    activePromise=withRefreshLock(async()=>{
+      try{return await loadInternal(list);}
+      catch(error){
+        const stored=await window.pcmsDataCache?.read(CACHE_SCOPE);
+        return markRefreshFailure(list,stored,refreshPeriodKey(),error);
+      }
+    }).finally(()=>{ activePromise=null; activeKey=''; });
     return activePromise;
   }
 
-  function reset(){ activePromise=null;activeKey='';return window.pcmsDataCache?.remove(CACHE_SCOPE); }
-  window.PCMSOrderProductionProgress=Object.freeze({load,reset,calculate,productionProcesses,orderToken,productToken});
+  function status(){ return lastStatus; }
+  function reset(){
+    activePromise=null;activeKey='';
+    lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
+    return window.pcmsDataCache?.remove(CACHE_SCOPE);
+  }
+  window.PCMSOrderProductionProgress=Object.freeze({load,status,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
 })();
