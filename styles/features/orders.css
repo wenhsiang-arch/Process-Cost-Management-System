@@ -35,50 +35,25 @@
   outline-offset: 1px;
 }
 
-#pg-progress .orders-command-action:nth-child(2) {
+#pg-progress .orders-command-action:nth-child(3) {
   width: 122px;
   min-width: 122px;
   flex-basis: 122px;
 }
 
-#pg-progress .orders-user-guide {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 10px;
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--ui-color-info-border);
-  border-radius: var(--ui-radius-panel);
-  background: var(--ui-color-info-background);
-  color: var(--ui-color-info-text);
-}
-
-#pg-progress .orders-user-guide > i {
-  margin-top: 2px;
-  font-size: var(--ui-font-size-metric-small);
-}
-
-#pg-progress .orders-user-guide-content {
-  gap: 12px;
-}
-
-#pg-progress .orders-user-guide h3 {
+.orders-user-guide-dialog h3 {
   margin: 0 0 6px;
-  color: inherit;
   font-size: var(--ui-font-size-section-vi);
   font-weight: var(--ui-font-weight-primary);
 }
 
-#pg-progress .orders-user-guide ol {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px 28px;
+.orders-user-guide-dialog ol {
   margin: 0;
   padding-left: 22px;
 }
 
-#pg-progress .orders-user-guide li {
-  min-width: 0;
+.orders-user-guide-dialog li + li {
+  margin-top: 7px;
 }
 
 #pg-progress .orders-progress-frame {

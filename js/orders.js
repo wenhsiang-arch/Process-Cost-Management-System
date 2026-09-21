@@ -27,6 +27,46 @@ function ordersConfirm(titleVi,titleZh,vi,zh,options={}){
     confirmText:options.confirmText,kind:options.kind
   });
 }
+function createOrderGuideSection(language,title,items){
+  const section=document.createElement('section');
+  const heading=document.createElement('h3');
+  const list=document.createElement('ol');
+  section.className=`ui-language-section is-${language}`;
+  section.lang=language==='zh'?'zh-Hant':'vi';
+  heading.textContent=title;
+  items.forEach(item=>{
+    const row=document.createElement('li');
+    const label=document.createElement('b');
+    label.textContent=item.label;
+    row.append(label,document.createTextNode(item.text));
+    list.appendChild(row);
+  });
+  section.append(heading,list);
+  return section;
+}
+function openOrderGuide(){
+  const body=document.createElement('div');
+  body.className='orders-user-guide-dialog ui-language-sections';
+  body.append(
+    createOrderGuideSection('vi','Hướng dẫn sử dụng đơn hàng',[
+      {label:'Lưu trữ: ',text:'Nút cấm chuyển đơn khỏi danh sách đang dùng nhưng vẫn giữ dữ liệu; có thể xem và khôi phục trong mục Đơn hàng đã lưu trữ.'},
+      {label:'Đã xuất hàng: ',text:'Chọn ngày xuất thực tế, sau đó nhấn nút xe tải để chuyển đơn sang mục Đơn hàng đã xuất; có thể hủy xác nhận tại đó để đưa đơn trở lại.'},
+      {label:'Xuất báo cáo: ',text:'Đơn HUNTER có nút bảng tính để xuất báo cáo kiểm tra; trước khi xuất phải chọn tên tệp và vị trí lưu.'},
+      {label:'Màu ngày PO: ',text:'Màu xanh đậm là còn không quá 14 ngày; màu đỏ là đã quá hạn nhưng chưa xuất; màu thường là còn trên 14 ngày.'},
+      {label:'Tiến độ sản xuất: ',text:'Mỗi tài khoản trên mỗi máy chỉ tự động cập nhật một lần trong kỳ từ 06:00 hôm nay đến 05:59 hôm sau; thay đổi sau lần cập nhật sẽ hiển thị trong kỳ kế tiếp.'}
+    ]),
+    createOrderGuideSection('zh','訂單頁使用說明',[
+      {label:'封存：',text:'禁止符號會將訂單移出使用中清單，但資料仍會保留；可到「已封存訂單」查看及還原。'},
+      {label:'已出貨：',text:'先選擇實際出貨日，再按貨車按鈕移到「已出貨訂單」；可在該分頁取消確認並移回主表。'},
+      {label:'報表匯出：',text:'HUNTER 訂單會顯示表格檔按鈕，可匯出檢驗報告；匯出前需選擇檔名與儲存位置。'},
+      {label:'PO 日期顏色：',text:'深藍色代表剩餘 14 天以內；紅色代表已逾期且尚未出貨；一般字色代表超過 14 天。'},
+      {label:'生產進度：',text:'每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期只自動更新一次；更新後才新增的產能會在下一個週期顯示。'}
+    ])
+  );
+  return window.PCMSUIComponents.alertDialog({
+    title:{vi:'Hướng dẫn',zh:'使用說明'},body,size:'large'
+  });
+}
 function ordersSplitMessages(messages){
   return messages.reduce((result,message)=>{
     const value=String(message||'');
