@@ -261,8 +261,11 @@
 
   function createButton(product,options={}){
     const button=document.createElement('button');
-    button.type='button';button.className='product-master-full-edit-button';button.disabled=!allowed();
-    button.innerHTML=`<i class="ti ti-edit"></i>${dualLabel('Sửa','編輯')}`;
+    const label={vi:'Chỉnh sửa mã hàng',zh:'編輯款號'};
+    button.type='button';button.className='product-master-full-edit-button ui-button';button.disabled=!allowed();
+    button.innerHTML='<i class="ti ti-edit" aria-hidden="true"></i>';
+    window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);
+    window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
     if(!button.disabled) button.addEventListener('click',event=>{ event.stopPropagation();void open(product,options); });
     return button;
   }
