@@ -882,16 +882,16 @@ function renderOrderProductionProgressState(orderId,state){
   const shown=percent.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1});
   host.classList.remove('is-loading','is-error');
   host.removeAttribute('aria-busy');
-  host.innerHTML=`<div class="orders-production-progress-value">${ordersSafeText(shown)}%</div>
-    <div class="ui-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(percent.toFixed(1))}">
-      <div class="ui-progress-bar" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
+  host.innerHTML=`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(percent.toFixed(1))}">
+      <div class="orders-production-progress-fill" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
+      <span class="orders-production-progress-value">${ordersSafeText(shown)}%</span>
     </div>`;
 }
 
 function renderOrderProductionProgressLoading(){
-  return `<div class="orders-production-progress-loading-copy">${ordersPairHtml('Đang tính','計算中')}</div>
-    <div class="ui-progress is-indeterminate orders-production-progress-loading" aria-hidden="true">
+  return `<div class="ui-progress is-indeterminate orders-production-progress-loading" aria-hidden="true">
       <div class="ui-progress-track"><div class="ui-progress-bar"></div></div>
+      <div class="orders-production-progress-loading-copy">${ordersPairHtml('Đang tính','計算中')}</div>
     </div>`;
 }
 
@@ -973,7 +973,7 @@ async function renderProgress(){
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
         <td><div class="orders-production-progress is-loading" id="order-production-progress-${safeId}" aria-busy="true">
           ${renderOrderProductionProgressLoading()}</div></td>
-        <td>${fmtVN(o.dueDate)}</td>
+        <td><span class="orders-po-date">${ordersSafeText(fmtVN(o.dueDate))}</span></td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
