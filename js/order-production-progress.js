@@ -13,8 +13,9 @@
   const REFRESH_TIME_ZONE='Asia/Taipei';
   const REFRESH_HOUR=6;
   const REFRESH_SHIFT_MS=REFRESH_HOUR*60*60*1000;
-  let activePromise=null;
-  let activeKey='';
+  const ATTEMPT_MARKER_PREFIX='pcms-order-production-progress-attempt-v1';
+  const activePromises=new Map();
+  let sessionRecord=null;
   let lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
 
   function text(value){ return String(value??'').trim(); }
@@ -56,13 +57,49 @@
     return Object.freeze({periodKey,state:text(cache?.refreshState)||'idle',
       refreshedAt:number(cache?.refreshedAt),attemptedAt:number(cache?.attemptedAt)});
   }
+  function currentUserId(){
+    return text(window.cu?.authUid||window.firebaseAuthUser?.uid||window.currentUser?.uid);
+  }
+  function sessionCache(){
+    const userId=currentUserId();
+    return userId&&sessionRecord?.userId===userId&&validCache(sessionRecord.cache)?sessionRecord.cache:null;
+  }
+  function keepSessionCache(cache){
+    const userId=currentUserId();
+    if(userId&&validCache(cache)) sessionRecord={userId,cache};
+  }
+  function attemptMarkerKey(){
+    const userId=currentUserId();
+    return userId?`${ATTEMPT_MARKER_PREFIX}:${userId}`:'';
+  }
+  function readAttemptMarker(periodKey){
+    const key=attemptMarkerKey();
+    if(!key) return null;
+    try{
+      const marker=JSON.parse(window.localStorage?.getItem(key)||'null');
+      return marker?.periodKey===periodKey?marker:null;
+    }catch(error){ return null; }
+  }
+  function writeAttemptMarker(periodKey,state,values={}){
+    const key=attemptMarkerKey();
+    if(!key) return false;
+    try{
+      window.localStorage?.setItem(key,JSON.stringify({schemaVersion:1,periodKey,state,
+        attemptedAt:number(values.attemptedAt)||Date.now(),refreshedAt:number(values.refreshedAt)}));
+      return true;
+    }catch(error){ return false; }
+  }
+  function markerStatus(marker,cache,periodKey){
+    return Object.freeze({periodKey,state:marker?.state==='success'?'success':'failed',
+      refreshedAt:number(cache?.refreshedAt)||number(marker?.refreshedAt),attemptedAt:number(marker?.attemptedAt)});
+  }
   function cachedCalculations(orders,cache){
     const result=new Map();
     orders.forEach(order=>result.set(text(order.id),cache?.orders?.[text(order.id)]?.calculation||null));
     return result;
   }
   function refreshLockName(){
-    return `pcms-order-production-progress:${text(window.currentUser?.uid)||'anonymous'}`;
+    return `pcms-order-production-progress:${currentUserId()||'anonymous'}`;
   }
   function withRefreshLock(task){
     const request=window.navigator?.locks?.request;
@@ -168,7 +205,10 @@
     cache.refreshPeriod=periodKey;
     cache.refreshState='failed';
     cache.attemptedAt=Date.now();
-    await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|failed`,cache);
+    keepSessionCache(cache);
+    try{ await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|failed`,cache); }
+    catch(writeError){ console.warn('Không thể lưu trạng thái cập nhật / 無法保存更新狀態',writeError); }
+    writeAttemptMarker(periodKey,'failed',cache);
     lastStatus=cacheStatus(cache,periodKey);
     console.warn('Không thể cập nhật tiến độ; giữ dữ liệu lần trước / 進度更新失敗，保留上次資料',error);
     return cachedCalculations(orders,cache);
@@ -177,11 +217,23 @@
   async function loadInternal(orders){
     const orderIds=orders.map(order=>text(order.id)).filter(Boolean);
     const periodKey=refreshPeriodKey();
-    const stored=await window.pcmsDataCache?.read(CACHE_SCOPE);
+    if(!orderIds.length) return new Map();
+    let persistentCache=null;
+    try{ persistentCache=await window.pcmsDataCache?.read(CACHE_SCOPE); }
+    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error); }
+    const memoryCache=sessionCache();
+    const stored=validCache(memoryCache)&&memoryCache.refreshPeriod===periodKey
+      ?memoryCache:(validCache(persistentCache)?persistentCache:memoryCache);
     if(validCache(stored)&&stored.refreshPeriod===periodKey){
       lastStatus=cacheStatus(stored,periodKey);
       return cachedCalculations(orders,stored);
     }
+    const marker=readAttemptMarker(periodKey);
+    if(marker){
+      lastStatus=markerStatus(marker,stored,periodKey);
+      return cachedCalculations(orders,stored);
+    }
+    writeAttemptMarker(periodKey,'running',{attemptedAt:Date.now(),refreshedAt:stored?.refreshedAt});
     let metaSnapshot;
     let versionState;
     try{
@@ -249,30 +301,47 @@
     next.refreshState='success';
     next.refreshedAt=Date.now();
     next.attemptedAt=next.refreshedAt;
-    await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|${latestProductToken}`,next);
+    keepSessionCache(next);
+    let persisted=false;
+    try{ persisted=await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|${latestProductToken}`,next)===true; }
+    catch(error){ console.warn('Không thể lưu bộ nhớ đệm tiến độ / 無法保存進度快取',error); }
+    if(!persisted){
+      next.refreshState='failed';
+      keepSessionCache(next);
+      writeAttemptMarker(periodKey,'failed',next);
+      console.warn('Không thể lưu bộ nhớ đệm tiến độ; không thử lại trong hôm nay / 無法保存進度快取，本日不再重試');
+    }else{
+      writeAttemptMarker(periodKey,'success',next);
+    }
     lastStatus=cacheStatus(next,periodKey);
     return result;
   }
 
   function load(orders){
     const list=(Array.isArray(orders)?orders:[]).filter(order=>text(order?.id));
-    const key=`${refreshPeriodKey()}|${list.map(order=>text(order.id)).join(',')}`;
-    if(activePromise&&activeKey===key) return activePromise;
-    activeKey=key;
-    activePromise=withRefreshLock(async()=>{
+    if(!list.length) return Promise.resolve(new Map());
+    const periodKey=refreshPeriodKey();
+    const key=`${currentUserId()}|${periodKey}`;
+    if(activePromises.has(key)) return activePromises.get(key);
+    const promise=withRefreshLock(async()=>{
       try{return await loadInternal(list);}
       catch(error){
-        const stored=await window.pcmsDataCache?.read(CACHE_SCOPE);
+        let stored=sessionCache();
+        try{ stored=await window.pcmsDataCache?.read(CACHE_SCOPE)||stored; }
+        catch(readError){ console.warn('Không thể đọc bộ nhớ đệm tiến độ / 無法讀取進度快取',readError); }
         return markRefreshFailure(list,stored,refreshPeriodKey(),error);
       }
-    }).finally(()=>{ activePromise=null; activeKey=''; });
-    return activePromise;
+    }).finally(()=>activePromises.delete(key));
+    activePromises.set(key,promise);
+    return promise;
   }
 
   function status(){ return lastStatus; }
   function reset(){
-    activePromise=null;activeKey='';
+    activePromises.clear();sessionRecord=null;
     lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
+    const markerKey=attemptMarkerKey();
+    if(markerKey){ try{ window.localStorage?.removeItem(markerKey); }catch(error){} }
     return window.pcmsDataCache?.remove(CACHE_SCOPE);
   }
   window.PCMSOrderProductionProgress=Object.freeze({load,status,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
