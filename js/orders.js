@@ -890,14 +890,9 @@ async function renderProgress(){
       if(!progMap[p.orderId]) progMap[p.orderId]={procs:[]};
       progMap[p.orderId].procs.push(p);
     });
-    let list=orders.map(o=>{
-      const pm=progMap[o.id]||{procs:[]};
-      const processCount=Number.isInteger(Number(o.processCount))
-        ? Number(o.processCount)
-        : (hasOrderProcessesLoaded(o.id)?pm.procs.length:null);
-      return{...o,processCount,pm};
-    });
-    list.sort((a,b)=>(Number(a.dueDate)||0)-(Number(b.dueDate)||0));
+    const list=orders.map(o=>({...o,pm:progMap[o.id]||{procs:[]}}));
+    const sortDate=order=>Number(order.actualShipDate)||Number(order.dueDate)||Number.MAX_SAFE_INTEGER; // sortDate（主表排序日期）：優先實際出貨日，未設定時使用 PO 交期。
+    list.sort((a,b)=>sortDate(a)-sortDate(b)||(Number(a.dueDate)||0)-(Number(b.dueDate)||0)||String(a.orderId||'').localeCompare(String(b.orderId||'')));
     const issueNotice=renderOrderImportIssues();
     if(!list.length){
       content.innerHTML=issueNotice+(issueNotice
@@ -910,17 +905,14 @@ async function renderProgress(){
     html+=`<th data-orders-column="client">${ordersPairHtml('Khách hàng','客人')}</th>`;
     html+=`<th data-orders-column="orderId">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
     html+=`<th data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
-    html+=`<th data-orders-column="processCount" class="ui-table-number-cell">${ordersPairHtml('Số công đoạn','工序數')}</th>`;
     html+=`<th data-orders-column="dueDate">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
-    html+=`<th data-orders-column="completeDate">${ordersPairHtml('Hoàn thành','實際完成日')}</th>`;
     html+=`<th data-orders-column="shipDate">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
     html+=`<th data-orders-column="remark">${ordersPairHtml('Ghi chú','備註')}</th>`;
     html+=`<th data-orders-column="action">${ordersPairHtml('Thao tác','操作')}</th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const totalQty=o.totalQty||0;
-      const actualCompleteDateVal=o.actualCompleteDate?formatLocalDate(o.actualCompleteDate):'';
-      const actualShipDateVal='';
+      const actualShipDateVal=o.actualShipDate?formatLocalDate(o.actualShipDate):'';
       const idArg=ordersInlineArg(o.id);
       const orderArg=ordersInlineArg(o.orderId);
       const remarkArg=ordersInlineArg(o.remark||'');
@@ -931,10 +923,8 @@ async function renderProgress(){
         <td><b>${ordersSafeText(o.client||'-')}</b></td>
         <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
-        <td class="ui-table-number-cell">${o.processCount===null?'—':o.processCount.toLocaleString()}</td>
         <td>${fmtVN(o.dueDate)}</td>
-        <td onclick="event.stopPropagation()"><input class="orders-date-input" type="date" value="${ordersSafeAttr(actualCompleteDateVal)}" onchange="saveProgField(${idArg},'actualCompleteDate',this.value)"></td>
-        <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}"></td>
+        <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
@@ -943,7 +933,7 @@ async function renderProgress(){
         </div></td>
       </tr>
       <tr id="prog-detail-${safeId}" style="display:none">
-        <td colspan="10" class="orders-expanded-cell">
+        <td colspan="8" class="orders-expanded-cell">
           <div id="prog-detail-body-${safeId}" class="orders-expanded-body"></div>
         </td>
       </tr>`;
@@ -1142,16 +1132,61 @@ function renderOrderAdjustmentHistory(rows){
   if(moreButton) moreButton.hidden=!window.PCMSHistory?.hasMore?.('operationLogs',{permissionKey:'progress',actions:['orderItemQuantityUpdate'],limit:50});
 }
 
+async function saveActualShipDate(ordId,value,input){
+  if(input) input.disabled=true;
+  try{
+    if(!window.PCMSOrderService?.setActualShipDate) throw new Error('Dịch vụ đơn hàng chưa sẵn sàng. / 訂單服務尚未載入。');
+    const saved=await window.PCMSOrderService.setActualShipDate(ordId,value,{note:'actualShipDate'});
+    const order=window.allOrders.find(item=>item.id===ordId);if(order)Object.assign(order,saved);
+    await renderProgress();
+    window.PCMSUIComponents.showToast({text:{vi:'Đã lưu ngày xuất hàng thực tế.',zh:'已儲存實際出貨日。'},kind:'success'});
+  }catch(error){
+    console.error('Không thể lưu ngày xuất hàng / 無法儲存實際出貨日：',error);
+    if(input) input.disabled=false;
+    await ordersMessage('Không thể lưu ngày xuất hàng thực tế.','無法儲存實際出貨日。','danger');
+    await renderProgress();
+  }
+}
+
+function chooseShipmentConfirmationDate(orderNo,initialDate){
+  return new Promise(resolve=>{
+    let settled=false;
+    const body=document.createElement('div');
+    const question=document.createElement('div');
+    const field=document.createElement('div');
+    const input=document.createElement('input');
+    field.className='ui-dialog-field';field.hidden=true;
+    field.append(window.PCMSUIText.create({vi:'Ngày xuất hàng thực tế',zh:'實際出貨日'},{tagName:'label'}));
+    input.type='date';input.required=true;input.value=initialDate;field.append(input);
+    const updateQuestion=()=>question.replaceChildren(window.PCMSUIComponents.createLanguageSections({
+      vi:`Xác nhận đơn ${orderNo} đã xuất ngày ${input.value}?`,zh:`確認訂單 ${orderNo} 已於 ${input.value} 出貨？`
+    }));
+    input.addEventListener('input',updateQuestion);updateQuestion();body.append(question,field);
+    window.PCMSUIComponents.openDialog({
+      title:{vi:'Xác nhận xuất hàng',zh:'確認出貨'},body,
+      actions:[
+        {text:{vi:'Hủy',zh:'取消'},onClick:()=>{settled=true;resolve(null);}},
+        {text:{vi:'Chọn ngày',zh:'選擇日期'},close:false,onClick:()=>{
+          field.hidden=false;setTimeout(()=>{input.focus();input.showPicker?.();},0);return false;
+        }},
+        {text:{vi:'Xác nhận',zh:'確認'},kind:'primary',onClick:()=>{
+          if(!input.reportValidity()) return false;
+          settled=true;resolve(input.value);return true;
+        }}
+      ],
+      onClose:()=>{if(!settled)resolve(null);}
+    });
+  });
+}
+
 async function confirmOrderShipment(orderId,orderNo){
   if((typeof canOpenPage==='function'&&!canOpenPage('progress'))||!window.PCMSOrderService?.setShipmentStatus) return;
   const input=g(`prog-ship-date-${orderId}`);
   const dateValue=input?.value||formatLocalDate(new Date());
-  const confirmed=await ordersConfirm('Xác nhận xuất hàng','確認出貨',
-    `Xác nhận đơn ${orderNo} đã xuất ngày ${dateValue}?`,
-    `確認訂單 ${orderNo} 已於 ${dateValue} 出貨？`);
-  if(!confirmed) return;
+  const confirmedDate=await chooseShipmentConfirmationDate(orderNo,dateValue);
+  if(!confirmedDate) return;
   try{
-    const saved=await window.PCMSOrderService.setShipmentStatus(orderId,'shipped',{actualShipDate:dateValue,note:orderNo});
+    const saved=await window.PCMSOrderService.setShipmentStatus(orderId,'shipped',{actualShipDate:confirmedDate,note:orderNo});
     const order=window.allOrders.find(item=>item.id===orderId);if(order)Object.assign(order,saved);
     fillOrderSelects();await renderProgress();window.renderShippedOrders?.();
     await ordersMessage('Đã chuyển đơn sang mục đã xuất hàng.','訂單已移至已出貨訂單。','success');

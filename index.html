@@ -313,8 +313,8 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 <time class="home-update-date" datetime="2026-09-22">22/09/2026</time>
                 <h2 class="ui-dual-copy"><strong>Quản lý riêng đơn hàng đã xuất</strong><span>新增已出貨訂單管理</span></h2>
                 <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Đơn đang dùng và đơn đã xuất</h3><ol><li>Bảng đơn hàng chính chỉ hiển thị đơn chưa xác nhận xuất và xếp theo ngày giao PO từ gần đến xa.</li><li>Chọn ngày xuất thực tế rồi xác nhận để chuyển đơn sang mục Đơn hàng đã xuất; nếu để trống, hệ thống dùng ngày hiện tại.</li><li>Nhấn Đơn hàng đã xuất trong thanh chức năng để mở trang riêng. Danh sách xếp ngày mới nhất lên trên, cho phép sửa ngày hoặc hủy xác nhận để đưa đơn trở lại bảng chính.</li><li>Trang Đơn hàng đã xuất không cung cấp thao tác lưu trữ. Việc phân loại xuất hàng không ảnh hưởng ghi nhận sản xuất, thưởng hiệu suất hoặc tháng đã khóa.</li></ol></section></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>使用中與已出貨訂單</h3><ol><li>訂單主表只顯示尚未確認出貨的訂單，依 PO 交期由近到遠排列。</li><li>選擇實際出貨日並確認後，訂單會移到「已出貨訂單」；日期空白時預設使用當日。</li><li>請點擊功能列的「已出貨訂單」進入獨立分頁。清單依實際出貨日由新到舊排列，可修改日期或取消確認並移回主表。</li><li>「已出貨訂單」分頁不提供封存操作。出貨分類不影響產能登記、績效獎金或已凍結月份。</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Đơn đang dùng và đơn đã xuất</h3><ol><li>Bảng chính chỉ hiển thị đơn chưa xác nhận xuất; ưu tiên xếp theo ngày xuất thực tế từ gần đến xa, đơn chưa đặt ngày sẽ dùng ngày giao PO.</li><li>Ngày xuất thực tế được lưu riêng và không tự xác nhận xuất hàng. Nhấn biểu tượng xe để kiểm tra ngày, chọn ngày khác hoặc xác nhận chuyển đơn sang mục Đơn hàng đã xuất.</li><li>Nhấn Đơn hàng đã xuất trong thanh chức năng để mở trang riêng. Danh sách xếp ngày mới nhất lên trên; hủy xác nhận sẽ đưa đơn về bảng chính nhưng vẫn giữ ngày.</li><li>Bảng chính đã bỏ cột số công đoạn và ngày hoàn thành thực tế. Việc phân loại xuất hàng không ảnh hưởng ghi nhận sản xuất, thưởng hiệu suất hoặc tháng đã khóa.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>使用中與已出貨訂單</h3><ol><li>訂單主表只顯示尚未確認出貨的訂單，優先依實際出貨日由近到遠排列；未設定日期時使用 PO 交期。</li><li>實際出貨日會獨立儲存，不會自動確認出貨。點擊貨車圖示可核對日期、另選日期或確認移到「已出貨訂單」。</li><li>請點擊功能列的「已出貨訂單」進入獨立分頁。清單依日期由新到舊排列；取消確認後移回主表並保留日期。</li><li>主表已移除工序數與實際完成日欄位。出貨分類不影響產能登記、績效獎金或已凍結月份。</li></ol></section></div>
                 </div>
               </div>
             </article>
@@ -1396,11 +1396,11 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260922-3"></script>
+  <script src="js/features.js?v=20260922-4"></script>
 <script src="js/auth.js?v=20260922-1"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260922-3"></script>
+<script type="module" src="js/firebase.js?v=20260922-4"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

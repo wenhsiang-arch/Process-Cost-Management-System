@@ -371,6 +371,11 @@
       const orderReference=window._docRef(COLLECTIONS.orders,target);
       const snapshot=await transaction.get(orderReference);
       if(!snapshot.exists()||snapshot.data()?.schemaVersion!==2) throw new Error('Không tìm thấy đơn hàng hiện tại. / 找不到目前訂單。');
+      if(options.skipUnchanged===true&&Object.entries(allowed).every(([field,value])=>Number.isFinite(Number(value))
+        ? Number(snapshot.data()?.[field]||0)===Number(value||0)
+        : snapshot.data()?.[field]===value)){
+        saved={id:target,...snapshot.data()};return;
+      }
       saved={id:target,...snapshot.data(),...allowed,updatedAt:now,updatedByUid:currentActor.uid,operationLogId};
       transaction.set(orderReference,{...allowed,updatedAt:now,updatedByUid:currentActor.uid,operationLogId},{merge:true});
       transaction.set(logReference,{
@@ -379,8 +384,13 @@
         note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
-    },{skipDataVersions:true});
+    },{skipDataVersions:options.touchOrdersVersion!==true});
     return clone(saved);
+  }
+
+  // setActualShipDate（設定實際出貨日）：日期可在確認出貨前獨立保存，並通知其他裝置更新訂單清單。
+  async function setActualShipDate(orderId,value,options={}){
+    return updateOrder(orderId,{actualShipDate:value},{...options,note:options.note||'actualShipDate',touchOrdersVersion:true,skipUnchanged:true});
   }
 
   async function setLifecycle(orderId,status,options={}){
@@ -418,8 +428,8 @@
     const target=text(orderId);
     if(!target) throw new Error('Đơn hàng không hợp lệ. / 訂單識別碼不正確。');
     if(!['pending','shipped'].includes(status)) throw new Error('Trạng thái xuất hàng không hợp lệ. / 出貨狀態不正確。');
-    const actualShipDate=status==='shipped'?timestamp(options.actualShipDate):null;
-    if(status==='shipped'&&!actualShipDate) throw new Error('Vui lòng chọn ngày xuất hàng. / 請選擇實際出貨日。');
+    const requestedShipDate=status==='shipped'?timestamp(options.actualShipDate):null;
+    if(status==='shipped'&&!requestedShipDate) throw new Error('Vui lòng chọn ngày xuất hàng. / 請選擇實際出貨日。');
     const currentActor=actor(options.actor);
     const now=Number(options.now)||Date.now();
     const logReference=window._newDocRef(COLLECTIONS.logs);
@@ -434,6 +444,7 @@
         throw new Error('Đơn hàng hiện không thể thay đổi trạng thái xuất hàng. / 訂單目前不能變更出貨狀態。');
       }
       const previousStatus=before.shipmentStatus==='shipped'?'shipped':'pending';
+      const actualShipDate=status==='shipped'?requestedShipDate:(before.actualShipDate||null);
       if(previousStatus===status&&Number(before.actualShipDate||0)===Number(actualShipDate||0)){
         saved={id:target,...before};return;
       }
@@ -445,7 +456,7 @@
         permissionKey:'progress',feature:'orders',action,status:'success',targetType:'order',targetId:target,
         itemCount:1,detailCount:2,changes:[
           {field:'shipmentStatus',before:previousStatus,after:status},
-          {field:'actualShipDate',before:previousStatus==='shipped'?(before.actualShipDate||null):null,after:actualShipDate}
+          {field:'actualShipDate',before:before.actualShipDate||null,after:actualShipDate}
         ],note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
@@ -536,5 +547,5 @@
   }
 
   window.PCMSOrderService=Object.freeze({COLLECTIONS,BATCH_SIZE,PURGE_BATCH_SIZE,normalizeHeader,prepareImport,importOrder,loadOrderItems,loadProcessViews,
-    updateItemQuantity,updateOrder,setLifecycle,setShipmentStatus,purgeOrder});
+    updateItemQuantity,updateOrder,setActualShipDate,setLifecycle,setShipmentStatus,purgeOrder});
 })();
