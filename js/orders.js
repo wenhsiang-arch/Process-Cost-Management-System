@@ -5,7 +5,6 @@ let ordersLoadPromise = null;
 const processLoadPromises = new Map(); // processLoadPromises（各訂單工序載入工作）
 const loadedProcessVersions = new Map(); // loadedProcessVersions（已載入訂單工序版本）
 let progressRenderSequence = 0;
-let progressRenderTimer = null;
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
 const inspectionReportExportRequests = new Set(); // inspectionReportExportRequests（匯出入口執行中的訂單，避免載入程式期間連點）
 let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（訂單全視窗匯入用途是否已登記）
@@ -145,7 +144,6 @@ function updatePendingQuantitySummary(orders){
 function resetOrderRuntimeCache(){
   processLoadPromises.clear();
   loadedProcessVersions.clear();
-  clearTimeout(progressRenderTimer);
   progressRenderSequence++;
 }
 function setImportProgress(percent,vi,zh){
@@ -835,35 +833,6 @@ async function confirmArchiveOrder(){
 }
 
 // ===== 訂單進度 =====
-function scheduleProgressRender(){
-  clearTimeout(progressRenderTimer);
-  progressRenderTimer=setTimeout(()=>renderProgress(),250);
-}
-
-async function loadProcessesForOrderSearch(orders,codeQuery,renderSequence){
-  const matchedOrderIds=new Set();
-  const legacyOrders=[];
-  orders.forEach(order=>{
-    if(Array.isArray(order.productCodes)){
-      if(order.productCodes.some(code=>String(code||'').toLowerCase().includes(codeQuery))){
-        matchedOrderIds.add(order.id);
-      }
-    }else{
-      legacyOrders.push(order);
-    }
-  });
-  for(let offset=0;offset<legacyOrders.length;offset+=5){
-    const group=legacyOrders.slice(offset,offset+5);
-    const results=await Promise.all(group.map(order=>ensureOrderProcessesLoaded(order.id)));
-    if(renderSequence!==progressRenderSequence) return null;
-    results.forEach((items,index)=>{
-      if(items.some(item=>String(item.code||'').toLowerCase().includes(codeQuery))){
-        matchedOrderIds.add(group[index].id);
-      }
-    });
-  }
-  return matchedOrderIds;
-}
 
 // 未完成匯入只使用已載入的訂單清單提醒，不額外查詢雲端或把未完成訂單當成可用工序。
 function renderOrderImportIssues(){
@@ -956,28 +925,15 @@ async function refreshOrderProductionProgress(orders,renderSequence){
 async function renderProgress(){
   const renderSequence=++progressRenderSequence;
   const ordId=g('prog-sel')?.value;
-  const codeQuery=(g('prog-code-q')?.value||'').trim().toLowerCase();
   const content=g('prog-content'); if(!content) return;
   content.innerHTML='<div class="ui-empty-state"><i class="ti ti-loader-2"></i><div>Đang tải...</div><div>載入中...</div></div>';
   try{
     let orders=usableOrders().filter(order=>orderShipmentStatus(order)==='pending');
-    const progressOrders=orders.slice(); // 每日進度更新固定涵蓋全部未出貨訂單；畫面搜尋與單號篩選只影響顯示。
+    const progressOrders=orders.slice(); // 每日進度更新固定涵蓋全部未出貨訂單；訂單選單只影響畫面顯示。
     updatePendingQuantitySummary(orders);
     if(ordId) orders=orders.filter(order=>order.id===ordId);
-    if(ordId) await ensureOrderProcessesLoaded(ordId);
     if(renderSequence!==progressRenderSequence) return;
-    if(codeQuery){
-      const matchedOrderIds=await loadProcessesForOrderSearch(orders,codeQuery,renderSequence);
-      if(!matchedOrderIds||renderSequence!==progressRenderSequence) return;
-      orders=orders.filter(order=>matchedOrderIds.has(order.id));
-    }
-    const allProcs=window.allProcesses||[];
-    const progMap={};
-    allProcs.forEach(p=>{
-      if(!progMap[p.orderId]) progMap[p.orderId]={procs:[]};
-      progMap[p.orderId].procs.push(p);
-    });
-    const list=orders.map(o=>({...o,pm:progMap[o.id]||{procs:[]}}));
+    const list=orders.slice();
     const sortDate=order=>Number(order.actualShipDate)||Number(order.dueDate)||Number.MAX_SAFE_INTEGER; // sortDate（主表排序日期）：優先實際出貨日，未設定時使用 PO 交期。
     list.sort((a,b)=>sortDate(a)-sortDate(b)||(Number(a.dueDate)||0)-(Number(b.dueDate)||0)||String(a.orderId||'').localeCompare(String(b.orderId||'')));
     const issueNotice=renderOrderImportIssues();
@@ -1008,7 +964,7 @@ async function renderProgress(){
       const safeId=ordersSafeAttr(o.id);
       const remarkVal=ordersSafeAttr(o.remark||'');
       const dueDateClass=orderDueDateClass(o.dueDate);
-      html+=`<tr class="orders-progress-row" onclick="toggleProgDetail(${idArg})">
+      html+=`<tr class="orders-progress-row">
         <td class="orders-row-index">${idx+1}</td>
         <td><b>${ordersSafeText(o.client||'-')}</b></td>
         <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
@@ -1023,11 +979,6 @@ async function renderProgress(){
           <button type="button" class="btn bsm orders-shipment-confirm" title="Xác nhận xuất hàng / 確認出貨" onclick="confirmOrderShipment(${idArg},${orderArg})"><i class="ti ti-truck-delivery" aria-hidden="true"></i></button>
           ${String(o.client||'').trim().toUpperCase()==='HUNTER'?`<button type="button" class="btn bsm bd2 orders-inspection-export" data-inspection-order-id="${safeId}"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i></button>`:''}
         </div></td>
-      </tr>
-      <tr id="prog-detail-${safeId}" style="display:none">
-        <td colspan="9" class="orders-expanded-cell">
-          <div id="prog-detail-body-${safeId}" class="orders-expanded-body"></div>
-        </td>
       </tr>`;
     });
     html+='</tbody></table></div>';
@@ -1039,7 +990,6 @@ async function renderProgress(){
       window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
       button.addEventListener('click',event=>{event.stopPropagation();void exportInspectionReportFromOrder(button.dataset.inspectionOrderId,button);});
     });
-    if(codeQuery) list.forEach(o=>toggleProgDetail(o.id));
   }catch(e){
     content.innerHTML='<div class="ui-empty-state is-danger"><i class="ti ti-alert-circle"></i><div>Không thể tải dữ liệu.</div><div>資料載入失敗。</div></div>';
     console.error('renderProgress error:',e);

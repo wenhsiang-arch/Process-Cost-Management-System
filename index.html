@@ -14,10 +14,10 @@
 <title>M9</title>
 <link rel="stylesheet" href="styles/vendor/tabler-icons.min.css?v=2.47.0">
 <!-- ui-core.css（共用介面核心樣式）、default.css（預設主題與預設字型）：配色、字型及排版分開載入。 -->
-<link rel="stylesheet" href="styles/ui-core.css?v=20260922-16">
-<link rel="stylesheet" href="styles/themes/default.css?v=20260922-16-sidebar1">
+<link rel="stylesheet" href="styles/ui-core.css?v=20260922-17">
+<link rel="stylesheet" href="styles/themes/default.css?v=20260922-17-sidebar1">
 <link rel="stylesheet" href="styles/fonts/default.css?v=20260807-1">
-<link rel="stylesheet" href="styles/features/home.css?v=20260922-16-archive1">
+<link rel="stylesheet" href="styles/features/home.css?v=20260922-17-archive1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(--tx);background:var(--bg)}
@@ -1209,7 +1209,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
         <div class="orders-page ui-work-panel">
           <section class="orders-operation-panel ui-operation-panel">
             <div class="orders-command-row ui-command-row">
-              <div class="orders-context-grid ui-context-grid">
+              <div class="orders-context-grid ui-context-grid is-single">
                 <label class="orders-context-item ui-context-item" for="prog-sel">
                   <i class="ti ti-file-invoice"></i>
                   <div>
@@ -1217,17 +1217,35 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                     <select id="prog-sel" onchange="renderProgress()"><option value="">Chọn đơn hàng / 選擇訂單...</option></select>
                   </div>
                 </label>
-                <label class="orders-context-item ui-context-item" for="prog-code-q">
-                  <i class="ti ti-search"></i>
-                  <div>
-                    <span class="ui-dual-copy"><strong>Tìm mã hàng</strong><span>搜尋款號</span></span>
-                    <input id="prog-code-q" type="search" oninput="scheduleProgressRender()" placeholder="Nhập mã hàng / 輸入款號...">
-                  </div>
-                </label>
               </div>
               <div class="orders-command-actions ui-command-actions" data-order-manage>
                 <button type="button" class="orders-command-action ui-command-action" onclick="openImportOrder()"><i class="ti ti-file-upload"></i><span class="ui-dual-copy"><strong>Nhập đơn hàng</strong><span>匯入訂單</span></span></button>
                 <button type="button" class="orders-command-action ui-command-action" onclick="openOrderAdjustmentHistory()"><i class="ti ti-history"></i><span class="ui-dual-copy"><strong>Lịch sử điều chỉnh</strong><span>數量調整紀錄</span></span></button>
+              </div>
+            </div>
+            <div class="orders-user-guide">
+              <i class="ti ti-info-circle" aria-hidden="true"></i>
+              <div class="orders-user-guide-content ui-language-sections">
+                <section class="ui-language-section is-vi" lang="vi">
+                  <h3>Hướng dẫn sử dụng đơn hàng</h3>
+                  <ol>
+                    <li><b>Lưu trữ:</b> Nút cấm chuyển đơn khỏi danh sách đang dùng nhưng vẫn giữ dữ liệu; có thể xem và khôi phục trong mục Đơn hàng đã lưu trữ.</li>
+                    <li><b>Đã xuất hàng:</b> Chọn ngày xuất thực tế, sau đó nhấn nút xe tải để chuyển đơn sang mục Đơn hàng đã xuất; có thể hủy xác nhận tại đó để đưa đơn trở lại.</li>
+                    <li><b>Xuất báo cáo:</b> Đơn HUNTER có nút bảng tính để xuất báo cáo kiểm tra; trước khi xuất phải chọn tên tệp và vị trí lưu.</li>
+                    <li><b>Màu ngày PO:</b> Màu xanh đậm là còn không quá 14 ngày; màu đỏ là đã quá hạn nhưng chưa xuất; màu thường là còn trên 14 ngày.</li>
+                    <li><b>Tiến độ sản xuất:</b> Mỗi tài khoản trên mỗi máy chỉ tự động cập nhật một lần trong kỳ từ 06:00 hôm nay đến 05:59 hôm sau; thay đổi sau lần cập nhật sẽ hiển thị trong kỳ kế tiếp.</li>
+                  </ol>
+                </section>
+                <section class="ui-language-section is-zh" lang="zh-Hant">
+                  <h3>訂單頁使用說明</h3>
+                  <ol>
+                    <li><b>封存：</b>禁止符號會將訂單移出使用中清單，但資料仍會保留；可到「已封存訂單」查看及還原。</li>
+                    <li><b>已出貨：</b>先選擇實際出貨日，再按貨車按鈕移到「已出貨訂單」；可在該分頁取消確認並移回主表。</li>
+                    <li><b>報表匯出：</b>HUNTER 訂單會顯示表格檔按鈕，可匯出檢驗報告；匯出前需選擇檔名與儲存位置。</li>
+                    <li><b>PO 日期顏色：</b>深藍色代表剩餘 14 天以內；紅色代表已逾期且尚未出貨；一般字色代表超過 14 天。</li>
+                    <li><b>生產進度：</b>每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期只自動更新一次；更新後才新增的產能會在下一個週期顯示。</li>
+                  </ol>
+                </section>
               </div>
             </div>
           </section>
@@ -1388,7 +1406,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 
 <!-- 核心 JS（JavaScript，網頁程式）：登入只載入安全顯示、身分、權限、快取與雲端連線所需程式。 -->
 <script src="js/safe-dom.js?v=20260812-2"></script>
-<script src="js/ui-text.js?v=20260922-16"></script>
+<script src="js/ui-text.js?v=20260922-17"></script>
 <script src="js/ui-runtime.js?v=20260821-1"></script>
 <script src="js/ui-components.js?v=20260824-1"></script>
 <script src="js/ui-file-drop.js?v=20260808-2"></script>
@@ -1396,11 +1414,11 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260922-16-archive1"></script>
-<script src="js/auth.js?v=20260922-16"></script>
+  <script src="js/features.js?v=20260922-17-archive1"></script>
+<script src="js/auth.js?v=20260922-17"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260922-16"></script>
+<script type="module" src="js/firebase.js?v=20260922-17"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。
