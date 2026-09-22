@@ -69,3 +69,27 @@ test('訂單匯入預覽改版不更動既有匯入入口與正式服務',()=>{
   assert.match(orders,/PCMSOrderService\.importOrder\(\{/);
   assert.match(orders,/orderId,client:g\('imp-ord-client'\)\?\.value\|\|'',dueDate/);
 });
+
+test('xls 與 xlsx 共用陣列緩衝區解析且預覽不保存完整工序陣列',()=>{
+  const orders=read('js/orders.js');
+  assert.ok(orders.includes("if(!/\\.(xlsx|xls)$/i.test"));
+  assert.match(orders,/reader\.readAsArrayBuffer\(file\)/);
+  assert.match(orders,/XLSX\.read\(e\.target\.result,\{type:'array'\}\)/);
+  assert.doesNotMatch(orders,/readAsBinaryString|type:'binary'|window\._impData/);
+  assert.match(orders,/let orderImportPreviewData=null/);
+  assert.match(orders,/processCount:Array\.isArray\(prod\.ops\)\?prod\.ops\.length:0/);
+  assert.doesNotMatch(orders,/ops:prod\.ops/);
+});
+
+test('選檔後上傳區縮成單列並保留重新選擇入口',()=>{
+  const html=read('index.html');
+  const css=read('styles/features/orders.css');
+  const orders=read('js/orders.js');
+  assert.match(html,/orders-import-drop-prompt/);
+  assert.match(html,/orders-import-reselect[\s\S]*?Chọn lại tệp[\s\S]*?重新選擇/);
+  assert.match(css,/\.orders-import-drop\.is-selected[\s\S]*?grid-template-columns: auto minmax\(0, 1fr\) auto/);
+  assert.match(css,/\.orders-import-drop\.is-selected \.orders-import-drop-prompt[\s\S]*?display: none/);
+  assert.match(css,/\.orders-import-drop\.is-selected \.orders-import-reselect[\s\S]*?display: inline-flex/);
+  assert.match(orders,/setOrderImportFileSelected\(true\);[\s\S]*?processImportOrderFile/);
+  assert.match(orders,/setOrderImportFileSelected\(false\);/);
+});

@@ -16,6 +16,7 @@ let orderImportFileSequence = 0; // orderImportFileSequence（目前檔案選擇
 let orderImportPreviewTableControl = null; // orderImportPreviewTableControl（匯入預覽欄寬控制）：只管理本機畫面，不改匯入資料。
 const orderImportOptionalColumns={description:false,color:false}; // orderImportOptionalColumns（本次檔案可呈現的選用欄位）
 let orderImportAutoFilledNumber=''; // orderImportAutoFilledNumber（目前由檔案自動帶入且尚未確認為人工內容的訂單號碼）
+let orderImportPreviewData=null; // orderImportPreviewData（目前匯入預覽資料）：只存在本功能內，不建立全域暫存物件。
 const ordersSafeText=value=>window.PCMSSafe.text(value); // ordersSafeText（訂單畫面安全文字）
 const ordersSafeAttr=value=>window.PCMSSafe.attribute(value); // ordersSafeAttr（訂單畫面安全屬性）
 const ordersInlineArg=value=>window.PCMSSafe.inlineArgument(value); // ordersInlineArg（訂單行內事件安全參數）
@@ -94,7 +95,7 @@ function showOrderFileDropMessage(detail){
 // resetOrderImportPreview（清除舊檔預覽）：任何新選檔或拒絕結果都不能沿用上一份可匯入資料。
 function resetOrderImportPreview(){
   orderImportFileSequence++;
-  window._impData=null;
+  orderImportPreviewData=null;
   const orderNumberInput=g('imp-ord-id');
   if(orderImportAutoFilledNumber&&orderNumberInput?.value.trim()===orderImportAutoFilledNumber) orderNumberInput.value='';
   orderImportAutoFilledNumber='';
@@ -108,6 +109,15 @@ function resetOrderImportPreview(){
   if(confirm) confirm.disabled=true;
   const fileName=g('imp-filename');
   if(fileName) fileName.textContent='';
+  setOrderImportFileSelected(false);
+}
+
+// setOrderImportFileSelected（切換已選檔案顯示）：完成選檔後縮成單列，仍可點擊整列重新選擇。
+function setOrderImportFileSelected(selected){
+  const drop=g('imp-file-drop');
+  if(!drop) return;
+  if(selected) drop.classList.add('is-selected');
+  else drop.classList.remove('is-selected');
 }
 
 // ensureOrderImportPreviewTableControl（啟用匯入預覽表格操作）：沿用共用欄寬拖曳與 UID 隔離的本機偏好。
@@ -138,6 +148,7 @@ async function queueOrderImportFile(file,input=null){
   resetOrderImportPreview();
   const fileName=g('imp-filename');
   if(fileName) fileName.textContent=String(file.name||'');
+  setOrderImportFileSelected(true);
   await processImportOrderFile(file,input);
   return true;
 }
@@ -661,7 +672,7 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
   reader.onload=async function(e){
     if(selection!==orderImportFileSequence) return;
     try{
-      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const wb=XLSX.read(e.target.result,{type:'array'});
       if(!Array.isArray(wb.SheetNames)||wb.SheetNames.length!==1){
         await ordersMessage(
           `Tệp đơn hàng phải có đúng 1 trang tính; hiện có ${wb.SheetNames?.length||0}.`,
@@ -704,7 +715,8 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
               shipDate:iShipDate>=0?normalizeGeneralOrderOptionalDate(sourceRow[iShipDate]):undefined,
               remark:iRemark>=0?String(sourceRow[iRemark]||'').trim():'',
               quantity:item.qty,qty:item.qty,
-              ops:prod.ops||[],zh:prod.zh||'',sz:prod.sz||''
+              processCount:Array.isArray(prod.ops)?prod.ops.length:0,
+              zh:prod.zh||'',sz:prod.sz||''
             });
           }catch(error){
             errors.push(generalOrderError(wb.SheetNames[0],item.rowNumber,String(error.message||error)));
@@ -725,7 +737,7 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
         orderNumberInput.value=detectedOrderNumber;
         orderImportAutoFilledNumber=detectedOrderNumber;
       }
-      window._impData={matched};
+      orderImportPreviewData={matched};
       orderImportOptionalColumns.description=iDesc>=0;
       orderImportOptionalColumns.color=iColor>=0;
       const previewTable=g('order-import-preview-table');
@@ -736,7 +748,7 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
       g('imp-step2').style.display='block';
       g('imp-confirm-btn').disabled=matched.length===0;
       const _ioMsg=document.getElementById('imp-order-ok');
-      if(_ioMsg) _ioMsg.innerHTML=`<i class="ti ti-check"></i><div class="ui-language-sections"><div class="ui-language-section">Tìm thấy <b>${matched.length}</b> mã hàng, tổng cộng <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> công đoạn.</div><div class="ui-language-section">找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.ops.length,0)}</b> 道工序。</div></div>`;
+      if(_ioMsg) _ioMsg.innerHTML=`<i class="ti ti-check"></i><div class="ui-language-sections"><div class="ui-language-section">Tìm thấy <b>${matched.length}</b> mã hàng, tổng cộng <b>${matched.reduce((a,m)=>a+m.processCount,0)}</b> công đoạn.</div><div class="ui-language-section">找到 <b>${matched.length}</b> 個款號，共 <b>${matched.reduce((a,m)=>a+m.processCount,0)}</b> 道工序。</div></div>`;
       const tb=g('imp-preview-tb'); tb.innerHTML='';
       matched.forEach(m=>{
         const tr=document.createElement('tr');
@@ -744,7 +756,7 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
         if(iDesc>=0) cells.push(`<td data-ui-table-column="description">${ordersSafeText(m.desc)}</td>`);
         if(iColor>=0) cells.push(`<td data-ui-table-column="color">${ordersSafeText(m.color)}</td>`);
         cells.push(`<td data-ui-table-column="quantity" class="orders-import-preview-number">${m.qty.toLocaleString()}</td>`,
-          `<td data-ui-table-column="processCount" class="orders-import-preview-number">${m.ops.length}</td>`,
+          `<td data-ui-table-column="processCount" class="orders-import-preview-number">${m.processCount}</td>`,
           `<td data-ui-table-column="status" class="orders-import-preview-status-cell"><span class="orders-import-preview-status"><i class="ti ti-check" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Có thể nhập</span><span class="ui-text-zh">可匯入</span></span></span></td>`);
         tr.innerHTML=cells.join('');
         tb.appendChild(tr);
@@ -760,11 +772,11 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
     if(selection!==orderImportFileSequence) return;
     await ordersMessage('Không thể đọc tệp đơn hàng. Vui lòng thử lại.','無法讀取訂單檔案，請重試。','danger');
   };
-  reader.readAsBinaryString(file);
+  reader.readAsArrayBuffer(file);
 }
 
 async function confirmImportOrder(){
-  const d=window._impData;
+  const d=orderImportPreviewData;
   if(!d||!d.matched.length){ await ordersMessage('Vui lòng tải tệp đơn hàng trước.','請先上傳訂單表格檔。','warning'); return; }
   if(!canManageOrders()) return;
   const orderId=g('imp-ord-id').value.trim();
@@ -802,7 +814,7 @@ async function confirmImportOrder(){
   }catch(err){
     closeOrdersImportProgress();
     console.error('Nhập đơn hàng thất bại / 訂單匯入失敗',err);
-    btn.disabled=!window._impData;
+    btn.disabled=!orderImportPreviewData;
     btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>';
     const message=orderImportErrorMessage(err); // message（具體匯入錯誤與已確認進度）
     await ordersMessage(
@@ -810,7 +822,7 @@ async function confirmImportOrder(){
       'danger'
     );
   }
-  finally{ btn.disabled=!window._impData; btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>'; }
+  finally{ btn.disabled=!orderImportPreviewData; btn.innerHTML='<i class="ti ti-check"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span>'; }
 }
 
 // orderImportErrorMessage（匯入錯誤說明）：只顯示正式雙語原因，不直接顯示雲端英文錯誤。
