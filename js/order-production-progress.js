@@ -108,6 +108,19 @@
     return typeof request==='function'?request.call(window.navigator.locks,refreshLockName(),task):task();
   }
 
+  async function cachedResult(orders,reason='cached',marker=null){
+    let cache=sessionCache();
+    if(!validCache(cache)){
+      try{ cache=await window.pcmsDataCache?.read(CACHE_SCOPE); }
+      catch(error){ cache=null; }
+    }
+    if(validCache(cache)){
+      keepSessionCache(cache);
+    }
+    lastStatus=marker?markerStatus(marker,cache,refreshPeriodKey()):cacheStatus(cache,refreshPeriodKey());
+    return {values:cachedCalculations(orders,cache),attempted:false,reason};
+  }
+
   function maySkipVersionRead(error){
     const code=text(error?.code).toLowerCase();
     return code.includes('permission-denied')||code.includes('failed-precondition');
@@ -326,7 +339,11 @@
     const periodKey=refreshPeriodKey();
     const key=`${currentUserId()}|${periodKey}|${attemptType}`;
     if(activePromises.has(key)) return activePromises.get(key);
-    const promise=withRefreshLock(async()=>{
+    // 當期額度已使用時先讀本機結果，不得被另一類型的更新鎖拖住。
+    const marker=readAttemptMarker(periodKey,attemptType);
+    if(marker) return cachedResult(list,'already-attempted',marker);
+    let promise;
+    promise=withRefreshLock(async()=>{
       try{return await loadInternal(list,{attemptType});}
       catch(error){
         let stored=sessionCache();
@@ -334,7 +351,9 @@
         catch(readError){ console.warn('Không thể đọc bộ nhớ đệm tiến độ / 無法讀取進度快取',readError); }
         return markRefreshFailure(list,stored,refreshPeriodKey(),error,attemptType);
       }
-    }).finally(()=>activePromises.delete(key));
+    }).finally(()=>{
+      if(activePromises.get(key)===promise) activePromises.delete(key);
+    });
     activePromises.set(key,promise);
     return promise;
   }
@@ -349,13 +368,16 @@
   }
 
   function status(){ return lastStatus; }
-  function reset(){
+  function clearSession(){
     activePromises.clear();sessionRecord=null;
     lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
+  }
+  function reset(){
+    clearSession();
     [attemptMarkerKey('auto'),attemptMarkerKey('manual')].filter(Boolean).forEach(markerKey=>{
       try{ window.localStorage?.removeItem(markerKey); }catch(error){}
     });
     return window.pcmsDataCache?.remove(CACHE_SCOPE);
   }
-  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
+  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,clearSession,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
 })();

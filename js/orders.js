@@ -186,6 +186,7 @@ function updatePendingQuantitySummary(orders){
 function resetOrderRuntimeCache(){
   processLoadPromises.clear();
   loadedProcessVersions.clear();
+  window.PCMSOrderProductionProgress?.clearSession?.();
   progressRenderSequence++;
 }
 function setImportProgress(percent,vi,zh){
