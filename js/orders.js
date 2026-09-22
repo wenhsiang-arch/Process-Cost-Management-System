@@ -942,6 +942,59 @@ function renderOrderProductionProgressLoading(){
     </div>`;
 }
 
+function prepareOrdersPrintTable(sourceTable){
+  const table=sourceTable.cloneNode(true);
+  table.removeAttribute('id');
+  table.removeAttribute('data-ui-table-controls');
+  table.removeAttribute('data-ui-table-sticky');
+  table.removeAttribute('data-ui-table-layout');
+  table.querySelectorAll('.is-column-hidden').forEach(cell=>cell.remove());
+  table.querySelectorAll('[data-ui-table-resize-handle],[data-ui-table-sort-trigger]').forEach(control=>control.remove());
+  table.querySelectorAll('input,select,textarea').forEach(control=>{
+    const value=String(control.value||'').trim();
+    const output=table.ownerDocument.createElement('span');
+    output.textContent=value?value.replace(/-/g,'/'):'—';
+    control.replaceWith(output);
+  });
+  table.querySelectorAll('button').forEach(button=>{
+    button.removeAttribute('onclick');
+    button.removeAttribute('title');
+    button.removeAttribute('aria-label');
+    button.disabled=true;
+  });
+  return table;
+}
+
+async function printOrdersTable(){
+  const sourceTable=g('orders-progress-table');
+  if(!sourceTable?.tBodies?.[0]?.rows?.length){
+    await ordersMessage('Không có dữ liệu đơn hàng để in.','目前沒有可列印的訂單資料。','warning');
+    return false;
+  }
+  const printWindow=window.open('','_blank');
+  if(!printWindow){
+    await ordersMessage('Trình duyệt đã chặn cửa sổ in. Vui lòng cho phép cửa sổ bật lên.',
+      '瀏覽器已阻擋列印視窗，請允許彈出視窗。','warning');
+    return false;
+  }
+  printWindow.opener=null;
+  const printDocument=printWindow.document;
+  printDocument.title='Dữ liệu đơn hàng và công đoạn / 訂單與工序資料';
+  const iconStyle=printDocument.createElement('link');
+  iconStyle.rel='stylesheet';
+  iconStyle.href=new URL('styles/vendor/tabler-icons.min.css',document.baseURI).href;
+  const style=printDocument.createElement('style');
+  style.textContent=`@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#1e293b;font-family:Arial,"Microsoft JhengHei",sans-serif;font-size:10px}table{width:100%;border-collapse:collapse;table-layout:auto}th,td{border:1px solid #cbd5e1;padding:5px 6px;vertical-align:middle}th{background:#eaf2ff;font-weight:700;text-align:left;white-space:nowrap}tr{break-inside:avoid}.ui-table-number-cell{text-align:right}.orders-row-index{text-align:center}.orders-order-id{font-family:Consolas,monospace}.orders-date-input{border:0}.orders-production-progress-meter{position:relative;min-width:110px;height:22px;overflow:hidden;border:1px solid #bfdbfe;border-radius:5px;background:#f1f5f9}.orders-production-progress-fill{height:100%;background:#a9c7f5}.orders-production-progress-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#274c7f}.orders-production-progress-loading .ui-progress-track,.orders-production-progress-loading-copy{display:none}.orders-progress-actions{display:flex;gap:4px;justify-content:center}.orders-progress-actions button{width:26px;height:26px;padding:0;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155}.ui-text-vi,.ui-text-zh,.ui-dual-copy>strong,.ui-dual-copy>span{display:block}.ui-table-resize-handle,.ui-table-sort-icon{display:none!important}`;
+  printDocument.head.append(iconStyle,style);
+  printDocument.body.appendChild(prepareOrdersPrintTable(sourceTable));
+  printDocument.close();
+  window.setTimeout(()=>{
+    try{printWindow.focus();printWindow.print();}
+    catch(error){console.error('Không thể in bảng đơn hàng / 無法列印訂單表格',error);}
+  },200);
+  return true;
+}
+
 async function refreshOrderProductionProgress(orders,renderSequence){
   if(!window.PCMSOrderProductionProgress?.load) return;
   try{
@@ -984,16 +1037,16 @@ async function renderProgress(){
       void refreshOrderProductionProgress(progressOrders,renderSequence);
       return;
     }
-    let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
-    html+=`<th data-orders-column="index">#</th>`;
-    html+=`<th data-orders-column="client">${ordersPairHtml('Khách hàng','客人')}</th>`;
-    html+=`<th data-orders-column="orderId">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
-    html+=`<th data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
-    html+=`<th data-orders-column="productionProgress">${ordersPairHtml('Tiến độ','生產進度')}</th>`;
-    html+=`<th data-orders-column="dueDate">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
-    html+=`<th data-orders-column="shipDate">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
-    html+=`<th data-orders-column="remark">${ordersPairHtml('Ghi chú','備註')}</th>`;
-    html+=`<th data-orders-column="action">${ordersPairHtml('Thao tác','操作')}</th>`;
+    let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
+    html+=`<th data-ui-table-column="index" data-orders-column="index" data-ui-table-min-width="48">#</th>`;
+    html+=`<th data-ui-table-column="client" data-orders-column="client">${ordersPairHtml('Khách hàng','客人')}</th>`;
+    html+=`<th data-ui-table-column="orderId" data-orders-column="orderId">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
+    html+=`<th data-ui-table-column="quantity" data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
+    html+=`<th data-ui-table-column="productionProgress" data-orders-column="productionProgress">${ordersPairHtml('Tiến độ','生產進度')}</th>`;
+    html+=`<th data-ui-table-column="dueDate" data-orders-column="dueDate">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
+    html+=`<th data-ui-table-column="shipDate" data-orders-column="shipDate">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
+    html+=`<th data-ui-table-column="remark" data-orders-column="remark">${ordersPairHtml('Ghi chú','備註')}</th>`;
+    html+=`<th data-ui-table-column="action" data-orders-column="action" data-ui-table-sortable="false">${ordersPairHtml('Thao tác','操作')}</th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const totalQty=o.totalQty||0;
