@@ -20,7 +20,7 @@ function harness(fetcher=async()=>response(archive)){
     removeAttribute(name){delete this.attrs[name];}
   }
   const ids=Object.fromEntries(['home-updates-load','home-updates-year','home-updates-status','home-updates-archive','home-updates-archive-list','home-updates-archive-title'].map(id=>[id,new Node()]));
-  ids['home-updates-year'].selectedOptions=[{value:'2026',dataset:{version:'20260922-1'}}];
+  ids['home-updates-year'].selectedOptions=[{value:'2026',dataset:{version:'20260923-1'}}];
   const calls=[],timers=new Map();let nextTimer=0;
   const document={baseURI:'https://example.test/app/',getElementById:id=>ids[id]||null,querySelectorAll:()=>[],createElement:tag=>new Node(tag),createDocumentFragment:()=>new Node('fragment')};
   const window={PCMSUIText:{set(target,pair){target.replaceChildren();for(const lang of ['vi','zh']){const node=new Node('span');node.className='ui-text-'+lang;node.textContent=pair[lang];target.append(node);}}}};
@@ -32,14 +32,20 @@ function harness(fetcher=async()=>response(archive)){
 test('首頁只保留最新五則，年度舊公告各有唯一完整雙語來源',()=>{
   const html=read('index.html');
   const dates=[...html.matchAll(/class="home-update-date" datetime="([^"]+)"/g)].map(m=>m[1]);
-  assert.deepEqual(dates,['2026-09-22','2026-09-18','2026-09-14','2026-09-08','2026-09-06']);
+  assert.deepEqual(dates,['2026-09-23','2026-09-22','2026-09-18','2026-09-14','2026-09-08']);
+  assert.match(html,/79\.4%／100%/);
+  assert.match(html,/紅色文字代表已逾期或剩餘7天內/);
+  assert.match(html,/藍色文字代表剩餘8～14天/);
+  assert.match(html,/淡綠色底框代表尚未選擇實際出貨日/);
   assert.match(html,/Tiến độ sản xuất và tổng số lượng chưa xuất/);
   assert.match(html,/生產進度與未出貨總數量/);
   assert.match(html,/已登記生產秒數 ÷ 訂單預計生產總秒數/);
-  assert.match(html,/不包含備料、品檢及包裝/);
+  assert.match(html,/不包含備料、普工、後整、品檢及包裝/);
+  assert.match(html,/新增 TC（普工）與 HC（後整）兩種工序分類/);
+  assert.match(html,/不強制六種齊全/);
   assert.match(html,/不受搜尋或目前選擇訂單影響/);
-  assert.deepEqual(archive.entries.map(entry=>entry.date),['2026-08-27','2026-08-25','2026-08-24','2026-08-21','2026-08-20']);
-  assert.equal(new Set([...dates,...archive.entries.map(entry=>entry.date)]).size,10);
+  assert.deepEqual(archive.entries.map(entry=>entry.date),['2026-09-06','2026-08-27','2026-08-25','2026-08-24','2026-08-21','2026-08-20']);
+  assert.equal(new Set([...dates,...archive.entries.map(entry=>entry.date)]).size,11);
   for(const entry of archive.entries)for(const lang of ['vi','zh'])assert.ok(entry.title[lang]&&entry.sections[lang].length);
   assert.doesNotMatch(html,/<script[^>]+src="js\/home-updates\.js|rel="(?:preload|prefetch)"[^>]+home-updates/);
   assert.match(read('styles/features/home.css'),/\.home-update-language-block ol\s*\{[^}]*padding-inline-start:\s*24px/);
@@ -52,10 +58,10 @@ test('初始化零要求，首次載入一次，重複點擊及重看不重複�
   const first=h.api.show(),second=h.api.show();
   assert.equal(first,second);assert.equal(h.calls.length,1);
   resolve(response(archive));assert.equal(await first,true);
-  assert.equal(h.ids['home-updates-archive-list'].children.length,5);
+  assert.equal(h.ids['home-updates-archive-list'].children.length,6);
   assert.equal(await h.api.show(),true);assert.equal(h.calls.length,1);
-  assert.equal(h.ids['home-updates-archive-list'].children.length,5);
-  assert.equal(h.calls[0].url,'https://example.test/app/data/home-updates/2026.json?v=20260922-1');
+  assert.equal(h.ids['home-updates-archive-list'].children.length,6);
+  assert.equal(h.calls[0].url,'https://example.test/app/data/home-updates/2026.json?v=20260923-1');
   assert.equal(h.timers.size,0);
 });
 

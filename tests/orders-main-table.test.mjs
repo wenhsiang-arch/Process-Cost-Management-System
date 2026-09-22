@@ -96,9 +96,10 @@ test('使用說明位於匯入訂單左側並以共用雙語視窗顯示',()=>{
   assert.doesNotMatch(html,/class="orders-user-guide"/);
   assert.match(source,/function openOrderGuide\(\)/);
   assert.match(source,/orders-user-guide-dialog ui-language-sections/);
-  assert.match(source,/Lưu trữ:[\s\S]*?Đã xuất hàng:[\s\S]*?Xuất báo cáo:[\s\S]*?Màu ngày xuất thực tế:[\s\S]*?Tiến độ sản xuất:/);
-  assert.match(source,/封存：[\s\S]*?已出貨：[\s\S]*?報表匯出：[\s\S]*?實際出貨日顏色：[\s\S]*?生產進度：/);
+  assert.match(source,/Lưu trữ:[\s\S]*?Đã xuất hàng:[\s\S]*?Xuất báo cáo:[\s\S]*?Màu ngày xuất thực tế:[\s\S]*?Tiến độ sản xuất:[\s\S]*?Hoàn thành đơn hàng:/);
+  assert.match(source,/封存：[\s\S]*?已出貨：[\s\S]*?報表匯出：[\s\S]*?實際出貨日顏色：[\s\S]*?生產進度：[\s\S]*?訂單完成：/);
   assert.match(source,/06:00[\s\S]*?05:59/);
+  assert.match(source,/79,4% \/ 100%[\s\S]*?79\.4%／100%/);
   assert.match(source,/PCMSUIComponents\.alertDialog\(\{[\s\S]*?title:\{vi:'Hướng dẫn',zh:'使用說明'\}[\s\S]*?size:'large'/);
 });
 
@@ -180,20 +181,28 @@ test('未出貨總數量使用系統資訊色底框',()=>{
   assert.match(css,/#pg-progress \.orders-pending-quantity\s*\{[^}]*border:\s*1px solid var\(--ui-color-info-border\)/s);
 });
 
-test('PO交期維持統一字色，實際出貨日依日期提示且空白使用淡綠底框',()=>{
+test('PO交期維持統一字色，實際出貨日依七天與十四天規則提示且空白使用淡綠底框',()=>{
   const css=fs.readFileSync(new URL('styles/features/orders.css',root),'utf8');
   assert.doesNotMatch(css,/\.orders-po-date\.is-(?:due-soon|overdue)/);
   assert.match(css,/\.orders-date-input\.is-empty\s*\{[\s\S]*?var\(--ui-color-success-border\)[\s\S]*?var\(--ui-color-success-background\)/);
   assert.match(css,/\.orders-date-input\.is-due-soon\s*\{[\s\S]*?var\(--ui-color-info-text\)/);
-  assert.match(css,/\.orders-date-input\.is-overdue\s*\{[\s\S]*?var\(--ui-color-danger-text\)/);
+  assert.match(css,/\.orders-date-input\.is-urgent\s*\{[\s\S]*?var\(--ui-color-danger-text\)/);
+  assert.doesNotMatch(css,/\.orders-date-input\.is-overdue/);
 });
 
-test('實際出貨日固定保存，只依目前日期更新提示色而不改日期值',async()=>{
+test('實際出貨日固定保存，逾期至七天內紅色、八至十四天藍色、十五天以上黑色',async()=>{
   const {window,context,g}=runtime();
   const selectedDate=new Date(2026,8,22).getTime();
   window.allOrders=[{id:'fixed',orderId:'FIXED',client:'A',importStatus:'ready',lifecycleStatus:'active',
     dueDate:new Date(2026,8,30).getTime(),actualShipDate:selectedDate,totalQty:1}];
-  assert.equal(context.orderActualShipDateClass(selectedDate,new Date(2026,8,23).getTime()),' is-overdue');
+  const now=new Date(2026,8,23).getTime();
+  assert.equal(context.orderActualShipDateClass(selectedDate,now),' is-urgent');
+  assert.equal(context.orderActualShipDateClass(new Date(2026,8,23).getTime(),now),' is-urgent');
+  assert.equal(context.orderActualShipDateClass(new Date(2026,8,30).getTime(),now),' is-urgent');
+  assert.equal(context.orderActualShipDateClass(new Date(2026,9,1).getTime(),now),' is-due-soon');
+  assert.equal(context.orderActualShipDateClass(new Date(2026,9,7).getTime(),now),' is-due-soon');
+  assert.equal(context.orderActualShipDateClass(new Date(2026,9,8).getTime(),now),'');
+  assert.equal(context.orderActualShipDateClass(null,now),' is-empty');
   await context.renderProgress();
   assert.match(g('prog-content').innerHTML,new RegExp(`value="${selectedDate}"`));
   assert.equal(window.allOrders[0].actualShipDate,selectedDate);

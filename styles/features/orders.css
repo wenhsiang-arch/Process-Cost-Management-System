@@ -94,7 +94,7 @@
   font-weight: var(--ui-font-weight-strong);
 }
 
-#pg-progress .orders-date-input.is-overdue {
+#pg-progress .orders-date-input.is-urgent {
   color: var(--ui-color-danger-text);
   font-weight: var(--ui-font-weight-strong);
 }

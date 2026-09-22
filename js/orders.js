@@ -56,15 +56,17 @@ function openOrderGuide(){
       {label:'Lưu trữ: ',text:'Nút cấm chuyển đơn khỏi danh sách đang dùng nhưng vẫn giữ dữ liệu; có thể xem và khôi phục trong mục Đơn hàng đã lưu trữ.'},
       {label:'Đã xuất hàng: ',text:'Chọn ngày xuất thực tế, sau đó nhấn nút xe tải để chuyển đơn sang mục Đơn hàng đã xuất; có thể hủy xác nhận tại đó để đưa đơn trở lại.'},
       {label:'Xuất báo cáo: ',text:'Đơn HUNTER có nút bảng tính để xuất báo cáo kiểm tra; trước khi xuất phải chọn tên tệp và vị trí lưu.'},
-      {label:'Màu ngày xuất thực tế: ',text:'Ô xanh nhạt là chưa chọn ngày; chữ xanh đậm là còn không quá 14 ngày; chữ đỏ là đã quá ngày nhưng chưa xuất; màu thường là còn trên 14 ngày.'},
-      {label:'Tiến độ sản xuất: ',text:'Mỗi tài khoản trên mỗi máy có một lần tự động và một lần thủ công trong kỳ 06:00–05:59 hôm sau. Lần thủ công thất bại vẫn được tính là đã dùng.'}
+      {label:'Màu ngày xuất thực tế: ',text:'Ô nền xanh nhạt là chưa chọn ngày; chữ đỏ là đã quá hạn hoặc còn không quá 7 ngày; chữ xanh đậm là còn từ 8 đến 14 ngày; chữ đen là còn từ 15 ngày trở lên.'},
+      {label:'Tiến độ sản xuất: ',text:'Mỗi tài khoản trên mỗi máy có một lần tự động và một lần thủ công trong kỳ 06:00–05:59 hôm sau. Lần cập nhật thất bại vẫn được tính là đã dùng.'},
+      {label:'Hoàn thành đơn hàng: ',text:'Khi đơn đã hoàn thành thực tế nhưng một số công đoạn không có dữ liệu ghi nhận, có thể chọn Đơn hàng hoàn thành. Thanh tiến độ sẽ đầy 100% và giữ tỷ lệ thực tế, ví dụ 79,4% / 100%. Đơn đã hoàn thành không tham gia cập nhật tự động hoặc thủ công; khi hủy hoàn thành sẽ khôi phục tiến độ thực tế và tiếp tục cập nhật.'}
     ]),
     createOrderGuideSection('zh','訂單頁使用說明',[
       {label:'封存：',text:'禁止符號會將訂單移出使用中清單，但資料仍會保留；可到「已封存訂單」查看及還原。'},
       {label:'已出貨：',text:'先選擇實際出貨日，再按貨車按鈕移到「已出貨訂單」；可在該分頁取消確認並移回主表。'},
       {label:'報表匯出：',text:'HUNTER 訂單會顯示表格檔按鈕，可匯出檢驗報告；匯出前需選擇檔名與儲存位置。'},
-      {label:'實際出貨日顏色：',text:'淡綠色底框代表尚未選日期；深藍色文字代表剩餘 14 天以內；紅色文字代表已超過日期但尚未出貨；一般字色代表超過 14 天。'},
-      {label:'生產進度：',text:'每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期各有一次自動更新及一次手動更新；手動更新失敗也會計入當日次數。'}
+      {label:'實際出貨日顏色：',text:'淡綠色底框代表尚未選擇日期；紅色文字代表已逾期或剩餘 7 天內；藍色文字代表剩餘 8～14 天；黑色文字代表剩餘 15 天以上。'},
+      {label:'生產進度：',text:'每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期各有一次自動更新及一次手動更新；更新失敗也會計入當日次數。'},
+      {label:'訂單完成：',text:'訂單實際已完成，但部分工序沒有產能登記時，可勾選「訂單完成」。進度條會填滿 100%，並以「79.4%／100%」保留實際進度。完成訂單不再加入自動或手動更新；取消完成後會恢復實際進度並重新加入後續更新。'}
     ])
   );
   return window.PCMSUIComponents.alertDialog({
@@ -167,7 +169,7 @@ registerOrderFileDropTarget();
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 // orderShipmentStatus（訂單出貨狀態）：舊訂單缺少欄位時安全視為尚未確認出貨。
 function orderShipmentStatus(order){ return order?.shipmentStatus==='shipped'?'shipped':'pending'; }
-// orderActualShipDateClass（實際出貨日提示）：空白使用淡綠底框；已選日期固定保存，只依目前日曆日改變提示顏色。
+// orderActualShipDateClass（實際出貨日提示）：空白使用淡綠底框；已選日期固定保存，逾期至 7 天內為紅色、8 至 14 天為藍色、15 天以上為黑色。
 function orderActualShipDateClass(actualShipDate,now=Date.now()){
   const savedDate=Number(actualShipDate);
   if(!Number.isFinite(savedDate)||savedDate<=0) return ' is-empty';
@@ -176,7 +178,7 @@ function orderActualShipDateClass(actualShipDate,now=Date.now()){
   if(Number.isNaN(due.getTime())||Number.isNaN(current.getTime())) return '';
   const dayValue=date=>Date.UTC(date.getFullYear(),date.getMonth(),date.getDate());
   const remainingDays=Math.round((dayValue(due)-dayValue(current))/86400000);
-  if(remainingDays<0) return ' is-overdue';
+  if(remainingDays<=7) return ' is-urgent';
   if(remainingDays<=14) return ' is-due-soon';
   return '';
 }
