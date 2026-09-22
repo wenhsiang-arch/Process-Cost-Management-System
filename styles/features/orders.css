@@ -184,6 +184,185 @@
   border-radius: var(--ui-radius-dialog);
 }
 
+#m-import-order.orders-import-modal {
+  padding: 32px;
+}
+
+#m-import-order .orders-import-dialog {
+  box-sizing: border-box;
+  width: min(1180px, calc(100vw - 64px));
+  max-width: none;
+  max-height: calc(100vh - 64px);
+  padding: 20px 22px 18px;
+  overflow-x: hidden;
+}
+
+#m-import-order .orders-import-heading {
+  margin-bottom: 16px;
+}
+
+#m-import-order .orders-import-title {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+#m-import-order .orders-import-title > i {
+  color: var(--ui-color-primary);
+  font-size: var(--ui-font-size-section-vi);
+}
+
+#m-import-order .orders-import-fields {
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface-muted);
+}
+
+#m-import-order .orders-import-fields label,
+#m-import-order .orders-import-file-field > label {
+  margin-bottom: 6px;
+  color: var(--ui-color-text);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+#m-import-order .orders-required {
+  color: var(--ui-color-danger-text);
+}
+
+#m-import-order .orders-import-file-field {
+  margin-bottom: 14px;
+}
+
+#m-import-order .orders-import-drop {
+  display: grid;
+  min-height: 104px;
+  place-content: center;
+  justify-items: center;
+  gap: 5px;
+  padding: 18px;
+  border: 2px dashed var(--ui-color-border);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text-muted);
+  text-align: center;
+  cursor: pointer;
+}
+
+#m-import-order .orders-import-drop:hover,
+#m-import-order .orders-import-drop:focus-visible {
+  border-color: var(--ui-color-primary);
+  background: var(--ui-color-primary-soft);
+  outline: none;
+}
+
+#m-import-order .orders-import-file-name {
+  margin-top: 2px;
+  color: var(--ui-color-primary);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+#m-import-order .orders-import-preview {
+  margin-top: 14px;
+}
+
+#m-import-order .orders-import-summary {
+  margin-bottom: 10px;
+}
+
+#m-import-order .orders-import-preview-frame {
+  border-radius: var(--ui-radius-panel);
+}
+
+#m-import-order .orders-import-preview-scroll {
+  max-height: min(360px, calc(100vh - 420px));
+  overflow: auto;
+}
+
+#m-import-order .orders-import-preview-table {
+  width: 100%;
+  min-width: 940px;
+  table-layout: fixed;
+}
+
+#m-import-order .orders-import-preview-table th,
+#m-import-order .orders-import-preview-table td {
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-right: 1px solid var(--ui-color-border);
+  border-bottom: 1px solid var(--ui-color-border);
+  vertical-align: middle;
+}
+
+#m-import-order .orders-import-preview-table th {
+  background: var(--ui-color-table-header);
+  color: var(--ui-color-text);
+  line-height: 1.25;
+}
+
+#m-import-order .orders-import-preview-table th:last-child,
+#m-import-order .orders-import-preview-table td:last-child {
+  border-right: 0;
+}
+
+#m-import-order .orders-import-preview-table tbody tr:hover > td {
+  background: var(--ui-color-row-hover);
+}
+
+#m-import-order .orders-import-preview-code {
+  font-family: var(--font-mono, monospace);
+  font-weight: var(--ui-font-weight-strong);
+}
+
+#m-import-order .orders-import-preview-number {
+  text-align: right;
+  white-space: nowrap;
+}
+
+#m-import-order .orders-import-preview-status-cell {
+  text-align: center;
+}
+
+#m-import-order .orders-import-preview-status {
+  display: inline-flex;
+  min-width: 86px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border: 1px solid var(--ui-color-success-border);
+  border-radius: 999px;
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+  font-weight: var(--ui-font-weight-primary);
+}
+
+#m-import-order .orders-import-table-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 8px;
+  color: var(--ui-color-text-muted);
+}
+
+#m-import-order .orders-import-actions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-color-border);
+}
+
+#m-import-order .orders-import-actions .btn {
+  min-width: 106px;
+  justify-content: center;
+}
+
+#m-import-order .orders-import-actions .bp {
+  min-width: 150px;
+}
+
 @media (max-width: 1365px) {
   #pg-progress .orders-command-row {
     grid-template-columns: minmax(0,1fr) auto;

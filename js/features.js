@@ -30,7 +30,7 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260923-4',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260923-4-order-history1',
+    orders:'js/orders.js?v=20260923-4-order-history1-import-preview1',
     shippedOrders:'js/shipped-orders.js?v=20260922-4',
     orderArchive:'js/order-archive.js?v=20260916-2',
     orderHistory:'js/order-history.js?v=20260923-2',

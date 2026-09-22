@@ -16,6 +16,7 @@ let orderImportFieldsBound = false; // orderImportFieldsBound（訂單必要資�
 let pendingOrderImportFile = null; // pendingOrderImportFile（等待必要資料完成的訂單檔案）
 let pendingOrderImportInput = null; // pendingOrderImportInput（本次訂單檔案選擇控制）
 let orderImportFileSequence = 0; // orderImportFileSequence（目前檔案選擇序號）：舊檔讀取完成後不得覆蓋新預覽。
+let orderImportPreviewTableControl = null; // orderImportPreviewTableControl（匯入預覽欄寬控制）：只管理本機畫面，不改匯入資料。
 const ordersSafeText=value=>window.PCMSSafe.text(value); // ordersSafeText（訂單畫面安全文字）
 const ordersSafeAttr=value=>window.PCMSSafe.attribute(value); // ordersSafeAttr（訂單畫面安全屬性）
 const ordersInlineArg=value=>window.PCMSSafe.inlineArgument(value); // ordersInlineArg（訂單行內事件安全參數）
@@ -109,6 +110,29 @@ function resetOrderImportPreview(){
   if(confirm) confirm.disabled=true;
   const fileName=g('imp-filename');
   if(fileName) fileName.textContent='';
+}
+
+// ensureOrderImportPreviewTableControl（啟用匯入預覽表格操作）：沿用共用欄寬拖曳與 UID 隔離的本機偏好。
+function ensureOrderImportPreviewTableControl(){
+  if(orderImportPreviewTableControl) return orderImportPreviewTableControl;
+  const table=g('order-import-preview-table');
+  const controls=window.PCMSUITableControls;
+  if(!table||!controls?.create) return null;
+  orderImportPreviewTableControl=controls.create({
+    table,
+    frame:table.closest('.ui-table-frame'),
+    preferenceKey:'progress:order-import-preview',
+    resizable:true,
+    columns:[
+      {key:'code',label:{vi:'Mã hàng',zh:'款號'},minimum:132,preferred:160,maximum:260},
+      {key:'description',label:{vi:'Mô tả',zh:'說明'},minimum:240,preferred:360,maximum:620},
+      {key:'color',label:{vi:'Màu',zh:'顏色'},minimum:112,preferred:150,maximum:260},
+      {key:'quantity',label:{vi:'Số lượng',zh:'數量'},minimum:92,preferred:110,maximum:180},
+      {key:'processCount',label:{vi:'Số công đoạn',zh:'工序數'},minimum:92,preferred:110,maximum:180},
+      {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:126,preferred:150,maximum:220}
+    ]
+  });
+  return orderImportPreviewTableControl;
 }
 
 // tryProcessPendingOrderImport（接續訂單檢查）：檔案先拖入時，等訂單資料填完整後才進入既有檢查。
@@ -550,6 +574,7 @@ async function openImportOrder(options={}){
     clients.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; clientSel.appendChild(o); });
   }
   om('m-import-order');
+  ensureOrderImportPreviewTableControl()?.refresh?.();
   if(options.file) await queueOrderImportFile(options.file);
 }
 
@@ -685,9 +710,10 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
       const tb=g('imp-preview-tb'); tb.innerHTML='';
       matched.forEach(m=>{
         const tr=document.createElement('tr');
-        tr.innerHTML=`<td><b>${ordersSafeText(m.code)}</b></td><td>${ordersSafeText(m.desc)}</td><td>${ordersSafeText(m.color)}</td><td>${m.qty.toLocaleString()}</td><td>${m.ops.length}</td><td><span class="tg tg2">Có thể nhập<br>可匯入</span></td>`;
+        tr.innerHTML=`<td data-ui-table-column="code" class="orders-import-preview-code">${ordersSafeText(m.code)}</td><td data-ui-table-column="description">${ordersSafeText(m.desc)}</td><td data-ui-table-column="color">${ordersSafeText(m.color)}</td><td data-ui-table-column="quantity" class="orders-import-preview-number">${m.qty.toLocaleString()}</td><td data-ui-table-column="processCount" class="orders-import-preview-number">${m.ops.length}</td><td data-ui-table-column="status" class="orders-import-preview-status-cell"><span class="orders-import-preview-status"><i class="ti ti-check" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Có thể nhập</span><span class="ui-text-zh">可匯入</span></span></span></td>`;
         tb.appendChild(tr);
       });
+      ensureOrderImportPreviewTableControl()?.refresh?.();
     }catch(err){
       if(selection!==orderImportFileSequence) return;
       console.error('Không thể đọc tệp đơn hàng / 訂單檔案讀取失敗',err);

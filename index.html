@@ -1301,34 +1301,49 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
     <div class="br"><button class="btn bp" onclick="saveEacc()"><i class="ti ti-check"></i>Lưu / 儲存</button><button class="btn" onclick="cm('m-eacc')">Hủy / 取消</button></div>
   </div></div>
 
-  <div class="mb" id="m-import-order"><div class="md wide">
-    <div class="mt2"><i class="ti ti-file-upload"></i> Nhập đơn hàng / 匯入訂單 <button class="btn bsm" onclick="closeImportOrder()"><i class="ti ti-x"></i></button></div>
+  <div class="mb orders-import-modal" id="m-import-order"><div class="md orders-import-dialog">
+    <div class="mt2 orders-import-heading">
+      <span class="orders-import-title"><i class="ti ti-file-upload" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Nhập đơn hàng</span><span class="ui-text-zh">匯入訂單</span></span></span>
+      <button class="btn bsm" type="button" onclick="closeImportOrder()" aria-label="Đóng / 關閉"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
     <div id="imp-step1">
-      <div class="fg cols3" style="margin-bottom:12px">
-        <div class="fgrp"><label>Số đơn hàng / 訂單編號 <span style="color:var(--err)">*</span></label><input type="text" id="imp-ord-id" placeholder="Ví dụ / 例如：ORD-2025-001"></div>
-        <div class="fgrp"><label>Khách hàng / 客戶 <span style="color:var(--err)">*</span></label><select id="imp-ord-client"><option value="">-- Chọn khách hàng / 選擇客戶 --</option></select></div>
-        <div class="fgrp"><label>Ngày giao hàng / 出貨日期 <span style="color:var(--err)">*</span></label><input type="date" id="imp-ord-date"></div>
+      <div class="fg cols3 orders-import-fields">
+        <div class="fgrp"><label for="imp-ord-id"><span class="ui-bilingual"><span class="ui-text-vi">Số đơn hàng <span class="orders-required">*</span></span><span class="ui-text-zh">訂單編號</span></span></label><input type="text" id="imp-ord-id" placeholder="Ví dụ / 例如：ORD-2025-001"></div>
+        <div class="fgrp"><label for="imp-ord-client"><span class="ui-bilingual"><span class="ui-text-vi">Khách hàng <span class="orders-required">*</span></span><span class="ui-text-zh">客戶</span></span></label><select id="imp-ord-client"><option value="">-- Chọn khách hàng / 選擇客戶 --</option></select></div>
+        <div class="fgrp"><label for="imp-ord-date"><span class="ui-bilingual"><span class="ui-text-vi">Ngày giao hàng <span class="orders-required">*</span></span><span class="ui-text-zh">出貨日期</span></span></label><input type="date" id="imp-ord-date"></div>
       </div>
-      <div class="fgrp" style="margin-bottom:14px">
-        <label>Tải tệp bảng tính lên<span class="lvi">上傳表格檔（.xlsx／.xls）</span></label>
-        <div id="imp-file-drop" style="border:2px dashed var(--bd);border-radius:10px;padding:28px;text-align:center;cursor:pointer;color:var(--mu)" onclick="g('imp-file').click()">
+      <div class="fgrp orders-import-file-field">
+        <label><span class="ui-bilingual"><span class="ui-text-vi">Tải tệp bảng tính lên</span><span class="ui-text-zh">上傳表格檔（.xlsx／.xls）</span></span></label>
+        <div id="imp-file-drop" class="orders-import-drop" role="button" tabindex="0" onclick="g('imp-file').click()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();g('imp-file').click();}">
           <i class="ti ti-file-spreadsheet product-import-drop-icon" aria-hidden="true"></i>
           <div class="ui-bilingual ui-body-text"><span class="ui-text-vi">Chọn hoặc kéo tệp bảng tính</span><span class="ui-text-zh">點擊或拖曳表格檔案</span></div>
-          <div id="imp-filename" class="ui-helper-text" style="margin-top:6px;color:var(--accent)"></div>
+          <div id="imp-filename" class="ui-helper-text orders-import-file-name"></div>
         </div>
         <input type="file" id="imp-file" data-file-drop-target="order-import" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(this)">
       </div>
     </div>
-    <div id="imp-step2" style="display:none">
-      <div class="nt ns" id="imp-order-ok" style="margin-bottom:8px"></div>
-      <div class="to" style="max-height:260px;overflow-y:auto"><table class="ui-table" id="order-import-preview-table" data-ui-table-layout="special" data-ui-table-sticky="container">
-        <thead><tr><th><span class="ui-bilingual"><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Mô tả</span><span class="ui-text-zh">說明</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Màu</span><span class="ui-text-zh">顏色</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">SL</span><span class="ui-text-zh">數量</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Số CĐ</span><span class="ui-text-zh">工序數</span></span></th><th><span class="ui-bilingual"><span class="ui-text-vi">Trạng thái</span><span class="ui-text-zh">狀態</span></span></th></tr></thead>
-        <tbody id="imp-preview-tb"></tbody>
-      </table></div>
+    <div id="imp-step2" class="orders-import-preview" style="display:none">
+      <div class="nt ns orders-import-summary" id="imp-order-ok"></div>
+      <div class="ui-table-frame orders-import-preview-frame">
+        <div class="ui-table-scroll orders-import-preview-scroll">
+          <table class="ui-table orders-import-preview-table" id="order-import-preview-table" data-ui-table-layout="special" data-ui-table-sticky="container" data-ui-table-resizable="true" data-ui-table-sort="none">
+            <thead><tr>
+              <th data-ui-table-column="code"><span class="ui-bilingual"><span class="ui-text-vi">Mã hàng</span><span class="ui-text-zh">款號</span></span></th>
+              <th data-ui-table-column="description"><span class="ui-bilingual"><span class="ui-text-vi">Mô tả</span><span class="ui-text-zh">說明</span></span></th>
+              <th data-ui-table-column="color"><span class="ui-bilingual"><span class="ui-text-vi">Màu</span><span class="ui-text-zh">顏色</span></span></th>
+              <th data-ui-table-column="quantity"><span class="ui-bilingual"><span class="ui-text-vi">SL</span><span class="ui-text-zh">數量</span></span></th>
+              <th data-ui-table-column="processCount"><span class="ui-bilingual"><span class="ui-text-vi">Số CĐ</span><span class="ui-text-zh">工序數</span></span></th>
+              <th data-ui-table-column="status"><span class="ui-bilingual"><span class="ui-text-vi">Trạng thái</span><span class="ui-text-zh">狀態</span></span></th>
+            </tr></thead>
+            <tbody id="imp-preview-tb"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="orders-import-table-help ui-helper-text"><i class="ti ti-arrows-horizontal" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Kéo mũi tên ở tiêu đề để chỉnh độ rộng; dùng thanh cuộn bên dưới để xem ngang.</span><span class="ui-text-zh">拖曳表頭箭頭調整欄寬；使用下方捲軸左右查看。</span></span></div>
     </div>
-    <div class="br" style="margin-top:14px">
-      <button class="btn bp" id="imp-confirm-btn" onclick="confirmImportOrder()"><i class="ti ti-check"></i>Xác nhận nhập / 確認匯入</button>
-      <button class="btn" onclick="closeImportOrder()">Hủy / 取消</button>
+    <div class="br orders-import-actions">
+      <button class="btn" type="button" onclick="closeImportOrder()"><span class="ui-bilingual"><span class="ui-text-vi">Hủy</span><span class="ui-text-zh">取消</span></span></button>
+      <button class="btn bp" type="button" id="imp-confirm-btn" onclick="confirmImportOrder()"><i class="ti ti-check" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Xác nhận nhập</span><span class="ui-text-zh">確認匯入</span></span></button>
     </div>
   </div></div>
 
