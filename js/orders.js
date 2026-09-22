@@ -991,9 +991,6 @@ async function requestManualOrderProgressRefresh(){
         '更新失敗，系統已保留上次資料；今日手動次數已使用。','danger');
     }else if(result.reason==='already-attempted'){
       await ordersMessage('Lần cập nhật thủ công hôm nay đã được dùng.','今日的手動更新次數已使用。','warning');
-    }else if(result.reason==='busy'){
-      await ordersMessage('Một cửa sổ khác đang cập nhật tiến độ. Vui lòng thử lại sau.',
-        '另一個視窗正在更新進度，請稍後再試。','warning');
     }
     return result.reason==='success';
   }catch(error){

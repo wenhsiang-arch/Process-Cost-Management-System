@@ -11,8 +11,6 @@
   const VERSION_QUERY_SIZE=10;
   const TOTAL_QUERY_SIZE=30;
   const QUERY_CONCURRENCY=3;
-  const REFRESH_TIMEOUT_MS=20000;
-  const LOCK_WAIT_TIMEOUT_MS=8000;
   const REFRESH_TIME_ZONE='Asia/Taipei';
   const REFRESH_HOUR=6;
   const REFRESH_SHIFT_MS=REFRESH_HOUR*60*60*1000;
@@ -31,37 +29,15 @@
     for(let index=0;index<items.length;index+=size) result.push(items.slice(index,index+size));
     return result;
   }
-  function refreshTimeoutError(code){
-    const error=new Error(code);
-    error.code=code;
-    return error;
-  }
-  function refreshContext(){ return {deadline:Date.now()+REFRESH_TIMEOUT_MS,cancelled:false}; }
-  function remainingTime(context){ return Math.max(0,number(context?.deadline)-Date.now()); }
-  function remoteRead(read,context){
-    const wait=remainingTime(context);
-    if(context?.cancelled||wait<=0){
-      if(context) context.cancelled=true;
-      return Promise.reject(refreshTimeoutError('order-progress-refresh-timeout'));
-    }
-    let promise;
-    try{ promise=read(); }
-    catch(error){ return Promise.reject(error); }
-    return new Promise((resolve,reject)=>{
-      const timer=setTimeout(()=>{
-        context.cancelled=true;
-        reject(refreshTimeoutError('order-progress-refresh-timeout'));
-      },wait);
-      Promise.resolve(promise).then(value=>{ clearTimeout(timer);resolve(value); },error=>{ clearTimeout(timer);reject(error); });
-    });
-  }
-  async function runBatches(groups,context,worker){
+  async function runBatches(groups,worker){
     let nextIndex=0;
+    let stopped=false;
     const runners=Array.from({length:Math.min(QUERY_CONCURRENCY,groups.length)},async()=>{
-      while(!context.cancelled){
+      while(!stopped){
         const index=nextIndex++;
         if(index>=groups.length) return;
-        await worker(groups[index],context);
+        try{ await worker(groups[index]); }
+        catch(error){ stopped=true;throw error; }
       }
     });
     await Promise.all(runners);
@@ -143,11 +119,7 @@
   }
   function withRefreshLock(task){
     const request=window.navigator?.locks?.request;
-    if(typeof request!=='function'||typeof AbortController!=='function') return task();
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),LOCK_WAIT_TIMEOUT_MS);
-    return request.call(window.navigator.locks,refreshLockName(),{signal:controller.signal},task)
-      .finally(()=>clearTimeout(timer));
+    return typeof request==='function'?request.call(window.navigator.locks,refreshLockName(),task):task();
   }
 
   async function cachedResult(orders,reason='cached',marker=null){
@@ -168,12 +140,12 @@
     return code.includes('permission-denied')||code.includes('failed-precondition');
   }
 
-  async function loadVersionMap(orderIds,context){
+  async function loadVersionMap(orderIds){
     const result=new Map(orderIds.map(id=>[id,0]));
     try{
-      await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),context,async group=>{
-        const snapshot=await remoteRead(()=>window._getDocs(window._query(window._collection(VERSION_COLLECTION),
-          window._where('orderId','in',group))),context);
+      await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
+        const snapshot=await window._getDocs(window._query(window._collection(VERSION_COLLECTION),
+          window._where('orderId','in',group)));
         documentRows(snapshot).forEach(row=>{ if(result.has(text(row.orderId))) result.set(text(row.orderId),progressVersion(row)); });
       });
       return {values:result,available:true};
@@ -185,11 +157,11 @@
     }
   }
 
-  async function loadItemSets(orderIds,context){
+  async function loadItemSets(orderIds){
     const result=Object.fromEntries(orderIds.map(orderId=>[orderId,[]]));
-    await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),context,async group=>{
-      const snapshot=await remoteRead(()=>window._getDocs(window._query(window._collection(ITEM_COLLECTION),
-        window._where('orderId','in',group))),context);
+    await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
+      const snapshot=await window._getDocs(window._query(window._collection(ITEM_COLLECTION),
+        window._where('orderId','in',group)));
       documentRows(snapshot).filter(item=>item.active!==false).forEach(item=>{
         const orderId=text(item.orderId);
         const normalized={orderItemId:text(item.orderItemId||item.id),productId:text(item.productId),quantity:positive(item.quantity)};
@@ -199,11 +171,11 @@
     return result;
   }
 
-  async function loadProducts(productIds,context){
+  async function loadProducts(productIds){
     const result=Object.fromEntries(productIds.map(productId=>[productId,null]));
-    await runBatches(chunks(productIds,TOTAL_QUERY_SIZE),context,async group=>{
-      const snapshot=await remoteRead(()=>window._getDocs(window._query(window._collection(PRODUCT_COLLECTION),
-        window._where(window._documentId(),'in',group))),context);
+    await runBatches(chunks(productIds,TOTAL_QUERY_SIZE),async group=>{
+      const snapshot=await window._getDocs(window._query(window._collection(PRODUCT_COLLECTION),
+        window._where(window._documentId(),'in',group)));
       documentRows(snapshot).forEach(data=>{
         if(!Object.prototype.hasOwnProperty.call(result,data.id)||data?.active===false) return;
         result[data.id]={...data,productId:data.id,ops:Array.isArray(data?.ops)?data.ops:[]};
@@ -229,12 +201,12 @@
     return rows;
   }
 
-  async function loadRegisteredQuantities(processes,context){
+  async function loadRegisteredQuantities(processes){
     const totalIds=[...new Set(processes.map(process=>text(process.totalId)).filter(Boolean))];
     const result=Object.fromEntries(totalIds.map(totalId=>[totalId,0]));
-    await runBatches(chunks(totalIds,TOTAL_QUERY_SIZE),context,async group=>{
-      const snapshot=await remoteRead(()=>window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
-        window._where(window._documentId(),'in',group))),context);
+    await runBatches(chunks(totalIds,TOTAL_QUERY_SIZE),async group=>{
+      const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
+        window._where(window._documentId(),'in',group)));
       documentRows(snapshot).forEach(row=>{
         if(Object.prototype.hasOwnProperty.call(result,row.id)) result[row.id]=positive(row.registeredQty);
       });
@@ -243,13 +215,13 @@
   }
 
   // 舊訂單可能已有累計但尚無進度版本；先按訂單小批量確認，無任何累計時可直接安全顯示 0%。
-  async function loadLegacyQuantities(orderIds,processes,context){
+  async function loadLegacyQuantities(orderIds,processes){
     const allowedIds=new Set(processes.map(process=>text(process.totalId)).filter(Boolean));
     const quantities=Object.fromEntries([...allowedIds].map(totalId=>[totalId,0]));
     const ordersWithTotals=new Set();
-    await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),context,async group=>{
-      const snapshot=await remoteRead(()=>window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
-        window._where('orderId','in',group))),context);
+    await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
+      const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
+        window._where('orderId','in',group)));
       documentRows(snapshot).forEach(row=>{
         ordersWithTotals.add(text(row.orderId));
         if(allowedIds.has(row.id)) quantities[row.id]=positive(row.registeredQty);
@@ -309,13 +281,12 @@
       return {values:cachedCalculations(orders,stored),attempted:false,reason:'already-attempted'};
     }
     writeAttemptMarker(periodKey,'running',{attemptedAt:Date.now(),refreshedAt:stored?.refreshedAt},attemptType);
-    const context=refreshContext();
     let metaSnapshot;
     let versionState;
     try{
       [metaSnapshot,versionState]=await Promise.all([
-        remoteRead(()=>window._getDoc(window._docRef('system','productsMeta')),context),
-        loadVersionMap(orderIds,context)
+        window._getDoc(window._docRef('system','productsMeta')),
+        loadVersionMap(orderIds)
       ]);
     }catch(error){
       return markRefreshFailure(orders,stored,periodKey,error,attemptType);
@@ -339,10 +310,10 @@
       if(cached&&cached.orderToken===currentOrderToken&&Array.isArray(cached.items)) itemSets[orderId]=cached.items;
       else ordersNeedingItems.push(orderId);
     }
-    Object.assign(itemSets,await loadItemSets(ordersNeedingItems,context));
+    Object.assign(itemSets,await loadItemSets(ordersNeedingItems));
     const productIds=[...new Set(Object.values(itemSets).flat().map(item=>item.productId).filter(Boolean))];
     const productsNeedingLoad=productIds.filter(productId=>productsChanged||!Object.prototype.hasOwnProperty.call(next.products,productId));
-    Object.assign(next.products,await loadProducts(productsNeedingLoad,context));
+    Object.assign(next.products,await loadProducts(productsNeedingLoad));
 
     const contexts=orders.map(order=>{
       const orderId=text(order.id);
@@ -365,9 +336,9 @@
     // 所有訂單共用批次讀取，最多三批並行，避免逐道請求或大量同時請求。
     const requestedProcesses=contexts.flatMap(context=>context.reloadAll?context.processes:context.missing);
     const legacyContexts=contexts.filter(item=>item.legacyProbe);
-    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses,context);
+    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses);
     const legacyState=await loadLegacyQuantities(legacyContexts.map(item=>item.orderId),
-      legacyContexts.flatMap(item=>item.processes),context);
+      legacyContexts.flatMap(item=>item.processes));
     const result=new Map();
     for(const item of contexts){
       let registeredQuantities=item.registeredQuantities;
@@ -421,9 +392,6 @@
         catch(readError){ console.warn('Không thể đọc bộ nhớ đệm tiến độ / 無法讀取進度快取',readError); }
         return markRefreshFailure(list,stored,refreshPeriodKey(),error,attemptType);
       }
-    }).catch(error=>{
-      if(error?.name==='AbortError') return cachedResult(list,'busy');
-      throw error;
     }).finally(()=>{
       if(activePromises.get(key)===promise) activePromises.delete(key);
     });
