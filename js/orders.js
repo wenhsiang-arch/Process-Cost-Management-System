@@ -56,14 +56,14 @@ function openOrderGuide(){
       {label:'Lưu trữ: ',text:'Nút cấm chuyển đơn khỏi danh sách đang dùng nhưng vẫn giữ dữ liệu; có thể xem và khôi phục trong mục Đơn hàng đã lưu trữ.'},
       {label:'Đã xuất hàng: ',text:'Chọn ngày xuất thực tế, sau đó nhấn nút xe tải để chuyển đơn sang mục Đơn hàng đã xuất; có thể hủy xác nhận tại đó để đưa đơn trở lại.'},
       {label:'Xuất báo cáo: ',text:'Đơn HUNTER có nút bảng tính để xuất báo cáo kiểm tra; trước khi xuất phải chọn tên tệp và vị trí lưu.'},
-      {label:'Màu ngày PO: ',text:'Màu xanh đậm là còn không quá 14 ngày; màu đỏ là đã quá hạn nhưng chưa xuất; màu thường là còn trên 14 ngày.'},
+      {label:'Màu ngày xuất thực tế: ',text:'Ô xanh nhạt là chưa chọn ngày; chữ xanh đậm là còn không quá 14 ngày; chữ đỏ là đã quá ngày nhưng chưa xuất; màu thường là còn trên 14 ngày.'},
       {label:'Tiến độ sản xuất: ',text:'Mỗi tài khoản trên mỗi máy có một lần tự động và một lần thủ công trong kỳ 06:00–05:59 hôm sau. Lần thủ công thất bại vẫn được tính là đã dùng.'}
     ]),
     createOrderGuideSection('zh','訂單頁使用說明',[
       {label:'封存：',text:'禁止符號會將訂單移出使用中清單，但資料仍會保留；可到「已封存訂單」查看及還原。'},
       {label:'已出貨：',text:'先選擇實際出貨日，再按貨車按鈕移到「已出貨訂單」；可在該分頁取消確認並移回主表。'},
       {label:'報表匯出：',text:'HUNTER 訂單會顯示表格檔按鈕，可匯出檢驗報告；匯出前需選擇檔名與儲存位置。'},
-      {label:'PO 日期顏色：',text:'深藍色代表剩餘 14 天以內；紅色代表已逾期且尚未出貨；一般字色代表超過 14 天。'},
+      {label:'實際出貨日顏色：',text:'淡綠色底框代表尚未選日期；深藍色文字代表剩餘 14 天以內；紅色文字代表已超過日期但尚未出貨；一般字色代表超過 14 天。'},
       {label:'生產進度：',text:'每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期各有一次自動更新及一次手動更新；手動更新失敗也會計入當日次數。'}
     ])
   );
@@ -167,9 +167,11 @@ registerOrderFileDropTarget();
 function usableOrders(){ return (window.allOrders||[]).filter(isOrderUsable); }
 // orderShipmentStatus（訂單出貨狀態）：舊訂單缺少欄位時安全視為尚未確認出貨。
 function orderShipmentStatus(order){ return order?.shipmentStatus==='shipped'?'shipped':'pending'; }
-// orderDueDateClass（PO 交期提示）：以本機日曆日判斷，避免時分與日光節約時間造成誤判。
-function orderDueDateClass(dueDate,now=Date.now()){
-  const due=new Date(Number(dueDate));
+// orderActualShipDateClass（實際出貨日提示）：空白使用淡綠底框；已選日期固定保存，只依目前日曆日改變提示顏色。
+function orderActualShipDateClass(actualShipDate,now=Date.now()){
+  const savedDate=Number(actualShipDate);
+  if(!Number.isFinite(savedDate)||savedDate<=0) return ' is-empty';
+  const due=new Date(savedDate);
   const current=new Date(Number(now));
   if(Number.isNaN(due.getTime())||Number.isNaN(current.getTime())) return '';
   const dayValue=date=>Date.UTC(date.getFullYear(),date.getMonth(),date.getDate());
@@ -913,10 +915,11 @@ function renderOrderProductionProgressState(orderId,state){
   const shown=percent.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1});
   orderProgressValues.set(String(orderId),percent);
   const completed=state?.completed===true;
+  const fillPercent=completed?100:percent;
   host.classList.remove('is-loading','is-error');
   host.removeAttribute('aria-busy');
-  host.innerHTML=`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(percent.toFixed(1))}">
-      <div class="orders-production-progress-fill" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
+  host.innerHTML=`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(fillPercent.toFixed(1))}">
+      <div class="orders-production-progress-fill" style="width:${ordersSafeAttr(fillPercent.toFixed(1))}%"></div>
       <span class="orders-production-progress-value">${ordersSafeText(shown)}%${completed?' / 100%':''}</span>
     </div>`;
   const control=g(`order-completion-control-${orderId}`);
@@ -1138,8 +1141,8 @@ async function printOrdersTable(){
     [data-ui-table-column="quantity"]{width:8%}
     [data-ui-table-column="productionProgress"]{width:15%}
     [data-ui-table-column="dueDate"]{width:12%}
-    [data-ui-table-column="shipDate"]{width:13%}
-    [data-ui-table-column="remark"]{width:12%}
+    [data-ui-table-column="shipDate"]{width:11%}
+    [data-ui-table-column="remark"]{width:14%}
     [data-ui-table-column="completionStatus"]{width:11%}
     .ui-bilingual,.ui-dual-copy{display:flex;min-width:0;flex-direction:column;gap:1px;line-height:1.15}
     .ui-text-vi,.ui-text-zh,.ui-dual-copy>strong,.ui-dual-copy>span{display:block;margin:0}
@@ -1206,8 +1209,12 @@ async function renderProgress(){
     if(ordId) orders=orders.filter(order=>order.id===ordId);
     if(renderSequence!==progressRenderSequence) return;
     const list=orders.slice();
-    const sortDate=order=>Number(order.actualShipDate)||Number(order.dueDate)||Number.MAX_SAFE_INTEGER; // sortDate（主表排序日期）：優先實際出貨日，未設定時使用 PO 交期。
-    list.sort((a,b)=>sortDate(a)-sortDate(b)||(Number(a.dueDate)||0)-(Number(b.dueDate)||0)||String(a.orderId||'').localeCompare(String(b.orderId||'')));
+    const actualDate=order=>Math.max(0,Number(order.actualShipDate)||0); // actualDate（實際出貨日排序值）：未選日期固定排最上方，不再以 PO 交期替代。
+    list.sort((a,b)=>{
+      const aDate=actualDate(a);const bDate=actualDate(b);
+      return Number(aDate>0)-Number(bDate>0)||aDate-bDate||(Number(a.dueDate)||0)-(Number(b.dueDate)||0)
+        ||String(a.orderId||'').localeCompare(String(b.orderId||''));
+    });
     const issueNotice=renderOrderImportIssues();
     if(!list.length){
       content.innerHTML=issueNotice+(issueNotice
@@ -1223,7 +1230,7 @@ async function renderProgress(){
     html+=`<th data-ui-table-column="quantity" data-ui-table-min-width="100" data-ui-table-width="130" data-ui-table-max-width="160" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
     html+=`<th data-ui-table-column="productionProgress" data-ui-table-min-width="200" data-ui-table-width="250" data-ui-table-max-width="360">${ordersPairHtml('Tiến độ','生產進度')}</th>`;
     html+=`<th data-ui-table-column="dueDate" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="220">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
-    html+=`<th data-ui-table-column="shipDate" data-ui-table-min-width="150" data-ui-table-width="180" data-ui-table-max-width="230">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
+    html+=`<th data-ui-table-column="shipDate" data-ui-table-min-width="140" data-ui-table-width="155" data-ui-table-max-width="190">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
     html+=`<th data-ui-table-column="remark" data-ui-table-min-width="160" data-ui-table-width="210" data-ui-table-max-width="360" data-ui-table-ellipsis="true">${ordersPairHtml('Ghi chú','備註')}</th>`;
     html+=`<th data-ui-table-column="completionStatus" data-ui-table-sortable="false" data-ui-table-min-width="124" data-ui-table-width="150" data-ui-table-max-width="190">${ordersPairHtml('Trạng thái','完成狀態')}</th>`;
     html+=`<th data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="200" data-ui-table-resizable="false">${ordersPairHtml('Thao tác','操作')}</th>`;
@@ -1236,7 +1243,7 @@ async function renderProgress(){
       const remarkArg=ordersInlineArg(o.remark||'');
       const safeId=ordersSafeAttr(o.id);
       const remarkVal=ordersSafeAttr(o.remark||'');
-      const dueDateClass=orderDueDateClass(o.dueDate);
+      const actualShipDateClass=orderActualShipDateClass(o.actualShipDate);
       const completed=o.productionProgressCompleted===true;
       const completedState=completed?{percent:Number(o.productionProgressSnapshotPercent)||0,completed:true}:null;
       html+=`<tr class="orders-progress-row">
@@ -1245,9 +1252,9 @@ async function renderProgress(){
         <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
         <td><div class="orders-production-progress${completed?'':' is-loading'}" id="order-production-progress-${safeId}"${completed?'':' aria-busy="true"'}>
-          ${completed?`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(Math.max(0,Math.min(100,Number(completedState.percent)||0)).toFixed(1))}"><div class="orders-production-progress-fill" style="width:${ordersSafeAttr(Math.max(0,Math.min(100,Number(completedState.percent)||0)).toFixed(1))}%"></div><span class="orders-production-progress-value">${ordersSafeText((Number(completedState.percent)||0).toLocaleString(undefined,{maximumFractionDigits:1}))}% / 100%</span></div>`:renderOrderProductionProgressLoading()}</div></td>
-        <td><span class="orders-po-date${dueDateClass}">${ordersSafeText(fmtVN(o.dueDate))}</span></td>
-        <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
+          ${completed?`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100"><div class="orders-production-progress-fill" style="width:100%"></div><span class="orders-production-progress-value">${ordersSafeText((Number(completedState.percent)||0).toLocaleString(undefined,{maximumFractionDigits:1}))}% / 100%</span></div>`:renderOrderProductionProgressLoading()}</div></td>
+        <td><span class="orders-po-date">${ordersSafeText(fmtVN(o.dueDate))}</span></td>
+        <td onclick="event.stopPropagation()"><input class="orders-date-input${actualShipDateClass}" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
         <td class="orders-completion-cell" onclick="event.stopPropagation()">${orderCompletionControlHtml(o)}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">

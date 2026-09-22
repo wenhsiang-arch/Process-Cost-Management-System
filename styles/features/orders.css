@@ -84,6 +84,21 @@
   font-size: var(--ui-font-size-body);
 }
 
+#pg-progress .orders-date-input.is-empty {
+  border-color: var(--ui-color-success-border);
+  background: var(--ui-color-success-background);
+}
+
+#pg-progress .orders-date-input.is-due-soon {
+  color: var(--ui-color-info-text);
+  font-weight: var(--ui-font-weight-strong);
+}
+
+#pg-progress .orders-date-input.is-overdue {
+  color: var(--ui-color-danger-text);
+  font-weight: var(--ui-font-weight-strong);
+}
+
 #pg-progress th {
   background: var(--ui-color-table-header) !important;
   color: var(--ui-color-text) !important;
@@ -326,8 +341,6 @@
   font-weight: var(--ui-font-weight-strong);
   font-variant-numeric: tabular-nums;
 }
-#pg-progress .orders-po-date.is-due-soon { color: var(--ui-color-info-text); }
-#pg-progress .orders-po-date.is-overdue { color: var(--ui-color-danger-text); }
 #pg-progress .orders-production-progress.is-loading,
 #pg-progress .orders-production-progress.is-error {
   color: var(--ui-color-text-muted);
