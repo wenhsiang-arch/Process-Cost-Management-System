@@ -2,7 +2,7 @@
 (function(){
   'use strict';
 
-  const CATEGORIES=Object.freeze(['BL','SX','QC','DG']);
+  const CATEGORIES=Object.freeze(['BL','TC','SX','HC','QC','DG']);
 
   function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
   function safe(value){ return window.PCMSSafe?.text?.(value)??String(value??''); }

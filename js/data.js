@@ -2,7 +2,7 @@
 let detailImportFileName='', importImpactPlan=null;
 let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
 let productFileDropTargetRegistered=false; // productFileDropTargetRegistered（款號全視窗匯入用途是否已登記）
-const PROCESS_CATEGORIES={BL:'備料',SX:'生產',QC:'品檢',DG:'包裝'};
+const PROCESS_CATEGORIES={BL:'備料',TC:'穿扣',SX:'生產',HC:'剪線烘線',QC:'品檢',DG:'包裝'};
 const PRODUCT_IMPORT_HEADER_SCAN_LIMIT=20; // PRODUCT_IMPORT_HEADER_SCAN_LIMIT（款號匯入表頭搜尋列數）：只在檔案前 20 列尋找完整表頭。
 const PRODUCT_IMPORT_COLUMNS=Object.freeze([
   {key:'code',vi:'Mã hàng',zh:'款號',required:true,aliases:['款號','Mã hàng','款號 Mã hàng']},
@@ -268,8 +268,8 @@ function validateRequiredImportFields(rows){
     if(category&& !Object.prototype.hasOwnProperty.call(PROCESS_CATEGORIES,category)){
       errors.push({
         code,
-        vi:`Dòng ${r._excelRow}: Phân loại「${category}」không hợp lệ, chỉ được dùng BL, SX, QC hoặc DG.`,
-        zh:`第 ${r._excelRow} 行：加工分類「${category}」無效，只允許 BL、SX、QC、DG。`
+        vi:`Dòng ${r._excelRow}: Phân loại「${category}」không hợp lệ, chỉ được dùng BL, TC, SX, HC, QC hoặc DG.`,
+        zh:`第 ${r._excelRow} 行：加工分類「${category}」無效，只允許 BL、TC、SX、HC、QC、DG。`
       });
     }
     const sec=String(r[9]??'').trim();

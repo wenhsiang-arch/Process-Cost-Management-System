@@ -9,7 +9,7 @@
   const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz']);
   const EDITABLE_PRODUCT_FIELDS=Object.freeze(['client','zh','vi','sz']);
   const PROCESS_FIELDS=Object.freeze(['no','category','zh','vi','sec']);
-  const ALLOWED_CATEGORIES=new Set(['BL','SX','QC','DG']);
+  const ALLOWED_CATEGORIES=new Set(['BL','TC','SX','HC','QC','DG']);
 
   function model(){
     if(!window.PCMSProductModel) throw new Error('Thiếu mô hình dữ liệu mã hàng. / 缺少款號資料模型。');

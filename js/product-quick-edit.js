@@ -136,7 +136,7 @@
   }
 
   function commonInput(config,sourceValue){
-    if(config.type==='select') return '<select data-common-value><option value="BL">BL</option><option value="SX">SX</option><option value="QC">QC</option><option value="DG">DG</option></select>';
+    if(config.type==='select') return '<select data-common-value><option value="BL">BL</option><option value="TC">TC</option><option value="SX">SX</option><option value="HC">HC</option><option value="QC">QC</option><option value="DG">DG</option></select>';
     const limits=config.type==='number'?` min="${config.min}" max="${config.max}" step="1" inputmode="numeric"`:'';
     const maximum=config.maxLength?` maxlength="${config.maxLength}"`:'';
     return `<input data-common-value type="${config.type}"${limits}${maximum} value="${safeAttribute(sourceValue)}">`;
