@@ -955,6 +955,7 @@ function prepareOrdersPrintTable(sourceTable){
     Array.from(table.rows||[]).forEach(row=>row.cells?.[actionIndex]?.remove());
   }
   table.querySelectorAll('[data-ui-table-resize-handle],[data-ui-table-sort-trigger]').forEach(control=>control.remove());
+  table.querySelectorAll('.orders-remark-cell:not(.has-value)').forEach(cell=>{ cell.textContent='—'; });
   table.querySelectorAll('input,select,textarea').forEach(control=>{
     const value=String(control.value||'').trim();
     const output=table.ownerDocument.createElement('span');
@@ -984,12 +985,47 @@ async function printOrdersTable(){
   }
   printWindow.opener=null;
   const printDocument=printWindow.document;
+  const languageMode=['vi','zh'].includes(document.documentElement.dataset.uiLanguageMode)
+    ? document.documentElement.dataset.uiLanguageMode : 'bilingual';
+  printDocument.documentElement.dataset.uiLanguageMode=languageMode;
   printDocument.title='Dữ liệu đơn hàng và công đoạn / 訂單與工序資料';
   const iconStyle=printDocument.createElement('link');
   iconStyle.rel='stylesheet';
   iconStyle.href=new URL('styles/vendor/tabler-icons.min.css',document.baseURI).href;
   const style=printDocument.createElement('style');
-  style.textContent=`@page{size:A4 landscape;margin:8mm}*{box-sizing:border-box}body{margin:0;color:#1e293b;font-family:Arial,"Microsoft JhengHei",sans-serif;font-size:10px}table{width:100%;border-collapse:collapse;table-layout:auto}th,td{border:1px solid #cbd5e1;padding:5px 6px;vertical-align:middle}th{background:#eaf2ff;font-weight:700;text-align:left;white-space:nowrap}tr{break-inside:avoid}.ui-table-number-cell{text-align:right}.orders-row-index{text-align:center}.orders-order-id{font-family:Consolas,monospace}.orders-date-input{border:0}.orders-production-progress-meter{position:relative;min-width:110px;height:22px;overflow:hidden;border:1px solid #bfdbfe;border-radius:5px;background:#f1f5f9}.orders-production-progress-fill{height:100%;background:#a9c7f5}.orders-production-progress-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#274c7f}.orders-production-progress-loading .ui-progress-track,.orders-production-progress-loading-copy{display:none}.orders-progress-actions{display:flex;gap:4px;justify-content:center}.orders-progress-actions button{width:26px;height:26px;padding:0;border:1px solid #cbd5e1;border-radius:5px;background:#fff;color:#334155}.ui-text-vi,.ui-text-zh,.ui-dual-copy>strong,.ui-dual-copy>span{display:block}.ui-table-resize-handle,.ui-table-sort-icon{display:none!important}`;
+  style.textContent=`
+    @page{size:A4 landscape;margin:8mm}
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    body{margin:0;color:#1e293b;font-family:Arial,"Microsoft JhengHei",sans-serif;font-size:9.5pt}
+    table{width:100%;border-collapse:collapse;table-layout:fixed}
+    th,td{border:1px solid #cbd5e1;padding:5px 8px;vertical-align:middle;line-height:1.25}
+    thead{display:table-header-group}
+    th{background:#eaf2ff;font-weight:700;text-align:left}
+    tbody td{height:32px}
+    tr{break-inside:avoid}
+    [data-ui-table-column="index"]{width:3%}
+    [data-ui-table-column="client"]{width:10%}
+    [data-ui-table-column="orderId"]{width:18%}
+    [data-ui-table-column="quantity"]{width:9%}
+    [data-ui-table-column="productionProgress"]{width:16%}
+    [data-ui-table-column="dueDate"]{width:13%}
+    [data-ui-table-column="shipDate"]{width:14%}
+    [data-ui-table-column="remark"]{width:17%}
+    .ui-bilingual,.ui-dual-copy{display:flex;min-width:0;flex-direction:column;gap:1px;line-height:1.15}
+    .ui-text-vi,.ui-text-zh,.ui-dual-copy>strong,.ui-dual-copy>span{display:block;margin:0}
+    html[data-ui-language-mode="vi"] .ui-text-zh,html[data-ui-language-mode="vi"] .ui-dual-copy>span{display:none!important}
+    html[data-ui-language-mode="zh"] .ui-text-vi,html[data-ui-language-mode="zh"] .ui-dual-copy>strong{display:none!important}
+    .ui-table-number-cell{text-align:right}
+    .orders-row-index{text-align:center}
+    .orders-order-id{font-family:Consolas,monospace;overflow-wrap:anywhere}
+    .orders-remark-cell{overflow-wrap:anywhere}
+    .orders-date-input{border:0}
+    .orders-production-progress-meter{position:relative;width:100%;min-width:0;height:20px;overflow:hidden;border:1px solid #bfdbfe;border-radius:5px;background:#f1f5f9}
+    .orders-production-progress-fill{height:100%;background:#a9c7f5}
+    .orders-production-progress-value{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:700;color:#274c7f}
+    .orders-production-progress-loading .ui-progress-track,.orders-production-progress-loading-copy{display:none}
+    .ui-table-resize-handle,.ui-table-sort-icon{display:none!important}
+  `;
   printDocument.head.append(iconStyle,style);
   printDocument.body.appendChild(prepareOrdersPrintTable(sourceTable));
   printDocument.close();
@@ -1042,16 +1078,16 @@ async function renderProgress(){
       void refreshOrderProductionProgress(progressOrders,renderSequence);
       return;
     }
-    let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-layout="special" data-ui-table-sticky="original"><thead><tr>';
-    html+=`<th data-ui-table-column="index" data-orders-column="index" data-ui-table-min-width="48">#</th>`;
-    html+=`<th data-ui-table-column="client" data-orders-column="client">${ordersPairHtml('Khách hàng','客人')}</th>`;
-    html+=`<th data-ui-table-column="orderId" data-orders-column="orderId">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
-    html+=`<th data-ui-table-column="quantity" data-orders-column="quantity" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
-    html+=`<th data-ui-table-column="productionProgress" data-orders-column="productionProgress">${ordersPairHtml('Tiến độ','生產進度')}</th>`;
-    html+=`<th data-ui-table-column="dueDate" data-orders-column="dueDate">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
-    html+=`<th data-ui-table-column="shipDate" data-orders-column="shipDate">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
-    html+=`<th data-ui-table-column="remark" data-orders-column="remark">${ordersPairHtml('Ghi chú','備註')}</th>`;
-    html+=`<th data-ui-table-column="action" data-orders-column="action" data-ui-table-sortable="false">${ordersPairHtml('Thao tác','操作')}</th>`;
+    let html='<div class="orders-table-wrap ui-table-scroll" data-ui-floating-scroll="only"><table class="orders-progress-table ui-table" id="orders-progress-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original"><thead><tr>';
+    html+=`<th data-ui-table-column="index" data-ui-table-min-width="48" data-ui-table-width="48" data-ui-table-max-width="64" data-ui-table-resizable="false">#</th>`;
+    html+=`<th data-ui-table-column="client" data-ui-table-min-width="96" data-ui-table-width="112" data-ui-table-max-width="180">${ordersPairHtml('Khách hàng','客人')}</th>`;
+    html+=`<th data-ui-table-column="orderId" data-ui-table-min-width="180" data-ui-table-width="210" data-ui-table-max-width="320">${ordersPairHtml('Số đơn hàng','訂單號碼')}</th>`;
+    html+=`<th data-ui-table-column="quantity" data-ui-table-min-width="100" data-ui-table-width="130" data-ui-table-max-width="160" class="ui-table-number-cell">${ordersPairHtml('Số lượng','數量')}</th>`;
+    html+=`<th data-ui-table-column="productionProgress" data-ui-table-min-width="200" data-ui-table-width="250" data-ui-table-max-width="360">${ordersPairHtml('Tiến độ','生產進度')}</th>`;
+    html+=`<th data-ui-table-column="dueDate" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="220">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
+    html+=`<th data-ui-table-column="shipDate" data-ui-table-min-width="150" data-ui-table-width="180" data-ui-table-max-width="230">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
+    html+=`<th data-ui-table-column="remark" data-ui-table-min-width="160" data-ui-table-width="210" data-ui-table-max-width="360" data-ui-table-ellipsis="true">${ordersPairHtml('Ghi chú','備註')}</th>`;
+    html+=`<th data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="200" data-ui-table-resizable="false">${ordersPairHtml('Thao tác','操作')}</th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
       const totalQty=o.totalQty||0;

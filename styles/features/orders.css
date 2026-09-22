@@ -70,8 +70,6 @@
 
 #pg-progress .orders-progress-table {
   --ui-table-default-min-width: 1480px;
-  min-width: 1480px;
-  table-layout: fixed;
 }
 
 #pg-progress .orders-date-input {
@@ -255,15 +253,6 @@
   color: var(--ui-color-danger-text);
 }
 
-#pg-progress th[data-orders-column="index"] { width: 48px; }
-#pg-progress th[data-orders-column="client"] { width: 112px; }
-#pg-progress th[data-orders-column="orderId"] { width: 210px; }
-#pg-progress th[data-orders-column="quantity"] { width: 130px; }
-#pg-progress th[data-orders-column="productionProgress"] { width: 250px; }
-#pg-progress th[data-orders-column="dueDate"] { width: 170px; }
-#pg-progress th[data-orders-column="shipDate"] { width: 180px; }
-#pg-progress th[data-orders-column="remark"] { width: 210px; }
-#pg-progress th[data-orders-column="action"] { width: 170px; }
 #pg-progress .orders-progress-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 #pg-progress .orders-pending-quantity {
   padding: 7px 12px;

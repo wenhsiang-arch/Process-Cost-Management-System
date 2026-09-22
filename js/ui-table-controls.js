@@ -792,13 +792,16 @@
 
   function headerLabel(header){
     const dual = header.querySelector?.('.ui-dual-copy');
+    const bilingual = header.querySelector?.('.ui-bilingual');
     const vi = header.querySelector?.('.ui-table-sort-label .ui-text-vi')?.textContent
       || dual?.querySelector?.('strong')?.textContent
+      || bilingual?.querySelector?.('.ui-text-vi')?.textContent
       || header.querySelector?.('.ui-table-sort-heading > span')?.textContent
       || Array.from(header.childNodes || []).filter(node=>node.nodeType === 3).map(node=>node.textContent).join(' ').trim()
       || String(header.textContent || '').trim();
     const zh = header.querySelector?.('.ui-table-sort-label .ui-text-zh')?.textContent
       || dual?.querySelector?.(':scope > span:not(.ui-table-sort-heading)')?.textContent
+      || bilingual?.querySelector?.('.ui-text-zh')?.textContent
       || header.querySelector?.('.tv')?.textContent
       || '';
     return {vi:String(vi || '').trim(),zh:String(zh || '').trim()};
