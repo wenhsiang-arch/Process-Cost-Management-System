@@ -47,18 +47,42 @@
     for(let index=0;index<items.length;index+=size) result.push(items.slice(index,index+size));
     return result;
   }
-  async function runBatches(groups,worker){
+  async function runBatches(groups,worker,progress=null){
+    progress?.addTotal(groups.length);
     let nextIndex=0;
     let stopped=false;
     const runners=Array.from({length:Math.min(QUERY_CONCURRENCY,groups.length)},async()=>{
       while(!stopped){
         const index=nextIndex++;
         if(index>=groups.length) return;
-        try{ await worker(groups[index]); }
+        try{ await worker(groups[index]);progress?.advance(); }
         catch(error){ stopped=true;throw error; }
       }
     });
     await Promise.all(runners);
+  }
+  function createProgressReporter(callback){
+    const notify=typeof callback==='function'?callback:null;
+    let phase='';
+    let startedAt=0;
+    let completed=0;
+    let total=0;
+    function emit(state='running'){
+      if(!notify) return;
+      try{ notify(Object.freeze({state,phase,completed,total,startedAt,reportedAt:Date.now(),
+        elapsedMs:startedAt?Math.max(0,Date.now()-startedAt):0})); }
+      catch(error){ console.warn('Không thể hiển thị trạng thái cập nhật / 無法顯示更新狀態',error); }
+    }
+    return Object.freeze({
+      start(nextPhase,initialTotal=0){
+        phase=text(nextPhase);startedAt=Date.now();completed=0;total=Math.max(0,Math.trunc(number(initialTotal)));emit();
+      },
+      addTotal(value){ total+=Math.max(0,Math.trunc(number(value)));emit(); },
+      advance(value=1){ completed=Math.min(total,completed+Math.max(0,Math.trunc(number(value))));emit(); },
+      finish(){ if(total===0){total=1;completed=1;}else completed=total;emit(); },
+      done(){ phase='complete';startedAt=Date.now();completed=1;total=1;emit('complete'); },
+      fail(){ emit('failed'); }
+    });
   }
   function orderToken(order){
     return [number(order?.totalQty),number(order?.itemCount),text(order?.importStatus),text(order?.lifecycleStatus)].join('|');
@@ -167,7 +191,7 @@
     return code.includes('permission-denied')||code.includes('failed-precondition');
   }
 
-  async function loadVersionMap(orderIds,stats){
+  async function loadVersionMap(orderIds,stats,progress=null){
     const result=new Map(orderIds.map(id=>[id,{revision:0,updatedAt:0}]));
     try{
       await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
@@ -177,7 +201,7 @@
         documentRows(snapshot).forEach(row=>{
           if(result.has(text(row.orderId))) result.set(text(row.orderId),{revision:progressVersion(row),updatedAt:positive(row.updatedAt)});
         });
-      });
+      },progress);
       return {values:result,available:true};
     }catch(error){
       if(!maySkipVersionRead(error)) throw error;
@@ -187,7 +211,7 @@
     }
   }
 
-  async function loadItemSets(orderIds,stats){
+  async function loadItemSets(orderIds,stats,progress=null){
     const result=Object.fromEntries(orderIds.map(orderId=>[orderId,[]]));
     await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
       const snapshot=await window._getDocs(window._query(window._collection(ITEM_COLLECTION),
@@ -198,11 +222,11 @@
         const normalized={orderItemId:text(item.orderItemId||item.id),productId:text(item.productId),quantity:positive(item.quantity)};
         if(result[orderId]&&normalized.orderItemId&&normalized.productId&&normalized.quantity>0) result[orderId].push(normalized);
       });
-    });
+    },progress);
     return result;
   }
 
-  async function loadProducts(productIds,stats){
+  async function loadProducts(productIds,stats,progress=null){
     const result=Object.fromEntries(productIds.map(productId=>[productId,null]));
     await runBatches(chunks(productIds,TOTAL_QUERY_SIZE),async group=>{
       const snapshot=await window._getDocs(window._query(window._collection(PRODUCT_COLLECTION),
@@ -212,7 +236,7 @@
         if(!Object.prototype.hasOwnProperty.call(result,data.id)||data?.active===false) return;
         result[data.id]={...data,productId:data.id,ops:Array.isArray(data?.ops)?data.ops:[]};
       });
-    });
+    },progress);
     return result;
   }
 
@@ -242,7 +266,7 @@
     return rows;
   }
 
-  async function loadRegisteredQuantities(processes,stats){
+  async function loadRegisteredQuantities(processes,stats,progress=null){
     const totalIds=[...new Set(processes.map(process=>text(process.totalId)).filter(Boolean))];
     const result=Object.fromEntries(totalIds.map(totalId=>[totalId,0]));
     await runBatches(chunks(totalIds,TOTAL_QUERY_SIZE),async group=>{
@@ -252,12 +276,12 @@
       documentRows(snapshot).forEach(row=>{
         if(Object.prototype.hasOwnProperty.call(result,row.id)) result[row.id]=positive(row.registeredQty);
       });
-    });
+    },progress);
     return result;
   }
 
 
-  async function loadChangedQuantities(ranges,stats){
+  async function loadChangedQuantities(ranges,stats,progress=null){
     const result={};
     await runBatches(ranges,async range=>{
       const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
@@ -265,12 +289,12 @@
         window._orderBy('updatedAt','asc')));
       countSnapshot(stats,'totalDocuments','totalQueries',snapshot);
       documentRows(snapshot).forEach(row=>{ result[row.id]=positive(row.registeredQty); });
-    });
+    },progress);
     return result;
   }
 
   // 舊訂單可能已有累計但尚無進度版本；先按訂單小批量確認，無任何累計時可直接安全顯示 0%。
-  async function loadLegacyQuantities(orderIds,processes,stats){
+  async function loadLegacyQuantities(orderIds,processes,stats,progress=null){
     const allowedIds=new Set(processes.map(process=>text(process.totalId)).filter(Boolean));
     const quantities=Object.fromEntries([...allowedIds].map(totalId=>[totalId,0]));
     const ordersWithTotals=new Set();
@@ -282,7 +306,7 @@
         ordersWithTotals.add(text(row.orderId));
         if(allowedIds.has(row.id)) quantities[row.id]=positive(row.registeredQty);
       });
-    });
+    },progress);
     return {quantities,ordersWithTotals};
   }
 
@@ -302,7 +326,8 @@
     return {percent,requiredSeconds,registeredSeconds,remainingSeconds:Math.max(0,requiredSeconds-registeredSeconds),processCount:processes.length};
   }
 
-  async function markRefreshFailure(orders,stored,periodKey,error,attemptType='auto',readStats=null){
+  async function markRefreshFailure(orders,stored,periodKey,error,attemptType='auto',readStats=null,progress=null){
+    progress?.fail();
     const cache=validCache(stored)?stored:blankCache();
     cache.refreshPeriod=periodKey;
     cache.refreshState='failed';
@@ -317,7 +342,7 @@
     return {values:cachedCalculations(orders,cache),attempted:true,reason:'failed'};
   }
 
-  async function loadInternal(orders,{attemptType='auto'}={}){
+  async function loadInternal(orders,{attemptType='auto',progress=null}={}){
     const trackedOrders=orders.filter(order=>!isCompletedOrder(order));
     const orderIds=trackedOrders.map(order=>text(order.id)).filter(Boolean);
     const periodKey=refreshPeriodKey();
@@ -326,7 +351,7 @@
     if(!orderIds.length) return {values:cachedCalculations(orders,sessionCache()),attempted:false,reason:'no-orders'};
     let persistentCache=null;
     try{ persistentCache=await window.pcmsDataCache?.read(CACHE_SCOPE); }
-    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error,attemptType,readStats); }
+    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error,attemptType,readStats,progress); }
     const memoryCache=sessionCache();
     const stored=validCache(memoryCache)&&memoryCache.refreshPeriod===periodKey
       ?memoryCache:(validCache(persistentCache)?persistentCache:memoryCache);
@@ -340,21 +365,24 @@
       return {values:cachedCalculations(orders,stored),attempted:false,reason:'already-attempted'};
     }
     writeAttemptMarker(periodKey,'running',{attemptedAt:Date.now(),refreshedAt:stored?.refreshedAt},attemptType);
+    progress?.start('checkingVersions');
+    progress?.addTotal(1);
     let metaSnapshot;
     let versionState;
     try{
       [metaSnapshot,versionState]=await Promise.all([
-        window._getDoc(window._docRef('system','productsMeta')),
-        loadVersionMap(orderIds,readStats)
+        window._getDoc(window._docRef('system','productsMeta')).then(snapshot=>{progress?.advance();return snapshot;}),
+        loadVersionMap(orderIds,readStats,progress)
       ]);
       readStats.metaDocuments=metaSnapshot.exists()?1:0;
       readStats.estimatedReads+=1;
     }catch(error){
-      return markRefreshFailure(orders,stored,periodKey,error,attemptType,readStats);
+      return markRefreshFailure(orders,stored,periodKey,error,attemptType,readStats,progress);
     }
     if(!versionState.available){
-      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'),attemptType,readStats);
+      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'),attemptType,readStats,progress);
     }
+    progress?.finish();
     const cache=validCache(stored)?stored:blankCache();
     const next=blankCache();
     const latestProductToken=productToken(metaSnapshot.exists()?metaSnapshot.data():{});
@@ -370,13 +398,16 @@
     const cachedProductSequence=Math.max(0,Math.trunc(number(cache.productSequence)));
     const canLoadProductDelta=productsChanged&&cachedProductSequence>0&&cachedProductSequence<=latestProductSequence
       &&text(cache.productTrackingEpoch)&&text(cache.productTrackingEpoch)===latestTrackingEpoch;
+    progress?.start('checkingProducts',1);
     if(canLoadProductDelta){
       const changed=await loadChangedProducts(cachedProductSequence,readStats);
       changed.forEach(product=>{
         next.products[product.productId]=product;
       });
     }
+    progress?.advance();
 
+    progress?.start('loadingProcesses');
     const itemSets={};
     const ordersNeedingItems=[];
     for(const order of trackedOrders){
@@ -386,12 +417,13 @@
       if(cached&&cached.orderToken===currentOrderToken&&Array.isArray(cached.items)) itemSets[orderId]=cached.items;
       else ordersNeedingItems.push(orderId);
     }
-    Object.assign(itemSets,await loadItemSets(ordersNeedingItems,readStats));
+    Object.assign(itemSets,await loadItemSets(ordersNeedingItems,readStats,progress));
     const productIds=[...new Set(Object.values(itemSets).flat().map(item=>item.productId).filter(Boolean))];
     const productsNeedingLoad=productIds.filter(productId=>(productsChanged&&!canLoadProductDelta)
       ||!Object.prototype.hasOwnProperty.call(next.products,productId));
-    const loadedProducts=await loadProducts(productsNeedingLoad,readStats);
+    const loadedProducts=await loadProducts(productsNeedingLoad,readStats,progress);
     Object.assign(next.products,loadedProducts);
+    progress?.finish();
 
     function processToken(processes){
       return processes.map(item=>[item.totalId,item.productId,item.processId,item.orderQty,item.seconds].join('|')).sort().join('||');
@@ -428,19 +460,24 @@
     const changedRanges=contexts.filter(context=>context.canLoadTotalDelta)
       .map(context=>({orderId:context.orderId,afterUpdatedAt:context.deltaAfterUpdatedAt}));
     const legacyContexts=contexts.filter(item=>item.legacyProbe);
-    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses,readStats);
+    progress?.start('loadingTotals');
+    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses,readStats,progress);
     let changedQuantities={};
     let deltaIndexAvailable=true;
-    try{ changedQuantities=await loadChangedQuantities(changedRanges,readStats); }
+    try{ changedQuantities=await loadChangedQuantities(changedRanges,readStats,progress); }
     catch(error){
       if(!text(error?.code).toLowerCase().includes('failed-precondition')) throw error;
       deltaIndexAvailable=false;
       console.warn('Chỉ mục cập nhật tiến độ chưa sẵn sàng; dùng cách đọc đầy đủ / 進度增量索引尚未可用，改用完整讀取');
       const fallbackProcesses=contexts.filter(context=>context.canLoadTotalDelta).flatMap(context=>context.processes);
-      Object.assign(loadedQuantities,await loadRegisteredQuantities(fallbackProcesses,readStats));
+      Object.assign(loadedQuantities,await loadRegisteredQuantities(fallbackProcesses,readStats,progress));
     }
+    progress?.finish();
+    progress?.start('processingLegacy');
     const legacyState=await loadLegacyQuantities(legacyContexts.map(item=>item.orderId),
-      legacyContexts.flatMap(item=>item.processes),readStats);
+      legacyContexts.flatMap(item=>item.processes),readStats,progress);
+    progress?.finish();
+    progress?.start('calculating',Math.max(1,contexts.length));
     const result=new Map();
     for(const item of contexts){
       let registeredQuantities=item.registeredQuantities;
@@ -460,7 +497,9 @@
         progressRevision:item.currentRevision,progressUpdatedAt:item.currentUpdatedAt,items:itemSets[item.orderId],hasProductionData,
         registeredQuantities,calculation};
       result.set(item.orderId,calculation);
+      progress?.advance();
     }
+    progress?.finish();
     orders.filter(isCompletedOrder).forEach(order=>{
       const orderId=text(order.id);
       const cachedOrder=cache.orders[orderId];
@@ -474,9 +513,11 @@
     next.readStats=copyReadStats(readStats);
     console.info('Thống kê đọc tiến độ đơn hàng / 訂單進度讀取統計',copyReadStats(readStats));
     keepSessionCache(next);
+    progress?.start('savingCache',1);
     let persisted=false;
     try{ persisted=await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|${latestProductToken}`,next)===true; }
     catch(error){ console.warn('Không thể lưu bộ nhớ đệm tiến độ / 無法保存進度快取',error); }
+    progress?.advance();
     if(!persisted){
       next.refreshState='failed';
       keepSessionCache(next);
@@ -486,10 +527,12 @@
       writeAttemptMarker(periodKey,'success',next,attemptType);
     }
     lastStatus=cacheStatus(next,periodKey);
+    if(persisted) progress?.done();
+    else progress?.fail();
     return {values:result,attempted:true,reason:persisted?'success':'failed'};
   }
 
-  function executeLoad(orders,attemptType='auto'){
+  function executeLoad(orders,attemptType='auto',options={}){
     const list=(Array.isArray(orders)?orders:[]).filter(order=>text(order?.id));
     if(!list.length) return Promise.resolve({values:new Map(),attempted:false,reason:'no-orders'});
     const periodKey=refreshPeriodKey();
@@ -498,14 +541,15 @@
     // 當期額度已使用時先讀本機結果，不得被另一類型的更新鎖拖住。
     const marker=readAttemptMarker(periodKey,attemptType);
     if(marker) return cachedResult(list,'already-attempted',marker);
+    const progress=createProgressReporter(options?.onProgress);
     let promise;
     promise=withRefreshLock(async()=>{
-      try{return await loadInternal(list,{attemptType});}
+      try{return await loadInternal(list,{attemptType,progress});}
       catch(error){
         let stored=sessionCache();
         try{ stored=await window.pcmsDataCache?.read(CACHE_SCOPE)||stored; }
         catch(readError){ console.warn('Không thể đọc bộ nhớ đệm tiến độ / 無法讀取進度快取',readError); }
-        return markRefreshFailure(list,stored,refreshPeriodKey(),error,attemptType);
+        return markRefreshFailure(list,stored,refreshPeriodKey(),error,attemptType,null,progress);
       }
     }).finally(()=>{
       if(activePromises.get(key)===promise) activePromises.delete(key);
@@ -514,8 +558,8 @@
     return promise;
   }
 
-  function load(orders){ return executeLoad(orders,'auto').then(result=>result.values); }
-  function manualRefresh(orders){ return executeLoad(orders,'manual'); }
+  function load(orders,options={}){ return executeLoad(orders,'auto',options).then(result=>result.values); }
+  function manualRefresh(orders,options={}){ return executeLoad(orders,'manual',options); }
   function manualStatus(timestamp=Date.now()){
     const periodKey=refreshPeriodKey(timestamp);
     const marker=readAttemptMarker(periodKey,'manual');

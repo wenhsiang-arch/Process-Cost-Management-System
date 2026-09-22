@@ -547,12 +547,32 @@
   font-variant-numeric: tabular-nums;
 }
 #pg-progress .orders-progress-refresh-status {
+  display: inline-flex;
+  min-height: 40px;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 6px 12px;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-helper);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-#pg-progress .orders-progress-refresh-status.is-failed { color: var(--ui-color-danger-text); }
+#pg-progress .orders-progress-refresh-status .ui-bilingual {
+  line-height: 1.12;
+}
+#pg-progress .orders-progress-refresh-status.is-working {
+  border-color: var(--ui-color-success-border);
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+}
+#pg-progress .orders-progress-refresh-status.is-failed {
+  border-color: var(--ui-color-danger-border);
+  background: var(--ui-color-danger-background);
+  color: var(--ui-color-danger-text);
+}
 #pg-progress .orders-production-progress {
   display: block;
   width: 100%;

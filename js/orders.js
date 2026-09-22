@@ -8,6 +8,9 @@ let progressRenderSequence = 0;
 let orderProgressRefreshInFlight = false; // orderProgressRefreshInFlight（進度更新執行狀態）：避免自動與手動更新同時操作。
 let currentProgressOrders = []; // currentProgressOrders（目前全部未出貨訂單）：手動更新不受畫面篩選影響。
 const orderProgressValues = new Map(); // orderProgressValues（訂單實際進度）：完成時保存跨裝置一致的進度快照。
+let orderProgressStatusInterval = 0; // orderProgressStatusInterval（進度狀態倒數計時器）。
+let orderProgressStatusRestoreTimer = 0; // orderProgressStatusRestoreTimer（完成／失敗提示恢復計時器）。
+let orderProgressWorkStatus = null; // orderProgressWorkStatus（目前更新階段與預估時間）。
 const orderCompletionRequests = new Set(); // orderCompletionRequests（完成狀態儲存中訂單）：避免重複點擊。
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
 const inspectionReportExportRequests = new Set(); // inspectionReportExportRequests（匯出入口執行中的訂單，避免載入程式期間連點）
@@ -1065,12 +1068,88 @@ function formatOrderProgressRefreshTime(timestamp){
   }).format(new Date(Number(timestamp)));
 }
 
+const ORDER_PROGRESS_PHASE_COPY=Object.freeze({
+  checkingVersions:{vi:'Đang kiểm tra phiên bản tiến độ đơn hàng',zh:'正在檢查訂單進度版本'},
+  checkingProducts:{vi:'Đang xác nhận mã hàng có thay đổi',zh:'正在確認有變動的款號'},
+  loadingProcesses:{vi:'Đang tải công đoạn đơn hàng',zh:'正在載入訂單工序'},
+  loadingTotals:{vi:'Đang đọc tổng sản lượng sản xuất',zh:'正在讀取生產累計'},
+  processingLegacy:{vi:'Đang xử lý dữ liệu đơn hàng cũ',zh:'正在處理舊訂單資料'},
+  calculating:{vi:'Đang tính tiến độ sản xuất',zh:'正在計算生產進度'},
+  savingCache:{vi:'Đang lưu bộ nhớ đệm cục bộ',zh:'正在儲存本機快取'},
+  complete:{vi:'Cập nhật hoàn tất',zh:'更新完成'}
+});
+
+function clearOrderProgressStatusTimers({restore=true}={}){
+  if(orderProgressStatusInterval){window.clearInterval(orderProgressStatusInterval);orderProgressStatusInterval=0;}
+  if(restore&&orderProgressStatusRestoreTimer){window.clearTimeout(orderProgressStatusRestoreTimer);orderProgressStatusRestoreTimer=0;}
+}
+
+function orderProgressWorkCopy(work,now=Date.now()){
+  const phase=ORDER_PROGRESS_PHASE_COPY[work?.phase]||ORDER_PROGRESS_PHASE_COPY.checkingVersions;
+  const total=Math.max(0,Math.trunc(Number(work?.total)||0));
+  const completed=Math.max(0,Math.min(total,Math.trunc(Number(work?.completed)||0)));
+  const batch=total>1?{vi:` (${completed}/${total})`,zh:`（${completed}／${total}）`}:{vi:'',zh:''};
+  let estimate={vi:'',zh:''};
+  if(Number(work?.estimatedSeconds)>0&&completed<total){
+    const elapsedAfterReport=Math.max(0,Number(now)-Number(work?.reportedAt||now))/1000;
+    const remaining=Math.ceil(Number(work.estimatedSeconds)-elapsedAfterReport);
+    estimate=remaining>0
+      ?{vi:` · Còn khoảng ${remaining} giây`,zh:`・預估剩餘 ${remaining} 秒`}
+      :{vi:' · Đang tiếp tục xử lý',zh:'・仍在處理'};
+  }
+  return {vi:`${phase.vi}${batch.vi}${estimate.vi}`,zh:`${phase.zh}${batch.zh}${estimate.zh}`};
+}
+
+function paintOrderProgressWorkStatus(){
+  const host=g('orders-progress-refresh-status');
+  if(!host||!orderProgressWorkStatus) return;
+  const copy=orderProgressWorkCopy(orderProgressWorkStatus);
+  host.replaceChildren(window.PCMSUIText?.create?.(copy)||document.createTextNode(copy.zh));
+}
+
+function renderOrderProgressWorkStatus(event){
+  const host=g('orders-progress-refresh-status');
+  if(!host||!event) return;
+  clearOrderProgressStatusTimers();
+  host.classList.remove('is-failed');
+  if(event.state==='running'){
+    const completed=Math.max(0,Math.trunc(Number(event.completed)||0));
+    const total=Math.max(0,Math.trunc(Number(event.total)||0));
+    const elapsedMs=Math.max(0,Number(event.elapsedMs)||0);
+    const estimatedSeconds=completed>0&&total>completed?Math.max(1,elapsedMs/1000/completed*(total-completed)):0;
+    orderProgressWorkStatus={...event,completed,total,reportedAt:Date.now(),estimatedSeconds};
+    host.classList.add('is-working');
+    host.setAttribute('aria-busy','true');
+    paintOrderProgressWorkStatus();
+    orderProgressStatusInterval=window.setInterval(paintOrderProgressWorkStatus,1000);
+    return;
+  }
+  orderProgressWorkStatus=null;
+  host.removeAttribute('aria-busy');
+  host.classList.toggle('is-working',event.state==='complete');
+  host.classList.toggle('is-failed',event.state==='failed');
+  const phase=ORDER_PROGRESS_PHASE_COPY[event.phase]||ORDER_PROGRESS_PHASE_COPY.checkingVersions;
+  const copy=event.state==='complete'?ORDER_PROGRESS_PHASE_COPY.complete:{
+    vi:`Cập nhật thất bại khi: ${phase.vi.replace(/^Đang\s+/,'')}`,
+    zh:`更新失敗：${phase.zh.replace(/^正在/,'')}`
+  };
+  host.replaceChildren(window.PCMSUIText?.create?.(copy)||document.createTextNode(copy.zh));
+  orderProgressStatusRestoreTimer=window.setTimeout(()=>{
+    orderProgressStatusRestoreTimer=0;
+    renderOrderProgressRefreshStatus(window.PCMSOrderProductionProgress?.status?.());
+  },event.state==='complete'?1200:2400);
+}
+
 function renderOrderProgressRefreshStatus(status){
   const host=g('orders-progress-refresh-status');
   if(!host) return;
+  clearOrderProgressStatusTimers();
+  orderProgressWorkStatus=null;
   const time=formatOrderProgressRefreshTime(status?.refreshedAt);
   const failed=status?.state==='failed';
+  host.classList.remove('is-working');
   host.classList.toggle('is-failed',failed);
+  host.removeAttribute('aria-busy');
   const copy=failed
     ?(time?{vi:`Cập nhật hôm nay thất bại · Dữ liệu lần trước: ${time}`,zh:`今日更新失敗・上次更新：${time}`}
       :{vi:'Cập nhật hôm nay thất bại · Chưa có dữ liệu tiến độ',zh:'今日更新失敗・尚無進度資料'})
@@ -1122,9 +1201,9 @@ async function requestManualOrderProgressRefresh(){
     host.innerHTML=renderOrderProductionProgressLoading();
   });
   try{
-    const result=await api.manualRefresh(currentProgressOrders);
+    const result=await api.manualRefresh(currentProgressOrders,{onProgress:renderOrderProgressWorkStatus});
     currentProgressOrders.forEach(order=>renderOrderProductionProgressState(order.id,result.values.get(order.id)));
-    renderOrderProgressRefreshStatus(api.status?.());
+    if(!orderProgressStatusRestoreTimer&&!orderProgressWorkStatus) renderOrderProgressRefreshStatus(api.status?.());
     if(result.reason==='success'){
       await ordersMessage('Đã cập nhật tiến độ sản xuất.','生產進度已更新。','success');
     }else if(result.reason==='failed'){
@@ -1257,10 +1336,14 @@ async function refreshOrderProductionProgress(orders,renderSequence){
   orderProgressRefreshInFlight=true;
   updateOrderProgressManualButton();
   try{
-    const values=await window.PCMSOrderProductionProgress.load(orders);
+    const values=await window.PCMSOrderProductionProgress.load(orders,{onProgress:event=>{
+      if(renderSequence===progressRenderSequence) renderOrderProgressWorkStatus(event);
+    }});
     if(renderSequence!==progressRenderSequence) return;
     orders.forEach(order=>renderOrderProductionProgressState(order.id,values.get(order.id)));
-    renderOrderProgressRefreshStatus(window.PCMSOrderProductionProgress.status?.());
+    if(!orderProgressStatusRestoreTimer&&!orderProgressWorkStatus){
+      renderOrderProgressRefreshStatus(window.PCMSOrderProductionProgress.status?.());
+    }
   }catch(error){
     if(renderSequence!==progressRenderSequence) return;
     orders.forEach(order=>{
