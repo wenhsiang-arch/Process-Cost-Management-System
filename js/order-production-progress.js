@@ -14,6 +14,7 @@
   const REFRESH_HOUR=6;
   const REFRESH_SHIFT_MS=REFRESH_HOUR*60*60*1000;
   const ATTEMPT_MARKER_PREFIX='pcms-order-production-progress-attempt-v1';
+  const MANUAL_ATTEMPT_MARKER_PREFIX='pcms-order-production-progress-manual-attempt-v1';
   const activePromises=new Map();
   let sessionRecord=null;
   let lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
@@ -68,20 +69,21 @@
     const userId=currentUserId();
     if(userId&&validCache(cache)) sessionRecord={userId,cache};
   }
-  function attemptMarkerKey(){
+  function attemptMarkerKey(attemptType='auto'){
     const userId=currentUserId();
-    return userId?`${ATTEMPT_MARKER_PREFIX}:${userId}`:'';
+    const prefix=attemptType==='manual'?MANUAL_ATTEMPT_MARKER_PREFIX:ATTEMPT_MARKER_PREFIX;
+    return userId?`${prefix}:${userId}`:'';
   }
-  function readAttemptMarker(periodKey){
-    const key=attemptMarkerKey();
+  function readAttemptMarker(periodKey,attemptType='auto'){
+    const key=attemptMarkerKey(attemptType);
     if(!key) return null;
     try{
       const marker=JSON.parse(window.localStorage?.getItem(key)||'null');
       return marker?.periodKey===periodKey?marker:null;
     }catch(error){ return null; }
   }
-  function writeAttemptMarker(periodKey,state,values={}){
-    const key=attemptMarkerKey();
+  function writeAttemptMarker(periodKey,state,values={},attemptType='auto'){
+    const key=attemptMarkerKey(attemptType);
     if(!key) return false;
     try{
       window.localStorage?.setItem(key,JSON.stringify({schemaVersion:1,periodKey,state,
@@ -200,7 +202,7 @@
     return {percent,requiredSeconds,registeredSeconds,remainingSeconds:Math.max(0,requiredSeconds-registeredSeconds),processCount:processes.length};
   }
 
-  async function markRefreshFailure(orders,stored,periodKey,error){
+  async function markRefreshFailure(orders,stored,periodKey,error,attemptType='auto'){
     const cache=validCache(stored)?stored:blankCache();
     cache.refreshPeriod=periodKey;
     cache.refreshState='failed';
@@ -208,32 +210,33 @@
     keepSessionCache(cache);
     try{ await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|failed`,cache); }
     catch(writeError){ console.warn('Không thể lưu trạng thái cập nhật / 無法保存更新狀態',writeError); }
-    writeAttemptMarker(periodKey,'failed',cache);
+    writeAttemptMarker(periodKey,'failed',cache,attemptType);
     lastStatus=cacheStatus(cache,periodKey);
     console.warn('Không thể cập nhật tiến độ; giữ dữ liệu lần trước / 進度更新失敗，保留上次資料',error);
-    return cachedCalculations(orders,cache);
+    return {values:cachedCalculations(orders,cache),attempted:true,reason:'failed'};
   }
 
-  async function loadInternal(orders){
+  async function loadInternal(orders,{attemptType='auto'}={}){
     const orderIds=orders.map(order=>text(order.id)).filter(Boolean);
     const periodKey=refreshPeriodKey();
-    if(!orderIds.length) return new Map();
+    const manual=attemptType==='manual';
+    if(!orderIds.length) return {values:new Map(),attempted:false,reason:'no-orders'};
     let persistentCache=null;
     try{ persistentCache=await window.pcmsDataCache?.read(CACHE_SCOPE); }
-    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error); }
+    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error,attemptType); }
     const memoryCache=sessionCache();
     const stored=validCache(memoryCache)&&memoryCache.refreshPeriod===periodKey
       ?memoryCache:(validCache(persistentCache)?persistentCache:memoryCache);
-    if(validCache(stored)&&stored.refreshPeriod===periodKey){
+    const marker=readAttemptMarker(periodKey,attemptType);
+    if(!manual&&marker&&validCache(stored)&&stored.refreshPeriod===periodKey){
       lastStatus=cacheStatus(stored,periodKey);
-      return cachedCalculations(orders,stored);
+      return {values:cachedCalculations(orders,stored),attempted:false,reason:'cached'};
     }
-    const marker=readAttemptMarker(periodKey);
     if(marker){
       lastStatus=markerStatus(marker,stored,periodKey);
-      return cachedCalculations(orders,stored);
+      return {values:cachedCalculations(orders,stored),attempted:false,reason:'already-attempted'};
     }
-    writeAttemptMarker(periodKey,'running',{attemptedAt:Date.now(),refreshedAt:stored?.refreshedAt});
+    writeAttemptMarker(periodKey,'running',{attemptedAt:Date.now(),refreshedAt:stored?.refreshedAt},attemptType);
     let metaSnapshot;
     let versionState;
     try{
@@ -242,10 +245,10 @@
         loadVersionMap(orderIds)
       ]);
     }catch(error){
-      return markRefreshFailure(orders,stored,periodKey,error);
+      return markRefreshFailure(orders,stored,periodKey,error,attemptType);
     }
     if(!versionState.available){
-      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'));
+      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'),attemptType);
     }
     const cache=validCache(stored)?stored:blankCache();
     const next=blankCache();
@@ -308,41 +311,51 @@
     if(!persisted){
       next.refreshState='failed';
       keepSessionCache(next);
-      writeAttemptMarker(periodKey,'failed',next);
+      writeAttemptMarker(periodKey,'failed',next,attemptType);
       console.warn('Không thể lưu bộ nhớ đệm tiến độ; không thử lại trong hôm nay / 無法保存進度快取，本日不再重試');
     }else{
-      writeAttemptMarker(periodKey,'success',next);
+      writeAttemptMarker(periodKey,'success',next,attemptType);
     }
     lastStatus=cacheStatus(next,periodKey);
-    return result;
+    return {values:result,attempted:true,reason:persisted?'success':'failed'};
   }
 
-  function load(orders){
+  function executeLoad(orders,attemptType='auto'){
     const list=(Array.isArray(orders)?orders:[]).filter(order=>text(order?.id));
-    if(!list.length) return Promise.resolve(new Map());
+    if(!list.length) return Promise.resolve({values:new Map(),attempted:false,reason:'no-orders'});
     const periodKey=refreshPeriodKey();
-    const key=`${currentUserId()}|${periodKey}`;
+    const key=`${currentUserId()}|${periodKey}|${attemptType}`;
     if(activePromises.has(key)) return activePromises.get(key);
     const promise=withRefreshLock(async()=>{
-      try{return await loadInternal(list);}
+      try{return await loadInternal(list,{attemptType});}
       catch(error){
         let stored=sessionCache();
         try{ stored=await window.pcmsDataCache?.read(CACHE_SCOPE)||stored; }
         catch(readError){ console.warn('Không thể đọc bộ nhớ đệm tiến độ / 無法讀取進度快取',readError); }
-        return markRefreshFailure(list,stored,refreshPeriodKey(),error);
+        return markRefreshFailure(list,stored,refreshPeriodKey(),error,attemptType);
       }
     }).finally(()=>activePromises.delete(key));
     activePromises.set(key,promise);
     return promise;
   }
 
+  function load(orders){ return executeLoad(orders,'auto').then(result=>result.values); }
+  function manualRefresh(orders){ return executeLoad(orders,'manual'); }
+  function manualStatus(timestamp=Date.now()){
+    const periodKey=refreshPeriodKey(timestamp);
+    const marker=readAttemptMarker(periodKey,'manual');
+    return Object.freeze({periodKey,available:!marker,state:text(marker?.state)||'available',
+      attemptedAt:number(marker?.attemptedAt),refreshedAt:number(marker?.refreshedAt)});
+  }
+
   function status(){ return lastStatus; }
   function reset(){
     activePromises.clear();sessionRecord=null;
     lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
-    const markerKey=attemptMarkerKey();
-    if(markerKey){ try{ window.localStorage?.removeItem(markerKey); }catch(error){} }
+    [attemptMarkerKey('auto'),attemptMarkerKey('manual')].filter(Boolean).forEach(markerKey=>{
+      try{ window.localStorage?.removeItem(markerKey); }catch(error){}
+    });
     return window.pcmsDataCache?.remove(CACHE_SCOPE);
   }
-  window.PCMSOrderProductionProgress=Object.freeze({load,status,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
+  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
 })();

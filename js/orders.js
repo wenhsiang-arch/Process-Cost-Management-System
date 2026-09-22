@@ -5,6 +5,8 @@ let ordersLoadPromise = null;
 const processLoadPromises = new Map(); // processLoadPromises（各訂單工序載入工作）
 const loadedProcessVersions = new Map(); // loadedProcessVersions（已載入訂單工序版本）
 let progressRenderSequence = 0;
+let orderProgressRefreshInFlight = false; // orderProgressRefreshInFlight（進度更新執行狀態）：避免自動與手動更新同時操作。
+let currentProgressOrders = []; // currentProgressOrders（目前全部未出貨訂單）：手動更新不受畫面篩選影響。
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
 const inspectionReportExportRequests = new Set(); // inspectionReportExportRequests（匯出入口執行中的訂單，避免載入程式期間連點）
 let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（訂單全視窗匯入用途是否已登記）
@@ -53,14 +55,14 @@ function openOrderGuide(){
       {label:'Đã xuất hàng: ',text:'Chọn ngày xuất thực tế, sau đó nhấn nút xe tải để chuyển đơn sang mục Đơn hàng đã xuất; có thể hủy xác nhận tại đó để đưa đơn trở lại.'},
       {label:'Xuất báo cáo: ',text:'Đơn HUNTER có nút bảng tính để xuất báo cáo kiểm tra; trước khi xuất phải chọn tên tệp và vị trí lưu.'},
       {label:'Màu ngày PO: ',text:'Màu xanh đậm là còn không quá 14 ngày; màu đỏ là đã quá hạn nhưng chưa xuất; màu thường là còn trên 14 ngày.'},
-      {label:'Tiến độ sản xuất: ',text:'Mỗi tài khoản trên mỗi máy chỉ tự động cập nhật một lần trong kỳ từ 06:00 hôm nay đến 05:59 hôm sau; thay đổi sau lần cập nhật sẽ hiển thị trong kỳ kế tiếp.'}
+      {label:'Tiến độ sản xuất: ',text:'Mỗi tài khoản trên mỗi máy có một lần tự động và một lần thủ công trong kỳ 06:00–05:59 hôm sau. Lần thủ công thất bại vẫn được tính là đã dùng.'}
     ]),
     createOrderGuideSection('zh','訂單頁使用說明',[
       {label:'封存：',text:'禁止符號會將訂單移出使用中清單，但資料仍會保留；可到「已封存訂單」查看及還原。'},
       {label:'已出貨：',text:'先選擇實際出貨日，再按貨車按鈕移到「已出貨訂單」；可在該分頁取消確認並移回主表。'},
       {label:'報表匯出：',text:'HUNTER 訂單會顯示表格檔按鈕，可匯出檢驗報告；匯出前需選擇檔名與儲存位置。'},
       {label:'PO 日期顏色：',text:'深藍色代表剩餘 14 天以內；紅色代表已逾期且尚未出貨；一般字色代表超過 14 天。'},
-      {label:'生產進度：',text:'每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期只自動更新一次；更新後才新增的產能會在下一個週期顯示。'}
+      {label:'生產進度：',text:'每個帳號在每台電腦，每個「當日 06:00 至隔日 05:59」週期各有一次自動更新及一次手動更新；手動更新失敗也會計入當日次數。'}
     ])
   );
   return window.PCMSUIComponents.alertDialog({
@@ -935,6 +937,72 @@ function renderOrderProgressRefreshStatus(status){
   host.replaceChildren(window.PCMSUIText?.create?.(copy)||document.createTextNode(copy.zh));
 }
 
+function updateOrderProgressManualButton(){
+  const button=g('orders-progress-manual-refresh');
+  if(!button) return;
+  const api=window.PCMSOrderProductionProgress;
+  const available=api?.manualStatus?.().available===true;
+  button.disabled=orderProgressRefreshInFlight||!currentProgressOrders.length||!api?.manualRefresh||!available;
+  if(orderProgressRefreshInFlight) button.setAttribute?.('aria-busy','true');
+  else button.removeAttribute?.('aria-busy');
+}
+
+async function requestManualOrderProgressRefresh(){
+  const api=window.PCMSOrderProductionProgress;
+  if(orderProgressRefreshInFlight) return false;
+  if(!currentProgressOrders.length){
+    await ordersMessage('Không có đơn hàng chưa xuất để cập nhật.','目前沒有未出貨訂單可更新。','warning');
+    updateOrderProgressManualButton();
+    return false;
+  }
+  if(!api?.manualRefresh){
+    await ordersMessage('Chức năng cập nhật tiến độ chưa sẵn sàng.','生產進度更新功能尚未就緒。','warning');
+    return false;
+  }
+  if(api.manualStatus?.().available!==true){
+    await ordersMessage('Lần cập nhật thủ công hôm nay đã được dùng. Vui lòng chờ sau 06:00 ngày mai.',
+      '今日的手動更新次數已使用，請等到明日 06:00 後。','warning');
+    updateOrderProgressManualButton();
+    return false;
+  }
+  const confirmed=await ordersConfirm('Cập nhật tiến độ sản xuất','更新生產進度',
+    'Mỗi kỳ 06:00–05:59 chỉ được cập nhật thủ công một lần. Nếu cập nhật thất bại, lượt hôm nay vẫn được tính là đã dùng. Tiếp tục?',
+    '每個 06:00–隔日 05:59 週期只能手動更新一次；若更新失敗，今日次數仍視為已使用。是否繼續？',
+    {confirmText:{vi:'Cập nhật',zh:'更新'}});
+  if(!confirmed) return false;
+  orderProgressRefreshInFlight=true;
+  updateOrderProgressManualButton();
+  currentProgressOrders.forEach(order=>{
+    const host=g(`order-production-progress-${order.id}`);
+    if(!host) return;
+    host.className='orders-production-progress is-loading';
+    host.setAttribute('aria-busy','true');
+    host.innerHTML=renderOrderProductionProgressLoading();
+  });
+  try{
+    const result=await api.manualRefresh(currentProgressOrders);
+    currentProgressOrders.forEach(order=>renderOrderProductionProgressState(order.id,result.values.get(order.id)));
+    renderOrderProgressRefreshStatus(api.status?.());
+    if(result.reason==='success'){
+      await ordersMessage('Đã cập nhật tiến độ sản xuất.','生產進度已更新。','success');
+    }else if(result.reason==='failed'){
+      await ordersMessage('Cập nhật thất bại. Hệ thống giữ dữ liệu lần trước; lượt thủ công hôm nay đã được dùng.',
+        '更新失敗，系統已保留上次資料；今日手動次數已使用。','danger');
+    }else if(result.reason==='already-attempted'){
+      await ordersMessage('Lần cập nhật thủ công hôm nay đã được dùng.','今日的手動更新次數已使用。','warning');
+    }
+    return result.reason==='success';
+  }catch(error){
+    console.error('Không thể cập nhật tiến độ thủ công / 無法手動更新生產進度',error);
+    await ordersMessage('Cập nhật thất bại. Hệ thống giữ dữ liệu lần trước; lượt thủ công hôm nay đã được dùng.',
+      '更新失敗，系統已保留上次資料；今日手動次數已使用。','danger');
+    return false;
+  }finally{
+    orderProgressRefreshInFlight=false;
+    updateOrderProgressManualButton();
+  }
+}
+
 function renderOrderProductionProgressLoading(){
   return `<div class="ui-progress is-indeterminate orders-production-progress-loading" aria-hidden="true">
       <div class="ui-progress-track"><div class="ui-progress-bar"></div></div>
@@ -1038,6 +1106,8 @@ async function printOrdersTable(){
 
 async function refreshOrderProductionProgress(orders,renderSequence){
   if(!window.PCMSOrderProductionProgress?.load) return;
+  orderProgressRefreshInFlight=true;
+  updateOrderProgressManualButton();
   try{
     const values=await window.PCMSOrderProductionProgress.load(orders);
     if(renderSequence!==progressRenderSequence) return;
@@ -1053,6 +1123,9 @@ async function refreshOrderProductionProgress(orders,renderSequence){
       host.replaceChildren(window.PCMSUIText?.create?.({vi:'Không thể tính',zh:'無法計算'})||document.createTextNode('—'));
     });
     console.error('Không thể tải tiến độ sản xuất / 無法載入生產進度',error);
+  }finally{
+    orderProgressRefreshInFlight=false;
+    updateOrderProgressManualButton();
   }
 }
 
@@ -1064,6 +1137,8 @@ async function renderProgress(){
   try{
     let orders=usableOrders().filter(order=>orderShipmentStatus(order)==='pending');
     const progressOrders=orders.slice(); // 每日進度更新固定涵蓋全部未出貨訂單；訂單選單只影響畫面顯示。
+    currentProgressOrders=progressOrders;
+    updateOrderProgressManualButton();
     updatePendingQuantitySummary(orders);
     if(ordId) orders=orders.filter(order=>order.id===ordId);
     if(renderSequence!==progressRenderSequence) return;

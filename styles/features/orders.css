@@ -254,6 +254,21 @@
 }
 
 #pg-progress .orders-progress-actions { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+#pg-progress .orders-progress-header-actions {
+  display: flex;
+  min-width: 0;
+  margin-left: auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+}
+#pg-progress .orders-progress-manual-refresh {
+  min-height: 40px;
+  padding: 6px 12px;
+  gap: 7px;
+  white-space: nowrap;
+}
+#pg-progress .orders-progress-manual-refresh .ui-dual-copy { line-height: 1.12; }
 #pg-progress .orders-pending-quantity {
   padding: 7px 12px;
   border: 1px solid var(--ui-color-info-border);
@@ -264,7 +279,6 @@
   font-variant-numeric: tabular-nums;
 }
 #pg-progress .orders-progress-refresh-status {
-  margin-left: auto;
   color: var(--ui-color-text-muted);
   font-size: var(--ui-font-size-helper);
   font-variant-numeric: tabular-nums;
