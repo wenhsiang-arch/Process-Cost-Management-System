@@ -2,7 +2,7 @@
 let detailImportFileName='', importImpactPlan=null;
 let dataImportProgressController=null; // dataImportProgressController（產品匯入共用進度視窗控制介面）
 let productFileDropTargetRegistered=false; // productFileDropTargetRegistered（款號全視窗匯入用途是否已登記）
-const PROCESS_CATEGORIES={BL:'備料',TC:'穿扣',SX:'生產',HC:'剪線烘線',QC:'品檢',DG:'包裝'};
+const PROCESS_CATEGORIES={BL:'備料',TC:'普工',SX:'生產',HC:'後整',QC:'品檢',DG:'包裝'};
 const PRODUCT_IMPORT_HEADER_SCAN_LIMIT=20; // PRODUCT_IMPORT_HEADER_SCAN_LIMIT（款號匯入表頭搜尋列數）：只在檔案前 20 列尋找完整表頭。
 const PRODUCT_IMPORT_COLUMNS=Object.freeze([
   {key:'code',vi:'Mã hàng',zh:'款號',required:true,aliases:['款號','Mã hàng','款號 Mã hàng']},
