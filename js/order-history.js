@@ -1,10 +1,6 @@
-// orderHistory（訂單歷史操作分頁）：按需讀取既有操作紀錄，不另外載入訂單或明細資料。
+// orderHistory（歷史操作紀錄分頁）：按需讀取整個訂單主功能的既有操作紀錄。
 (function(){
   const PAGE_SIZE=50;
-  const ACTIONS=Object.freeze([
-    'orderImport','orderItemQuantityUpdate','orderUpdate','orderArchive','orderRestore',
-    'orderShipmentConfirm','orderShipmentCancel','orderProductionProgressComplete','orderProductionProgressResume'
-  ]);
   const ACTION_LABELS=Object.freeze({
     orderImport:['Nhập đơn hàng','匯入訂單'],
     orderItemQuantityUpdate:['Điều chỉnh số lượng','調整數量'],
@@ -14,7 +10,18 @@
     orderShipmentConfirm:['Xác nhận đã xuất hàng','確認已出貨'],
     orderShipmentCancel:['Hủy xác nhận xuất hàng','取消出貨確認'],
     orderProductionProgressComplete:['Xác nhận đơn hoàn thành','確認訂單完成'],
-    orderProductionProgressResume:['Hủy trạng thái hoàn thành','取消完成狀態']
+    orderProductionProgressResume:['Hủy trạng thái hoàn thành','取消完成狀態'],
+    orderImportLockRepair:['Khôi phục khóa nhập đơn','修復訂單匯入鎖定'],
+    orderImportDiscardStarted:['Bắt đầu dọn dữ liệu nhập dở','開始清理未完成匯入'],
+    orderImportDiscardBatch:['Dọn dữ liệu nhập dở','清理未完成匯入'],
+    orderImportDiscardCompleted:['Hoàn tất dọn dữ liệu nhập dở','完成清理未完成匯入'],
+    orderPurgeStarted:['Bắt đầu xóa vĩnh viễn','開始永久刪除'],
+    orderPurgeBatch:['Xóa chi tiết đơn hàng','刪除訂單明細'],
+    orderPurgeCompleted:['Hoàn tất xóa vĩnh viễn','完成永久刪除'],
+    inspectionTemplateImport:['Nhập mẫu báo cáo kiểm tra','匯入品檢報告範本'],
+    inspectionTemplateDownload:['Tải mẫu báo cáo kiểm tra','下載品檢報告範本'],
+    inspectionTemplateDelete:['Xóa mẫu báo cáo kiểm tra','刪除品檢報告範本'],
+    inspectionReportExcelExport:['Xuất báo cáo kiểm tra','匯出品檢報告']
   });
   const FIELD_LABELS=Object.freeze({
     quantity:['Số lượng','數量'],dueDate:['Ngày xuất theo PO','出貨日期 PO'],
@@ -32,7 +39,8 @@
   const node=id=>document.getElementById(id);
   const escape=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const pair=(vi,zh)=>`<span class="ui-dual-copy"><strong>${escape(vi)}</strong><span>${escape(zh)}</span></span>`;
-  const queryOptions=()=>({permissionKey:'progress',actions:ACTIONS,limit:PAGE_SIZE});
+  const INTERNAL_NOTES=new Set(['actualShipDate','remark','notes','dueDate','completionDate','shipDate']);
+  const queryOptions=()=>({permissionKey:'progress',limit:PAGE_SIZE});
 
   function renderShell(){
     const root=node('order-history-root');
@@ -43,8 +51,8 @@
         <div class="order-history-command-row ui-command-row">
           <div class="order-history-context-grid ui-context-grid is-single">
             <div class="order-history-context-item ui-context-item"><i class="ti ti-history"></i><div class="ui-language-sections">
-              <div class="ui-language-section is-vi" lang="vi">Xem lại các thao tác quan trọng của đơn hàng. Dữ liệu chỉ được tải khi mở trang này.</div>
-              <div class="ui-language-section is-zh" lang="zh-Hant">查看訂單的重要操作；只有開啟本頁時才會讀取紀錄。</div>
+              <div class="ui-language-section is-vi" lang="vi">Xem lại thao tác của toàn bộ chức năng đơn hàng. Dữ liệu chỉ được tải khi mở trang này.</div>
+              <div class="ui-language-section is-zh" lang="zh-Hant">查看整個訂單主功能各分頁的操作；只有開啟本頁時才會讀取紀錄。</div>
             </div></div>
           </div>
           <div class="order-history-command-actions ui-command-actions">
@@ -53,15 +61,15 @@
         </div>
       </section>
       <section class="order-history-data-section ui-data-section">
-        <div class="order-history-section-header ui-section-header"><i class="ti ti-list-details"></i>${pair('Lịch sử thao tác đơn hàng','訂單歷史操作（最近 50 筆）')}<span id="order-history-count" class="order-history-count ui-helper-text"></span></div>
+        <div class="order-history-section-header ui-section-header"><i class="ti ti-list-details"></i>${pair('Lịch sử thao tác','歷史操作紀錄（最近 50 筆）')}<span id="order-history-count" class="order-history-count ui-helper-text"></span></div>
         <div class="order-history-table-frame ui-table-frame"><div class="ui-table-scroll">
           <table id="order-history-table" class="ui-table" data-ui-table-layout="special" data-ui-table-sticky="container">
             <thead><tr>
               <th class="order-history-time">${pair('Thời gian','操作時間')}</th>
+              <th class="order-history-operator">${pair('Người thao tác','操作者')}</th>
               <th class="order-history-target">${pair('Đơn hàng / Đối tượng','訂單／對象')}</th>
               <th class="order-history-action">${pair('Thao tác','操作內容')}</th>
               <th>${pair('Nội dung thay đổi','變更摘要')}</th>
-              <th class="order-history-operator">${pair('Người thao tác','操作者')}</th>
               <th class="order-history-result">${pair('Kết quả','結果')}</th>
             </tr></thead><tbody id="order-history-body"></tbody>
           </table>
@@ -98,19 +106,39 @@
     const changes=Array.isArray(log?.changes)?log.changes:[];
     if(!changes.length){
       const count=Number(log?.itemCount)||0;
-      const note=String(log?.note||'').trim();
-      return note?escape(note):(count?pair(`${count} mục`,`共 ${count} 筆`):'—');
+      const details=Number(log?.detailCount)||0;
+      if(log?.action==='inspectionTemplateImport') return pair(
+        `${log?.overwriteCount?'Thay mẫu':'Thêm mẫu'} · ${details} phần`,
+        `${log?.overwriteCount?'替換範本':'新增範本'} · ${details} 個分段`
+      );
+      if(log?.action==='inspectionTemplateDownload'||log?.action==='inspectionTemplateDelete'){
+        return details?pair(`${details} phần`,`共 ${details} 個分段`):pair('1 mẫu','1 份範本');
+      }
+      if(log?.action==='inspectionReportExcelExport') return pair(
+        `${count} trang tính · ${details} chi tiết`,`${count} 個款號分頁 · ${details} 筆明細`
+      );
+      return count?pair(`${count} mục`,`共 ${count} 筆`):'—';
     }
-    return `<div class="order-history-changes">${changes.map(change=>{
+    const note=String(log?.note||'');
+    const separator=note.includes('｜')?'｜':(note.includes('|')?'|':'');
+    const reason=separator?note.split(separator).slice(1).join(separator).trim():'';
+    const changeRows=changes.map(change=>{
       const label=FIELD_LABELS[change?.field]||[String(change?.field||'Thay đổi'),String(change?.field||'變更')];
       const before=formatValue(change,change?.before),after=formatValue(change,change?.after);
       return `<div><span class="order-history-field">${pair(label[0],label[1])}</span><span class="order-history-value">${escape(before)} <i class="ti ti-arrow-right"></i> ${escape(after)}</span></div>`;
-    }).join('')}</div>`;
+    }).join('');
+    const reasonRow=reason?`<div><span class="order-history-field">${pair('Lý do','原因')}</span><span class="order-history-value">${escape(reason)}</span></div>`:'';
+    return `<div class="order-history-changes">${changeRows}${reasonRow}</div>`;
   }
   function targetText(log){
     const note=String(log?.note||'').trim();
     const target=String(log?.targetId||'').trim();
-    if(log?.action==='orderItemQuantityUpdate') return target||'—';
+    const fileName=String(log?.fileName||'').trim();
+    if(log?.feature==='inspectionReport') return fileName||note||target||'—';
+    const separator=note.includes('｜')?'｜':(note.includes('|')?'|':'');
+    if(separator) return note.split(separator)[0].trim()||target||'—';
+    // 舊紀錄只保存欄位代碼，沒有可安全還原的顯示訂單號碼；寧可留白也不顯示內部代碼或文件識別碼。
+    if(INTERNAL_NOTES.has(note)) return '—';
     return note||target||'—';
   }
   function statusHtml(status){
@@ -126,7 +154,7 @@
     }else{
       body.innerHTML=state.rows.map(log=>{
         const label=ACTION_LABELS[log?.action]||['Thao tác khác','其他操作'];
-        return `<tr><td>${escape(formatTime(log?.createdAt))}</td><td>${escape(targetText(log))}</td><td>${pair(label[0],label[1])}</td><td>${changeSummary(log)}</td><td>${escape(log?.createdBy||log?.createdByUid||'—')}</td><td>${statusHtml(log?.status)}</td></tr>`;
+        return `<tr><td>${escape(formatTime(log?.createdAt))}</td><td>${escape(log?.createdBy||log?.createdByUid||'—')}</td><td>${escape(targetText(log))}</td><td>${pair(label[0],label[1])}</td><td>${changeSummary(log)}</td><td>${statusHtml(log?.status)}</td></tr>`;
       }).join('');
     }
     const count=node('order-history-count');

@@ -2,7 +2,7 @@
 (function(){
   const SCRIPT_URLS = Object.freeze({
     homeUpdates:'js/home-updates.js?v=20260908-1',
-    history:'js/history.js?v=20260906-1',
+    history:'js/history.js?v=20260923-2',
     fileIo:'js/file-io.js?v=20260918-1',
     settings:'js/settings.js?v=20260923-4',
     uiTableControls:'js/ui-table-controls.js?v=20260923-4',
@@ -20,7 +20,7 @@
     productQuickEdit:'js/product-quick-edit.js?v=20260923-4',
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
-    orderService:'js/order-service.js?v=20260923-4',
+    orderService:'js/order-service.js?v=20260923-5',
     orderProductionProgress:'js/order-production-progress.js?v=20260923-4',
     summary:'js/summary.js?v=20260923-4',
     data:'js/data.js?v=20260923-4',
@@ -33,7 +33,7 @@
     orders:'js/orders.js?v=20260923-4-order-history1',
     shippedOrders:'js/shipped-orders.js?v=20260922-4',
     orderArchive:'js/order-archive.js?v=20260916-2',
-    orderHistory:'js/order-history.js?v=20260923-1',
+    orderHistory:'js/order-history.js?v=20260923-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
     inspectionReport:'js/inspection-report.js?v=20260918-10',
     permissions:'js/permissions.js?v=20260823-1',
@@ -71,7 +71,7 @@
     cutting:'styles/features/cutting.css?v=20260923-4',
     pieceCutting:'styles/features/piece-cutting.css?v=20260923-4',
     orders:'styles/features/orders.css?v=20260923-4',
-    orderHistory:'styles/features/order-history.css?v=20260923-1',
+    orderHistory:'styles/features/order-history.css?v=20260923-2',
     inspectionReport:'styles/features/inspection-report.css?v=20260923-4',
     products:'styles/features/products.css?v=20260923-4',
     cost:'styles/features/cost.css?v=20260923-4',
@@ -110,16 +110,16 @@
           dataScopes:['orders','orderItems'],dataLoaders:['loadOrderData'],onOpen:['renderOrderArchive']
         },
         {
-          page:'order-history',feature:'progress',permissionVisible:false,icon:'ti-history',vi:'Lịch sử thao tác đơn hàng',zh:'訂單歷史操作',
-          styles:['orderHistory'],scripts:['history','orderHistory'],
-          dataScopes:['operationLogs'],dataLoaders:[],onOpen:['orderHistoryInit'],onLeave:['orderHistoryLeave']
-        },
-        {
           page:'inspection-report-template',feature:'progress',permissionVisible:false,icon:'ti-file-spreadsheet',
           vi:'Mẫu báo cáo kiểm tra',zh:'品檢報告範本',
           styles:['inspectionReport'],scripts:['history','fileIo','uiTableControls','inspectionReportStore','inspectionReport'],
           dataScopes:['inspectionReportTemplates','inspectionReportTemplateChunks'],dataLoaders:[],
           onOpen:['inspectionReportInit'],onLeave:['inspectionReportLeave']
+        },
+        {
+          page:'order-history',feature:'progress',permissionVisible:false,icon:'ti-history',vi:'Lịch sử thao tác',zh:'歷史操作紀錄',
+          styles:['orderHistory'],scripts:['history','orderHistory'],
+          dataScopes:['operationLogs'],dataLoaders:[],onOpen:['orderHistoryInit'],onLeave:['orderHistoryLeave']
         }
       ]
     },

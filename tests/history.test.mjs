@@ -14,7 +14,7 @@ function docs(count,prefix,start=0){
 }
 
 function createHistory(){
-  const reads={operationLogs:0,orderAdjustments:0};
+  const reads={operationLogs:0};
   const writes=[];
   const window={
     firebaseAuthUser:{uid:'user-001',displayName:'測試人員'},
@@ -30,9 +30,7 @@ function createHistory(){
     _getDocs:async statement=>{
       const name=statement.collectionName;
       reads[name]+=1;
-      const rows=name==='orderAdjustments'
-        ? (reads[name]===1?docs(50,'adjust'):docs(2,'adjust',50))
-        : docs(2,'operation');
+      const rows=docs(2,'operation');
       return {docs:rows,size:rows.length,empty:rows.length===0};
     },
     _newDocRef:name=>({id:'new-log-001',path:`${name}/new-log-001`}),
@@ -66,15 +64,4 @@ test('操作紀錄由共用程式建立固定操作者與數量欄位',async()=>
   assert.equal(saved.detailCount,8);
   assert.equal(writes.length,1);
   assert.equal(writes[0].data.action,'productImport');
-});
-
-test('訂單調整歷史使用五十筆游標繼續載入',async()=>{
-  const {history,reads}=createHistory();
-  const first=await history.loadOrderAdjustments({limit:50});
-  assert.equal(first.length,50);
-  assert.equal(history.hasMore('orderAdjustments',{limit:50}),true);
-  const second=await history.loadOrderAdjustments({limit:50,loadMore:true});
-  assert.equal(second.length,52);
-  assert.equal(reads.orderAdjustments,2);
-  assert.equal(history.hasMore('orderAdjustments',{limit:50}),false);
 });

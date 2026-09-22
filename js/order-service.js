@@ -192,7 +192,7 @@
           schemaVersion:2,permissionKey:'progress',feature:'orders',action:'orderImportLockRepair',status:'success',
           targetType:'order',targetId:candidateId,oldOrderId:repairedLock.orderDocumentId,lockId,
           operationLogId:repairLogId,itemCount:1,detailCount:1,createdAt:startedAt,
-          createdByUid:currentActor.uid,createdBy:currentActor.name
+          createdByUid:currentActor.uid,createdBy:currentActor.name,note:plan.header.orderId
         });
       },{skipDataVersions:true});
       const report=()=>options.onProgress?.({...progress,itemCount:progress.completedItems,
@@ -345,7 +345,7 @@
       transaction.set(logReference,{permissionKey:'progress',feature:'orders',action:'orderItemQuantityUpdate',
         status:'success',targetType:'orderItem',targetId:itemId,itemCount:1,detailCount:1,createdAt:now,
         createdByUid:currentActor.uid,createdBy:currentActor.name,changes:[{field:'quantity',before:remote.quantity,after:saved.quantity}],
-        note:text(options.reason).slice(0,500),operationLogId,schemaVersion:2});
+        note:`${text(orderSnapshot.data()?.orderId)}｜${text(options.reason)}`.slice(0,500),operationLogId,schemaVersion:2});
     },{skipDataVersions:true});
     return clone(saved);
   }
@@ -382,7 +382,7 @@
       transaction.set(logReference,{
         permissionKey:'progress',feature:'orders',action:'orderUpdate',status:'success',targetType:'order',targetId:target,
         itemCount:1,detailCount:Object.keys(allowed).length,changes:Object.entries(allowed).slice(0,50).map(([field,after])=>({field,after})),
-        note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
+        note:text(snapshot.data()?.orderId||options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
     },{skipDataVersions:options.touchOrdersVersion!==true});
@@ -416,7 +416,7 @@
       transaction.set(logReference,{
         permissionKey:'progress',feature:'orders',action,status:'success',targetType:'order',targetId:target,
         itemCount:1,detailCount:1,changes:[{field:'lifecycleStatus',before:before.lifecycleStatus,after:status}],
-        note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
+        note:text(before.orderId||options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
     });
@@ -458,7 +458,7 @@
         itemCount:1,detailCount:2,changes:[
           {field:'shipmentStatus',before:previousStatus,after:status},
           {field:'actualShipDate',before:before.actualShipDate||null,after:actualShipDate}
-        ],note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
+        ],note:text(before.orderId||options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
     });
@@ -501,7 +501,7 @@
         itemCount:1,detailCount:2,changes:[
           {field:'productionProgressCompleted',before:previousCompleted,after:requestedCompleted},
           {field:'productionProgressSnapshotPercent',before:previousPercent,after:snapshotPercent}
-        ],note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
+        ],note:text(before.orderId||options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
         operationLogId,schemaVersion:2
       });
     });

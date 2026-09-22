@@ -17,8 +17,14 @@ function runtime(){
   };
   getElementById('order-history-root');
   const calls=[];
-  const rows=[{id:'log-1',action:'orderItemQuantityUpdate',status:'success',targetId:'item-1',note:'Sửa số lượng',
-    createdAt:Date.UTC(2026,8,23,6),createdBy:'Quản lý',changes:[{field:'quantity',before:100,after:120}]}];
+  const rows=[
+    {id:'log-1',feature:'orders',action:'orderItemQuantityUpdate',status:'success',targetId:'item-1',note:'PO-001｜Điều chỉnh',
+      createdAt:Date.UTC(2026,8,23,6),createdBy:'Quản lý',changes:[{field:'quantity',before:100,after:120}]},
+    {id:'log-2',feature:'inspectionReport',action:'inspectionReportExcelExport',status:'success',fileName:'PO-001.xlsx',
+      note:'PO-001',itemCount:3,detailCount:20,createdAt:Date.UTC(2026,8,23,5),createdBy:'Quản lý'},
+    {id:'log-3',feature:'orders',action:'orderUpdate',status:'success',targetId:'internal-order-id',note:'actualShipDate',
+      createdAt:Date.UTC(2026,8,23,4),createdBy:'Quản lý',changes:[]}
+  ];
   const window={PCMSHistory:{
     loadOperationLogs:async options=>{calls.push(options);return rows;},
     hasMore:()=>false
@@ -31,7 +37,7 @@ function runtime(){
 
 const settle=()=>new Promise(resolve=>setTimeout(resolve,0));
 
-test('訂單歷史只在開頁後讀取九種既有操作且單次最多五十筆',async()=>{
+test('歷史操作只在開頁後讀取整個訂單主功能且單次最多五十筆',async()=>{
   const {window,nodes,calls}=runtime();
   assert.equal(calls.length,0);
   window.orderHistoryInit();
@@ -39,10 +45,15 @@ test('訂單歷史只在開頁後讀取九種既有操作且單次最多五十�
   assert.equal(calls.length,1);
   assert.equal(calls[0].permissionKey,'progress');
   assert.equal(calls[0].limit,50);
-  assert.equal(calls[0].actions.length,9);
-  assert.match(nodes.get('order-history-root').innerHTML,/訂單歷史操作/);
+  assert.equal('actions' in calls[0],false);
+  assert.match(nodes.get('order-history-root').innerHTML,/歷史操作紀錄/);
   assert.match(nodes.get('order-history-body').innerHTML,/調整數量/);
   assert.match(nodes.get('order-history-body').innerHTML,/100[\s\S]*120/);
+  assert.match(nodes.get('order-history-body').innerHTML,/PO-001\.xlsx/);
+  assert.match(nodes.get('order-history-body').innerHTML,/匯出品檢報告/);
+  assert.doesNotMatch(nodes.get('order-history-body').innerHTML,/actualShipDate|internal-order-id/);
+  const shell=nodes.get('order-history-root').innerHTML;
+  assert.ok(shell.indexOf('操作者')<shell.indexOf('訂單／對象'));
 });
 
 test('同一登入期間重開分頁使用暫存，只有載入更多與重新整理再次查詢',async()=>{
@@ -68,4 +79,5 @@ test('歷史分頁使用獨立程式樣式、共用表格與雙語排版',()=>{
   assert.match(source,/class="ui-dual-copy"/);
   assert.match(css,/#order-history-table/);
   assert.match(css,/var\(--ui-color-success-background\)/);
+  assert.ok(features.indexOf("page:'inspection-report-template'")<features.indexOf("page:'order-history'"));
 });

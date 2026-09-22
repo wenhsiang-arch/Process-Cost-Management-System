@@ -7,15 +7,15 @@
 .order-history-section-header{gap:9px}
 .order-history-count{margin-left:auto;font-variant-numeric:tabular-nums}
 .order-history-table-frame{min-width:0}
-#order-history-table{--ui-table-default-min-width:1180px;min-width:1180px}
+#order-history-table{--ui-table-default-min-width:1220px;min-width:1220px}
 #order-history-table th.order-history-time{width:174px}
+#order-history-table th.order-history-operator{width:170px}
 #order-history-table th.order-history-target{width:210px}
 #order-history-table th.order-history-action{width:210px}
-#order-history-table th.order-history-operator{width:180px}
 #order-history-table th.order-history-result{width:142px;text-align:center}
 #order-history-table td{vertical-align:middle}
 #order-history-table td:first-child{font-variant-numeric:tabular-nums;white-space:nowrap}
-#order-history-table td:nth-child(2){font-weight:var(--ui-font-weight-primary);overflow-wrap:anywhere}
+#order-history-table td:nth-child(3){font-weight:var(--ui-font-weight-primary);overflow-wrap:anywhere}
 #order-history-table td:last-child{text-align:center}
 .order-history-changes{display:grid;gap:5px}
 .order-history-changes>div{display:grid;grid-template-columns:minmax(118px,auto) minmax(0,1fr);align-items:center;gap:9px}

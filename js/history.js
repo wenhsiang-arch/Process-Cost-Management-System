@@ -1,4 +1,4 @@
-// history（歷史紀錄共用程式）：統一操作紀錄、訂單調整紀錄、工作階段快取與游標分頁。
+// history（歷史紀錄共用程式）：統一操作紀錄、工作階段快取與游標分頁。
 (function(){
   const DEFAULT_PAGE_SIZE = 50; // DEFAULT_PAGE_SIZE（預設每頁筆數）
   const MAX_PAGE_SIZE = 50; // MAX_PAGE_SIZE（單次查詢上限）
@@ -215,11 +215,6 @@
     return loadQueryState(state,options);
   }
 
-  async function loadOrderAdjustments(options={}){
-    const state=getQueryState('orderAdjustments',options);
-    return loadQueryState(state,options);
-  }
-
   function hasMore(collectionName,options={}){
     const state=getQueryState(collectionName,options);
     return !state.loaded||!state.done||state.pendingRows.length>0;
@@ -266,7 +261,6 @@
     saveOperationLog,
     loadOperationLogs,
     loadAllOperationLogs,
-    loadOrderAdjustments,
     hasMore,
     invalidateCollection,
     clearSession

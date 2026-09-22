@@ -556,7 +556,8 @@ test('訂單歷史改為獨立按需分頁並使用五十筆游標分頁',()=>{
   assert.doesNotMatch(ordersSource,/openOrderAdjustmentHistory|loadMoreOrderAdjustmentHistory/);
   assert.doesNotMatch(htmlSource,/id="m-order-adjust-history"|onclick="openOrderAdjustmentHistory\(\)"/);
   assert.match(featuresSource,/page:'order-history'[\s\S]*?dataLoaders:\[\][\s\S]*?onOpen:\['orderHistoryInit'\]/);
-  assert.match(orderHistorySource,/permissionKey:'progress',actions:ACTIONS,limit:PAGE_SIZE/);
+  assert.match(orderHistorySource,/permissionKey:'progress',limit:PAGE_SIZE/);
+  assert.doesNotMatch(orderHistorySource,/actions:ACTIONS/);
   assert.match(orderHistorySource,/const PAGE_SIZE=50/);
   assert.match(orderHistorySource,/load\(\{loadMore:true\}\)/);
 });
