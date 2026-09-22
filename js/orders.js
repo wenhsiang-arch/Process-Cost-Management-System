@@ -12,11 +12,10 @@ const orderCompletionRequests = new Set(); // orderCompletionRequests（完成�
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
 const inspectionReportExportRequests = new Set(); // inspectionReportExportRequests（匯出入口執行中的訂單，避免載入程式期間連點）
 let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（訂單全視窗匯入用途是否已登記）
-let orderImportFieldsBound = false; // orderImportFieldsBound（訂單必要資料自動接續檢查是否已綁定）
-let pendingOrderImportFile = null; // pendingOrderImportFile（等待必要資料完成的訂單檔案）
-let pendingOrderImportInput = null; // pendingOrderImportInput（本次訂單檔案選擇控制）
 let orderImportFileSequence = 0; // orderImportFileSequence（目前檔案選擇序號）：舊檔讀取完成後不得覆蓋新預覽。
 let orderImportPreviewTableControl = null; // orderImportPreviewTableControl（匯入預覽欄寬控制）：只管理本機畫面，不改匯入資料。
+const orderImportOptionalColumns={description:false,color:false}; // orderImportOptionalColumns（本次檔案可呈現的選用欄位）
+let orderImportAutoFilledNumber=''; // orderImportAutoFilledNumber（目前由檔案自動帶入且尚未確認為人工內容的訂單號碼）
 const ordersSafeText=value=>window.PCMSSafe.text(value); // ordersSafeText（訂單畫面安全文字）
 const ordersSafeAttr=value=>window.PCMSSafe.attribute(value); // ordersSafeAttr（訂單畫面安全屬性）
 const ordersInlineArg=value=>window.PCMSSafe.inlineArgument(value); // ordersInlineArg（訂單行內事件安全參數）
@@ -92,16 +91,15 @@ function showOrderFileDropMessage(detail){
   void ordersMessage(pair.vi,pair.zh,'warning');
 }
 
-function orderImportPrerequisitesComplete(){
-  return !!g('imp-ord-id')?.value.trim()&&!!g('imp-ord-client')?.value&&!!g('imp-ord-date')?.value;
-}
-
 // resetOrderImportPreview（清除舊檔預覽）：任何新選檔或拒絕結果都不能沿用上一份可匯入資料。
 function resetOrderImportPreview(){
   orderImportFileSequence++;
   window._impData=null;
-  pendingOrderImportFile=null;
-  pendingOrderImportInput=null;
+  const orderNumberInput=g('imp-ord-id');
+  if(orderImportAutoFilledNumber&&orderNumberInput?.value.trim()===orderImportAutoFilledNumber) orderNumberInput.value='';
+  orderImportAutoFilledNumber='';
+  orderImportOptionalColumns.description=false;
+  orderImportOptionalColumns.color=false;
   const preview=g('imp-step2');
   if(preview) preview.style.display='none';
   const rows=g('imp-preview-tb');
@@ -125,8 +123,8 @@ function ensureOrderImportPreviewTableControl(){
     resizable:true,
     columns:[
       {key:'code',label:{vi:'Mã hàng',zh:'款號'},minimum:132,preferred:160,maximum:260},
-      {key:'description',label:{vi:'Mô tả',zh:'說明'},minimum:240,preferred:360,maximum:620},
-      {key:'color',label:{vi:'Màu',zh:'顏色'},minimum:112,preferred:150,maximum:260},
+      {key:'description',label:{vi:'Mô tả sản phẩm',zh:'產品說明'},available:()=>orderImportOptionalColumns.description,minimum:240,preferred:360,maximum:620},
+      {key:'color',label:{vi:'Màu',zh:'顏色'},available:()=>orderImportOptionalColumns.color,minimum:112,preferred:150,maximum:260},
       {key:'quantity',label:{vi:'Số lượng',zh:'數量'},minimum:92,preferred:110,maximum:180},
       {key:'processCount',label:{vi:'Số công đoạn',zh:'工序數'},minimum:92,preferred:110,maximum:180},
       {key:'status',label:{vi:'Trạng thái',zh:'狀態'},minimum:126,preferred:150,maximum:220}
@@ -135,25 +133,13 @@ function ensureOrderImportPreviewTableControl(){
   return orderImportPreviewTableControl;
 }
 
-// tryProcessPendingOrderImport（接續訂單檢查）：檔案先拖入時，等訂單資料填完整後才進入既有檢查。
-async function tryProcessPendingOrderImport(){
-  if(!pendingOrderImportFile||!orderImportPrerequisitesComplete()) return false;
-  const file=pendingOrderImportFile; // file（等待處理的訂單檔案）
-  const input=pendingOrderImportInput; // input（原始檔案選擇控制）
-  pendingOrderImportFile=null;
-  pendingOrderImportInput=null;
-  await processImportOrderFile(file,input);
-  return true;
-}
-
 async function queueOrderImportFile(file,input=null){
   if(!file) return false;
   resetOrderImportPreview();
-  pendingOrderImportFile=file;
-  pendingOrderImportInput=input;
   const fileName=g('imp-filename');
   if(fileName) fileName.textContent=String(file.name||'');
-  return tryProcessPendingOrderImport();
+  await processImportOrderFile(file,input);
+  return true;
 }
 
 async function acceptOrderImportFiles(files){
@@ -164,7 +150,7 @@ async function acceptOrderImportFiles(files){
   return queueOrderImportFile(file);
 }
 
-// registerOrderFileDropTarget（登記訂單全視窗匯入）：檔案拖入後仍必須完成訂單資料及原有內容檢查。
+// registerOrderFileDropTarget（登記訂單全視窗匯入）：檔案拖入後立即檢查，正式匯入仍由確認按鈕驗證必要資料。
 function registerOrderFileDropTarget(){
   const fileDrop=window.PCMSUIFileDrop; // fileDrop（全視窗拖曳共用介面）
   if(!fileDrop) return false;
@@ -181,10 +167,6 @@ function registerOrderFileDropTarget(){
       onError:()=>showOrderFileDropMessage({message:{vi:'Không thể xử lý tệp đơn hàng',zh:'無法處理訂單檔案'}})
     });
     orderFileDropTargetRegistered=true;
-  }
-  if(!orderImportFieldsBound){
-    ['imp-ord-id','imp-ord-client','imp-ord-date'].forEach(id=>g(id)?.addEventListener('change',()=>{ void tryProcessPendingOrderImport(); }));
-    orderImportFieldsBound=true;
   }
   return true;
 }
@@ -538,6 +520,49 @@ function findGeneralOrderOptionalHeader(headerRow,accepted){
   return (headerRow||[]).findIndex(value=>matchesOrderImportHeader(value,accepted));
 }
 
+// extractGeneralOrderNumberHeading（解析訂單號碼標題）：沿用裁帶匯入，只接受明確的 ORDER NO 或 ORDER NUMBER。
+function extractGeneralOrderNumberHeading(value){
+  const raw=String(value??'').replace(/\u00a0/g,' ').trim();
+  if(!raw) return null;
+  const match=raw.match(/^ORDER\s*(?:NO\.?|NUMBER)\s*[:：]?\s*(.*)$/i);
+  return match?String(match[1]||'').trim():null;
+}
+
+// findGeneralOrderNumber（尋找唯一訂單號碼）：同格沒有內容時取右側最近非空白格，多個不同結果則不自動帶入。
+function findGeneralOrderNumber(rows){
+  const detected=[];
+  (rows||[]).forEach(row=>{
+    const cells=Array.isArray(row)?row:[];
+    cells.forEach((cell,columnIndex)=>{
+      let number=extractGeneralOrderNumberHeading(cell);
+      if(number===null) return;
+      if(!number){
+        const lastColumn=Math.min(cells.length-1,columnIndex+12);
+        for(let nextColumn=columnIndex+1;nextColumn<=lastColumn;nextColumn++){
+          const candidate=String(cells[nextColumn]??'').trim();
+          if(!candidate) continue;
+          number=candidate.replace(/^[:：]\s*/,'').trim();
+          break;
+        }
+      }
+      if(number) detected.push(number);
+    });
+  });
+  const unique=new Map();
+  detected.forEach(value=>{
+    const number=String(value||'').trim().replace(/^PO\s*#\s*/i,'').trim();
+    if(number) unique.set(number.toUpperCase(),number);
+  });
+  return unique.size===1?Array.from(unique.values())[0]:'';
+}
+
+function generalOrderOptionalColumns(headerRow){
+  return {
+    description:findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_DESC_HEADERS)>=0,
+    color:findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_COLOR_HEADERS)>=0
+  };
+}
+
 function normalizeGeneralOrderOptionalDate(value){
   if(value===undefined||value===null||String(value).trim()==='') return undefined;
   if(typeof value==='number'&&window.XLSX?.SSF?.parse_date_code){
@@ -551,7 +576,9 @@ function normalizeGeneralOrderOptionalDate(value){
 
 window.PCMSOrderImportValidation=Object.freeze({
   parseRows:parseGeneralOrderRows,
-  parseQuantity:parseGeneralOrderQuantity
+  parseQuantity:parseGeneralOrderQuantity,
+  findOrderNumber:findGeneralOrderNumber,
+  optionalColumns:generalOrderOptionalColumns
 }); // PCMSOrderImportValidation（一般訂單辨識檢查介面）：供獨立測試驗收。
 
 async function openImportOrder(options={}){
@@ -565,8 +592,6 @@ async function openImportOrder(options={}){
   g('imp-ord-id').value=''; g('imp-ord-date').value='';
   g('imp-file').value='';
   g('imp-step1').style.display='block'; g('imp-step2').style.display='none';
-  pendingOrderImportFile=null;
-  pendingOrderImportInput=null;
   const clientSel=g('imp-ord-client');
   if(clientSel){
     clientSel.innerHTML='<option value="">-- Chọn khách hàng / 選擇客戶 --</option>';
@@ -605,8 +630,6 @@ async function reloadOrders(options={}){
 function closeImportOrder(){
   closeOrdersImportProgress();
   resetOrderImportPreview();
-  pendingOrderImportFile=null;
-  pendingOrderImportInput=null;
   g('imp-file').value='';
   cm('m-import-order');
 }
@@ -619,12 +642,6 @@ async function handleImportFile(input){
 }
 
 async function processImportOrderFile(file,input,selection=orderImportFileSequence){
-  const client=g('imp-ord-client')?.value||'';
-  const ordId=g('imp-ord-id').value.trim();
-  const dueDate=g('imp-ord-date').value;
-  if(!ordId){ await ordersMessage('Vui lòng nhập số đơn hàng.','請先填寫訂單編號。','warning'); if(input) input.value=''; return; }
-  if(!client){ await ordersMessage('Vui lòng chọn khách hàng.','請先選擇客戶。','warning'); if(input) input.value=''; return; }
-  if(!dueDate){ await ordersMessage('Vui lòng nhập ngày xuất hàng.','請先填寫出貨日期。','warning'); if(input) input.value=''; return; }
   if(!/\.(xlsx|xls)$/i.test(String(file?.name||''))){
     await ordersMessage('Chỉ hỗ trợ tệp đơn hàng .xlsx hoặc .xls.','訂單只支援 .xlsx 或 .xls 表格檔。','warning');
     if(input) input.value='';
@@ -662,6 +679,7 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
       const parsed=parseGeneralOrderRows(rows,wb.SheetNames[0],{formulaRows});
       const matched=[], errors=[...parsed.errors];
       const headerRow=parsed.header?rows[parsed.header.row]||[]:[];
+      const detectedOrderNumber=findGeneralOrderNumber(rows);
       const iDesc=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_DESC_HEADERS);
       const iColor=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_COLOR_HEADERS);
       const iPo=findGeneralOrderOptionalHeader(headerRow,ORDER_IMPORT_PO_HEADERS);
@@ -702,7 +720,19 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
         return;
       }
       if(selection!==orderImportFileSequence) return;
+      const orderNumberInput=g('imp-ord-id');
+      if(detectedOrderNumber&&orderNumberInput&&!orderNumberInput.value.trim()){
+        orderNumberInput.value=detectedOrderNumber;
+        orderImportAutoFilledNumber=detectedOrderNumber;
+      }
       window._impData={matched};
+      orderImportOptionalColumns.description=iDesc>=0;
+      orderImportOptionalColumns.color=iColor>=0;
+      const previewTable=g('order-import-preview-table');
+      if(previewTable){
+        const minimumWidth=588+(iDesc>=0?240:0)+(iColor>=0?112:0);
+        previewTable.style.setProperty('--orders-import-preview-min-width',`${minimumWidth}px`);
+      }
       g('imp-step2').style.display='block';
       g('imp-confirm-btn').disabled=matched.length===0;
       const _ioMsg=document.getElementById('imp-order-ok');
@@ -710,7 +740,13 @@ async function processImportOrderFile(file,input,selection=orderImportFileSequen
       const tb=g('imp-preview-tb'); tb.innerHTML='';
       matched.forEach(m=>{
         const tr=document.createElement('tr');
-        tr.innerHTML=`<td data-ui-table-column="code" class="orders-import-preview-code">${ordersSafeText(m.code)}</td><td data-ui-table-column="description">${ordersSafeText(m.desc)}</td><td data-ui-table-column="color">${ordersSafeText(m.color)}</td><td data-ui-table-column="quantity" class="orders-import-preview-number">${m.qty.toLocaleString()}</td><td data-ui-table-column="processCount" class="orders-import-preview-number">${m.ops.length}</td><td data-ui-table-column="status" class="orders-import-preview-status-cell"><span class="orders-import-preview-status"><i class="ti ti-check" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Có thể nhập</span><span class="ui-text-zh">可匯入</span></span></span></td>`;
+        const cells=[`<td data-ui-table-column="code" class="orders-import-preview-code">${ordersSafeText(m.code)}</td>`];
+        if(iDesc>=0) cells.push(`<td data-ui-table-column="description">${ordersSafeText(m.desc)}</td>`);
+        if(iColor>=0) cells.push(`<td data-ui-table-column="color">${ordersSafeText(m.color)}</td>`);
+        cells.push(`<td data-ui-table-column="quantity" class="orders-import-preview-number">${m.qty.toLocaleString()}</td>`,
+          `<td data-ui-table-column="processCount" class="orders-import-preview-number">${m.ops.length}</td>`,
+          `<td data-ui-table-column="status" class="orders-import-preview-status-cell"><span class="orders-import-preview-status"><i class="ti ti-check" aria-hidden="true"></i><span class="ui-bilingual"><span class="ui-text-vi">Có thể nhập</span><span class="ui-text-zh">可匯入</span></span></span></td>`);
+        tr.innerHTML=cells.join('');
         tb.appendChild(tr);
       });
       ensureOrderImportPreviewTableControl()?.refresh?.();

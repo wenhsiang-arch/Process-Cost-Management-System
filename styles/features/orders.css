@@ -185,7 +185,10 @@
 }
 
 #m-import-order.orders-import-modal {
+  align-items: center;
+  justify-content: center;
   padding: 32px;
+  overflow-y: auto;
 }
 
 #m-import-order .orders-import-dialog {
@@ -195,6 +198,7 @@
   max-height: calc(100vh - 64px);
   padding: 20px 22px 18px;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #m-import-order .orders-import-heading {
@@ -284,7 +288,7 @@
 
 #m-import-order .orders-import-preview-table {
   width: 100%;
-  min-width: 940px;
+  min-width: var(--orders-import-preview-min-width, 940px);
   table-layout: fixed;
 }
 

@@ -53,7 +53,8 @@ test('款號與訂單匯入都登記全視窗用途並共用點擊選檔流程',
 
   assert.match(orders,/id:'order-import'[\s\S]*?page:'progress'[\s\S]*?accept:\['\.xlsx','\.xls'\]/);
   assert.match(orders,/function handleImportFile\(input\)[\s\S]*?receiveFiles\?\.\(input\.files,\{targetId:'order-import',source:'picker'\}\)/);
-  assert.match(orders,/function tryProcessPendingOrderImport\(\)[\s\S]*?orderImportPrerequisitesComplete\(\)[\s\S]*?processImportOrderFile/);
+  assert.match(orders,/async function queueOrderImportFile\(file,input=null\)[\s\S]*?resetOrderImportPreview\(\)[\s\S]*?await processImportOrderFile\(file,input\)/);
+  assert.doesNotMatch(orders,/pendingOrderImportFile|tryProcessPendingOrderImport|orderImportPrerequisitesComplete/);
   assert.match(orders,/registerOrderFileDropTarget\(\);/);
   assert.match(data,/registerProductFileDropTarget\(\);/);
   assert.match(features,/onOpen:\['renderProgress'\]/);
