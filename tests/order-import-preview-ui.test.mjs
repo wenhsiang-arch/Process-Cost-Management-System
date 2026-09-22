@@ -30,6 +30,7 @@ test('訂單匯入預覽使用現行雙語視窗、水平捲動及共用欄寬�
   assert.match(css,/#m-import-order \.orders-import-dialog[\s\S]*?width: min\(1180px, calc\(100vw - 64px\)\)/);
   assert.match(css,/#m-import-order\.orders-import-modal[\s\S]*?align-items: center[\s\S]*?justify-content: center/);
   assert.match(css,/#m-import-order \.orders-import-preview-scroll[\s\S]*?overflow: auto/);
+  assert.match(css,/#m-import-order \.orders-import-actions[\s\S]*?justify-content: flex-end/);
   assert.match(orders,/function ensureOrderImportPreviewTableControl\(\)[\s\S]*?PCMSUITableControls[\s\S]*?resizable:true/);
   assert.match(orders,/preferenceKey:'progress:order-import-preview'/);
   assert.match(orders,/available:\(\)=>orderImportOptionalColumns\.description/);
