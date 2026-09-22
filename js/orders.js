@@ -949,6 +949,11 @@ function prepareOrdersPrintTable(sourceTable){
   table.removeAttribute('data-ui-table-sticky');
   table.removeAttribute('data-ui-table-layout');
   table.querySelectorAll('.is-column-hidden').forEach(cell=>cell.remove());
+  const actionHeader=table.querySelector('thead [data-ui-table-column="action"]');
+  if(actionHeader){
+    const actionIndex=actionHeader.cellIndex;
+    Array.from(table.rows||[]).forEach(row=>row.cells?.[actionIndex]?.remove());
+  }
   table.querySelectorAll('[data-ui-table-resize-handle],[data-ui-table-sort-trigger]').forEach(control=>control.remove());
   table.querySelectorAll('input,select,textarea').forEach(control=>{
     const value=String(control.value||'').trim();
