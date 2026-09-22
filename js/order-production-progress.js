@@ -128,9 +128,17 @@
       refreshedAt:number(cache?.refreshedAt)||number(marker?.refreshedAt),attemptedAt:number(marker?.attemptedAt),
       readStats:copyReadStats(cache?.readStats)});
   }
+  function isCompletedOrder(order){ return order?.productionProgressCompleted===true; }
+  function completedCalculation(order,cachedCalculation=null){
+    const snapshot=Math.round(Math.max(0,Math.min(100,number(order?.productionProgressSnapshotPercent)))*10)/10;
+    return {...(cachedCalculation||calculate([],{})),percent:snapshot,completed:true,completionPercent:100};
+  }
   function cachedCalculations(orders,cache){
     const result=new Map();
-    orders.forEach(order=>result.set(text(order.id),cache?.orders?.[text(order.id)]?.calculation||null));
+    orders.forEach(order=>{
+      const cached=cache?.orders?.[text(order.id)]?.calculation||null;
+      result.set(text(order.id),isCompletedOrder(order)?completedCalculation(order,cached):cached);
+    });
     return result;
   }
   function refreshLockName(){
@@ -310,11 +318,12 @@
   }
 
   async function loadInternal(orders,{attemptType='auto'}={}){
-    const orderIds=orders.map(order=>text(order.id)).filter(Boolean);
+    const trackedOrders=orders.filter(order=>!isCompletedOrder(order));
+    const orderIds=trackedOrders.map(order=>text(order.id)).filter(Boolean);
     const periodKey=refreshPeriodKey();
     const manual=attemptType==='manual';
     const readStats=blankReadStats();
-    if(!orderIds.length) return {values:new Map(),attempted:false,reason:'no-orders'};
+    if(!orderIds.length) return {values:cachedCalculations(orders,sessionCache()),attempted:false,reason:'no-orders'};
     let persistentCache=null;
     try{ persistentCache=await window.pcmsDataCache?.read(CACHE_SCOPE); }
     catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error,attemptType,readStats); }
@@ -370,7 +379,7 @@
 
     const itemSets={};
     const ordersNeedingItems=[];
-    for(const order of orders){
+    for(const order of trackedOrders){
       const orderId=text(order.id);
       const cached=cache.orders[orderId];
       const currentOrderToken=orderToken(order);
@@ -388,7 +397,7 @@
       return processes.map(item=>[item.totalId,item.productId,item.processId,item.orderQty,item.seconds].join('|')).sort().join('||');
     }
 
-    const contexts=orders.map(order=>{
+    const contexts=trackedOrders.map(order=>{
       const orderId=text(order.id);
       const currentOrderToken=orderToken(order);
       const currentVersion=versionState.values.get(orderId)||{revision:0,updatedAt:0};
@@ -452,6 +461,12 @@
         registeredQuantities,calculation};
       result.set(item.orderId,calculation);
     }
+    orders.filter(isCompletedOrder).forEach(order=>{
+      const orderId=text(order.id);
+      const cachedOrder=cache.orders[orderId];
+      if(cachedOrder) next.orders[orderId]=cachedOrder;
+      result.set(orderId,completedCalculation(order,cachedOrder?.calculation));
+    });
     next.refreshPeriod=periodKey;
     next.refreshState='success';
     next.refreshedAt=Date.now();
@@ -521,5 +536,6 @@
     });
     return window.pcmsDataCache?.remove(CACHE_SCOPE);
   }
-  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,readStats,clearSession,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
+  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,readStats,clearSession,reset,
+    calculate,productionProcesses,orderToken,productToken,refreshPeriodKey,isCompletedOrder,completedCalculation});
 })();

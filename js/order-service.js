@@ -59,7 +59,8 @@
     const totalQty=items.reduce((sum,item)=>sum+item.quantity,0);
     return {
       orderDocumentId,lockId:orderNumberKey(header.orderId),header,items,
-      order:{...header,actualShipDate:null,shipmentStatus:'pending',importLockId:orderNumberKey(header.orderId),itemCount:items.length,totalQty,
+      order:{...header,actualShipDate:null,shipmentStatus:'pending',productionProgressCompleted:false,
+        productionProgressSnapshotPercent:null,importLockId:orderNumberKey(header.orderId),itemCount:items.length,totalQty,
         importStatus:'importing',lifecycleStatus:'active',schemaVersion:2}
     };
   }
@@ -464,6 +465,49 @@
     return clone(saved);
   }
 
+  // setProductionProgressCompleted（設定訂單完成狀態）：保存當下實際進度快照，完成後停止自動與手動進度更新。
+  async function setProductionProgressCompleted(orderId,completed,options={}){
+    requireCloud();
+    const target=text(orderId);
+    if(!target) throw new Error('Đơn hàng không hợp lệ. / 訂單識別碼不正確。');
+    const requestedCompleted=completed===true;
+    const snapshotPercent=requestedCompleted
+      ?Math.round(Math.max(0,Math.min(100,Number(options.actualPercent)||0))*10)/10:null;
+    const currentActor=actor(options.actor);
+    const now=Number(options.now)||Date.now();
+    const logReference=window._newDocRef(COLLECTIONS.logs);
+    const operationLogId=text(logReference.id);
+    let saved;
+    await window._runTransaction(async transaction=>{
+      const orderReference=window._docRef(COLLECTIONS.orders,target);
+      const snapshot=await transaction.get(orderReference);
+      if(!snapshot.exists()||snapshot.data()?.schemaVersion!==2) throw new Error('Không tìm thấy đơn hàng hiện tại. / 找不到目前訂單。');
+      const before=snapshot.data();
+      if(before.importStatus!=='ready'||(before.lifecycleStatus||'active')!=='active'){
+        throw new Error('Đơn hàng hiện không thể thay đổi trạng thái hoàn thành. / 訂單目前不能變更完成狀態。');
+      }
+      const previousCompleted=before.productionProgressCompleted===true;
+      const previousPercent=previousCompleted?Math.max(0,Math.min(100,Number(before.productionProgressSnapshotPercent)||0)):null;
+      if(previousCompleted===requestedCompleted&&previousPercent===snapshotPercent){
+        saved={id:target,...before};return;
+      }
+      const action=requestedCompleted?'orderProductionProgressComplete':'orderProductionProgressResume';
+      const allowed={productionProgressCompleted:requestedCompleted,productionProgressSnapshotPercent:snapshotPercent,
+        updatedAt:now,updatedByUid:currentActor.uid,operationLogId};
+      saved={id:target,...before,...allowed};
+      transaction.set(orderReference,allowed,{merge:true});
+      transaction.set(logReference,{
+        permissionKey:'progress',feature:'orders',action,status:'success',targetType:'order',targetId:target,
+        itemCount:1,detailCount:2,changes:[
+          {field:'productionProgressCompleted',before:previousCompleted,after:requestedCompleted},
+          {field:'productionProgressSnapshotPercent',before:previousPercent,after:snapshotPercent}
+        ],note:text(options.note).slice(0,500),createdAt:now,createdByUid:currentActor.uid,createdBy:currentActor.name,
+        operationLogId,schemaVersion:2
+      });
+    });
+    return clone(saved);
+  }
+
   const PURGE_BATCH_SIZE=100; // 每次最多刪除 100 筆，只處理訂單明細，不推論業務關聯。
   const purgingOrders=new Set();
   async function discardIncompleteOrder(orderId){
@@ -547,5 +591,5 @@
   }
 
   window.PCMSOrderService=Object.freeze({COLLECTIONS,BATCH_SIZE,PURGE_BATCH_SIZE,normalizeHeader,prepareImport,importOrder,loadOrderItems,loadProcessViews,
-    updateItemQuantity,updateOrder,setActualShipDate,setLifecycle,setShipmentStatus,purgeOrder});
+    updateItemQuantity,updateOrder,setActualShipDate,setLifecycle,setShipmentStatus,setProductionProgressCompleted,purgeOrder});
 })();

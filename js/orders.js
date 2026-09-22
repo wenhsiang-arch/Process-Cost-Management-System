@@ -7,6 +7,8 @@ const loadedProcessVersions = new Map(); // loadedProcessVersions（已載入訂
 let progressRenderSequence = 0;
 let orderProgressRefreshInFlight = false; // orderProgressRefreshInFlight（進度更新執行狀態）：避免自動與手動更新同時操作。
 let currentProgressOrders = []; // currentProgressOrders（目前全部未出貨訂單）：手動更新不受畫面篩選影響。
+const orderProgressValues = new Map(); // orderProgressValues（訂單實際進度）：完成時保存跨裝置一致的進度快照。
+const orderCompletionRequests = new Set(); // orderCompletionRequests（完成狀態儲存中訂單）：避免重複點擊。
 let ordersImportProgressController = null; // ordersImportProgressController（訂單匯入共用進度視窗控制介面）
 const inspectionReportExportRequests = new Set(); // inspectionReportExportRequests（匯出入口執行中的訂單，避免載入程式期間連點）
 let orderFileDropTargetRegistered = false; // orderFileDropTargetRegistered（訂單全視窗匯入用途是否已登記）
@@ -909,12 +911,66 @@ function renderOrderProductionProgressState(orderId,state){
   }
   const percent=Math.max(0,Math.min(100,Number(state?.percent)||0));
   const shown=percent.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1});
+  orderProgressValues.set(String(orderId),percent);
+  const completed=state?.completed===true;
   host.classList.remove('is-loading','is-error');
   host.removeAttribute('aria-busy');
   host.innerHTML=`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(percent.toFixed(1))}">
       <div class="orders-production-progress-fill" style="width:${ordersSafeAttr(percent.toFixed(1))}%"></div>
-      <span class="orders-production-progress-value">${ordersSafeText(shown)}%</span>
+      <span class="orders-production-progress-value">${ordersSafeText(shown)}%${completed?' / 100%':''}</span>
     </div>`;
+  const control=g(`order-completion-control-${orderId}`);
+  if(control&&!completed&&!orderCompletionRequests.has(String(orderId))) control.disabled=false;
+}
+
+function orderCompletionControlHtml(order){
+  const completed=order?.productionProgressCompleted===true;
+  const idArg=ordersInlineArg(order.id);
+  const orderArg=ordersInlineArg(order.orderId);
+  if(completed){
+    return `<button type="button" class="orders-completion-control is-complete" id="order-completion-control-${ordersSafeAttr(order.id)}"
+      onclick="toggleOrderProductionCompleted(${idArg},${orderArg},false)" aria-checked="true" role="checkbox">
+      <i class="ti ti-circle-check-filled" aria-hidden="true"></i>${ordersPairHtml('Đơn đã hoàn thành','訂單完成')}</button>`;
+  }
+  return `<button type="button" class="orders-completion-control is-pending" id="order-completion-control-${ordersSafeAttr(order.id)}"
+    onclick="toggleOrderProductionCompleted(${idArg},${orderArg},true)" aria-checked="false" role="checkbox" disabled>
+    <i class="ti ti-square" aria-hidden="true"></i></button>`;
+}
+
+async function toggleOrderProductionCompleted(orderId,orderNo,completed){
+  const target=String(orderId||'');
+  if(!target||orderCompletionRequests.has(target)||!window.PCMSOrderService?.setProductionProgressCompleted) return false;
+  const confirmed=completed
+    ?await ordersConfirm('Xác nhận đơn đã hoàn thành','確認訂單完成',
+      `Xác nhận đơn ${orderNo} đã hoàn thành? Hệ thống sẽ giữ tiến độ thực tế hiện tại và hiển thị cùng 100%; đơn này sẽ không còn được cập nhật tiến độ tự động hoặc thủ công.`,
+      `確認訂單 ${orderNo} 已完成？系統會保留目前實際進度並與 100% 一起顯示；此訂單之後不再參與自動或手動進度更新。`,
+      {confirmText:{vi:'Xác nhận hoàn thành',zh:'確認完成'}})
+    :await ordersConfirm('Hủy trạng thái hoàn thành','取消訂單完成',
+      `Hủy trạng thái hoàn thành của đơn ${orderNo}? Đơn sẽ trở lại cách tính tiến độ bình thường; thao tác này không cấp thêm lượt cập nhật hôm nay.`,
+      `取消訂單 ${orderNo} 的完成狀態？訂單將恢復正常進度統計；此操作不會增加今日更新次數。`,
+      {confirmText:{vi:'Hủy trạng thái',zh:'取消完成'},kind:'warning'});
+  if(!confirmed) return false;
+  orderCompletionRequests.add(target);
+  const control=g(`order-completion-control-${target}`);
+  if(control){control.disabled=true;control.setAttribute('aria-busy','true');}
+  try{
+    const actualPercent=completed?Math.max(0,Math.min(100,Number(orderProgressValues.get(target))||0)):0;
+    const saved=await window.PCMSOrderService.setProductionProgressCompleted(target,completed,{actualPercent,note:String(orderNo||'')});
+    const index=(window.allOrders||[]).findIndex(order=>order.id===target);
+    if(index>=0) window.allOrders[index]={...window.allOrders[index],...saved};
+    await renderProgress();
+    await ordersMessage(completed?'Đã đánh dấu đơn hoàn thành.':'Đã hủy trạng thái hoàn thành.',
+      completed?'已標記訂單完成。':'已取消訂單完成狀態。','success');
+    return true;
+  }catch(error){
+    console.error('Không thể lưu trạng thái hoàn thành / 無法儲存訂單完成狀態',error);
+    await ordersMessage('Không thể lưu trạng thái hoàn thành.','訂單完成狀態儲存失敗。','danger');
+    return false;
+  }finally{
+    orderCompletionRequests.delete(target);
+    const latest=g(`order-completion-control-${target}`);
+    if(latest){latest.removeAttribute('aria-busy');latest.disabled=false;}
+  }
 }
 
 function formatOrderProgressRefreshTime(timestamp){
@@ -1025,6 +1081,10 @@ function prepareOrdersPrintTable(sourceTable){
   }
   table.querySelectorAll('[data-ui-table-resize-handle],[data-ui-table-sort-trigger]').forEach(control=>control.remove());
   table.querySelectorAll('.orders-remark-cell:not(.has-value)').forEach(cell=>{ cell.textContent='—'; });
+  table.querySelectorAll('.orders-completion-cell').forEach(cell=>{
+    const completed=cell.querySelector('.orders-completion-control.is-complete');
+    cell.textContent=completed?'Đơn đã hoàn thành / 訂單完成':'—';
+  });
   table.querySelectorAll('input,select,textarea').forEach(control=>{
     const value=String(control.value||'').trim();
     const output=table.ownerDocument.createElement('span');
@@ -1073,13 +1133,14 @@ async function printOrdersTable(){
     tbody td{height:32px}
     tr{break-inside:avoid}
     [data-ui-table-column="index"]{width:3%}
-    [data-ui-table-column="client"]{width:10%}
-    [data-ui-table-column="orderId"]{width:18%}
-    [data-ui-table-column="quantity"]{width:9%}
-    [data-ui-table-column="productionProgress"]{width:16%}
-    [data-ui-table-column="dueDate"]{width:13%}
-    [data-ui-table-column="shipDate"]{width:14%}
-    [data-ui-table-column="remark"]{width:17%}
+    [data-ui-table-column="client"]{width:9%}
+    [data-ui-table-column="orderId"]{width:17%}
+    [data-ui-table-column="quantity"]{width:8%}
+    [data-ui-table-column="productionProgress"]{width:15%}
+    [data-ui-table-column="dueDate"]{width:12%}
+    [data-ui-table-column="shipDate"]{width:13%}
+    [data-ui-table-column="remark"]{width:12%}
+    [data-ui-table-column="completionStatus"]{width:11%}
     .ui-bilingual,.ui-dual-copy{display:flex;min-width:0;flex-direction:column;gap:1px;line-height:1.15}
     .ui-text-vi,.ui-text-zh,.ui-dual-copy>strong,.ui-dual-copy>span{display:block;margin:0}
     html[data-ui-language-mode="vi"] .ui-text-zh,html[data-ui-language-mode="vi"] .ui-dual-copy>span{display:none!important}
@@ -1088,6 +1149,7 @@ async function printOrdersTable(){
     .orders-row-index{text-align:center}
     .orders-order-id{font-family:Consolas,monospace;overflow-wrap:anywhere}
     .orders-remark-cell{overflow-wrap:anywhere}
+    .orders-completion-cell{text-align:center;font-weight:700;color:#166534}
     .orders-date-input{border:0}
     .orders-production-progress-meter{position:relative;width:100%;min-width:0;height:20px;overflow:hidden;border:1px solid #bfdbfe;border-radius:5px;background:#f1f5f9}
     .orders-production-progress-fill{height:100%;background:#a9c7f5}
@@ -1138,7 +1200,7 @@ async function renderProgress(){
   try{
     let orders=usableOrders().filter(order=>orderShipmentStatus(order)==='pending');
     const progressOrders=orders.slice(); // 每日進度更新固定涵蓋全部未出貨訂單；訂單選單只影響畫面顯示。
-    currentProgressOrders=progressOrders;
+    currentProgressOrders=progressOrders.filter(order=>order.productionProgressCompleted!==true);
     updateOrderProgressManualButton();
     updatePendingQuantitySummary(orders);
     if(ordId) orders=orders.filter(order=>order.id===ordId);
@@ -1163,6 +1225,7 @@ async function renderProgress(){
     html+=`<th data-ui-table-column="dueDate" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="220">${ordersPairHtml('Theo PO','出貨日期PO')}</th>`;
     html+=`<th data-ui-table-column="shipDate" data-ui-table-min-width="150" data-ui-table-width="180" data-ui-table-max-width="230">${ordersPairHtml('Xuất hàng','實際出貨日')}</th>`;
     html+=`<th data-ui-table-column="remark" data-ui-table-min-width="160" data-ui-table-width="210" data-ui-table-max-width="360" data-ui-table-ellipsis="true">${ordersPairHtml('Ghi chú','備註')}</th>`;
+    html+=`<th data-ui-table-column="completionStatus" data-ui-table-sortable="false" data-ui-table-min-width="124" data-ui-table-width="150" data-ui-table-max-width="190">${ordersPairHtml('Trạng thái','完成狀態')}</th>`;
     html+=`<th data-ui-table-column="action" data-ui-table-sortable="false" data-ui-table-min-width="140" data-ui-table-width="170" data-ui-table-max-width="200" data-ui-table-resizable="false">${ordersPairHtml('Thao tác','操作')}</th>`;
     html+='</tr></thead><tbody>';
     list.forEach((o,idx)=>{
@@ -1174,16 +1237,19 @@ async function renderProgress(){
       const safeId=ordersSafeAttr(o.id);
       const remarkVal=ordersSafeAttr(o.remark||'');
       const dueDateClass=orderDueDateClass(o.dueDate);
+      const completed=o.productionProgressCompleted===true;
+      const completedState=completed?{percent:Number(o.productionProgressSnapshotPercent)||0,completed:true}:null;
       html+=`<tr class="orders-progress-row">
         <td class="orders-row-index">${idx+1}</td>
         <td><b>${ordersSafeText(o.client||'-')}</b></td>
         <td class="orders-order-id">${ordersSafeText(o.orderId)}</td>
         <td class="ui-table-number-cell">${totalQty.toLocaleString()}</td>
-        <td><div class="orders-production-progress is-loading" id="order-production-progress-${safeId}" aria-busy="true">
-          ${renderOrderProductionProgressLoading()}</div></td>
+        <td><div class="orders-production-progress${completed?'':' is-loading'}" id="order-production-progress-${safeId}"${completed?'':' aria-busy="true"'}>
+          ${completed?`<div class="orders-production-progress-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${ordersSafeAttr(Math.max(0,Math.min(100,Number(completedState.percent)||0)).toFixed(1))}"><div class="orders-production-progress-fill" style="width:${ordersSafeAttr(Math.max(0,Math.min(100,Number(completedState.percent)||0)).toFixed(1))}%"></div><span class="orders-production-progress-value">${ordersSafeText((Number(completedState.percent)||0).toLocaleString(undefined,{maximumFractionDigits:1}))}% / 100%</span></div>`:renderOrderProductionProgressLoading()}</div></td>
         <td><span class="orders-po-date${dueDateClass}">${ordersSafeText(fmtVN(o.dueDate))}</span></td>
         <td onclick="event.stopPropagation()"><input class="orders-date-input" id="prog-ship-date-${safeId}" type="date" value="${ordersSafeAttr(actualShipDateVal)}" onchange="saveActualShipDate(${idArg},this.value,this)"></td>
         <td class="orders-remark-cell${o.remark?' has-value':''}" onclick="event.stopPropagation();openRemarkEdit(${idArg},${remarkArg})" data-ui-neutral-title title="${remarkVal}">${o.remark?ordersSafeText(o.remark):ordersPairHtml('Ghi chú...','備註...')}</td>
+        <td class="orders-completion-cell" onclick="event.stopPropagation()">${orderCompletionControlHtml(o)}</td>
         <td onclick="event.stopPropagation()"><div class="orders-progress-actions">
           <button class="btn bsm bd2" title="Xóa (Lưu trữ) / 刪除（封存）" onclick="openOrderDeleteWarning(${idArg},${orderArg})"><i class="ti ti-ban"></i></button>
           <button type="button" class="btn bsm orders-shipment-confirm" title="Xác nhận xuất hàng / 確認出貨" onclick="confirmOrderShipment(${idArg},${orderArg})"><i class="ti ti-truck-delivery" aria-hidden="true"></i></button>
@@ -1193,7 +1259,20 @@ async function renderProgress(){
     });
     html+='</tbody></table></div>';
     content.innerHTML=issueNotice+html;
+    list.filter(order=>order.productionProgressCompleted===true).forEach(order=>{
+      renderOrderProductionProgressState(order.id,{percent:Number(order.productionProgressSnapshotPercent)||0,completed:true});
+    });
     void refreshOrderProductionProgress(progressOrders,renderSequence);
+    content.querySelectorAll?.('.orders-completion-control.is-pending').forEach(button=>{
+      const label={vi:'Đánh dấu đơn đã hoàn thành',zh:'標記訂單完成'};
+      window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);
+      window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
+    });
+    content.querySelectorAll?.('.orders-completion-control.is-complete').forEach(button=>{
+      const label={vi:'Hủy trạng thái đơn đã hoàn thành',zh:'取消訂單完成狀態'};
+      window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);
+      window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
+    });
     content.querySelectorAll?.('.orders-inspection-export').forEach(button=>{
       const label={vi:'Xuất báo cáo kiểm tra',zh:'匯出檢驗報告'};
       window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);

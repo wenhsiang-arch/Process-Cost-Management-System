@@ -358,6 +358,51 @@
   background: var(--ui-color-primary-soft);
 }
 #pg-progress .orders-production-progress.is-error { color: var(--ui-color-danger-text); }
+#pg-progress .orders-completion-cell { text-align: center; }
+#pg-progress .orders-completion-control {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--ui-motion-fast), background-color var(--ui-motion-fast), color var(--ui-motion-fast), box-shadow var(--ui-motion-fast);
+}
+#pg-progress .orders-completion-control.is-pending {
+  width: 36px;
+  padding: 0;
+  font-size: var(--ui-font-size-metric);
+}
+#pg-progress .orders-completion-control.is-complete {
+  gap: 7px;
+  padding: 5px 10px;
+  border-color: var(--ui-color-success-border);
+  background: var(--ui-color-success-background);
+  color: var(--ui-color-success-text);
+  font-size: var(--ui-font-size-helper);
+  font-weight: var(--ui-font-weight-strong);
+  line-height: 1.08;
+}
+#pg-progress .orders-completion-control.is-complete > i { font-size: var(--ui-font-size-metric-small); }
+#pg-progress .orders-completion-control:hover:not(:disabled) {
+  border-color: var(--ui-color-primary);
+  box-shadow: 0 0 0 3px var(--ui-color-primary-soft);
+}
+#pg-progress .orders-completion-control.is-complete:hover:not(:disabled) {
+  border-color: var(--ui-color-success-text);
+}
+#pg-progress .orders-completion-control:focus-visible {
+  outline: 2px solid var(--ui-color-primary);
+  outline-offset: 2px;
+}
+#pg-progress .orders-completion-control:disabled {
+  cursor: wait;
+  opacity: .62;
+}
 #pg-progress th[data-orders-column="processNo"] { width: 80px; }
 #pg-progress th[data-orders-column="category"] { width: 120px; }
 #pg-progress th[data-orders-column="name"] { min-width: 220px; }
