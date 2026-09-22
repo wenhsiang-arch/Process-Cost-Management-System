@@ -384,14 +384,6 @@
   font-weight: var(--ui-font-weight-primary);
 }
 
-#m-import-order .orders-import-table-help {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  margin-top: 8px;
-  color: var(--ui-color-text-muted);
-}
-
 #m-import-order .orders-import-actions {
   justify-content: flex-end;
   margin-top: 16px;

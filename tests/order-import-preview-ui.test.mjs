@@ -25,8 +25,8 @@ test('訂單匯入預覽使用現行雙語視窗、水平捲動及共用欄寬�
   for(const key of ['code','description','color','quantity','processCount','status']){
     assert.match(modal,new RegExp(`data-ui-table-column="${key}"`));
   }
-  assert.match(modal,/Kéo mũi tên ở tiêu đề để chỉnh độ rộng/);
-  assert.match(modal,/拖曳表頭箭頭調整欄寬/);
+  assert.doesNotMatch(modal,/Kéo mũi tên ở tiêu đề để chỉnh độ rộng|拖曳表頭箭頭調整欄寬/);
+  assert.doesNotMatch(css,/orders-import-table-help/);
   assert.match(css,/#m-import-order \.orders-import-dialog[\s\S]*?width: min\(1180px, calc\(100vw - 64px\)\)/);
   assert.match(css,/#m-import-order\.orders-import-modal[\s\S]*?align-items: center[\s\S]*?justify-content: center/);
   assert.match(css,/#m-import-order \.orders-import-preview-scroll[\s\S]*?overflow: auto/);
