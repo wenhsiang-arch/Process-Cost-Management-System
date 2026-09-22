@@ -116,8 +116,14 @@ function resetOrderImportPreview(){
 function setOrderImportFileSelected(selected){
   const drop=g('imp-file-drop');
   if(!drop) return;
-  if(selected) drop.classList.add('is-selected');
-  else drop.classList.remove('is-selected');
+  const field=drop.closest?.('.orders-import-file-field');
+  if(selected){
+    drop.classList.add('is-selected');
+    field?.classList.add('is-selected');
+  }else{
+    drop.classList.remove('is-selected');
+    field?.classList.remove('is-selected');
+  }
 }
 
 // ensureOrderImportPreviewTableControl（啟用匯入預覽表格操作）：沿用共用欄寬拖曳與 UID 隔離的本機偏好。

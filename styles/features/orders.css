@@ -241,6 +241,13 @@
   margin-bottom: 14px;
 }
 
+#m-import-order .orders-import-file-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 #m-import-order .orders-import-drop {
   display: grid;
   min-height: 104px;
@@ -271,13 +278,23 @@
 
 #m-import-order .orders-import-reselect {
   display: none;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--ui-color-primary);
+  font: inherit;
   font-weight: var(--ui-font-weight-primary);
   white-space: nowrap;
+  cursor: pointer;
+}
+
+#m-import-order .orders-import-file-field.is-selected .orders-import-reselect {
+  display: inline-flex;
 }
 
 #m-import-order .orders-import-drop.is-selected {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   min-height: 48px;
   place-content: normal;
   justify-items: stretch;
@@ -303,10 +320,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-#m-import-order .orders-import-drop.is-selected .orders-import-reselect {
-  display: inline-flex;
 }
 
 #m-import-order .orders-import-preview {

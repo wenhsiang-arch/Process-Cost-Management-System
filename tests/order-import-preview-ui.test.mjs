@@ -87,10 +87,12 @@ test('選檔後上傳區縮成單列並保留重新選擇入口',()=>{
   const css=read('styles/features/orders.css');
   const orders=read('js/orders.js');
   assert.match(html,/orders-import-drop-prompt/);
-  assert.match(html,/orders-import-reselect[\s\S]*?Chọn lại tệp[\s\S]*?重新選擇/);
-  assert.match(css,/\.orders-import-drop\.is-selected[\s\S]*?grid-template-columns: auto minmax\(0, 1fr\) auto/);
+  assert.match(html,/orders-import-file-heading[\s\S]*?Tải tệp bảng tính lên[\s\S]*?orders-import-reselect[\s\S]*?Chọn lại tệp[\s\S]*?重新選擇/);
+  assert.match(css,/\.orders-import-file-heading[\s\S]*?justify-content: space-between/);
+  assert.match(css,/\.orders-import-file-field\.is-selected \.orders-import-reselect[\s\S]*?display: inline-flex/);
+  assert.match(css,/\.orders-import-drop\.is-selected[\s\S]*?grid-template-columns: auto minmax\(0, 1fr\)/);
   assert.match(css,/\.orders-import-drop\.is-selected \.orders-import-drop-prompt[\s\S]*?display: none/);
-  assert.match(css,/\.orders-import-drop\.is-selected \.orders-import-reselect[\s\S]*?display: inline-flex/);
   assert.match(orders,/setOrderImportFileSelected\(true\);[\s\S]*?processImportOrderFile/);
   assert.match(orders,/setOrderImportFileSelected\(false\);/);
+  assert.match(orders,/field\?\.classList\.add\('is-selected'\)/);
 });

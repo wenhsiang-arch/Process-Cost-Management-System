@@ -60,7 +60,7 @@ test('款號與訂單匯入都登記全視窗用途並共用點擊選檔流程',
   assert.match(features,/onOpen:\['renderProgress'\]/);
   assert.match(features,/onOpen:\['rSum'\],onLeave:\['summaryLeave'\]/);
   assert.match(html,/id="imp-file-drop"[\s\S]*?onclick="g\('imp-file'\)\.click\(\)"/);
-  assert.match(html,/id="imp-file-drop"[\s\S]*?orders-import-reselect[\s\S]*?Chọn lại tệp[\s\S]*?重新選擇/);
+  assert.match(html,/orders-import-file-heading[\s\S]*?orders-import-reselect[\s\S]*?Chọn lại tệp[\s\S]*?重新選擇[\s\S]*?id="imp-file-drop"/);
 
   const fileInputs=Array.from(html.matchAll(/<input\b[^>]*\btype="file"[^>]*>/g),match=>match[0]); // fileInputs（全部正式檔案匯入入口）
   assert.ok(fileInputs.length>0);
