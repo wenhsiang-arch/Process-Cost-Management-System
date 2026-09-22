@@ -20,6 +20,24 @@
   let sessionRecord=null;
   let lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
 
+  function blankReadStats(){
+    return {metaDocuments:0,versionDocuments:0,itemDocuments:0,productDocuments:0,totalDocuments:0,
+      legacyTotalDocuments:0,versionQueries:0,itemQueries:0,productQueries:0,totalQueries:0,legacyTotalQueries:0,
+      estimatedReads:0};
+  }
+  function copyReadStats(value={}){
+    const result=blankReadStats();
+    Object.keys(result).forEach(key=>{ result[key]=Math.max(0,Math.trunc(number(value?.[key]))); });
+    return result;
+  }
+  function countSnapshot(stats,documentKey,queryKey,snapshot){
+    stats[queryKey]+=1;
+    const documents=(snapshot?.docs||[]).length;
+    stats[documentKey]+=documents;
+    stats.estimatedReads+=Math.max(1,documents);
+    return snapshot;
+  }
+
   function text(value){ return String(value??'').trim(); }
   function number(value){ const result=Number(value); return Number.isFinite(result)?result:0; }
   function positive(value){ return Math.max(0,number(value)); }
@@ -57,8 +75,8 @@
     return `${value.year}-${value.month}-${value.day}`;
   }
   function blankCache(){
-    return {schemaVersion:CACHE_SCHEMA_VERSION,productToken:'',products:{},orders:{},
-      refreshPeriod:'',refreshState:'idle',refreshedAt:0,attemptedAt:0};
+    return {schemaVersion:CACHE_SCHEMA_VERSION,productToken:'',productSequence:0,productTrackingEpoch:'',products:{},orders:{},
+      refreshPeriod:'',refreshState:'idle',refreshedAt:0,attemptedAt:0,readStats:blankReadStats()};
   }
   function validCache(value){
     return value?.schemaVersion===CACHE_SCHEMA_VERSION&&value.products&&typeof value.products==='object'
@@ -70,7 +88,7 @@
   function progressVersion(row){ return Math.max(0,Math.round(number(row?.revision))); }
   function cacheStatus(cache,periodKey){
     return Object.freeze({periodKey,state:text(cache?.refreshState)||'idle',
-      refreshedAt:number(cache?.refreshedAt),attemptedAt:number(cache?.attemptedAt)});
+      refreshedAt:number(cache?.refreshedAt),attemptedAt:number(cache?.attemptedAt),readStats:copyReadStats(cache?.readStats)});
   }
   function currentUserId(){
     return text(window.cu?.authUid||window.firebaseAuthUser?.uid||window.currentUser?.uid);
@@ -107,7 +125,8 @@
   }
   function markerStatus(marker,cache,periodKey){
     return Object.freeze({periodKey,state:marker?.state==='success'?'success':'failed',
-      refreshedAt:number(cache?.refreshedAt)||number(marker?.refreshedAt),attemptedAt:number(marker?.attemptedAt)});
+      refreshedAt:number(cache?.refreshedAt)||number(marker?.refreshedAt),attemptedAt:number(marker?.attemptedAt),
+      readStats:copyReadStats(cache?.readStats)});
   }
   function cachedCalculations(orders,cache){
     const result=new Map();
@@ -140,13 +159,16 @@
     return code.includes('permission-denied')||code.includes('failed-precondition');
   }
 
-  async function loadVersionMap(orderIds){
-    const result=new Map(orderIds.map(id=>[id,0]));
+  async function loadVersionMap(orderIds,stats){
+    const result=new Map(orderIds.map(id=>[id,{revision:0,updatedAt:0}]));
     try{
       await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
         const snapshot=await window._getDocs(window._query(window._collection(VERSION_COLLECTION),
           window._where('orderId','in',group)));
-        documentRows(snapshot).forEach(row=>{ if(result.has(text(row.orderId))) result.set(text(row.orderId),progressVersion(row)); });
+        countSnapshot(stats,'versionDocuments','versionQueries',snapshot);
+        documentRows(snapshot).forEach(row=>{
+          if(result.has(text(row.orderId))) result.set(text(row.orderId),{revision:progressVersion(row),updatedAt:positive(row.updatedAt)});
+        });
       });
       return {values:result,available:true};
     }catch(error){
@@ -157,11 +179,12 @@
     }
   }
 
-  async function loadItemSets(orderIds){
+  async function loadItemSets(orderIds,stats){
     const result=Object.fromEntries(orderIds.map(orderId=>[orderId,[]]));
     await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
       const snapshot=await window._getDocs(window._query(window._collection(ITEM_COLLECTION),
         window._where('orderId','in',group)));
+      countSnapshot(stats,'itemDocuments','itemQueries',snapshot);
       documentRows(snapshot).filter(item=>item.active!==false).forEach(item=>{
         const orderId=text(item.orderId);
         const normalized={orderItemId:text(item.orderItemId||item.id),productId:text(item.productId),quantity:positive(item.quantity)};
@@ -171,17 +194,27 @@
     return result;
   }
 
-  async function loadProducts(productIds){
+  async function loadProducts(productIds,stats){
     const result=Object.fromEntries(productIds.map(productId=>[productId,null]));
     await runBatches(chunks(productIds,TOTAL_QUERY_SIZE),async group=>{
       const snapshot=await window._getDocs(window._query(window._collection(PRODUCT_COLLECTION),
         window._where(window._documentId(),'in',group)));
+      countSnapshot(stats,'productDocuments','productQueries',snapshot);
       documentRows(snapshot).forEach(data=>{
         if(!Object.prototype.hasOwnProperty.call(result,data.id)||data?.active===false) return;
         result[data.id]={...data,productId:data.id,ops:Array.isArray(data?.ops)?data.ops:[]};
       });
     });
     return result;
+  }
+
+  async function loadChangedProducts(afterSequence,stats){
+    const snapshot=await window._getDocs(window._query(window._collection(PRODUCT_COLLECTION),
+      window._where('changeSequence','>',Math.max(0,Math.trunc(number(afterSequence)))),
+      window._orderBy('changeSequence','asc')));
+    countSnapshot(stats,'productDocuments','productQueries',snapshot);
+    return documentRows(snapshot).filter(data=>data?.active!==false)
+      .map(data=>({...data,productId:data.id,ops:Array.isArray(data?.ops)?data.ops:[]}));
   }
 
   function productionProcesses(items,products){
@@ -201,12 +234,13 @@
     return rows;
   }
 
-  async function loadRegisteredQuantities(processes){
+  async function loadRegisteredQuantities(processes,stats){
     const totalIds=[...new Set(processes.map(process=>text(process.totalId)).filter(Boolean))];
     const result=Object.fromEntries(totalIds.map(totalId=>[totalId,0]));
     await runBatches(chunks(totalIds,TOTAL_QUERY_SIZE),async group=>{
       const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
         window._where(window._documentId(),'in',group)));
+      countSnapshot(stats,'totalDocuments','totalQueries',snapshot);
       documentRows(snapshot).forEach(row=>{
         if(Object.prototype.hasOwnProperty.call(result,row.id)) result[row.id]=positive(row.registeredQty);
       });
@@ -214,14 +248,28 @@
     return result;
   }
 
+
+  async function loadChangedQuantities(ranges,stats){
+    const result={};
+    await runBatches(ranges,async range=>{
+      const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
+        window._where('orderId','==',range.orderId),window._where('updatedAt','>',range.afterUpdatedAt),
+        window._orderBy('updatedAt','asc')));
+      countSnapshot(stats,'totalDocuments','totalQueries',snapshot);
+      documentRows(snapshot).forEach(row=>{ result[row.id]=positive(row.registeredQty); });
+    });
+    return result;
+  }
+
   // 舊訂單可能已有累計但尚無進度版本；先按訂單小批量確認，無任何累計時可直接安全顯示 0%。
-  async function loadLegacyQuantities(orderIds,processes){
+  async function loadLegacyQuantities(orderIds,processes,stats){
     const allowedIds=new Set(processes.map(process=>text(process.totalId)).filter(Boolean));
     const quantities=Object.fromEntries([...allowedIds].map(totalId=>[totalId,0]));
     const ordersWithTotals=new Set();
     await runBatches(chunks(orderIds,VERSION_QUERY_SIZE),async group=>{
       const snapshot=await window._getDocs(window._query(window._collection(TOTAL_COLLECTION),
         window._where('orderId','in',group)));
+      countSnapshot(stats,'legacyTotalDocuments','legacyTotalQueries',snapshot);
       documentRows(snapshot).forEach(row=>{
         ordersWithTotals.add(text(row.orderId));
         if(allowedIds.has(row.id)) quantities[row.id]=positive(row.registeredQty);
@@ -246,11 +294,12 @@
     return {percent,requiredSeconds,registeredSeconds,remainingSeconds:Math.max(0,requiredSeconds-registeredSeconds),processCount:processes.length};
   }
 
-  async function markRefreshFailure(orders,stored,periodKey,error,attemptType='auto'){
+  async function markRefreshFailure(orders,stored,periodKey,error,attemptType='auto',readStats=null){
     const cache=validCache(stored)?stored:blankCache();
     cache.refreshPeriod=periodKey;
     cache.refreshState='failed';
     cache.attemptedAt=Date.now();
+    if(readStats) cache.readStats=copyReadStats(readStats);
     keepSessionCache(cache);
     try{ await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|failed`,cache); }
     catch(writeError){ console.warn('Không thể lưu trạng thái cập nhật / 無法保存更新狀態',writeError); }
@@ -264,10 +313,11 @@
     const orderIds=orders.map(order=>text(order.id)).filter(Boolean);
     const periodKey=refreshPeriodKey();
     const manual=attemptType==='manual';
+    const readStats=blankReadStats();
     if(!orderIds.length) return {values:new Map(),attempted:false,reason:'no-orders'};
     let persistentCache=null;
     try{ persistentCache=await window.pcmsDataCache?.read(CACHE_SCOPE); }
-    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error,attemptType); }
+    catch(error){ return markRefreshFailure(orders,sessionCache(),periodKey,error,attemptType,readStats); }
     const memoryCache=sessionCache();
     const stored=validCache(memoryCache)&&memoryCache.refreshPeriod===periodKey
       ?memoryCache:(validCache(persistentCache)?persistentCache:memoryCache);
@@ -286,20 +336,37 @@
     try{
       [metaSnapshot,versionState]=await Promise.all([
         window._getDoc(window._docRef('system','productsMeta')),
-        loadVersionMap(orderIds)
+        loadVersionMap(orderIds,readStats)
       ]);
+      readStats.metaDocuments=metaSnapshot.exists()?1:0;
+      readStats.estimatedReads+=1;
     }catch(error){
-      return markRefreshFailure(orders,stored,periodKey,error,attemptType);
+      return markRefreshFailure(orders,stored,periodKey,error,attemptType,readStats);
     }
     if(!versionState.available){
-      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'),attemptType);
+      return markRefreshFailure(orders,stored,periodKey,new Error('order-progress-version-unavailable'),attemptType,readStats);
     }
     const cache=validCache(stored)?stored:blankCache();
     const next=blankCache();
     const latestProductToken=productToken(metaSnapshot.exists()?metaSnapshot.data():{});
+    const latestMeta=metaSnapshot.exists()?metaSnapshot.data():{};
+    const latestProductSequence=Math.max(0,Math.trunc(number(latestMeta.changeSequence)));
+    const latestTrackingEpoch=text(latestMeta.trackingEpoch);
     const productsChanged=cache.productToken!==latestProductToken;
     next.productToken=latestProductToken;
-    next.products=productsChanged?{}:{...cache.products};
+    next.productSequence=latestProductSequence;
+    next.productTrackingEpoch=latestTrackingEpoch;
+    next.products={...cache.products};
+
+    const cachedProductSequence=Math.max(0,Math.trunc(number(cache.productSequence)));
+    const canLoadProductDelta=productsChanged&&cachedProductSequence>0&&cachedProductSequence<=latestProductSequence
+      &&text(cache.productTrackingEpoch)&&text(cache.productTrackingEpoch)===latestTrackingEpoch;
+    if(canLoadProductDelta){
+      const changed=await loadChangedProducts(cachedProductSequence,readStats);
+      changed.forEach(product=>{
+        next.products[product.productId]=product;
+      });
+    }
 
     const itemSets={};
     const ordersNeedingItems=[];
@@ -310,35 +377,61 @@
       if(cached&&cached.orderToken===currentOrderToken&&Array.isArray(cached.items)) itemSets[orderId]=cached.items;
       else ordersNeedingItems.push(orderId);
     }
-    Object.assign(itemSets,await loadItemSets(ordersNeedingItems));
+    Object.assign(itemSets,await loadItemSets(ordersNeedingItems,readStats));
     const productIds=[...new Set(Object.values(itemSets).flat().map(item=>item.productId).filter(Boolean))];
-    const productsNeedingLoad=productIds.filter(productId=>productsChanged||!Object.prototype.hasOwnProperty.call(next.products,productId));
-    Object.assign(next.products,await loadProducts(productsNeedingLoad));
+    const productsNeedingLoad=productIds.filter(productId=>(productsChanged&&!canLoadProductDelta)
+      ||!Object.prototype.hasOwnProperty.call(next.products,productId));
+    const loadedProducts=await loadProducts(productsNeedingLoad,readStats);
+    Object.assign(next.products,loadedProducts);
+
+    function processToken(processes){
+      return processes.map(item=>[item.totalId,item.productId,item.processId,item.orderQty,item.seconds].join('|')).sort().join('||');
+    }
 
     const contexts=orders.map(order=>{
       const orderId=text(order.id);
       const currentOrderToken=orderToken(order);
-      const currentRevision=versionState.values.get(orderId)||0;
+      const currentVersion=versionState.values.get(orderId)||{revision:0,updatedAt:0};
+      const currentRevision=currentVersion.revision;
       const cached=cache.orders[orderId];
       const processes=productionProcesses(itemSets[orderId],next.products);
-      const structureChanged=!cached||cached.orderToken!==currentOrderToken||productsChanged;
-      const productionChanged=!cached||number(cached.progressRevision)!==currentRevision;
+      const previousProcesses=cached?productionProcesses(cached.items||[],cache.products||{}):[];
+      const structureChanged=!cached||cached.orderToken!==currentOrderToken||processToken(previousProcesses)!==processToken(processes);
+      const productionChanged=!cached||number(cached.progressRevision)!==currentRevision
+        ||number(cached.progressUpdatedAt)!==number(currentVersion.updatedAt);
       const registeredQuantities=!productionChanged&&cached?.registeredQuantities?{...cached.registeredQuantities}:null;
       const legacyProbe=!cached&&currentRevision===0;
       const knownNoProduction=currentRevision===0&&cached?.hasProductionData===false;
-      const reloadAll=!legacyProbe&&!registeredQuantities||structureChanged&&productionChanged&&!legacyProbe;
+      const canLoadTotalDelta=Boolean(cached&&productionChanged&&number(cached.progressUpdatedAt)>0
+        &&number(currentVersion.updatedAt)>number(cached.progressUpdatedAt)&&cached.registeredQuantities);
+      const reloadAll=!legacyProbe&&productionChanged&&!canLoadTotalDelta;
+      const baseQuantities=registeredQuantities||(!reloadAll&&cached?.registeredQuantities?{...cached.registeredQuantities}:null);
       const missing=!legacyProbe&&!reloadAll&&structureChanged&&!knownNoProduction
-        ?processes.filter(process=>!(process.totalId in registeredQuantities)):[];
-      return {orderId,currentOrderToken,currentRevision,processes,registeredQuantities,reloadAll,missing,legacyProbe,
+        ?processes.filter(process=>!baseQuantities||!(process.totalId in baseQuantities)):[];
+      return {orderId,currentOrderToken,currentRevision,currentUpdatedAt:number(currentVersion.updatedAt),processes,
+        registeredQuantities:baseQuantities,reloadAll,missing,legacyProbe,canLoadTotalDelta,
+        deltaAfterUpdatedAt:number(cached?.progressUpdatedAt),
         hasProductionData:knownNoProduction?false:cached?.hasProductionData};
     });
 
     // 所有訂單共用批次讀取，最多三批並行，避免逐道請求或大量同時請求。
     const requestedProcesses=contexts.flatMap(context=>context.reloadAll?context.processes:context.missing);
+    const changedRanges=contexts.filter(context=>context.canLoadTotalDelta)
+      .map(context=>({orderId:context.orderId,afterUpdatedAt:context.deltaAfterUpdatedAt}));
     const legacyContexts=contexts.filter(item=>item.legacyProbe);
-    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses);
+    const loadedQuantities=await loadRegisteredQuantities(requestedProcesses,readStats);
+    let changedQuantities={};
+    let deltaIndexAvailable=true;
+    try{ changedQuantities=await loadChangedQuantities(changedRanges,readStats); }
+    catch(error){
+      if(!text(error?.code).toLowerCase().includes('failed-precondition')) throw error;
+      deltaIndexAvailable=false;
+      console.warn('Chỉ mục cập nhật tiến độ chưa sẵn sàng; dùng cách đọc đầy đủ / 進度增量索引尚未可用，改用完整讀取');
+      const fallbackProcesses=contexts.filter(context=>context.canLoadTotalDelta).flatMap(context=>context.processes);
+      Object.assign(loadedQuantities,await loadRegisteredQuantities(fallbackProcesses,readStats));
+    }
     const legacyState=await loadLegacyQuantities(legacyContexts.map(item=>item.orderId),
-      legacyContexts.flatMap(item=>item.processes));
+      legacyContexts.flatMap(item=>item.processes),readStats);
     const result=new Map();
     for(const item of contexts){
       let registeredQuantities=item.registeredQuantities;
@@ -346,11 +439,16 @@
       if(item.legacyProbe){
         registeredQuantities=quantitiesFor(item.processes,legacyState.quantities);
         hasProductionData=legacyState.ordersWithTotals.has(item.orderId);
-      }else if(item.reloadAll) registeredQuantities=quantitiesFor(item.processes,loadedQuantities);
-      else if(item.missing.length) Object.assign(registeredQuantities,quantitiesFor(item.missing,loadedQuantities));
+      }else if(item.reloadAll||item.canLoadTotalDelta&&!deltaIndexAvailable){
+        registeredQuantities=quantitiesFor(item.processes,loadedQuantities);
+      }
+      else{
+        if(item.canLoadTotalDelta) Object.assign(registeredQuantities,changedQuantities);
+        if(item.missing.length) Object.assign(registeredQuantities,quantitiesFor(item.missing,loadedQuantities));
+      }
       const calculation=calculate(item.processes,registeredQuantities);
       next.orders[item.orderId]={orderToken:item.currentOrderToken,
-        progressRevision:item.currentRevision,items:itemSets[item.orderId],hasProductionData,
+        progressRevision:item.currentRevision,progressUpdatedAt:item.currentUpdatedAt,items:itemSets[item.orderId],hasProductionData,
         registeredQuantities,calculation};
       result.set(item.orderId,calculation);
     }
@@ -358,6 +456,8 @@
     next.refreshState='success';
     next.refreshedAt=Date.now();
     next.attemptedAt=next.refreshedAt;
+    next.readStats=copyReadStats(readStats);
+    console.info('Thống kê đọc tiến độ đơn hàng / 訂單進度讀取統計',copyReadStats(readStats));
     keepSessionCache(next);
     let persisted=false;
     try{ persisted=await window.pcmsDataCache?.write(CACHE_SCOPE,`${periodKey}|${latestProductToken}`,next)===true; }
@@ -409,6 +509,7 @@
   }
 
   function status(){ return lastStatus; }
+  function readStats(){ return copyReadStats(lastStatus?.readStats); }
   function clearSession(){
     activePromises.clear();sessionRecord=null;
     lastStatus=Object.freeze({periodKey:'',state:'idle',refreshedAt:0,attemptedAt:0});
@@ -420,5 +521,5 @@
     });
     return window.pcmsDataCache?.remove(CACHE_SCOPE);
   }
-  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,clearSession,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
+  window.PCMSOrderProductionProgress=Object.freeze({load,manualRefresh,manualStatus,status,readStats,clearSession,reset,calculate,productionProcesses,orderToken,productToken,refreshPeriodKey});
 })();
