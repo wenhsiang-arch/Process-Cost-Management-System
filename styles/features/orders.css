@@ -293,7 +293,31 @@
   display: inline-flex;
 }
 
+#m-import-order .orders-import-file-field.is-selected {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 14px;
+}
+
+#m-import-order .orders-import-file-field.is-selected .orders-import-file-heading {
+  display: contents;
+}
+
+#m-import-order .orders-import-file-field.is-selected .orders-import-file-heading > label {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+}
+
+#m-import-order .orders-import-file-field.is-selected .orders-import-reselect {
+  grid-column: 3;
+  grid-row: 1;
+}
+
 #m-import-order .orders-import-drop.is-selected {
+  grid-column: 2;
+  grid-row: 1;
   grid-template-columns: auto minmax(0, 1fr);
   min-height: 48px;
   place-content: normal;

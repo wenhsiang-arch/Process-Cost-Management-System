@@ -70,7 +70,7 @@
   const STYLE_URLS = Object.freeze({
     cutting:'styles/features/cutting.css?v=20260923-4',
     pieceCutting:'styles/features/piece-cutting.css?v=20260923-4',
-    orders:'styles/features/orders.css?v=20260923-4&rev=order-import-preview6',
+    orders:'styles/features/orders.css?v=20260923-4&rev=order-import-preview7',
     orderHistory:'styles/features/order-history.css?v=20260923-2',
     inspectionReport:'styles/features/inspection-report.css?v=20260923-4',
     products:'styles/features/products.css?v=20260923-4',
