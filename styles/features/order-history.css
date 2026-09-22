@@ -1,0 +1,34 @@
+#pg-order-history{min-width:0}
+.order-history-page{min-width:0}
+.order-history-command-row{align-items:stretch}
+.order-history-context-item{min-height:72px}
+.order-history-command-actions{margin-left:auto}
+.order-history-command-actions .ui-command-action{min-width:138px}
+.order-history-section-header{gap:9px}
+.order-history-count{margin-left:auto;font-variant-numeric:tabular-nums}
+.order-history-table-frame{min-width:0}
+#order-history-table{--ui-table-default-min-width:1180px;min-width:1180px}
+#order-history-table th.order-history-time{width:174px}
+#order-history-table th.order-history-target{width:210px}
+#order-history-table th.order-history-action{width:210px}
+#order-history-table th.order-history-operator{width:180px}
+#order-history-table th.order-history-result{width:142px;text-align:center}
+#order-history-table td{vertical-align:middle}
+#order-history-table td:first-child{font-variant-numeric:tabular-nums;white-space:nowrap}
+#order-history-table td:nth-child(2){font-weight:var(--ui-font-weight-primary);overflow-wrap:anywhere}
+#order-history-table td:last-child{text-align:center}
+.order-history-changes{display:grid;gap:5px}
+.order-history-changes>div{display:grid;grid-template-columns:minmax(118px,auto) minmax(0,1fr);align-items:center;gap:9px}
+.order-history-field .ui-dual-copy{gap:0}
+.order-history-value{color:var(--ui-color-text-muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.order-history-value i{margin:0 4px;color:var(--ui-color-primary)}
+.order-history-status{display:inline-flex;min-width:104px;justify-content:center;border-radius:999px;padding:5px 9px;font-weight:var(--ui-font-weight-primary)}
+.order-history-status .ui-dual-copy{gap:0}
+.order-history-status.is-success{color:var(--ui-color-success-text);background:var(--ui-color-success-background)}
+.order-history-status.is-partial{color:var(--ui-color-warning-text);background:var(--ui-color-warning-background)}
+.order-history-status.is-failed{color:var(--ui-color-danger-text);background:var(--ui-color-danger-background)}
+.order-history-message{padding:30px!important;text-align:center;color:var(--ui-color-text-muted)}
+.order-history-message.is-error{color:var(--ui-color-danger-text)}
+.order-history-footer{display:flex;justify-content:center;padding:12px 0 0}
+.order-history-footer button[hidden]{display:none!important}
+html[data-ui-language-mode="vi"] .order-history-changes>div,html[data-ui-language-mode="zh"] .order-history-changes>div{grid-template-columns:minmax(112px,auto) minmax(0,1fr)}

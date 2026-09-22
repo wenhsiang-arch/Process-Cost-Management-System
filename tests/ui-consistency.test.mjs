@@ -600,7 +600,8 @@ test('主要功能頁表格只使用主內容區捲軸且不改彈出視窗',()=
   assert.match(ordersStyle,/#pg-progress \.order-manager-panel \{[\s\S]*?overflow: visible;/);
   assert.match(summarySource,/class="summary-detail-table-wrap"><table class="summary-detail-table ui-table" data-ui-table-layout="special">/);
   assert.doesNotMatch(summarySource,/style="overflow-x:auto"><table class="summary-detail-table/);
-  assert.match(html,/id="m-order-adjust-history"[\s\S]*?max-height:520px;overflow:auto/);
+  assert.doesNotMatch(html,/id="m-order-adjust-history"|openOrderAdjustmentHistory/);
+  assert.match(html,/id="pg-order-history"/);
   assert.match(cuttingSource,/class="ts" style="max-height:320px"/);
 });
 

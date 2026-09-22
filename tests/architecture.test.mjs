@@ -64,7 +64,7 @@ test('中央功能清單涵蓋全部頁面及目前全部角色',()=>{
   const pages=feature.modules.flatMap(module=>module.pages.map(page=>page.page));
   assert.equal(new Set(pages).size,pages.length);
   assert.deepEqual(Array.from(pages).sort(),[
-    'accounts','costlog','cutting','export','inspection-report-template','order-archive','performance-bonus-settings','permissions','piece-cutting','product-change-log','product-groups',
+    'accounts','costlog','cutting','export','inspection-report-template','order-archive','order-history','performance-bonus-settings','permissions','piece-cutting','product-change-log','product-groups',
     'production-analysis','production-attendance','production-bonus','production-employees','production-entry','production-records','progress','settings','shipped-orders','summary','system-monitor'
   ]);
   assert.match(read('index.html'),/value="productionDevelopment">Phát triển \/ 開發/);
@@ -177,7 +177,8 @@ test('全部功能頁的程式、資料函式及開頁函式均有來源',()=>{
     productCache:'js/product-cache.js',productChangeLogStore:'js/product-change-log-store.js',productChangeLog:'js/product-change-log.js',
     summary:'js/summary.js',data:'js/data.js',cuttingStore:'js/cutting-store.js',cutting:'js/cutting.js',
     pieceCuttingStore:'js/piece-cutting-store.js',pieceCutting:'js/piece-cutting.js',
-    accounts:'js/accounts.js',orders:'js/orders.js',orderArchive:'js/order-archive.js',shippedOrders:'js/shipped-orders.js',
+    accounts:'js/accounts.js',orders:'js/orders.js',orderArchive:'js/order-archive.js',orderHistory:'js/order-history.js',shippedOrders:'js/shipped-orders.js',
+    orderProductionProgress:'js/order-production-progress.js',
     inspectionReportStore:'js/inspection-report-store.js',inspectionReport:'js/inspection-report.js',permissions:'js/permissions.js',
     productModel:'js/product-model.js',productMasterStore:'js/product-master-store.js',productResolver:'js/product-resolver.js',
     productGroupStore:'js/product-group-store.js',productMasterService:'js/product-master-service.js',
@@ -542,12 +543,20 @@ test('績效獎金未鎖定時由月份摘要即時計算，只在鎖定時保�
   assert.doesNotMatch(firebaseConfig,/"functions"/);
 });
 
-test('訂單調整歷史改讀不可變操作紀錄並使用五十筆游標分頁',()=>{
+test('訂單歷史改為獨立按需分頁並使用五十筆游標分頁',()=>{
   const historySource=read('js/history.js');
   const ordersSource=read('js/orders.js');
+  const orderHistorySource=read('js/order-history.js');
+  const featuresSource=read('js/features.js');
+  const htmlSource=read('index.html');
   assert.match(historySource,/const DEFAULT_PAGE_SIZE = 50/);
   assert.match(historySource,/window\._startAfter\(state\.cursor\)/);
   assert.match(historySource,/async function loadOperationLogs/);
   assert.doesNotMatch(ordersSource,/_getDocs\(window\._collection\(COL\.orderAdjustments\)\)/);
-  assert.match(ordersSource,/loadOperationLogs\(\{permissionKey:'progress',actions:\['orderItemQuantityUpdate'\],limit:50,loadMore:true\}\)/);
+  assert.doesNotMatch(ordersSource,/openOrderAdjustmentHistory|loadMoreOrderAdjustmentHistory/);
+  assert.doesNotMatch(htmlSource,/id="m-order-adjust-history"|onclick="openOrderAdjustmentHistory\(\)"/);
+  assert.match(featuresSource,/page:'order-history'[\s\S]*?dataLoaders:\[\][\s\S]*?onOpen:\['orderHistoryInit'\]/);
+  assert.match(orderHistorySource,/permissionKey:'progress',actions:ACTIONS,limit:PAGE_SIZE/);
+  assert.match(orderHistorySource,/const PAGE_SIZE=50/);
+  assert.match(orderHistorySource,/load\(\{loadMore:true\}\)/);
 });

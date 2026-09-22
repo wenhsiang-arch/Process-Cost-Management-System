@@ -1446,33 +1446,6 @@ async function confirmOrderQtyAdjust(){
   }
 }
 
-async function openOrderAdjustmentHistory(){
-  if(!canManageOrders()) return;
-  try{
-    if(!window.PCMSHistory?.loadOperationLogs){
-      throw new Error('Chức năng lịch sử chưa sẵn sàng / 歷史功能尚未就緒');
-    }
-    const rows=await window.PCMSHistory.loadOperationLogs({permissionKey:'progress',actions:['orderItemQuantityUpdate'],limit:50});
-    renderOrderAdjustmentHistory(rows);
-    om('m-order-adjust-history');
-  }catch(error){
-    console.error('Không thể tải lịch sử điều chỉnh / 無法載入訂單調整歷史：',error);
-    await ordersMessage('Không thể tải lịch sử điều chỉnh.','無法載入訂單調整歷史。','danger');
-  }
-}
-
-function renderOrderAdjustmentHistory(rows){
-  const body=g('order-adjust-history'); // body（訂單調整歷史表格內容）
-  if(body){
-    body.innerHTML=rows.length?rows.map(r=>{
-      const quantity=(r.changes||[]).find(change=>change.field==='quantity')||{};
-      return `<tr><td>${ordersSafeText(r.targetId||'—')}</td><td>—</td><td>${Number(quantity.before||0).toLocaleString()}</td><td>${Number(quantity.after||0).toLocaleString()}</td><td>${ordersSafeText(r.note||'')}</td><td>${ordersSafeText(r.createdBy||'')}<br><span class="orders-history-time ui-helper-text">${ordersSafeText(fmtTimeVN(r.createdAt))}</span></td></tr>`;
-    }).join(''):'<tr><td colspan="6"><div class="ui-language-sections"><div class="ui-language-section is-vi">Chưa có dữ liệu</div><div class="ui-language-section is-zh">尚無資料</div></div></td></tr>';
-  }
-  const moreButton=g('order-adjust-history-more'); // moreButton（載入更多按鈕）
-  if(moreButton) moreButton.hidden=!window.PCMSHistory?.hasMore?.('operationLogs',{permissionKey:'progress',actions:['orderItemQuantityUpdate'],limit:50});
-}
-
 async function saveActualShipDate(ordId,value,input){
   if(input) input.disabled=true;
   try{
@@ -1534,20 +1507,5 @@ async function confirmOrderShipment(orderId,orderNo){
   }catch(error){
     console.error('Không thể xác nhận xuất hàng / 無法確認出貨：',error);
     await ordersMessage('Không thể xác nhận xuất hàng.','無法確認出貨。','danger');
-  }
-}
-
-async function loadMoreOrderAdjustmentHistory(){
-  if(!canManageOrders()||!window.PCMSHistory?.loadOperationLogs) return;
-  const button=g('order-adjust-history-more'); // button（載入更多按鈕）
-  if(button) button.disabled=true;
-  try{
-    const rows=await window.PCMSHistory.loadOperationLogs({permissionKey:'progress',actions:['orderItemQuantityUpdate'],limit:50,loadMore:true});
-    renderOrderAdjustmentHistory(rows);
-  }catch(error){
-    console.error('Không thể tải thêm lịch sử điều chỉnh / 無法載入更多訂單調整歷史：',error);
-    await ordersMessage('Không thể tải thêm lịch sử.','無法載入更多歷史紀錄。','danger');
-  }finally{
-    if(button) button.disabled=false;
   }
 }

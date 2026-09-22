@@ -30,9 +30,10 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260923-4',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260923-4',
+    orders:'js/orders.js?v=20260923-4-order-history1',
     shippedOrders:'js/shipped-orders.js?v=20260922-4',
     orderArchive:'js/order-archive.js?v=20260916-2',
+    orderHistory:'js/order-history.js?v=20260923-1',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
     inspectionReport:'js/inspection-report.js?v=20260918-10',
     permissions:'js/permissions.js?v=20260823-1',
@@ -70,6 +71,7 @@
     cutting:'styles/features/cutting.css?v=20260923-4',
     pieceCutting:'styles/features/piece-cutting.css?v=20260923-4',
     orders:'styles/features/orders.css?v=20260923-4',
+    orderHistory:'styles/features/order-history.css?v=20260923-1',
     inspectionReport:'styles/features/inspection-report.css?v=20260923-4',
     products:'styles/features/products.css?v=20260923-4',
     cost:'styles/features/cost.css?v=20260923-4',
@@ -106,6 +108,11 @@
           styles:['orders'],
           scripts:['productModel','orderItemStore','orderService','orders','orderArchive'],
           dataScopes:['orders','orderItems'],dataLoaders:['loadOrderData'],onOpen:['renderOrderArchive']
+        },
+        {
+          page:'order-history',feature:'progress',permissionVisible:false,icon:'ti-history',vi:'Lịch sử thao tác đơn hàng',zh:'訂單歷史操作',
+          styles:['orderHistory'],scripts:['history','orderHistory'],
+          dataScopes:['operationLogs'],dataLoaders:[],onOpen:['orderHistoryInit'],onLeave:['orderHistoryLeave']
         },
         {
           page:'inspection-report-template',feature:'progress',permissionVisible:false,icon:'ti-file-spreadsheet',

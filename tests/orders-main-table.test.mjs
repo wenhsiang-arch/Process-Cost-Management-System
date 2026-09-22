@@ -106,8 +106,11 @@ test('使用說明位於匯入訂單左側並以共用雙語視窗顯示',()=>{
 test('訂單主表沿用共用欄位勾選，列印按鈕位於匯入右側且只列印表格',()=>{
   const importButton=html.indexOf('onclick="openImportOrder()"');
   const printButton=html.indexOf('onclick="printOrdersTable()"');
-  const historyButton=html.indexOf('onclick="openOrderAdjustmentHistory()"');
-  assert.ok(importButton>=0&&importButton<printButton&&printButton<historyButton);
+  assert.ok(importButton>=0&&importButton<printButton);
+  assert.doesNotMatch(html,/onclick="openOrderAdjustmentHistory\(\)"|id="m-order-adjust-history"/);
+  assert.doesNotMatch(source,/openOrderAdjustmentHistory|loadMoreOrderAdjustmentHistory|renderOrderAdjustmentHistory/);
+  assert.match(html,/id="pg-order-history"/);
+  assert.match(features,/page:'order-history'[\s\S]*?scripts:\['history','orderHistory'\][\s\S]*?onOpen:\['orderHistoryInit'\]/);
   assert.match(source,/id="orders-progress-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true"/);
   assert.doesNotMatch(source,/orders-progress-table[^\n]*data-ui-table-layout="special"/);
   ['index','client','orderId','quantity','productionProgress','dueDate','shipDate','remark','completionStatus','action']
