@@ -310,6 +310,17 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-09-24">24/09/2026</time>
+                <h2 class="ui-dual-copy"><strong>Cập nhật nhập bảng mã hàng và kiểm tra ảnh hưởng sản xuất</strong><span>款號表匯入與產能影響檢查更新</span></h2>
+                <div class="home-update-description">
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Quy trình nhập bảng mã hàng</h3><ol><li>Trong cùng một mã hàng, không được có hai công đoạn trùng hoàn toàn tên tiếng Việt.</li><li>Quy định này chỉ kiểm tra tệp sắp nhập; dữ liệu cũ đã nhập có tên tiếng Việt trùng nhau không bị ảnh hưởng.</li><li>Khi nhập bảng mã hàng mới, hệ thống dùng tên công đoạn tiếng Việt để nhận biết công đoạn cũ.</li><li>Nếu tên tiếng Việt giống nhau, sản lượng cũ sẽ tự dùng số công đoạn, thứ tự, phân loại, tên tiếng Trung và số giây mới.</li><li>Công đoạn được thêm sẽ được tạo thành công đoạn mới và không ảnh hưởng sản lượng cũ.</li><li>Nếu công đoạn bị xóa hoặc tên tiếng Việt bị đổi, sản lượng cũ vẫn được giữ nguyên, không bị hệ thống sửa hoặc xóa.</li><li>Sau khi nhập xong, hệ thống so sánh phần trăm hiệu suất nhân viên trước và sau để tìm sản lượng có thể cần kiểm tra.</li><li>Vào Nhật ký thay đổi mã hàng và nhấn Ảnh hưởng sản xuất để xem kết quả.</li><li>Ảnh hưởng sản xuất (0) nghĩa là không phát hiện chênh lệch, không cần xử lý.</li><li>Ảnh hưởng sản xuất (3) nghĩa là có 3 nhóm cần xác nhận; nhấn Đi xử lý để mở trang ghi nhận sản xuất.</li><li>Nếu sản lượng không có vấn đề thì không cần sửa. Nếu có vấn đề, hãy lưu trữ bản ghi cũ rồi tạo lại bằng công đoạn đúng; khi toàn bộ bản ghi cũ đã được lưu trữ, số lượng chờ xử lý sẽ tự giảm.</li><li>Tháng đã khóa giữ nguyên kết quả cũ và không bị ảnh hưởng bởi bảng mã hàng mới.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>款號表匯入流程</h3><ol><li>同一個款號內，不可以有兩道完全相同越文名稱的工序。</li><li>這項限制只檢查準備匯入的檔案；原本已經匯入、具有相同越文名稱的舊資料不受影響。</li><li>匯入新版款號表時，系統會用越文工序名稱判斷是不是原本的工序。</li><li>如果越文名稱相同，即使工序號、排序、分類、中文名稱或秒數改變，原有產能也會跟著更新。</li><li>新增的工序會直接建立為新工序，不會影響原有產能。</li><li>如果工序被刪除，或越文名稱被修改，原有產能會保留下來，不會被系統更動或刪除。</li><li>匯入完成後，系統會比較修改前後的員工績效百分比，找出可能有問題的產能。</li><li>可至「款號修改流水帳」，點擊「產能影響」查看結果。</li><li>顯示「產能影響（0）」代表沒有發現差異，不需要處理。</li><li>顯示「產能影響（3）」代表有3組產能需要確認；可點擊「前往處理」進入產能登記頁面。</li><li>如果確認產能沒有問題，不需要修改；如果有問題，請封存原產能登記，再用正確的工序重新建立。原產能全部封存後，待處理數量會自動減少。</li><li>已凍結月份會保留原有結果，不受新版款號表影響。</li></ol></section></div>
+                </div>
+              </div>
+            </article>
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
                 <time class="home-update-date" datetime="2026-09-23">23/09/2026</time>
                 <h2 class="ui-dual-copy"><strong>Cập nhật hoàn thành đơn hàng, phần trăm tiến độ và màu ngày xuất</strong><span>訂單完成、進度百分比與出貨日期顏色更新</span></h2>
                 <div class="home-update-description">
@@ -354,26 +365,12 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 </div>
               </div>
             </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-09-08">08/09/2026</time>
-                <h2 class="ui-dual-copy">
-                  <strong>Chữ rõ hơn, bố cục dễ đọc hơn</strong>
-                  <span>文字更清楚，畫面更好閱讀</span>
-                </h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><ol><li>Thống nhất cỡ chữ và màu chữ để nội dung dễ đọc hơn trên các trang.</li><li>Giảm khoảng trống không cần thiết và điều chỉnh cách xuống dòng khi cửa sổ hẹp hơn.</li><li>Chữ tiếng Trung trong menu bên trái được căn trái theo chữ tiếng Việt; chữ trắng được đổi sang màu dịu hơn.</li><li>Dữ liệu, cách tính và quyền sử dụng không thay đổi.</li></ol></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><ol><li>統一各頁面的字級與文字顏色，讓內容更清楚、閱讀更一致。</li><li>減少多餘留白，改善視窗較窄時的換行與排列。</li><li>左側選單中文與越文靠左對齊，白字改為柔和灰白。</li><li>資料、計算方式與使用權限不變。</li></ol></div>
-                </div>
-              </div>
-            </article>
           </div>
 
           <div class="home-updates-archive-controls">
             <div class="ui-form-field">
               <label class="ui-dual-copy" for="home-updates-year"><strong>Năm</strong><span>年份</span></label>
-              <select id="home-updates-year"><option value="2026" data-version="20260923-1">2026</option></select>
+              <select id="home-updates-year"><option value="2026" data-version="20260924-1">2026</option></select>
             </div>
             <button type="button" class="ui-button" id="home-updates-load" aria-controls="home-updates-archive" aria-expanded="false" onclick="void PCMSFeatures.openHomeUpdatesArchive(this)">
               <span class="ui-dual-copy"><strong>Xem cập nhật trước</strong><span>查看較早更新</span></span>

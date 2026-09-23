@@ -3,6 +3,37 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-09-08",
+      "title": {
+        "vi": "Chữ rõ hơn, bố cục dễ đọc hơn",
+        "zh": "文字更清楚，畫面更好閱讀"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Hiển thị và bố cục",
+            "items": [
+              "Thống nhất cỡ chữ và màu chữ để nội dung dễ đọc hơn trên các trang.",
+              "Giảm khoảng trống không cần thiết và điều chỉnh cách xuống dòng khi cửa sổ hẹp hơn.",
+              "Chữ tiếng Trung trong menu bên trái được căn trái theo chữ tiếng Việt; chữ trắng được đổi sang màu dịu hơn.",
+              "Dữ liệu, cách tính và quyền sử dụng không thay đổi."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "顯示與排版",
+            "items": [
+              "統一各頁面的字級與文字顏色，讓內容更清楚、閱讀更一致。",
+              "減少多餘留白，改善視窗較窄時的換行與排列。",
+              "左側選單中文與越文靠左對齊，白字改為柔和灰白。",
+              "資料、計算方式與使用權限不變。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-09-06",
       "title": {
         "vi": "Thêm mẫu cắt chi tiết và chức năng xuất phiếu",
