@@ -79,7 +79,7 @@ function fixtures(model){
   return {existing,incoming,first,second};
 }
 
-test('影響預覽只計數既有固定工序，新工序不產生無意義讀取',async()=>{
+test('影響預覽只有被移除工序查全部歷史，新工序與秒數變更不重複計數',async()=>{
   const prepared=load();
   const data=fixtures(prepared.window.PCMSProductModel);
   const counts={[data.first]:5,[data.second]:0};
@@ -92,10 +92,10 @@ test('影響預覽只計數既有固定工序，新工序不產生無意義讀�
   assert.equal(plan.overwriteCount,1);
   assert.equal(plan.processChangeCount,3);
   assert.equal(plan.rows.length,3);
-  assert.equal(plan.affectedEntryCount,5);
+  assert.equal(plan.affectedEntryCount,0);
   assert.equal(plan.hasBlockingImpact,false);
-  assert.deepEqual(new Set(queries),new Set([data.first,data.second]));
-  assert.equal(progress.at(-1),2);
+  assert.deepEqual(queries,[data.second]);
+  assert.equal(progress.at(-1),1);
 });
 
 test('純排序、工序號、中文或款號文字變更不讀取產能',async()=>{
@@ -148,12 +148,13 @@ test('匯入只將未凍結且員工月績效真正改變的群組列為產能�
   window._collection=name=>({name});
   window._where=(field,operator,value)=>({field,operator,value});
   window._orderBy=(field,direction)=>({field,direction});
+  window._limit=count=>({limit:count});
   window._query=(collection,...conditions)=>({collection,conditions});
   window._docRef=(collection,id)=>({collection,id});
   window._getDocs=async query=>({docs:query?.collection?.name==='productionEntries'?[{id:'entry-1',data:()=>({
     employeeId:'E001',employeeName:'Nguyễn A',productionDate:'2026-09-10',productId:data.existing.productId,
     processId:data.first,quantity:60,status:'active'
-  })}]:query?.name==='productionMonths'?[{id:'2026-09',data:()=>({month:'2026-09',status:'open'})}]:[]});
+  })}]:query?.collection?.name==='productionMonths'?[{id:'2026-09',data:()=>({month:'2026-09',status:'open'})}]:[]});
   window._getDoc=async reference=>{
     if(reference.collection==='productionMonths') return {exists:()=>true,data:()=>({status:'open'})};
     if(reference.collection==='productionEmployeeMonths') return {exists:()=>true,data:()=>({
@@ -185,12 +186,11 @@ test('績效差異只查最早未凍結月份之後的產能',async()=>{
   window._collection=name=>({name});
   window._where=(field,operator,value)=>({field,operator,value});
   window._orderBy=(field,direction)=>({field,direction});
+  window._limit=count=>({limit:count});
   window._query=(collection,...conditions)=>({collection,conditions});
   window._docRef=(collection,id)=>({collection,id});
   window._getDocs=async query=>{
-    if(query?.name==='productionMonths') return {docs:[
-      {id:'2025-01',data:()=>({month:'2025-01',status:'locked'})},
-      {id:'2026-08',data:()=>({month:'2026-08',status:'locked'})},
+    if(query?.collection?.name==='productionMonths') return {docs:[
       {id:'2026-09',data:()=>({month:'2026-09',status:'open'})}
     ]};
     queries.push(query);
@@ -219,9 +219,10 @@ test('月份狀態無法安全判定時回退完整產能查詢',async()=>{
   const incoming={...data.existing,ops:data.existing.ops.map((item,index)=>index===0?{...item,sec:30}:{...item})};
   window.D=[data.existing];window._collection=name=>({name});window._where=(field,operator,value)=>({field,operator,value});
   window._orderBy=(field,direction)=>({field,direction});window._query=(collection,...conditions)=>({collection,conditions});
+  window._limit=count=>({limit:count});
   window._docRef=(collection,id)=>({collection,id});
   window._getDocs=async query=>{
-    if(query?.name==='productionMonths') return {docs:[{id:'bad-month',data:()=>({status:'open'})}]};
+    if(query?.collection?.name==='productionMonths') return {docs:[{id:'bad-month',data:()=>({status:'open'})}]};
     queries.push(query);return {docs:[]};
   };
   window._getDoc=async()=>({exists:()=>false,data:()=>({})});
@@ -230,4 +231,62 @@ test('月份狀態無法安全判定時回退完整產能查詢',async()=>{
   plan.rows.forEach(row=>{ if(row.processId===data.first) row.impactCount=1; });
   await window.PCMSProductImportImpact.loadPerformanceImpacts(plan);
   assert.equal(queries[0].conditions.some(item=>item.field==='productionDate'&&item.operator==='>='),false);
+});
+
+test('多道工序合併查詢且只讀 open 月份，凍結年份不增加月份讀取',async()=>{
+  const window={S:{ws:3000},queries:[]};
+  const context={window,TextEncoder,console};vm.createContext(context);
+  vm.runInContext(read('js/product-model.js'),context);vm.runInContext(read('js/production/efficiency-core.js'),context);
+  vm.runInContext(read('js/product-resolver.js'),context);
+  const data=fixtures(window.PCMSProductModel);
+  const incoming={...data.existing,ops:data.existing.ops.map(item=>({...item,sec:item.sec+5}))};
+  window.D=[data.existing];window._collection=name=>({name});window._where=(field,operator,value)=>({field,operator,value});
+  window._orderBy=(field,direction)=>({field,direction});window._limit=count=>({limit:count});
+  window._query=(collection,...conditions)=>({collection,conditions});window._docRef=(collection,id)=>({collection,id});
+  window._getDocs=async query=>{
+    window.queries.push(query);
+    if(query?.collection?.name==='productionMonths') return {docs:[{id:'2026-09',data:()=>({month:'2026-09',status:'open'})}]};
+    return {docs:[]};
+  };
+  window._getDoc=async()=>({exists:()=>false,data:()=>({})});
+  vm.runInContext(read('js/product-import-impact.js'),context);
+  const plan=window.PCMSProductImportImpact.buildPlan({newItems:[],sameItems:[],differentItems:[{existing:data.existing,incoming}]});
+  await window.PCMSProductImportImpact.loadImpactCounts(plan);
+  await window.PCMSProductImportImpact.loadPerformanceImpacts(plan);
+  const monthQueries=window.queries.filter(query=>query?.collection?.name==='productionMonths');
+  const entryQueries=window.queries.filter(query=>query?.collection?.name==='productionEntries');
+  assert.equal(monthQueries.length,1);
+  assert.equal(monthQueries[0].conditions.some(item=>item.field==='status'&&item.value==='open'),true);
+  assert.equal(entryQueries.length,1);
+  const processFilter=entryQueries[0].conditions.find(item=>item.field==='processId');
+  assert.equal(processFilter.operator,'in');
+  assert.deepEqual(new Set(processFilter.value),new Set([data.first,data.second]));
+});
+
+test('全部月份已凍結時只做一筆存在確認，不查產能明細',async()=>{
+  const window={S:{ws:3000},queries:[]};
+  const context={window,TextEncoder,console};vm.createContext(context);
+  vm.runInContext(read('js/product-model.js'),context);vm.runInContext(read('js/production/efficiency-core.js'),context);
+  vm.runInContext(read('js/product-resolver.js'),context);
+  const data=fixtures(window.PCMSProductModel);
+  const incoming={...data.existing,ops:data.existing.ops.map((item,index)=>index===0?{...item,sec:30}:{...item})};
+  window.D=[data.existing];window._collection=name=>({name});window._where=(field,operator,value)=>({field,operator,value});
+  window._orderBy=(field,direction)=>({field,direction});window._limit=count=>({limit:count});
+  window._query=(collection,...conditions)=>({collection,conditions});window._docRef=(collection,id)=>({collection,id});
+  let monthCalls=0;
+  window._getDocs=async query=>{
+    window.queries.push(query);
+    if(query?.collection?.name==='productionMonths'){
+      monthCalls+=1;
+      return monthCalls===1?{docs:[]}:{docs:[{id:'2025-01',data:()=>({month:'2025-01',status:'locked'})}]};
+    }
+    return {docs:[]};
+  };
+  window._getDoc=async()=>({exists:()=>false,data:()=>({})});
+  vm.runInContext(read('js/product-import-impact.js'),context);
+  const plan=window.PCMSProductImportImpact.buildPlan({newItems:[],sameItems:[],differentItems:[{existing:data.existing,incoming}]});
+  await window.PCMSProductImportImpact.loadPerformanceImpacts(plan);
+  assert.equal(window.queries.filter(query=>query?.collection?.name==='productionMonths').length,2);
+  assert.equal(window.queries.some(query=>query?.collection?.name==='productionEntries'),false);
+  assert.equal(plan.performanceDifferenceCount,0);
 });

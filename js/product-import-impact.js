@@ -54,12 +54,16 @@
     return Math.max(0,Number(snapshot.data()?.count)||0);
   }
 
-  async function loadActiveProcessEntries(processId,fromDate=''){
+  const PROCESS_QUERY_CHUNK_SIZE=30;
+
+  async function loadActiveProcessEntries(processIds,fromDate=''){
     if(typeof window._getDocs!=='function'||typeof window._orderBy!=='function'){
       throw new Error('Dịch vụ đọc phiếu sản lượng chưa sẵn sàng. / 產能讀取服務尚未載入。');
     }
+    const ids=[...new Set((Array.isArray(processIds)?processIds:[processIds]).map(text).filter(Boolean))];
+    if(!ids.length) return [];
     const constraints=[
-      window._where('processId','==',processId),
+      window._where('processId',ids.length===1?'==':'in',ids.length===1?ids[0]:ids),
       window._where('status','==','active')
     ];
     if(fromDate) constraints.push(window._where('productionDate','>=',fromDate));
@@ -78,23 +82,36 @@
   function monthStart(month){ return validMonth(month)?`${text(month)}-01`:''; }
   function number(value){ const parsed=Number(value);return Number.isFinite(parsed)?parsed:0; }
 
-  // loadProductionMonthWindow（載入可變動月份範圍）：每月只讀一份小型控制文件，避免先下載多年已凍結產能。
-  // 任何讀取或格式異常都回退完整查詢，不能為了節省用量而漏掉績效差異。
+  // loadProductionMonthWindow（載入可變動月份範圍）：只查開放月份，不讓已凍結年份持續增加讀取量。
+  // 若沒有開放月份，再以一筆文件區分「全部已凍結」與「尚無月份資料」；異常時回退完整查詢。
   async function loadProductionMonthWindow(){
     try{
-      const snapshot=await window._getDocs(window._collection('productionMonths'));
+      const snapshot=await window._getDocs(window._query(
+        window._collection('productionMonths'),window._where('status','==','open')
+      ));
       const docs=Array.isArray(snapshot?.docs)?snapshot.docs:[];
-      if(!docs.length) return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
       const statuses=new Map();
       for(const item of docs){
         const data=item.data?.()||{};
         const month=text(data.month||item.id);
         const status=text(data.status);
-        if(!validMonth(month)||!status) return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
+        if(!validMonth(month)||status!=='open') return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
         statuses.set(month,status);
       }
-      const openMonths=[...statuses].filter(([,status])=>!lockedMonthStatus(status)).map(([month])=>month).sort();
-      return {optimized:true,statuses,fromDate:monthStart(openMonths[0]),hasOpenMonths:openMonths.length>0};
+      const openMonths=[...statuses.keys()].sort();
+      if(openMonths.length){
+        return {optimized:true,statuses,fromDate:monthStart(openMonths[0]),hasOpenMonths:true};
+      }
+      if(typeof window._limit!=='function') return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
+      const anySnapshot=await window._getDocs(window._query(window._collection('productionMonths'),window._limit(1)));
+      const anyDocs=Array.isArray(anySnapshot?.docs)?anySnapshot.docs:[];
+      if(!anyDocs.length) return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
+      const sample=anyDocs[0].data?.()||{};
+      const sampleMonth=text(sample.month||anyDocs[0].id);
+      if(!validMonth(sampleMonth)||!lockedMonthStatus(sample.status)){
+        return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
+      }
+      return {optimized:true,statuses,fromDate:'',hasOpenMonths:false};
     }catch(_error){
       return {optimized:false,statuses:new Map(),fromDate:'',hasOpenMonths:true};
     }
@@ -138,20 +155,23 @@
   async function loadPerformanceImpacts(planInput,options={}){
     const plan=planInput;
     const candidates=[...new Map((plan.rows||[])
-      .filter(row=>row.affectsEfficiency&&row.processId&&Number(row.impactCount)>0)
+      .filter(row=>row.affectsEfficiency&&row.processId)
       .map(row=>[row.processId,row])).values()];
     plan.performanceImpacts=[];
     plan.performanceDifferenceCount=0;
     if(!candidates.length){ options.onProgress?.({completed:0,total:0,value:100});return plan; }
     const entries=[];
     const monthWindow=await loadProductionMonthWindow();
+    const candidateById=new Map(candidates.map(row=>[row.processId,row]));
     let completed=0;
-    for(const row of candidates){
-      const rows=monthWindow.optimized&&!monthWindow.hasOpenMonths
-        ?[]
-        :await loadActiveProcessEntries(row.processId,monthWindow.optimized?monthWindow.fromDate:'');
-      rows.forEach(entry=>entries.push({...entry,_impactRow:row}));
-      completed+=1;options.onProgress?.({completed,total:candidates.length,value:Math.round(completed/candidates.length*45)});
+    if(!(monthWindow.optimized&&!monthWindow.hasOpenMonths)){
+      for(let offset=0;offset<candidates.length;offset+=PROCESS_QUERY_CHUNK_SIZE){
+        const ids=candidates.slice(offset,offset+PROCESS_QUERY_CHUNK_SIZE).map(row=>row.processId);
+        const rows=await loadActiveProcessEntries(ids,monthWindow.optimized?monthWindow.fromDate:'');
+        rows.forEach(entry=>entries.push({...entry,_impactRow:candidateById.get(text(entry.processId))}));
+        completed+=ids.length;
+        options.onProgress?.({completed,total:candidates.length,value:Math.round(completed/candidates.length*45)});
+      }
     }
     const months=[...new Set(entries.map(entry=>text(entry.productionDate).slice(0,7)).filter(Boolean))];
     const missingMonths=months.filter(month=>!monthWindow.statuses.has(month));
@@ -162,6 +182,14 @@
     });
     const openMonths=new Set(months.filter(month=>!lockedMonthStatus(monthWindow.statuses.get(month))));
     const activeEntries=entries.filter(entry=>openMonths.has(text(entry.productionDate).slice(0,7)));
+    const activeCounts=new Map();
+    activeEntries.forEach(entry=>activeCounts.set(text(entry.processId),(activeCounts.get(text(entry.processId))||0)+1));
+    let changedEntryCount=0;
+    candidates.forEach(row=>{
+      row.impactCount=activeCounts.get(row.processId)||0;
+      changedEntryCount+=row.impactCount;
+    });
+    plan.affectedEntryCount=(Number(plan.removedEntryCount)||0)+changedEntryCount;
     const summaryKeys=[...new Set(activeEntries.map(entry=>employeeMonthKey(entry.employeeId,text(entry.productionDate).slice(0,7))))];
     const summarySnapshots=await Promise.all(summaryKeys.map(id=>window._getDoc(window._docRef('productionEmployeeMonths',id))));
     const monthRows=summarySnapshots.map((snapshot,index)=>snapshot.exists()?{id:summaryKeys[index],...snapshot.data()}:null).filter(Boolean);
@@ -206,12 +234,14 @@
     return plan;
   }
 
-  // loadImpactCounts（讀取受影響報工數）：只對實際受影響的既有 processId 做 Aggregate count（彙總計數）。
+  // loadImpactCounts（讀取受影響報工數）：只有被移除的工序需查全部歷史，以判斷是否保存舊工序參照。
+  // 分類或秒數變更的數量由後續未凍結月份批次查詢直接計算，避免先做重複彙總查詢。
   async function loadImpactCounts(planInput,options={}){
     const plan=planInput;
-    const processIds=[...new Set((plan.rows||[]).filter(row=>row.requiresImpactCount&&row.processId)
+    const processIds=[...new Set((plan.rows||[]).filter(row=>row.kind==='removed'&&row.processId)
       .map(row=>row.processId))];
     if(!processIds.length){
+      plan.removedEntryCount=0;
       options.onProgress?.({completed:0,total:0,value:100});
       return plan;
     }
@@ -228,8 +258,9 @@
         options.onProgress?.({completed,total:processIds.length,value:Math.round(completed/processIds.length*100),processId,count});
       });
     }
-    plan.rows.forEach(row=>{ row.impactCount=counts.get(row.processId)||0; });
-    plan.affectedEntryCount=[...counts.values()].reduce((sum,count)=>sum+count,0);
+    plan.rows.filter(row=>row.kind==='removed').forEach(row=>{ row.impactCount=counts.get(row.processId)||0; });
+    plan.removedEntryCount=[...counts.values()].reduce((sum,count)=>sum+count,0);
+    plan.affectedEntryCount=plan.removedEntryCount;
     const retainedRows=plan.rows.filter(row=>row.kind==='removed'&&row.impactCount>0);
     plan.retainedProcessCount=retainedRows.length;
     plan.requests.forEach(request=>{
