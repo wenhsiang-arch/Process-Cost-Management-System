@@ -10,11 +10,14 @@ function load(){
   const context={window:{firebaseAuthUser:null,cu:null},TextEncoder,console};
   vm.createContext(context);
   vm.runInContext(read('js/product-model.js'),context);
+  vm.runInContext(read('js/product-change-log-store.js'),context);
+  vm.runInContext(read('js/product-legacy-process-store.js'),context);
   vm.runInContext(read('js/product-master-store.js'),context);
   return context.window;
 }
 
 const actor={uid:'admin-1',name:'Quản trị / 管理員'};
+const batch=(mode='single')=>({batchId:`pcb-test-${mode}`,trackingEpoch:'epoch-test',mode});
 const sourceProduct={
   code:'Ab-001',client:'Khách A',zh:'產品甲',vi:'Sản phẩm A',sz:'M',
   ops:[
@@ -52,25 +55,42 @@ test('舊資料固定識別碼與對照、例外文件可安全重跑',()=>{
 
 test('建立款號時固定 productId 與 processId，重跑相同舊來源不會產生第二組身分',()=>{
   const {PCMSProductMasterStore:store}=load();
-  const options={actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']};
+  const options={actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2'],batch:batch()};
   const first=store.prepareCreate(sourceProduct,options);
   const repeated=store.prepareCreate(sourceProduct,options);
   assert.equal(first.product.productId,repeated.product.productId);
   assert.equal(first.product.ops.map(item=>item.processId).join(','),repeated.product.ops.map(item=>item.processId).join(','));
   assert.equal(first.atomic,true);
-  assert.equal(first.writes.some(write=>write.collection==='operationLogs'),true);
+  assert.equal(first.writes.some(write=>write.collection==='productChangeItems'),true);
   assert.equal(first.writes.some(write=>write.collection==='productCodeIndex'),true);
   assert.equal(first.product.revision,1);
+});
+
+test('款號工序允許六種分類且不要求全部出現',()=>{
+  const {PCMSProductMasterStore:store}=load();
+  const categories=['BL','TC','SX','HC','QC','DG'];
+  categories.forEach((category,index)=>{
+    const product={...sourceProduct,code:`CATEGORY-${category}`,ops:[{no:'1',category,zh:'工序',vi:'Công đoạn',sec:30}]};
+    const result=store.prepareCreate(product,{
+      actor,now:1000+index,sourceKey:`legacy.products.CATEGORY-${category}`,
+      processSourceKeys:[`legacy.process.CATEGORY-${category}.1`],batch:batch()
+    });
+    assert.equal(result.product.ops.length,1);
+    assert.equal(result.product.ops[0].category,category);
+  });
+  assert.throws(()=>store.prepareCreate({
+    ...sourceProduct,code:'CATEGORY-OTHER',ops:[{no:'1',category:'OTHER',zh:'工序',vi:'Công đoạn',sec:30}]
+  },{actor,now:2000,sourceKey:'legacy.products.CATEGORY-OTHER',processSourceKeys:['legacy.process.CATEGORY-OTHER.1'],batch:batch()}),/分類不正確/);
 });
 
 test('兩人修改不同可編輯欄位可合併，款號代碼與固定身分維持不變',()=>{
   const {PCMSProductMasterStore:store}=load();
   const base=store.prepareCreate(sourceProduct,{
-    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
+    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2'],batch:batch()
   }).product;
   const current={...base,client:'Khách B',revision:2,updatedAt:1100,updatedByUid:'other'};
   const draft={...base,zh:'產品新版',ops:base.ops.map((operation,index)=>index===0?{...operation,no:'7',sec:50}:operation)};
-  const result=store.prepareUpdate({base,current,draft,actor,now:1200});
+  const result=store.prepareUpdate({base,current,draft,actor,now:1200,batch:batch()});
   assert.equal(result.hasConflicts,false);
   assert.equal(result.merged.client,'Khách B');
   assert.equal(result.merged.code,base.code);
@@ -108,7 +128,7 @@ test('修改預覽依固定 processId 對應工序，拖曳後只顯示真正的
   assert.deepEqual(new Set(differences.map(item=>item.processId)),new Set([operations[1].processId,operations[2].processId]));
 });
 
-test('群組推薦先依客人與越文品名列候選，再分別標示工序數量、描述與秒數差異',()=>{
+test('群組推薦只列同客人且同越文品名款號，再分別標示工序與秒數差異',()=>{
   const {PCMSProductModel:model}=load();
   const source={...sourceProduct,client:'BK',vi:'Vòng cổ'};
   assert.equal(model.groupRecommendation(source,{...source,code:'P2'}).exact,true);
@@ -119,6 +139,9 @@ test('群組推薦先依客人與越文品名列候選，再分別標示工序�
   assert.equal(count.secondsDifferent,false);
   assert.equal(model.groupRecommendation(source,{...source,code:'P4',ops:source.ops.map((item,index)=>index?item:{...item,vi:'Khác'})}).descriptionDifferent,true);
   assert.equal(model.groupRecommendation(source,{...source,code:'P5',ops:source.ops.map((item,index)=>index?item:{...item,sec:61})}).secondsDifferent,true);
+  const differentName=model.groupRecommendation(source,{...source,code:'P5-NAME',vi:'Vòng cổ khác'});
+  assert.equal(differentName.eligible,false);
+  assert.equal(differentName.exact,false);
   assert.equal(model.groupRecommendation(source,{...source,code:'P6',client:'GT'}).eligible,false);
 });
 
@@ -142,10 +165,10 @@ test('差異檢查會辨識嘗試改碼，但正式儲存拒絕既有款號代�
   const {PCMSProductModel:model,PCMSProductMasterStore:store}=load();
   assert.equal(model.compareProducts(sourceProduct,{...sourceProduct,code:'NEW-CODE'}).some(item=>item.field==='code'),true);
   const base=store.prepareCreate(sourceProduct,{
-    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
+    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2'],batch:batch()
   }).product;
   assert.throws(
-    ()=>store.prepareUpdate({base,current:base,draft:{...base,code:'NEW-CODE'},actor,now:1200}),
+    ()=>store.prepareUpdate({base,current:base,draft:{...base,code:'NEW-CODE'},actor,now:1200,batch:batch()}),
     /Mã hàng không được phép sửa|款號代碼不得修改/
   );
 });
@@ -153,11 +176,11 @@ test('差異檢查會辨識嘗試改碼，但正式儲存拒絕既有款號代�
 test('兩人修改同一欄位時保留雲端值與草稿值並回報衝突',()=>{
   const {PCMSProductMasterStore:store}=load();
   const base=store.prepareCreate(sourceProduct,{
-    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
+    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2'],batch:batch()
   }).product;
   const current={...base,zh:'雲端名稱',revision:2};
   const draft={...base,zh:'我的名稱'};
-  const result=store.prepareUpdate({base,current,draft,actor,now:1200});
+  const result=store.prepareUpdate({base,current,draft,actor,now:1200,batch:batch()});
   assert.equal(result.hasConflicts,true);
   assert.equal(result.plan,null);
   assert.equal(result.conflicts[0].path,'product.zh');
@@ -168,11 +191,11 @@ test('兩人修改同一欄位時保留雲端值與草稿值並回報衝突',()=
 test('同一道固定工序的相同欄位同時修改時只回報該欄位衝突',()=>{
   const {PCMSProductMasterStore:store}=load();
   const base=store.prepareCreate(sourceProduct,{
-    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
+    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2'],batch:batch()
   }).product;
   const current={...base,revision:2,ops:base.ops.map((operation,index)=>index===0?{...operation,sec:55}:operation)};
   const draft={...base,ops:base.ops.map((operation,index)=>index===0?{...operation,sec:50}:operation)};
-  const result=store.prepareUpdate({base,current,draft,actor,now:1200});
+  const result=store.prepareUpdate({base,current,draft,actor,now:1200,batch:batch()});
   assert.equal(result.hasConflicts,true);
   assert.equal(result.conflicts.length,1);
   assert.equal(result.conflicts[0].path,`process.${base.ops[0].processId}.sec`);
@@ -183,16 +206,16 @@ test('同一道固定工序的相同欄位同時修改時只回報該欄位衝�
 test('款號與既有工序不得透過共用儲存服務停用或移除',()=>{
   const {PCMSProductMasterStore:store}=load();
   const base=store.prepareCreate({...sourceProduct,active:false,ops:sourceProduct.ops.map(item=>({...item,active:false}))},{
-    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2']
+    actor,now:1000,sourceKey:'legacy.products.ABC-001',processSourceKeys:['legacy.process.1','legacy.process.2'],batch:batch()
   }).product;
   assert.equal(base.active,true);
   assert.equal(base.ops.every(item=>item.active===true),true);
   const inactiveDraft={...base,active:false,ops:base.ops.map((item,index)=>index===0?{...item,active:false}:item)};
-  const inactive=store.prepareUpdate({base,current:base,draft:inactiveDraft,actor,now:1200});
+  const inactive=store.prepareUpdate({base,current:base,draft:inactiveDraft,actor,now:1200,batch:batch()});
   assert.equal(inactive.hasConflicts,false);
   assert.equal(inactive.merged.active,true);
   assert.equal(inactive.merged.ops[0].active,true);
-  const removed=store.prepareUpdate({base,current:base,draft:{...base,ops:[base.ops[0]]},actor,now:1201});
+  const removed=store.prepareUpdate({base,current:base,draft:{...base,ops:[base.ops[0]]},actor,now:1201,batch:batch()});
   assert.equal(removed.hasConflicts,true);
   assert.equal(removed.conflicts[0].reason,'process-removal-requires-reference-check');
 });
@@ -204,10 +227,10 @@ test('Excel 完整覆蓋保留同款號及同工序固定身分，並精確替�
   }))};
   const current=store.prepareCreate(original,{
     actor,now:1000,sourceKey:'legacy.products.OVERWRITE',
-    processSourceKeys:original.ops.map(item=>`legacy.process.${item.no}`)
+    processSourceKeys:original.ops.map(item=>`legacy.process.${item.no}`),batch:batch()
   }).product;
   const incoming={...sourceProduct,client:'Khách mới',ops:Array.from({length:11},(_,index)=>({
-    no:String(index+1),category:index===0?'QC':'SX',zh:`新工序${index+1}`,vi:`Công đoạn mới ${index+1}`,sec:30+index
+    no:String(index+1),category:index===0?'QC':'SX',zh:`新工序${index+1}`,vi:`Công đoạn ${index+1}`,sec:30+index
   }))};
   const replacement=model.reconcileImportReplacement(current,incoming);
   assert.equal(replacement.productId,current.productId);
@@ -215,22 +238,36 @@ test('Excel 完整覆蓋保留同款號及同工序固定身分，並精確替�
   assert.equal(replacement.ops[0].processId,current.ops[0].processId);
   assert.equal(replacement.ops[10].processId,current.ops[10].processId);
   assert.equal(replacement.ops.some(item=>item.processId===current.ops[11].processId),false);
-  const prepared=store.prepareImportReplacement({current,incoming,actor,now:2000});
+  const prepared=store.prepareImportReplacement({current,incoming,actor,now:2000,batch:batch('import')});
   assert.equal(prepared.plan.product.ops.length,11);
   assert.equal(prepared.plan.product.revision,2);
-  assert.equal(prepared.plan.product.operationLogId.endsWith('__productImport'),true);
+  assert.equal(prepared.plan.product.lastChangeBatchId,batch('import').batchId);
 });
 
 test('Excel 新增工序只替新工序建立固定身分，原工序身分全部沿用',()=>{
   const {PCMSProductMasterStore:store}=load();
   const current=store.prepareCreate(sourceProduct,{
-    actor,now:1000,sourceKey:'legacy.products.ADD',processSourceKeys:['legacy.process.ADD.1','legacy.process.ADD.2']
+    actor,now:1000,sourceKey:'legacy.products.ADD',processSourceKeys:['legacy.process.ADD.1','legacy.process.ADD.2'],batch:batch()
   }).product;
   const incoming={...sourceProduct,ops:[...sourceProduct.ops,{no:'3',category:'DG',zh:'包裝',vi:'Đóng gói',sec:20}]};
-  const saved=store.prepareImportReplacement({current,incoming,actor,now:2000}).plan.product;
+  const saved=store.prepareImportReplacement({current,incoming,actor,now:2000,batch:batch('import')}).plan.product;
   assert.equal(saved.ops.length,3);
   assert.equal(saved.ops[0].processId,current.ops[0].processId);
   assert.equal(saved.ops[1].processId,current.ops[1].processId);
   assert.match(saved.ops[2].processId,/^prc_/);
   assert.notEqual(saved.ops[2].processId,current.ops[0].processId);
+});
+
+test('Excel 移除已有產能的工序時只另存舊工序參照',()=>{
+  const {PCMSProductMasterStore:store}=load();
+  const current=store.prepareCreate(sourceProduct,{
+    actor,now:1000,sourceKey:'legacy.products.RETAIN',processSourceKeys:['legacy.process.RETAIN.1','legacy.process.RETAIN.2'],batch:batch()
+  }).product;
+  const incoming={...sourceProduct,ops:[{...sourceProduct.ops[0],no:'1'}]};
+  const oldOperation=current.ops[1];
+  const prepared=store.prepareImportReplacement({current,incoming,legacyProcesses:[oldOperation],actor,now:2000,batch:batch('import')});
+  assert.equal(prepared.plan.product.ops.length,1);
+  assert.equal(prepared.plan.legacyProcesses.length,1);
+  assert.equal(prepared.plan.legacyProcesses[0].processId,oldOperation.processId);
+  assert.equal(prepared.plan.writes.some(write=>write.collection==='productLegacyProcesses'),true);
 });

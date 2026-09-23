@@ -79,7 +79,8 @@
   function ensureDetailState(batch){
     const batchId=batchKey(batch);
     if(!state.details.has(batchId)){
-      state.details.set(batchId,{batch,items:[],cursor:null,done:false,promise:null,loading:false,error:'',search:'',selectedProductId:''});
+      state.details.set(batchId,{batch,items:[],cursor:null,done:false,promise:null,loading:false,error:'',search:'',selectedProductId:'',
+        impactEntries:new Map(),impactLoading:false,impactLoaded:false});
     }
     const detailState=state.details.get(batchId);
     detailState.batch=batch;
@@ -103,6 +104,17 @@
     ]);
   }
   function expectedDetailCount(batch){ return Math.max(0,Number(batch?.completedCount)||Number(batch?.targetCount)||0); }
+  function productionImpacts(detailState){
+    return (detailState?.items||[]).flatMap(item=>(item.productionImpacts||[]).map(impact=>({...impact,changeItemId:item.id})));
+  }
+  function impactIsActive(impact,detailState){
+    return (impact.entryIds||[]).some(id=>text(detailState.impactEntries.get(id)?.status)==='active');
+  }
+  function displayedImpactCount(detailState){
+    if(detailState.impactLoaded) return productionImpacts(detailState).filter(impact=>impactIsActive(impact,detailState)).length;
+    const saved=Number(detailState.batch?.performanceImpactCount);
+    return Number.isFinite(saved)&&saved>=0?saved:productionImpacts(detailState).length;
+  }
 
   function fieldLabel(change){
     const field=change.field;
@@ -224,12 +236,13 @@
   }
   function detailRow(batch){
     const batchId=batchKey(batch),detailState=ensureDetailState(batch);
+    const impactButton=batch.mode==='import'?`<button type="button" class="ui-button is-compact product-change-impact" data-product-change-impact="${escape(batchId)}"><i class="ti ti-activity-heartbeat"></i>${pair(`Ảnh hưởng sản xuất (${displayedImpactCount(detailState)})`,`產能影響（${displayedImpactCount(detailState)}）`)}</button>`:'';
     return `<tr class="product-change-detail-row" data-detail-row-batch-id="${escape(batchId)}"><td colspan="7">
       <div class="product-change-detail-shell">
         <div class="product-change-detail-toolbar">
           <div class="product-change-detail-heading"><strong>${pair('Chi tiết thay đổi','修改明細')}</strong><span>${escape(time(batch.createdAt))} · ${escape(batch.createdBy)}</span></div>
           <label class="product-change-detail-search"><span class="ui-dual-copy"><strong>Tìm trong chi tiết đã tải</strong><span>搜尋已載入明細</span></span><input type="search" value="${escape(detailState.search)}" data-product-change-detail-search="${escape(batchId)}" data-ui-localized-placeholder-vi="Nhập mã hàng, công đoạn hoặc nội dung" data-ui-localized-placeholder-zh="輸入款號、工序或修改內容" placeholder="Nhập mã hàng, công đoạn hoặc nội dung"></label>
-          <button type="button" class="ui-button is-compact product-change-detail-close" data-product-change-close="${escape(batchId)}"><i class="ti ti-chevron-up"></i>${pair('Thu gọn chi tiết','收合明細')}</button>
+          <div class="product-change-detail-actions"><button type="button" class="ui-button is-compact product-change-detail-close" data-product-change-close="${escape(batchId)}"><i class="ti ti-chevron-up"></i>${pair('Thu gọn chi tiết','收合明細')}</button>${impactButton}</div>
         </div>
         <div class="product-change-detail-body" data-detail-body="${escape(batchId)}">${detailBody(detailState)}</div>
         <div class="product-change-detail-footer" data-detail-footer="${escape(batchId)}">${detailFooter(detailState)}</div>
@@ -267,7 +280,81 @@
     const body=row.querySelector('[data-detail-body]'),footer=row.querySelector('[data-detail-footer]');
     if(body) body.innerHTML=detailBody(detailState);
     if(footer) footer.innerHTML=detailFooter(detailState);
+    const impactButton=row.querySelector('[data-product-change-impact]');
+    if(impactButton){
+      const count=displayedImpactCount(detailState);
+      impactButton.innerHTML=`<i class="ti ti-activity-heartbeat"></i>${pair(`Ảnh hưởng sản xuất (${count})`,`產能影響（${count}）`)}`;
+    }
     window.PCMSUIText?.refreshLocalizedAttributes?.(row);
+  }
+  async function loadImpactEntries(detailState){
+    if(detailState.impactLoading) return;
+    detailState.impactLoading=true;
+    try{
+      const ids=[...new Set(productionImpacts(detailState).flatMap(item=>item.entryIds||[]).map(text).filter(Boolean))];
+      for(let offset=0;offset<ids.length;offset+=20){
+        const snapshots=await Promise.all(ids.slice(offset,offset+20).map(id=>window._getDoc(window._docRef('productionEntries',id))));
+        snapshots.forEach((snapshot,index)=>{
+          const id=ids[offset+index];
+          detailState.impactEntries.set(id,snapshot.exists()?{id,...snapshot.data()}:{id,status:'void'});
+        });
+      }
+      detailState.impactLoaded=true;
+    }finally{
+      detailState.impactLoading=false;
+    }
+  }
+  function percentage(value){
+    const number=Number(value);
+    return Number.isFinite(number)?`${Math.round(number*10)/10}%`:'—';
+  }
+  function impactDialogBody(detailState){
+    const impacts=productionImpacts(detailState);
+    const active=impacts.filter(item=>impactIsActive(item,detailState)).length;
+    const archived=impacts.length-active;
+    const body=document.createElement('div');
+    body.className='product-change-impact-dialog';
+    body.innerHTML=`<div class="product-change-impact-summary">
+      <span>${pair('Cần xử lý','待處理')}<strong>${active}</strong></span>
+      <span>${pair('Đã lưu trữ','已封存')}<strong>${archived}</strong></span>
+      <span>${pair('Tổng chênh lệch','全部差異')}<strong>${impacts.length}</strong></span>
+    </div><div class="ui-table-frame"><div class="ui-table-scroll"><table class="ui-table product-change-impact-table"><thead><tr>
+      <th>${pair('Nhân viên','員工')}</th><th>${pair('Mã hàng / Công đoạn','款號／工序')}</th><th>${pair('Tháng','月份')}</th>
+      <th>${pair('Số phiếu','登記筆數')}</th><th>${pair('Trước','修改前')}</th><th>${pair('Sau','修改後')}</th>
+      <th>${pair('Chênh lệch','差異')}</th><th>${pair('Thao tác','操作')}</th><th>${pair('Trạng thái','狀態')}</th>
+      </tr></thead><tbody>${impacts.map((impact,index)=>{
+        const isActive=impactIsActive(impact,detailState);
+        const process=[impact.productCode,impact.processNo?`CĐ ${impact.processNo}`:'',impact.processNameVi].filter(Boolean).join(' · ');
+        return `<tr><td><strong>${escape(impact.employeeId||'—')}</strong><br><span>${escape(impact.employeeName||'—')}</span></td>
+          <td>${escape(process||'—')}</td><td>${escape(impact.month||'—')}</td><td>${Number(impact.entryCount)||0}</td>
+          <td>${escape(percentage(impact.beforePercentage))}</td><td>${escape(percentage(impact.afterPercentage))}</td>
+          <td>${escape(percentage(impact.difference))}</td><td><button type="button" class="ui-button is-compact" data-impact-index="${index}" ${isActive?'':'disabled'}>${pair('Đi xử lý','前往處理')}</button></td>
+          <td><span class="product-change-impact-state ${isActive?'is-active':'is-archived'}">${isActive?pair('Công đoạn còn tồn tại','工序存在'):pair('Đã lưu trữ','已封存')}</span></td></tr>`;
+      }).join('')||`<tr><td colspan="9" class="product-change-empty">${pair('Không có chênh lệch hiệu suất','沒有績效差異')}</td></tr>`}</tbody></table></div></div>`;
+    window.PCMSUIText?.refreshLocalizedAttributes?.(body);
+    return body;
+  }
+  async function openProductionImpactDialog(batchId){
+    const detailState=state.details.get(batchId);
+    if(!detailState) return;
+    while(!detailState.done&&!detailState.error) await loadDetailPage(batchId);
+    await loadImpactEntries(detailState);
+    refreshDetailContents(batchId);
+    const body=impactDialogBody(detailState);
+    const dialog=window.PCMSUIComponents.openDialog({
+      title:{vi:'Ảnh hưởng sản xuất',zh:'產能影響'},body,size:'xlarge',
+      actions:[{text:{vi:'Đóng',zh:'關閉'},kind:'secondary'}]
+    });
+    const impacts=productionImpacts(detailState);
+    body.querySelectorAll('[data-impact-index]').forEach(button=>button.addEventListener('click',async()=>{
+      const impact=impacts[Number(button.dataset.impactIndex)],entry=(impact.entryIds||[])
+        .map(id=>detailState.impactEntries.get(id)).find(item=>item?.status==='active');
+      await window.PCMSFeatures?.ensurePageScripts?.('production-entry');
+      window.PCMSProductionEntry?.setPendingContext?.({employeeId:impact.employeeId,
+        productionDate:entry?.productionDate||`${impact.month}-01`,code:impact.productCode,processNo:impact.processNo});
+      dialog.close('navigate');
+      await window.sp?.('production-entry');
+    }));
   }
   async function loadDetailPage(batchId){
     const batch=findBatch(batchId); if(!batch) return [];
@@ -318,6 +405,8 @@
     if(toggle){await toggleDetails(text(toggle.dataset.batchId));return;}
     const close=event.target.closest?.('[data-product-change-close]');
     if(close){closeDetails(text(close.dataset.productChangeClose),true);return;}
+    const impact=event.target.closest?.('[data-product-change-impact]');
+    if(impact){await openProductionImpactDialog(text(impact.dataset.productChangeImpact));return;}
     const more=event.target.closest?.('[data-product-change-more-detail]');
     if(more){await loadDetailPage(text(more.dataset.productChangeMoreDetail));return;}
     const retry=event.target.closest?.('[data-product-change-retry]');

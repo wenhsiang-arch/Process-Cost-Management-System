@@ -248,7 +248,7 @@
     const expectedProductId=model().fixedId(request?.existing?.productId||request?.productId,'product');
     const expectedRevision=Number(request?.existing?.revision||request?.expectedRevision)||0;
     if(!expectedProductId) throw new Error('Thiếu mã định danh sản phẩm cần ghi đè. / 缺少要覆蓋的款號固定識別碼。');
-    let saved;
+    let saved,savedLegacy=[];
     await window._runTransaction(async transaction=>{
       const productReference=window._docRef(store().COLLECTIONS.products,expectedProductId);
       const productSnapshot=await transaction.get(productReference);
@@ -262,6 +262,8 @@
       let plan=store().prepareImportReplacement({
         current,
         incoming:request.incoming,
+        legacyProcesses:request.legacyProcesses,
+        productionImpacts:request.productionImpacts,
         actor:currentActor,
         now,
         note:text(options.fileName||options.note),
@@ -281,7 +283,9 @@
       plan=store().finalizeFreshnessPlan(plan,metaSnapshot?.exists?.()?metaSnapshot.data():{},current,window.D||[]);
       applyPlan(transaction,plan);
       saved=plan.product;
+      savedLegacy=clone(plan.legacyProcesses||[]);
     },{skipDataVersions:true});
+    if(savedLegacy.length) window.PCMSProductLegacyProcessStore?.prime?.(savedLegacy);
     if(options.publish!==false) publishProduct(saved);
     return clone(saved);
   }

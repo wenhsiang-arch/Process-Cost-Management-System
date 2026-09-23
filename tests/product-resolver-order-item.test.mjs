@@ -59,6 +59,38 @@ test('找不到固定工序時列為例外，不退回舊 processNo 或秒數快
   assert.equal(result.exceptions[0].code,'process-not-found');
 });
 
+test('Excel 覆蓋後既有報工以保留的 processId 取得匯入最新工序資料',()=>{
+  const window=load();
+  const data=fixtures(window.PCMSProductModel);
+  const incoming={
+    code:data.product.code,client:'New Client',zh:'匯入產品',vi:'Sản phẩm nhập',sz:'XL',
+    ops:[{no:'2',category:'QC',zh:'匯入工序',vi:'Viền mới',sec:40}]
+  };
+  const replacement=window.PCMSProductModel.reconcileImportReplacement(data.product,incoming);
+  const result=window.PCMSProductResolver.resolveRows([{
+    id:'entry-imported',productId:data.productId,processId:data.processId,quantity:100,
+    productCode:'OLD',processNo:'7',processNameZh:'舊名稱',processSecSnapshot:99
+  }],[replacement],{efficiencyCore:window.PCMSProductionEfficiencyCore,workSeconds:3000});
+  assert.equal(result.exceptions.length,0);
+  assert.equal(result.rows[0].display.productCode,data.product.code);
+  assert.equal(result.rows[0].display.processNameZh,'匯入工序');
+  assert.equal(result.rows[0].display.processSeconds,40);
+  assert.equal(result.rows[0].source.processId,data.processId);
+});
+
+test('正式款號已移除的工序可以獨立舊工序參照解析',()=>{
+  const window=load();
+  const data=fixtures(window.PCMSProductModel);
+  const product={...data.product,ops:[]};
+  const legacy={productId:data.productId,processId:data.processId,no:'7',sortOrder:7,category:'SX',
+    zh:'舊包邊',vi:'Viền mới',sec:50,active:true};
+  const result=window.PCMSProductResolver.resolveRows([{productId:data.productId,processId:data.processId,quantity:100}],
+    [product],{legacyProcesses:[legacy],efficiencyCore:window.PCMSProductionEfficiencyCore,workSeconds:3000});
+  assert.equal(result.exceptions.length,0);
+  assert.equal(result.rows[0].display.processNameZh,'舊包邊');
+  assert.equal(result.rows[0].display.processSeconds,50);
+});
+
 test('Resolver 先去重 productId，並讓同一批同時查詢共用載入工作',async()=>{
   const window=load();
   const data=fixtures(window.PCMSProductModel);

@@ -40,9 +40,13 @@ function load(){
     _docRef:(collection,id)=>({collection,id}),
     _runTransaction:task=>database.transaction(task)
   });
+  database.documents.set('system/productsMeta',{
+    version:'baseline',changeSequence:0,productCount:0,opCount:0,lastProductId:'',lastRevision:0,
+    lastChangeBatchId:'',trackingEpoch:'epoch-test',updatedAt:1,updatedByUid:'reset',schemaVersion:4
+  });
   const context={window,TextEncoder,console};
   vm.createContext(context);
-  ['js/product-model.js','js/product-master-store.js','js/product-group-store.js','js/product-master-service.js']
+  ['js/product-model.js','js/product-change-log-store.js','js/product-legacy-process-store.js','js/product-master-store.js','js/product-group-store.js','js/product-master-service.js']
     .forEach(path=>vm.runInContext(read(path),context));
   return {window,database};
 }
@@ -52,25 +56,28 @@ const product={
   ops:[{no:'1',category:'SX',zh:'車縫',vi:'May',sec:60}]
 };
 
-test('新增款號、固定索引、單款歷史、版本提示與操作紀錄在同一交易完成',async()=>{
+test('新增款號、固定索引、新流水帳明細與版本提示完整建立',async()=>{
   const {window,database}=load();
   const saved=await window.PCMSProductMasterService.createProduct(product,{
     sourceKey:'legacy.product.1',processSourceKeys:['legacy.process.1'],now:1000
   });
   assert.equal(database.get('products',saved.productId).code,'P-001');
   assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('p-001')).productId,saved.productId);
-  assert.equal(database.count('productHistory'),1);
   assert.equal(database.count('productChanges'),0);
-  assert.equal(database.count('operationLogs'),1);
+  assert.equal(database.count('productChangeBatches'),1);
+  assert.equal(database.count('productChangeItems'),1);
+  assert.equal(database.count('operationLogs'),2);
   assert.equal(database.get('system','productsMeta').changeSequence,1);
+  assert.equal(database.get('products',saved.productId).changeSequence,1);
+  assert.equal(database.get('system','productsMeta').incrementalSchemaVersion,1);
+  assert.equal(database.get('system','productsMeta').incrementalStartSequence,0);
+  assert.deepEqual(database.get('system','productsMeta').deletedProductIds,[]);
   assert.equal(database.get('system','productsMeta').productCount,1);
   assert.equal(database.get('system','productsMeta').lastProductId,saved.productId);
-  const log=database.get('operationLogs',saved.operationLogId);
-  assert.equal(log.targetRevision,1);
-  assert.equal(log.targetCodeKey,saved.codeKey);
-  assert.equal(log.targetHistoryId,saved.historyId);
-  assert.equal(log.freshnessSequence,1);
-  assert.equal(log.schemaVersion,3);
+  const detail=database.get('productChangeItems',`${saved.lastChangeBatchId}__${saved.productId}`);
+  assert.equal(detail.before,null);
+  assert.equal(detail.after.productId,saved.productId);
+  assert.equal(detail.status,'success');
   assert.equal(window.D[0].productId,saved.productId);
 });
 
@@ -89,7 +96,7 @@ test('完整編輯與快速修改共用 saveDraft，但款號代碼不可修改�
   assert.equal(saved.ops[0].sec,60);
   assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('P-001')).productId,base.productId);
   assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('new-001')),undefined);
-  assert.equal(database.count('operationLogs'),1);
+  assert.equal(database.count('operationLogs'),4);
   assert.equal(database.get('system','productsMeta').changeSequence,1);
   assert.equal(database.get('system','productsMeta').productCount,1);
 });
@@ -100,12 +107,16 @@ test('未修改款號代碼時不重寫代碼索引',async()=>{
     sourceKey:'legacy.product.1',processSourceKeys:['legacy.process.1'],now:1000
   });
   const codeKey=window.PCMSProductModel.safeProductCodeKey(base.code);
-  await window.PCMSProductMasterService.saveDraft({base,draft:{...base,client:'C2'},now:2000});
+  const updated=await window.PCMSProductMasterService.saveDraft({base,draft:{...base,client:'C2'},now:2000});
   assert.equal(database.get('productCodeIndex',codeKey).updatedAt,1000);
   assert.equal(database.count('productChanges'),0);
+  const detail=database.get('productChangeItems',`${updated.lastChangeBatchId}__${updated.productId}`);
+  assert.equal(detail.mode,'single');
+  assert.equal(detail.before.client,'C1');
+  assert.equal(detail.after.client,'C2');
 });
 
-test('同欄位衝突不寫入 Product 或操作紀錄並回傳雙方內容',async()=>{
+test('同欄位衝突不寫入 Product，並留下失敗流水帳及雙方內容',async()=>{
   const {window,database}=load();
   const base=await window.PCMSProductMasterService.createProduct(product,{
     sourceKey:'legacy.product.1',processSourceKeys:['legacy.process.1'],now:1000
@@ -116,10 +127,10 @@ test('同欄位衝突不寫入 Product 或操作紀錄並回傳雙方內容',asy
     error=>error.code==='product-field-conflict'&&error.conflicts[0].currentValue==='雲端名稱'
   );
   assert.equal(database.get('products',base.productId).zh,'雲端名稱');
-  assert.equal(database.count('operationLogs'),1);
+  assert.equal(database.count('operationLogs'),4);
 });
 
-test('匯入覆蓋在單款交易內完整替代工序並同時建立歷史與操作紀錄',async()=>{
+test('匯入覆蓋在單款交易內完整替代工序並同時建立流水帳與操作紀錄',async()=>{
   const {window,database}=load();
   const base=await window.PCMSProductMasterService.createProduct({...product,ops:[
     {no:'1',category:'SX',zh:'車縫',vi:'May',sec:60},
@@ -130,7 +141,7 @@ test('匯入覆蓋在單款交易內完整替代工序並同時建立歷史與�
   const progress=[];
   const result=await window.PCMSProductMasterService.importProducts([{
     mode:'replace',existing:base,incoming:{...product,code:'p-001',client:'C2',ops:[
-      {no:'1',category:'SX',zh:'新車縫',vi:'May mới',sec:45},
+      {no:'1',category:'SX',zh:'新車縫',vi:'May',sec:45},
       {no:'3',category:'DG',zh:'包裝',vi:'Đóng gói',sec:20}
     ]}
   }],{fileName:'products.xlsx',onProgress:item=>progress.push(item.phase)});
@@ -143,9 +154,13 @@ test('匯入覆蓋在單款交易內完整替代工序並同時建立歷史與�
   assert.equal(saved.ops[0].processId,firstProcessId);
   assert.equal(saved.ops.some(item=>item.processId===removedProcessId),false);
   assert.match(saved.ops[1].processId,/^prc_/);
-  assert.equal(database.count('productHistory'),2);
-  assert.equal(database.count('operationLogs'),2);
-  assert.equal(database.get('operationLogs',saved.operationLogId).action,'productImport');
+  assert.equal(database.count('operationLogs'),4);
+  const batch=database.get('productChangeBatches',result.batch.batchId);
+  assert.equal(batch.mode,'import');
+  assert.equal(batch.status,'success');
+  const detail=database.get('productChangeItems',`${batch.batchId}__${saved.productId}`);
+  assert.equal(detail.before.ops.length,2);
+  assert.equal(detail.after.ops.length,2);
   assert.deepEqual(progress,['start','complete']);
 });
 
@@ -160,15 +175,22 @@ test('匯入遇到失敗款號立即停止並回報尚未處理數量',async()=>
   assert.equal(result.failures.length,1);
   assert.equal(result.remaining,1);
   assert.equal(database.get('productCodeIndex',window.PCMSProductModel.safeProductCodeKey('P-NOT-RUN')),undefined);
+  const batch=database.get('productChangeBatches',result.batch.batchId);
+  assert.equal(batch.status,'partial');
+  assert.equal(batch.successCount,1);
+  assert.equal(batch.failureCount,1);
+  assert.equal(batch.unprocessedCount,1);
 });
 
-test('群組批次每個款號獨立成功或失敗，失敗不會撤銷已成功項目',async()=>{
+test('群組批次允許其他使用者序號穿插，成功項目只要求唯一且單調增加',async()=>{
   const {window,database}=load();
   const first=await window.PCMSProductMasterService.createProduct(product,{
     sourceKey:'legacy.product.1',processSourceKeys:['legacy.process.1'],now:1000
   });
   const second=await window.PCMSProductMasterService.createProduct({...product,code:'P-002',sz:'L'},
     {sourceKey:'legacy.product.2',processSourceKeys:['legacy.process.2'],now:1001});
+  const currentMeta=database.get('system','productsMeta');
+  database.documents.set('system/productsMeta',{...currentMeta,version:'interleaved-v7',changeSequence:7,updatedAt:1500});
   const result=await window.PCMSProductMasterService.saveManyDrafts([
     {base:first,draft:{...first,client:'C2'}},
     {base:second,draft:{...second,code:'P-001'}}
@@ -177,6 +199,17 @@ test('群組批次每個款號獨立成功或失敗，失敗不會撤銷已成�
   assert.equal(result.failures.length,1);
   assert.equal(database.get('products',first.productId).client,'C2');
   assert.equal(database.get('products',second.productId).code,'P-002');
+  assert.equal(database.get('products',first.productId).changeSequence,8);
+  assert.equal(database.get('system','productsMeta').changeSequence,8);
+  const batch=database.get('productChangeBatches',result.batch.batchId);
+  assert.equal(batch.mode,'group');
+  assert.equal(batch.successCount,1);
+  assert.equal(batch.failureCount,1);
+  const successDetail=database.get('productChangeItems',`${batch.batchId}__${first.productId}`);
+  const failureDetail=database.get('productChangeItems',`${batch.batchId}__${second.productId}`);
+  assert.equal(successDetail.before.client,'C1');
+  assert.equal(successDetail.after.client,'C2');
+  assert.equal(failureDetail.status,'failed');
 });
 
 test('群組與全部 productId 成員索引及操作紀錄同成同敗',async()=>{

@@ -11,6 +11,7 @@
   function text(value){
     return String(value??'').trim().replace(/\s+/g,' ');
   }
+  function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
 
   // normalizeProductCode（正規化款號代碼）：保留使用者大小寫，只統一 Unicode 與空白並拒絕控制字元。
   function normalizeProductCode(value){
@@ -362,16 +363,55 @@
     return result;
   }
 
-  // reconcileImportReplacement（建立匯入完整替代資料）：同工序號沿用固定身分，Excel 未出現的舊工序不留在目前主檔。
-  function reconcileImportReplacement(existingInput,incomingInput){
+  function normalizedSignatureText(value){
+    return text(value).normalize('NFKC').toLocaleLowerCase('vi');
+  }
+
+  function operationNameBuckets(operations=[]){
+    const buckets=new Map();
+    (Array.isArray(operations)?operations:[]).forEach(operation=>{
+      const key=normalizedSignatureText(operation?.vi);
+      if(!key) return;
+      if(!buckets.has(key)) buckets.set(key,[]);
+      buckets.get(key).push(operation);
+    });
+    return buckets;
+  }
+
+  // buildImportReconciliation（建立匯入工序對應）：同款號內只有唯一相同越文名稱才沿用固定工序身分。
+  function buildImportReconciliation(existingInput,incomingInput){
     const existing=normalizeProduct(existingInput);
     const incoming=normalizeProduct(incomingInput);
     if(!existing.productId) throw new Error('Thiếu mã định danh sản phẩm hiện có. / 缺少既有款號固定識別碼。');
     if(productCodeComparisonKey(existing.code)!==productCodeComparisonKey(incoming.code)){
       throw new Error('Mã hàng nhập không khớp với sản phẩm cần ghi đè. / 匯入款號與要覆蓋的既有款號不一致。');
     }
-    const existingByNo=new Map(existing.ops.map(operation=>[operation.no,operation]));
-    return {
+    const existingByName=operationNameBuckets(existing.ops);
+    const incomingByName=operationNameBuckets(incoming.ops);
+    const duplicateIncoming=[...incomingByName.entries()].filter(([,items])=>items.length>1);
+    if(duplicateIncoming.length){
+      const names=duplicateIncoming.map(([,items])=>items[0]?.vi).filter(Boolean).join('、');
+      throw new Error(`Tên công đoạn tiếng Việt bị trùng trong cùng mã hàng: ${names}. / 同款號的工序越文名稱重複：${names}。`);
+    }
+    const matchedExistingIds=new Set();
+    const matches=[];
+    const unmatchedIncoming=[];
+    const operations=incoming.ops.map((operation,index)=>{
+      const candidates=existingByName.get(normalizedSignatureText(operation.vi))||[];
+      const current=candidates.length===1?candidates[0]:null;
+      if(current?.processId){
+        matchedExistingIds.add(current.processId);
+        matches.push({before:clone(current),after:clone(operation),processId:current.processId});
+      }else unmatchedIncoming.push(clone(operation));
+      return {
+        ...operation,
+        ...(current?.processId?{processId:current.processId}:{}),
+        sortOrder:index+1,
+        active:true
+      };
+    });
+    const unmatchedExisting=existing.ops.filter(operation=>!matchedExistingIds.has(operation.processId)).map(clone);
+    const product={
       productId:existing.productId,
       // 同款號匯入只覆蓋主檔內容；既有款號代碼本身永遠保留。
       code:existing.code,
@@ -380,63 +420,70 @@
       vi:incoming.vi,
       sz:incoming.sz,
       active:true,
-      ops:incoming.ops.map((operation,index)=>{
-        const current=existingByNo.get(operation.no);
-        return {
-          ...operation,
-          ...(current?.processId?{processId:current.processId}:{}),
-          sortOrder:index+1,
-          active:true
-        };
-      })
+      ops:operations
     };
+    return {product,matches,unmatchedExisting,unmatchedIncoming};
+  }
+
+  // reconcileImportReplacement（建立匯入完整替代資料）：只回傳正式新版工序，舊報工工序由獨立參照資料保存。
+  function reconcileImportReplacement(existingInput,incomingInput){
+    return buildImportReconciliation(existingInput,incomingInput).product;
   }
 
   // buildImportImpact（建立匯入影響列）：只列出會改變目前主檔或既有報工顯示的工序。
   function buildImportImpact(existingInput,incomingInput){
     const existing=normalizeProduct(existingInput);
     const incoming=normalizeProduct(incomingInput);
-    const replacement=reconcileImportReplacement(existing,incoming);
-    const differences=compareProducts(existing,incoming);
+    const reconciliation=buildImportReconciliation(existing,incoming);
+    const replacement=reconciliation.product;
+    const differences=compareProducts(existing,replacement);
     const productFields=new Set(['code','client','zh','vi','sz']);
     const productDifferences=differences.filter(item=>productFields.has(item.field));
-    const beforeByNo=new Map(existing.ops.map(operation=>[operation.no,operation]));
-    const afterByNo=new Map(replacement.ops.map(operation=>[operation.no,operation]));
-    const operationNumbers=[...new Set([...beforeByNo.keys(),...afterByNo.keys()])]
-      .sort((left,right)=>Number(left)-Number(right));
     const rows=[];
-    operationNumbers.forEach(no=>{
-      const before=beforeByNo.get(no)||null;
-      const after=afterByNo.get(no)||null;
-      const processDifferences=differences.filter(item=>item.operationNo===no);
-      const processChanged=!before||!after||processDifferences.length>0;
-      if(!processChanged&&!productDifferences.length) return;
+    reconciliation.matches.forEach(match=>{
+      const before=match.before;
+      const after=replacement.ops.find(operation=>operation.processId===match.processId)||match.after;
+      const processDifferences=[];
+      if(before.no!==after.no) processDifferences.push(difference('no',before.no,after.no,after.no,{processId:match.processId,operationBefore:before,operationAfter:after}));
+      if(before.category!==after.category) processDifferences.push(difference('category',before.category,after.category,after.no,{processId:match.processId,operationBefore:before,operationAfter:after}));
+      if(before.zh!==after.zh) processDifferences.push(difference('operationZh',before.zh,after.zh,after.no,{processId:match.processId,operationBefore:before,operationAfter:after}));
+      if(before.sec!==after.sec) processDifferences.push(difference('sec',before.sec,after.sec,after.no,{processId:match.processId,operationBefore:before,operationAfter:after}));
+      if(!processDifferences.length&&!productDifferences.length) return;
+      const affectsEfficiency=before.category!==after.category||before.sec!==after.sec;
       rows.push({
         productId:existing.productId,
         code:incoming.code,
-        processNo:no,
-        processId:before?.processId||after?.processId||'',
+        processNo:after.no,
+        processId:match.processId,
         before,
         after,
-        kind:!before?'added':(!after?'removed':(processChanged?'changed':'product-changed')),
+        kind:processDifferences.length?'changed':'product-changed',
         productDifferences,
         processDifferences,
-        requiresImpactCount:Boolean(before?.processId)
+        // 只有會改變績效的既有工序才需要查產能；純排序、工序號、中文或款號文字變更不讀產能。
+        requiresImpactCount:Boolean(match.processId)&&affectsEfficiency,
+        affectsEfficiency
       });
     });
+    reconciliation.unmatchedExisting.forEach(before=>rows.push({
+      productId:existing.productId,code:incoming.code,processNo:before.no,processId:before.processId||'',before,after:null,
+      kind:'removed',productDifferences,processDifferences:[],requiresImpactCount:Boolean(before.processId),affectsEfficiency:false
+    }));
+    reconciliation.unmatchedIncoming.forEach(after=>rows.push({
+      productId:existing.productId,code:incoming.code,processNo:after.no,processId:'',before:null,after,
+      kind:'added',productDifferences,processDifferences:[],requiresImpactCount:false,affectsEfficiency:false
+    }));
+    rows.sort((left,right)=>Number(left.after?.no||left.before?.no||0)-Number(right.after?.no||right.before?.no||0));
     return {
       existing,
       incoming,
       replacement,
+      reconciliation,
       differences,
       productDifferences,
       rows,
       processChangeCount:rows.filter(row=>row.kind!=='product-changed').length
     };
-  }
-
-  function normalizedSignatureText(value){
-    return text(value).normalize('NFKC').toLocaleLowerCase();
   }
 
   function groupProcessProfile(product){
@@ -576,6 +623,8 @@
     sameProduct,
     compareProducts,
     classifyImport,
+    normalizedSignatureText,
+    buildImportReconciliation,
     reconcileImportReplacement,
     buildImportImpact,
     groupProcessProfile,

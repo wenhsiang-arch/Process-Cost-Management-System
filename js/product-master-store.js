@@ -4,7 +4,7 @@
 
   const COLLECTIONS=Object.freeze({
     products:'products',codeIndex:'productCodeIndex',metadata:'system',
-    batches:'productChangeBatches',logs:'operationLogs'
+    batches:'productChangeBatches',logs:'operationLogs',legacyProcesses:'productLegacyProcesses'
   });
   const PRODUCT_FIELDS=Object.freeze(['code','client','zh','vi','sz']);
   const EDITABLE_PRODUCT_FIELDS=Object.freeze(['client','zh','vi','sz']);
@@ -18,6 +18,10 @@
   function changeLog(){
     if(!window.PCMSProductChangeLogStore) throw new Error('Thiếu sổ thay đổi mã hàng. / 缺少款號修改流水帳。');
     return window.PCMSProductChangeLogStore;
+  }
+  function legacyStore(){
+    if(!window.PCMSProductLegacyProcessStore) throw new Error('Thiếu dữ liệu tham chiếu công đoạn cũ. / 缺少舊工序參照資料服務。');
+    return window.PCMSProductLegacyProcessStore;
   }
   function text(value){ return String(value??'').trim().replace(/\s+/g,' '); }
   function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
@@ -136,13 +140,13 @@
     return {merged,conflicts,hasConflicts:conflicts.length>0};
   }
 
-  function documentPlan(product,{actor,now,action,previousCodeKey='',note='',beforeProduct=null,batch}={}){
+  function documentPlan(product,{actor,now,action,previousCodeKey='',note='',beforeProduct=null,productionImpacts=[],batch}={}){
     const batchId=text(batch?.batchId),trackingEpoch=text(batch?.trackingEpoch),mode=text(batch?.mode)||'single';
     if(!batchId||!trackingEpoch) throw new Error('Thiếu thao tác sổ thay đổi mã hàng. / 缺少款號流水帳操作。');
     const codeKey=model().safeProductCodeKey(product.code);
     const revision=Number(product.revision)||1;
     const savedProduct={...clone(product),codeKey,trackingEpoch,lastChangeBatchId:batchId};
-    const detail=changeLog().detail({batchId,trackingEpoch,mode,status:'success',before:beforeProduct,after:savedProduct,
+    const detail=changeLog().detail({batchId,trackingEpoch,mode,status:'success',before:beforeProduct,after:savedProduct,productionImpacts,
       actor,now,productId:savedProduct.productId,productCode:savedProduct.code});
     // 款號代碼未改時沿用既有索引，避免增加交易寫入與安全規則運算量。
     const codeIndexWrites=!previousCodeKey||previousCodeKey!==codeKey?[{
@@ -243,10 +247,11 @@
   }
 
   // prepareImportReplacement（準備匯入完整覆蓋）：只供已確認的 Excel 匯入使用，不放寬一般編輯的工序移除限制。
-  function prepareImportReplacement({current,incoming,actor:actorInput,now:time,note='',tokenProvider,batch}={}){
+  function prepareImportReplacement({current,incoming,legacyProcesses=[],productionImpacts=[],actor:actorInput,now:time,note='',tokenProvider,batch}={}){
     const actor=actorData(actorInput);
     const now=Number(time)||Date.now();
-    const replacement=model().reconcileImportReplacement(current,incoming);
+    const reconciliation=model().buildImportReconciliation(current,incoming);
+    const replacement=reconciliation.product;
     const normalized=normalizeAndValidateProduct(replacement,{tokenProvider});
     const product={
       ...normalized,
@@ -259,9 +264,16 @@
       updatedBy:actor.name
     };
     const previousCodeKey=model().safeProductCodeKey(current.code);
+    const unmatchedIds=new Set(reconciliation.unmatchedExisting.map(operation=>operation.processId).filter(Boolean));
+    const legacyDocuments=(Array.isArray(legacyProcesses)?legacyProcesses:[])
+      .filter(operation=>unmatchedIds.has(operation?.processId))
+      .map(operation=>legacyStore().build({product:current,operation,batch,actor,now}));
+    const plan=documentPlan(product,{actor,now,action:'productImport',previousCodeKey,note,beforeProduct:current,productionImpacts,batch});
+    legacyDocuments.forEach(document=>plan.writes.push({collection:COLLECTIONS.legacyProcesses,id:document.legacyProcessId,data:document}));
+    plan.legacyProcesses=legacyDocuments;
     return {
       merged:product,
-      plan:documentPlan(product,{actor,now,action:'productImport',previousCodeKey,note,beforeProduct:current,batch})
+      plan
     };
   }
 

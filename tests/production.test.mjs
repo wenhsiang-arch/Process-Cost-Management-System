@@ -6,6 +6,86 @@ import vm from 'node:vm';
 const root=new URL('../',import.meta.url); // root（專案根目錄）
 const read=file=>fs.readFileSync(new URL(file,root),'utf8');
 
+test('考勤工時實際輸出為三語皆保留的中性數值，載入和錯誤可切回雙語節點',()=>{
+  const makeNode=tagName=>({
+    tagName:tagName.toUpperCase(),id:'',children:[],ownText:'',
+    get textContent(){return this.children.length?this.children.map(child=>child.textContent).join(''):this.ownText;},
+    set textContent(value){this.children=[];this.ownText=String(value);},
+    replaceChildren(...children){this.children=children;this.ownText='';}
+  }); // makeNode（文字測試節點）：設定文字時清除子節點，與正式畫面一致。
+  const host=makeNode('span');
+  host.id='production-entry-attendance-summary';
+  const classes=new Set(['production-inline-value','ui-dual-copy']);
+  host.classList={toggle(name,enabled){enabled?classes.add(name):classes.delete(name);}};
+  const document={getElementById:id=>id===host.id?host:host.children.find(child=>child.id===id)||null,createElement:makeNode};
+  const window={};
+  const entry=read('js/production/production-entry.js');
+  assert.match(entry,/\}\)\(\);\s*$/);
+  const context=vm.createContext({window,document,console});
+  vm.runInContext(entry.replace(/\}\)\(\);\s*$/,'window.attendanceTest={set:setAttendanceSummary,render:renderAttendanceSummary};})();'),context);
+  const summary=window.attendanceTest;
+  for(const mode of ['bilingual','vi','zh']){
+    document.documentElement={dataset:{uiLanguageMode:mode}};
+    for(const attendance of [{normalHours:8,overtimeHours:0},{normalHours:0,overtimeHours:0},{normalHours:8,overtimeHours:3.5}]){
+      const original=JSON.stringify(attendance);
+      summary.render(attendance);
+      const total=attendance.normalHours+attendance.overtimeHours;
+      assert.equal(host.textContent,total.toLocaleString(undefined,{minimumFractionDigits:total%1===0?0:1,maximumFractionDigits:2}));
+      assert.equal(classes.has('ui-dual-copy'),false,'中性數值不可放入會被單語模式隱藏的語言容器');
+      assert.equal(host.children.length,0);
+      assert.equal(document.getElementById('production-entry-attendance-summary-vi'),null);
+      assert.equal(JSON.stringify(attendance),original);
+    }
+    summary.set('—','');
+    assert.equal(host.textContent,'—');
+    for(const [vi,zh] of [['Đang tải...','正在載入…'],['Không thể tải','無法載入'],['Chưa chọn','尚未選擇']]){
+      summary.set(vi,zh);
+      assert.equal(classes.has('ui-dual-copy'),true);
+      assert.deepEqual(host.children.map(node=>[node.tagName,node.id,node.textContent]),[
+        ['STRONG','production-entry-attendance-summary-vi',vi],['SPAN','production-entry-attendance-summary-zh',zh]
+      ]);
+    }
+    summary.render(null);
+    assert.equal(host.children[0].textContent,'Chưa chấm công');
+    assert.equal(host.children[1].textContent,'考勤未登記');
+  }
+});
+
+test('產能姓名與工序等原文資料格的完整提示不被三語模式拆開',()=>{
+  let mode='bilingual';
+  const window={PCMSUIRuntime:{getLanguageMode:()=>mode}};
+  const document={createElement(tagName){
+    const attributes=new Map();
+    return {
+      nodeType:1,tagName:tagName.toUpperCase(),dataset:{},children:[],textContent:'',
+      get title(){return attributes.get('title')||'';},set title(value){attributes.set('title',String(value));},
+      setAttribute(name,value){attributes.set(name,String(value));},getAttribute(name){return attributes.get(name)??null;},
+      hasAttribute(name){return attributes.has(name);},
+      matches(selector){return /^\[[\w-]+\]$/.test(selector)&&attributes.has(selector.slice(1,-1));},
+      querySelectorAll(){return [];},appendChild(child){this.children.push(child);}
+    };
+  }};
+  const context=vm.createContext({window,document,console});
+  vm.runInContext(read('js/ui-text.js'),context);
+  const entry=read('js/production/production-entry.js');
+  assert.match(entry,/\}\)\(\);\s*$/);
+  vm.runInContext(entry.replace(/\}\)\(\);\s*$/,'window.cellTest={appendCell};})();'),context);
+  const value='Hỗ trợ "chuyển chuyền" / 支援換線 <A&B>';
+  for(const key of ['employeeName','order','product','processName']){
+    const row=document.createElement('tr');
+    const cell=window.cellTest.appendCell(row,value,'',key);
+    for(mode of ['bilingual','vi','zh','bilingual']){
+      window.PCMSUIText.upgradeLegacyMarkup(cell);
+      window.PCMSUIText.refreshLocalizedAttributes(cell);
+      assert.equal(cell.title,value);
+      assert.equal(cell.textContent,value);
+      assert.equal(cell.hasAttribute('data-ui-neutral-title'),true);
+      assert.equal(cell.dataset.productionColumn,key);
+    }
+    assert.equal(row.children[0],cell);
+  }
+});
+
 function createProductionContext(){
   const employeeDocuments=[
     {id:'M91234',data:()=>({employeeId:'M91234',name:'Nguyễn An',department:'May',active:true})},
@@ -466,11 +546,14 @@ test('產能登記選取員工後預設本月、可指定日期並以有效作�
   assert.match(style,/#pg-production-entry \{[\s\S]*?overflow-x: clip;/);
   assert.match(reportStore,/async function loadEmployeeRange\(employeeId,fromValue,toValue,options=\{\}\)/);
   assert.match(reportStore,/_where\('employeeId','==',normalizedEmployeeId\)[\s\S]*?_where\('productionDate','>=',from\)[\s\S]*?_where\('productionDate','<=',to\)[\s\S]*?_orderBy\('productionDate','desc'\)/);
-  assert.match(style,/\.production-entry-table-header \{[\s\S]*?min-height: 44px;[\s\S]*?flex-wrap: nowrap;/);
-  assert.match(style,/\.production-entry-table-filters \{[\s\S]*?display: flex;/);
+  const tableHeaderStyle=style.match(/\.production-entry-table-header \{([^}]+)\}/)?.[1]||'';
+  assert.ok(Number(tableHeaderStyle.match(/min-height:\s*(\d+)px/)?.[1])>=44,'表頭必須保留雙語操作所需高度');
+  assert.match(tableHeaderStyle,/flex-wrap:\s*wrap;/);
+  assert.match(style,/\.production-entry-table-filters \{[^}]*display: flex;[^}]*flex-wrap: wrap;/);
+  assert.match(style,/\.production-record-date-filter \{[^}]*min-width: 132px;[^}]*flex-shrink: 0;/);
 });
 
-test('管理員測試刪除保留在各來源功能並同步處理關聯資料',()=>{
+test('管理員測試刪除只保留員工與考勤來源，產能永久刪除已取消',()=>{
   const employeeStore=read('js/production/employee-store.js'); // employeeStore（員工資料存取程式內容）
   const entryStore=read('js/production/linked-entry-store.js'); // entryStore（生產資料存取程式內容）
   const employeePage=read('js/production/production-employees.js'); // employeePage（員工資料頁程式內容）
@@ -482,16 +565,12 @@ test('管理員測試刪除保留在各來源功能並同步處理關聯資料',
   assert.match(employeeStore,/window\.cu\?\.role !== 'admin'/);
   assert.match(employeeStore,/_where\('employeeId','==',normalized\)/);
   assert.match(employeeStore,/transaction\.delete\(reference\)/);
-  assert.match(entryStore,/window\.cu\?\.role!=='admin'/);
-  assert.match(entryStore,/return mutateEntry\(entryId,'','delete'\)/);
-  assert.match(entryStore,/transaction\.delete\(entryReference\)/);
-  assert.match(entryStore,/mutation==='delete'\?'productionEntryDelete'/);
+  assert.doesNotMatch(entryStore,/deleteEntry|transaction\.delete\(entryReference\)|productionEntryDelete/);
   assert.match(attendanceStore,/async function deleteAttendance/);
   assert.match(attendanceStore,/transaction\.delete\(reference\)/);
-  [employeePage,entryPage].forEach(source=>{
-    assert.match(source,/window\.cu\?\.role === 'admin'/);
-    assert.match(source,/永久刪除/);
-  });
+  assert.match(employeePage,/window\.cu\?\.role === 'admin'/);
+  assert.match(employeePage,/永久刪除/);
+  assert.doesNotMatch(entryPage,/deleteDailyRecord|deleteEntry|ti-trash|Xóa vĩnh viễn|永久刪除/);
   assert.match(attendancePage,/window\.cu\?\.role === 'admin'/);
   assert.match(attendancePage,/刪除考勤/);
   assert.doesNotMatch(recordsPage,/deleteEntry|deleteAttendance|永久刪除/);
@@ -563,7 +642,7 @@ test('產能搜尋下拉緊貼輸入框且沒有滑鼠移動斷層',()=>{
   assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% - 1px\);/);
   assert.match(style,/\.ui-search-dropdown-options \{[\s\S]*?border-radius: 0 0 var\(--ui-radius-control\) var\(--ui-radius-control\);/);
   assert.doesNotMatch(style,/\.ui-search-dropdown-options \{[\s\S]*?top: calc\(100% \+ 4px\);/);
-  assert.match(features,/uiSearchDropdown:'js\/ui-search-dropdown\.js\?v=20260814-3'/);
+  assert.equal(features.match(/uiSearchDropdown:'js\/ui-search-dropdown\.js\?v=([^']+)'/)?.[1],JSON.parse(read('runtime-version.json')).version);
   assert.match(features,/production:'styles\/features\/production\.css\?v=/);
 });
 
@@ -587,7 +666,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(markup,/tabindex="-1"[^>]*id="production-calendar-button"[\s\S]*?ti-calendar-time/);
   assert.match(markup,/tabindex="-1"[^>]*id="production-date-previous"[\s\S]*?tabindex="-1"[^>]*id="production-date-next"/);
   assert.match(markup,/id="production-quantity-input"[^>]*placeholder="Enter để lưu \/ Enter 儲存"/);
-  assert.match(markup,/for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng<\/strong><span id="production-quantity-label-zh">數量<\/span>/);
+  assert.match(markup,/<label class="ui-dual-copy" for="production-quantity-input"><strong id="production-quantity-label-vi">Số lượng<\/strong><span id="production-quantity-label-zh">數量<\/span>/);
   assert.match(markup,/id="production-process-input"[^>]*maxlength="2"[\s\S]*?id="production-process-name"/);
   assert.match(markup,/Bản ghi của nhân viên trong tháng[\s\S]*?id="production-quantity-progress"[\s\S]*?Đã đăng ký \/ Giới hạn đơn hàng[\s\S]*?已登記數量 \/ 訂單數量上限/);
   assert.match(markup,/id="production-entry-status"[^>]*role="status"[^>]*aria-live="polite"/);
@@ -667,7 +746,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(style,/\.production-employee-inline-panel \{[\s\S]*?grid-template-columns: minmax\(210px, 1\.05fr\) minmax\(220px, 1\.15fr\)[\s\S]*?minmax\(68px, 86px\);[\s\S]*?background: var\(--ui-color-table-header\);/);
   assert.match(style,/\.production-employee-inline-field \.ui-search-dropdown-control \{[\s\S]*?width: 100%;[\s\S]*?max-width: 100%;/);
   assert.match(style,/\.production-quantity-progress \{[\s\S]*?width: clamp\(210px, 31%, 390px\);[\s\S]*?min-width: 0;[\s\S]*?background: var\(--ui-color-primary-soft\);/);
-  assert.match(style,/#production-quantity-progress-value \{[\s\S]*?font-size: 20px;[\s\S]*?font-variant-numeric: tabular-nums;/);
+  assert.match(style,/#production-quantity-progress-value \{[^}]*font-size: var\(--ui-font-size-metric\);[^}]*font-variant-numeric: tabular-nums;/);
   assert.match(style,/\.production-quantity-progress\.is-over \{[\s\S]*?var\(--ui-color-danger-background\)[\s\S]*?var\(--ui-color-danger-text\)/);
   assert.match(style,/\.production-entry-table th\.production-number-cell,[\s\S]*?\.production-entry-table td\.production-number-cell \{[\s\S]*?text-align: right;/);
   assert.match(style,/\.production-entry-table th\.production-number-cell > \.ui-dual-copy \{[\s\S]*?align-items: flex-end;/);
@@ -688,7 +767,7 @@ test('生產登記分開員工資訊與登記區且表格欄位可以按需顯�
   assert.match(source,/key:'processSeconds'[^\n]*headerLabel:\{vi:'Giây',zh:'工序秒數'\}/);
   assert.match(source,/key:'hourlyCapacity'[^\n]*headerLabel:\{vi:'SL\/giờ',zh:'每小時數量'\}/);
   assert.match(style,/\.production-value-badge \{[\s\S]*?display: inline-flex;[\s\S]*?min-height: 24px;[\s\S]*?padding: 2px 7px;[\s\S]*?background: var\(--ui-color-primary-soft\);/);
-  assert.match(style,/\.production-entry-table td\.production-product-code-cell \{[\s\S]*?font-weight: 700;/);
+  assert.match(style,/\.production-entry-table td\.production-product-code-cell \{[^}]*font-weight:\s*var\(--ui-font-weight-strong\);/);
   assert.match(style,/data-production-column="processNo"\],[\s\S]*?data-production-column="processNo"\] \{[\s\S]*?text-align: center;/);
   assert.match(style,/\.production-entry-table td\.production-row-actions \{[\s\S]*?display: table-cell;[\s\S]*?text-align: center;/);
   assert.match(html,/data-production-column="product"[\s\S]*?data-production-column="orderQuantity"[\s\S]*?data-production-column="processNo"/);
@@ -746,7 +825,8 @@ test('產能操作區正常寬度維持單排、高縮放換排且員工績效�
   assert.match(reportStore,/async function loadProcess\(processTotalId,options=\{\}\)/);
   assert.match(style,/\.production-filter-grid \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-filter-actions \{[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\);/);
-  assert.match(style,/@media \(max-width: 1100px\)[\s\S]*?#pg-production-records\.ui-legibility-standard \.production-filter-actions,[\s\S]*?grid-column: 1 \/ -1;/);
+  assert.match(style,/@media \(max-width: 1100px\)[\s\S]*?\.production-filter-actions,[\s\S]*?grid-column: 1 \/ -1;/);
+  assert.doesNotMatch(style,/ui-legibility-standard/);
   assert.match(style,/\.production-attendance-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-employee-fields \{[\s\S]*?grid-template-columns:[^;]+;[\s\S]*?align-items: end;/);
   assert.match(style,/\.production-date-stepper \{[\s\S]*?width: 16px;[\s\S]*?height: 28px;/);
@@ -894,12 +974,30 @@ test('生產登記不再於開頁自動掃描整月異常',()=>{
   assert.doesNotMatch(features,/productionAnomalyFilterInit|productionAnomalyFilterLeave/);
 });
 
-test('產能新增作廢與刪除後只局部更新目前表格',()=>{
+test('產能新增、單筆與批次作廢後只局部更新目前表格',()=>{
   const entry=read('js/production/production-entry.js');
   assert.match(entry,/function patchDailyRow\(item,\{remove=false\}=\{\}\)/);
   assert.match(entry,/const voided = await window\.PCMSProductionEntryStore\.voidEntry[\s\S]*?patchDailyRow\(voided\)/);
-  assert.match(entry,/const deleted = await window\.PCMSProductionEntryStore\.deleteEntry[\s\S]*?patchDailyRow\(deleted,\{remove:true\}\)/);
+  assert.match(entry,/async function confirmBatchVoid\(\)[\s\S]*?for\(let index=0;index<selected\.length;index\+=1\)[\s\S]*?PCMSProductionEntryStore\.voidEntry\(item\.id,reason\)[\s\S]*?patchDailyRow\(voided\)/);
+  assert.doesNotMatch(entry,/deleteDailyRecord|deleteEntry|productionEntryDelete/);
   assert.match(entry,/const saved = await window\.PCMSProductionEntryStore\.createEntry[\s\S]*?patchDailyRow\(saved\)/);
+});
+
+test('產能勾選即顯示固定於視窗中央的批次作廢明細，原因維持選填',()=>{
+  const html=read('index.html');
+  const entry=read('js/production/production-entry.js');
+  const style=read('styles/features/production.css');
+  assert.match(html,/id="production-batch-void-panel"[^>]*aria-modal="false"[^>]*hidden/);
+  assert.match(html,/id="production-batch-void-list"/);
+  assert.match(html,/for="production-batch-void-reason"[\s\S]*?原因（選填）[\s\S]*?<textarea id="production-batch-void-reason"[^>]*maxlength="500"/);
+  assert.doesNotMatch(html,/id="production-batch-void-reason"[^>]*required/);
+  assert.match(entry,/batchVoidSelection:new Map\(\)/);
+  assert.match(entry,/checkbox\.addEventListener\('change',[\s\S]*?toggleBatchVoidSelection\(item,checkbox\.checked\)/);
+  assert.match(entry,/list\.replaceChildren\(\.\.\.selected\.map/);
+  assert.match(entry,/clearBatchVoidSelection\(\);[\s\S]*?state\.recordPage = nextPage/);
+  assert.match(style,/\.production-batch-void-panel \{[^}]*position: fixed;[^}]*z-index: 48;/);
+  assert.match(style,/\.production-batch-void-panel \{[^}]*top: 50%;[^}]*left: 50%;[^}]*transform: translate\(-50%, -50%\);/);
+  assert.doesNotMatch(style,/\.production-batch-void-panel[^}]*pointer-events:\s*none/);
 });
 
 test('考勤分頁沿用正式操作面板與表格並位於生產紀錄及員工資料之間',()=>{

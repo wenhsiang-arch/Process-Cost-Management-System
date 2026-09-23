@@ -96,6 +96,19 @@
     return changes;
   }
 
+  function productionImpactSnapshot(input={}){
+    const entryIds=[...new Set((Array.isArray(input.entryIds)?input.entryIds:[]).map(text).filter(Boolean))].slice(0,5000);
+    const nullableNumber=value=>value===null||value===undefined?null:Number(value);
+    return {
+      employeeId:text(input.employeeId).slice(0,100),employeeName:text(input.employeeName).slice(0,100),month:text(input.month).slice(0,7),
+      productId:text(input.productId),productCode:text(input.productCode).slice(0,80),processId:text(input.processId),
+      processNo:text(input.processNo).slice(0,10),processNameVi:text(input.processNameVi).slice(0,200),
+      processNameZh:text(input.processNameZh).slice(0,200),entryIds,entryCount:entryIds.length,
+      beforePercentage:nullableNumber(input.beforePercentage),afterPercentage:nullableNumber(input.afterPercentage),
+      difference:nullableNumber(input.difference)
+    };
+  }
+
   function beginBatch(input={}){
     const actor=actorData(input.actor),now=Math.max(1,Math.trunc(Number(input.now)||Date.now()));
     const mode=MODES.has(input.mode)?input.mode:'single';
@@ -128,13 +141,15 @@
     const productId=text(input.productId||after?.productId||before?.productId);
     if(!productId) throw new Error('Thiếu mã định danh sản phẩm. / 缺少款號固定識別碼。');
     const status=['success','failed','unprocessed'].includes(input.status)?input.status:'success';
+    const productionImpacts=(Array.isArray(input.productionImpacts)?input.productionImpacts:[]).map(productionImpactSnapshot);
     return {
       batchId:text(input.batchId),trackingEpoch:text(input.trackingEpoch),productId,
       productCode:text(input.productCode||after?.code||before?.code),
       productCodeKey:productCodeKey(input.productCode||after?.code||before?.code),
       mode:MODES.has(input.mode)?input.mode:'single',status,
-      before,after,changes:status==='success'?calculateChanges(before,after):[],
-      error:text(input.error).slice(0,500),createdAt:now,createdByUid:actor.uid,createdBy:actor.name,schemaVersion:SCHEMA_VERSION
+      before,after,changes:status==='success'?calculateChanges(before,after):[],productionImpacts,
+      error:text(input.error).slice(0,500),createdAt:now,createdByUid:actor.uid,createdBy:actor.name,
+      schemaVersion:productionImpacts.length?2:SCHEMA_VERSION
     };
   }
 
@@ -146,7 +161,9 @@
     if(completedCount!==count(batch.targetCount)) throw new Error('Kết quả nhật ký không khớp số mục tiêu. / 流水帳結果與目標數量不一致。');
     const status=failureCount||unprocessedCount?(successCount?'partial':'failed'):'success';
     if(!FINAL_STATUSES.has(status)) throw new Error('Trạng thái nhật ký không hợp lệ. / 流水帳狀態不正確。');
-    const finalized={...batch,status,completedCount,successCount,failureCount,unprocessedCount,updatedAt:now,completedAt:now};
+    const performanceImpactCount=count(options.performanceImpactCount);
+    const finalized={...batch,status,completedCount,successCount,failureCount,unprocessedCount,
+      performanceImpactCount,updatedAt:now,completedAt:now};
     const resultLogId=operationLogId(batch.batchId,'result');
     const resultLog={
       permissionKey:'productsMain',feature:'products',action:'productChangeBatchResult',status,

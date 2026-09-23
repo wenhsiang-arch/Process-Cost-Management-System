@@ -80,8 +80,19 @@ test('修改明細在原摘要列下方獨立展開並可由摘要或固定抬�
   assert.doesNotMatch(htmlSource,/id="product-change-details"/);
   assert.match(styleSource,/\.product-change-detail-toolbar\{[^}]*position:sticky/);
   assert.match(pageSource,/class="ui-button is-compact product-change-detail-close"/);
-  assert.match(styleSource,/\.product-change-detail-close\{[^}]*align-self:end;[^}]*justify-self:end/);
+  assert.match(styleSource,/\.product-change-detail-actions\{[^}]*justify-content:flex-end/);
   assert.match(styleSource,/\.product-change-view\{[^}]*min-width:132px;[^}]*justify-content:center/);
+});
+
+test('匯入流水帳的收合右側顯示產能影響並可前往產能登記',()=>{
+  assert.match(pageSource,/data-product-change-impact=/);
+  assert.match(pageSource,/Ảnh hưởng sản xuất \(\$\{displayedImpactCount\(detailState\)\}\)/);
+  assert.match(pageSource,/產能影響（\$\{displayedImpactCount\(detailState\)\}）/);
+  assert.match(pageSource,/productionEntries/);
+  assert.match(pageSource,/status\)==='active'/);
+  assert.match(pageSource,/setPendingContext/);
+  assert.match(pageSource,/window\.sp\?\.\('production-entry'\)/);
+  assert.match(styleSource,/\.product-change-impact-table/);
 });
 
 test('明細每次最多讀取一百筆並使用游標載入更多，同頁重開沿用記憶內容',()=>{

@@ -187,11 +187,12 @@ function validateImportProcessRows(rows){
     const code=String(r[0]).trim();
     const key=importProductCodeKey(code);
     if(!byCode[key]) byCode[key]={code,ops:[]};
-    byCode[key].ops.push({no:String(r[5]).trim(),row:r._excelRow||i+2});
+    byCode[key].ops.push({no:String(r[5]).trim(),vi:String(r[8]??'').trim(),row:r._excelRow||i+2});
   });
   const errors=[];
   Object.values(byCode).forEach(({code,ops})=>{
     const seen=new Map();
+    const vietnameseNames=new Map();
     ops.forEach(op=>{
       if(!normalizeProcessNo(op.no)){
         errors.push({
@@ -207,6 +208,16 @@ function validateImportProcessRows(rows){
         });
       } else {
         seen.set(op.no,op.row);
+      }
+      const viKey=String(op.vi||'').trim().replace(/\s+/g,' ').normalize('NFKC').toLocaleLowerCase('vi');
+      if(viKey){
+        if(vietnameseNames.has(viKey)){
+          errors.push({
+            code,
+            vi:`Dòng ${op.row}: Tên công đoạn tiếng Việt「${op.vi}」bị trùng, xuất hiện lần đầu tại dòng ${vietnameseNames.get(viKey)}.`,
+            zh:`第 ${op.row} 行：工序越文名稱「${op.vi}」重複，首次出現在第 ${vietnameseNames.get(viKey)} 行。`
+          });
+        }else vietnameseNames.set(viKey,op.row);
       }
     });
     const valid=[...seen.keys()].filter(normalizeProcessNo).sort(compareProcessNo);
@@ -441,8 +452,17 @@ async function processDetailImportFile(file){
     setProg(55,'Đang đọc số phiếu sản lượng bị ảnh hưởng... / 正在讀取受影響報工數...','');
     await window.PCMSProductImportImpact.loadImpactCounts(importImpactPlan,{
       onProgress:progress=>{
-        const value=progress.total?55+Math.round(progress.completed/progress.total*40):95;
+        const value=progress.total?55+Math.round(progress.completed/progress.total*20):75;
         setProg(value,'Đang đọc số phiếu sản lượng bị ảnh hưởng... / 正在讀取受影響報工數...',
+          progress.total?`${progress.completed}/${progress.total} công đoạn / ${progress.completed}/${progress.total} 道工序`:''
+        );
+      }
+    });
+    setProg(76,'Đang so sánh hiệu suất chưa khóa... / 正在比對未凍結績效...','');
+    await window.PCMSProductImportImpact.loadPerformanceImpacts(importImpactPlan,{
+      onProgress:progress=>{
+        const value=progress.total?76+Math.round(progress.value*0.19):95;
+        setProg(value,'Đang so sánh hiệu suất chưa khóa... / 正在比對未凍結績效...',
           progress.total?`${progress.completed}/${progress.total} công đoạn / ${progress.completed}/${progress.total} 道工序`:''
         );
       }
@@ -489,6 +509,7 @@ async function cImp(){
   try{
     result=await window.PCMSProductMasterService.importProducts(changedItems,{
       fileName:detailImportFileName,
+      performanceImpactCount:importImpactPlan.performanceDifferenceCount,
       stopOnFailure:true,
       onProgress:progress=>{
         const completed=Math.max(0,Number(progress.completed)||0);
@@ -525,9 +546,13 @@ async function cImp(){
   setProg(100,'Đã lưu hoàn tất / 儲存完成',`${actualCount}/${actualCount} mã hàng / ${actualCount}/${actualCount} 個款號`);
   await yieldImportUi();
   hideProg();
-  let msgVi=`Đã xử lý ${importImpactPlan.overwriteCount} mã ghi đè, thêm ${importImpactPlan.newCount} mã và ${to} công đoạn.`;
-  let msgZh=`已完成覆蓋 ${importImpactPlan.overwriteCount} 個款號、新增 ${importImpactPlan.newCount} 個款號，共 ${to} 道工序。`;
+  let msgVi=`Đã xử lý ${importImpactPlan.overwriteCount} mã ghi đè, thêm ${importImpactPlan.newCount} mã và ${to} công đoạn. Ghép đúng ${importImpactPlan.matchedProcessCount} công đoạn; giữ ${importImpactPlan.retainedProcessCount} công đoạn cũ; chênh lệch hiệu suất ${importImpactPlan.performanceDifferenceCount} mục.`;
+  let msgZh=`已完成覆蓋 ${importImpactPlan.overwriteCount} 個款號、新增 ${importImpactPlan.newCount} 個款號，共 ${to} 道工序。成功配對 ${importImpactPlan.matchedProcessCount} 道工序，保留 ${importImpactPlan.retainedProcessCount} 道舊工序，績效差異 ${importImpactPlan.performanceDifferenceCount} 筆。`;
   if(skippedCount){ msgVi+=` Bỏ qua ${skippedCount} mã không thay đổi.`; msgZh+=`另略過 ${skippedCount} 個無變更款號。`; }
+  if(importImpactPlan.performanceDifferenceCount){
+    msgVi+=' Hiệu suất bất thường: Nhật ký thay đổi mã hàng → Ảnh hưởng sản xuất.';
+    msgZh+='績效異常：款號修改流水帳 → 產能影響。';
+  }
   detailImportFileName=''; importImpactPlan=null; g('fi').value='';
   window.PCMSProductChangeLog?.invalidate?.();
   await dataMessage(msgVi,msgZh,'success');
