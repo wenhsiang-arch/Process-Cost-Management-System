@@ -218,6 +218,21 @@ test('同一更新週期同時觸發不同畫面範圍仍共用一次載入',asy
   assert.deepEqual(state.counts,{meta:1,versions:1,items:1,products:1,totals:1,cacheRead:1,cacheWrite:1});
 });
 
+test('同一更新工作進行中重新呈現畫面仍會接續狀態並收到完成通知',async()=>{
+  const state=runtime({processCount:65,totalQueryDelayMs:8});
+  const orders=[{id:'ORDER-1',totalQty:100,itemCount:1,importStatus:'ready',lifecycleStatus:'active'}];
+  const firstEvents=[];
+  const resumedEvents=[];
+  const first=state.api.load(orders,{onProgress:event=>firstEvents.push({...event})});
+  await new Promise(resolve=>setTimeout(resolve,2));
+  const resumed=state.api.load(orders,{onProgress:event=>resumedEvents.push({...event})});
+  await Promise.all([first,resumed]);
+  assert.equal(firstEvents.at(-1).state,'complete');
+  assert.equal(resumedEvents.at(-1).state,'complete');
+  assert.ok(resumedEvents.some(event=>event.state==='running'));
+  assert.deepEqual(state.counts,{meta:1,versions:1,items:1,products:1,totals:3,cacheRead:1,cacheWrite:1});
+});
+
 test('大型快取寫入失敗後同一頁面當日不得重新讀取',async()=>{
   const state=runtime({cacheWriteFails:true});
   const orders=[{id:'ORDER-1',totalQty:100,itemCount:1,importStatus:'ready',lifecycleStatus:'active'}];

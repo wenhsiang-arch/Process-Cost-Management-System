@@ -1158,6 +1158,18 @@ function renderOrderProgressRefreshStatus(status){
   host.replaceChildren(window.PCMSUIText?.create?.(copy)||document.createTextNode(copy.zh));
 }
 
+// settleOrderProgressRefreshStatus（完成進度狀態收尾）：畫面重畫後仍必須清除舊階段與計數。
+function settleOrderProgressRefreshStatus(status){
+  if(orderProgressWorkStatus){
+    renderOrderProgressWorkStatus({
+      state:status?.state==='failed'?'failed':'complete',
+      phase:orderProgressWorkStatus.phase
+    });
+    return;
+  }
+  if(!orderProgressStatusRestoreTimer) renderOrderProgressRefreshStatus(status);
+}
+
 function updateOrderProgressManualButton(){
   const button=g('orders-progress-manual-refresh');
   if(!button) return;
@@ -1203,7 +1215,7 @@ async function requestManualOrderProgressRefresh(){
   try{
     const result=await api.manualRefresh(currentProgressOrders,{onProgress:renderOrderProgressWorkStatus});
     currentProgressOrders.forEach(order=>renderOrderProductionProgressState(order.id,result.values.get(order.id)));
-    if(!orderProgressStatusRestoreTimer&&!orderProgressWorkStatus) renderOrderProgressRefreshStatus(api.status?.());
+    settleOrderProgressRefreshStatus(api.status?.());
     if(result.reason==='success'){
       await ordersMessage('Đã cập nhật tiến độ sản xuất.','生產進度已更新。','success');
     }else if(result.reason==='failed'){
@@ -1341,9 +1353,7 @@ async function refreshOrderProductionProgress(orders,renderSequence){
     }});
     if(renderSequence!==progressRenderSequence) return;
     orders.forEach(order=>renderOrderProductionProgressState(order.id,values.get(order.id)));
-    if(!orderProgressStatusRestoreTimer&&!orderProgressWorkStatus){
-      renderOrderProgressRefreshStatus(window.PCMSOrderProductionProgress.status?.());
-    }
+    settleOrderProgressRefreshStatus(window.PCMSOrderProductionProgress.status?.());
   }catch(error){
     if(renderSequence!==progressRenderSequence) return;
     orders.forEach(order=>{

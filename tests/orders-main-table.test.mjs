@@ -217,7 +217,8 @@ test('訂單主表顯示進度最後更新狀態',()=>{
   assert.match(html,/Cập nhật tiến độ[\s\S]*?更新生產進度/);
   assert.match(source,/Cập nhật gần nhất:[\s\S]*?最後更新：/);
   assert.match(source,/Cập nhật hôm nay thất bại[\s\S]*?今日更新失敗/);
-  assert.match(source,/manualRefresh\(currentProgressOrders\)/);
+  assert.match(source,/manualRefresh\(currentProgressOrders,\{onProgress:renderOrderProgressWorkStatus\}\)/);
+  assert.match(source,/function settleOrderProgressRefreshStatus\(status\)[\s\S]*?renderOrderProgressWorkStatus\([\s\S]*?renderOrderProgressRefreshStatus\(status\)/);
   assert.match(source,/clearSession/);
   assert.match(source,/手動更新一次[\s\S]*?更新失敗[\s\S]*?今日次數仍視為已使用/);
 });

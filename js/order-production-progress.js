@@ -537,11 +537,29 @@
     if(!list.length) return Promise.resolve({values:new Map(),attempted:false,reason:'no-orders'});
     const periodKey=refreshPeriodKey();
     const key=`${currentUserId()}|${periodKey}|${attemptType}`;
-    if(activePromises.has(key)) return activePromises.get(key);
+    const listener=typeof options?.onProgress==='function'?options.onProgress:null;
+    const active=activePromises.get(key);
+    if(active){
+      if(listener){
+        active.listeners.add(listener);
+        if(active.lastEvent){
+          try{ listener(active.lastEvent); }
+          catch(error){ console.warn('Không thể hiển thị trạng thái cập nhật / 無法顯示更新狀態',error); }
+        }
+      }
+      return active.promise;
+    }
     // 當期額度已使用時先讀本機結果，不得被另一類型的更新鎖拖住。
     const marker=readAttemptMarker(periodKey,attemptType);
     if(marker) return cachedResult(list,'already-attempted',marker);
-    const progress=createProgressReporter(options?.onProgress);
+    const work={promise:null,listeners:new Set(listener?[listener]:[]),lastEvent:null};
+    const progress=createProgressReporter(event=>{
+      work.lastEvent=event;
+      work.listeners.forEach(callback=>{
+        try{ callback(event); }
+        catch(error){ console.warn('Không thể hiển thị trạng thái cập nhật / 無法顯示更新狀態',error); }
+      });
+    });
     let promise;
     promise=withRefreshLock(async()=>{
       try{return await loadInternal(list,{attemptType,progress});}
@@ -552,9 +570,10 @@
         return markRefreshFailure(list,stored,refreshPeriodKey(),error,attemptType,null,progress);
       }
     }).finally(()=>{
-      if(activePromises.get(key)===promise) activePromises.delete(key);
+      if(activePromises.get(key)===work) activePromises.delete(key);
     });
-    activePromises.set(key,promise);
+    work.promise=promise;
+    activePromises.set(key,work);
     return promise;
   }
 
