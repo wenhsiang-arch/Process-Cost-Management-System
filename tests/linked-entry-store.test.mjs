@@ -122,6 +122,39 @@ test('未鎖定產能文件不複製款號與工序文字，顯示時使用最�
   assert.equal(display.processSeconds,50);
 });
 
+test('重新整理後依訂單項目補回訂單數量，不依賴已載入的工序清單',async()=>{
+  const {window,db,ids}=load();
+  const store=window.PCMSProductionEntryStore;
+  await store.loadOrders();await store.loadProcesses('ORDER-1');
+  const saved=await store.createEntry({productionDate:'2026-08-23',employeeId:'M001',orderId:'ORDER-1',orderItemId:ids.itemA,
+    productId:ids.productId,processId:ids.processA,processNo:'1',quantity:10});
+  const raw=db.get('productionEntries',saved.id);
+  store.reset();
+  await store.loadOrders();
+  const [display]=await store.decorateEntries([{id:saved.id,...raw}]);
+  assert.equal(store.getLoadedProcesses('ORDER-1').length,0);
+  assert.equal(display.orderQuantity,100);
+});
+
+test('已移除工序的產能重新整理後仍由訂單項目顯示正確訂單數量',async()=>{
+  const {window,db,ids}=load();
+  const store=window.PCMSProductionEntryStore;
+  await store.loadOrders();await store.loadProcesses('ORDER-1');
+  const saved=await store.createEntry({productionDate:'2026-08-23',employeeId:'M001',orderId:'ORDER-1',orderItemId:ids.itemA,
+    productId:ids.productId,processId:ids.processA,processNo:'1',quantity:10});
+  const raw=db.get('productionEntries',saved.id);
+  const product=db.get('products',ids.productId);
+  const removed={...product.ops[0],productId:ids.productId};
+  product.ops=product.ops.slice(1);
+  db.set('products',ids.productId,product);
+  window.PCMSProductLegacyProcessStore={loadByReferences:async()=>[removed]};
+  store.reset();
+  await store.loadOrders();
+  const [display]=await store.decorateEntries([{id:saved.id,...raw}]);
+  assert.equal(display.processNo,'1');
+  assert.equal(display.orderQuantity,100);
+});
+
 test('作廢產能會以新操作識別碼同批更新累計與日月摘要',async()=>{
   const {window,db,ids}=load();const store=window.PCMSProductionEntryStore;
   await store.loadOrders();await store.loadProcesses('ORDER-1');

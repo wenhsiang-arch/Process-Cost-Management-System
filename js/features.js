@@ -44,7 +44,7 @@
     productionEfficiencyCore:'js/production/efficiency-core.js?v=20260823-1',
     productionSummaryStore:'js/production/linked-summary-store.js?v=20260824-1',
     productionGuardStore:'js/production/production-guard-store.js?v=20260824-1',
-    productionEntryStore:'js/production/linked-entry-store.js?v=20260922-21',
+    productionEntryStore:'js/production/linked-entry-store.js?v=20260925-1',
     productionReportStore:'js/production/report-store.js?v=20260823-3',
     productionAttendanceStore:'js/production/attendance-store.js?v=20260823-3',
     productionEntry:'js/production/production-entry.js?v=20260923-4',

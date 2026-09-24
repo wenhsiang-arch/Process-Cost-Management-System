@@ -15,6 +15,8 @@
   const processPromises=new Map();
   const processTotalMemory=new Map();
   const processTotalPromises=new Map();
+  const orderItemQuantityMemory=new Map();
+  const orderItemQuantityPromises=new Map();
   const exceptionsByOrder=new Map();
   let resolverInstance=null;
   let productFreshnessToken='';
@@ -172,6 +174,37 @@
     return matches.length===1?matches[0]:null;
   }
   function exceptionsForOrder(orderId){ return clone(exceptionsByOrder.get(text(orderId))||[]); }
+
+  function rememberOrderItemQuantity(orderItemId,value){
+    const target=model().fixedId(orderItemId,'orderItem');
+    const quantity=Math.max(0,Number(value)||0);
+    if(target) orderItemQuantityMemory.set(target,quantity);
+    return quantity;
+  }
+  async function loadOrderItemQuantity(orderItemId){
+    const target=model().fixedId(orderItemId,'orderItem');
+    if(!target) return 0;
+    if(orderItemQuantityMemory.has(target)) return orderItemQuantityMemory.get(target);
+    if(orderItemQuantityPromises.has(target)) return orderItemQuantityPromises.get(target);
+    const promise=(async()=>{
+      const snapshot=await window._getDoc(window._docRef(COLLECTIONS.items,target));
+      return rememberOrderItemQuantity(target,snapshot.exists()?snapshot.data()?.quantity:0);
+    })().finally(()=>orderItemQuantityPromises.delete(target));
+    orderItemQuantityPromises.set(target,promise);
+    return promise;
+  }
+  async function loadOrderItemQuantities(entries,processes){
+    const result=new Map();
+    (processes||[]).forEach(process=>{
+      const orderItemId=model().fixedId(process?.orderItemId,'orderItem');
+      if(!orderItemId||result.has(orderItemId)) return;
+      result.set(orderItemId,rememberOrderItemQuantity(orderItemId,process.orderQty));
+    });
+    const missing=[...new Set((entries||[]).filter(entry=>entry?.recordType!=='supplement')
+      .map(entry=>model().fixedId(entry?.orderItemId,'orderItem')).filter(orderItemId=>orderItemId&&!result.has(orderItemId)))];
+    await Promise.all(missing.map(async orderItemId=>result.set(orderItemId,await loadOrderItemQuantity(orderItemId))));
+    return result;
+  }
 
   function rememberProcessTotal(processTotalId,value){
     const normalized={registeredQuantity:Math.max(0,Number(value?.registeredQuantity)||0),orderQuantity:Math.max(0,Number(value?.orderQuantity)||0)};
@@ -430,22 +463,24 @@
     const byId=new Map(resolved.rows.map(row=>[text(row.source.id),row]));
     const orderById=new Map(orders.map(order=>[order.id,order]));
     const processes=[...processRows.values()].flat();
+    const orderItemQuantities=await loadOrderItemQuantities(standard,processes);
     return (entries||[]).map(entry=>{
       if(entry.recordType==='supplement') return clone(entry);
       const row=byId.get(text(entry.id));
       if(!row) return {...clone(entry),resolutionException:resolved.exceptions.find(item=>text(item.reference?.id)===text(entry.id))||true};
       const display=row.display;
-      const process=processes.find(item=>item.orderItemId===entry.orderItemId&&item.processId===entry.processId);
       return {...clone(entry),orderNo:text(orderById.get(entry.orderId)?.orderId||entry.orderId),productCode:display.productCode,
         processNo:display.processNo,processNameVi:display.processNameVi,processNameZh:display.processNameZh,
         processSeconds:display.processSeconds,hourlyCapacity:display.hourlyCapacity,
-        orderQuantity:process?.orderQty||null,processTotalId:itemStore().processTotalId(entry.orderItemId,entry.processId)};
+        orderQuantity:orderItemQuantities.get(model().fixedId(entry.orderItemId,'orderItem'))||null,
+        processTotalId:itemStore().processTotalId(entry.orderItemId,entry.processId)};
     });
   }
   function isSupplementEntry(item){ return item?.recordType==='supplement'||text(item?.processNo)==='0'; }
   function isValidSupplementHours(value){ return supplementHours(value); }
   function reset(){
     orders=[];ordersPromise=null;processRows.clear();processPromises.clear();processTotalMemory.clear();processTotalPromises.clear();
+    orderItemQuantityMemory.clear();orderItemQuantityPromises.clear();
     exceptionsByOrder.clear();resolverInstance?.clear?.();resolverInstance=null;
     productFreshnessToken='';productFreshnessPromise=null;
   }
