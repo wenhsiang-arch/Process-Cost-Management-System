@@ -986,6 +986,9 @@
     if(!target) return {};
     const id = table.id || `ui-table-auto-${++generatedTableId}`;
     if(!table.id) table.id = id;
+    target.querySelectorAll?.('[data-ui-table-auto-settings]').forEach(existing=>{
+      if(existing.dataset?.uiTableAutoSettings === id) existing.remove?.();
+    }); // 同一個動態表格重建時，先清除外層標題列可能殘留的舊欄位控制。
     const settings = document.createElement('div');
     settings.className = 'ui-table-column-settings ui-table-column-settings-auto';
     settings.dataset.uiTableAutoSettings = id;
@@ -1031,6 +1034,17 @@
       .join('|');
   }
 
+  // destroyAutoRuntime（銷毀自動表格控制）：表格離開頁面時一併移除外層圖示、空狀態及事件。
+  function destroyAutoRuntime(table){
+    const runtime = autoRuntimes.get(table);
+    if(!runtime) return false;
+    runtime.control?.destroy?.();
+    runtime.settings?.remove?.();
+    runtime.empty?.remove?.();
+    autoRuntimes.delete(table);
+    return true;
+  }
+
   function enhanceAutoTable(table){
     const current = autoRuntimes.get(table);
     const signature = autoHeaderSignature(table);
@@ -1041,10 +1055,7 @@
       return current;
     }
     if(current){
-      current.control.destroy();
-      current.settings?.remove?.();
-      current.empty?.remove?.();
-      autoRuntimes.delete(table);
+      destroyAutoRuntime(table);
     }
     const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
     if(!headers.length) return null;
@@ -1085,8 +1096,7 @@
     const latest = new Set(Array.from(activePage.querySelectorAll(AUTO_TABLE_SELECTOR)));
     activeAutoTables.forEach(table=>{
       if(latest.has(table)) return;
-      const runtime = autoRuntimes.get(table);
-      runtime?.control?.deactivate?.({resetSort:true});
+      destroyAutoRuntime(table);
     });
     latest.forEach(enhanceAutoTable);
     activeAutoTables = latest;

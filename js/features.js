@@ -5,7 +5,7 @@
     history:'js/history.js?v=20260923-2',
     fileIo:'js/file-io.js?v=20260918-1',
     settings:'js/settings.js?v=20260923-4',
-    uiTableControls:'js/ui-table-controls.js?v=20260923-4',
+    uiTableControls:'js/ui-table-controls.js?v=20260923-4'+'&rev=table-lifecycle1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260923-4',
     productCache:'js/product-cache.js?v=20260825-3',
     productModel:'js/product-model.js?v=20260824-5',
