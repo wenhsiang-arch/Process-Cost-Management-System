@@ -228,3 +228,17 @@
 /* product master structural edit（款號結構編輯）：新增與拖曳只處理目前單一款號。 */
 .product-master-processes .ui-table{--ui-table-default-min-width:1040px;min-width:1040px}.product-master-processes .ui-table-scroll{overflow:auto}
 .product-master-drag-cell{text-align:center;cursor:grab}.product-master-drag-handle{display:inline-grid;width:34px;height:34px;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--ui-color-text-muted);cursor:grab}.product-master-drag-handle:hover,.product-master-drag-handle:focus-visible{background:var(--ui-color-primary-soft);color:var(--ui-color-primary);outline:none}.product-master-processes tr.is-dragging{opacity:.55;background:var(--ui-color-primary-soft)}
+
+/* product-import-result（款號匯入結果）：統計採兩列三欄，待確認事項另以警示區呈現。 */
+.ui-dialog:has(.product-import-result){width:min(780px,calc(100vw - 32px))}
+.product-import-result{display:grid;min-width:0;gap:14px}
+.product-import-result-language{display:grid;min-width:0;gap:9px}
+.product-import-result-language+.product-import-result-language{padding-top:14px;border-top:1px solid var(--ui-color-border)}
+.product-import-result-language>h3{margin:0;color:var(--ui-color-text);font-size:var(--ui-font-size-section-vi);line-height:1.3}
+.product-import-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.product-import-result-item{display:grid;min-width:0;align-content:space-between;gap:6px;padding:10px 12px;border:1px solid var(--ui-color-border);border-radius:var(--ui-radius-control);background:var(--ui-color-surface-muted)}
+.product-import-result-item>span{color:var(--ui-color-text-muted);font-size:var(--ui-font-size-helper);line-height:1.35}
+.product-import-result-item>strong{color:var(--ui-color-text);font-size:var(--ui-font-size-metric);font-variant-numeric:tabular-nums;line-height:1}
+.product-import-result-skipped{margin:0;color:var(--ui-color-text-muted);font-size:var(--ui-font-size-helper)}
+.product-import-result-notice{display:grid;gap:4px;padding:10px 12px;border:1px solid var(--ui-color-warning-border);border-radius:var(--ui-radius-control);background:var(--ui-color-warning-background);color:var(--ui-color-warning-text);line-height:1.4}
+.product-import-result-route{font-weight:var(--ui-font-weight-strong)}

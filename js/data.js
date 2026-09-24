@@ -32,6 +32,82 @@ function dataMessage(vi,zh,kind='info'){
   return window.PCMSUIComponents.alertDialog({message:{vi:String(vi||''),zh:String(zh||'')},kind});
 }
 
+// createProductImportResultBody（建立款號匯入結果內容）：將統計與待確認事項分區，避免雙語摘要連成難讀的長句。
+function createProductImportResultBody(summary={}){
+  const root=document.createElement('div');
+  root.className='product-import-result';
+  const values={
+    overwriteCount:Math.max(0,Number(summary.overwriteCount)||0),
+    newCount:Math.max(0,Number(summary.newCount)||0),
+    processCount:Math.max(0,Number(summary.processCount)||0),
+    matchedProcessCount:Math.max(0,Number(summary.matchedProcessCount)||0),
+    retainedProcessCount:Math.max(0,Number(summary.retainedProcessCount)||0),
+    performanceDifferenceCount:Math.max(0,Number(summary.performanceDifferenceCount)||0),
+    skippedCount:Math.max(0,Number(summary.skippedCount)||0)
+  }; // values（匯入結果統計數字）
+  const languages=[
+    {
+      code:'vi',title:'Tóm tắt',
+      labels:['Mã hàng đã ghi đè','Mã hàng mới','Tổng số công đoạn','Công đoạn đồng bộ thành công','Công đoạn cũ được giữ lại','Chênh lệch hiệu suất'],
+      skipped:count=>`Mã hàng không thay đổi đã bỏ qua: ${count}`,
+      noticeTitle:'Cần kiểm tra',
+      noticeText:count=>`Phát hiện ${count} mục có chênh lệch hiệu suất.`,
+      noticeRoute:'Vui lòng xem tại: Nhật ký thay đổi mã hàng → Ảnh hưởng sản xuất'
+    },
+    {
+      code:'zh',title:'處理摘要',
+      labels:['已覆蓋款號','新增款號','工序總數','成功同步工序','保留舊工序','績效差異'],
+      skipped:count=>`已略過無變更款號：${count}`,
+      noticeTitle:'需要確認',
+      noticeText:count=>`發現 ${count} 筆績效差異。`,
+      noticeRoute:'請前往：款號修改流水帳 → 產能影響 查看'
+    }
+  ]; // languages（越文及中文結果文字）
+  const counts=[values.overwriteCount,values.newCount,values.processCount,values.matchedProcessCount,values.retainedProcessCount,values.performanceDifferenceCount];
+  languages.forEach(language=>{
+    const section=document.createElement('section');
+    section.className=`product-import-result-language ui-text-${language.code}`;
+    section.lang=language.code==='zh'?'zh-Hant':'vi';
+    const heading=document.createElement('h3');
+    heading.textContent=language.title;
+    section.appendChild(heading);
+    const grid=document.createElement('div');
+    grid.className='product-import-result-grid';
+    language.labels.forEach((label,index)=>{
+      const item=document.createElement('div');
+      item.className='product-import-result-item';
+      const itemLabel=document.createElement('span');
+      itemLabel.textContent=label;
+      const itemValue=document.createElement('strong');
+      itemValue.textContent=String(counts[index]);
+      item.append(itemLabel,itemValue);
+      grid.appendChild(item);
+    });
+    section.appendChild(grid);
+    if(values.skippedCount){
+      const skipped=document.createElement('p');
+      skipped.className='product-import-result-skipped';
+      skipped.textContent=language.skipped(values.skippedCount);
+      section.appendChild(skipped);
+    }
+    if(values.performanceDifferenceCount){
+      const notice=document.createElement('div');
+      notice.className='product-import-result-notice';
+      const noticeTitle=document.createElement('strong');
+      noticeTitle.textContent=language.noticeTitle;
+      const noticeText=document.createElement('span');
+      noticeText.textContent=language.noticeText(values.performanceDifferenceCount);
+      const noticeRoute=document.createElement('span');
+      noticeRoute.className='product-import-result-route';
+      noticeRoute.textContent=language.noticeRoute;
+      notice.append(noticeTitle,noticeText,noticeRoute);
+      section.appendChild(notice);
+    }
+    root.appendChild(section);
+  });
+  return root;
+}
+
 // showProductFileDropMessage（顯示款號拖曳結果）：格式或數量不符時沿用款號匯入視窗顯示雙語原因。
 function showProductFileDropMessage(detail){
   const message=detail?.message||{vi:'Không thể nhận tệp',zh:'無法接收檔案'}; // message（拖曳拒絕原因）
@@ -546,16 +622,18 @@ async function cImp(){
   setProg(100,'Đã lưu hoàn tất / 儲存完成',`${actualCount}/${actualCount} mã hàng / ${actualCount}/${actualCount} 個款號`);
   await yieldImportUi();
   hideProg();
-  let msgVi=`Đã xử lý ${importImpactPlan.overwriteCount} mã ghi đè, thêm ${importImpactPlan.newCount} mã và ${to} công đoạn. Ghép đúng ${importImpactPlan.matchedProcessCount} công đoạn; giữ ${importImpactPlan.retainedProcessCount} công đoạn cũ; chênh lệch hiệu suất ${importImpactPlan.performanceDifferenceCount} mục.`;
-  let msgZh=`已完成覆蓋 ${importImpactPlan.overwriteCount} 個款號、新增 ${importImpactPlan.newCount} 個款號，共 ${to} 道工序。成功配對 ${importImpactPlan.matchedProcessCount} 道工序，保留 ${importImpactPlan.retainedProcessCount} 道舊工序，績效差異 ${importImpactPlan.performanceDifferenceCount} 筆。`;
-  if(skippedCount){ msgVi+=` Bỏ qua ${skippedCount} mã không thay đổi.`; msgZh+=`另略過 ${skippedCount} 個無變更款號。`; }
-  if(importImpactPlan.performanceDifferenceCount){
-    msgVi+=' Hiệu suất bất thường: Nhật ký thay đổi mã hàng → Ảnh hưởng sản xuất.';
-    msgZh+='績效異常：款號修改流水帳 → 產能影響。';
-  }
+  const resultBody=createProductImportResultBody({
+    overwriteCount:importImpactPlan.overwriteCount,
+    newCount:importImpactPlan.newCount,
+    processCount:to,
+    matchedProcessCount:importImpactPlan.matchedProcessCount,
+    retainedProcessCount:importImpactPlan.retainedProcessCount,
+    performanceDifferenceCount:importImpactPlan.performanceDifferenceCount,
+    skippedCount
+  }); // resultBody（分區呈現的款號匯入結果）
   detailImportFileName=''; importImpactPlan=null; g('fi').value='';
   window.PCMSProductChangeLog?.invalidate?.();
-  await dataMessage(msgVi,msgZh,'success');
+  await window.PCMSUIComponents.alertDialog({body:resultBody,kind:'success',size:'large'});
 }
 
 function xImp(){
