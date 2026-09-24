@@ -310,6 +310,17 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-09-25">25/09/2026</time>
+                <h2 class="ui-dual-copy"><strong>Sửa lỗi hiển thị và cải thiện tóm tắt nhập dữ liệu</strong><span>問題修正與匯入摘要優化</span></h2>
+                <div class="home-update-description">
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Sửa lỗi và cải thiện hiển thị</h3><ol><li>Sửa lỗi sau khi ghi nhận sản xuất, tải lại trang làm số lượng đơn hàng hiển thị sai thành 0.</li><li>Sửa lỗi biểu tượng lọc của bảng đôi khi bị lặp lại nhiều lần.</li><li>Cải thiện bố cục phần tóm tắt sau khi nhập bảng mã hàng, giúp dễ xem kết quả xử lý và ảnh hưởng sản xuất hơn.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>問題修正與顯示優化</h3><ol><li>修正產能登記完成後，重新整理頁面會把訂單數量錯誤顯示為0的問題。</li><li>修正表格篩選圖示有時會重複出現多個的問題。</li><li>優化款號匯入完成後的結果摘要排版，讓處理結果與產能影響更容易閱讀。</li></ol></section></div>
+                </div>
+              </div>
+            </article>
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
                 <time class="home-update-date" datetime="2026-09-24">24/09/2026</time>
                 <h2 class="ui-dual-copy"><strong>Cập nhật nhập bảng mã hàng và kiểm tra ảnh hưởng sản xuất</strong><span>款號表匯入與產能影響檢查更新</span></h2>
                 <div class="home-update-description">
@@ -351,26 +362,12 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 </div>
               </div>
             </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-09-14">14/09/2026</time>
-                <h2 class="ui-dual-copy">
-                  <strong>Hủy nhiều bản ghi sản xuất cùng lúc</strong>
-                  <span>產能批量作廢</span>
-                </h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Hủy hàng loạt</h3><ol><li>Có thể chọn nhiều bản ghi trực tiếp bằng ô đánh dấu bên cạnh nút hủy.</li><li>Khung xác nhận hiển thị toàn bộ mục đã chọn; vẫn có thể tiếp tục chọn hoặc bỏ chọn mà không đóng khung.</li><li>Lý do hủy không bắt buộc. Sau khi xác nhận, hệ thống xử lý từng bản ghi và giữ lại mục lỗi để thử lại.</li></ol></section></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>批量作廢</h3><ol><li>可直接使用作廢按鈕旁的勾選框選取多筆產能紀錄。</li><li>確認視窗會完整列出已選明細；視窗開啟時仍可繼續勾選或取消勾選。</li><li>作廢原因可以留空。確認後會逐筆處理，失敗項目會保留供再次嘗試。</li></ol></section></div>
-                </div>
-              </div>
-            </article>
           </div>
 
           <div class="home-updates-archive-controls">
             <div class="ui-form-field">
               <label class="ui-dual-copy" for="home-updates-year"><strong>Năm</strong><span>年份</span></label>
-              <select id="home-updates-year"><option value="2026" data-version="20260924-1">2026</option></select>
+              <select id="home-updates-year"><option value="2026" data-version="20260925-1">2026</option></select>
             </div>
             <button type="button" class="ui-button" id="home-updates-load" aria-controls="home-updates-archive" aria-expanded="false" onclick="void PCMSFeatures.openHomeUpdatesArchive(this)">
               <span class="ui-dual-copy"><strong>Xem cập nhật trước</strong><span>查看較早更新</span></span>

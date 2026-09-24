@@ -3,6 +3,35 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-09-14",
+      "title": {
+        "vi": "Hủy nhiều bản ghi sản xuất cùng lúc",
+        "zh": "產能批量作廢"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Hủy hàng loạt",
+            "items": [
+              "Có thể chọn nhiều bản ghi trực tiếp bằng ô đánh dấu bên cạnh nút hủy.",
+              "Khung xác nhận hiển thị toàn bộ mục đã chọn; vẫn có thể tiếp tục chọn hoặc bỏ chọn mà không đóng khung.",
+              "Lý do hủy không bắt buộc. Sau khi xác nhận, hệ thống xử lý từng bản ghi và giữ lại mục lỗi để thử lại."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "批量作廢",
+            "items": [
+              "可直接使用作廢按鈕旁的勾選框選取多筆產能紀錄。",
+              "確認視窗會完整列出已選明細；視窗開啟時仍可繼續勾選或取消勾選。",
+              "作廢原因可以留空。確認後會逐筆處理，失敗項目會保留供再次嘗試。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-09-08",
       "title": {
         "vi": "Chữ rõ hơn, bố cục dễ đọc hơn",
