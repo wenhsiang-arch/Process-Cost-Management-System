@@ -167,6 +167,19 @@
   border-radius: var(--ui-radius-dialog);
 }
 
+/* 款號匯入提示視窗只依目前可視畫面置中，不改變其他舊式視窗的位置。 */
+#m-detail-import {
+  position: fixed;
+  align-items: center;
+  min-height: 0;
+  padding: var(--ui-space-4);
+}
+
+#m-detail-import .md {
+  box-sizing: border-box;
+  max-height: calc(100vh - (var(--ui-space-4) * 2));
+}
+
 .product-import-drop-icon {
   display: block;
   margin-bottom: var(--ui-space-2);

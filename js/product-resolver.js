@@ -4,6 +4,8 @@
 
   function text(value){ return String(value??'').trim(); }
   function clone(value){ return value===undefined?undefined:JSON.parse(JSON.stringify(value)); }
+  // errorLabel（錯誤定位文字）：避免業務名稱中的斜線被雙語錯誤解析器誤認為語言分隔符號。
+  function errorLabel(value){ return text(value).replace(/\s+\/\s+/g,'／'); }
   function model(){
     if(!window.PCMSProductModel) throw new Error('Thiếu mô hình dữ liệu mã hàng. / 缺少款號資料模型。');
     return window.PCMSProductModel;
@@ -23,9 +25,15 @@
       if(productsById.has(productId)) throw new Error(`Mã định danh sản phẩm ${productId} bị trùng. / 款號固定識別碼 ${productId} 重複。`);
       const normalized={...clone(source),...product,productId};
       normalized.ops=(source.ops||[]).map(model().normalizeOperation);
-      normalized.ops.forEach(operation=>{
+      normalized.ops.forEach((operation,index)=>{
         const processId=model().fixedId(operation.processId,'process');
-        if(!processId) throw new Error(`Mã hàng ${product.code} có công đoạn thiếu mã định danh. / 款號 ${product.code} 有工序缺少固定識別碼。`);
+        if(!processId){
+          const productCode=errorLabel(product.code)||'—'; // productCode（錯誤所在款號）
+          const processNo=errorLabel(operation.no)||String(index+1); // processNo（錯誤所在工序號；缺少時使用列序）
+          const viName=errorLabel(operation.vi||operation.zh)||`công đoạn thứ ${index+1}`; // viName（越文錯誤定位名稱）
+          const zhName=errorLabel(operation.zh||operation.vi)||`第 ${index+1} 筆工序`; // zhName（中文錯誤定位名稱）
+          throw new Error(`Dữ liệu mã hàng hiện có > Mã hàng ${productCode} > Công đoạn số ${processNo} “${viName}”: thiếu mã định danh cố định của công đoạn. / 目前款號資料 > 款號 ${productCode} > 工序 ${processNo}「${zhName}」：缺少工序固定識別碼。`);
+        }
         if(processOwners.has(processId)) throw new Error(`Mã định danh công đoạn ${processId} bị trùng. / 工序固定識別碼 ${processId} 重複。`);
         operation.processId=processId;
         processOwners.set(processId,productId);
