@@ -379,7 +379,7 @@
   }
 
   // buildImportReconciliation（建立匯入工序對應）：同款號內只有唯一相同越文名稱才沿用固定工序身分。
-  function buildImportReconciliation(existingInput,incomingInput){
+  function buildImportReconciliation(existingInput,incomingInput,options={}){
     const existing=normalizeProduct(existingInput);
     const incoming=normalizeProduct(incomingInput);
     if(!existing.productId) throw new Error('Thiếu mã định danh sản phẩm hiện có. / 缺少既有款號固定識別碼。');
@@ -399,13 +399,17 @@
     const operations=incoming.ops.map((operation,index)=>{
       const candidates=existingByName.get(normalizedSignatureText(operation.vi))||[];
       const current=candidates.length===1?candidates[0]:null;
+      // plannedProcessId（預定工序識別碼）：匯入預覽先替真正的新工序建立身分，確認後沿用同一值正式儲存。
+      const plannedProcessId=current?.processId
+        ||fixedId(operation.processId,'process')
+        ||(options.createMissingIds===true?createPermanentId('process',options.tokenProvider):'');
       if(current?.processId){
         matchedExistingIds.add(current.processId);
         matches.push({before:clone(current),after:clone(operation),processId:current.processId});
-      }else unmatchedIncoming.push(clone(operation));
+      }else unmatchedIncoming.push({...clone(operation),...(plannedProcessId?{processId:plannedProcessId}:{})});
       return {
         ...operation,
-        ...(current?.processId?{processId:current.processId}:{}),
+        ...(plannedProcessId?{processId:plannedProcessId}:{}),
         sortOrder:index+1,
         active:true
       };
@@ -434,8 +438,15 @@
   function buildImportImpact(existingInput,incomingInput){
     const existing=normalizeProduct(existingInput);
     const incoming=normalizeProduct(incomingInput);
-    const reconciliation=buildImportReconciliation(existing,incoming);
+    const reconciliation=buildImportReconciliation(existing,incoming,{createMissingIds:true});
     const replacement=reconciliation.product;
+    const plannedByVietnameseName=new Map(replacement.ops.map(operation=>[
+      normalizedSignatureText(operation.vi),operation.processId
+    ]));
+    const plannedIncoming={...incoming,ops:incoming.ops.map(operation=>({
+      ...operation,
+      processId:plannedByVietnameseName.get(normalizedSignatureText(operation.vi))||operation.processId
+    }))};
     const differences=compareProducts(existing,replacement);
     const productFields=new Set(['code','client','zh','vi','sz']);
     const productDifferences=differences.filter(item=>productFields.has(item.field));
@@ -470,13 +481,13 @@
       kind:'removed',productDifferences,processDifferences:[],requiresImpactCount:Boolean(before.processId),affectsEfficiency:false
     }));
     reconciliation.unmatchedIncoming.forEach(after=>rows.push({
-      productId:existing.productId,code:incoming.code,processNo:after.no,processId:'',before:null,after,
+      productId:existing.productId,code:incoming.code,processNo:after.no,processId:after.processId||'',before:null,after,
       kind:'added',productDifferences,processDifferences:[],requiresImpactCount:false,affectsEfficiency:false
     }));
     rows.sort((left,right)=>Number(left.after?.no||left.before?.no||0)-Number(right.after?.no||right.before?.no||0));
     return {
       existing,
-      incoming,
+      incoming:plannedIncoming,
       replacement,
       reconciliation,
       differences,

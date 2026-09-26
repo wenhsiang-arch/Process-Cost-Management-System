@@ -258,6 +258,20 @@ test('Excel 新增工序只替新工序建立固定身分，原工序身分全�
   assert.notEqual(saved.ops[2].processId,current.ops[0].processId);
 });
 
+test('Excel 預覽已替新工序建立識別碼時，正式儲存沿用同一身分',()=>{
+  const {PCMSProductMasterStore:store,PCMSProductModel:model}=load();
+  const current=store.prepareCreate(sourceProduct,{
+    actor,now:1000,sourceKey:'legacy.products.PLANNED',processSourceKeys:['legacy.process.PLANNED.1','legacy.process.PLANNED.2'],batch:batch()
+  }).product;
+  const plannedProcessId=model.createPermanentId('process','plannedprocessidentity0001');
+  const incoming={...sourceProduct,ops:[
+    ...sourceProduct.ops,
+    {processId:plannedProcessId,no:'3',category:'DG',zh:'包裝',vi:'Đóng gói',sec:20}
+  ]};
+  const saved=store.prepareImportReplacement({current,incoming,actor,now:2000,batch:batch('import')}).plan.product;
+  assert.equal(saved.ops[2].processId,plannedProcessId);
+});
+
 test('Excel 移除已有產能的工序時只另存舊工序參照',()=>{
   const {PCMSProductMasterStore:store}=load();
   const current=store.prepareCreate(sourceProduct,{

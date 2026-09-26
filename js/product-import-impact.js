@@ -25,7 +25,8 @@
       rows,
       requests:[
         ...classification.newItems.map(incoming=>({mode:'create',incoming:clone(incoming)})),
-        ...classification.differentItems.map(item=>({mode:'replace',existing:clone(item.existing),incoming:clone(item.incoming)}))
+        // 覆蓋匯入沿用預覽已建立的新工序識別碼，確保預覽、績效比較與正式儲存是同一份身分。
+        ...replacements.map(item=>({mode:'replace',existing:clone(item.existing),incoming:clone(item.incoming)}))
       ],
       overwriteCount:classification.differentItems.length,
       newCount:classification.newItems.length,

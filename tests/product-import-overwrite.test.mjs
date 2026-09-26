@@ -173,6 +173,47 @@ test('匯入只將未凍結且員工月績效真正改變的群組列為產能�
   assert.equal(Array.from(plan.performanceImpacts[0].entryIds).join(','),'entry-1');
 });
 
+test('新增工序在績效預覽前先取得固定身分，確認後沿用同一識別碼',async()=>{
+  const window={S:{ws:3000}};
+  const context={window,TextEncoder,console};
+  vm.createContext(context);
+  vm.runInContext(read('js/product-model.js'),context);
+  vm.runInContext(read('js/production/efficiency-core.js'),context);
+  vm.runInContext(read('js/product-resolver.js'),context);
+  const data=fixtures(window.PCMSProductModel);
+  const incoming={...data.existing,ops:[
+    {...data.existing.ops[0],processId:'',sec:30},
+    {...data.existing.ops[1],processId:''},
+    {no:'10',category:'BL',zh:'剪耳朵*2',vi:'Cắt tai *2',sec:6}
+  ]};
+  window.D=[data.existing];
+  window._collection=name=>({name});
+  window._where=(field,operator,value)=>({field,operator,value});
+  window._orderBy=(field,direction)=>({field,direction});
+  window._limit=count=>({limit:count});
+  window._query=(collection,...conditions)=>({collection,conditions});
+  window._docRef=(collection,id)=>({collection,id});
+  window._getDocs=async query=>({docs:query?.collection?.name==='productionEntries'?[{id:'entry-1',data:()=>(
+    {employeeId:'E001',employeeName:'Nguyễn A',productionDate:'2026-09-10',productId:data.existing.productId,
+      processId:data.first,quantity:60,status:'active'}
+  )}]:query?.collection?.name==='productionMonths'?[{id:'2026-09',data:()=>({month:'2026-09',status:'open'})}]:[]});
+  window._getDoc=async reference=>reference.collection==='productionEmployeeMonths'
+    ?{exists:()=>true,data:()=>({employeeId:'E001',employeeName:'Nguyễn A',month:'2026-09',days:{d10:{normalHours:1,
+      overtimeHours:0,supplementHours:0,processes:[{productId:data.existing.productId,processId:data.first,quantity:60}]}}})}
+    :{exists:()=>false,data:()=>({})};
+  vm.runInContext(read('js/product-import-impact.js'),context);
+  const plan=window.PCMSProductImportImpact.buildPlan({
+    newItems:[],sameItems:[],differentItems:[{existing:data.existing,incoming}]
+  });
+  const addedRow=plan.rows.find(row=>row.kind==='added'&&row.after?.vi==='Cắt tai *2');
+  const plannedOperation=plan.requests[0].incoming.ops.find(operation=>operation.vi==='Cắt tai *2');
+  assert.match(addedRow.processId,/^prc_[a-z0-9_-]{12,80}$/);
+  assert.equal(plannedOperation.processId,addedRow.processId);
+  await window.PCMSProductImportImpact.loadPerformanceImpacts(plan);
+  assert.equal(plan.performanceDifferenceCount,1);
+  assert.equal(plan.replacements[0].replacement.ops.find(operation=>operation.vi==='Cắt tai *2').processId,addedRow.processId);
+});
+
 test('績效差異只查最早未凍結月份之後的產能',async()=>{
   const window={S:{ws:3000}},queries=[];
   const context={window,TextEncoder,console};
