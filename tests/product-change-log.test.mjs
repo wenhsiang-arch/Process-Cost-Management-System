@@ -124,3 +124,9 @@ test('Excel 匯入仍保留每款整套套用前後工序比較',()=>{
   assert.match(styleSource,/\.product-change-process-table tr\.is-added td/);
   assert.match(styleSource,/\.product-change-process-table tr\.is-removed td/);
 });
+
+test('匯入前後差異底色在滑鼠停留時仍保留',()=>{
+  assert.match(styleSource,/\.product-change-process-table tbody tr:hover td\.is-changed\{background:var\(--ui-color-change-hover\)\}/);
+  assert.match(styleSource,/\.product-change-process-table tbody tr\.is-added:hover td\{background:var\(--ui-color-success-background\)\}/);
+  assert.match(styleSource,/\.product-change-process-table tbody tr\.is-removed:hover td\{background:var\(--ui-color-danger-background\)\}/);
+});

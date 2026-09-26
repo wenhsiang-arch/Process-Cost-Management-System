@@ -82,7 +82,7 @@
     productionAnalysis:'styles/features/production-analysis.css?v=20260923-4',
     performanceBonus:'styles/features/performance-bonus.css?v=20260923-4',
     systemMonitor:'styles/features/system-monitor.css?v=20260923-4',
-    productChangeLog:'styles/features/product-change-log.css?v=20260923-4'
+    productChangeLog:'styles/features/product-change-log.css?v=20260923-4&rev=change-hover1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。
 
   const FEATURE_MODULES = Object.freeze([
