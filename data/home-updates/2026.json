@@ -3,6 +3,37 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-09-18",
+      "title": {
+        "vi": "Xuất báo cáo kiểm tra cho đơn hàng HUNTER",
+        "zh": "新增 HUNTER 訂單檢驗報告匯出"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Mẫu báo cáo và xuất tệp",
+            "items": [
+              "Trang đơn hàng có mục riêng để nhập mẫu báo cáo. Nút Hướng dẫn mở quy trình ngắn; nhập lại mẫu sẽ hỏi xác nhận trước khi thay thế.",
+              "Ở bảng dữ liệu đơn hàng và công đoạn phía trên, đơn HUNTER có biểu tượng xuất báo cáo nằm bên phải biểu tượng lưu trữ.",
+              "Mẫu có thể giữ chữ ví dụ trong năm ô dữ liệu. Khi xuất, hệ thống thay năm ô bằng dữ liệu đơn hàng, giữ nguyên chữ cố định, phông chữ và định dạng; mỗi mã hàng có một trang tính.",
+              "Trước khi xuất, người dùng tự chọn tên tệp và vị trí lưu. Nếu thiếu dữ liệu hoặc có nhiều mẫu, hệ thống thông báo và dừng xuất."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "報告範本與匯出",
+            "items": [
+              "訂單頁提供獨立的「品檢報告範本」分頁；點「使用說明」可查看簡易流程，重新匯入範本會先確認才替換。",
+              "上方「訂單與工序資料」表格的 HUNTER 訂單，匯出圖示位於封存圖示右側。",
+              "範本五個資料格可保留範例文字；匯出時系統以訂單資料替換，固定文字、字體與格式不變，每個款號一個分頁。",
+              "匯出前可自行選擇檔名與儲存位置；資料缺漏或範本不只一份時會提示並停止。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-09-14",
       "title": {
         "vi": "Hủy nhiều bản ghi sản xuất cùng lúc",

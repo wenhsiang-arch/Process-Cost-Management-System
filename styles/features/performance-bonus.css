@@ -183,7 +183,7 @@
 }
 .performance-bonus-table th:last-child,
 .performance-bonus-table td:last-child{
-  width:170px;
+  width:116px;
 }
 .performance-bonus-amount{
   display:inline-flex;
@@ -201,15 +201,18 @@
   cursor:pointer;
 }
 .performance-bonus-adjustment-badge{
-  display:grid;
-  min-width:160px;
+  display:inline-flex;
+  min-width:150px;
   max-width:100%;
-  justify-items:center;
-  gap:4px;
-  padding:7px 10px;
+  align-items:center;
+  justify-content:center;
+  padding:8px 12px;
   border:1px solid transparent;
   border-radius:10px;
-  text-align:left;
+  font:inherit;
+  font-weight:var(--ui-font-weight-emphasis);
+  text-align:center;
+  white-space:nowrap;
 }
 .performance-bonus-adjustment-badge.is-increase{
   border-color:var(--ui-color-success-border);
@@ -221,26 +224,42 @@
   background:var(--ui-color-danger-background);
   color:var(--ui-color-danger-text);
 }
-.performance-bonus-adjustment-value{
-  display:inline-flex;
+.performance-bonus-row-actions{
+  display:flex;
   align-items:center;
   justify-content:center;
-  gap:6px;
-  white-space:nowrap;
+  gap:8px;
 }
-.performance-bonus-adjustment-value i{
-  font-size:17px;
+.performance-bonus-action-button{
+  display:inline-flex;
+  width:38px;
+  height:38px;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--ui-color-operation-border);
+  border-radius:9px;
+  background:var(--ui-color-surface);
+  color:var(--ui-color-primary);
+  cursor:pointer;
 }
-.performance-bonus-adjustment-note{
-  display:block;
-  width:100%;
-  overflow:hidden;
-  color:var(--ui-color-text-muted);
-  font-size:var(--ui-font-size-helper);
-  font-weight:var(--ui-font-weight-secondary);
-  text-align:center;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+.performance-bonus-action-button i{
+  font-size:18px;
+}
+.performance-bonus-action-button.is-edit{
+  background:var(--ui-color-primary-soft);
+}
+.performance-bonus-action-button:hover:not(.is-disabled),
+.performance-bonus-action-button:focus-visible{
+  border-color:var(--ui-color-primary);
+  outline:2px solid color-mix(in srgb,var(--ui-color-primary) 24%,transparent);
+  outline-offset:2px;
+}
+.performance-bonus-action-button.is-disabled{
+  opacity:.4;
+  cursor:not-allowed;
+}
+.performance-bonus-reason-dialog .ui-language-section{
+  white-space:pre-wrap;
 }
 .performance-bonus-adjustment-dialog{
   display:grid;

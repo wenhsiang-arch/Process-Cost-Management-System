@@ -9,16 +9,13 @@ const testDirectory=dirname(fileURLToPath(import.meta.url));
 const root=dirname(testDirectory);
 const read=path=>readFileSync(join(root,path),'utf8');
 
-test('主頁提供最上方更新入口並記錄本次使用者功能',()=>{
+test('主頁提供最上方更新入口並記錄月績效獎金調整方式',()=>{
   const html=read('index.html');
   assert.ok(html.indexOf('id="nv-home-updates"')<html.indexOf('Đơn hàng / 訂單管理'));
-  assert.match(html,/datetime="2026-08-25"[\s\S]*?款號顯示與生產紀錄作廢功能更新/);
-  assert.match(html,/datetime="2026-08-21"/);
+  assert.match(html,/datetime="2026-09-28"[\s\S]*?優化月績效獎金調整/);
   assert.match(html,/openHomeUpdates/);
-  assert.match(html,/Trường mã hàng đã trở lại chỉ hiển thị mã hàng/);
-  assert.match(html,/Chức năng hủy bản ghi sản xuất đã hoạt động bình thường/);
-  assert.match(html,/款號欄位已恢復只顯示款號/);
-  assert.match(html,/生產紀錄作廢功能已恢復正常使用/);
+  assert.match(html,/綠色金額框代表增加獎金/);
+  assert.match(html,/紅色金額框代表減少獎金/);
   assert.match(html,/有效工時/);
   assert.match(html,/production-entry-record-search/);
   assert.match(html,/production-records-pagination/);
@@ -87,7 +84,7 @@ test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
   assert.match(source,/performance-bonus-total-zh/);
 });
 
-test('月績效人工調整以獨立欄位顯示方向、金額與原因',()=>{
+test('月績效人工調整以獨立欄位顯示金額，原因與編輯使用小圖示',()=>{
   const page=read('js/performance-bonus/monthly-bonus-page.js');
   const store=read('js/performance-bonus/bonus-store.js');
   assert.match(page,/data-ui-table-column="bonus"[\s\S]*?data-ui-table-column="adjustment"/);
@@ -95,6 +92,12 @@ test('月績效人工調整以獨立欄位顯示方向、金額與原因',()=>{
   assert.match(page,/performance-bonus-adjustment-badge/);
   assert.match(page,/is-increase':'is-decrease/);
   assert.match(page,/money\(Math\.abs\(adjustment\)\)/);
+  assert.doesNotMatch(page,/ti-trending-up|ti-trending-down|performance-bonus-adjustment-note/);
+  assert.match(page,/ti-message-circle/);
+  assert.match(page,/ti-edit/);
+  assert.match(page,/Xem lý do điều chỉnh[\s\S]*?查看調整原因/);
+  assert.match(page,/Chỉnh sửa điều chỉnh thưởng[\s\S]*?編輯人工調整/);
+  assert.match(page,/function viewAdjustmentReason\(employee\)/);
   assert.match(page,/Lý do điều chỉnh[\s\S]*?調整原因/);
   assert.match(page,/amount:allowZero\?0:sign\*raw,note:reason/);
   assert.match(page,/finalBonus\)>0\|\|Number\(item\.adjustmentAmount\)!==0/);

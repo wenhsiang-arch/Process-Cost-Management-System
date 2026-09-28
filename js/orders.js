@@ -1384,10 +1384,10 @@ async function renderProgress(){
     if(ordId) orders=orders.filter(order=>order.id===ordId);
     if(renderSequence!==progressRenderSequence) return;
     const list=orders.slice();
-    const actualDate=order=>Math.max(0,Number(order.actualShipDate)||0); // actualDate（實際出貨日排序值）：未選日期固定排最上方，不再以 PO 交期替代。
+    const actualDate=order=>Math.max(0,Number(order.actualShipDate)||0); // actualDate（實際出貨日排序值）：有日期由近到遠，未選日期固定排在最後。
     list.sort((a,b)=>{
       const aDate=actualDate(a);const bDate=actualDate(b);
-      return Number(aDate>0)-Number(bDate>0)||aDate-bDate||(Number(a.dueDate)||0)-(Number(b.dueDate)||0)
+      return Number(bDate>0)-Number(aDate>0)||aDate-bDate||(Number(a.dueDate)||0)-(Number(b.dueDate)||0)
         ||String(a.orderId||'').localeCompare(String(b.orderId||''));
     });
     const issueNotice=renderOrderImportIssues();

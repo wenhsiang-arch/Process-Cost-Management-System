@@ -55,7 +55,7 @@ test('主表排除已出貨訂單，舊資料缺少狀態時仍視為尚未出�
   assert.doesNotMatch(g('prog-content').innerHTML,/SHIPPED-PO/);
 });
 
-test('主表不展開款號工序，未選實際出貨日置頂且已選日期由近到遠排序',async()=>{
+test('主表不展開款號工序，已選實際出貨日由近到遠且未選日期排最後',async()=>{
   const {window,context,g}=runtime();
   window.allOrders=[
     {id:'later',orderId:'LATER',client:'A',importStatus:'ready',lifecycleStatus:'active',dueDate:10,actualShipDate:30,totalQty:1},
@@ -67,8 +67,8 @@ test('主表不展開款號工序，未選實際出貨日置頂且已選日期�
   assert.doesNotMatch(output,/processCount|completeDate|actualCompleteDate/);
   assert.match(output,/data-ui-table-column="shipDate"/);
   assert.doesNotMatch(output,/data-orders-column=/);
-  assert.ok(output.indexOf('FALLBACK')<output.indexOf('EARLIER'));
   assert.ok(output.indexOf('EARLIER')<output.indexOf('LATER'));
+  assert.ok(output.indexOf('LATER')<output.indexOf('FALLBACK'));
   assert.match(output,/data-ui-table-column="productionProgress"/);
   assert.match(output,/orders-production-progress-loading/);
   assert.doesNotMatch(output,/orders-production-progress is-loading[^>]*>[\s\S]{0,120}ti-loader-2/);

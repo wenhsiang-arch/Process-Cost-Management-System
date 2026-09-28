@@ -31,7 +31,7 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260923-4',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260923-5-order-history1-import-preview4',
+    orders:'js/orders.js?v=20260928-1-order-ship-sort',
     shippedOrders:'js/shipped-orders.js?v=20260922-4',
     orderArchive:'js/order-archive.js?v=20260916-2',
     orderHistory:'js/order-history.js?v=20260923-2',
@@ -53,7 +53,7 @@
     performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20260823-2',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260928-1',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
-    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260928-3',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260928-4-action-icons',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260824-6',
@@ -80,7 +80,7 @@
     production:'styles/features/production.css?v=20260923-4',
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260923-4',
     productionAnalysis:'styles/features/production-analysis.css?v=20260923-4',
-    performanceBonus:'styles/features/performance-bonus.css?v=20260923-4&rev=bonus-adjustment2',
+    performanceBonus:'styles/features/performance-bonus.css?v=20260923-4&rev=bonus-action-icons',
     systemMonitor:'styles/features/system-monitor.css?v=20260923-4',
     productChangeLog:'styles/features/product-change-log.css?v=20260923-4&rev=change-hover1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

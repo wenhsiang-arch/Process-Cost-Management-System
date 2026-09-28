@@ -138,7 +138,7 @@
               <th data-ui-table-column="department" data-ui-table-min-width="150" data-ui-table-width="200" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
               <th class="ui-table-center-cell" data-ui-table-column="bonus" data-ui-table-min-width="190" data-ui-table-width="230" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
               <th class="ui-table-center-cell" data-ui-table-column="adjustment" data-ui-table-min-width="210" data-ui-table-width="250" data-ui-table-max-width="340"><span class="ui-dual-copy"><strong>Điều chỉnh</strong><span>調整金額</span></span></th>
-              <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-min-width="140" data-ui-table-width="160" data-ui-table-max-width="200"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-min-width="104" data-ui-table-width="116" data-ui-table-max-width="140"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
             </tr></thead><tbody id="performance-bonus-table-body"></tbody>
           </table></div></div>
           <div class="performance-bonus-empty ui-language-sections" id="performance-bonus-empty"><div class="ui-language-section is-vi">Chưa có kết quả thưởng của tháng này.</div><div class="ui-language-section is-zh">此月份尚無獎金結果。</div></div>
@@ -195,33 +195,48 @@
       if(adjustment){
         const adjustmentBadge=document.createElement('div');
         adjustmentBadge.className=`performance-bonus-adjustment-badge ${adjustment>0?'is-increase':'is-decrease'}`;
-        const adjustmentLine=document.createElement('span');
-        adjustmentLine.className='performance-bonus-adjustment-value';
-        const adjustmentIcon=document.createElement('i');
-        adjustmentIcon.className=`ti ${adjustment>0?'ti-trending-up':'ti-trending-down'}`;
-        adjustmentIcon.setAttribute('aria-hidden','true');
         const adjustmentAmount=document.createElement('strong');
         adjustmentAmount.textContent=`${money(Math.abs(adjustment))} VND`;
-        adjustmentLine.append(adjustmentIcon,adjustmentAmount);
-        const adjustmentReason=document.createElement('span');
-        adjustmentReason.className='performance-bonus-adjustment-note';
-        adjustmentReason.textContent=employee.adjustmentNote||'—';
-        adjustmentBadge.append(adjustmentLine,adjustmentReason);
+        adjustmentBadge.appendChild(adjustmentAmount);
         window.PCMSUIText.setLocalizedAttribute(adjustmentBadge,'title',{
-          vi:`${adjustment>0?'Tăng':'Giảm'} ${money(Math.abs(adjustment))} VND · Lý do: ${employee.adjustmentNote||'—'}`,
-          zh:`${adjustment>0?'增加':'減少'} ${money(Math.abs(adjustment))} VND · 原因：${employee.adjustmentNote||'—'}`
+          vi:`${adjustment>0?'Tăng':'Giảm'} ${money(Math.abs(adjustment))} VND`,
+          zh:`${adjustment>0?'增加':'減少'} ${money(Math.abs(adjustment))} VND`
         });
         adjustmentCell.appendChild(adjustmentBadge);
       }
       const action=createCell(row,'','ui-table-center-cell','action');
-      if(draft){
-        const adjust=document.createElement('button');
-        adjust.type='button';
-        adjust.className='ui-button performance-bonus-row-button';
-        adjust.appendChild(window.PCMSUIText.create({vi:'Điều chỉnh',zh:'人工調整'}));
-        adjust.addEventListener('click',()=>void adjustEmployee(employee));
-        action.appendChild(adjust);
-      }else action.textContent='—';
+      const actions=document.createElement('div');
+      actions.className='performance-bonus-row-actions';
+      const reason=document.createElement('button');
+      reason.type='button';
+      reason.className='performance-bonus-action-button';
+      reason.classList.toggle('is-disabled',!adjustment);
+      reason.setAttribute('aria-disabled',String(!adjustment));
+      if(!adjustment) reason.tabIndex=-1;
+      reason.innerHTML='<i class="ti ti-message-circle" aria-hidden="true"></i>';
+      window.PCMSUIText.setLocalizedAttribute(reason,'title',adjustment
+        ?{vi:'Xem lý do điều chỉnh',zh:'查看調整原因'}
+        :{vi:'Chưa có lý do điều chỉnh',zh:'尚無調整原因'});
+      window.PCMSUIText.setLocalizedAttribute(reason,'aria-label',adjustment
+        ?{vi:'Xem lý do điều chỉnh',zh:'查看調整原因'}
+        :{vi:'Chưa có lý do điều chỉnh',zh:'尚無調整原因'});
+      if(adjustment) reason.addEventListener('click',()=>viewAdjustmentReason(employee));
+      const adjust=document.createElement('button');
+      adjust.type='button';
+      adjust.className='performance-bonus-action-button is-edit';
+      adjust.classList.toggle('is-disabled',!draft);
+      adjust.setAttribute('aria-disabled',String(!draft));
+      if(!draft) adjust.tabIndex=-1;
+      adjust.innerHTML='<i class="ti ti-edit" aria-hidden="true"></i>';
+      window.PCMSUIText.setLocalizedAttribute(adjust,'title',draft
+        ?{vi:'Chỉnh sửa điều chỉnh thưởng',zh:'編輯人工調整'}
+        :{vi:'Tháng đã khóa, không thể chỉnh sửa',zh:'月份已凍結，無法編輯'});
+      window.PCMSUIText.setLocalizedAttribute(adjust,'aria-label',draft
+        ?{vi:'Chỉnh sửa điều chỉnh thưởng',zh:'編輯人工調整'}
+        :{vi:'Tháng đã khóa, không thể chỉnh sửa',zh:'月份已凍結，無法編輯'});
+      if(draft) adjust.addEventListener('click',()=>void adjustEmployee(employee));
+      actions.append(reason,adjust);
+      action.appendChild(actions);
       body.appendChild(row);
     });
     const employeeCount=state.employees.filter(employee=>Number(employee.finalBonus)>0).length;
@@ -263,6 +278,20 @@
     const range=monthDates(state.month);
     window.PCMSProductionPerformance?.setPendingContext?.({employeeId:employee.employeeId,employeeName:employee.employeeName,...range});
     await window.sp?.('production-records');
+  }
+  function viewAdjustmentReason(employee){
+    const adjustment=Number(employee.adjustmentAmount)||0;
+    if(!adjustment) return;
+    const amount=`${money(Math.abs(adjustment))} VND`;
+    const reason=String(employee.adjustmentNote||'—');
+    const body=ui().createLanguageSections({
+      vi:`Nhân viên: ${employee.employeeName}\nĐiều chỉnh: ${adjustment>0?'Tăng':'Giảm'} ${amount}\nLý do: ${reason}`,
+      zh:`員工：${employee.employeeName}\n調整：${adjustment>0?'增加':'減少'} ${amount}\n原因：${reason}`
+    });
+    body.classList.add('performance-bonus-reason-dialog');
+    ui().openDialog({
+      title:{vi:'Lý do điều chỉnh thưởng',zh:'獎金調整原因'},body,size:'small',actions:[{text:'common.close'}]
+    });
   }
   function requestAdjustment(employee){
     return new Promise(resolve=>{
