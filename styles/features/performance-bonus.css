@@ -170,12 +170,38 @@
 }
 .performance-bonus-count{
   margin-left:auto;
-  color:var(--ui-color-text-muted);
+  display:inline-flex;
+  max-width:100%;
+  min-height:42px;
+  align-items:center;
+  gap:10px;
+  padding:7px 13px;
+  border:1px solid var(--ui-color-operation-border);
+  border-radius:var(--ui-radius-control);
+  background:var(--ui-color-primary-soft);
+  color:var(--ui-color-text);
   font-weight:var(--ui-font-weight-strong);
-  font-size:var(--ui-font-size-helper);
-  align-items:flex-end;
+  font-size:var(--ui-font-size-body);
   text-align:right;
   white-space:nowrap;
+}
+.performance-bonus-count-language{
+  display:inline-flex;
+  align-items:baseline;
+  gap:4px;
+}
+.performance-bonus-count-language>strong{
+  color:var(--ui-color-primary);
+  font-size:var(--ui-font-size-metric);
+  font-weight:var(--ui-font-weight-strong);
+  line-height:1;
+}
+.performance-bonus-count-separator{
+  color:var(--ui-color-operation-border);
+  font-weight:var(--ui-font-weight-secondary);
+}
+html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .performance-bonus-count-separator{
+  display:none;
 }
 .performance-bonus-table{
   --ui-table-default-min-width: 1240px;

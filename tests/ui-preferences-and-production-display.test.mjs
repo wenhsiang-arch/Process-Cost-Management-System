@@ -77,11 +77,18 @@ test('月績效獎金依金額由高至低穩定排序',()=>{
 
 test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
   const source=read('js/performance-bonus/monthly-bonus-page.js');
+  const style=read('styles/features/performance-bonus.css');
   assert.match(source,/performance-bonus-count-zh/);
   assert.match(source,/Tổng thưởng/);
   assert.match(source,/獎金總和/);
   assert.match(source,/reduce\(\(total,employee\)=>total\+\(Number\(employee\.finalBonus\)\|\|0\),0\)/);
   assert.match(source,/performance-bonus-total-zh/);
+  assert.match(source,/performance-bonus-count ui-bilingual/);
+  assert.match(source,/performance-bonus-count-language ui-text-vi/);
+  assert.match(source,/performance-bonus-count-language ui-text-zh/);
+  assert.match(style,/\.performance-bonus-count\{[\s\S]*?background:var\(--ui-color-primary-soft\)/);
+  assert.match(style,/\.performance-bonus-count-language>strong\{[\s\S]*?font-size:var\(--ui-font-size-metric\)/);
+  assert.match(style,/data-ui-language-mode[^\n]*performance-bonus-count-separator/);
 });
 
 test('月績效人工調整以獨立欄位顯示金額，原因與編輯使用小圖示',()=>{
