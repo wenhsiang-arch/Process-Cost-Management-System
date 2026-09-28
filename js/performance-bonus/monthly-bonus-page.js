@@ -123,7 +123,7 @@
           <div class="ui-notice" id="performance-bonus-month-note" hidden></div>
         </section>
         <section class="performance-bonus-list-section ui-data-section">
-          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count"><span id="performance-bonus-count">0</span> người / 人</span></div>
+          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count ui-dual-copy"><strong><span id="performance-bonus-count">0</span> người · Tổng thưởng <span id="performance-bonus-total">0</span> VND</strong><span><span id="performance-bonus-count-zh">0</span> 人 · 獎金總和 <span id="performance-bonus-total-zh">0</span> VND</span></span></div>
           <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table performance-bonus-table" id="performance-bonus-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
             <thead><tr>
               <th data-ui-table-column="employeeId"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
@@ -192,7 +192,12 @@
       }else action.textContent='—';
       body.appendChild(row);
     });
-    el('performance-bonus-count').textContent=String(state.employees.length);
+    const employeeCount=state.employees.length;
+    const bonusTotal=state.employees.reduce((total,employee)=>total+(Number(employee.finalBonus)||0),0);
+    el('performance-bonus-count').textContent=String(employeeCount);
+    el('performance-bonus-count-zh').textContent=String(employeeCount);
+    el('performance-bonus-total').textContent=money(bonusTotal);
+    el('performance-bonus-total-zh').textContent=money(bonusTotal);
     el('performance-bonus-empty').hidden=state.employees.length>0;
     window.PCMSUITableControls?.refreshPage?.();
   }

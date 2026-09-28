@@ -78,6 +78,15 @@ test('月績效獎金依金額由高至低穩定排序',()=>{
   assert.match(source,/state\.employees=sortedBonusEmployees\(result\.employees\)/);
 });
 
+test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
+  const source=read('js/performance-bonus/monthly-bonus-page.js');
+  assert.match(source,/performance-bonus-count-zh/);
+  assert.match(source,/Tổng thưởng/);
+  assert.match(source,/獎金總和/);
+  assert.match(source,/reduce\(\(total,employee\)=>total\+\(Number\(employee\.finalBonus\)\|\|0\),0\)/);
+  assert.match(source,/performance-bonus-total-zh/);
+});
+
 test('所有共用表格設定依可信任 UID 保存於 IndexedDB',()=>{
   const source=read('js/ui-table-controls.js');
   assert.match(source,/TABLE_PREFERENCE_SCOPE = 'uiTablePreferences'/);

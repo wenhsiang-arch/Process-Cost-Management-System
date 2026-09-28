@@ -173,6 +173,9 @@
   color:var(--ui-color-text-muted);
   font-weight:var(--ui-font-weight-strong);
   font-size:var(--ui-font-size-helper);
+  align-items:flex-end;
+  text-align:right;
+  white-space:nowrap;
 }
 .performance-bonus-table{
   --ui-table-default-min-width: 940px;
