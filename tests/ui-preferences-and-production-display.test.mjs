@@ -87,6 +87,19 @@ test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
   assert.match(source,/performance-bonus-total-zh/);
 });
 
+test('月績效人工調整以單次金額覆蓋並顯示加減公式與原因',()=>{
+  const page=read('js/performance-bonus/monthly-bonus-page.js');
+  const store=read('js/performance-bonus/bonus-store.js');
+  assert.match(page,/baseBonus.*adjustmentAmount.*finalBonus/s);
+  assert.match(page,/\?\s*'\+'\s*:\s*'−'/);
+  assert.match(page,/Lý do điều chỉnh[\s\S]*?調整原因/);
+  assert.match(page,/amount:allowZero\?0:sign\*raw,note:reason/);
+  assert.match(page,/finalBonus\)>0\|\|Number\(item\.adjustmentAmount\)!==0/);
+  assert.match(store,/batch\.set\(adjustmentRef\(normalized,employeeId\),\{/);
+  assert.doesNotMatch(store,/employee\.adjustmentAmount\)\|\|0\)\+adjustment/);
+  assert.match(store,/adjustmentNote:reason/);
+});
+
 test('所有共用表格設定依可信任 UID 保存於 IndexedDB',()=>{
   const source=read('js/ui-table-controls.js');
   assert.match(source,/TABLE_PREFERENCE_SCOPE = 'uiTablePreferences'/);

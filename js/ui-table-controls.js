@@ -495,9 +495,18 @@
       event.preventDefault?.();
       event.stopPropagation?.();
       captureVisibleWidths();
+      const keys = visibleKeys();
+      const keyIndex = keys.indexOf(key);
+      const companionKey = keyIndex >= 0 ? keys.slice(keyIndex+1).find(candidate=>columnMap.get(candidate)?.resizable !== false) || '' : '';
+      const companionColumn = companionKey ? columnMap.get(companionKey) : null;
+      const companionHeader = companionKey ? headerForColumn(companionKey) : null;
       activeResize = {
         key,column,header,startX:Number(event.clientX || 0),
-        startWidth:clampWidth(resizeWidths[key] || header.getBoundingClientRect?.().width,column)
+        startWidth:clampWidth(resizeWidths[key] || header.getBoundingClientRect?.().width,column),
+        companionKey,companionColumn,
+        companionStartWidth:companionKey
+          ?clampWidth(resizeWidths[companionKey] || companionHeader?.getBoundingClientRect?.().width,companionColumn)
+          :0
       };
       table.classList.add('is-ui-table-resizing');
       header.classList?.add?.('is-ui-table-resizing-column');
@@ -510,10 +519,20 @@
     function handleResizePointerMove(event){
       if(!activeResize) return;
       event.preventDefault?.();
-      resizeWidths[activeResize.key] = clampWidth(
+      const requestedWidth = clampWidth(
         activeResize.startWidth+(Number(event.clientX || 0)-activeResize.startX),
         activeResize.column
       );
+      if(activeResize.companionKey){
+        const requestedDelta=requestedWidth-activeResize.startWidth;
+        const companionWidth=clampWidth(
+          activeResize.companionStartWidth-requestedDelta,
+          activeResize.companionColumn
+        );
+        const appliedDelta=activeResize.companionStartWidth-companionWidth;
+        resizeWidths[activeResize.key]=clampWidth(activeResize.startWidth+appliedDelta,activeResize.column);
+        resizeWidths[activeResize.companionKey]=companionWidth;
+      }else resizeWidths[activeResize.key]=requestedWidth;
       applyResizeWidths();
     }
 

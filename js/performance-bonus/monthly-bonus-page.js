@@ -8,8 +8,15 @@
   function ui(){ return window.PCMSUIComponents; }
   function store(){ return window.PCMSPerformanceBonusStore; }
   function money(value){ return Math.round(Number(value)||0).toLocaleString('vi-VN'); }
+  function bonusFormula(employee){
+    const base=Math.round(Number(employee?.baseBonus)||0);
+    const adjustment=Math.round(Number(employee?.adjustmentAmount)||0);
+    const final=Math.round(Number(employee?.finalBonus)||0);
+    if(!adjustment) return `${money(final)} VND`;
+    return `${money(base)} ${adjustment>0?'+':'−'} ${money(Math.abs(adjustment))} = ${money(final)} VND`;
+  }
   function sortedBonusEmployees(rows){
-    return (Array.isArray(rows)?rows:[]).filter(item=>Number(item.finalBonus)>0).slice().sort((left,right)=>{
+    return (Array.isArray(rows)?rows:[]).filter(item=>Number(item.finalBonus)>0||Number(item.adjustmentAmount)!==0).slice().sort((left,right)=>{
       const bonusOrder=(Number(right.finalBonus)||0)-(Number(left.finalBonus)||0);
       return bonusOrder||String(left.employeeId||'').localeCompare(String(right.employeeId||''),'en',{numeric:true,sensitivity:'base'});
     });
@@ -126,11 +133,11 @@
           <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count ui-dual-copy"><strong><span id="performance-bonus-count">0</span> người · Tổng thưởng <span id="performance-bonus-total">0</span> VND</strong><span><span id="performance-bonus-count-zh">0</span> 人 · 獎金總和 <span id="performance-bonus-total-zh">0</span> VND</span></span></div>
           <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table performance-bonus-table" id="performance-bonus-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
             <thead><tr>
-              <th data-ui-table-column="employeeId"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
-              <th data-ui-table-column="employeeName"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
-              <th data-ui-table-column="department"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
-              <th class="ui-table-number-cell" data-ui-table-column="bonus"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
-              <th class="ui-table-center-cell" data-ui-table-column="action"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
+              <th data-ui-table-column="employeeId" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="220"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
+              <th data-ui-table-column="employeeName" data-ui-table-min-width="180" data-ui-table-width="260" data-ui-table-max-width="360"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+              <th data-ui-table-column="department" data-ui-table-min-width="160" data-ui-table-width="220" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+              <th class="ui-table-number-cell" data-ui-table-column="bonus" data-ui-table-min-width="280" data-ui-table-width="340" data-ui-table-max-width="520"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-min-width="140" data-ui-table-width="160" data-ui-table-max-width="200"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
             </tr></thead><tbody id="performance-bonus-table-body"></tbody>
           </table></div></div>
           <div class="performance-bonus-empty ui-language-sections" id="performance-bonus-empty"><div class="ui-language-section is-vi">Chưa có kết quả thưởng của tháng này.</div><div class="ui-language-section is-zh">此月份尚無獎金結果。</div></div>
@@ -177,7 +184,21 @@
       const amount=document.createElement('button');
       amount.type='button';
       amount.className='performance-bonus-amount';
-      amount.textContent=`${money(employee.finalBonus)} VND`;
+      const formula=document.createElement('span');
+      formula.className='performance-bonus-formula';
+      formula.textContent=bonusFormula(employee);
+      amount.appendChild(formula);
+      if(Number(employee.adjustmentAmount)){
+        amount.classList.add('has-adjustment');
+        const reason=document.createElement('span');
+        reason.className='performance-bonus-adjustment-reason';
+        const label=window.PCMSUIText.create({vi:'Lý do',zh:'原因'});
+        const value=document.createElement('span');
+        value.className='performance-bonus-adjustment-reason-value';
+        value.textContent=employee.adjustmentNote||'—';
+        reason.append(label,value);
+        amount.appendChild(reason);
+      }
       amount.title='Xem hiệu suất hằng ngày / 查看每日績效';
       amount.addEventListener('click',()=>void openDaily(employee));
       bonusCell.appendChild(amount);
@@ -192,7 +213,7 @@
       }else action.textContent='—';
       body.appendChild(row);
     });
-    const employeeCount=state.employees.length;
+    const employeeCount=state.employees.filter(employee=>Number(employee.finalBonus)>0).length;
     const bonusTotal=state.employees.reduce((total,employee)=>total+(Number(employee.finalBonus)||0),0);
     el('performance-bonus-count').textContent=String(employeeCount);
     el('performance-bonus-count-zh').textContent=String(employeeCount);
@@ -232,23 +253,110 @@
     window.PCMSProductionPerformance?.setPendingContext?.({employeeId:employee.employeeId,employeeName:employee.employeeName,...range});
     await window.sp?.('production-records');
   }
-  async function adjustEmployee(employee){
-    const value=await ui().promptDialog({
-      title:{vi:'Điều chỉnh thưởng tháng',zh:'人工調整月獎金'},
-      label:{vi:'Số tiền cộng hoặc trừ (VND)',zh:'增加或扣除金額（VND）'},
-      type:'number',value:String(Number(employee.adjustmentAmount)||0),
-      validate:(input,field)=>{
-        const valid=Number.isFinite(Number(input))&&Number.isInteger(Number(input));
-        field.setCustomValidity(valid?'':'Chỉ nhập số nguyên / 僅可輸入整數');
-        field.reportValidity();
-        return valid;
+  function requestAdjustment(employee){
+    return new Promise(resolve=>{
+      let settled=false;
+      let sign=1;
+      const body=document.createElement('div');
+      body.className='performance-bonus-adjustment-dialog';
+      const current=document.createElement('div');
+      current.className='performance-bonus-adjustment-current';
+      const currentLabel=window.PCMSUIText.create({vi:'Thưởng hiện tại',zh:'目前獎金'});
+      const currentValue=document.createElement('strong');
+      currentValue.textContent=bonusFormula(employee);
+      current.append(currentLabel,currentValue);
+      if(Number(employee.adjustmentAmount)){
+        const currentReason=document.createElement('div');
+        currentReason.className='performance-bonus-adjustment-current-reason';
+        currentReason.append(window.PCMSUIText.create({vi:'Lý do hiện tại',zh:'目前原因'}));
+        const currentReasonValue=document.createElement('span');
+        currentReasonValue.textContent=employee.adjustmentNote||'—';
+        currentReason.appendChild(currentReasonValue);
+        current.appendChild(currentReason);
       }
+      const modeField=document.createElement('div');
+      modeField.className='performance-bonus-adjustment-field';
+      modeField.appendChild(window.PCMSUIText.create({vi:'Cách điều chỉnh',zh:'調整方式'}));
+      const modeButtons=document.createElement('div');
+      modeButtons.className='performance-bonus-adjustment-modes';
+      const increase=document.createElement('button');
+      increase.type='button';increase.className='is-active';
+      increase.appendChild(window.PCMSUIText.create({vi:'+ Tăng',zh:'+ 增加'}));
+      const decrease=document.createElement('button');
+      decrease.type='button';
+      decrease.appendChild(window.PCMSUIText.create({vi:'− Giảm',zh:'− 減少'}));
+      modeButtons.append(increase,decrease);modeField.appendChild(modeButtons);
+      const amountField=document.createElement('label');
+      amountField.className='performance-bonus-adjustment-field';
+      amountField.appendChild(window.PCMSUIText.create({vi:'Số tiền điều chỉnh',zh:'調整金額'}));
+      const amountWrap=document.createElement('span');
+      amountWrap.className='performance-bonus-adjustment-amount';
+      const amount=document.createElement('input');
+      amount.type='number';amount.min='1';amount.step='1';amount.inputMode='numeric';amount.placeholder='0';
+      const currency=document.createElement('span');currency.textContent='VND';
+      amountWrap.append(amount,currency);amountField.appendChild(amountWrap);
+      const noteField=document.createElement('label');
+      noteField.className='performance-bonus-adjustment-field';
+      noteField.appendChild(window.PCMSUIText.create({vi:'Lý do điều chỉnh',zh:'調整原因'}));
+      const note=document.createElement('textarea');
+      note.maxLength=200;note.rows=3;
+      window.PCMSUIText.setLocalizedAttribute(note,'placeholder',{vi:'Nhập lý do tăng hoặc giảm',zh:'請填寫增加或減少的原因'});
+      noteField.appendChild(note);
+      const preview=document.createElement('div');
+      preview.className='performance-bonus-adjustment-preview';
+      preview.appendChild(window.PCMSUIText.create({vi:'Sau điều chỉnh',zh:'調整後'}));
+      const previewValue=document.createElement('strong');preview.appendChild(previewValue);
+      body.append(current,modeField,amountField,noteField,preview);
+      const updatePreview=()=>{
+        const raw=Number(amount.value);
+        if(!Number.isInteger(raw)||raw<=0){ previewValue.textContent=`${money(employee.baseBonus)} VND`; return; }
+        const adjustment=sign*raw;
+        previewValue.textContent=`${money(employee.baseBonus)} ${adjustment>0?'+':'−'} ${money(raw)} = ${money(Number(employee.baseBonus)+adjustment)} VND`;
+      };
+      const setSign=next=>{
+        sign=next;increase.classList.toggle('is-active',sign===1);decrease.classList.toggle('is-active',sign===-1);updatePreview();
+      };
+      increase.addEventListener('click',()=>setSign(1));
+      decrease.addEventListener('click',()=>setSign(-1));
+      amount.addEventListener('input',updatePreview);
+      const validate=(allowZero=false)=>{
+        const raw=Number(amount.value);
+        const reason=note.value.trim();
+        const validAmount=allowZero||(Number.isInteger(raw)&&raw>0&&Number(employee.baseBonus)+sign*raw>=0);
+        amount.setCustomValidity(validAmount?'':sign<0&&Number.isInteger(raw)&&raw>Number(employee.baseBonus)
+          ?'Số tiền giảm quá lớn / 減少金額不可超過系統獎金':'Chỉ nhập số nguyên lớn hơn 0 / 請輸入大於 0 的整數');
+        note.setCustomValidity(reason?'':'Cần nhập lý do / 請填寫原因');
+        if(!validAmount){ amount.reportValidity(); return null; }
+        if(!reason){ note.reportValidity(); return null; }
+        return {amount:allowZero?0:sign*raw,note:reason};
+      };
+      const actions=[];
+      if(Number(employee.adjustmentAmount)) actions.push({
+        text:{vi:'Hủy điều chỉnh hiện tại',zh:'取消目前調整'},kind:'danger',
+        onClick:()=>{ const result=validate(true); if(!result) return false; settled=true;resolve(result);return true; }
+      });
+      actions.push(
+        {text:'common.cancel',onClick:()=>{ settled=true;resolve(null); }},
+        {text:{vi:'Xác nhận điều chỉnh',zh:'確認調整'},kind:'primary',onClick:()=>{
+          const result=validate(false);if(!result) return false;settled=true;resolve(result);return true;
+        }}
+      );
+      ui().openDialog({
+        title:{vi:`Điều chỉnh thưởng · ${employee.employeeName}`,zh:`人工調整獎金 · ${employee.employeeName}`},
+        body,size:'large',actions,onClose:()=>{if(!settled) resolve(null);}
+      });
+      updatePreview();
     });
-    if(value===null) return;
+  }
+  async function adjustEmployee(employee){
+    const adjustment=await requestAdjustment(employee);
+    if(!adjustment) return;
     try{
-      await store().adjustEmployee(state.month,employee.employeeId,Number(value));
+      const result=await store().adjustEmployee(state.month,employee.employeeId,adjustment.amount,adjustment.note);
       ui().showToast({kind:'success',message:{vi:'Đã lưu điều chỉnh thưởng.',zh:'人工獎金調整已儲存。'}});
-      await loadMonth();
+      state.metadata=result.metadata;
+      state.employees=sortedBonusEmployees(result.employees);
+      render();
     }catch(error){ await showError(error); }
   }
   function openReference(){

@@ -217,7 +217,7 @@ test('試點表格可以拖曳、雙擊自動符合並保存與恢復欄寬',asy
   await harness.settleWrites();
   const saved=harness.stored.get('uiTablePreferences').tables['resize-table'];
   assert.equal(saved.widths.code,170);
-  assert.equal(saved.widths.name,200);
+  assert.equal(saved.widths.name,150);
 
   first.table.dispatch('dblclick',{target:first.headers[1].children[0],preventDefault(){},stopPropagation(){}});
   assert.equal(first.headers[1].style.width,'260px');
