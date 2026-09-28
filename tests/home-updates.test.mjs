@@ -36,7 +36,8 @@ test('首頁只保留最新五則，年度舊公告各有唯一完整雙語來�
   assert.match(html,/綠色金額框代表增加獎金/);
   assert.match(html,/紅色金額框代表減少獎金/);
   assert.match(html,/左側圖示用來查看調整原因/);
-  assert.match(html,/都必須填寫原因/);
+  assert.match(html,/輸入非 0 金額時必須填寫原因/);
+  assert.match(html,/輸入 0 可直接取消人工調整/);
   assert.match(html,/重新整理頁面會把訂單數量錯誤顯示為0/);
   assert.match(html,/表格篩選圖示有時會重複出現多個/);
   assert.match(html,/優化款號匯入完成後的結果摘要排版/);

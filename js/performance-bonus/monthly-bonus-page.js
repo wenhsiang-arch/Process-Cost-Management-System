@@ -332,7 +332,7 @@
       const amountWrap=document.createElement('span');
       amountWrap.className='performance-bonus-adjustment-amount';
       const amount=document.createElement('input');
-      amount.type='number';amount.min='1';amount.step='1';amount.inputMode='numeric';amount.placeholder='0';
+      amount.type='number';amount.min='0';amount.step='1';amount.inputMode='numeric';amount.placeholder='0';
       const currency=document.createElement('span');currency.textContent='VND';
       amountWrap.append(amount,currency);amountField.appendChild(amountWrap);
       const noteField=document.createElement('label');
@@ -360,15 +360,17 @@
       decrease.addEventListener('click',()=>setSign(-1));
       amount.addEventListener('input',updatePreview);
       const validate=(allowZero=false)=>{
-        const raw=Number(amount.value);
+        const rawText=amount.value.trim();
+        const raw=Number(rawText);
         const reason=note.value.trim();
-        const validAmount=allowZero||(Number.isInteger(raw)&&raw>0&&Number(employee.baseBonus)+sign*raw>=0);
+        const clearsAdjustment=allowZero||(rawText!==''&&raw===0);
+        const validAmount=clearsAdjustment||(Number.isInteger(raw)&&raw>0&&Number(employee.baseBonus)+sign*raw>=0);
         amount.setCustomValidity(validAmount?'':sign<0&&Number.isInteger(raw)&&raw>Number(employee.baseBonus)
-          ?'Số tiền giảm quá lớn / 減少金額不可超過系統獎金':'Chỉ nhập số nguyên lớn hơn 0 / 請輸入大於 0 的整數');
-        note.setCustomValidity(reason?'':'Cần nhập lý do / 請填寫原因');
+          ?'Số tiền giảm quá lớn / 減少金額不可超過系統獎金':'Chỉ nhập số nguyên từ 0 trở lên / 請輸入大於或等於 0 的整數');
+        note.setCustomValidity(clearsAdjustment||reason?'':'Cần nhập lý do / 請填寫原因');
         if(!validAmount){ amount.reportValidity(); return null; }
-        if(!reason){ note.reportValidity(); return null; }
-        return {amount:allowZero?0:sign*raw,note:reason};
+        if(!clearsAdjustment&&!reason){ note.reportValidity(); return null; }
+        return clearsAdjustment?{amount:0,note:''}:{amount:sign*raw,note:reason};
       };
       const actions=[];
       if(Number(employee.adjustmentAmount)) actions.push({

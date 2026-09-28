@@ -313,8 +313,8 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 <time class="home-update-date" datetime="2026-09-28">28/09/2026</time>
                 <h2 class="ui-dual-copy"><strong>Cải thiện điều chỉnh thưởng hiệu suất tháng</strong><span>優化月績效獎金調整</span></h2>
                 <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Cách xem và chỉnh sửa tiền thưởng</h3><ol><li>Tiền thưởng cuối cùng và tiền điều chỉnh được hiển thị riêng; nếu không có điều chỉnh thì ô điều chỉnh để trống.</li><li>Khung màu xanh lá là tăng thưởng; khung màu đỏ là giảm thưởng.</li><li>Biểu tượng bên trái dùng để xem lý do, biểu tượng bút chì bên phải dùng để chỉnh sửa; đặt chuột lên biểu tượng sẽ hiện chức năng.</li><li>Mỗi lần thêm, sửa hoặc hủy điều chỉnh đều phải nhập lý do.</li><li>Lần sửa sau sẽ thay thế số tiền điều chỉnh cũ, không cộng dồn nhiều lần.</li><li>Tháng đã khóa vẫn xem được lý do nhưng không thể chỉnh sửa; số tiền xuất ra dùng kết quả sau điều chỉnh.</li></ol></section></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>獎金查看與調整方式</h3><ol><li>「最終獎金」與「調整金額」分開顯示；沒有人工調整時，調整金額保持空白。</li><li>綠色金額框代表增加獎金，紅色金額框代表減少獎金。</li><li>操作欄左側圖示用來查看調整原因，右側鉛筆圖示用來編輯；滑鼠放在圖示上會顯示功能說明。</li><li>每次新增、修改或取消人工調整時，都必須填寫原因。</li><li>再次修改會直接取代原本的調整金額，不會重複累加。</li><li>月份凍結後仍可查看調整原因，但不能再修改；匯出金額會使用調整後的結果。</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Cách xem và chỉnh sửa tiền thưởng</h3><ol><li>Tiền thưởng cuối cùng và tiền điều chỉnh được hiển thị riêng; nếu không có điều chỉnh thì ô điều chỉnh để trống.</li><li>Khung màu xanh lá là tăng thưởng; khung màu đỏ là giảm thưởng.</li><li>Biểu tượng bên trái dùng để xem lý do, biểu tượng bút chì bên phải dùng để chỉnh sửa; đặt chuột lên biểu tượng sẽ hiện chức năng.</li><li>Khi nhập số tiền khác 0 phải ghi lý do. Nhập 0 có thể hủy điều chỉnh mà không cần ghi lý do; sau khi lưu, ô điều chỉnh trở lại trạng thái trống.</li><li>Lần sửa sau sẽ thay thế số tiền điều chỉnh cũ, không cộng dồn nhiều lần.</li><li>Tháng đã khóa vẫn xem được lý do nhưng không thể chỉnh sửa; số tiền xuất ra dùng kết quả sau điều chỉnh.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>獎金查看與調整方式</h3><ol><li>「最終獎金」與「調整金額」分開顯示；沒有人工調整時，調整金額保持空白。</li><li>綠色金額框代表增加獎金，紅色金額框代表減少獎金。</li><li>操作欄左側圖示用來查看調整原因，右側鉛筆圖示用來編輯；滑鼠放在圖示上會顯示功能說明。</li><li>輸入非 0 金額時必須填寫原因；輸入 0 可直接取消人工調整，不需要填寫原因，儲存後調整欄恢復空白。</li><li>再次修改會直接取代原本的調整金額，不會重複累加。</li><li>月份凍結後仍可查看調整原因，但不能再修改；匯出金額會使用調整後的結果。</li></ol></section></div>
                 </div>
               </div>
             </article>
@@ -1389,7 +1389,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/utils.js?v=20260806-7"></script>
 <script src="js/data-cache.js?v=20260812-1"></script>
 <script src="js/usage-metrics.js?v=20260812-2"></script>
-  <script src="js/features.js?v=20260923-4-archive1&amp;feature=order-ship-sort&amp;rev=bonus-action-icons"></script>
+  <script src="js/features.js?v=20260923-4-archive1&amp;feature=order-ship-sort&amp;rev=bonus-clear-zero"></script>
 <script src="js/auth.js?v=20260923-4"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->

@@ -99,8 +99,12 @@ test('月績效人工調整以獨立欄位顯示金額，原因與編輯使用�
   assert.match(page,/Chỉnh sửa điều chỉnh thưởng[\s\S]*?編輯人工調整/);
   assert.match(page,/function viewAdjustmentReason\(employee\)/);
   assert.match(page,/Lý do điều chỉnh[\s\S]*?調整原因/);
-  assert.match(page,/amount:allowZero\?0:sign\*raw,note:reason/);
+  assert.match(page,/clearsAdjustment=allowZero\|\|\(rawText!==''&&raw===0\)/);
+  assert.match(page,/clearsAdjustment\?\{amount:0,note:''\}:\{amount:sign\*raw,note:reason\}/);
+  assert.match(page,/amount\.min='0'/);
   assert.match(page,/finalBonus\)>0\|\|Number\(item\.adjustmentAmount\)!==0/);
+  assert.match(store,/const reason=adjustment===0\?'':String\(note\|\|''\)\.trim\(\)\.slice\(0,200\)/);
+  assert.match(store,/if\(adjustment!==0&&!reason\)/);
   assert.match(store,/batch\.set\(adjustmentRef\(normalized,employeeId\),\{/);
   assert.doesNotMatch(store,/employee\.adjustmentAmount\)\|\|0\)\+adjustment/);
   assert.match(store,/adjustmentNote:reason/);

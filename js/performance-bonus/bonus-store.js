@@ -300,15 +300,16 @@
     if(!Number.isFinite(numericAmount)||!Number.isInteger(numericAmount)) throw new Error('Chỉ nhập số tiền nguyên. / 調整金額必須是整數。');
     const adjustment=Math.round(numericAmount);
     if(Number(employee.baseBonus||0)+adjustment<0) throw new Error('Số tiền giảm không được lớn hơn thưởng hệ thống. / 減少金額不可超過系統獎金。');
-    const reason=String(note||'').trim().slice(0,200);
-    if(!reason) throw new Error('Cần nhập lý do điều chỉnh. / 請填寫人工調整原因。');
+    const reason=adjustment===0?'':String(note||'').trim().slice(0,200);
+    if(adjustment!==0&&!reason) throw new Error('Cần nhập lý do điều chỉnh. / 請填寫人工調整原因。');
+    const operationReason=adjustment===0?'Hủy điều chỉnh / 取消人工調整':reason;
     const updatedAt=now();
     const batch=window._writeBatch({skipDataVersions:true});
     batch.set(adjustmentRef(normalized,employeeId),{
       adjustmentId:adjustmentId(normalized,employeeId),month:normalized,employeeId:String(employeeId),
       adjustmentAmount:adjustment,adjustmentNote:reason,updatedAt,updatedByUid:uid(),updatedBy:username(),schemaVersion:1
     });
-    batch.set(window._newDocRef(LOG_COLLECTION),logData('performanceBonusAdjustment',1,2,`${normalized} · ${employeeId} · ${reason}`,
+    batch.set(window._newDocRef(LOG_COLLECTION),logData('performanceBonusAdjustment',1,2,`${normalized} · ${employeeId} · ${operationReason}`,
       [
         {field:'adjustmentAmount',before:Number(employee.adjustmentAmount)||0,after:adjustment},
         {field:'adjustmentNote',before:String(employee.adjustmentNote||''),after:reason}
