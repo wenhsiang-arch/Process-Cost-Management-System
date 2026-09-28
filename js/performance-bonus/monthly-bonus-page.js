@@ -134,9 +134,10 @@
           <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table performance-bonus-table" id="performance-bonus-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
             <thead><tr>
               <th data-ui-table-column="employeeId" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="220"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
-              <th data-ui-table-column="employeeName" data-ui-table-min-width="180" data-ui-table-width="260" data-ui-table-max-width="360"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
-              <th data-ui-table-column="department" data-ui-table-min-width="160" data-ui-table-width="220" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
-              <th class="ui-table-number-cell" data-ui-table-column="bonus" data-ui-table-min-width="280" data-ui-table-width="340" data-ui-table-max-width="520"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
+              <th data-ui-table-column="employeeName" data-ui-table-min-width="180" data-ui-table-width="250" data-ui-table-max-width="360"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
+              <th data-ui-table-column="department" data-ui-table-min-width="150" data-ui-table-width="200" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="bonus" data-ui-table-min-width="190" data-ui-table-width="230" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="adjustment" data-ui-table-min-width="210" data-ui-table-width="250" data-ui-table-max-width="340"><span class="ui-dual-copy"><strong>Điều chỉnh</strong><span>調整金額</span></span></th>
               <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-min-width="140" data-ui-table-width="160" data-ui-table-max-width="200"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
             </tr></thead><tbody id="performance-bonus-table-body"></tbody>
           </table></div></div>
@@ -144,10 +145,11 @@
         </section>
       </div>`;
   }
-  function createCell(row,text,className=''){
+  function createCell(row,text,className='',columnKey=''){
     const cell=document.createElement('td');
     cell.textContent=String(text??'');
     if(className) cell.className=className;
+    if(columnKey) cell.dataset.uiTableColumn=columnKey;
     row.appendChild(cell);
     return cell;
   }
@@ -177,32 +179,41 @@
     body.replaceChildren();
     state.employees.forEach(employee=>{
       const row=document.createElement('tr');
-      createCell(row,employee.employeeId);
-      createCell(row,employee.employeeName);
-      createCell(row,employee.department||'—');
-      const bonusCell=createCell(row,'','ui-table-number-cell');
+      createCell(row,employee.employeeId,'','employeeId');
+      createCell(row,employee.employeeName,'','employeeName');
+      createCell(row,employee.department||'—','','department');
+      const bonusCell=createCell(row,'','ui-table-center-cell','bonus');
       const amount=document.createElement('button');
       amount.type='button';
       amount.className='performance-bonus-amount';
-      const formula=document.createElement('span');
-      formula.className='performance-bonus-formula';
-      formula.textContent=bonusFormula(employee);
-      amount.appendChild(formula);
-      if(Number(employee.adjustmentAmount)){
-        amount.classList.add('has-adjustment');
-        const reason=document.createElement('span');
-        reason.className='performance-bonus-adjustment-reason';
-        const label=window.PCMSUIText.create({vi:'Lý do',zh:'原因'});
-        const value=document.createElement('span');
-        value.className='performance-bonus-adjustment-reason-value';
-        value.textContent=employee.adjustmentNote||'—';
-        reason.append(label,value);
-        amount.appendChild(reason);
-      }
+      amount.textContent=`${money(employee.finalBonus)} VND`;
       amount.title='Xem hiệu suất hằng ngày / 查看每日績效';
       amount.addEventListener('click',()=>void openDaily(employee));
       bonusCell.appendChild(amount);
-      const action=createCell(row,'','ui-table-center-cell');
+      const adjustmentCell=createCell(row,'','ui-table-center-cell','adjustment');
+      const adjustment=Number(employee.adjustmentAmount)||0;
+      if(adjustment){
+        const adjustmentBadge=document.createElement('div');
+        adjustmentBadge.className=`performance-bonus-adjustment-badge ${adjustment>0?'is-increase':'is-decrease'}`;
+        const adjustmentLine=document.createElement('span');
+        adjustmentLine.className='performance-bonus-adjustment-value';
+        const adjustmentIcon=document.createElement('i');
+        adjustmentIcon.className=`ti ${adjustment>0?'ti-trending-up':'ti-trending-down'}`;
+        adjustmentIcon.setAttribute('aria-hidden','true');
+        const adjustmentAmount=document.createElement('strong');
+        adjustmentAmount.textContent=`${money(Math.abs(adjustment))} VND`;
+        adjustmentLine.append(adjustmentIcon,adjustmentAmount);
+        const adjustmentReason=document.createElement('span');
+        adjustmentReason.className='performance-bonus-adjustment-note';
+        adjustmentReason.textContent=employee.adjustmentNote||'—';
+        adjustmentBadge.append(adjustmentLine,adjustmentReason);
+        window.PCMSUIText.setLocalizedAttribute(adjustmentBadge,'title',{
+          vi:`${adjustment>0?'Tăng':'Giảm'} ${money(Math.abs(adjustment))} VND · Lý do: ${employee.adjustmentNote||'—'}`,
+          zh:`${adjustment>0?'增加':'減少'} ${money(Math.abs(adjustment))} VND · 原因：${employee.adjustmentNote||'—'}`
+        });
+        adjustmentCell.appendChild(adjustmentBadge);
+      }
+      const action=createCell(row,'','ui-table-center-cell','action');
       if(draft){
         const adjust=document.createElement('button');
         adjust.type='button';

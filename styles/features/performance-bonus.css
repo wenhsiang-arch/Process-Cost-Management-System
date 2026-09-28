@@ -178,17 +178,18 @@
   white-space:nowrap;
 }
 .performance-bonus-table{
-  --ui-table-default-min-width: 1110px;
-  min-width:1110px;
+  --ui-table-default-min-width: 1240px;
+  min-width:1240px;
 }
 .performance-bonus-table th:last-child,
 .performance-bonus-table td:last-child{
   width:170px;
 }
 .performance-bonus-amount{
-  display:grid;
-  justify-items:end;
-  gap:5px;
+  display:inline-flex;
+  min-width:150px;
+  align-items:center;
+  justify-content:center;
   border:1px solid var(--ui-color-operation-border);
   border-radius:10px;
   padding:8px 12px;
@@ -196,30 +197,50 @@
   color:var(--ui-color-primary);
   font:inherit;
   font-weight:var(--ui-font-weight-emphasis);
+  white-space:nowrap;
   cursor:pointer;
 }
-.performance-bonus-formula{
+.performance-bonus-adjustment-badge{
+  display:grid;
+  min-width:160px;
+  max-width:100%;
+  justify-items:center;
+  gap:4px;
+  padding:7px 10px;
+  border:1px solid transparent;
+  border-radius:10px;
+  text-align:left;
+}
+.performance-bonus-adjustment-badge.is-increase{
+  border-color:var(--ui-color-success-border);
+  background:var(--ui-color-success-background);
+  color:var(--ui-color-success-text);
+}
+.performance-bonus-adjustment-badge.is-decrease{
+  border-color:var(--ui-color-danger-border);
+  background:var(--ui-color-danger-background);
+  color:var(--ui-color-danger-text);
+}
+.performance-bonus-adjustment-value{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
   white-space:nowrap;
 }
-.performance-bonus-adjustment-reason{
-  display:grid;
-  grid-template-columns:auto minmax(0,1fr);
-  align-items:start;
-  gap:7px;
-  max-width:100%;
+.performance-bonus-adjustment-value i{
+  font-size:17px;
+}
+.performance-bonus-adjustment-note{
+  display:block;
+  width:100%;
+  overflow:hidden;
   color:var(--ui-color-text-muted);
   font-size:var(--ui-font-size-helper);
   font-weight:var(--ui-font-weight-secondary);
-  text-align:left;
-}
-.performance-bonus-adjustment-reason .ui-bilingual{
-  --ui-copy-size-primary:var(--ui-font-size-helper);
-  --ui-copy-size-secondary:var(--ui-font-size-helper);
+  text-align:center;
+  text-overflow:ellipsis;
   white-space:nowrap;
-}
-.performance-bonus-adjustment-reason-value{
-  min-width:0;
-  overflow-wrap:anywhere;
 }
 .performance-bonus-adjustment-dialog{
   display:grid;

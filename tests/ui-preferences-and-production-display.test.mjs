@@ -87,11 +87,14 @@ test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
   assert.match(source,/performance-bonus-total-zh/);
 });
 
-test('月績效人工調整以單次金額覆蓋並顯示加減公式與原因',()=>{
+test('月績效人工調整以獨立欄位顯示方向、金額與原因',()=>{
   const page=read('js/performance-bonus/monthly-bonus-page.js');
   const store=read('js/performance-bonus/bonus-store.js');
-  assert.match(page,/baseBonus.*adjustmentAmount.*finalBonus/s);
-  assert.match(page,/\?\s*'\+'\s*:\s*'−'/);
+  assert.match(page,/data-ui-table-column="bonus"[\s\S]*?data-ui-table-column="adjustment"/);
+  assert.match(page,/createCell\(row,''[^\n]*'adjustment'\)/);
+  assert.match(page,/performance-bonus-adjustment-badge/);
+  assert.match(page,/is-increase':'is-decrease/);
+  assert.match(page,/money\(Math\.abs\(adjustment\)\)/);
   assert.match(page,/Lý do điều chỉnh[\s\S]*?調整原因/);
   assert.match(page,/amount:allowZero\?0:sign\*raw,note:reason/);
   assert.match(page,/finalBonus\)>0\|\|Number\(item\.adjustmentAmount\)!==0/);
