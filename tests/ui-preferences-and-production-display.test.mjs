@@ -88,6 +88,7 @@ test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
   assert.match(source,/performance-bonus-count ui-bilingual/);
   assert.doesNotMatch(style,/\.performance-bonus-count\{[^}]*background:/);
   assert.doesNotMatch(style,/\.performance-bonus-count\{[^}]*border:/);
+  assert.match(style,/\.performance-bonus-count\{[^}]*flex-direction:row;[^}]*flex-wrap:nowrap;/);
   assert.match(style,/\.performance-bonus-total\{[\s\S]*?min-width:150px[\s\S]*?padding:8px 12px[\s\S]*?background:var\(--ui-color-primary-soft\)[\s\S]*?font-size:var\(--ui-font-size-metric\)/);
   assert.match(style,/data-ui-language-mode[^\n]*performance-bonus-language-divider/);
 });

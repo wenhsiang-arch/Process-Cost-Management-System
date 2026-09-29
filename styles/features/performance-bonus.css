@@ -172,7 +172,11 @@
   margin-left:auto;
   display:inline-flex;
   max-width:100%;
+  flex:0 0 auto;
+  flex-direction:row;
+  flex-wrap:nowrap;
   align-items:center;
+  justify-content:flex-end;
   gap:6px;
   color:var(--ui-color-text);
   font-weight:var(--ui-font-weight-strong);
@@ -180,12 +184,18 @@
   text-align:right;
   white-space:nowrap;
 }
+.performance-bonus-count>.ui-text-vi,
+.performance-bonus-count>.ui-text-zh{
+  display:inline;
+  margin-top:0;
+}
 .performance-bonus-total{
   display:inline-flex;
   min-width:150px;
   min-height:38px;
   align-items:center;
   justify-content:center;
+  gap:4px;
   padding:8px 12px;
   border:1px solid var(--ui-color-operation-border);
   border-radius:10px;
