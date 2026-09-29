@@ -175,6 +175,7 @@ test('月績效獎金標題列只有總金額使用與累積獎金一致的藍�
   const amountRule=style.match(/\.performance-bonus-amount\{([^}]*)\}/)?.[1]||'';
   assert.match(page,/id="performance-bonus-count">0<\/span><span class="ui-text-vi">người<\/span>/);
   assert.doesNotMatch(page,/performance-bonus-count-zh/);
+  assert.doesNotMatch(page,/\bVND\b/);
   assert.match(page,/Tổng thưởng[\s\S]*?獎金總和[\s\S]*?class="performance-bonus-total"/);
   assert.match(countRule,/white-space:\s*nowrap/);
   assert.match(countRule,/flex-direction:\s*row/);

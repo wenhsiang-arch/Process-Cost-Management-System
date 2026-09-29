@@ -12,8 +12,8 @@
     const base=Math.round(Number(employee?.baseBonus)||0);
     const adjustment=Math.round(Number(employee?.adjustmentAmount)||0);
     const final=Math.round(Number(employee?.finalBonus)||0);
-    if(!adjustment) return `${money(final)} VND`;
-    return `${money(base)} ${adjustment>0?'+':'−'} ${money(Math.abs(adjustment))} = ${money(final)} VND`;
+    if(!adjustment) return money(final);
+    return `${money(base)} ${adjustment>0?'+':'−'} ${money(Math.abs(adjustment))} = ${money(final)}`;
   }
   function sortedBonusEmployees(rows){
     return (Array.isArray(rows)?rows:[]).filter(item=>Number(item.finalBonus)>0||Number(item.adjustmentAmount)!==0).slice().sort((left,right)=>{
@@ -130,7 +130,7 @@
           <div class="ui-notice" id="performance-bonus-month-note" hidden></div>
         </section>
         <section class="performance-bonus-list-section ui-data-section">
-          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count ui-bilingual"><span id="performance-bonus-count">0</span><span class="ui-text-vi">người</span><span class="performance-bonus-language-divider" aria-hidden="true">/</span><span class="ui-text-zh">人</span><span class="performance-bonus-count-separator" aria-hidden="true">·</span><span class="ui-text-vi">Tổng thưởng</span><span class="performance-bonus-language-divider" aria-hidden="true">/</span><span class="ui-text-zh">獎金總和</span><strong class="performance-bonus-total"><span id="performance-bonus-total">0</span> VND</strong></span></div>
+          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count ui-bilingual"><span id="performance-bonus-count">0</span><span class="ui-text-vi">người</span><span class="performance-bonus-language-divider" aria-hidden="true">/</span><span class="ui-text-zh">人</span><span class="performance-bonus-count-separator" aria-hidden="true">·</span><span class="ui-text-vi">Tổng thưởng</span><span class="performance-bonus-language-divider" aria-hidden="true">/</span><span class="ui-text-zh">獎金總和</span><strong class="performance-bonus-total"><span id="performance-bonus-total">0</span></strong></span></div>
           <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table performance-bonus-table" id="performance-bonus-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
             <thead><tr>
               <th data-ui-table-column="employeeId" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="220"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
@@ -186,7 +186,7 @@
       const amount=document.createElement('button');
       amount.type='button';
       amount.className='performance-bonus-amount';
-      amount.textContent=`${money(employee.finalBonus)} VND`;
+      amount.textContent=money(employee.finalBonus);
       amount.title='Xem hiệu suất hằng ngày / 查看每日績效';
       amount.addEventListener('click',()=>void openDaily(employee));
       bonusCell.appendChild(amount);
@@ -196,11 +196,11 @@
         const adjustmentBadge=document.createElement('div');
         adjustmentBadge.className=`performance-bonus-adjustment-badge ${adjustment>0?'is-increase':'is-decrease'}`;
         const adjustmentAmount=document.createElement('strong');
-        adjustmentAmount.textContent=`${money(Math.abs(adjustment))} VND`;
+        adjustmentAmount.textContent=money(Math.abs(adjustment));
         adjustmentBadge.appendChild(adjustmentAmount);
         window.PCMSUIText.setLocalizedAttribute(adjustmentBadge,'title',{
-          vi:`${adjustment>0?'Tăng':'Giảm'} ${money(Math.abs(adjustment))} VND`,
-          zh:`${adjustment>0?'增加':'減少'} ${money(Math.abs(adjustment))} VND`
+          vi:`${adjustment>0?'Tăng':'Giảm'} ${money(Math.abs(adjustment))}`,
+          zh:`${adjustment>0?'增加':'減少'} ${money(Math.abs(adjustment))}`
         });
         adjustmentCell.appendChild(adjustmentBadge);
       }
@@ -280,7 +280,7 @@
   function viewAdjustmentReason(employee){
     const adjustment=Number(employee.adjustmentAmount)||0;
     if(!adjustment) return;
-    const amount=`${money(Math.abs(adjustment))} VND`;
+    const amount=money(Math.abs(adjustment));
     const reason=String(employee.adjustmentNote||'—');
     const body=ui().createLanguageSections({
       vi:`Nhân viên: ${employee.employeeName}\nĐiều chỉnh: ${adjustment>0?'Tăng':'Giảm'} ${amount}\nLý do: ${reason}`,
@@ -331,8 +331,7 @@
       amountWrap.className='performance-bonus-adjustment-amount';
       const amount=document.createElement('input');
       amount.type='number';amount.min='0';amount.step='1';amount.inputMode='numeric';amount.placeholder='0';
-      const currency=document.createElement('span');currency.textContent='VND';
-      amountWrap.append(amount,currency);amountField.appendChild(amountWrap);
+      amountWrap.appendChild(amount);amountField.appendChild(amountWrap);
       const noteField=document.createElement('label');
       noteField.className='performance-bonus-adjustment-field';
       noteField.appendChild(window.PCMSUIText.create({vi:'Lý do điều chỉnh',zh:'調整原因'}));
@@ -347,9 +346,9 @@
       body.append(current,modeField,amountField,noteField,preview);
       const updatePreview=()=>{
         const raw=Number(amount.value);
-        if(!Number.isInteger(raw)||raw<=0){ previewValue.textContent=`${money(employee.baseBonus)} VND`; return; }
+        if(!Number.isInteger(raw)||raw<=0){ previewValue.textContent=money(employee.baseBonus); return; }
         const adjustment=sign*raw;
-        previewValue.textContent=`${money(employee.baseBonus)} ${adjustment>0?'+':'−'} ${money(raw)} = ${money(Number(employee.baseBonus)+adjustment)} VND`;
+        previewValue.textContent=`${money(employee.baseBonus)} ${adjustment>0?'+':'−'} ${money(raw)} = ${money(Number(employee.baseBonus)+adjustment)}`;
       };
       const setSign=next=>{
         sign=next;increase.classList.toggle('is-active',sign===1);decrease.classList.toggle('is-active',sign===-1);updatePreview();
@@ -420,8 +419,8 @@
     rows.forEach(item=>{
       const row=document.createElement('tr');
       createCell(row,`${item.efficiency}%`);
-      createCell(row,`${money(item.hours8)} VND`,'ui-table-number-cell');
-      createCell(row,`${money(item.hours115)} VND`,'ui-table-number-cell');
+      createCell(row,money(item.hours8),'ui-table-number-cell');
+      createCell(row,money(item.hours115),'ui-table-number-cell');
       body.appendChild(row);
     });
     table.append(head,body); scroll.appendChild(table); frame.appendChild(scroll);

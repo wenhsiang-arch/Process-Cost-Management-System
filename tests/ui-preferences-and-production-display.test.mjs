@@ -86,6 +86,7 @@ test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
   assert.match(source,/performance-bonus-total/);
   assert.doesNotMatch(source,/performance-bonus-total-zh/);
   assert.match(source,/performance-bonus-count ui-bilingual/);
+  assert.doesNotMatch(source,/\bVND\b/);
   assert.doesNotMatch(style,/\.performance-bonus-count\{[^}]*background:/);
   assert.doesNotMatch(style,/\.performance-bonus-count\{[^}]*border:/);
   assert.match(style,/\.performance-bonus-count\{[^}]*flex-direction:row;[^}]*flex-wrap:nowrap;/);

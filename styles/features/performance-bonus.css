@@ -356,8 +356,7 @@ html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .performanc
   color:var(--ui-color-primary);
 }
 .performance-bonus-adjustment-amount{
-  display:grid;
-  grid-template-columns:minmax(0,1fr) 64px;
+  display:block;
 }
 .performance-bonus-adjustment-amount input,
 .performance-bonus-adjustment-field textarea{
@@ -370,15 +369,7 @@ html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .performanc
 }
 .performance-bonus-adjustment-amount input{
   min-height:var(--ui-control-height-single);
-  border-radius:var(--ui-radius-control) 0 0 var(--ui-radius-control);
-}
-.performance-bonus-adjustment-amount>span{
-  display:grid;
-  place-items:center;
-  border:1px solid var(--ui-color-border);
-  border-left:0;
-  border-radius:0 var(--ui-radius-control) var(--ui-radius-control) 0;
-  background:var(--ui-color-surface-muted);
+  border-radius:var(--ui-radius-control);
 }
 .performance-bonus-adjustment-field textarea{
   min-height:88px;
