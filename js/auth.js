@@ -12,6 +12,9 @@ window.dPage   = 1;
 try{ localStorage.removeItem('cLog'); }catch(e){}
 
 const IDLE_MS = 30*60*1000;
+const VIETNAM_UTC_OFFSET_MS = 7*60*60*1000;
+const VIETNAM_DAY_START_MINUTES = 7*60+30;
+const VIETNAM_NIGHT_START_MINUTES = 20*60+30;
 let idleIv = null, idleLastActivityAt = 0, idleActive = false, idleLogoutPending = false;
 
 // ===== 權限判斷 =====
@@ -145,8 +148,32 @@ function uNav(){
 
 // ===== Idle 計時 =====
 function idleEventNames(){ return ['click','keydown','mousemove']; }
+// vietnamMinutesOfDay（越南當地當日分鐘）：固定使用 UTC+7，不受使用者電腦時區影響。
+function vietnamMinutesOfDay(now=Date.now()){
+  const vietnamTime=new Date(Number(now)+VIETNAM_UTC_OFFSET_MS);
+  return vietnamTime.getUTCHours()*60+vietnamTime.getUTCMinutes();
+}
+function isVietnamDaytime(now=Date.now()){
+  const minutes=vietnamMinutesOfDay(now);
+  return minutes>=VIETNAM_DAY_START_MINUTES&&minutes<VIETNAM_NIGHT_START_MINUTES;
+}
+// vietnamNightWindowStartAt（當次夜間時段起點）：白天長時間未操作不得在 20:30 立即導致登出。
+function vietnamNightWindowStartAt(now=Date.now()){
+  const numericNow=Number(now);
+  const vietnamTime=new Date(numericNow+VIETNAM_UTC_OFFSET_MS);
+  const minutes=vietnamMinutesOfDay(numericNow);
+  const dayOffset=minutes<VIETNAM_DAY_START_MINUTES?-1:0;
+  return Date.UTC(
+    vietnamTime.getUTCFullYear(),
+    vietnamTime.getUTCMonth(),
+    vietnamTime.getUTCDate()+dayOffset,
+    20,30
+  )-VIETNAM_UTC_OFFSET_MS;
+}
 function idleExpired(now=Date.now()){
-  return idleActive&&idleLastActivityAt>0&&Number(now)-idleLastActivityAt>=IDLE_MS;
+  if(!idleActive||idleLastActivityAt<=0||isVietnamDaytime(now)) return false;
+  const effectiveIdleStartAt=Math.max(idleLastActivityAt,vietnamNightWindowStartAt(now));
+  return Number(now)-effectiveIdleStartAt>=IDLE_MS;
 }
 function stopIdle(){
   idleActive=false;
@@ -343,7 +370,7 @@ async function enterAuthorizedDeskSystem(user,access){
   hideLoginMessage();
   if(typeof setManagementNavOpen==='function') setManagementNavOpen(false);
   uNav();
-  // 管理員使用受控的個人電腦，不啟動閒置自動登出；其他角色仍維持 30 分鐘保護。
+  // 管理員不啟動閒置登出；其他角色只在越南時間 20:30 至隔日 07:30 套用 30 分鐘保護。
   if(window.cu.role==='admin') stopIdle();
   else startIdle();
   showFeatureHome();

@@ -130,7 +130,7 @@
           <div class="ui-notice" id="performance-bonus-month-note" hidden></div>
         </section>
         <section class="performance-bonus-list-section ui-data-section">
-          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count ui-bilingual"><span class="performance-bonus-count-language ui-text-vi"><span id="performance-bonus-count">0</span> người · Tổng thưởng <strong><span id="performance-bonus-total">0</span> VND</strong></span><span class="performance-bonus-count-separator" aria-hidden="true">｜</span><span class="performance-bonus-count-language ui-text-zh"><span id="performance-bonus-count-zh">0</span> 人 · 獎金總和 <strong><span id="performance-bonus-total-zh">0</span> VND</strong></span></span></div>
+          <div class="ui-section-header"><i class="ti ti-award"></i><span class="ui-dual-copy"><strong>Thưởng hiệu suất nhân viên trong tháng</strong><span>員工月績效獎金</span></span><span class="performance-bonus-count ui-bilingual"><span id="performance-bonus-count">0</span><span class="ui-text-vi">người</span><span class="performance-bonus-language-divider" aria-hidden="true">/</span><span class="ui-text-zh">人</span><span class="performance-bonus-count-separator" aria-hidden="true">·</span><span class="ui-text-vi">Tổng thưởng</span><span class="performance-bonus-language-divider" aria-hidden="true">/</span><span class="ui-text-zh">獎金總和</span><strong class="performance-bonus-total"><span id="performance-bonus-total">0</span> VND</strong></span></div>
           <div class="ui-table-frame"><div class="ui-table-scroll" data-ui-floating-scroll="only"><table class="ui-table performance-bonus-table" id="performance-bonus-table" data-ui-table-controls="auto" data-ui-table-sort="none" data-ui-table-resizable="true" data-ui-table-sticky="original">
             <thead><tr>
               <th data-ui-table-column="employeeId" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="220"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
@@ -242,9 +242,7 @@
     const employeeCount=state.employees.filter(employee=>Number(employee.finalBonus)>0).length;
     const bonusTotal=state.employees.reduce((total,employee)=>total+(Number(employee.finalBonus)||0),0);
     el('performance-bonus-count').textContent=String(employeeCount);
-    el('performance-bonus-count-zh').textContent=String(employeeCount);
     el('performance-bonus-total').textContent=money(bonusTotal);
-    el('performance-bonus-total-zh').textContent=money(bonusTotal);
     el('performance-bonus-empty').hidden=state.employees.length>0;
     window.PCMSUITableControls?.refreshPage?.();
   }

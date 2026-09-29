@@ -3,6 +3,69 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-09-22",
+      "title": {
+        "vi": "Cập nhật xuất hàng, tiến độ và phân loại công đoạn",
+        "zh": "訂單出貨、生產進度與工序分類更新"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Đơn đang dùng và đơn đã xuất",
+            "items": [
+              "Bảng chính chỉ hiển thị đơn chưa xác nhận xuất; ưu tiên xếp theo ngày xuất thực tế từ gần đến xa, đơn chưa đặt ngày sẽ dùng ngày giao PO.",
+              "Ngày xuất thực tế được lưu riêng và không tự xác nhận xuất hàng. Nhấn biểu tượng xe để kiểm tra ngày, chọn ngày khác hoặc xác nhận chuyển đơn sang mục Đơn hàng đã xuất.",
+              "Nhấn Đơn hàng đã xuất trong thanh chức năng để mở trang riêng. Danh sách xếp ngày mới nhất lên trên; hủy xác nhận sẽ đưa đơn về bảng chính nhưng vẫn giữ ngày.",
+              "Bảng chính đã bỏ cột số công đoạn và ngày hoàn thành thực tế. Việc phân loại xuất hàng không ảnh hưởng ghi nhận sản xuất, thưởng hiệu suất hoặc tháng đã khóa."
+            ]
+          },
+          {
+            "heading": "Tiến độ sản xuất và tổng số lượng chưa xuất",
+            "items": [
+              "Mỗi đơn chưa xuất hiển thị tiến độ theo công thức: thời gian sản xuất đã ghi nhận chia cho tổng thời gian sản xuất dự kiến của đơn.",
+              "Tiến độ chỉ tính công đoạn sản xuất, không tính chuẩn bị vật liệu, công đoạn phổ thông, hoàn thiện sau, kiểm tra chất lượng hoặc đóng gói.",
+              "Tổng số lượng chưa xuất là tổng số lượng của toàn bộ đơn chưa xác nhận xuất và không thay đổi theo ô tìm kiếm hoặc đơn đang chọn.",
+              "Khi có ghi nhận sản xuất mới hoặc thay đổi giây công đoạn, hệ thống sẽ kiểm tra và cập nhật lại tiến độ liên quan."
+            ]
+          },
+          {
+            "heading": "Thêm phân loại công đoạn",
+            "items": [
+              "Thêm TC cho công đoạn phổ thông và HC cho công đoạn hoàn thiện sau.",
+              "Danh sách phân loại hiện gồm BL, TC, SX, HC, QC và DG. Mỗi mã hàng chỉ cần dùng các loại thực tế, không bắt buộc đủ 6 loại."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "使用中與已出貨訂單",
+            "items": [
+              "訂單主表只顯示尚未確認出貨的訂單，優先依實際出貨日由近到遠排列；未設定日期時使用 PO 交期。",
+              "實際出貨日會獨立儲存，不會自動確認出貨。點擊貨車圖示可核對日期、另選日期或確認移到「已出貨訂單」。",
+              "請點擊功能列的「已出貨訂單」進入獨立分頁。清單依日期由新到舊排列；取消確認後移回主表並保留日期。",
+              "主表已移除工序數與實際完成日欄位。出貨分類不影響產能登記、績效獎金或已凍結月份。"
+            ]
+          },
+          {
+            "heading": "生產進度與未出貨總數量",
+            "items": [
+              "每張未出貨訂單的進度＝已登記生產秒數 ÷ 訂單預計生產總秒數。",
+              "進度只計算生產類別工序，不包含備料、普工、後整、品檢及包裝。",
+              "未出貨總數量加總全部尚未確認出貨訂單的數量，不受搜尋或目前選擇訂單影響。",
+              "新增產能紀錄或修改工序秒數後，系統會核對並更新相關進度。"
+            ]
+          },
+          {
+            "heading": "新增工序分類",
+            "items": [
+              "新增 TC（普工）與 HC（後整）兩種工序分類。",
+              "目前允許 BL、TC、SX、HC、QC、DG；每個款號只需使用實際需要的分類，不強制六種齊全。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-09-18",
       "title": {
         "vi": "Xuất báo cáo kiểm tra cho đơn hàng HUNTER",

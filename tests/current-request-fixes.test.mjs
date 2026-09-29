@@ -121,12 +121,28 @@ test('左側選單標題與收合按鍵固定在可視區頂端',()=>{
   assert.match(html,/<div class="sb-logo">[\s\S]*?id="primary-sidebar-toggle"/);
 });
 
-test('非管理員自動登出使用實際經過時間，管理員不啟動閒置計時',()=>{
+function loadIdlePolicy(){
+  const auth=read('js/auth.js');
+  const start=auth.indexOf('const IDLE_MS');
+  const end=auth.indexOf('// ===== Firebase Authentication',start);
+  assert.ok(start>=0&&end>start,'找不到閒置規則程式');
+  const context={Date,Number,Math,setInterval,clearInterval,document:{},window:{}};
+  vm.createContext(context);
+  vm.runInContext(`${auth.slice(start,end)}\nthis.idlePolicy={
+    vietnamMinutesOfDay,isVietnamDaytime,vietnamNightWindowStartAt,idleExpired,
+    setState(active,lastActivityAt){ idleActive=active; idleLastActivityAt=lastActivityAt; }
+  };`,context);
+  return context.idlePolicy;
+}
+
+test('非管理員只在越南時間夜間連續 30 分鐘未操作時登出，管理員不啟動閒置計時',()=>{
   const auth=read('js/auth.js');
   const html=read('index.html');
+  const policy=loadIdlePolicy();
   assert.match(auth,/const IDLE_MS = 30\*60\*1000/);
+  assert.match(auth,/const VIETNAM_UTC_OFFSET_MS = 7\*60\*60\*1000/);
   assert.match(auth,/function idleExpired\(now=Date\.now\(\)\)/);
-  assert.match(auth,/Number\(now\)-idleLastActivityAt>=IDLE_MS/);
+  assert.match(auth,/Math\.max\(idleLastActivityAt,vietnamNightWindowStartAt\(now\)\)/);
   assert.match(auth,/document\.addEventListener\('visibilitychange',checkIdleAfterResume\)/);
   assert.match(auth,/window\.addEventListener\('focus',checkIdleAfterResume\)/);
   assert.match(auth,/window\.addEventListener\('pageshow',checkIdleAfterResume\)/);
@@ -134,6 +150,46 @@ test('非管理員自動登出使用實際經過時間，管理員不啟動閒�
   assert.match(auth,/if\(window\.cu\.role==='admin'\) stopIdle\(\);\s*else startIdle\(\);/);
   assert.doesNotMatch(auth,/idleT--|data-idle-countdown|idleprog/);
   assert.doesNotMatch(html,/data-idle-countdown|id="idleprog"|sidebar-idle-info/);
+
+  const at=localTime=>Date.parse(`${localTime}+07:00`);
+  assert.equal(policy.isVietnamDaytime(at('2026-09-30T07:29:59')),false);
+  assert.equal(policy.isVietnamDaytime(at('2026-09-30T07:30:00')),true);
+  assert.equal(policy.isVietnamDaytime(at('2026-09-30T20:29:59')),true);
+  assert.equal(policy.isVietnamDaytime(at('2026-09-30T20:30:00')),false);
+
+  policy.setState(true,at('2026-09-30T18:00:00'));
+  assert.equal(policy.idleExpired(at('2026-09-30T20:59:59')),false,'白天未操作不得在 20:30 立即登出');
+  assert.equal(policy.idleExpired(at('2026-09-30T21:00:00')),true,'夜間開始 30 分鐘後應登出');
+  policy.setState(true,at('2026-09-30T21:10:00'));
+  assert.equal(policy.idleExpired(at('2026-09-30T21:39:59')),false);
+  assert.equal(policy.idleExpired(at('2026-09-30T21:40:00')),true);
+  policy.setState(true,at('2026-09-30T21:10:00'));
+  assert.equal(policy.idleExpired(at('2026-10-01T07:30:00')),false,'07:30 起白天不因閒置登出');
+});
+
+test('月績效獎金標題列只有總金額使用與累積獎金一致的藍色底框',()=>{
+  const page=read('js/performance-bonus/monthly-bonus-page.js');
+  const style=read('styles/features/performance-bonus.css');
+  const countRule=style.match(/\.performance-bonus-count\{([^}]*)\}/)?.[1]||'';
+  const totalRule=style.match(/\.performance-bonus-total\{([^}]*)\}/)?.[1]||'';
+  const amountRule=style.match(/\.performance-bonus-amount\{([^}]*)\}/)?.[1]||'';
+  assert.match(page,/id="performance-bonus-count">0<\/span><span class="ui-text-vi">người<\/span>/);
+  assert.doesNotMatch(page,/performance-bonus-count-zh/);
+  assert.match(page,/Tổng thưởng[\s\S]*?獎金總和[\s\S]*?class="performance-bonus-total"/);
+  assert.match(countRule,/white-space:\s*nowrap/);
+  assert.doesNotMatch(countRule,/background:|border:/);
+  for(const declaration of [
+    /min-width:\s*150px/,
+    /padding:\s*8px 12px/,
+    /border:\s*1px solid var\(--ui-color-operation-border\)/,
+    /border-radius:\s*10px/,
+    /background:\s*var\(--ui-color-primary-soft\)/,
+    /color:\s*var\(--ui-color-primary\)/,
+    /font-weight:\s*var\(--ui-font-weight-emphasis\)/
+  ]){
+    assert.match(totalRule,declaration);
+    assert.match(amountRule,declaration);
+  }
 });
 
 test('員工績效日期範圍仍是上限，全部員工按七天、精確單人按月份分頁',()=>{
