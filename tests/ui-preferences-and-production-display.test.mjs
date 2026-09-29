@@ -97,7 +97,14 @@ test('月績效獎金標題同時顯示人數與當月最終獎金總和',()=>{
 test('月績效人工調整以獨立欄位顯示金額，原因與編輯使用小圖示',()=>{
   const page=read('js/performance-bonus/monthly-bonus-page.js');
   const store=read('js/performance-bonus/bonus-store.js');
-  assert.match(page,/data-ui-table-column="bonus"[\s\S]*?data-ui-table-column="adjustment"/);
+  assert.match(page,/data-ui-table-column="baseBonus"[\s\S]*?data-ui-table-column="adjustment"[\s\S]*?data-ui-table-column="finalBonus"/);
+  assert.match(page,/Thưởng tích lũy[\s\S]*?累積獎金/);
+  assert.match(page,/Thưởng điều chỉnh[\s\S]*?調整獎金/);
+  assert.match(page,/Thưởng cuối cùng[\s\S]*?最終獎金/);
+  assert.match(page,/baseBonusAmount\.textContent=money\(employee\.baseBonus\)/);
+  assert.match(page,/finalBonusAmount\.textContent=money\(employee\.finalBonus\)/);
+  assert.match(page,/performance-bonus-base-amount/);
+  assert.match(page,/performance-bonus-final-amount/);
   assert.match(page,/createCell\(row,''[^\n]*'adjustment'\)/);
   assert.match(page,/performance-bonus-adjustment-badge/);
   assert.match(page,/is-increase':'is-decrease/);
@@ -113,6 +120,8 @@ test('月績效人工調整以獨立欄位顯示金額，原因與編輯使用�
   assert.match(page,/clearsAdjustment\?\{amount:0,note:''\}:\{amount:sign\*raw,note:reason\}/);
   assert.match(page,/amount\.min='0'/);
   assert.match(page,/finalBonus\)>0\|\|Number\(item\.adjustmentAmount\)!==0/);
+  assert.match(page,/Math\.round\(Number\(item\.finalBonus\)\|\|0\)/);
+  assert.match(page,/Thưởng cuối cùng \/ 最終獎金/);
   assert.match(store,/const reason=adjustment===0\?'':String\(note\|\|''\)\.trim\(\)\.slice\(0,200\)/);
   assert.match(store,/if\(adjustment!==0&&!reason\)/);
   assert.match(store,/batch\.set\(adjustmentRef\(normalized,employeeId\),\{/);

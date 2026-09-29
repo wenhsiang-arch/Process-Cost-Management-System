@@ -53,7 +53,7 @@
     performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20260823-2',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260928-2-clear-zero',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
-    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260930-2-no-currency',
+    performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260930-3-bonus-columns',
     productionAttendance:'js/production/production-attendance.js?v=20260814-1',
     productionEmployees:'js/production/production-employees.js?v=20260816-1',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260824-6',
@@ -80,7 +80,7 @@
     production:'styles/features/production.css?v=20260923-4',
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260923-4',
     productionAnalysis:'styles/features/production-analysis.css?v=20260923-4',
-    performanceBonus:'styles/features/performance-bonus.css?v=20260923-4&rev=bonus-no-currency',
+    performanceBonus:'styles/features/performance-bonus.css?v=20260930-1&rev=bonus-columns',
     systemMonitor:'styles/features/system-monitor.css?v=20260923-4',
     productChangeLog:'styles/features/product-change-log.css?v=20260923-4&rev=change-hover1'
   }); // STYLE_URLS（功能樣式網址）：功能開啟時才載入自己的畫面樣式。

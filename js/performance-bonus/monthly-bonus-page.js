@@ -136,8 +136,9 @@
               <th data-ui-table-column="employeeId" data-ui-table-min-width="130" data-ui-table-width="160" data-ui-table-max-width="220"><span class="ui-dual-copy"><strong>Mã nhân viên</strong><span>員工工號</span></span></th>
               <th data-ui-table-column="employeeName" data-ui-table-min-width="180" data-ui-table-width="250" data-ui-table-max-width="360"><span class="ui-dual-copy"><strong>Tên nhân viên</strong><span>員工姓名</span></span></th>
               <th data-ui-table-column="department" data-ui-table-min-width="150" data-ui-table-width="200" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Bộ phận</strong><span>部門</span></span></th>
-              <th class="ui-table-center-cell" data-ui-table-column="bonus" data-ui-table-min-width="190" data-ui-table-width="230" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Tổng thưởng</strong><span>累計獎金</span></span></th>
-              <th class="ui-table-center-cell" data-ui-table-column="adjustment" data-ui-table-min-width="210" data-ui-table-width="250" data-ui-table-max-width="340"><span class="ui-dual-copy"><strong>Điều chỉnh</strong><span>調整金額</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="baseBonus" data-ui-table-min-width="170" data-ui-table-width="210" data-ui-table-max-width="280"><span class="ui-dual-copy"><strong>Thưởng tích lũy</strong><span>累積獎金</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="adjustment" data-ui-table-min-width="190" data-ui-table-width="230" data-ui-table-max-width="320"><span class="ui-dual-copy"><strong>Thưởng điều chỉnh</strong><span>調整獎金</span></span></th>
+              <th class="ui-table-center-cell" data-ui-table-column="finalBonus" data-ui-table-min-width="190" data-ui-table-width="230" data-ui-table-max-width="300"><span class="ui-dual-copy"><strong>Thưởng cuối cùng</strong><span>最終獎金</span></span></th>
               <th class="ui-table-center-cell" data-ui-table-column="action" data-ui-table-min-width="104" data-ui-table-width="116" data-ui-table-max-width="140"><span class="ui-dual-copy"><strong>Thao tác</strong><span>操作</span></span></th>
             </tr></thead><tbody id="performance-bonus-table-body"></tbody>
           </table></div></div>
@@ -182,14 +183,14 @@
       createCell(row,employee.employeeId,'','employeeId');
       createCell(row,employee.employeeName,'','employeeName');
       createCell(row,employee.department||'—','','department');
-      const bonusCell=createCell(row,'','ui-table-center-cell','bonus');
-      const amount=document.createElement('button');
-      amount.type='button';
-      amount.className='performance-bonus-amount';
-      amount.textContent=money(employee.finalBonus);
-      amount.title='Xem hiệu suất hằng ngày / 查看每日績效';
-      amount.addEventListener('click',()=>void openDaily(employee));
-      bonusCell.appendChild(amount);
+      const baseBonusCell=createCell(row,'','ui-table-center-cell','baseBonus');
+      const baseBonusAmount=document.createElement('button');
+      baseBonusAmount.type='button';
+      baseBonusAmount.className='performance-bonus-base-amount';
+      baseBonusAmount.textContent=money(employee.baseBonus);
+      baseBonusAmount.title='Xem hiệu suất hằng ngày / 查看每日績效';
+      baseBonusAmount.addEventListener('click',()=>void openDaily(employee));
+      baseBonusCell.appendChild(baseBonusAmount);
       const adjustmentCell=createCell(row,'','ui-table-center-cell','adjustment');
       const adjustment=Number(employee.adjustmentAmount)||0;
       if(adjustment){
@@ -204,6 +205,11 @@
         });
         adjustmentCell.appendChild(adjustmentBadge);
       }
+      const finalBonusCell=createCell(row,'','ui-table-center-cell','finalBonus');
+      const finalBonusAmount=document.createElement('div');
+      finalBonusAmount.className='performance-bonus-final-amount';
+      finalBonusAmount.textContent=money(employee.finalBonus);
+      finalBonusCell.appendChild(finalBonusAmount);
       const action=createCell(row,'','ui-table-center-cell','action');
       const actions=document.createElement('div');
       actions.className='performance-bonus-row-actions';
@@ -457,7 +463,7 @@
           safeSpreadsheetValue(item.employeeId),safeSpreadsheetValue(item.employeeName),Math.round(Number(item.finalBonus)||0)
         ]);
         const sheet=spreadsheet.utils.aoa_to_sheet([
-          ['Mã nhân viên / 員工工號','Tên nhân viên / 員工姓名','Tổng thưởng / 獎金總額'],...rows
+          ['Mã nhân viên / 員工工號','Tên nhân viên / 員工姓名','Thưởng cuối cùng / 最終獎金'],...rows
         ]);
         sheet['!cols']=[{wch:18},{wch:34},{wch:20}];
         const workbook=spreadsheet.utils.book_new();

@@ -219,14 +219,27 @@ html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .performanc
   display:none;
 }
 .performance-bonus-table{
-  --ui-table-default-min-width: 1240px;
-  min-width:1240px;
+  --ui-table-default-min-width: 1440px;
+  min-width:1440px;
 }
 .performance-bonus-table th:last-child,
 .performance-bonus-table td:last-child{
   width:116px;
 }
-.performance-bonus-amount{
+.performance-bonus-base-amount{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  padding:8px 12px;
+  background:transparent;
+  color:var(--ui-color-text);
+  font:inherit;
+  font-weight:var(--ui-font-weight-secondary);
+  white-space:nowrap;
+  cursor:pointer;
+}
+.performance-bonus-final-amount{
   display:inline-flex;
   min-width:150px;
   align-items:center;
@@ -239,7 +252,6 @@ html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .performanc
   font:inherit;
   font-weight:var(--ui-font-weight-emphasis);
   white-space:nowrap;
-  cursor:pointer;
 }
 .performance-bonus-adjustment-badge{
   display:inline-flex;
@@ -381,11 +393,11 @@ html[data-ui-language-mode]:not([data-ui-language-mode="bilingual"]) .performanc
   border-color:var(--ui-color-primary);
   outline:3px solid var(--ui-color-focus-ring);
 }
-.performance-bonus-amount:hover,
-.performance-bonus-amount:focus-visible{
-  border-color:var(--ui-color-primary-hover);
-  background:var(--ui-color-primary-soft);
+.performance-bonus-base-amount:hover,
+.performance-bonus-base-amount:focus-visible{
+  color:var(--ui-color-primary);
   outline:2px solid var(--ui-color-focus-ring);
+  outline-offset:2px;
 }
 .performance-bonus-row-button{
   min-height:44px;

@@ -167,12 +167,13 @@ test('非管理員只在越南時間夜間連續 30 分鐘未操作時登出，�
   assert.equal(policy.idleExpired(at('2026-10-01T07:30:00')),false,'07:30 起白天不因閒置登出');
 });
 
-test('月績效獎金標題列只有總金額使用與累積獎金一致的藍色底框',()=>{
+test('月績效獎金標題列與最終獎金使用一致的藍色底框',()=>{
   const page=read('js/performance-bonus/monthly-bonus-page.js');
   const style=read('styles/features/performance-bonus.css');
   const countRule=style.match(/\.performance-bonus-count\{([^}]*)\}/)?.[1]||'';
   const totalRule=style.match(/\.performance-bonus-total\{([^}]*)\}/)?.[1]||'';
-  const amountRule=style.match(/\.performance-bonus-amount\{([^}]*)\}/)?.[1]||'';
+  const amountRule=style.match(/\.performance-bonus-final-amount\{([^}]*)\}/)?.[1]||'';
+  const baseRule=style.match(/\.performance-bonus-base-amount\{([^}]*)\}/)?.[1]||'';
   assert.match(page,/id="performance-bonus-count">0<\/span><span class="ui-text-vi">người<\/span>/);
   assert.doesNotMatch(page,/performance-bonus-count-zh/);
   assert.doesNotMatch(page,/\bVND\b/);
@@ -193,6 +194,9 @@ test('月績效獎金標題列只有總金額使用與累積獎金一致的藍�
     assert.match(totalRule,declaration);
     assert.match(amountRule,declaration);
   }
+  assert.match(baseRule,/background:\s*transparent/);
+  assert.match(baseRule,/border:\s*0/);
+  assert.match(baseRule,/font-weight:\s*var\(--ui-font-weight-secondary\)/);
 });
 
 test('員工績效日期範圍仍是上限，全部員工按七天、精確單人按月份分頁',()=>{
