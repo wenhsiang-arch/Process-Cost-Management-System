@@ -310,6 +310,17 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
             <article class="home-update-item">
               <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
               <div class="home-update-content">
+                <time class="home-update-date" datetime="2026-10-02">02/10/2026</time>
+                <h2 class="ui-dual-copy"><strong>Sửa lỗi xuất hàng đơn hàng và xuất thưởng hiệu suất</strong><span>修正訂單出貨與績效獎金匯出錯誤</span></h2>
+                <div class="home-update-description">
+                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Sửa lỗi thao tác</h3><ol><li>Sửa lỗi khi xác nhận xuất hàng, hủy xác nhận rồi xuất lại; đồng thời cải thiện việc đồng bộ danh sách đơn hàng.</li><li>Sửa lỗi không thể xuất thưởng hiệu suất tháng do tệp quá lớn, xuất lại hoặc quyền tài khoản.</li></ol></section></div>
+                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>操作錯誤修正</h3><ol><li>修正訂單確認出貨、取消後重新出貨時的錯誤，並改善訂單清單同步。</li><li>修正月績效獎金因檔案過大、重新匯出或帳號權限而無法匯出的問題。</li></ol></section></div>
+                </div>
+              </div>
+            </article>
+            <article class="home-update-item">
+              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
+              <div class="home-update-content">
                 <time class="home-update-date" datetime="2026-09-30">30/09/2026</time>
                 <h2 class="ui-dual-copy"><strong>Cập nhật thời gian sử dụng và cải thiện bảng thưởng</strong><span>系統使用時間更新與優化獎金面板</span></h2>
                 <div class="home-update-description">
@@ -351,23 +362,12 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
                 </div>
               </div>
             </article>
-            <article class="home-update-item">
-              <div class="home-update-marker" aria-hidden="true"><i class="ti ti-check"></i></div>
-              <div class="home-update-content">
-                <time class="home-update-date" datetime="2026-09-23">23/09/2026</time>
-                <h2 class="ui-dual-copy"><strong>Cập nhật hoàn thành đơn hàng, phần trăm tiến độ và màu ngày xuất</strong><span>訂單完成、進度百分比與出貨日期顏色更新</span></h2>
-                <div class="home-update-description">
-                  <div class="home-update-language-block ui-text-vi" lang="vi"><section class="home-update-topic"><h3>Hoàn thành đơn hàng và tiến độ sản xuất</h3><ol><li>Khi đơn hàng đã hoàn thành thực tế nhưng một số công đoạn không có dữ liệu ghi nhận, người dùng có thể chọn trạng thái Đơn hàng hoàn thành.</li><li>Sau khi xác nhận, thanh tiến độ sẽ đầy 100% và vẫn giữ tỷ lệ thực tế, ví dụ 79,4% / 100%.</li><li>Đơn đã hoàn thành không tham gia cập nhật tiến độ tự động hoặc thủ công. Khi hủy hoàn thành, hệ thống khôi phục tỷ lệ thực tế và tiếp tục cập nhật.</li><li>Xác nhận hoàn thành và hủy hoàn thành đều có thông báo xác nhận để tránh thao tác nhầm.</li></ol></section><section class="home-update-topic"><h3>Màu ngày xuất thực tế</h3><ol><li>Ô nền xanh nhạt là chưa chọn ngày xuất thực tế.</li><li>Chữ đỏ là đã quá hạn hoặc còn không quá 7 ngày; chữ xanh đậm là còn từ 8 đến 14 ngày.</li><li>Chữ đen là còn từ 15 ngày trở lên. Ngày đã chọn được giữ nguyên, hệ thống chỉ cập nhật màu nhắc theo ngày hiện tại.</li></ol></section></div>
-                  <div class="home-update-language-block ui-text-zh" lang="zh-Hant"><section class="home-update-topic"><h3>訂單完成與生產進度</h3><ol><li>訂單實際已完成，但部分工序沒有產能登記時，可以將狀態設為「訂單完成」。</li><li>確認完成後，進度條會填滿至100%，並保留實際進度，例如顯示「79.4%／100%」。</li><li>已完成訂單不再加入自動或手動進度更新；取消完成後會恢復實際進度並重新加入後續更新。</li><li>勾選及取消訂單完成時，系統都會顯示確認提醒，避免誤操作。</li></ol></section><section class="home-update-topic"><h3>實際出貨日顏色</h3><ol><li>淡綠色底框代表尚未選擇實際出貨日。</li><li>紅色文字代表已逾期或剩餘7天內；藍色文字代表剩餘8～14天。</li><li>黑色文字代表剩餘15天以上。已選日期會固定保存，系統只依當日時間更新提醒顏色。</li></ol></section></div>
-                </div>
-              </div>
-            </article>
           </div>
 
           <div class="home-updates-archive-controls">
             <div class="ui-form-field">
               <label class="ui-dual-copy" for="home-updates-year"><strong>Năm</strong><span>年份</span></label>
-              <select id="home-updates-year"><option value="2026" data-version="20260930-1">2026</option></select>
+              <select id="home-updates-year"><option value="2026" data-version="20261002-1">2026</option></select>
             </div>
             <button type="button" class="ui-button" id="home-updates-load" aria-controls="home-updates-archive" aria-expanded="false" onclick="void PCMSFeatures.openHomeUpdatesArchive(this)">
               <span class="ui-dual-copy"><strong>Xem cập nhật trước</strong><span>查看較早更新</span></span>
@@ -1393,7 +1393,7 @@ body{font-family:var(--font-sans);font-size:var(--ui-font-size-body);color:var(-
 <script src="js/auth.js?v=20261002-1-shipment-sync"></script>
 
 <!-- Firebase 模組（最後載入，初始化完成後觸發其他模組）-->
-<script type="module" src="js/firebase.js?v=20260923-4"></script>
+<script type="module" src="js/firebase.js?v=20261002-1"></script>
 
 <script>
 // setSidebarCollapsed（設定主選單收合）：只保留目前登入期間狀態，登出後回復展開。

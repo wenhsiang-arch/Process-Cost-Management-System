@@ -3,6 +3,53 @@
   "year": 2026,
   "entries": [
     {
+      "date": "2026-09-23",
+      "title": {
+        "vi": "Cập nhật hoàn thành đơn hàng, phần trăm tiến độ và màu ngày xuất",
+        "zh": "訂單完成、進度百分比與出貨日期顏色更新"
+      },
+      "sections": {
+        "vi": [
+          {
+            "heading": "Hoàn thành đơn hàng và tiến độ sản xuất",
+            "items": [
+              "Khi đơn hàng đã hoàn thành thực tế nhưng một số công đoạn không có dữ liệu ghi nhận, người dùng có thể chọn trạng thái Đơn hàng hoàn thành.",
+              "Sau khi xác nhận, thanh tiến độ sẽ đầy 100% và vẫn giữ tỷ lệ thực tế, ví dụ 79,4% / 100%.",
+              "Đơn đã hoàn thành không tham gia cập nhật tiến độ tự động hoặc thủ công. Khi hủy hoàn thành, hệ thống khôi phục tỷ lệ thực tế và tiếp tục cập nhật.",
+              "Xác nhận hoàn thành và hủy hoàn thành đều có thông báo xác nhận để tránh thao tác nhầm."
+            ]
+          },
+          {
+            "heading": "Màu ngày xuất thực tế",
+            "items": [
+              "Ô nền xanh nhạt là chưa chọn ngày xuất thực tế.",
+              "Chữ đỏ là đã quá hạn hoặc còn không quá 7 ngày; chữ xanh đậm là còn từ 8 đến 14 ngày.",
+              "Chữ đen là còn từ 15 ngày trở lên. Ngày đã chọn được giữ nguyên, hệ thống chỉ cập nhật màu nhắc theo ngày hiện tại."
+            ]
+          }
+        ],
+        "zh": [
+          {
+            "heading": "訂單完成與生產進度",
+            "items": [
+              "訂單實際已完成，但部分工序沒有產能登記時，可以將狀態設為「訂單完成」。",
+              "確認完成後，進度條會填滿至100%，並保留實際進度，例如顯示「79.4%／100%」。",
+              "已完成訂單不再加入自動或手動進度更新；取消完成後會恢復實際進度並重新加入後續更新。",
+              "勾選及取消訂單完成時，系統都會顯示確認提醒，避免誤操作。"
+            ]
+          },
+          {
+            "heading": "實際出貨日顏色",
+            "items": [
+              "淡綠色底框代表尚未選擇實際出貨日。",
+              "紅色文字代表已逾期或剩餘7天內；藍色文字代表剩餘8～14天。",
+              "黑色文字代表剩餘15天以上。已選日期會固定保存，系統只依當日時間更新提醒顏色。"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "date": "2026-09-22",
       "title": {
         "vi": "Cập nhật xuất hàng, tiến độ và phân loại công đoạn",
