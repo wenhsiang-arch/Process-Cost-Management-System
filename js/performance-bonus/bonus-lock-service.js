@@ -1,4 +1,4 @@
-// bonus-lock-service（獎金鎖定服務）：分段保存完整月份快照，最後一次交易才正式鎖定月份。
+// bonus-lock-service（獎金鎖定服務）：新鎖定只保存目前獎金結果；舊版完整月份快照維持唯讀相容。
 (function(){
   'use strict';
 
@@ -8,6 +8,8 @@
   const PRODUCTION_MONTH_COLLECTION='productionMonths';
   const LOG_COLLECTION='operationLogs';
   const SNAPSHOT_SCHEMA_VERSION=1;
+  const CURRENT_RESULT_SCHEMA_VERSION=1;
+  const CURRENT_RESULT_TEXT_LIMIT=220000; // 目前有效獎金結果保守控制在 Firestore 單一文件安全範圍內。
   const CHUNK_TEXT_LENGTH=180000; // 最多約 540KB UTF-8，保留 Firestore 文件大小安全空間。
   // SNAPSHOT_BATCH_WRITE_LIMIT（快照單批寫入上限）：同時保留 Firestore（雲端文件資料庫）10MiB 請求與安全規則存取空間。
   const SNAPSHOT_BATCH_WRITE_LIMIT=12;
@@ -175,70 +177,73 @@
     });
     return joinJson(parts,manifest.payloadHash);
   }
-  function lockLog(payload,snapshotId,lockedAt,operationLogId,lockRevision,controlRevision){
+  function lockLog(current,lockedAt,operationLogId,lockRevision,controlRevision){
     const who=actor();
-    const employees=payload.bonus?.employees||[];
+    const employees=current?.employees||[];
     return {permissionKey:'performanceBonus',feature:'performanceBonus',action:'performanceBonusLock',status:'success',
-      targetType:'performanceBonusMonth',targetId:payload.month,note:`${payload.month} · ${snapshotId}`,
+      targetType:'performanceBonusMonth',targetId:current?.metadata?.month,note:String(current?.metadata?.month||''),
       itemCount:employees.length,detailCount:employees.filter(item=>Number(item.finalBonus)>0).length,
       createdAt:lockedAt,createdByUid:who.uid,createdBy:who.name,
-      changes:[{field:'status',before:'open',after:'locked'}],snapshotId,operationLogId,
+      changes:[{field:'status',before:'open',after:'locked'}],operationLogId,
       targetRevision:lockRevision,controlRevision,schemaVersion:2};
   }
   async function lockMonth(month,current,options={}){
     const normalized=requireMonth(month);
     const controlSnapshot=await window._getDoc(productionMonthRef(normalized));
     const control=snapshotData(controlSnapshot);
+    if(control?.status==='locked'){
+      const existing=snapshotData(await window._getDoc(monthRef(normalized)));
+      if(existing&&LOCKED_STATUSES.has(existing.status)) return existing;
+    }
     if(!control||control.status!=='open'||control.summaryReady!==true){
       throw new Error('Tháng chưa sẵn sàng để khóa. / 月份尚未準備好鎖定。');
     }
     const expected={entriesVersion:text(current?.metadata?.sourceEntriesVersion)||'0',
       attendanceVersion:text(current?.metadata?.sourceAttendanceVersion)||'0',summaryVersion:text(current?.metadata?.sourceSummaryVersion)||'0'};
     if(!sameSource(stateFromControl(control),expected)) throw new Error('Dữ liệu vừa thay đổi, vui lòng thử khóa lại. / 資料剛有變動，請重新執行鎖定。');
-    const payload=options.payload||await captureSnapshot(normalized,current,control);
-    if(!sameSource(payload.sourceState,expected)) throw new Error('Dữ liệu vừa thay đổi, vui lòng thử khóa lại. / 資料剛有變動，請重新執行鎖定。');
-    const manifest=await stageSnapshot(payload);
+    const frozenEmployees=clone(current?.employees||[]);
+    if(JSON.stringify(frozenEmployees).length>CURRENT_RESULT_TEXT_LIMIT){
+      throw new Error('Kết quả thưởng tháng quá lớn để khóa an toàn. / 月份獎金結果過大，無法安全鎖定。');
+    }
     const lockedAt=Date.now();
-    const operationLogId=operationLogIdFor(manifest.snapshotId);
+    const logReference=window._newDocRef(LOG_COLLECTION);
+    const operationLogId=logReference.id;
     let saved=null;
     await window._runTransaction(async transaction=>{
-      const [latestControlSnapshot,monthSnapshot,manifestSnapshot]=await Promise.all([
-        transaction.get(productionMonthRef(normalized)),transaction.get(monthRef(normalized)),transaction.get(snapshotRef(manifest.snapshotId))
+      const [latestControlSnapshot,monthSnapshot]=await Promise.all([
+        transaction.get(productionMonthRef(normalized)),transaction.get(monthRef(normalized))
       ]);
       const latestControl=latestControlSnapshot.exists()?latestControlSnapshot.data():null;
       const previousMonth=monthSnapshot.exists()?monthSnapshot.data():{};
       if(LOCKED_STATUSES.has(previousMonth.status)){
-        if(previousMonth.snapshotId===manifest.snapshotId){ saved={...previousMonth};return; }
-        throw new Error('Tháng đã được khóa bằng ảnh chụp khác. / 月份已由另一份快照鎖定。');
+        saved={...previousMonth};return;
       }
       if(!latestControl||latestControl.status!=='open'||latestControl.summaryReady!==true||!sameSource(stateFromControl(latestControl),expected)){
         throw new Error('Dữ liệu vừa thay đổi, vui lòng thử khóa lại. / 資料剛有變動，請重新執行鎖定。');
       }
-      if(!manifestSnapshot.exists()||manifestSnapshot.data().payloadHash!==manifest.payloadHash){
-        throw new Error('Ảnh chụp tháng chưa hoàn chỉnh. / 月份快照尚未完整。');
-      }
       const who=actor();
       const lockRevision=(Number(previousMonth.lockRevision)||0)+1;
       const controlRevision=(Number(latestControl.revision)||0)+1;
-      saved={...clone(current.metadata),status:'locked',snapshotId:manifest.snapshotId,snapshotSchemaVersion:SNAPSHOT_SCHEMA_VERSION,
-        operationLogId,
+      saved={...clone(current.metadata),status:'locked',frozenEmployees,
+        currentResultSchemaVersion:CURRENT_RESULT_SCHEMA_VERSION,operationLogId,
         lockedAt,lockedByUid:who.uid,lockedBy:who.name,lockRevision,
         updatedAt:lockedAt,updatedByUid:who.uid,updatedBy:who.name};
-      delete saved.frozenEmployees;
+      delete saved.snapshotId;
+      delete saved.snapshotSchemaVersion;
+      delete saved.unlockedAt;
+      delete saved.unlockedByUid;
+      delete saved.unlockedBy;
+      delete saved.unlockReason;
       transaction.set(monthRef(normalized),saved);
       transaction.set(productionMonthRef(normalized),{...latestControl,status:'locked',revision:controlRevision,
         lockedAt,lockedByUid:who.uid,lockedBy:who.name,updatedAt:lockedAt,updatedByUid:who.uid,updatedBy:who.name,operationLogId});
-      transaction.set(snapshotRef(manifest.snapshotId),{
-        ...manifest,state:'locked',operationLogId,lockedAt,lockedByUid:who.uid
-      });
-      transaction.set(window._docRef(LOG_COLLECTION,operationLogId),
-        lockLog(payload,manifest.snapshotId,lockedAt,operationLogId,lockRevision,controlRevision));
+      transaction.set(logReference,lockLog(current,lockedAt,operationLogId,lockRevision,controlRevision));
     },{skipDataVersions:true});
     return saved;
   }
 
   window.PCMSPerformanceBonusLockService=Object.freeze({
-    SNAPSHOT_COLLECTION,CHUNK_COLLECTION,SNAPSHOT_SCHEMA_VERSION,SNAPSHOT_BATCH_WRITE_LIMIT,hashText,splitJson,joinJson,
+    SNAPSHOT_COLLECTION,CHUNK_COLLECTION,SNAPSHOT_SCHEMA_VERSION,CURRENT_RESULT_SCHEMA_VERSION,SNAPSHOT_BATCH_WRITE_LIMIT,hashText,splitJson,joinJson,
     buildSnapshotPayload,captureSnapshot,stageSnapshot,readSnapshot,lockMonth
   });
 })();

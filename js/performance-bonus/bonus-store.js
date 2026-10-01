@@ -334,40 +334,82 @@
     if(!service?.lockMonth) throw new Error('Bộ khóa tháng chưa sẵn sàng. / 月份鎖定程式尚未載入。');
     return service.lockMonth(normalized,current);
   }
+  function monthStatusLog(action,month,before,after,operationLogId,timestamp,extra={}){
+    return {
+      permissionKey:'performanceBonus',feature:'performanceBonus',action,status:'success',
+      targetType:'performanceBonusMonth',targetId:month,operationLogId,
+      targetRevision:Math.max(1,Math.round(Number(after.lockRevision)||1)),
+      itemCount:Math.max(0,Math.round(Number(after.employeeCount)||0)),
+      detailCount:Math.max(0,Math.round(Number(after.eligibleEmployeeCount)||0)),
+      changes:[{field:'status',before:String(before.status||''),after:String(after.status||'')}],
+      note:String(extra.note||month).slice(0,500),createdAt:timestamp,createdByUid:uid(),createdBy:username(),
+      ...(extra.fileName?{fileName:String(extra.fileName).slice(0,300)}:{}),schemaVersion:2
+    };
+  }
   async function updateLockedStatus(month,allowed,nextStatus,extra={},action='performanceBonusExport',logExtra={}){
     const normalized=requireMonth(month);
+    const logReference=window._newDocRef(LOG_COLLECTION);
     let saved;
     await window._runTransaction(async transaction=>{
       const snapshot=await transaction.get(monthRef(normalized));
-      if(!snapshot.exists()||!allowed.includes(snapshot.data().status)) throw new Error('Trạng thái tháng không cho phép thao tác. / 月份狀態不允許此操作。');
-      saved={...snapshot.data(),status:nextStatus,...extra,updatedAt:now(),updatedByUid:uid(),updatedBy:username()};
+      const before=snapshot.exists()?snapshot.data():null;
+      if(!before||!allowed.includes(before.status)) throw new Error('Trạng thái tháng không cho phép thao tác. / 月份狀態不允許此操作。');
+      const timestamp=now();
+      const resolvedStatus=typeof nextStatus==='function'?nextStatus(before):nextStatus;
+      const resolvedExtra=typeof extra==='function'?extra(before,timestamp):extra;
+      saved={...before,status:resolvedStatus,...resolvedExtra,operationLogId:logReference.id,
+        updatedAt:timestamp,updatedByUid:uid(),updatedBy:username()};
       transaction.set(monthRef(normalized),saved);
-      transaction.set(window._newDocRef(LOG_COLLECTION),logData(action,saved.employeeCount,saved.eligibleEmployeeCount,normalized,
-        [{field:'status',before:snapshot.data().status,after:nextStatus}],logExtra));
+      transaction.set(logReference,monthStatusLog(action,normalized,before,saved,logReference.id,timestamp,logExtra));
     },{skipDataVersions:true});
     return saved;
   }
   async function markExported(month,fileName){
-    const current=await readStoredMonth(month);
-    const status=current.metadata?.status==='paid'?'paid':'exported';
-    const timestamp=now();
-    return updateLockedStatus(month,['locked','exported','paid'],status,{
-      lastExportedAt:timestamp,lastExportedByUid:uid(),lastExportedBy:username(),
-      exportCount:(Number(current.metadata?.exportCount)||0)+1,lastExportFileName:String(fileName||'').slice(0,300)
-    },'performanceBonusExport',{fileName});
+    return updateLockedStatus(month,['locked','exported','paid'],
+      current=>current.status==='paid'?'paid':'exported',(current,timestamp)=>{
+        return {lastExportedAt:timestamp,lastExportedByUid:uid(),lastExportedBy:username(),
+          exportCount:(Number(current.exportCount)||0)+1,lastExportFileName:String(fileName||'').slice(0,300)};
+      },'performanceBonusExport',{fileName});
   }
   async function markPaid(month){
-    const timestamp=now();
-    return updateLockedStatus(month,['exported'],'paid',{paidAt:timestamp,paidByUid:uid(),paidBy:username()},'performanceBonusPaid');
+    return updateLockedStatus(month,['exported'],'paid',(_current,timestamp)=>({
+      paidAt:timestamp,paidByUid:uid(),paidBy:username()
+    }),'performanceBonusPaid');
   }
-  async function unlockMonth(month){
-    requireMonth(month);
-    throw new Error('Chức năng chưa được kết nối. / 功能尚未接入。');
+  async function unlockMonth(month,reason){
+    const normalized=requireMonth(month);
+    const unlockReason=String(reason||'').trim().slice(0,500);
+    if(!window.isAdm?.()) throw new Error('Chỉ quản trị viên được mở khóa tháng. / 只有管理員可以解除月份鎖定。');
+    if(!unlockReason) throw new Error('Cần nhập lý do mở khóa. / 請填寫解除鎖定原因。');
+    const logReference=window._newDocRef(LOG_COLLECTION);
+    const timestamp=now();
+    let saved;
+    await window._runTransaction(async transaction=>{
+      const [monthSnapshot,controlSnapshot]=await Promise.all([
+        transaction.get(monthRef(normalized)),transaction.get(productionMonthRef(normalized))
+      ]);
+      const before=monthSnapshot.exists()?monthSnapshot.data():null;
+      const control=controlSnapshot.exists()?controlSnapshot.data():null;
+      if(!before||!LOCKED_STATUSES.has(before.status)||!control||control.status!=='locked'){
+        throw new Error('Trạng thái tháng không cho phép mở khóa. / 月份狀態不允許解除鎖定。');
+      }
+      const controlRevision=(Number(control.revision)||0)+1;
+      saved={...before,status:'draft',requiresRecalculation:true,unlockedAt:timestamp,
+        unlockedByUid:uid(),unlockedBy:username(),unlockReason,operationLogId:logReference.id,
+        updatedAt:timestamp,updatedByUid:uid(),updatedBy:username()};
+      transaction.set(monthRef(normalized),saved);
+      transaction.set(productionMonthRef(normalized),{...control,status:'open',revision:controlRevision,
+        unlockedAt:timestamp,unlockedByUid:uid(),unlockedBy:username(),unlockReason,
+        operationLogId:logReference.id,updatedAt:timestamp,updatedByUid:uid(),updatedBy:username()});
+      transaction.set(logReference,{
+        ...monthStatusLog('performanceBonusUnlock',normalized,before,saved,logReference.id,timestamp,{note:unlockReason}),
+        controlRevision
+      });
+    },{skipDataVersions:true});
+    return saved;
   }
   function canUnlock(){
-    if(window.isAdm?.()) return true;
-    const role=window.cu?.role;
-    return window.permissionSettings?.[role]?.performanceBonusUnlock===true;
+    return Boolean(window.isAdm?.());
   }
 
   window.PCMSPerformanceBonusStore=Object.freeze({

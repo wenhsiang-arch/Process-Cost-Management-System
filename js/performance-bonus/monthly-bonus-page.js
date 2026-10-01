@@ -435,25 +435,29 @@
   function safeSpreadsheetValue(value){ return typeof value==='string'&&/^[=+\-@]/.test(value)?`'${value}`:value; }
   async function exportMonth(){
     if(!state.metadata) return;
-    const draft=state.metadata.status==='draft';
-    const confirmed=await ui().confirmDialog({
-      title:draft?{vi:'Xác nhận khóa và xuất',zh:'確認鎖定並匯出'}:{vi:'Xác nhận xuất lại',zh:'確認重新匯出'},
-      body:ui().createLanguageSections(draft
-        ?{vi:'Sau khi chọn vị trí lưu, hệ thống sẽ khóa toàn bộ tháng rồi xuất Excel. Muốn sửa lại phải dùng quyền mở khóa.',zh:'選擇儲存位置後，系統會鎖定整個月份再匯出 Excel；如需修改，必須使用解除鎖定權限。'}
-        :{vi:'Hệ thống sẽ xuất lại kết quả đã khóa của tháng này.',zh:'系統將重新匯出此月份已鎖定的結果。'}),
-      confirmText:{vi:'Tiếp tục',zh:'繼續'}
-    });
-    if(!confirmed) return;
-    const suggestedName=`Thuong_hieu_suat_${state.month}.xlsx`;
-    const handle=await window.PCMSFileIO.chooseSaveHandle({
-      suggestedName,types:[window.PCMSFileIO.spreadsheetFileType],
-      onUnsupported:()=>ui().alertDialog({kind:'danger',message:{vi:'Trình duyệt không hỗ trợ chọn vị trí lưu. Đã dừng xuất.',zh:'瀏覽器不支援選擇儲存位置，已停止匯出。'}})
-    });
-    if(!handle) return;
     return ui().runActionOnce(`performanceBonus.export.${state.month}`,async()=>{
+      const exportButton=el('performance-bonus-export');
+      const draft=state.metadata?.status==='draft';
+      let refreshNeeded=false;
+      exportButton.disabled=true;
       try{
+        const confirmed=await ui().confirmDialog({
+          title:draft?{vi:'Xác nhận khóa và xuất',zh:'確認鎖定並匯出'}:{vi:'Xác nhận xuất lại',zh:'確認重新匯出'},
+          body:ui().createLanguageSections(draft
+            ?{vi:'Sau khi chọn vị trí lưu, hệ thống sẽ khóa toàn bộ tháng rồi xuất Excel. Muốn sửa lại phải dùng quyền mở khóa.',zh:'選擇儲存位置後，系統會鎖定整個月份再匯出 Excel；如需修改，必須使用解除鎖定權限。'}
+            :{vi:'Hệ thống sẽ xuất lại kết quả đã khóa của tháng này.',zh:'系統將重新匯出此月份已鎖定的結果。'}),
+          confirmText:{vi:'Tiếp tục',zh:'繼續'}
+        });
+        if(!confirmed) return;
+        const suggestedName=`Thuong_hieu_suat_${state.month}.xlsx`;
+        const handle=await window.PCMSFileIO.chooseSaveHandle({
+          suggestedName,types:[window.PCMSFileIO.spreadsheetFileType],
+          onUnsupported:()=>ui().alertDialog({kind:'danger',message:{vi:'Trình duyệt không hỗ trợ chọn vị trí lưu. Đã dừng xuất.',zh:'瀏覽器不支援選擇儲存位置，已停止匯出。'}})
+        });
+        if(!handle) return;
         if(draft){
           await store().lockMonth(state.month);
+          refreshNeeded=true;
           const refreshed=await store().loadMonth(state.month,{force:true});
           state.metadata=refreshed.metadata;
           state.employees=sortedBonusEmployees(refreshed.employees);
@@ -470,10 +474,16 @@
         spreadsheet.utils.book_append_sheet(workbook,sheet,'Thuong_績效獎金');
         await window.PCMSFileIO.writeWorkbookToHandle(handle,workbook,spreadsheet);
         await store().markExported(state.month,handle.name||suggestedName);
-        ui().showToast({kind:'success',message:{vi:'Đã khóa tháng và xuất Excel.',zh:'月份已鎖定並匯出 Excel。'}});
+        refreshNeeded=true;
+        ui().showToast({kind:'success',message:draft
+          ?{vi:'Đã khóa tháng và xuất Excel.',zh:'月份已鎖定並匯出 Excel。'}
+          :{vi:'Đã xuất lại Excel.',zh:'已重新匯出 Excel。'}});
       }catch(error){ await showError(error); }
-      finally{ await loadMonth(); }
-    });
+      finally{
+        if(refreshNeeded) await loadMonth();
+        else render();
+      }
+    },{onDuplicate:()=>ui().showToast({kind:'info',message:{vi:'Đang xuất thưởng tháng.',zh:'月績效獎金正在匯出。'}})});
   }
   async function markPaid(){
     const confirmed=await ui().confirmDialog({
@@ -485,7 +495,37 @@
     catch(error){ await showError(error); }
   }
   async function unlockMonth(){
-    await ui().alertDialog({kind:'info',message:{vi:'Chức năng chưa được kết nối.',zh:'功能尚未接入。'}});
+    if(!state.metadata||!store().canUnlock()) return;
+    return ui().runActionOnce(`performanceBonus.unlock.${state.month}`,async()=>{
+      const reason=await ui().promptDialog({
+        title:{vi:'Mở khóa tháng',zh:'解除月份鎖定'},
+        label:{vi:'Lý do mở khóa',zh:'解除原因'},multiline:true,maxLength:500,
+        placeholder:{vi:'Nhập nội dung cần sửa',zh:'請填寫需要修改的內容'},
+        validate:(value,input)=>{
+          const valid=String(value||'').trim().length>0;
+          input.setCustomValidity(valid?'':'Cần nhập lý do. / 請填寫解除原因。');
+          if(!valid) input.reportValidity();
+          return valid;
+        }
+      });
+      if(reason===null) return;
+      const confirmed=await ui().confirmDialog({
+        title:{vi:'Xác nhận mở khóa tháng',zh:'確認解除月份鎖定'},
+        body:ui().createLanguageSections({
+          vi:'Sau khi mở khóa, dữ liệu chấm công, sản lượng và điều chỉnh thưởng của tháng này có thể được sửa theo quyền hiện có.',
+          zh:'解除後，該月份的考勤、產能與獎金調整可依原有權限修改。'
+        })
+      });
+      if(!confirmed) return;
+      const button=el('performance-bonus-unlock');
+      button.disabled=true;
+      try{
+        await store().unlockMonth(state.month,reason);
+        ui().showToast({kind:'success',message:{vi:'Đã mở khóa tháng để chỉnh sửa.',zh:'月份已解除鎖定，可開始修改。'}});
+        await loadMonth();
+      }catch(error){ await showError(error,{vi:'Mở khóa tháng',zh:'解除月份鎖定'}); }
+      finally{ render(); }
+    },{onDuplicate:()=>ui().showToast({kind:'info',message:{vi:'Đang mở khóa tháng.',zh:'正在解除月份鎖定。'}})});
   }
   function bind(){
     el('performance-bonus-month').addEventListener('change',()=>void loadMonth());
