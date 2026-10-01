@@ -647,6 +647,21 @@ async function reloadOrders(options={}){
   return ordersLoadPromise;
 }
 
+// acceptSavedOrderMutation（採用已儲存訂單異動）：交易成功後直接更新目前清單，避免同一裝置立即重讀全部訂單。
+function acceptSavedOrderMutation(saved){
+  if(!saved?.id) return null;
+  if(!Array.isArray(window.allOrders)) window.allOrders=[];
+  let order=window.allOrders.find(item=>item.id===saved.id);
+  if(order) Object.assign(order,saved);
+  else{
+    order={...saved};
+    window.allOrders.push(order);
+  }
+  window.PCMSFeatures?.markDataScopesCurrent?.([COL.orders]);
+  return order;
+}
+window.acceptSavedOrderMutation=acceptSavedOrderMutation;
+
 function closeImportOrder(){
   closeOrdersImportProgress();
   resetOrderImportPreview();
@@ -1624,7 +1639,7 @@ async function saveActualShipDate(ordId,value,input){
   try{
     if(!window.PCMSOrderService?.setActualShipDate) throw new Error('Dịch vụ đơn hàng chưa sẵn sàng. / 訂單服務尚未載入。');
     const saved=await window.PCMSOrderService.setActualShipDate(ordId,value,{note:'actualShipDate'});
-    const order=window.allOrders.find(item=>item.id===ordId);if(order)Object.assign(order,saved);
+    acceptSavedOrderMutation(saved);
     await renderProgress();
     window.PCMSUIComponents.showToast({text:{vi:'Đã lưu ngày xuất hàng thực tế.',zh:'已儲存實際出貨日。'},kind:'success'});
   }catch(error){
@@ -1674,7 +1689,7 @@ async function confirmOrderShipment(orderId,orderNo){
   if(!confirmedDate) return;
   try{
     const saved=await window.PCMSOrderService.setShipmentStatus(orderId,'shipped',{actualShipDate:confirmedDate,note:orderNo});
-    const order=window.allOrders.find(item=>item.id===orderId);if(order)Object.assign(order,saved);
+    acceptSavedOrderMutation(saved);
     fillOrderSelects();await renderProgress();window.renderShippedOrders?.();
     await ordersMessage('Đã chuyển đơn sang mục đã xuất hàng.','訂單已移至已出貨訂單。','success');
   }catch(error){

@@ -9,6 +9,15 @@
   const usable=order=>window.isOrderUsable(order)&&shipped(order);
   const canManageShipment=()=>typeof window.canOpenPage==='function'&&window.canOpenPage('progress');
 
+  // acceptSavedOrder（採用已儲存訂單）：由訂單頁共用入口更新本機清單及資料新鮮狀態。
+  function acceptSavedOrder(saved,fallback){
+    const accepted=window.acceptSavedOrderMutation?.(saved);
+    if(accepted) return accepted;
+    Object.assign(fallback,saved);
+    window.PCMSFeatures?.markDataScopesCurrent?.(['orders']);
+    return fallback;
+  }
+
   function setLocalizedLabel(button,label){
     window.PCMSUIText?.setLocalizedAttribute?.(button,'title',label);
     window.PCMSUIText?.setLocalizedAttribute?.(button,'aria-label',label);
@@ -33,7 +42,7 @@
     busy=true;render();
     try{
       const saved=await window.PCMSOrderService.setShipmentStatus(order.id,'pending',{note:order.orderId});
-      Object.assign(order,saved);
+      acceptSavedOrder(saved,order);
       window.fillOrderSelects();
       window.renderProgress?.();
       await window.ordersMessage('Đã hủy xác nhận xuất hàng.','已取消確認出貨。','success');
@@ -52,7 +61,7 @@
     busy=true;render();
     try{
       const saved=await window.PCMSOrderService.setShipmentStatus(order.id,'shipped',{actualShipDate:value,note:order.orderId});
-      Object.assign(order,saved);
+      acceptSavedOrder(saved,order);
       await window.ordersMessage('Đã cập nhật ngày xuất hàng.','已更新實際出貨日。','success');
     }catch(error){
       console.error('Không thể cập nhật ngày xuất hàng / 無法更新實際出貨日：',error);

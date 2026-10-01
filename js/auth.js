@@ -509,6 +509,7 @@ async function ensurePageData(name,options={}){
 function showFeatureDataWarnings(warnings){
   const rows=Array.isArray(warnings)?warnings:[];
   if(!rows.length) return;
+  const isBackgroundSync=rows.some(row=>row?.background===true); // isBackgroundSync（是否為背景同步警告）
   let toast=g('feature-data-warning'); // toast（附屬資料警告框）
   if(!toast){
     toast=document.createElement('div');
@@ -520,7 +521,9 @@ function showFeatureDataWarnings(warnings){
   toast.replaceChildren();
   const title=document.createElement('strong');
   title.className='ui-runtime-notice-title';
-  window.PCMSUIText.set(title,{vi:'Một số dữ liệu phụ chưa tải được',zh:'部分附屬資料暫時無法載入'});
+  window.PCMSUIText.set(title,isBackgroundSync
+    ?{vi:'Chưa thể đồng bộ dữ liệu nền',zh:'背景資料暫時無法同步'}
+    :{vi:'Một số dữ liệu phụ chưa tải được',zh:'部分附屬資料暫時無法載入'});
   const detail=window.PCMSUIComponents.createLanguageSections({
     vi:labels.map(label=>label.vi).filter(Boolean).join('、'),
     zh:labels.map(label=>label.zh).filter(Boolean).join('、')
@@ -528,7 +531,9 @@ function showFeatureDataWarnings(warnings){
   detail.classList.add('ui-runtime-notice-detail');
   const note=document.createElement('div');
   note.className='ui-runtime-notice-note';
-  window.PCMSUIText.set(note,{vi:'Chức năng chính vẫn có thể sử dụng.',zh:'主功能仍可正常使用。'});
+  window.PCMSUIText.set(note,isBackgroundSync
+    ?{vi:'Dữ liệu hiện tại vẫn được giữ lại. Vui lòng thử làm mới sau.',zh:'目前資料已保留，請稍後重新整理。'}
+    :{vi:'Chức năng chính vẫn có thể sử dụng.',zh:'主功能仍可正常使用。'});
   toast.append(title,detail,note);
   toast.style.display='block';
   clearTimeout(window._featureDataWarningTimer); // _featureDataWarningTimer（附屬資料警告計時器）
@@ -581,9 +586,11 @@ async function sp(name){
         .then(result=>showFeatureDataWarnings(result?.warnings||[]))
         .catch(error=>{
           console.warn(`Không thể làm mới dữ liệu nền ${name} / 無法背景更新 ${name} 頁面資料：`,error);
+          const isOrderListPage=['progress','shipped-orders','order-archive'].includes(name); // isOrderListPage（訂單清單頁）
           showFeatureDataWarnings([{
-            vi:pageConfig.vi||'Dữ liệu chức năng',
-            zh:pageConfig.zh||'功能資料',
+            vi:isOrderListPage?'Danh sách đơn hàng':(pageConfig.vi||'Dữ liệu chức năng'),
+            zh:isOrderListPage?'訂單清單':(pageConfig.zh||'功能資料'),
+            background:true,
             error
           }]);
         });

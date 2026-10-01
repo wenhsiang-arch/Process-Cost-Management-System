@@ -5,7 +5,7 @@
     history:'js/history.js?v=20260923-2',
     fileIo:'js/file-io.js?v=20260918-1',
     settings:'js/settings.js?v=20260923-4',
-    uiTableControls:'js/ui-table-controls.js?v=20260923-4'+'&rev=adjacent-resize1',
+    uiTableControls:'js/ui-table-controls.js?v=20261002-1'+'&rev=adjacent-resize1',
     uiSearchDropdown:'js/ui-search-dropdown.js?v=20260923-4',
     productCache:'js/product-cache.js?v=20260825-3',
     productModel:'js/product-model.js?v=20260926-1',
@@ -31,8 +31,8 @@
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260923-4',
     accounts:'js/accounts.js?v=20260813-2',
-    orders:'js/orders.js?v=20260928-1-order-ship-sort',
-    shippedOrders:'js/shipped-orders.js?v=20260922-4',
+    orders:'js/orders.js?v=20261002-1-shipment-state',
+    shippedOrders:'js/shipped-orders.js?v=20261002-1-shipment-state',
     orderArchive:'js/order-archive.js?v=20260916-2',
     orderHistory:'js/order-history.js?v=20260923-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
@@ -485,6 +485,7 @@
       pageDataStates.set(pageName,{
         loadedAt:0,
         dirty:false,
+        dirtyScopes:new Set(),
         warnings:[],
         promise:null
       });
@@ -544,6 +545,7 @@
       const warnings=await runPageDataLoaders(pageName,{background:options.background===true});
       state.loadedAt=Date.now();
       state.dirty=false;
+      state.dirtyScopes.clear();
       state.warnings=warnings;
       return warnings.slice();
     })().finally(()=>{ state.promise=null; });
@@ -563,7 +565,24 @@
     pageMap.forEach((page,pageName)=>{
       if(!(page.dataScopes||[]).some(scope=>changed.has(scope))) return;
       const state=getPageDataState(pageName); // state（受影響功能頁狀態）
-      if(state.loadedAt) state.dirty=true;
+      if(state.loadedAt){
+        state.dirty=true;
+        (page.dataScopes||[]).filter(scope=>changed.has(scope)).forEach(scope=>state.dirtyScopes.add(scope));
+      }
+    });
+  }
+
+  // markDataScopesCurrent（標記本頁已採用本機成功結果）：避免同一裝置為剛完成的狀態切換重讀整份集合。
+  function markDataScopesCurrent(scopes){
+    const accepted=new Set((Array.isArray(scopes)?scopes:[]).map(value=>String(value||'')).filter(Boolean));
+    if(!accepted.size) return;
+    pageMap.forEach((page,pageName)=>{
+      if(!(page.dataScopes||[]).some(scope=>accepted.has(scope))) return;
+      const state=getPageDataState(pageName); // state（已接受本機結果的功能頁狀態）
+      if(!state.loadedAt) return;
+      accepted.forEach(scope=>state.dirtyScopes.delete(scope));
+      state.dirty=state.dirtyScopes.size>0;
+      if(!state.dirty) state.loadedAt=Date.now();
     });
   }
 
@@ -744,6 +763,7 @@
     isPageDataFresh,
     refreshPageDataInBackground,
     invalidateDataScopes,
+    markDataScopesCurrent,
     resetPageDataStates,
     ensureSpreadsheetTool,
     ensureInspectionReportZipTool,
