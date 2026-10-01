@@ -13,11 +13,15 @@ const clone=value=>value==null?value:JSON.parse(JSON.stringify(value));
 function snapshot(id,value){ return {id,exists:()=>value!==undefined,data:()=>clone(value)}; }
 function load(){
   const documents=new Map();
+  const batchCommitSizes=[];
   const key=ref=>`${ref.collection}/${ref.id}`;
   const window={firebaseAuthUser:{uid:'admin-1'},cu:{role:'admin',user:'管理員',authUid:'admin-1'},
     _docRef:(collection,id)=>({collection,id}),_newDocRef:collection=>({collection,id:`log-${documents.size+1}`}),
     _getDoc:async ref=>snapshot(ref.id,documents.get(key(ref))),
-    _writeBatch:()=>{ const writes=[];return {set:(ref,data)=>writes.push([ref,clone(data)]),commit:async()=>writes.forEach(([ref,data])=>documents.set(key(ref),data))}; },
+    _writeBatch:()=>{ const writes=[];return {set:(ref,data)=>writes.push([ref,clone(data)]),commit:async()=>{
+      batchCommitSizes.push(writes.length);
+      writes.forEach(([ref,data])=>documents.set(key(ref),data));
+    }}; },
     _runTransaction:async callback=>{
       const writes=[];
       await callback({get:async ref=>snapshot(ref.id,documents.get(key(ref))),set:(ref,data)=>writes.push([ref,clone(data)])});
@@ -26,7 +30,7 @@ function load(){
   };
   const context={window,console,Date,Map,Set,Promise,JSON,String,Number,Math,RegExp,Error,Object,Array};
   vm.createContext(context);vm.runInContext(lockSource,context);
-  return {window,documents,key};
+  return {window,documents,key,batchCommitSizes};
 }
 
 function payload(window){
@@ -59,6 +63,20 @@ test('大型快照可安全分段、重組並偵測內容異常',()=>{
   assert.ok(encoded.parts.length>1);
   assert.deepEqual(service.joinJson(encoded.parts,encoded.hash),source);
   assert.throws(()=>service.joinJson([`${encoded.parts[0]}X`,...encoded.parts.slice(1)],encoded.hash),/快照不完整/);
+});
+
+test('超過 Firestore 單次請求上限的快照會拆成安全批次並完整保存',async()=>{
+  const {window,documents,batchCommitSizes}=load();
+  const service=window.PCMSPerformanceBonusLockService;
+  const source={month:'2026-08',sourceState:{summaryVersion:'S1'},content:'獎'.repeat(3700000)};
+  assert.ok(Buffer.byteLength(JSON.stringify(source),'utf8')>10*1024*1024);
+  const manifest=await service.stageSnapshot(source);
+  assert.ok(batchCommitSizes.length>1);
+  assert.equal(Math.max(...batchCommitSizes)<=service.SNAPSHOT_BATCH_WRITE_LIMIT,true);
+  assert.equal(service.SNAPSHOT_BATCH_WRITE_LIMIT,12);
+  const parts=Array.from({length:manifest.chunkCount},(_,index)=>
+    documents.get(`performanceBonusSnapshotChunks/${manifest.snapshotId}__${index}`).payloadPart);
+  assert.deepEqual(service.joinJson(parts,manifest.payloadHash),source);
 });
 
 test('鎖定可重跑且最後交易同時保存月份、快照狀態與操作紀錄',async()=>{

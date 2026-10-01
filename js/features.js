@@ -50,7 +50,7 @@
     productionEntry:'js/production/production-entry.js?v=20260923-4',
     productionRecords:'js/production/production-records.js?v=20260906-1',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
-    performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20260823-2',
+    performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20261001-1-safe-batches',
     performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20260928-2-clear-zero',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
     performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20260930-3-bonus-columns',

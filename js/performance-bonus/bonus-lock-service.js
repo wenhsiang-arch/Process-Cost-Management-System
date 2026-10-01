@@ -9,7 +9,8 @@
   const LOG_COLLECTION='operationLogs';
   const SNAPSHOT_SCHEMA_VERSION=1;
   const CHUNK_TEXT_LENGTH=180000; // 最多約 540KB UTF-8，保留 Firestore 文件大小安全空間。
-  const BATCH_WRITE_LIMIT=300;
+  // SNAPSHOT_BATCH_WRITE_LIMIT（快照單批寫入上限）：同時保留 Firestore（雲端文件資料庫）10MiB 請求與安全規則存取空間。
+  const SNAPSHOT_BATCH_WRITE_LIMIT=12;
   const LOCKED_STATUSES=new Set(['locked','exported','paid']);
 
   function text(value){ return String(value??'').trim(); }
@@ -156,9 +157,9 @@
         previousChunkId:index>0?chunkIdFor(snapshotId,index-1):'',totalParts:encoded.parts.length,payloadPart:part,
         payloadHash:encoded.hash,state:'staged',schemaVersion:SNAPSHOT_SCHEMA_VERSION}
     }))];
-    for(let offset=0;offset<writes.length;offset+=BATCH_WRITE_LIMIT){
+    for(let offset=0;offset<writes.length;offset+=SNAPSHOT_BATCH_WRITE_LIMIT){
       const batch=window._writeBatch({skipDataVersions:true});
-      writes.slice(offset,offset+BATCH_WRITE_LIMIT).forEach(item=>batch.set(item.reference,item.data));
+      writes.slice(offset,offset+SNAPSHOT_BATCH_WRITE_LIMIT).forEach(item=>batch.set(item.reference,item.data));
       await batch.commit();
     }
     return manifest;
@@ -237,7 +238,7 @@
   }
 
   window.PCMSPerformanceBonusLockService=Object.freeze({
-    SNAPSHOT_COLLECTION,CHUNK_COLLECTION,SNAPSHOT_SCHEMA_VERSION,hashText,splitJson,joinJson,
+    SNAPSHOT_COLLECTION,CHUNK_COLLECTION,SNAPSHOT_SCHEMA_VERSION,SNAPSHOT_BATCH_WRITE_LIMIT,hashText,splitJson,joinJson,
     buildSnapshotPayload,captureSnapshot,stageSnapshot,readSnapshot,lockMonth
   });
 })();
