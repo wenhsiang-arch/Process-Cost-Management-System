@@ -421,7 +421,7 @@
   async function deleteAttendance(attendanceId){
     const guards = window.PCMSProductionGuards;
     const summaries = window.PCMSProductionSummaries;
-    if(window.cu?.role !== 'admin') throw new Error('Chỉ quản trị viên mới được xóa chấm công. / 只有管理員可以刪除考勤。');
+    if(!window.canUseFeature?.('productionMain')) throw new Error('Chưa được mở quyền sản lượng. / 尚未開放產能權限。');
     const reference = window._docRef(COLLECTION_NAME,normalizeText(attendanceId));
     const logReference = window._newDocRef(LOG_COLLECTION_NAME);
     let deleted = null;

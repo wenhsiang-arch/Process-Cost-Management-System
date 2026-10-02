@@ -16,8 +16,8 @@
   }
   function signature(filters){ return `${dateText(filters?.from)}|${dateText(filters?.to)}`; }
   function createState(filters){ return {signature:signature(filters),rows:[],cursor:null,done:false,promise:null}; }
-  function ensureAdmin(){
-    if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên mới xem được giám sát hệ thống. / 只有管理員可以查看系統監控。');
+  function ensureManagement(){
+    if(!window.canUseFeature?.('managementMain')) throw new Error('Chưa được mở quyền quản lý. / 尚未開放管理權限。');
   }
   function resetIfNeeded(type,filters,force){
     if(force===true||!states[type]||states[type].signature!==signature(filters)) states[type]=createState(filters);
@@ -26,7 +26,7 @@
   function mergeRows(current,next){ return [...new Map([...current,...next].map(item=>[item.id,item])).values()]; }
 
   async function loadLogs(filters={},options={}){
-    ensureAdmin();
+    ensureManagement();
     const state=resetIfNeeded('logs',filters,options.force===true);
     if(state.promise) return state.promise;
     if(state.rows.length&&options.loadMore!==true) return {rows:state.rows.slice(),hasMore:!state.done};
@@ -49,7 +49,7 @@
   }
 
   async function loadUsage(filters={},options={}){
-    ensureAdmin();
+    ensureManagement();
     const state=resetIfNeeded('usage',filters,options.force===true);
     if(state.promise) return state.promise;
     if(state.rows.length&&options.loadMore!==true) return {rows:state.rows.slice(),hasMore:!state.done};

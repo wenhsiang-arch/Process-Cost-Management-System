@@ -49,7 +49,7 @@ const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
-const RUNTIME_VERSION = '20261002-1'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
+const RUNTIME_VERSION = '20261002-2'; // RUNTIME_VERSION（目前網站執行版本）：正式寫入前與同站靜態版本檔核對。
 const RUNTIME_VERSION_URL = new URL('runtime-version.json',document.baseURI).href;
 let runtimeVersionPromise=null;
 let runtimeVersionStale=false;
@@ -363,12 +363,16 @@ window.firebaseLoadRolePermissions = async (requestedRoles=[]) => {
     snapshots[index].exists()?snapshots[index].data():null
   ]));
 };
-window.firebaseSaveRolePermissions = async (roleDocuments) => {
+window.firebaseSaveRolePermissions = async (roleDocuments,logInput) => {
   const batch=writeBatch(db);
   (window.CONFIGURABLE_ROLES||[]).forEach(role=>{
     batch.set(doc(db,'rolePermissions',role),roleDocuments[role]);
   });
+  const log=window.PCMSHistory.buildOperationLog(logInput);
+  const reference=doc(collection(db,'operationLogs'));
+  batch.set(reference,log);
   await batch.commit();
+  return {id:reference.id,...log};
 };
 // firebaseSubscribeRolePermission（監聽目前角色是否被系統維護暫停）：只監聽單一小型文件。
 window.firebaseSubscribeRolePermission = (role,onChange,onError) => {
@@ -1222,9 +1226,7 @@ async function fbInitForAuthorizedUser(){
     }catch(e){}
     try{ localStorage.removeItem('mob_rej_read'); }catch(e){}
     if(!canLoadCostSettings()) await window.pcmsDataCache?.remove('costSettings');
-    const role=window.cu?.role;
-    const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
-    if(!isAdm()&&(permissions?.costMain!==true||permissions?.costlog!==true)){
+    if(!window.canUseFeature?.('managementMain')){
       window.cLog=[];
       await window.pcmsDataCache?.remove('cLog');
     }

@@ -7,11 +7,7 @@
   function text(value){ return String(value??'').trim(); }
   function allowed(field=''){
     if(field==='code') return false;
-    const role=window.cu?.role;
-    return role==='admin'||(
-      window.permissionSettings?.[role]?.productsMain===true
-      &&window.permissionSettings?.[role]?.productionProcessEdit===true
-    );
+    return window.canEditProductMaster?.()===true;
   }
   function productByIdentity(input={}){
     const productId=text(input.productId);

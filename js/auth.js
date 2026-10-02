@@ -19,34 +19,19 @@ let idleIv = null, idleLastActivityAt = 0, idleActive = false, idleLogoutPending
 
 // ===== 權限判斷 =====
 function isAdm(){ return window.cu && window.cu.role==='admin'; }
+// canUseFeature（中央操作授權）：頁面、按鈕及資料服務使用同一母功能結果。
+function canUseFeature(key){
+  if(!isCurrentDeskAccount()) return false;
+  if(isAdm()) return true;
+  const role=window.cu.role;
+  return window.rolePermissionsReady?.[role]===true
+    && window.PCMSFeatures.featurePermissionEnabled(window.permissionSettings?.[role],key);
+}
 function canViewCosts(){
-  if(isAdm()) return true;
-  const role=window.cu?.role;
-  const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
-  return CONFIGURABLE_ROLES.includes(role)
-    && permissions?.productsMain===true
-    && permissions?.summary===true
-    && permissions?.costView===true;
+  return canUseFeature('costView')&&(canUseFeature('productsMain')||canUseFeature('managementMain'));
 }
-// canLoadCostSettings（可讀取成本設定）：敏感工價子開關或成本設定／匯出分頁任一開放即可。
-function canLoadCostSettings(){
-  if(isAdm()) return true;
-  const role=window.cu?.role;
-  const permissions=window.permissionSettings?.[role];
-  return canViewCosts()||(
-    permissions?.costMain===true
-    && (permissions?.settings===true||permissions?.export===true)
-  );
-}
-// canEditProductMaster（可修改款號主檔）：同一權限控制款號欄位、工序結構及標準秒數。
-function canEditProductMaster(){
-  if(isAdm()) return true;
-  const role=window.cu?.role;
-  const permissions=window.permissionSettings?.[role];
-  return CONFIGURABLE_ROLES.includes(role)
-    && permissions?.productsMain===true
-    && permissions?.productionProcessEdit===true;
-}
+function canLoadCostSettings(){ return canViewCosts()||canUseFeature('managementMain'); }
+function canEditProductMaster(){ return canUseFeature('productionProcessEdit'); }
 function canEditProcessSeconds(){ return canEditProductMaster(); }
 function isCurrentDeskAccount(){
   return !!(
@@ -62,14 +47,8 @@ function canOpenPage(name){
   const pageConfig=window.PCMSFeatures?.getPage(name);
   if(!pageConfig) return false;
   if(isAdm()) return true;
-  const moduleConfig=window.PCMSFeatures?.getModule(pageConfig.moduleId); // moduleConfig（頁面所屬主功能）
-  if(moduleConfig?.adminOnly||pageConfig.adminOnly) return false;
-  const moduleFeature=moduleConfig?.mainKey; // moduleFeature（主功能權限）
-  if(moduleFeature&&window.permissionSettings?.[window.cu.role]?.[moduleFeature]!==true) return false;
-  const feature=pageConfig.feature;
-  if(!feature) return false;
-  if(window.permissionSettings?.[window.cu.role]?.[feature]!==true) return false;
-  return true;
+  const moduleConfig=window.PCMSFeatures?.getModule(pageConfig.moduleId);
+  return canUseFeature(moduleConfig?.mainKey)&&canUseFeature(pageConfig.feature);
 }
 
 // openModule（開啟模組）：依目前角色選擇第一個有權限的內頁。

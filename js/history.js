@@ -210,7 +210,7 @@
   }
 
   async function loadAllOperationLogs(options={}){
-    if(window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên mới xem được nhật ký toàn hệ thống. / 只有管理員可以查看全站日誌。');
+    if(!window.canUseFeature?.('managementMain')) throw new Error('Chưa được mở quyền quản lý. / 尚未開放管理權限。');
     const state=getQueryState('operationLogs',{...options,permissionKey:''});
     return loadQueryState(state,options);
   }
@@ -231,9 +231,7 @@
   }
 
   async function ensureCostLogLoaded(options={}){
-    const role=window.cu?.role;
-    const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）
-    if(!window.isAdm?.()&&(permissions?.costMain!==true||permissions?.costlog!==true)){
+    if(!window.canUseFeature?.('managementMain')){
       window.cLog=[];
       return window.cLog;
     }

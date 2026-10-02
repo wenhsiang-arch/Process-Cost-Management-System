@@ -5,7 +5,7 @@
   const MANAGE_DEPARTMENT_VALUE = '__manage__'; // MANAGE_DEPARTMENT_VALUE（開啟部門管理的下拉選項值）
   const state = {initialized:false}; // state（員工頁狀態）
   function element(id){ return document.getElementById(id); }
-  function isAdmin(){ return window.cu?.role === 'admin'; }
+  function canManageEmployees(){ return window.canUseFeature?.('productionMain')===true; }
 
   function setMessage(vi,zh,kind='info'){
     const host = element('production-employee-status');
@@ -398,7 +398,7 @@
         actionButton('ti-edit','Chỉnh sửa','修改',()=>openEmployeeEditor(employee)),
         actionButton(employee.active === true ? 'ti-user-off' : 'ti-user-check',employee.active === true ? 'Ngừng dùng' : 'Kích hoạt',employee.active === true ? '停用' : '啟用',()=>void toggleActive(employee),employee.active === true ? 'danger' : '')
       );
-      if(isAdmin()) actionCell.append(
+      if(canManageEmployees()) actionCell.append(
         actionButton('ti-trash','Xóa vĩnh viễn','永久刪除',()=>void deleteEmployee(employee),'danger')
       );
       row.append(statusCell,actionCell);

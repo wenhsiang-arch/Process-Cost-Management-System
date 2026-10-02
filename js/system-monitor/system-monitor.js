@@ -403,7 +403,7 @@
     else render();
   }
   async function init(){
-    if(window.cu?.role!=='admin') return;
+    if(!window.canUseFeature?.('managementMain')) return;
     if(!state.loaded.logs) await loadLogs(); else render();
   }
   function leave(){

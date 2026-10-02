@@ -74,7 +74,7 @@ function sortUserAccessAccounts(list){
 }
 
 async function loadAccounts(){
-  if(!isAdm()){
+  if(!window.canUseFeature?.('managementMain')){
     window.accs=[];
     rAcc();
     return false;
@@ -293,7 +293,7 @@ async function saveEacc(){
     return;
   }
   const isMe=isCurrentAccessAccount(account);
-  if(isMe&&(role!=='admin'||active!==true)){
+  if(isMe&&(role!==account.role||active!==true)){
     await accountsMessage('Không thể tắt hoặc hạ quyền tài khoản đang đăng nhập.','不可停用或降低目前登入帳號的權限。','warning');
     return;
   }

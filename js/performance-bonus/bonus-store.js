@@ -379,7 +379,7 @@
   async function unlockMonth(month,reason){
     const normalized=requireMonth(month);
     const unlockReason=String(reason||'').trim().slice(0,500);
-    if(!window.isAdm?.()) throw new Error('Chỉ quản trị viên được mở khóa tháng. / 只有管理員可以解除月份鎖定。');
+    if(!window.canUseFeature?.('productionMain')) throw new Error('Chưa được mở quyền sản lượng. / 尚未開放產能權限。');
     if(!unlockReason) throw new Error('Cần nhập lý do mở khóa. / 請填寫解除鎖定原因。');
     const logReference=window._newDocRef(LOG_COLLECTION);
     const timestamp=now();
@@ -409,7 +409,7 @@
     return saved;
   }
   function canUnlock(){
-    return Boolean(window.isAdm?.());
+    return window.canUseFeature?.('productionMain')===true;
   }
 
   window.PCMSPerformanceBonusStore=Object.freeze({

@@ -32,10 +32,7 @@ function isOrderUsable(o){
     && (!o.lifecycleStatus||o.lifecycleStatus==='active');
 }
 function canManageOrders(){
-  const role=window.cu?.role;
-  if(role==='admin') return true;
-  const permissions=window.permissionSettings?.[role]; // permissions（目前角色權限）。
-  return permissions?.progress===true&&permissions?.orderImport===true;
+  return window.canUseFeature?.('progress')===true;
 }
 function normalizeProcessNo(value){
   const raw=String(value??'').trim();

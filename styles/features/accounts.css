@@ -191,6 +191,7 @@
 #pg-permissions .permission-matrix-copy {
   display: flex;
   min-width: 0;
+  width: 100%;
   flex-direction: column;
   gap: 2px;
   line-height: 1.25;
@@ -200,14 +201,16 @@
   color: inherit;
   font-size: var(--ui-copy-size-primary, var(--ui-font-size-label-vi));
   font-weight: var(--ui-font-weight-primary);
-  overflow-wrap: anywhere;
+  white-space: normal;
+  overflow-wrap: normal;
 }
 
 #pg-permissions .permission-matrix-copy > span {
   color: var(--ui-color-text-muted);
   font-size: var(--ui-copy-size-secondary, var(--ui-font-size-label-zh));
   font-weight: var(--ui-font-weight-secondary);
-  overflow-wrap: anywhere;
+  white-space: normal;
+  overflow-wrap: normal;
 }
 
 #pg-permissions .permission-matrix-shell {
@@ -225,10 +228,10 @@
   table-layout: fixed;
 }
 
-#pg-permissions .permission-matrix-col-module { width: 18%; }
-#pg-permissions .permission-matrix-col-page { width: 20%; }
-#pg-permissions .permission-matrix-col-item { width: 14%; }
-#pg-permissions .permission-matrix-col-role { width: 8%; }
+#pg-permissions .permission-matrix-col-module { width: 23%; }
+#pg-permissions .permission-matrix-col-page { width: 11%; }
+#pg-permissions .permission-matrix-col-item { width: 16%; }
+#pg-permissions .permission-matrix-col-role { width: calc(50% / 6); }
 
 #pg-permissions .permission-matrix-table th,
 #pg-permissions .permission-matrix-table td {

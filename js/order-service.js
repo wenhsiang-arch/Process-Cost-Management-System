@@ -516,7 +516,7 @@
   async function purgeOrder(orderId,options={}){
     requireCloud();
     const incomplete=options.incomplete===true;
-    if(!incomplete&&window.cu?.role!=='admin') throw new Error('Chỉ quản trị viên được xóa vĩnh viễn. / 只有管理員可永久刪除。');
+    if(!window.canUseFeature?.('progress')) throw new Error('Chưa được mở quyền đơn hàng. / 尚未開放訂單管理權限。');
     const id=text(orderId), user=actor();
     if(!id||purgingOrders.has(id)) throw new Error('Đang xử lý đơn hàng. / 訂單正在處理中。');
     purgingOrders.add(id);

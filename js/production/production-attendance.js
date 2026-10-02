@@ -12,7 +12,7 @@
   }; // state（考勤頁目前狀態）
 
   function element(id){ return document.getElementById(id); }
-  function isAdmin(){ return window.cu?.role === 'admin'; }
+  function canManageAttendance(){ return window.canUseFeature?.('productionMain')===true; }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
   function normalize(value){ return String(value || '').trim().toLocaleLowerCase(); }
   function hoursText(value){
@@ -248,7 +248,7 @@
       statusCell.appendChild(statusBadge(draft));
       const actionCell = document.createElement('td');
       actionCell.className = 'production-row-actions';
-      if(isAdmin() && draft.record) actionCell.appendChild(deleteButton(draft));
+      if(canManageAttendance() && draft.record) actionCell.appendChild(deleteButton(draft));
       row.append(normalCell,overtimeCell,totalCell,statusCell,actionCell);
       body.appendChild(row);
     });

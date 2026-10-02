@@ -10,9 +10,6 @@
   const SNAPSHOT_SCHEMA_VERSION=1;
   const CURRENT_RESULT_SCHEMA_VERSION=1;
   const CURRENT_RESULT_TEXT_LIMIT=220000; // 目前有效獎金結果保守控制在 Firestore 單一文件安全範圍內。
-  const CHUNK_TEXT_LENGTH=180000; // 最多約 540KB UTF-8，保留 Firestore 文件大小安全空間。
-  // SNAPSHOT_BATCH_WRITE_LIMIT（快照單批寫入上限）：同時保留 Firestore（雲端文件資料庫）10MiB 請求與安全規則存取空間。
-  const SNAPSHOT_BATCH_WRITE_LIMIT=12;
   const LOCKED_STATUSES=new Set(['locked','exported','paid']);
 
   function text(value){ return String(value??'').trim(); }
@@ -30,14 +27,7 @@
       name:text(profile.user||profile.username||profile.displayName||profile.email||user.uid||'unknown').slice(0,200)
     };
   }
-  function monthRange(month){
-    const normalized=requireMonth(month);
-    const [year,number]=normalized.split('-').map(Number);
-    return {from:`${normalized}-01`,to:`${normalized}-${String(new Date(year,number,0).getDate()).padStart(2,'0')}`};
-  }
   function snapshotData(snapshot){ return snapshot?.exists?.()?{id:snapshot.id,...snapshot.data()}:null; }
-  function documentRows(snapshot){ return (snapshot?.docs||[]).map(item=>({id:item.id,...item.data()})); }
-  function unique(values){ return [...new Set((values||[]).map(text).filter(Boolean))].sort(); }
   function stateFromControl(value={}){
     return {
       entriesVersion:text(value.entriesVersion)||'0',attendanceVersion:text(value.attendanceVersion)||'0',
@@ -60,17 +50,6 @@
     }
     return `${first.toString(36).padStart(7,'0')}${second.toString(36).padStart(7,'0')}`;
   }
-  function splitJson(value,maxLength=CHUNK_TEXT_LENGTH){
-    const source=JSON.stringify(value);
-    const parts=[];
-    for(let start=0;start<source.length;){
-      let end=Math.min(source.length,start+Math.max(1000,Number(maxLength)||CHUNK_TEXT_LENGTH));
-      if(end<source.length&&/[\uD800-\uDBFF]/.test(source.charAt(end-1))) end-=1;
-      parts.push(source.slice(start,end));
-      start=end;
-    }
-    return {json:source,parts:parts.length?parts:[''],hash:hashText(source)};
-  }
   function joinJson(parts,expectedHash=''){
     const source=(parts||[]).join('');
     if(expectedHash&&hashText(source)!==text(expectedHash)){
@@ -78,94 +57,12 @@
     }
     return JSON.parse(source);
   }
-  async function queryRange(collection,field,range){
-    const query=window._query(window._collection(collection),window._where(field,'>=',range.from),window._where(field,'<=',range.to));
-    return documentRows(await window._getDocs(query));
-  }
-  async function readByIds(collection,ids){
-    const rows=await Promise.all(unique(ids).map(async id=>snapshotData(await window._getDoc(window._docRef(collection,id)))));
-    return rows.filter(Boolean);
-  }
-  function analysisSnapshot(resolvedSummaries,range){
-    const calculations=window.PCMSProductionAnalysisCalculations;
-    if(!calculations?.buildDatasetFromMonthSummaries) return {calculationVersion:'',employees:[],processes:[],departments:[]};
-    const filters={fromDate:range.from,toDate:range.to};
-    const dataset=calculations.buildDatasetFromMonthSummaries(resolvedSummaries,filters);
-    return {
-      calculationVersion:text(calculations.calculationVersion),
-      employees:calculations.employeeAnalysisRows(dataset,filters),
-      processes:calculations.ieAnalysisRows(dataset,filters),
-      departments:calculations.departmentAnalysisRows(dataset,filters)
-    };
-  }
-  function buildSnapshotPayload(input={}){
-    const month=requireMonth(input.month);
-    const range=monthRange(month);
-    const rawSummaries=clone(input.rawSummaries||[]);
-    const resolvedSummaries=clone(input.resolvedSummaries||[]);
-    const summaryStore=window.PCMSProductionSummaries;
-    const performance=summaryStore?.performanceRows
-      ?summaryStore.performanceRows(resolvedSummaries,range.from,range.to):[];
-    return {
-      snapshotSchemaVersion:SNAPSHOT_SCHEMA_VERSION,month,sourceState:clone(input.sourceState||{}),
-      frozenAt:Number(input.frozenAt)||Date.now(),frozenBy:clone(input.frozenBy||actor()),
-      productMaster:{products:clone(input.products||[])},
-      orderContext:{orders:clone(input.orders||[]),orderItems:clone(input.orderItems||[])},
-      production:{entries:clone(input.entries||[]),attendance:clone(input.attendance||[]),rawSummaries,resolvedSummaries},
-      analysis:clone(input.analysis||analysisSnapshot(resolvedSummaries,range)),
-      performance:clone(input.performance||performance),
-      bonus:{metadata:clone(input.current?.metadata||{}),employees:clone(input.current?.employees||[]),referenceTable:clone(input.referenceTable||null)}
-    };
-  }
-  async function captureSnapshot(month,current,control){
-    const normalized=requireMonth(month);
-    const range=monthRange(normalized);
-    const summaryStore=window.PCMSProductionSummaries;
-    if(!summaryStore?.loadRawEmployeeMonths||!summaryStore?.loadEmployeeMonths){
-      throw new Error('Bộ nhớ tóm tắt mới chưa sẵn sàng. / 新月摘要程式尚未載入。');
-    }
-    const sourceState=stateFromControl(control);
-    const [rawSummaries,resolvedSummaries,entries,attendance,referenceTable]=await Promise.all([
-      summaryStore.loadRawEmployeeMonths(normalized,{version:sourceState.summaryVersion,force:true}),
-      summaryStore.loadEmployeeMonths(normalized,{version:sourceState.summaryVersion,force:true}),
-      queryRange('productionEntries','productionDate',range),queryRange('productionAttendance','attendanceDate',range),
-      window._getDoc(window._docRef('performanceBonusTables','current')).then(snapshotData)
-    ]);
-    const orderItems=await readByIds('orderItems',entries.map(item=>item.orderItemId));
-    const orders=await readByIds('orders',[...entries.map(item=>item.orderId),...orderItems.map(item=>item.orderId)]);
-    const products=await readByIds('products',[...entries.map(item=>item.productId),...orderItems.map(item=>item.productId)]);
-    return buildSnapshotPayload({month:normalized,current,sourceState,rawSummaries,resolvedSummaries,entries,attendance,
-      orderItems,orders,products,referenceTable,frozenAt:Date.now(),frozenBy:actor()});
-  }
-  function snapshotIdFor(payload,hash){
-    return `pbs_${payload.month.replace('-','')}_${hashText(`${payload.month}|${hash}|${payload.sourceState.summaryVersion||'0'}`)}`;
-  }
-  function operationLogIdFor(snapshotId){ return `pbl_${text(snapshotId)}`; }
   function snapshotRef(snapshotId){ return window._docRef(SNAPSHOT_COLLECTION,text(snapshotId)); }
-  // 區塊明確保存前一段與最後一段識別碼，讓 Security Rules（安全規則）驗證完整連續鏈。
+  // 舊快照只讀取既有分段，不再產生或寫入新快照。
   function chunkIdFor(snapshotId,index){ return `${text(snapshotId)}__${Number(index)}`; }
   function chunkRef(snapshotId,index){ return window._docRef(CHUNK_COLLECTION,chunkIdFor(snapshotId,index)); }
   function monthRef(month){ return window._docRef(MONTH_COLLECTION,requireMonth(month)); }
   function productionMonthRef(month){ return window._docRef(PRODUCTION_MONTH_COLLECTION,requireMonth(month)); }
-  async function stageSnapshot(payload){
-    const encoded=splitJson(payload);
-    const snapshotId=snapshotIdFor(payload,encoded.hash);
-    const timestamp=Date.now();
-    const manifest={snapshotId,month:payload.month,state:'staging',payloadHash:encoded.hash,chunkCount:encoded.parts.length,
-      lastChunkId:chunkIdFor(snapshotId,encoded.parts.length-1),
-      sourceState:clone(payload.sourceState),createdAt:timestamp,createdByUid:actor().uid,schemaVersion:SNAPSHOT_SCHEMA_VERSION};
-    const writes=[{reference:snapshotRef(snapshotId),data:manifest},...encoded.parts.map((part,index)=>({
-      reference:chunkRef(snapshotId,index),data:{chunkId:chunkIdFor(snapshotId,index),snapshotId,index,
-        previousChunkId:index>0?chunkIdFor(snapshotId,index-1):'',totalParts:encoded.parts.length,payloadPart:part,
-        payloadHash:encoded.hash,state:'staged',schemaVersion:SNAPSHOT_SCHEMA_VERSION}
-    }))];
-    for(let offset=0;offset<writes.length;offset+=SNAPSHOT_BATCH_WRITE_LIMIT){
-      const batch=window._writeBatch({skipDataVersions:true});
-      writes.slice(offset,offset+SNAPSHOT_BATCH_WRITE_LIMIT).forEach(item=>batch.set(item.reference,item.data));
-      await batch.commit();
-    }
-    return manifest;
-  }
   async function readSnapshot(snapshotId){
     const manifest=snapshotData(await window._getDoc(snapshotRef(snapshotId)));
     if(!manifest||manifest.state!=='locked') throw new Error('Không tìm thấy ảnh chụp tháng đã khóa. / 找不到已鎖定月份快照。');
@@ -243,7 +140,7 @@
   }
 
   window.PCMSPerformanceBonusLockService=Object.freeze({
-    SNAPSHOT_COLLECTION,CHUNK_COLLECTION,SNAPSHOT_SCHEMA_VERSION,CURRENT_RESULT_SCHEMA_VERSION,SNAPSHOT_BATCH_WRITE_LIMIT,hashText,splitJson,joinJson,
-    buildSnapshotPayload,captureSnapshot,stageSnapshot,readSnapshot,lockMonth
+    SNAPSHOT_COLLECTION,CHUNK_COLLECTION,SNAPSHOT_SCHEMA_VERSION,CURRENT_RESULT_SCHEMA_VERSION,hashText,joinJson,
+    readSnapshot,lockMonth
   });
 })();

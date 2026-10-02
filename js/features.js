@@ -2,7 +2,7 @@
 (function(){
   const SCRIPT_URLS = Object.freeze({
     homeUpdates:'js/home-updates.js?v=20260908-1',
-    history:'js/history.js?v=20260923-2',
+    history:'js/history.js?v=20261002-2-parent-permissions',
     fileIo:'js/file-io.js?v=20260918-1',
     settings:'js/settings.js?v=20260923-4',
     uiTableControls:'js/ui-table-controls.js?v=20261002-1'+'&rev=adjacent-resize1',
@@ -17,11 +17,11 @@
     productMasterService:'js/product-master-service.js?v=20260825-3',
     productChangeLog:'js/product-change-log.js?v=20260825-4',
     productImportImpact:'js/product-import-impact.js?v=20260926-1',
-    productMasterEditor:'js/product-master-editor.js?v=20260923-4',
-    productQuickEdit:'js/product-quick-edit.js?v=20260923-4',
+    productMasterEditor:'js/product-master-editor.js?v=20261002-2-parent-permissions',
+    productQuickEdit:'js/product-quick-edit.js?v=20261002-2-parent-permissions',
     productGroupRuntime:'js/product-group-runtime.js?v=20260824-4',
     orderItemStore:'js/order-item-store.js?v=20260823-1',
-    orderService:'js/order-service.js?v=20260923-5',
+    orderService:'js/order-service.js?v=20261002-2-parent-permissions',
     orderProductionProgress:'js/order-production-progress.js?v=20260923-5',
     summary:'js/summary.js?v=20260923-4',
     data:'js/data.js?v=20260923-4',
@@ -30,34 +30,34 @@
     cutting:'js/cutting.js?v=20260923-4',
     pieceCuttingStore:'js/piece-cutting-store.js?v=20260906-1',
     pieceCutting:'js/piece-cutting.js?v=20260923-4',
-    accounts:'js/accounts.js?v=20260813-2',
+    accounts:'js/accounts.js?v=20261002-2-parent-permissions',
     orders:'js/orders.js?v=20261002-1-shipment-state',
     shippedOrders:'js/shipped-orders.js?v=20261002-1-shipment-state',
-    orderArchive:'js/order-archive.js?v=20260916-2',
+    orderArchive:'js/order-archive.js?v=20261002-2-parent-permissions',
     orderHistory:'js/order-history.js?v=20260923-2',
     inspectionReportStore:'js/inspection-report-store.js?v=20260918-4',
     inspectionReport:'js/inspection-report.js?v=20260918-10',
-    permissions:'js/permissions.js?v=20260823-1',
-    systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20260812-1',
-    systemMonitor:'js/system-monitor/system-monitor.js?v=20260813-1',
-    productionEmployeeStore:'js/production/employee-store.js?v=20260816-1',
+    permissions:'js/permissions.js?v=20261002-2-parent-permissions',
+    systemMonitorStore:'js/system-monitor/system-monitor-store.js?v=20261002-2-parent-permissions',
+    systemMonitor:'js/system-monitor/system-monitor.js?v=20261002-2-parent-permissions',
+    productionEmployeeStore:'js/production/employee-store.js?v=20261002-2-parent-permissions',
     productionEfficiencyCore:'js/production/efficiency-core.js?v=20260823-1',
     productionSummaryStore:'js/production/linked-summary-store.js?v=20260824-1',
     productionGuardStore:'js/production/production-guard-store.js?v=20260824-1',
     productionEntryStore:'js/production/linked-entry-store.js?v=20260925-1',
     productionReportStore:'js/production/report-store.js?v=20260823-3',
-    productionAttendanceStore:'js/production/attendance-store.js?v=20260823-3',
-    productionEntry:'js/production/production-entry.js?v=20260923-4',
+    productionAttendanceStore:'js/production/attendance-store.js?v=20261002-2-parent-permissions',
+    productionEntry:'js/production/production-entry.js?v=20261002-2-parent-permissions',
     productionRecords:'js/production/production-records.js?v=20260906-1',
     performanceBonusCalculations:'js/performance-bonus/bonus-calculations.js?v=20260815-3',
-    performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20261002-1-current-result',
-    performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20261002-1-unlock-export',
+    performanceBonusLockService:'js/performance-bonus/bonus-lock-service.js?v=20261002-2-parent-permissions',
+    performanceBonusStore:'js/performance-bonus/bonus-store.js?v=20261002-2-parent-permissions',
     performanceBonusSettingsPage:'js/performance-bonus/bonus-settings-page.js?v=20260815-4',
     performanceBonusMonthlyPage:'js/performance-bonus/monthly-bonus-page.js?v=20261002-1-unlock-export',
-    productionAttendance:'js/production/production-attendance.js?v=20260814-1',
-    productionEmployees:'js/production/production-employees.js?v=20260816-1',
+    productionAttendance:'js/production/production-attendance.js?v=20261002-2-parent-permissions',
+    productionEmployees:'js/production/production-employees.js?v=20261002-2-parent-permissions',
     productionProcessGroupUi:'js/production/process-group-ui.js?v=20260824-6',
-    productionProcessSecondsQuickEdit:'js/production/product-seconds-adapter.js?v=20260825-1',
+    productionProcessSecondsQuickEdit:'js/production/product-seconds-adapter.js?v=20261002-2-parent-permissions',
     productionProductGroups:'js/production/product-groups.js?v=20260923-4',
     productionAnalysisCalculations:'js/production-analysis/analysis-calculations.js?v=20260823-2',
     productionAnalysisStore:'js/production-analysis/analysis-store.js?v=20260823-3',
@@ -76,7 +76,7 @@
     inspectionReport:'styles/features/inspection-report.css?v=20260923-4',
     products:'styles/features/products.css?v=20260923-4&rev=import-feedback1',
     cost:'styles/features/cost.css?v=20260923-4',
-    accounts:'styles/features/accounts.css?v=20260923-4',
+    accounts:'styles/features/accounts.css?v=20261002-2-parent-permissions',
     production:'styles/features/production.css?v=20260923-4',
     productionProcessEdit:'styles/features/production-process-edit.css?v=20260923-4',
     productionAnalysis:'styles/features/production-analysis.css?v=20260923-4',
@@ -196,10 +196,7 @@
           styles:['production','performanceBonus'],
           scripts:['fileIo','productModel','productionEfficiencyCore','productLegacyProcessStore','productResolver','orderItemStore','uiTableControls','productionEmployeeStore','productionSummaryStore','productionGuardStore','productionEntryStore','productionReportStore','productionAttendanceStore','productionRecords','productionAnalysisCalculations','performanceBonusCalculations','performanceBonusLockService','performanceBonusStore','performanceBonusMonthlyPage'],
           dataScopes:['products','orders','orderItems','productionEntries','productionAttendance','performanceBonusTables','performanceBonusMonths','performanceBonusSnapshots','performanceBonusSnapshotChunks','performanceBonusPrivateMonths','performanceBonusAdjustments','productionEmployeeMonths','productionMonths'],
-          dataLoaders:['loadPerformanceBonusData'],onOpen:['performanceBonusInit'],onLeave:['performanceBonusLeave'],
-          restrictions:[
-            {key:'performanceBonusUnlock',vi:'Mở khóa tháng đã chốt',zh:'解除已結算月份鎖定'}
-          ]
+          dataLoaders:['loadPerformanceBonusData'],onOpen:['performanceBonusInit'],onLeave:['performanceBonusLeave']
         },
         {
           page:'production-attendance',feature:'productionAttendance',icon:'ti-calendar-time',vi:'Chấm công',zh:'考勤',
@@ -217,7 +214,7 @@
       ]
     },
     {
-      id:'production-analysis',navId:'production-analysis',navGroup:'primary',icon:'ti-chart-histogram',mainKey:'productionAnalysis',
+      id:'production-analysis',navId:'production-analysis',navGroup:'primary',icon:'ti-chart-histogram',mainKey:'productionMain',
       usesInternalTabs:true,
       vi:'Phân tích sản xuất',zh:'生產分析',
       pages:[
@@ -235,7 +232,7 @@
       ]
     },
     {
-      id:'cost',navId:'cost',navGroup:'management',icon:'ti-currency-dollar',mainKey:'costMain',
+      id:'cost',navId:'cost',navGroup:'management',icon:'ti-currency-dollar',mainKey:'managementMain',
       vi:'Quản lý chi phí',zh:'成本管理',
       pages:[
         {
@@ -268,26 +265,26 @@
       ]
     },
     {
-      id:'accounts',navId:'accounts',navGroup:'management',icon:'ti-users',adminOnly:true,
+      id:'accounts',navId:'accounts',navGroup:'management',icon:'ti-users',mainKey:'managementMain',
       vi:'Quản lý tài khoản',zh:'帳號管理',
       pages:[
         {
-          page:'accounts',adminOnly:true,icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理',
+          page:'accounts',feature:'accounts',icon:'ti-users',vi:'Quản lý tài khoản',zh:'帳號管理',
           styles:['accounts'],scripts:['history','uiTableControls','accounts'],dataScopes:['userAccess'],dataLoaders:['loadAccounts'],onOpen:['rAcc']
         },
         {
-          page:'permissions',adminOnly:true,icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理',
-          styles:['accounts'],scripts:['history','permissions'],dataScopes:['rolePermissions'],dataLoaders:[],onOpen:['renderPermissions']
+          page:'permissions',feature:'accounts',icon:'ti-shield-check',vi:'Phân quyền',zh:'權限管理',
+          styles:['accounts'],scripts:['history','permissions'],dataScopes:['rolePermissions'],dataLoaders:['loadAllRolePermissions'],onOpen:['renderPermissions']
         }
       ]
     },
     {
-      id:'system-monitor',navId:'system-monitor',navGroup:'management',icon:'ti-activity-heartbeat',adminOnly:true,
+      id:'system-monitor',navId:'system-monitor',navGroup:'management',icon:'ti-activity-heartbeat',mainKey:'managementMain',
       usesInternalTabs:true,
       vi:'Giám sát hệ thống',zh:'系統監控',
       pages:[
         {
-          page:'system-monitor',adminOnly:true,icon:'ti-activity-heartbeat',vi:'Giám sát hệ thống',zh:'系統監控',
+          page:'system-monitor',feature:'systemMonitor',icon:'ti-activity-heartbeat',vi:'Giám sát hệ thống',zh:'系統監控',
           styles:['systemMonitor'],scripts:['history','systemMonitorStore','systemMonitor'],
           dataScopes:['operationLogs','systemUsageSessions'],dataLoaders:[],
           onOpen:['systemMonitorInit'],onLeave:['systemMonitorLeave']
@@ -296,12 +293,33 @@
     }
   ]); // FEATURE_MODULES（中央功能清單）：權限頁與系統頁面共用同一份來源。
 
+  // 只有五個母功能與產品工價為正式授權；舊子鍵僅作既有呼叫的衍生別名。
   const PERMISSION_KEYS = Object.freeze([
-    'progress','orderImport','productsMain','summary','costView','preparationMain','cutting',
-    'productionMain','productionEntry','productionRecords','productionAttendance','productionEmployees','productionProcessEdit',
-    'productionAnalysis','performanceBonus','performanceBonusUnlock',
-    'costMain','settings','performanceBonusSettings','costlog','export','accounts'
-  ]); // PERMISSION_KEYS（可儲存權限欄位）：必須與 Firestore Rules（雲端資料庫安全規則）一致。
+    'progress','productsMain','preparationMain','productionMain','managementMain','costView'
+  ]);
+  const PERMISSION_STRUCTURE = Object.freeze([
+    {id:'orders',mainKey:'progress',icon:'ti-chart-bar',vi:'Đơn hàng',zh:'訂單管理',pages:[]},
+    {id:'products',mainKey:'productsMain',icon:'ti-layout-list',vi:'Công đoạn',zh:'工序表',pages:[],
+      restrictions:[{key:'costView',vi:'Hiển thị giá công sản phẩm',zh:'產品工價'}]},
+    {id:'preparation',mainKey:'preparationMain',icon:'ti-package',vi:'Xuất phiếu chuẩn bị vật liệu',zh:'備料出單',pages:[]},
+    {id:'production',mainKey:'productionMain',icon:'ti-clipboard-data',vi:'Sản lượng',zh:'產能',pages:[]},
+    {id:'management',mainKey:'managementMain',icon:'ti-settings',vi:'Quản lý',zh:'管理',pages:[]}
+  ]);
+
+  function featurePermissionEnabled(features,key){
+    if(!features) return false;
+    if(PERMISSION_KEYS.includes(key)) return features[key]===true;
+    if(key==='productionProcessEdit') return features.productsMain===true||features.productionMain===true;
+    if(key==='export') return features.managementMain===true&&features.costView===true;
+    const parent={
+      orderImport:'progress',summary:'productsMain',cutting:'preparationMain',
+      productionEntry:'productionMain',productionRecords:'productionMain',productionAttendance:'productionMain',
+      productionEmployees:'productionMain',productionAnalysis:'productionMain',performanceBonus:'productionMain',
+      performanceBonusUnlock:'productionMain',costMain:'managementMain',settings:'managementMain',
+      performanceBonusSettings:'managementMain',costlog:'managementMain',accounts:'managementMain',systemMonitor:'managementMain'
+    }[key];
+    return !!parent&&features[parent]===true;
+  }
 
   const pageMap = new Map(); // pageMap（頁面設定索引）
   const moduleMap = new Map(); // moduleMap（主功能設定索引）
@@ -312,25 +330,6 @@
   // 首頁歷史公告是公開靜態內容，只登記按需程式；不加入業務模組或角色權限清單。
   pageMap.set('home',{page:'home',vi:'Cập nhật hệ thống',zh:'系統更新',scripts:['homeUpdates'],styles:[],dataScopes:[],dataLoaders:[]});
   let homeArchiveGeneration=0; // homeArchiveGeneration（首頁要求世代）：離頁後忽略尚未載入的程式回應。
-
-  const PERMISSION_STRUCTURE = Object.freeze(FEATURE_MODULES.map(module=>({
-    id:module.id,
-    icon:module.icon,
-    mainKey:module.mainKey,
-    adminOnly:module.adminOnly===true,
-    vi:module.vi,
-    zh:module.zh,
-    restrictions:module.restrictions||[],
-    pages:(module.pages.length===1&&module.pages[0].feature===module.mainKey
-      ? []
-      : module.pages.filter(page=>page.permissionVisible!==false).map(page=>({
-        key:page.feature||page.page,
-        adminOnly:page.adminOnly===true,
-        vi:page.permissionVi||page.vi,
-        zh:page.permissionZh||page.zh,
-        restrictions:page.restrictions||[]
-      })))
-  }))); // PERMISSION_STRUCTURE（權限頁階層）：由中央功能清單產生，不再另外維護。
 
   const loadedScriptPromises = new Map(); // loadedScriptPromises（已載入或載入中的程式）
   const loadedStylePromises = new Map(); // loadedStylePromises（已載入或載入中的功能樣式）
@@ -354,34 +353,15 @@
     CONFIGURABLE_ROLES.map(role=>[role,Object.freeze(createEmptyPermissionSet())])
   )); // DEFAULT_PERMISSIONS（安全預設權限）：只作拒絕用途，不猜測角色工作內容。
 
-  // normalizeFeaturePermissions（正規化功能權限）：功能分頁開啟就允許該頁內操作，只保留敏感資料子開關。
+  // 只接受明確母功能值；不從舊子權限或成本權限推導更廣的管理權限。
   function normalizeFeaturePermissions(features,defaults=createEmptyPermissionSet()){
-    const normalized={};
-    PERMISSION_KEYS.forEach(key=>{
-      normalized[key]=features&&typeof features[key]==='boolean'
-        ? features[key]
-        : defaults[key]===true;
-    });
-    // 舊文件缺少 productsMain（款號管理主入口）時才由子權限推導；明確關閉不得被重新開啟。
-    if(!features||typeof features.productsMain!=='boolean'){
-      normalized.productsMain=normalized.summary===true
-        ||normalized.costView===true
-        ||normalized.productionProcessEdit===true;
-    }
-    // orderImport（舊訂單匯入權限）只保留作為雲端舊文件相容欄位，實際權限永遠跟隨 progress（訂單資料分頁）。
-    normalized.orderImport=normalized.progress===true;
-    if(features&&typeof features.costMain!=='boolean'){
-      normalized.costMain=normalized.settings===true||normalized.performanceBonusSettings===true||normalized.costlog===true||normalized.export===true;
-    }
-    if(features&&typeof features.productionMain!=='boolean'){
-      normalized.productionMain=normalized.productionEntry===true
-        ||normalized.productionRecords===true
-        ||normalized.performanceBonus===true
-        ||normalized.productionAttendance===true
-        ||normalized.productionEmployees===true;
-    }
-    normalized.performanceBonusUnlock=normalized.performanceBonus===true&&normalized.performanceBonusUnlock===true;
-    normalized.accounts=false;
+    const normalized=Object.fromEntries(PERMISSION_KEYS.map(key=>[key,
+      typeof features?.[key]==='boolean'?features[key]:defaults[key]===true]));
+    // 不可列舉的唯讀別名不會寫回角色文件，也不是另一套可勾選權限。
+    const aliases=['orderImport','summary','cutting','productionEntry','productionRecords','productionAttendance',
+      'productionEmployees','productionProcessEdit','productionAnalysis','performanceBonus','performanceBonusUnlock',
+      'costMain','settings','performanceBonusSettings','costlog','export','accounts','systemMonitor'];
+    aliases.forEach(key=>Object.defineProperty(normalized,key,{get:()=>featurePermissionEnabled(normalized,key)}));
     return normalized;
   }
 
@@ -392,17 +372,18 @@
     window.rolePermissionsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
     window.rolePermissionDocumentsReady=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
     window.rolePermissionActive=Object.fromEntries(CONFIGURABLE_ROLES.map(role=>[role,false]));
+    window.rolePermissionsLoadSucceeded=false;
     window.selectedPermissionRole='manager';
   }
 
   // loadPermissions（登入後載入角色權限）：放在核心程式，權限管理畫面本身不必預先載入。
-  async function loadPermissions(){
+  async function loadPermissions(options={}){
     if(typeof window.firebaseLoadRolePermissions!=='function'){
       resetPermissionsToDefaults();
       return window.rolePermissionsReady;
     }
     try{
-      const requestedRoles=typeof isAdm==='function'&&isAdm()
+      const requestedRoles=options.allRoles===true||typeof isAdm==='function'&&isAdm()
         ? CONFIGURABLE_ROLES
         : CONFIGURABLE_ROLES.filter(role=>role===window.cu?.role); // requestedRoles（本次需要讀取的角色）
       const saved=await window.firebaseLoadRolePermissions(requestedRoles);
@@ -415,12 +396,20 @@
         window.rolePermissionsReady[role]=active;
         window.permissionSettings[role]=normalizeFeaturePermissions(doc?.features,DEFAULT_PERMISSIONS[role]);
       });
+      window.rolePermissionsLoadSucceeded=true;
       return {...window.rolePermissionsReady};
     }catch(error){
       console.error('Không thể tải rolePermissions / 無法載入角色功能權限：',error);
       resetPermissionsToDefaults();
       return {...window.rolePermissionsReady};
     }
+  }
+
+  async function loadAllRolePermissions(){
+    if(!window.canUseFeature?.('managementMain')) throw new Error('Không có quyền quản lý. / 未開放管理權限。');
+    const result=await loadPermissions({allRoles:true});
+    if(!window.rolePermissionsLoadSucceeded) throw new Error('Không thể tải quyền; không lưu thay đổi. / 無法載入權限，請勿儲存變更。');
+    return result;
   }
 
   // loadFeatureScript（載入功能程式）：相同程式同時被多個頁面需要時只載入一次。
@@ -750,6 +739,7 @@
   window.PCMSFeatures=Object.freeze({
     modules:FEATURE_MODULES,
     permissionKeys:PERMISSION_KEYS,
+    featurePermissionEnabled,
     permissionStructure:PERMISSION_STRUCTURE,
     defaultPermissions:DEFAULT_PERMISSIONS,
     getPage,
@@ -774,4 +764,5 @@
   window.normalizeFeaturePermissions=normalizeFeaturePermissions;
   window.resetPermissionsToDefaults=resetPermissionsToDefaults;
   window.loadPermissions=loadPermissions;
+  window.loadAllRolePermissions=loadAllRolePermissions;
 })();

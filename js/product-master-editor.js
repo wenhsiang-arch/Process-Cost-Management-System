@@ -20,11 +20,7 @@
     return window.PCMSProductQuickEdit;
   }
   function allowed(){
-    const role=window.cu?.role;
-    return role==='admin'||(
-      window.permissionSettings?.[role]?.productsMain===true
-      &&window.permissionSettings?.[role]?.productionProcessEdit===true
-    );
+    return window.canEditProductMaster?.()===true;
   }
   function dualLabel(vi,zh){ return `<span class="ui-dual-copy"><strong>${safe(vi)}</strong><span>${safe(zh)}</span></span>`; }
   function categoryOptions(selected){

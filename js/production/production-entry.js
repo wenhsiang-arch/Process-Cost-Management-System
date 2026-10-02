@@ -73,9 +73,8 @@
   let recordPreferenceTimer = null; // recordPreferenceTimer（合併連續搜尋輸入的本機保存工作）
 
   function element(id){ return document.getElementById(id); }
-  function isAdmin(){ return window.cu?.role === 'admin'; }
   function canManageRecords(){
-    return isAdmin() || typeof window.canOpenPage !== 'function' || window.canOpenPage('production-records');
+    return window.canUseFeature?.('productionMain')===true;
   }
   function today(){ return typeof formatLocalDate === 'function' ? formatLocalDate(new Date()) : new Date().toISOString().slice(0,10); }
   function currentMonthRange(){

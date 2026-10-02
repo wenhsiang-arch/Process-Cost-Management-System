@@ -154,7 +154,7 @@
     const userId = currentUserId();
     const userName = currentUserName();
     if(!userId) throw new Error('Phiên đăng nhập không hợp lệ. / 登入狀態無效。');
-    if(window.cu?.role === 'admin' && await employeeHasHistoricalBusinessData(data.employeeId)){
+    if(await employeeHasHistoricalBusinessData(data.employeeId)){
       throw new Error('Mã nhân viên này đã từng được sử dụng và không thể cấp lại cho người khác. / 此工號已有歷史業務資料，永久不得重新分配。');
     }
     let saved;
@@ -392,8 +392,8 @@
   }
 
   async function deleteEmployee(employeeId){
-    if(window.cu?.role !== 'admin'){
-      throw new Error('Chỉ quản trị viên mới được xóa vĩnh viễn nhân viên. / 只有管理員可以永久刪除員工。');
+    if(!window.canUseFeature?.('productionMain')){
+      throw new Error('Chưa được mở quyền sản lượng. / 尚未開放產能權限。');
     }
     const normalized = normalizeEmployeeId(employeeId);
     const current = find(normalized);

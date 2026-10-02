@@ -5,7 +5,7 @@
   const expanded=new Map();
   const pair=(vi,zh)=>ordersPairHtml(vi,zh);
   const safe=value=>window.PCMSSafe.text(value);
-  const isAdmin=()=>window.cu?.role==='admin';
+  const canManageOrders=()=>window.canUseFeature?.('progress')===true;
   function button(vi,zh,action,disabled=false){
     const node=document.createElement('button');node.type='button';node.className='btn bsm';
     node.innerHTML=pair(vi,zh);node.disabled=disabled||busy;node.addEventListener('click',action);return node;
@@ -29,7 +29,7 @@
     finally{busy=false;expanded.delete(order.id);render();}
   }
   async function purge(order){
-    if(!isAdmin()||busy)return;
+    if(!canManageOrders()||busy)return;
     const confirmed=await window.ordersConfirm('Xóa vĩnh viễn đơn hàng','永久刪除訂單',
       `Đơn: ${order.orderId}\nKhách hàng: ${order.client}\nSố dòng ban đầu: ${order.itemCount}\nXóa đơn, chi tiết và giải phóng số đơn; không thể hoàn tác. Giữ nhật ký thao tác. Quan hệ dữ liệu do quản trị viên tự xác nhận.`,
       `訂單：${order.orderId}\n客戶：${order.client}\n原始明細：${order.itemCount} 筆\n刪除訂單與明細並釋放單號，無法復原；保留操作紀錄。資料關聯由管理員自行確認。`,
@@ -83,7 +83,7 @@
         const actions=document.createElement('div');actions.className='order-archive-actions';
         actions.append(button('Chi tiết','明細',()=>detail(order),order.lifecycleStatus==='deleting'));
         if(order.lifecycleStatus==='archived')actions.append(button('Khôi phục','還原',()=>restore(order)));
-        if(isAdmin())actions.append(button(order.lifecycleStatus==='deleting'?'Tiếp tục xóa':'Xóa vĩnh viễn',
+        if(canManageOrders())actions.append(button(order.lifecycleStatus==='deleting'?'Tiếp tục xóa':'Xóa vĩnh viễn',
           order.lifecycleStatus==='deleting'?'接續刪除':'永久刪除',()=>purge(order)));
         section.append(actions);
         if(order.lifecycleStatus==='deleting'){
