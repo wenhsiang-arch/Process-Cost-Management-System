@@ -53,11 +53,15 @@ function setPermissionRuntimeActive(active){
 }
 
 async function savePermissions(options={}){
-  if(!isAdm()){
-    await permissionsMessage('Chỉ quản trị viên mới có thể lưu quyền.','只有管理員可以儲存權限。','warning');
+  if(!window.canUseFeature?.('managementMain')){
+    await permissionsMessage('Chưa được mở quyền quản lý.','尚未開放管理權限。','warning');
     return false;
   }
   if(permissionsSaveBusy) return false;
+  if(window.rolePermissionsLoadSucceeded!==true){
+    await permissionsMessage('Chưa tải đủ quyền vai trò; vui lòng làm mới trước khi lưu.','尚未完成職務權限載入，請重新顯示後再儲存。','warning');
+    return false;
+  }
   if(typeof window.firebaseSaveRolePermissions!=='function'){
     await permissionsMessage('Dịch vụ dữ liệu đám mây chưa sẵn sàng.','雲端資料庫服務尚未就緒。','warning');
     return false;
@@ -74,20 +78,18 @@ async function savePermissions(options={}){
     payload[role]={
       role,
       active,
-      features:normalizeFeaturePermissions(window.permissionSettings[role],DEFAULT_PERMISSIONS[role]),
+      features:Object.fromEntries(PERMISSION_KEYS.map(key=>[key,window.permissionSettings[role]?.[key]===true])),
       updatedAt:now,
       updatedBy
     };
   });
   try{
-    await window.firebaseSaveRolePermissions(payload);
-    try{
-      await window.PCMSHistory?.saveOperationLog?.({
-        permissionKey:'systemMonitor',feature:'accounts',action:'rolePermissionsUpdate',status:'success',
-        itemCount:CONFIGURABLE_ROLES.length,detailCount:PERMISSION_KEYS.length,
-        note:String(options.logNote||'Cập nhật quyền vai trò / 更新角色權限').slice(0,500)
-      });
-    }catch(logError){ console.warn('無法寫入角色權限操作紀錄：',logError); }
+    const log=await window.firebaseSaveRolePermissions(payload,{
+      permissionKey:'systemMonitor',feature:'accounts',action:'rolePermissionsUpdate',status:'success',
+      itemCount:CONFIGURABLE_ROLES.length,detailCount:PERMISSION_KEYS.length,
+      note:String(options.logNote||'Cập nhật quyền vai trò / 更新角色權限').slice(0,500)
+    });
+    if(log) window.PCMSHistory?.rememberOperationLog?.(log);
     setPermissionRuntimeActive(active);
     renderPermissions();
     window.PCMSUIComponents.showToast({kind:'success',text:options.successText||{vi:'Đã lưu và áp dụng quyền.',zh:'權限設定已儲存套用。'}});
@@ -105,7 +107,7 @@ async function savePermissions(options={}){
 }
 
 async function toggleSystemMaintenance(){
-  if(!isAdm()||permissionsSaveBusy) return false;
+  if(!window.canUseFeature?.('managementMain')||permissionsSaveBusy) return false;
   const activating=!isSystemMaintenanceActive(); // activating（本次是否啟動維護）
   const confirmed=await window.PCMSUIComponents.confirmDialog({
     title:activating
@@ -169,7 +171,7 @@ function permissionLabelParts(value){
   return {vi:parts[0]||'',zh:parts.slice(1).join(' / ')||''};
 }
 
-// permissionMatrixRows（權限矩陣資料列）：一般權限只顯示母功能與分頁，第三欄只顯示敏感權限。
+// permissionMatrixRows（權限矩陣資料列）：一般權限只顯示五個母功能，第三欄只顯示產品工價。
 function permissionMatrixRows(){
   const rows=[]; // rows（權限矩陣資料列）
   PERMISSION_STRUCTURE.forEach(module=>{
@@ -178,7 +180,7 @@ function permissionMatrixRows(){
     rows.push({
       type:'main',module,key:module.mainKey,adminOnly:module.adminOnly===true,parentKeys:[],
       moduleGroup,pageGroup:mainPageGroup,
-      pageVi:'Toàn bộ',pageZh:'全部',itemVi:'',itemZh:''
+      pageVi:'Toàn bộ chức năng',pageZh:'所有功能',itemVi:'',itemZh:''
     });
     (module.restrictions||[]).forEach(item=>rows.push({
       type:'sensitive',module,item,key:item.key,sensitive:true,
@@ -210,6 +212,7 @@ function permissionMatrixRows(){
 function permissionParentEnabled(role,row){
   if(role==='admin') return true;
   if(row.adminOnly===true) return false;
+  if(row.key==='costView') return permissionValue(role,'productsMain')||permissionValue(role,'managementMain');
   return row.parentKeys.every(key=>permissionValue(role,key));
 }
 
@@ -228,32 +231,31 @@ function permissionRowDiffers(row){
 function permissionMatrixCellHtml(role,row){
   const isAdmin=role==='admin';
   const roleLabel=permissionRoleLabel(role); // roleLabel（角色雙語名稱）
+  const rolePair=permissionLabelParts(roleLabel);
   if(!isAdmin&&(row.adminOnly===true||!PERMISSION_KEYS.includes(row.key))){
     return `<span class="permission-matrix-locked" title="Chỉ quản trị viên / 僅管理員" aria-label="${permissionSafeAttribute(roleLabel)}：Chỉ quản trị viên / 僅管理員"><i class="ti ti-lock"></i></span>`;
   }
   const parentEnabled=permissionParentEnabled(role,row); // parentEnabled（上層權限是否開啟）
   const disabled=isAdmin||!parentEnabled;
   const checked=isAdmin||permissionValue(role,row.key);
-  const rowLabel=row.sensitive
-    ? `${row.itemVi} / ${row.itemZh}`
-    : row.type==='main'
-      ? `${row.module.vi} / ${row.module.zh}`
-      : `${row.pageVi} / ${row.pageZh}`;
-  const label=disabled&&!isAdmin
-    ? `${roleLabel}：Tạm dừng do quyền cấp trên / 因上層權限而暫停`
-    : `${roleLabel}：${rowLabel}`;
+  const itemPair=row.sensitive?{vi:row.itemVi,zh:row.itemZh}
+    :row.type==='main'?{vi:row.module.vi,zh:row.module.zh}:{vi:row.pageVi,zh:row.pageZh};
+  const labelPair=disabled&&!isAdmin
+    ?{vi:`${rolePair.vi}：Tạm dừng do quyền cấp trên`,zh:`${rolePair.zh}：因上層權限而暫停`}
+    :{vi:`${rolePair.vi}：${itemPair.vi}`,zh:`${rolePair.zh}：${itemPair.zh}`};
+  const label=window.PCMSUIText?.visibleText?.(labelPair)||`${labelPair.vi} / ${labelPair.zh}`;
   const roleArgument=permissionInlineArgument(role); // roleArgument（安全角色事件參數）
   const keyArgument=permissionInlineArgument(row.key); // keyArgument（安全權限事件參數）
-  return `<label class="permission-matrix-check${disabled?' is-disabled':''}${isAdmin?' is-fixed':''}" title="${permissionSafeAttribute(label)}">
+  return `<label class="permission-matrix-check${disabled?' is-disabled':''}${isAdmin?' is-fixed':''}" title="${permissionSafeAttribute(label)}" data-ui-localized-title-vi="${permissionSafeAttribute(labelPair.vi)}" data-ui-localized-title-zh="${permissionSafeAttribute(labelPair.zh)}">
     <input type="checkbox" ${checked?'checked':''} ${disabled?'disabled':''}
-      aria-label="${permissionSafeAttribute(label)}"
+      aria-label="${permissionSafeAttribute(label)}" data-ui-localized-aria-label-vi="${permissionSafeAttribute(labelPair.vi)}" data-ui-localized-aria-label-zh="${permissionSafeAttribute(labelPair.zh)}"
       ${disabled?'':`onchange="setPermissionValue(${roleArgument},${keyArgument},this.checked)"`}>
     <span class="permission-matrix-checkmark" aria-hidden="true"></span>
   </label>`;
 }
 
 function permissionMatrixCopy(vi,zh,extraClass=''){
-  return `<span class="permission-matrix-copy${extraClass?' '+extraClass:''}"><strong>${permissionSafeText(vi)}</strong><span>${permissionSafeText(zh)}</span></span>`;
+  return `<span class="permission-matrix-copy ui-dual-copy${extraClass?' '+extraClass:''}"><strong>${permissionSafeText(vi)}</strong><span>${permissionSafeText(zh)}</span></span>`;
 }
 
 function permissionMatrixRoleHeader(role){
@@ -266,7 +268,7 @@ function permissionMatrixRoleHeader(role){
       : active?{vi:'Đã thiết lập',zh:'已設定'}:{vi:'Tạm dừng',zh:'已暫停'};
   return `<th scope="col" class="permission-matrix-role-head${documentReady&&active?'':' is-pending'}">
     ${permissionMatrixCopy(labels.vi,labels.zh)}
-    <span class="permission-matrix-role-status"><span>${status.vi}</span><span>${status.zh}</span></span>
+    <span class="permission-matrix-role-status"><span class="ui-text-vi">${status.vi}</span><span class="ui-text-zh">${status.zh}</span></span>
   </th>`;
 }
 
@@ -387,6 +389,7 @@ function renderPermissions(){
   window.permissionMatrixFilter=window.permissionMatrixFilter||'all';
 
   wrap.innerHTML=`
+    <div class="ui-notice ui-dual-copy"><strong>Bật chức năng chính = dùng toàn bộ chức năng. Giá công dùng ô riêng. Quản lý gồm tài khoản và phân quyền.</strong><span>勾選母功能＝全部操作可用；產品工價另行勾選。管理包含帳號與權限管理。</span></div>
     <div class="permission-matrix-toolbar">
       <label class="permission-matrix-search">
         ${permissionMatrixCopy('Tìm quyền','搜尋權限')}
@@ -406,7 +409,7 @@ function renderPermissions(){
         </colgroup>
         <thead><tr>
           <th scope="col">${permissionMatrixCopy('Chức năng chính','母功能')}</th>
-          <th scope="col">${permissionMatrixCopy('Trang con','子分頁')}</th>
+          <th scope="col">${permissionMatrixCopy('Phạm vi','使用範圍')}</th>
           <th scope="col">${permissionMatrixCopy('Quyền nhạy cảm','敏感權限')}</th>
           ${roles.map(permissionMatrixRoleHeader).join('')}
         </tr></thead>
@@ -419,15 +422,25 @@ function renderPermissions(){
       </table>
     </div>
     <div class="permission-matrix-footer">
-      <div>Đang hiển thị <strong id="permission-matrix-visible-count">${rows.length}</strong> mục · Đã bật ${enabledCount} / ${availableCount}</div>
-      <div>目前顯示 <strong id="permission-matrix-visible-count-zh">${rows.length}</strong> 項 · 已開啟 ${enabledCount}／${availableCount}${pendingCount?` · ${pendingCount} 個職務尚未設定`:''}${pausedCount?` · ${pausedCount} 個職務已暫停`:''}</div>
+      <div class="ui-text-vi">Đang hiển thị <strong id="permission-matrix-visible-count">${rows.length}</strong> mục · Đã bật ${enabledCount} / ${availableCount}</div>
+      <div class="ui-text-zh">目前顯示 <strong id="permission-matrix-visible-count-zh">${rows.length}</strong> 項 · 已開啟 ${enabledCount}／${availableCount}${pendingCount?` · ${pendingCount} 個職務尚未設定`:''}${pausedCount?` · ${pausedCount} 個職務已暫停`:''}</div>
     </div>`;
   applyPermissionMatrixFilters();
   updateSystemMaintenanceButton();
 }
 
 async function applyPermissions(){
-  if(!isAdm()) return;
+  if(!window.canUseFeature?.('managementMain')) return;
+  const confirmed=await window.PCMSUIComponents.confirmDialog({
+    title:{vi:'Xác nhận quyền chức năng chính',zh:'確認母功能權限'},
+    kind:'warning',
+    body:window.PCMSUIComponents.createLanguageSections({
+      vi:'Bật chức năng chính cho phép dùng toàn bộ chức năng bên trong. Quản lý gồm chi phí, tài khoản, phân quyền và giám sát. Giá công sản phẩm dùng ô riêng.',
+      zh:'勾選母功能即開放其全部操作。管理包含成本、帳號、權限與系統監控；產品工價保留獨立勾選。請確認各職務設定後套用。'
+    }),
+    confirmText:{vi:'Lưu và áp dụng',zh:'儲存套用'}
+  });
+  if(!confirmed) return;
   CONFIGURABLE_ROLES.forEach(role=>{
     window.permissionSettings[role]=normalizeFeaturePermissions(window.permissionSettings[role],DEFAULT_PERMISSIONS[role]);
   });
